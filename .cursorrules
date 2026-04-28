@@ -1,0 +1,124 @@
+# TARS — Cursor AI rules
+
+This file is the legacy-format snapshot of `CLAUDE.md` and
+`.cursor/rules/tars-architecture.mdc`. Keep all three in sync.
+
+> Naming: product = **TARS**. Older copies may say "Jarvis"; rename to TARS
+> when editing. Folder name `Jarvis/jarvis` stays so existing paths keep
+> working.
+
+## What this project is
+
+- TARS is the local-first "Neural Cockpit" agent. Released under the
+  `meeet.world` brand with cross-cutting trace logging via the meeet bridge.
+- Backend: Python, FastAPI-style routers under `web_extras/routers/`. Domain
+  subsystems in `backend/core/*`. Agent and MCP entry points in
+  `backend/agents/` and `backend/mcp/`.
+- Frontend canon: vanilla HTML/CSS/JS in `frontend/` — no React, no Tailwind,
+  no bundler.
+- Premium marketing surfaces:
+  - `experiments/neural-showcase-v2/` — Vite + Three.js + GSAP + Lenis +
+    postprocessing. WebGL + custom GLSL. Port 5173.
+  - `experiments/neural-showcase-v3/` — React + Vite + Tailwind v4 +
+    framer-motion + shadcn-style `components.json` ready for 21st.dev
+    drops. Port 5174.
+  These are the only places where heavier frontend deps live; do not
+  bleed them into `frontend/`.
+
+## Awareness layer
+
+`backend/core/awareness/` is load-bearing (calendar / memory / code_index /
+mac_actions). Do not refactor without explicit scope.
+
+## Domain packs (Phase 9)
+
+`backend/core/domains/` is a plugin system with built-in packs:
+`traders`, `business`, `mlm`, `science`.
+
+- Base: `backend/core/domains/base.py` (`DomainPack`, `DomainManifest`,
+  `ActionSpec`, `AwarenessSource`).
+- Registry: `backend/core/domains/registry.py`.
+- Packs: `backend/core/domains/packs/{slug}/{pack,actions,awareness,prompts}.py`.
+- HTTP: `web_extras/routers/domains.py` mounts at `/api/domains`.
+- Tests: `tests/test_domains.py`, `tests/test_meeet.py`.
+- Spec: `docs/DOMAIN_PACKS.md`.
+
+Action handlers must be `async`, return a dict with `ok`, never raise on bad
+user input, never auto-execute destructive ops.
+
+## meeet.world bridge (Phase 9.1)
+
+`backend/core/meeet/` — stdlib-only end-to-end logging.
+
+- `start_trace` / `current_trace` / `trace_scope` for context.
+- `MeeetClient.emit(kind, payload)` for events.
+- Env: `MEEET_INGEST_URL`, `MEEET_CONTRACT_VERSION` (default `1.0.0`),
+  `MEEET_API_KEY`, `MEEET_SOURCE`, `MEEET_LOCAL_LOG`.
+- The domain router runs every action invocation in a `trace_scope` and emits
+  `domain.action.invoked|completed|failed`. It accepts an upstream
+  `x-meeet-trace-id` header for cross-service propagation.
+
+## Frontend conventions
+
+- Vanilla in `frontend/`. Use existing CSS tokens (`--indigo`, `--violet`,
+  `--cyan`, `--white`, `--dim`, `--faint`, `--border`, `--shadow`, `--rad-md`,
+  `--rad-lg`, `--font-body`, `--font-mono`).
+- Aesthetic: minimalism + futurism. No rainbow gradients, no neon flooding.
+- Cockpit/operator pages keep the dark HUD aesthetic.
+- Marketing/landing pages evolve toward premium AI-product feel.
+- Always implement empty / loading / error / success states for async surfaces.
+- Animations via CSS transitions/keyframes; avoid heavy JS animation libs.
+- Accessibility: semantic structure, focus rings, `aria-live` for async.
+
+## Showcase v2 conventions
+
+- WebGL scene under `src/scene/`. Custom GLSL in `src/scene/shaders/`.
+- Postprocessing: tame bloom + faint CA + vignette + noise + SMAA.
+- Palette: deep ink + soft pastel cyan + warm amber (no neon rainbow).
+- A single subtle telemetry panel (`aside.hud`) top-left only.
+- Drop a GLB at `public/models/brain.glb` to override the procedural reactor.
+- Respect `prefers-reduced-motion` everywhere.
+
+## Backend conventions
+
+- New endpoints in `web_extras/routers/`, follow existing patterns.
+- Don't change response shapes silently; additive keys are fine.
+- Background / long-running tasks: `backend/core/background` + observability.
+
+## Engineering guardrails
+
+- Scoped changes only.
+- No npm tooling outside `experiments/`.
+- Never commit `.env`.
+- Flag any cross-stack change.
+- For "innovative design" requests: produce a plan before big refactors.
+
+## Design system & skill
+
+- Source of truth: `design-system/tars/MASTER.md`. Pages: `design-system/tars/pages/<slug>.md`.
+- Skill `nextlevelbuilder/ui-ux-pro-max-skill` installed in three places:
+  `.cursor/skills/ui-ux-pro-max/` (Cursor),
+  `.claude/skills/ui-ux-pro-max/` (Claude Code project),
+  `~/.claude/skills/ui-ux-pro-max/` (Claude Code global). Auto-activates
+  on UI/UX work.
+- Targeted lookup:
+  `python3 .cursor/skills/ui-ux-pro-max/scripts/search.py "<query>"
+  --domain style|landing|typography|ux|color`.
+- One cyan accent only (`#67E8F9`); amber (`#FBBF24`) reserved for live
+  telemetry. No AI-purple/pink rainbow gradients.
+
+## 21st.dev workflow
+
+`experiments/neural-showcase-v3/` is the React drop-zone. Add any 21st.dev
+block from inside that folder:
+`npx shadcn@latest add "https://21st.dev/r/<author>/<id>"`.
+Components land in `src/components/ui/` and inherit our tokens via
+shadcn CSS variables in `src/index.css`.
+
+## Sync with the agent
+
+`docs/AGENT_HANDOFF.md` lists current state and pending work.
+`docs/CHANGELOG_AGENTS.md` is the per-edit log.
+`docs/IDEAS.md` is the proposals queue.
+`design-system/tars/MASTER.md` is the visual source of truth.
+Read all four when starting fresh.

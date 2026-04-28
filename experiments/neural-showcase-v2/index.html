@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>TARS — Neural Cockpit</title>
+    <meta
+      name="description"
+      content="TARS turns your machine into a living neural graph. Awareness layers and domain packs for traders, business, MLM founders and scientists."
+    />
+    <meta name="theme-color" content="#06070d" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;700;800&family=Inter:wght@300;400;500;600;700&family=Space+Mono:wght@400;700&display=swap"
+      rel="stylesheet"
+    />
+  </head>
+  <body class="is-loading">
+    <!-- Magnetic cursor -->
+    <div class="cursor" aria-hidden="true">
+      <div class="cursor__ring"></div>
+      <div class="cursor__dot"></div>
+    </div>
+
+    <!-- Loader -->
+    <div class="loader" id="loader" role="status" aria-live="polite">
+      <div class="loader__ring"></div>
+      <div class="loader__num">
+        <span data-loader-num>0</span><span class="loader__pct">%</span>
+      </div>
+      <div class="loader__label">Booting neural graph</div>
+    </div>
+
+    <!-- 3D stage -->
+    <canvas class="stage" aria-hidden="true"></canvas>
+    <div class="vignette" aria-hidden="true"></div>
+
+    <!-- Decorative HUD brackets — purely visual, not interactive -->
+    <svg class="bracket bracket--tl" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M2 9 L2 2 L9 2" />
+    </svg>
+    <svg class="bracket bracket--tr" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M22 9 L22 2 L15 2" />
+    </svg>
+    <svg class="bracket bracket--bl" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M2 15 L2 22 L9 22" />
+    </svg>
+    <svg class="bracket bracket--br" viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M22 15 L22 22 L15 22" />
+    </svg>
+
+    <main class="page">
+      <nav class="nav">
+        <a class="brand" href="#" data-magnet>
+          <span class="brand__mark"></span>
+          <span class="brand__txt">TARS</span>
+          <span class="brand__sub">/ NEURAL COCKPIT</span>
+        </a>
+        <ul class="nav__links">
+          <li><a href="#layers" data-magnet>Layers</a></li>
+          <li><a href="#domains" data-magnet>Domains</a></li>
+          <li><a href="#how" data-magnet>How</a></li>
+          <li><a href="#cockpit" class="nav__cta" data-magnet>Open cockpit</a></li>
+        </ul>
+      </nav>
+
+      <!-- HERO -->
+      <section class="hero">
+        <div class="hero__eyebrow">
+          <span class="d"></span>Phase 09 · Neural · meeet.world
+        </div>
+        <h1 class="hero__title">
+          <span class="line"
+            ><span class="word">Your</span> <span class="word">machine,</span></span
+          >
+          <span class="line"
+            ><span class="word accent">awakened.</span></span
+          >
+        </h1>
+        <p class="hero__lead">
+          TARS routes files, calendar, code, voice and Mac actions through a
+          single neural core, then specialises into packs for traders,
+          business, MLM founders and scientists.
+        </p>
+        <div class="hero__cta">
+          <a class="btn btn--primary" href="#cockpit" data-magnet>
+            <span>Open cockpit</span>
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M5 12h14M13 6l6 6-6 6" />
+            </svg>
+          </a>
+          <a class="btn btn--ghost" href="#domains" data-magnet>
+            <span>Explore domains</span>
+          </a>
+        </div>
+      </section>
+
+      <!-- LIVE RAIL -->
+      <section class="rail" aria-label="live awareness streams">
+        <div class="rail__inner">
+          <div class="rail__cluster">
+            <span class="rail__live"><i></i>LIVE</span>
+            <span class="rail__id">SK-09 / CORE</span>
+          </div>
+          <ul class="rail__streams">
+            <li><span></span>concept</li>
+            <li><span></span>memory</li>
+            <li><span></span>code</li>
+            <li><span></span>calendar</li>
+            <li><span></span>mac</li>
+            <li><span></span>voice</li>
+          </ul>
+          <div class="rail__cluster">
+            <span class="rail__metric"
+              >integrity
+              <strong><span data-hud-integrity>98.4</span><em>%</em></strong></span
+            >
+            <span class="rail__metric"
+              >streams <strong>06 / 06</strong></span
+            >
+            <span class="rail__metric"
+              >latency <strong>0.04<em>ms</em></strong></span
+            >
+          </div>
+        </div>
+      </section>
+
+      <!-- AWARENESS LAYERS -->
+      <section class="layers reveal" id="layers">
+        <header class="section-head">
+          <div class="section-head__lhs">
+            <span class="section-head__num">01</span>
+            <span class="section-head__tag">AWARENESS</span>
+          </div>
+          <h2>Six streams, one graph.</h2>
+          <p>
+            Every signal lands on the core and gets clustered into the
+            graph. No upload — local-first by default.
+          </p>
+        </header>
+        <ul class="cards">
+          <li class="card" style="--col: var(--accent)">
+            <div class="card__tag"><span class="dot"></span>concept</div>
+            <h3>Knowledge graph of your work</h3>
+            <p>Files, docs, threads. Embedded and clustered. The concept layer is the spine of the graph.</p>
+          </li>
+          <li class="card">
+            <div class="card__tag"><span class="dot"></span>memory</div>
+            <h3>Long-term recall</h3>
+            <p>Decisions, names, projects. Pinned to a shell that orbits the concept core.</p>
+          </li>
+          <li class="card">
+            <div class="card__tag"><span class="dot"></span>code</div>
+            <h3>Repository awareness</h3>
+            <p>Your codebases linked into the graph as a tight, ordered arm.</p>
+          </li>
+          <li class="card" style="--col: var(--alert)">
+            <div class="card__tag"><span class="dot"></span>calendar</div>
+            <h3>Time-aware context</h3>
+            <p>Events become time-anchored nodes that fire when relevant.</p>
+          </li>
+          <li class="card">
+            <div class="card__tag"><span class="dot"></span>mac actions</div>
+            <h3>Hands on the OS</h3>
+            <p>Open, type, click, automate — under explicit policy.</p>
+          </li>
+          <li class="card" style="--col: var(--accent)">
+            <div class="card__tag"><span class="dot"></span>voice</div>
+            <h3>Always-on listener</h3>
+            <p>Voice intents threaded through every other layer.</p>
+          </li>
+        </ul>
+      </section>
+
+      <!-- DOMAIN PACKS -->
+      <section class="domains reveal" id="domains">
+        <header class="section-head">
+          <div class="section-head__lhs">
+            <span class="section-head__num">02</span>
+            <span class="section-head__tag">PACKS</span>
+          </div>
+          <h2>Same core, four crafts.</h2>
+          <p>
+            Plug-in packs that turn the neural core into a focused tool for
+            your work — traders, business, MLM, science.
+          </p>
+        </header>
+        <ul class="domain-cards">
+          <li class="domain">
+            <header>
+              <span class="domain__num">01</span>
+              <span class="domain__name">Traders</span>
+            </header>
+            <h3>Markets and signals at the speed of a thought.</h3>
+            <ul class="domain__bullets">
+              <li>Live market awareness across exchanges and feeds.</li>
+              <li>Signal generation with explainable model votes.</li>
+              <li>Risk and portfolio actions guarded by policy.</li>
+            </ul>
+            <div class="domain__schema" aria-hidden="true">
+              <span></span><span></span><span></span><span></span>
+              <span></span><span></span><span></span><span></span>
+              <em>BTC · ETH · SOL · NDX</em>
+            </div>
+          </li>
+          <li class="domain">
+            <header>
+              <span class="domain__num">02</span>
+              <span class="domain__name">Business</span>
+            </header>
+            <h3>A second brain for your operating cadence.</h3>
+            <ul class="domain__bullets">
+              <li>Deals, contacts and revenue across mail and CRM.</li>
+              <li>KPI nodes auto-update from your data sources.</li>
+              <li>Daily brief composed by the council each morning.</li>
+            </ul>
+            <div class="domain__schema" aria-hidden="true">
+              <span></span><span></span><span></span><span></span>
+              <span></span><span></span><span></span><span></span>
+              <em>CRM · GSHEETS · MAIL · CAL</em>
+            </div>
+          </li>
+          <li class="domain">
+            <header>
+              <span class="domain__num">03</span>
+              <span class="domain__name">MLM</span>
+            </header>
+            <h3>Downline as a graph, not a spreadsheet.</h3>
+            <ul class="domain__bullets">
+              <li>Network depth, activity and retention tracked live.</li>
+              <li>Recruiting playbooks tuned to your tone of voice.</li>
+              <li>Auto content for newcomers across IG, TG, WA.</li>
+            </ul>
+            <div class="domain__schema" aria-hidden="true">
+              <span></span><span></span><span></span><span></span>
+              <span></span><span></span><span></span><span></span>
+              <em>NETWORK · RANKS · CONTENT</em>
+            </div>
+          </li>
+          <li class="domain">
+            <header>
+              <span class="domain__num">04</span>
+              <span class="domain__name">Science</span>
+            </header>
+            <h3>From paper pile to citation-aware council.</h3>
+            <ul class="domain__bullets">
+              <li>arXiv, Crossref and Semantic Scholar awareness.</li>
+              <li>Equation and dataset graph across your projects.</li>
+              <li>Hypothesis trees with model-voted evidence.</li>
+            </ul>
+            <div class="domain__schema" aria-hidden="true">
+              <span></span><span></span><span></span><span></span>
+              <span></span><span></span><span></span><span></span>
+              <em>ARXIV · DATASETS · LATEX</em>
+            </div>
+          </li>
+        </ul>
+      </section>
+
+      <!-- HOW IT WORKS -->
+      <section class="how reveal" id="how">
+        <header class="section-head">
+          <div class="section-head__lhs">
+            <span class="section-head__num">03</span>
+            <span class="section-head__tag">FLOW</span>
+          </div>
+          <h2>Drop. Cluster. Specialise.</h2>
+          <p>
+            Drop any folder. TARS embeds, clusters, and wires it into a
+            graph you can navigate at the speed of thought.
+          </p>
+        </header>
+        <ol class="steps">
+          <li class="step">
+            <span class="step__num">01</span>
+            <h4>Drop folders &amp; files</h4>
+            <p>MD, PDF, code, audio. Local indexing, no upload.</p>
+          </li>
+          <li class="step">
+            <span class="step__num">02</span>
+            <h4>Embed &amp; cluster</h4>
+            <p>Six awareness layers light up. Each cluster picks a place in the graph.</p>
+          </li>
+          <li class="step">
+            <span class="step__num">03</span>
+            <h4>Pick a domain pack</h4>
+            <p>The core specialises into a tool for your craft — traders, business, MLM or science.</p>
+          </li>
+        </ol>
+      </section>
+
+      <!-- FOOT -->
+      <footer class="foot" id="cockpit">
+        <a class="foot__cta" href="#" data-magnet>
+          <span class="foot__caption">Open cockpit</span>
+          <span class="foot__arrow" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6" /></svg>
+          </span>
+        </a>
+        <div class="foot__meta">
+          <span>TARS · meeet.world</span>
+          <span>local-first · privacy by default · trace ready</span>
+        </div>
+      </footer>
+    </main>
+
+    <script type="module" src="/src/main.js"></script>
+  </body>
+</html>

@@ -1,0 +1,106 @@
+---
+description: TARS architecture, domain packs, meeet bridge, premium showcase
+alwaysApply: true
+---
+
+# TARS architecture
+
+> Naming: product = **TARS**. Older copies may say "Jarvis" — rename in copy
+> when editing. Folder name `Jarvis/jarvis` stays for path stability.
+
+## Stack
+
+- Backend: Python, FastAPI-style. Routers in `web_extras/routers/`. Domain
+  subsystems in `backend/core/*`. Agent/MCP entry points in `backend/agents/`
+  and `backend/mcp/`.
+- Frontend canon: dependency-free vanilla HTML/CSS/JS in `frontend/`.
+- Premium showcases (only places heavier frontend deps live):
+  - `experiments/neural-showcase-v2/` — Vite + Three.js + GSAP + Lenis +
+    postprocessing. Custom GLSL. Port 5173.
+  - `experiments/neural-showcase-v3/` — React + Vite + Tailwind v4 +
+    framer-motion + shadcn-ready for 21st.dev. Port 5174.
+
+## Awareness layer
+
+`backend/core/awareness/` is load-bearing (calendar / memory / code_index /
+mac_actions). Do not refactor without explicit scope.
+
+## Domain packs (Phase 9)
+
+`backend/core/domains/` plugin system. Built-ins: `traders`, `business`,
+`mlm`, `science`. Each pack:
+
+- Manifest with slug, name, short, description, color, capabilities, audience.
+- Async action handlers returning a dict with `ok`.
+- Awareness sources of kind `stream` / `poll` / `webhook` / `local`.
+- A constrained system prompt.
+
+Router: `web_extras/routers/domains.py` (`/api/domains`). Spec:
+`docs/DOMAIN_PACKS.md`. Tests: `tests/test_domains.py`,
+`tests/test_meeet.py`.
+
+## meeet.world bridge (Phase 9.1)
+
+`backend/core/meeet/` adds end-to-end logging.
+
+- `start_trace` / `current_trace` / `trace_scope` for context.
+- `MeeetClient.emit(kind, payload)` (async, fire-and-forget) emits events to
+  the meeet ingest endpoint with an `x-meeet-contract-version` header
+  (default `1.0.0`).
+- Env-driven: `MEEET_INGEST_URL`, `MEEET_API_KEY`, `MEEET_SOURCE`,
+  `MEEET_CONTRACT_VERSION`, `MEEET_LOCAL_LOG`.
+- Domain router accepts `x-meeet-trace-id` header to continue an upstream
+  trace; emits `domain.action.invoked|completed|failed` per call.
+
+## Frontend conventions
+
+- Vanilla in `frontend/`. Cockpit pages keep dark HUD aesthetic. Marketing
+  pages evolve toward premium AI-product feel.
+- Aesthetic = **minimalism + futurism**. No rainbow gradients, no neon
+  flooding. Two accent colours max (cyan #9ec3d4, amber #e6c97a).
+- Always provide empty / loading / error / success states.
+
+## Showcase v2
+
+- WebGL: Stark/Interstellar inspired core (`Core.js`) — reactor + cage +
+  monolith slabs + 2 thin rings — and `Galaxy.js` particle field.
+- Postprocessing: tame bloom (intensity ≤ 0.6, threshold ≥ 0.78) + faint CA +
+  vignette + noise + SMAA.
+- Single subtle telemetry panel `aside.hud` top-left; hidden < 880px.
+- Drop GLB at `public/models/brain.glb` to override the procedural reactor.
+- Respect `prefers-reduced-motion`.
+
+## Backend conventions
+
+- New endpoints in `web_extras/routers/`. Don't change response shapes
+  silently; additive keys (`trace_id`, `took_ms`) are OK.
+- Long-running work in `backend/core/background` with observability.
+
+## Guardrails
+
+- Scoped changes only.
+- No npm tooling outside `experiments/`.
+- Never commit `.env`.
+- Flag any cross-stack change.
+
+## Design system
+
+- Source of truth: `design-system/tars/MASTER.md`.
+- Skill `nextlevelbuilder/ui-ux-pro-max-skill` installed three ways:
+  `.cursor/skills/ui-ux-pro-max/` (Cursor),
+  `.claude/skills/ui-ux-pro-max/` (Claude Code project),
+  `~/.claude/skills/ui-ux-pro-max/` (Claude Code global).
+  Targeted lookups via `python3 .cursor/skills/ui-ux-pro-max/scripts/search.py
+  "<query>" --domain <domain>`.
+- Aesthetic blend (per MASTER): HUD/Sci-Fi FUI + Exaggerated Minimalism +
+  Dark Mode (OLED) + AI-Native UI. One cyan accent (`#67E8F9`); amber
+  (`#FBBF24`) reserved for live/alert telemetry.
+- 21st.dev drops live in `experiments/neural-showcase-v3/`:
+  `npx shadcn@latest add "https://21st.dev/r/<author>/<id>"`.
+
+## Sync
+
+`docs/AGENT_HANDOFF.md` (current state + pending),
+`docs/CHANGELOG_AGENTS.md` (per-edit log),
+`docs/IDEAS.md` (proposals),
+`design-system/tars/MASTER.md` (visual source of truth).

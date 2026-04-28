@@ -1,0 +1,14 @@
+{
+  "slug": "business",
+  "name": "Business",
+  "short": "A second brain for your operating cadence.",
+  "description": "Deals, contacts, revenue and KPI nodes plugged into your daily mail / calendar / CRM, with a council-composed daily brief.",
+  "color": "#8b5cf6",
+  "audience": "founders, operators, GTM leaders",
+  "capabilities": [
+    "crm_awareness",
+    "kpi_graph",
+    "daily_brief",
+    "outreach_drafts"
+  ]
+}

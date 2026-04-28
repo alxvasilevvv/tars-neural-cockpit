@@ -1,0 +1,14 @@
+{
+  "slug": "traders",
+  "name": "Traders",
+  "short": "Markets & signals at the speed of a thought.",
+  "description": "Live market awareness, signal generation with explainable model votes, and policy-guarded portfolio actions.",
+  "color": "#22d3ee",
+  "audience": "active traders, quants, prop desks",
+  "capabilities": [
+    "market_awareness",
+    "signal_generation",
+    "portfolio_actions",
+    "risk_policy"
+  ]
+}
