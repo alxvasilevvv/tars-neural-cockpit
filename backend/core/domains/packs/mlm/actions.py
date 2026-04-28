@@ -1,14 +1,11 @@
 """Action handlers for the MLM pack.
 
-Real-ish adapters that read a local CSV downline and compute graph
-metrics. The CSV path is overridable via ``MLM_NETWORK_PATH`` env or
-the ``path`` arg. Format expected (header row required):
+Real-ish adapters backed by an SQLite downline DB
+(``~/.tars/downline.sqlite``) that self-seeds from the legacy
+``data/mlm_network.csv`` on first run. Override the DB path with
+``MLM_DB_PATH``; override the seed CSV with ``MLM_NETWORK_PATH``.
 
-    handle,sponsor,joined_at,last_active_at,rank,volume_usd
-
-``score_recruit`` and ``generate_post`` stay as structured stubs —
-recruit scoring needs a public-profile signal stack and content
-generation needs the council orchestrator.
+``score_recruit`` and ``generate_post`` stay as structured stubs.
 """
 
 from __future__ import annotations
@@ -21,6 +18,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from ...base import ActionSpec
+from .db import get_downline_db
 
 _REPO_ROOT = Path(__file__).resolve().parents[5]
 _DEFAULT_NETWORK_PATH = _REPO_ROOT / "data" / "mlm_network.csv"
@@ -44,7 +42,16 @@ def _parse_date(s: str) -> datetime | None:
             return datetime.strptime(s, fmt).replace(tzinfo=timezone.utc)
         except ValueError:
             continue
-    return None
+    # Final fallback: ``fromisoformat`` handles microseconds + offsets.
+    try:
+        # Python <3.11 doesn't accept "Z"; replace with +00:00.
+        cleaned = s.replace("Z", "+00:00")
+        out = datetime.fromisoformat(cleaned)
+        if out.tzinfo is None:
+            out = out.replace(tzinfo=timezone.utc)
+        return out
+    except ValueError:
+        return None
 
 
 def _load(path: Path) -> list[dict[str, Any]]:
@@ -72,24 +79,69 @@ def _depth_of(handle: str, parent_of: dict[str, str], cap: int = 32) -> int:
         cur = sponsor
 
 
-async def downline_snapshot(args: Mapping[str, Any]) -> Mapping[str, Any]:
-    requested_depth = int(args.get("depth") or 12)
-    requested_depth = max(1, min(requested_depth, 32))
-    active_window_days = int(args.get("active_window_days") or 14)
+async def _load_rows_from_db_or_csv(
+    args: Mapping[str, Any],
+) -> tuple[list[dict[str, Any]], dict[str, Any]] | dict[str, Any]:
+    """Try the SQLite DB first; fall back to CSV.
 
+    Returns ``(rows, source_meta)`` on success, or a structured error
+    dict on failure (the caller forwards it as the action response).
+    """
+
+    explicit_csv_arg = bool(args.get("path"))
+    if not explicit_csv_arg:
+        try:
+            db = get_downline_db()
+            await db.ensure_seeded()
+            members = await db.list_members()
+        except Exception as exc:
+            return {
+                "ok": False,
+                "error": "downline_db_error",
+                "detail": str(exc),
+            }
+        if members:
+            rows = [
+                {
+                    "handle": m.handle,
+                    "sponsor": m.sponsor or "",
+                    "joined_at": m.joined_at or "",
+                    "last_active_at": m.last_active_at or "",
+                    "rank": m.rank or "",
+                    "volume_usd": str(m.volume_usd or 0),
+                }
+                for m in members
+            ]
+            return rows, {"source": "sqlite", "path": db.db_path}
+
+    # CSV fallback (or explicit per-call path).
     path = _resolve(str(args.get("path") or "") or None)
     if not path.exists():
         return {
             "ok": False,
             "error": "network_file_missing",
             "path": str(path),
-            "hint": "drop a CSV at data/mlm_network.csv or set MLM_NETWORK_PATH",
+            "hint": (
+                "drop a CSV at data/mlm_network.csv, set MLM_NETWORK_PATH, "
+                "or seed the SQLite DB at ~/.tars/downline.sqlite"
+            ),
         }
-
     try:
         rows = _load(path)
-    except Exception as exc:  # csv module raises a few different things
+    except Exception as exc:
         return {"ok": False, "error": "network_parse_error", "detail": str(exc)}
+    return rows, {"source": "csv", "path": str(path)}
+
+
+async def downline_snapshot(args: Mapping[str, Any]) -> Mapping[str, Any]:
+    requested_depth = int(args.get("depth") or 12)
+    requested_depth = max(1, min(requested_depth, 32))
+    active_window_days = int(args.get("active_window_days") or 14)
+
+    loaded = await _load_rows_from_db_or_csv(args)
+    if isinstance(loaded, dict):
+        return loaded
+    rows, source_meta = loaded
 
     parent_of = {r.get("handle", ""): r.get("sponsor", "") for r in rows}
     now = datetime.now(timezone.utc)
@@ -152,7 +204,85 @@ async def downline_snapshot(args: Mapping[str, Any]) -> Mapping[str, Any]:
         "ranks": dict(sorted(by_rank.items(), key=lambda kv: -kv[1])),
         "by_depth": {str(k): v for k, v in sorted(by_depth.items())},
         "members": members,
-        "path": str(path),
+        "source": source_meta["source"],
+        "path": source_meta["path"],
+    }
+
+
+async def add_member(args: Mapping[str, Any]) -> Mapping[str, Any]:
+    handle = str(args.get("handle") or "").strip()
+    if not handle:
+        return {"ok": False, "error": "handle_required"}
+    sponsor = str(args.get("sponsor") or "").strip() or None
+    rank = str(args.get("rank") or "starter").strip().lower() or "starter"
+    joined_at = str(args.get("joined_at") or "").strip() or datetime.now(
+        timezone.utc
+    ).date().isoformat()
+    notes = str(args.get("notes") or "").strip() or None
+    try:
+        volume = float(args.get("volume_usd") or 0.0)
+    except (TypeError, ValueError):
+        volume = 0.0
+
+    db = get_downline_db()
+    await db.ensure_seeded()
+    if sponsor:
+        existing_sponsor = await db.get(sponsor)
+        if existing_sponsor is None:
+            return {
+                "ok": False,
+                "error": "sponsor_not_found",
+                "sponsor": sponsor,
+            }
+
+    outcome = await db.upsert(
+        {
+            "handle": handle,
+            "sponsor": sponsor,
+            "rank": rank,
+            "joined_at": joined_at,
+            "last_active_at": joined_at,
+            "volume_usd": volume,
+            "notes": notes,
+        },
+        conflict_strategy=str(args.get("on_conflict") or "update"),
+    )
+    member = await db.get(handle)
+    return {
+        "ok": True,
+        "outcome": outcome,
+        "member": member.to_dict() if member else None,
+        "db_path": db.db_path,
+    }
+
+
+async def log_activity(args: Mapping[str, Any]) -> Mapping[str, Any]:
+    handle = str(args.get("handle") or "").strip()
+    if not handle:
+        return {"ok": False, "error": "handle_required"}
+    ts_arg = str(args.get("ts") or "").strip() or None
+    if ts_arg:
+        if _parse_date(ts_arg) is None:
+            return {"ok": False, "error": "invalid_ts", "ts": ts_arg}
+    try:
+        volume_delta = float(args.get("volume_delta") or 0.0)
+    except (TypeError, ValueError):
+        volume_delta = 0.0
+
+    db = get_downline_db()
+    await db.ensure_seeded()
+    updated = await db.log_activity(
+        handle, ts=ts_arg, volume_delta=volume_delta
+    )
+    if updated is None:
+        return {"ok": False, "error": "member_not_found", "handle": handle}
+    return {
+        "ok": True,
+        "handle": handle,
+        "ts": updated.last_active_at,
+        "volume_usd": updated.volume_usd,
+        "member": updated.to_dict(),
+        "db_path": db.db_path,
     }
 
 
@@ -205,17 +335,10 @@ async def generate_post(args: Mapping[str, Any]) -> Mapping[str, Any]:
 
 async def retention_alert(args: Mapping[str, Any]) -> Mapping[str, Any]:
     threshold_days = int(args.get("threshold_days") or 30)
-    path = _resolve(str(args.get("path") or "") or None)
-    if not path.exists():
-        return {
-            "ok": False,
-            "error": "network_file_missing",
-            "path": str(path),
-        }
-    try:
-        rows = _load(path)
-    except Exception as exc:
-        return {"ok": False, "error": "network_parse_error", "detail": str(exc)}
+    loaded = await _load_rows_from_db_or_csv(args)
+    if isinstance(loaded, dict):
+        return loaded
+    rows, source_meta = loaded
 
     now = datetime.now(timezone.utc)
     at_risk: list[dict[str, Any]] = []
@@ -241,7 +364,8 @@ async def retention_alert(args: Mapping[str, Any]) -> Mapping[str, Any]:
         "threshold_days": threshold_days,
         "at_risk": at_risk,
         "checked_at": now.isoformat(),
-        "path": str(path),
+        "source": source_meta["source"],
+        "path": source_meta["path"],
     }
 
 
@@ -302,5 +426,50 @@ ACTIONS: tuple[ActionSpec, ...] = (
                 "path": {"type": "string"},
             },
         },
+    ),
+    ActionSpec(
+        id="add_member",
+        name="Add downline member",
+        description=(
+            "Insert a new member into the SQLite downline DB. The "
+            "sponsor must already exist."
+        ),
+        handler=add_member,
+        schema={
+            "type": "object",
+            "properties": {
+                "handle": {"type": "string"},
+                "sponsor": {"type": "string"},
+                "rank": {
+                    "type": "string",
+                    "enum": ["starter", "bronze", "silver", "gold", "platinum"],
+                },
+                "joined_at": {"type": "string", "format": "date"},
+                "volume_usd": {"type": "number", "minimum": 0},
+                "notes": {"type": "string"},
+                "on_conflict": {
+                    "type": "string",
+                    "enum": ["update", "skip"],
+                },
+            },
+            "required": ["handle"],
+        },
+        destructive=True,
+    ),
+    ActionSpec(
+        id="log_activity",
+        name="Log activity",
+        description="Stamp a member's last_active_at and add to volume.",
+        handler=log_activity,
+        schema={
+            "type": "object",
+            "properties": {
+                "handle": {"type": "string"},
+                "ts": {"type": "string"},
+                "volume_delta": {"type": "number"},
+            },
+            "required": ["handle"],
+        },
+        destructive=True,
     ),
 )

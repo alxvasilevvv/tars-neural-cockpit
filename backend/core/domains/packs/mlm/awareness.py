@@ -15,18 +15,14 @@ from .actions import downline_snapshot
 
 
 async def _fetch_downline_db(args: Mapping[str, Any]) -> Mapping[str, Any]:
-    # The source's ``config["path"]`` points at the future SQLite location
-    # (``~/.tars/downline.sqlite``). The CSV fallback at
-    # ``data/mlm_network.csv`` is what we actually read today, so we
-    # drop the SQLite path before delegating to the action handler.
+    # The source's ``config["path"]`` historically pointed at
+    # ``~/.tars/downline.sqlite`` — that DB is now real (Phase H).
+    # The action handler self-seeds from the legacy CSV on first run.
     forwarded = {k: v for k, v in args.items() if k != "path"}
     snap = await downline_snapshot(forwarded)
     if not snap.get("ok"):
         return snap
-    snap = dict(snap)
-    snap["source"] = "csv-local"
-    snap["hint"] = "downline.sqlite not yet wired; CSV fallback in use"
-    return snap
+    return dict(snap)
 
 
 SOURCES: tuple[AwarenessSource, ...] = (
