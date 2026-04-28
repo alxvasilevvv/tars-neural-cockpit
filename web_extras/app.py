@@ -17,6 +17,7 @@ from backend.core.domains import packs as _packs  # noqa: F401  (registers)
 from backend.core.meeet import current_trace
 from web_extras.routers import awareness as awareness_router
 from web_extras.routers import domains as domains_router
+from web_extras.routers import meeet as meeet_router
 
 START_TS = time.time()
 
@@ -41,6 +42,7 @@ app.add_middleware(
 
 app.include_router(domains_router.router)
 app.include_router(awareness_router.router)
+app.include_router(meeet_router.router)
 
 
 @app.get("/health")

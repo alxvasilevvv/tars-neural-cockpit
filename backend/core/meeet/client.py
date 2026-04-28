@@ -2,6 +2,11 @@
 
 Stdlib only. Sync HTTP wrapped in ``asyncio.to_thread`` so the rest of the
 app stays non-blocking.
+
+Every event flows through the durable :class:`MeeetStore` first
+(``backend/core/meeet/store.py``); ingest push happens on top. When the
+ingest is offline or unset, events sit in the SQLite WAL with
+``pushed=0`` and a later :meth:`replay_unpushed` flushes them.
 """
 
 from __future__ import annotations
@@ -15,6 +20,7 @@ from typing import Any, Mapping
 
 from .config import MeeetConfig, load_config
 from .events import TARSEvent
+from .store import MeeetStore, get_store
 from .tracing import current_trace, new_trace_id
 
 
@@ -22,14 +28,23 @@ class MeeetClient:
     """Minimal client. ``emit`` is fire-and-forget by default.
 
     When ``config.enabled`` is False the client only runs the local-log
-    side-effect (if configured) and returns the event payload — no network.
+    + durable-store side-effects and returns the event payload — no network.
     """
 
-    def __init__(self, config: MeeetConfig | None = None, *, timeout_s: float = 2.5) -> None:
+    def __init__(
+        self,
+        config: MeeetConfig | None = None,
+        *,
+        timeout_s: float = 2.5,
+        store: MeeetStore | None = None,
+    ) -> None:
         self.config = config or load_config()
         self.timeout_s = timeout_s
+        self.store = store if store is not None else get_store()
 
-    async def emit(self, kind: str, payload: Mapping[str, Any] | None = None) -> dict[str, Any]:
+    async def emit(
+        self, kind: str, payload: Mapping[str, Any] | None = None
+    ) -> dict[str, Any]:
         trace_id = current_trace() or new_trace_id()
         event = TARSEvent(
             trace_id=trace_id,
@@ -39,6 +54,12 @@ class MeeetClient:
             contract_version=self.config.contract_version,
         )
         body = event.to_dict()
+
+        # Durable buffer first — this is the local-first guarantee.
+        try:
+            event_id = await self.store.insert(body)
+        except Exception:
+            event_id = None
 
         if self.config.local_log_path:
             try:
@@ -50,6 +71,7 @@ class MeeetClient:
         if not self.config.enabled or not self.config.ingest_url:
             return body
 
+        push_error: str | None = None
         try:
             await asyncio.to_thread(
                 _post_json,
@@ -59,12 +81,39 @@ class MeeetClient:
                 self.config.contract_version,
                 self.timeout_s,
             )
-        except (urllib.error.URLError, TimeoutError, OSError):
+        except (urllib.error.URLError, TimeoutError, OSError) as exc:
+            push_error = str(exc)
             # Ingest must never crash the host. Real deployments add retry
             # via the observability layer; this client stays simple.
-            pass
+
+        if event_id:
+            try:
+                await self.store.mark_pushed(event_id, error=push_error)
+            except Exception:
+                pass
 
         return body
+
+    async def replay_unpushed(self, *, limit: int = 100) -> dict[str, Any]:
+        """Flush any locally-buffered events to ingest.
+
+        No-op when the ingest is unset.
+        """
+
+        if not self.config.enabled or not self.config.ingest_url:
+            return {"enabled": False, "pushed": 0, "failed": 0, "remaining": 0}
+
+        async def _push(body: dict[str, Any]) -> None:
+            await asyncio.to_thread(
+                _post_json,
+                self.config.ingest_url,
+                body,
+                self.config.api_key,
+                self.config.contract_version,
+                self.timeout_s,
+            )
+
+        return await self.store.replay_unpushed(_push, limit=limit)
 
 
 def _post_json(

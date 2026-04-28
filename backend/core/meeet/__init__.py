@@ -19,17 +19,22 @@ bridge is safe to import in tests and offline environments.
 from .client import MeeetClient, get_client, reset_client
 from .config import MeeetConfig, load_config
 from .events import TARSEvent
+from .store import MeeetStore, StoredEvent, get_store, reset_store
 from .tracing import current_trace, new_trace_id, start_trace, trace_scope
 
 __all__ = [
     "MeeetClient",
     "MeeetConfig",
+    "MeeetStore",
+    "StoredEvent",
     "TARSEvent",
     "current_trace",
     "get_client",
+    "get_store",
     "load_config",
     "new_trace_id",
     "reset_client",
+    "reset_store",
     "start_trace",
     "trace_scope",
 ]

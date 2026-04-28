@@ -15,6 +15,7 @@ import pytest
 
 from backend.core.meeet import (
     MeeetClient,
+    MeeetStore,
     TARSEvent,
     current_trace,
     new_trace_id,
@@ -72,7 +73,7 @@ def test_disabled_client_returns_payload(tmp_path: Path) -> None:
         source="tars",
         local_log_path=str(tmp_path / "events.jsonl"),
     )
-    client = MeeetClient(cfg)
+    client = MeeetClient(cfg, store=MeeetStore(str(tmp_path / "meeet.sqlite")))
     start_trace(parent="trc_test")
 
     body = asyncio.run(client.emit("domain.action.invoked", {"slug": "traders"}))
