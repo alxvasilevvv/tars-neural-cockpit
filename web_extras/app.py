@@ -19,6 +19,7 @@ from web_extras.routers import awareness as awareness_router
 from web_extras.routers import council as council_router
 from web_extras.routers import domains as domains_router
 from web_extras.routers import meeet as meeet_router
+from web_extras.routers import policy as policy_router
 
 START_TS = time.time()
 
@@ -38,13 +39,14 @@ app.add_middleware(
     ],
     allow_credentials=False,
     allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["*"],
+    allow_headers=["*", "x-meeet-trace-id", "x-tars-policy-mode"],
 )
 
 app.include_router(domains_router.router)
 app.include_router(awareness_router.router)
 app.include_router(meeet_router.router)
 app.include_router(council_router.router)
+app.include_router(policy_router.router)
 
 
 @app.get("/health")

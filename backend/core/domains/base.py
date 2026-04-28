@@ -22,6 +22,11 @@ class ActionSpec:
     Handlers should be safe to call with empty or partial arguments and must
     not raise for ordinary user input — they should return a structured error
     instead.
+
+    ``destructive`` flags actions that mutate external state (send mail,
+    push to CRM, place an alert, post content). The HTTP invoke pipeline
+    routes destructive calls through the policy gate; non-destructive
+    actions run immediately regardless of mode.
     """
 
     id: str
@@ -29,6 +34,7 @@ class ActionSpec:
     description: str
     handler: ActionHandler
     schema: Mapping[str, Any] = field(default_factory=dict)
+    destructive: bool = False
 
 
 @dataclass(frozen=True)
@@ -113,6 +119,7 @@ class DomainPack(ABC):
                     "name": a.name,
                     "description": a.description,
                     "schema": dict(a.schema),
+                    "destructive": a.destructive,
                 }
                 for a in self.actions()
             ],

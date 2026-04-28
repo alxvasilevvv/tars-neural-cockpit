@@ -305,6 +305,7 @@ ACTIONS: tuple[ActionSpec, ...] = (
             },
             "required": ["to"],
         },
+        destructive=True,
     ),
     ActionSpec(
         id="kpi_snapshot",
@@ -330,5 +331,6 @@ ACTIONS: tuple[ActionSpec, ...] = (
             },
             "required": ["name"],
         },
+        destructive=True,
     ),
 )

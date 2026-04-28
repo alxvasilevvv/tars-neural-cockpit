@@ -268,6 +268,7 @@ ACTIONS: tuple[ActionSpec, ...] = (
             },
             "required": ["ticker", "price", "direction"],
         },
+        destructive=True,
     ),
     ActionSpec(
         id="summarize_market",

@@ -288,6 +288,7 @@ ACTIONS: tuple[ActionSpec, ...] = (
             },
             "required": ["channel"],
         },
+        destructive=True,
     ),
     ActionSpec(
         id="retention_alert",

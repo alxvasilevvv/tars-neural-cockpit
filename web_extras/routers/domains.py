@@ -25,6 +25,7 @@ from fastapi import APIRouter, Header, HTTPException
 from backend.core.domains import packs as _packs  # noqa: F401  (registers)
 from backend.core.domains.registry import all_packs, get_pack
 from backend.core.meeet import get_client, trace_scope
+from backend.core.policy import get_gate, resolve_mode
 
 router = APIRouter(prefix="/api/domains", tags=["domains"])
 
@@ -147,6 +148,7 @@ async def invoke_action(
     action_id: str,
     payload: dict[str, Any] | None = None,
     x_meeet_trace_id: str | None = Header(default=None),
+    x_tars_policy_mode: str | None = Header(default=None),
 ) -> dict[str, Any]:
     pack = get_pack(slug)
     if pack is None:
@@ -154,15 +156,93 @@ async def invoke_action(
     spec = pack.find_action(action_id)
     if spec is None:
         raise HTTPException(status_code=404, detail="action_not_found")
-    args = payload or {}
+    args = dict(payload or {})
+
+    # Pull off policy-related args before the handler ever sees them.
+    arg_mode = args.pop("policy_mode", None)
+    confirmed_by_token = bool(args.pop("_confirmed", False))
+
+    mode = resolve_mode(
+        header=x_tars_policy_mode,
+        request_arg=str(arg_mode) if arg_mode else None,
+    )
 
     client = get_client()
     started_at = time.perf_counter()
     with trace_scope(parent=x_meeet_trace_id) as trace_id:
         await client.emit(
             "domain.action.invoked",
-            {"slug": slug, "action": action_id, "args": _safe_args(args)},
+            {
+                "slug": slug,
+                "action": action_id,
+                "args": _safe_args(args),
+                "destructive": spec.destructive,
+                "policy_mode": mode.value,
+            },
         )
+
+        gate = get_gate()
+        decision = await gate.check(
+            slug=slug,
+            action_id=action_id,
+            args=args,
+            destructive=spec.destructive,
+            mode=mode,
+            confirmed=confirmed_by_token,
+            trace_id=trace_id,
+        )
+
+        if not decision.allowed:
+            event_kind = (
+                "policy.blocked"
+                if decision.reason == "dry_run_preview_only"
+                else "policy.queued"
+            )
+            await client.emit(
+                event_kind,
+                {
+                    "slug": slug,
+                    "action": action_id,
+                    "mode": decision.mode.value,
+                    "reason": decision.reason,
+                    "token": decision.confirmation_token,
+                },
+            )
+            took_ms = _ms_since(started_at)
+            return {
+                "ok": True,
+                "slug": slug,
+                "action": action_id,
+                "trace_id": trace_id,
+                "took_ms": took_ms,
+                "result": {
+                    "ok": True,
+                    "policy": {
+                        "allowed": False,
+                        "mode": decision.mode.value,
+                        "reason": decision.reason,
+                        "confirmation_token": decision.confirmation_token,
+                        "confirm_url": (
+                            f"/api/policy/confirm/{decision.confirmation_token}"
+                            if decision.confirmation_token
+                            else None
+                        ),
+                        "preview": decision.preview,
+                    },
+                },
+            }
+
+        await client.emit(
+            "policy.allowed",
+            {
+                "slug": slug,
+                "action": action_id,
+                "mode": decision.mode.value,
+                "reason": decision.reason,
+                "destructive": spec.destructive,
+            },
+        )
+
         try:
             result = await spec.handler(args)
         except Exception as exc:  # surface as 500, never crash the app
