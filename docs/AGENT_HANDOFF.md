@@ -10,12 +10,13 @@ plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 
 - **Cursor agent (functional / backend / wiring):** owns domain packs,
   meeet bridge, real adapters, SSE awareness, FastAPI router, frontend
-  glue (Cockpit + AwarenessTicker). Latest batch shipped the full
-  Tier-1 functional roadmap: live awareness fetchers + snapshot
-  endpoint, SQLite durable event log + replay, two-voice council with
-  `sampler.decision`, destructive-action policy gate (dry_run /
-  confirm / autopilot) with persistent confirmations, and the JSON
-  playbook runner (`/api/playbooks`).
+  glue (Cockpit + AwarenessTicker + OperatorStrip). Latest batch
+  (Phase F-J) shipped: real LLM voice (Anthropic / OpenAI) gated by a
+  macOS Keychain vault, parallel playbook step batches, the SQLite
+  downline DB with `mlm.add_member` / `mlm.log_activity` mutations,
+  the background replay loop with `/api/meeet/health`, and typed
+  cockpit clients + an OperatorStrip surfacing the policy /
+  council / playbooks / meeet / vault endpoints.
 - **Claude Code (design polish, GLB, sound, copy):** picks up the
   remaining design work, GLB asset, content/copy passes, and the still-
   open items in `docs/IDEAS.md`.
@@ -65,24 +66,38 @@ cockpit can wire a live ticker.
   (`BUSINESS_KPI_PATH`, `BUSINESS_DEALS_PATH`, `MLM_NETWORK_PATH`,
   `CALENDAR_PATH`, `TRADERS_NEWS_PATH`, `TRADERS_PORTFOLIO_PATH`) or
   per-call `path` arg.
-- **Council:** `backend/core/council/{voices,orchestrator,__init__}.py`.
-  Two voices ship: `LocalVoice` (deterministic rules) and
-  `MockCloudVoice` (deliberately conservative under dispersion).
-  `Voice` is an ABC; new LLM adapters subclass and register.
+- **Council:** `backend/core/council/{voices,llm,orchestrator,__init__}.py`.
+  Three voice flavours ship: `LocalVoice` (deterministic rules),
+  `MockCloudVoice` (conservative under dispersion), and
+  `AnthropicVoice` / `OpenAIVoice` (auto-detected from the vault when
+  a key is configured). The orchestrator filters voices that
+  fail with `stance='unavailable'` so missing keys never block a
+  deliberation.
+- **Secrets vault:** `backend/core/vault/{__init__,keychain}.py`.
+  Env-var first, then macOS Keychain (service `tars`,
+  `security find-generic-password -a tars -s <key>`). HTTP surface:
+  `GET /api/vault/status` (sources only — values are never echoed).
 - **Policy gate:** `backend/core/policy/{gate,store,__init__}.py`.
   Mode: `autopilot | confirm | dry_run`, default `confirm`.
   Confirmations table sits in the same SQLite DB as the meeet store.
 - **Playbooks:** `backend/core/playbooks/{loader,runner,__init__}.py`,
   JSON files under `playbooks/<pack>/<name>.json`. Override the root
-  with `TARS_PLAYBOOKS_DIR`.
+  with `TARS_PLAYBOOKS_DIR`. Steps with `parallel: true` are batched
+  and executed via `asyncio.gather`.
+- **MLM downline DB:** `backend/core/domains/packs/mlm/db.py` —
+  SQLite at `~/.tars/downline.sqlite` (override `MLM_DB_PATH`),
+  self-seeds from `data/mlm_network.csv` on first read. Mutations
+  (`add_member`, `log_activity`) flow through the policy gate.
 - **Domain HTTP router:** `web_extras/routers/domains.py`
 - **Awareness SSE router:** `web_extras/routers/awareness.py`
 - **Awareness snapshot:** `GET /api/domains/<slug>/awareness/<source_id>/snapshot`
   — same router file, separate handler.
 - **meeet trace viewer:** `web_extras/routers/meeet.py`
-  → `/api/meeet/{stats,events,replay}`.
+  → `/api/meeet/{stats,events,replay,health}`.
 - **Council:** `web_extras/routers/council.py`
   → `POST /api/council/deliberate`.
+- **Vault status:** `web_extras/routers/vault.py`
+  → `GET /api/vault/status`.
 - **Policy:** `web_extras/routers/policy.py`
   → `GET /api/policy/{pending,recent}`,
     `POST /api/policy/confirm/{token}`,
@@ -91,15 +106,22 @@ cockpit can wire a live ticker.
 - **Playbooks:** `web_extras/routers/playbooks.py`
   → `GET /api/playbooks`, `GET /api/playbooks/{id}`,
     `POST /api/playbooks/{id}/run`, `POST /api/playbooks/_reload`.
-- **FastAPI app + runner:** `web_extras/app.py`, `serve.py`
+- **FastAPI app + runner:** `web_extras/app.py`, `serve.py`. App
+  lifespan starts the background replay loop (interval
+  `MEEET_REPLAY_INTERVAL_S`, default 60s, set to `0` to disable).
 - **meeet bridge:** `backend/core/meeet/{config,tracing,events,client,store,__init__}.py`.
   Durable buffer sits in `~/.tars/meeet.sqlite` (override with
   `MEEET_STORE_PATH`; disable with `MEEET_STORE=disabled`).
+  `MeeetClient.last_replay` caches the most recent replay outcome and
+  is surfaced by `/api/meeet/health`.
 - **Tests:** `tests/test_domains.py`, `tests/test_meeet.py`,
-  `tests/test_meeet_store.py`, `tests/test_real_adapters.py`,
-  `tests/test_awareness_fetchers.py`, `tests/test_awareness_stream.py`,
-  `tests/test_council.py`, `tests/test_policy.py`,
-  `tests/test_playbooks.py`. **79 tests, all green.**
+  `tests/test_meeet_store.py`,
+  `tests/test_meeet_health_and_replay_loop.py`,
+  `tests/test_real_adapters.py`, `tests/test_awareness_fetchers.py`,
+  `tests/test_awareness_stream.py`, `tests/test_council.py`,
+  `tests/test_policy.py`, `tests/test_playbooks.py`,
+  `tests/test_mlm_db.py`, `tests/test_vault_and_llm_voice.py`.
+  **117 tests, all green.**
 - **Specs:** `docs/DOMAIN_PACKS.md`, `docs/VIDEO_TRANSCRIPTS.md`,
   `docs/IDEAS.md`.
 - **Showcase v2 — vanilla:** `experiments/neural-showcase-v2/`
@@ -113,6 +135,41 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **Phase F-J — second functional batch (LLM voice → cockpit hooks):**
+  - **Phase F — Real LLM voice + Keychain vault.** New
+    `backend/core/vault/` reads env first, then `security
+    find-generic-password -a tars -s <key>`. New
+    `backend/core/council/llm.py` with `AnthropicVoice` and
+    `OpenAIVoice` (stdlib `urllib`); auto-detected by the orchestrator
+    via `detect_llm_voice()`. Voices that can't reach their provider
+    return `stance='unavailable'` and are filtered from votes.
+    Endpoint `GET /api/vault/status` lists sources for known keys
+    (env / keychain / missing) — values are never echoed.
+  - **Phase G — Parallel playbook steps.** `PlaybookStep.parallel`
+    flag groups consecutive parallel-flagged steps; each group runs
+    via `asyncio.gather`. Step results land in declared order.
+    `traders.morning_check` runs `news` + `portfolio` concurrently
+    (≈ 50 % wall-clock saving).
+  - **Phase H — SQLite MLM downline DB.**
+    `backend/core/domains/packs/mlm/db.py`. Self-seeds from
+    `data/mlm_network.csv` on first read. New destructive actions
+    `mlm.add_member` (sponsor must exist) and `mlm.log_activity`
+    (timestamps + volume delta) are gated through the policy queue.
+    `downline_snapshot` and `retention_alert` now report
+    `source: "sqlite"|"csv"`.
+  - **Phase I — Background replay loop + meeet health.**
+    `web_extras/app.py` starts a periodic task (`MEEET_REPLAY_INTERVAL_S`,
+    default 60s) that flushes pending events. `MeeetClient.last_replay`
+    is cached and exposed by `GET /api/meeet/health` together with
+    store stats and bridge config.
+  - **Phase J — Cockpit clients + OperatorStrip.** New typed
+    modules under `experiments/neural-showcase-v3/src/lib/`:
+    `policy.ts`, `council.ts`, `playbooks.ts`, `meeet.ts`,
+    `vault.ts`. New `<OperatorStrip />` mounted on `/cockpit` with
+    a pending-confirmations panel (confirm/cancel inline), a
+    playbook runner with mode selector, and a bridge panel
+    (meeet store stats + last-replay age, vault sources, on-demand
+    council deliberation). Visual polish stays Claude's job.
 - **Phase K — Tier 1 functional roadmap (council / policy / persistence):**
   - **Awareness wiring (Phase A).** `AwarenessSource.fetcher` contract
     + `GET /api/domains/<slug>/awareness/<id>/snapshot`. Live fetchers
@@ -209,39 +266,40 @@ cockpit can wire a live ticker.
 
 ### Owned by **Cursor agent (functional)**
 
-Tier-1 roadmap (council / policy / persistence / playbooks /
-awareness wiring) is **shipped** in Phase K. Remaining items now:
+Tier-1 (Phase K) and the second batch (Phase F-J: LLM voice, vault,
+parallel playbooks, SQLite downline DB, replay loop, cockpit hooks)
+are **shipped**. Remaining items now:
 
-1. **Real LLM voice.** Drop a third concrete `Voice` subclass that
-   talks to OpenAI / Anthropic / a local Llama. Keep the deterministic
-   pair as the offline fallback. Honour the existing Proposal shape so
-   the orchestrator code doesn't change.
-2. **More real adapters.** Mail (IMAP/JMAP) for `business.draft_email`
-   sending; CRM (HubSpot or Pipedrive) for `business.log_deal`
-   pushing; OpenAlex/Crossref enrichment in `science.summarize_paper`;
-   web-feed RSS in `traders.news_feed`.
-3. **Code-split v3.** Bundle is 1.39 MB pre-gzip; split out R3F so
-   `/cockpit` doesn't pay for the orbital scene.
-4. **Auth-aware actions.** Once any pack needs a token, route through
-   the secrets vault (Keychain on macOS) and surface per-pack auth
-   state in `/api/domains/<slug>` so the cockpit can render badges.
-5. **meeet contract evolution.** Align event kinds with the
+1. **Real outbound adapters.** Mail (IMAP/JMAP) for
+   `business.draft_email` actually sending; CRM (HubSpot or
+   Pipedrive) for `business.log_deal` actually pushing; OpenAlex /
+   Crossref enrichment in `science.summarize_paper`; web-feed RSS in
+   `traders.news_feed`. The vault keys (`HUBSPOT_API_KEY`,
+   `PIPEDRIVE_API_KEY`, `OPENALEX_EMAIL`) are already wired — wire
+   the calls.
+2. **Per-pack auth badges in `/api/domains/<slug>`.** The vault
+   endpoint exists but each pack should advertise which keys it
+   needs so the cockpit can render contextual badges. Today
+   `OperatorStrip` shows a flat vault list; we want per-pack scoping.
+3. **Code-split v3.** Bundle is ~1.6 MB pre-gzip after the latest
+   adds; split R3F into a route-level chunk so `/cockpit` doesn't
+   pay for the orbital scene.
+4. **meeet contract evolution.** Align event kinds with the
    `meeet.world` ingest contract when it lands. Keep
    `contract_version` pin updated; the durable buffer makes schema
    migrations cheap (replay + transform).
-6. **SQLite migration to MLM downline DB.** `~/.tars/downline.sqlite`
-   is referenced by the awareness config but not yet implemented; the
-   CSV fallback works. Implement the SQLite version + writer pipeline
-   so the network mutates from the cockpit.
-7. **Playbook step parallelism.** All steps are sequential; add a
-   `parallel: true` block (or `group:` syntax) for awareness
-   snapshots that don't depend on each other. Today
-   `traders.morning_check` runs `news` + `portfolio` serially.
-8. **Cockpit UI surface for the new endpoints.** `/cockpit` has a
-   trace timeline and the awareness ticker; we still need: a
-   pending-confirmations panel, a sampler.decision viewer, a
-   playbook runner panel. (Owner-debate: design lives with Claude;
-   wiring lives here. Coordinate via `docs/IDEAS.md`.)
+5. **Cockpit polish hand-off.** `<OperatorStrip />` is functional
+   but visually flat — coordinate with Claude via `docs/IDEAS.md`
+   on how to fold it into the cockpit grid (sticky pending strip on
+   top? collapsible bridge tray? sampler.decision viewer is still
+   missing — events sit in `/api/meeet/events?kind=sampler.decision`).
+6. **Real LLM voice rollout polish.** With keys configured the
+   orchestrator already adds a third voice — but we should add a
+   small "voice gallery" UI panel + per-voice latency + token usage
+   chart (data is in every Proposal already).
+7. **Outbound MLM playbooks.** Add a `mlm.recruitment_round`
+   playbook that uses `mlm.add_member` + `mlm.log_activity` under
+   the policy gate to demonstrate the new mutations.
 
 ## Conventions to keep
 

@@ -4,6 +4,87 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-04-28 — Cursor agent · Phase F-J (LLM voice → cockpit hooks)
+
+**Summary**
+
+Five more sub-phases shipped on top of Phase K. Each its own commit;
+117 pytest tests passing.
+
+- **Phase F — Real LLM voice + Keychain vault.**
+  `backend/core/vault/` (env > Keychain > missing). Six known keys:
+  `TARS_ANTHROPIC_API_KEY`, `TARS_OPENAI_API_KEY`, `MEEET_API_KEY`,
+  `HUBSPOT_API_KEY`, `PIPEDRIVE_API_KEY`, `OPENALEX_EMAIL`.
+  `backend/core/council/llm.py` — `AnthropicVoice` (default
+  claude-3-5-sonnet) and `OpenAIVoice` (gpt-4o-mini); stdlib HTTP via
+  `urllib`. Provider failures collapse to `stance='unavailable'`
+  proposals; the orchestrator filters them out of the vote and the
+  agreement count. Default panel grows to 3 voices when a key is
+  configured. New endpoint `GET /api/vault/status` (sources only —
+  values never echoed). 8 new tests.
+  Files: `backend/core/vault/{__init__,keychain}.py`,
+  `backend/core/council/{llm,__init__,orchestrator}.py`,
+  `web_extras/{app,routers/vault}.py`,
+  `tests/test_vault_and_llm_voice.py`.
+
+- **Phase G — Parallel playbook steps.** `PlaybookStep.parallel`
+  flag groups consecutive parallel-flagged steps; runner executes
+  the batch via `asyncio.gather`. Step results are emitted in the
+  declared order regardless of completion order. `traders.morning_check`
+  runs `news` + `portfolio` concurrently (≈ 50 % wall-clock saving).
+  5 new tests. Files:
+  `backend/core/playbooks/{loader,runner}.py`,
+  `playbooks/traders/morning_check.json`, `tests/test_playbooks.py`.
+
+- **Phase H — SQLite MLM downline DB.**
+  `backend/core/domains/packs/mlm/db.py` — `DownlineDB` class with
+  WAL SQLite at `~/.tars/downline.sqlite` (override `MLM_DB_PATH`).
+  `ensure_seeded()` is idempotent: imports `data/mlm_network.csv`
+  on first read; later calls are no-ops. Two new destructive
+  actions: `mlm.add_member` (validates sponsor exists) and
+  `mlm.log_activity` (timestamps + volume delta). Both gated by the
+  policy queue. `_parse_date` extended to accept full ISO timestamps
+  with microseconds and offsets. 14 new tests. Files:
+  `backend/core/domains/packs/mlm/{db,actions,awareness}.py`,
+  `tests/test_mlm_db.py`, `tests/test_policy.py`.
+
+- **Phase I — Background replay loop + meeet health.**
+  `web_extras/app.py` lifespan starts a periodic task that calls
+  `MeeetClient.replay_unpushed()` every `MEEET_REPLAY_INTERVAL_S`
+  (default 60s, `0` disables). `MeeetClient.last_replay` caches
+  `{enabled, pushed, failed, scanned, remaining, ran_at}`. New
+  endpoint `GET /api/meeet/health` returns client config + store
+  stats + last_replay. 5 new tests. Files:
+  `backend/core/meeet/client.py`, `web_extras/app.py`,
+  `web_extras/routers/meeet.py`,
+  `tests/test_meeet_health_and_replay_loop.py`.
+
+- **Phase J — Cockpit clients + OperatorStrip.** Five new typed
+  modules under `experiments/neural-showcase-v3/src/lib/`:
+  `policy.ts`, `council.ts`, `playbooks.ts`, `meeet.ts`, `vault.ts`
+  (each exposes a fetch client + a React hook). `lib/api.ts`:
+  `invokeAction` accepts `{mode, traceId}` and forwards
+  `x-tars-policy-mode` / `x-meeet-trace-id` headers; new
+  `snapshotAwareness` helper; `PolicyMode` type exported.
+  `<OperatorStrip />` mounted on `/cockpit` — 3 columns: pending
+  confirmations (with confirm/cancel inline), playbook runner with
+  policy mode selector and step results, bridge panel (meeet store +
+  last replay + vault sources + on-demand council deliberation).
+  Type-check + production build clean. Files:
+  `experiments/neural-showcase-v3/src/{lib/api,lib/policy,lib/council,lib/playbooks,lib/meeet,lib/vault,components/OperatorStrip,pages/Cockpit}.ts(x)`.
+
+**Bookkeeping**
+
+- Tests: **117 passing** (up from 79). New suites:
+  `test_vault_and_llm_voice` (8), `test_mlm_db` (14),
+  `test_meeet_health_and_replay_loop` (5). Existing suites grew
+  with `test_playbooks` parallel cases and `test_policy` updated
+  for the two new mlm destructive flags.
+- Commits: `f099802 → 03b1eb3 → f18bde1 → e273b86 → 0bbe108`
+  (Phase F → G → H → I → J).
+- Docs: `AGENT_HANDOFF.md` updated; this changelog refreshed;
+  `IDEAS.md` to be re-checked next.
+
 ## 2026-04-28 — Cursor agent · Tier-1 functional roadmap (Phase K)
 
 **Summary**
