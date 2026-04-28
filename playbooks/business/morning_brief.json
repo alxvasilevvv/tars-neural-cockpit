@@ -1,0 +1,33 @@
+{
+  "id": "business.morning_brief",
+  "name": "Morning business brief",
+  "description": "Compose the daily brief, surface the deal pipeline and today's calendar.",
+  "tags": ["morning", "business", "read-only"],
+  "on_block": "continue",
+  "steps": [
+    {
+      "id": "kpi",
+      "action": "business.kpi_snapshot",
+      "args": {},
+      "store_as": "kpi"
+    },
+    {
+      "id": "brief",
+      "action": "business.daily_brief",
+      "args": {},
+      "store_as": "brief"
+    },
+    {
+      "id": "deals",
+      "action": "business.awareness.hubspot.snapshot",
+      "args": {},
+      "store_as": "deals"
+    },
+    {
+      "id": "calendar",
+      "action": "business.awareness.gcalendar.snapshot",
+      "args": {},
+      "store_as": "calendar"
+    }
+  ]
+}

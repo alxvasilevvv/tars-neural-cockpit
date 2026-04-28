@@ -1,0 +1,31 @@
+{
+  "id": "mlm.retention_round",
+  "name": "MLM retention round",
+  "description": "List dormant downline + draft a re-engagement post (gated).",
+  "tags": ["mlm", "retention"],
+  "on_block": "continue",
+  "steps": [
+    {
+      "id": "snapshot",
+      "action": "mlm.downline_snapshot",
+      "args": {},
+      "store_as": "downline"
+    },
+    {
+      "id": "alert",
+      "action": "mlm.retention_alert",
+      "args": { "days_threshold": 21 },
+      "store_as": "alert"
+    },
+    {
+      "id": "outreach",
+      "action": "mlm.generate_post",
+      "args": {
+        "channel": "tg",
+        "format": "dm",
+        "topic": "Reaching out to dormant downline (last contact > 21d)"
+      },
+      "store_as": "outreach"
+    }
+  ]
+}

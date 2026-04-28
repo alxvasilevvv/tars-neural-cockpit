@@ -1,0 +1,27 @@
+{
+  "id": "traders.morning_check",
+  "name": "Morning trading check",
+  "description": "Snapshot the basket, the news tone, and the local portfolio.",
+  "tags": ["morning", "traders", "read-only"],
+  "on_block": "continue",
+  "steps": [
+    {
+      "id": "market",
+      "action": "traders.summarize_market",
+      "args": { "basket": ["BTC", "ETH"], "council_mode": "dual_vote" },
+      "store_as": "market"
+    },
+    {
+      "id": "news",
+      "action": "traders.awareness.news_feed.snapshot",
+      "args": {},
+      "store_as": "news"
+    },
+    {
+      "id": "portfolio",
+      "action": "traders.awareness.portfolio_local.snapshot",
+      "args": {},
+      "store_as": "portfolio"
+    }
+  ]
+}
