@@ -1,0 +1,9 @@
+{
+  "as_of": "2026-04-28T07:30:00Z",
+  "items": [
+    { "id": "n-1", "headline": "Fed minutes hint at slower QT pace", "tickers": ["BTC", "ETH"], "tone": "neutral", "source": "coindesk" },
+    { "id": "n-2", "headline": "Layer-2 throughput record on ARB", "tickers": ["ARB"], "tone": "bullish", "source": "bloomberg-rss" },
+    { "id": "n-3", "headline": "ETH staking ratio crosses 30%", "tickers": ["ETH"], "tone": "neutral", "source": "ft" },
+    { "id": "n-4", "headline": "SOL outage rumour denied by validators", "tickers": ["SOL"], "tone": "bearish", "source": "coindesk" }
+  ]
+}

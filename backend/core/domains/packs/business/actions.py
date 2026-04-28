@@ -85,6 +85,9 @@ async def kpi_snapshot(args: Mapping[str, Any]) -> Mapping[str, Any]:
     }
 
 
+_DEFAULT_CAL_PATH = _REPO_ROOT / "data" / "calendar_events.json"
+
+
 async def daily_brief(args: Mapping[str, Any]) -> Mapping[str, Any]:
     date = str(args.get("date") or datetime.now(timezone.utc).date().isoformat())
 
@@ -97,6 +100,11 @@ async def daily_brief(args: Mapping[str, Any]) -> Mapping[str, Any]:
         str(args.get("deals_path") or "") or None,
         "BUSINESS_DEALS_PATH",
         _DEFAULT_DEALS_PATH,
+    )
+    cal_path = _resolve(
+        str(args.get("calendar_path") or "") or None,
+        "CALENDAR_PATH",
+        _DEFAULT_CAL_PATH,
     )
 
     kpi_data: dict[str, Any] = {}
@@ -113,6 +121,21 @@ async def daily_brief(args: Mapping[str, Any]) -> Mapping[str, Any]:
             deals = [d for d in raw if isinstance(d, dict)]
         except json.JSONDecodeError:
             deals = []
+
+    calendar_events: list[dict[str, Any]] = []
+    if cal_path.exists():
+        try:
+            cal = _read_json(cal_path)
+            calendar_events = [
+                e for e in (cal.get("events") or []) if isinstance(e, dict)
+            ]
+        except json.JSONDecodeError:
+            calendar_events = []
+    today_iso = date
+    today_events = [
+        e for e in calendar_events if str(e.get("start", "")).startswith(today_iso)
+    ]
+    today_events.sort(key=lambda e: str(e.get("start") or ""))
 
     metrics = kpi_data.get("metrics") or {}
     deltas = []
@@ -171,7 +194,17 @@ async def daily_brief(args: Mapping[str, Any]) -> Mapping[str, Any]:
         "actions": next_steps,
         "deals_total": len(deals),
         "deals_active": len(deals_active),
-        "sources": ["local-json"],
+        "calendar_today": [
+            {
+                "id": e.get("id"),
+                "title": e.get("title"),
+                "start": e.get("start"),
+                "kind": e.get("kind"),
+                "duration_min": e.get("duration_min"),
+            }
+            for e in today_events
+        ],
+        "sources": ["local-json", "calendar-local"],
     }
 
 

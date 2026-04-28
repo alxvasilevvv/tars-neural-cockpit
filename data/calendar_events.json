@@ -1,0 +1,9 @@
+{
+  "as_of": "2026-04-28T08:00:00Z",
+  "events": [
+    { "id": "ev-1", "title": "Northstar — red-line review", "start": "2026-04-28T10:00:00Z", "duration_min": 45, "attendees": ["you", "ceo@northstar.ai"], "kind": "deal" },
+    { "id": "ev-2", "title": "Council retro", "start": "2026-04-28T15:00:00Z", "duration_min": 30, "attendees": ["you"], "kind": "internal" },
+    { "id": "ev-3", "title": "Helix Bio intro #2", "start": "2026-04-29T09:30:00Z", "duration_min": 30, "attendees": ["you", "cto@helix.bio"], "kind": "deal" },
+    { "id": "ev-4", "title": "Pelagic BANT call", "start": "2026-05-04T14:00:00Z", "duration_min": 60, "attendees": ["you", "vp@pelagic.energy"], "kind": "deal" }
+  ]
+}

@@ -1,0 +1,11 @@
+{
+  "as_of": "2026-04-28T00:00:00Z",
+  "currency": "USD",
+  "positions": [
+    { "ticker": "BTC",  "qty": 0.85, "entry": 71200, "tags": ["core"] },
+    { "ticker": "ETH",  "qty": 11.2, "entry": 2180,  "tags": ["core"] },
+    { "ticker": "SOL",  "qty": 240,  "entry": 92.4,  "tags": ["alt"] },
+    { "ticker": "ARB",  "qty": 18000, "entry": 0.76, "tags": ["alt", "momentum"] }
+  ],
+  "cash_usd": 24500.0
+}

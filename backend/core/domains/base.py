@@ -8,9 +8,10 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Awaitable, Callable, Iterable, Mapping
+from typing import Any, Awaitable, Callable, Iterable, Mapping, Optional
 
 ActionHandler = Callable[[Mapping[str, Any]], Awaitable[Mapping[str, Any]]]
+AwarenessFetcher = Callable[[Mapping[str, Any]], Awaitable[Mapping[str, Any]]]
 
 
 @dataclass(frozen=True)
@@ -32,13 +33,21 @@ class ActionSpec:
 
 @dataclass(frozen=True)
 class AwarenessSource:
-    """A data source feeding into the pack's slice of the awareness graph."""
+    """A data source feeding into the pack's slice of the awareness graph.
+
+    ``fetcher`` is optional. When set, the cockpit can call
+    ``GET /api/domains/<slug>/awareness/<id>/snapshot`` to materialise
+    the source. Sources without a fetcher are advertised as config-only
+    (e.g. webhook receivers) and respond with ``ok=False / status=fetcher_unavailable``
+    when a snapshot is requested.
+    """
 
     id: str
     name: str
     description: str
     kind: str  # "stream" | "poll" | "webhook" | "local"
     config: Mapping[str, Any] = field(default_factory=dict)
+    fetcher: Optional[AwarenessFetcher] = None
 
 
 @dataclass(frozen=True)
@@ -82,6 +91,12 @@ class DomainPack(ABC):
                 return spec
         return None
 
+    def find_awareness(self, source_id: str) -> AwarenessSource | None:
+        for src in self.awareness():
+            if src.id == source_id:
+                return src
+        return None
+
     def to_dict(self) -> dict[str, Any]:
         m = self.manifest
         return {
@@ -108,6 +123,7 @@ class DomainPack(ABC):
                     "description": s.description,
                     "kind": s.kind,
                     "config": dict(s.config),
+                    "live": s.fetcher is not None,
                 }
                 for s in self.awareness()
             ],
