@@ -25,6 +25,7 @@ class PlaybookStep:
     store_as: Optional[str] = None
     when: Optional[str] = None  # simple python boolean expression over context
     on_error: str = "stop"  # "stop" | "continue"
+    parallel: bool = False  # run alongside the previous parallel sibling
 
 
 @dataclass(frozen=True)
@@ -53,6 +54,7 @@ class Playbook:
                     "store_as": s.store_as,
                     "when": s.when,
                     "on_error": s.on_error,
+                    "parallel": s.parallel,
                 }
                 for s in self.steps
             ],
@@ -69,6 +71,7 @@ def _step_from_dict(d: Mapping[str, Any]) -> PlaybookStep:
         store_as=str(d["store_as"]) if d.get("store_as") else None,
         when=str(d["when"]) if d.get("when") else None,
         on_error=str(d.get("on_error") or "stop"),
+        parallel=bool(d.get("parallel", False)),
     )
 
 

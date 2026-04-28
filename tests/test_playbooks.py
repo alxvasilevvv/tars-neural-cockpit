@@ -175,3 +175,131 @@ def test_runner_handles_unknown_action() -> None:
     out = asyncio.run(run())
     assert out["ok"] is False
     assert out["steps"][0]["error"] == "action_not_found"
+
+
+def test_runner_groups_parallel_steps() -> None:
+    from backend.core.playbooks.runner import _group_steps
+
+    steps = (
+        PlaybookStep(id="a", action="x.y"),
+        PlaybookStep(id="b", action="x.y", parallel=True),
+        PlaybookStep(id="c", action="x.y", parallel=True),
+        PlaybookStep(id="d", action="x.y"),
+        PlaybookStep(id="e", action="x.y", parallel=True),
+    )
+    groups = _group_steps(steps)
+    assert [[s.id for s in g] for g in groups] == [
+        ["a", "b", "c"],
+        ["d", "e"],
+    ]
+
+
+def test_runner_first_step_parallel_starts_own_group() -> None:
+    from backend.core.playbooks.runner import _group_steps
+
+    steps = (
+        PlaybookStep(id="a", action="x.y", parallel=True),
+        PlaybookStep(id="b", action="x.y", parallel=True),
+    )
+    # First step has no previous to attach to → starts its own group;
+    # second step then joins it.
+    groups = _group_steps(steps)
+    assert [[s.id for s in g] for g in groups] == [["a", "b"]]
+
+
+def test_runner_executes_parallel_group_concurrently() -> None:
+    """Two parallel awareness snapshots should both succeed and the
+    overall wall-clock should be roughly the slower of the two."""
+
+    pb = Playbook(
+        id="t.par",
+        name="parallel",
+        description="",
+        steps=(
+            PlaybookStep(
+                id="kpi",
+                action="business.kpi_snapshot",
+                store_as="kpi",
+            ),
+            PlaybookStep(
+                id="cal",
+                action="business.awareness.gcalendar.snapshot",
+                store_as="cal",
+                parallel=True,
+            ),
+            PlaybookStep(
+                id="hub",
+                action="business.awareness.hubspot.snapshot",
+                store_as="hub",
+                parallel=True,
+            ),
+        ),
+    )
+
+    async def run():
+        return await run_playbook(pb, mode=PolicyMode.AUTOPILOT)
+
+    out = asyncio.run(run())
+    assert out["ok"] is True
+    by_id = {s["id"]: s for s in out["steps"]}
+    # Output order matches declaration regardless of completion order.
+    assert [s["id"] for s in out["steps"]] == ["kpi", "cal", "hub"]
+    assert by_id["cal"]["ok"] is True
+    assert by_id["hub"]["ok"] is True
+    assert "cal" in out["context"]["steps"]
+    assert "hub" in out["context"]["steps"]
+
+
+def test_runner_parallel_group_blocks_dont_break_siblings(tmp_path, monkeypatch) -> None:
+    """A blocked destructive step inside a parallel batch must not stop
+    the read-only sibling. Both step results land; the playbook
+    short-circuits afterwards if on_block=stop."""
+
+    monkeypatch.setenv("MEEET_STORE_PATH", str(tmp_path / "meeet.sqlite"))
+    from backend.core.policy import reset_policy_store
+    reset_policy_store()
+
+    pb = Playbook(
+        id="t.par.block",
+        name="parallel-block",
+        description="",
+        on_block="continue",
+        steps=(
+            PlaybookStep(id="kpi", action="business.kpi_snapshot"),
+            PlaybookStep(
+                id="email",
+                action="business.draft_email",
+                args={"to": "x@y.z"},
+                parallel=True,
+            ),
+            PlaybookStep(
+                id="cal",
+                action="business.awareness.gcalendar.snapshot",
+                parallel=True,
+            ),
+        ),
+    )
+
+    async def run():
+        return await run_playbook(pb, mode=PolicyMode.CONFIRM)
+
+    out = asyncio.run(run())
+    by_id = {s["id"]: s for s in out["steps"]}
+    assert by_id["kpi"]["ok"] is True
+    # email is destructive → blocked with token
+    assert by_id["email"]["blocked"] is True
+    assert by_id["email"]["confirmation_token"]
+    # cal sibling still ran
+    assert by_id["cal"]["ok"] is True and by_id["cal"]["blocked"] is False
+
+
+def test_loader_round_trips_parallel_flag() -> None:
+    from backend.core.playbooks import get_playbook, reset_loader_cache
+
+    reset_loader_cache()
+    pb = get_playbook("traders.morning_check")
+    assert pb is not None
+    by_id = {s.id: s for s in pb.steps}
+    assert by_id["news"].parallel is True
+    assert by_id["portfolio"].parallel is True
+    assert by_id["market"].parallel is False

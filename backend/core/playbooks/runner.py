@@ -1,9 +1,16 @@
 """Playbook runner — dispatches each step through the same gates that
 the HTTP layer uses (policy gate + meeet trace + action handler).
+
+Steps are sequential by default. A step with ``parallel: true`` is
+batched with the previous parallel sibling and the whole group runs
+through ``asyncio.gather``. Templating across siblings inside the
+same parallel batch does NOT see each other's outputs — the context
+is updated once the whole batch completes.
 """
 
 from __future__ import annotations
 
+import asyncio
 import re
 import time
 from dataclasses import dataclass, field
@@ -139,7 +146,8 @@ class PlaybookRunner:
         }
         client = get_client()
         gate = get_gate()
-        results: list[StepResult] = []
+        results_by_id: dict[str, StepResult] = {}
+        results_in_order: list[StepResult] = []
 
         with trace_scope() as trace_id:
             await client.emit(
@@ -152,10 +160,11 @@ class PlaybookRunner:
             )
 
             stop = False
-            for step in playbook.steps:
+            groups = _group_steps(playbook.steps)
+            for group in groups:
                 if stop:
-                    results.append(
-                        StepResult(
+                    for step in group:
+                        sr = StepResult(
                             id=step.id,
                             action=step.action,
                             ok=False,
@@ -164,12 +173,19 @@ class PlaybookRunner:
                             took_ms=0.0,
                             error="aborted_by_previous_step",
                         )
-                    )
+                        results_in_order.append(sr)
+                        results_by_id[step.id] = sr
                     continue
 
-                if not _check_when(step.when, ctx):
-                    results.append(
-                        StepResult(
+                # Filter group by when clauses (resolved against the
+                # *current* ctx snapshot — siblings do not see each
+                # other's outputs inside the same group).
+                executable: list[PlaybookStep] = []
+                for step in group:
+                    if _check_when(step.when, ctx):
+                        executable.append(step)
+                    else:
+                        sr = StepResult(
                             id=step.id,
                             action=step.action,
                             ok=True,
@@ -177,55 +193,86 @@ class PlaybookRunner:
                             blocked=False,
                             took_ms=0.0,
                         )
+                        results_in_order.append(sr)
+                        results_by_id[step.id] = sr
+
+                if not executable:
+                    continue
+
+                # Run the group: 1 step → sequential, >1 → asyncio.gather.
+                if len(executable) == 1:
+                    step = executable[0]
+                    started = time.perf_counter()
+                    args = _resolve_args(dict(step.args), ctx)
+                    sr = await self._dispatch(step, args, gate=gate, mode=mode)
+                    sr.took_ms = (time.perf_counter() - started) * 1000.0
+                    finished_now = [(step, sr)]
+                else:
+
+                    async def _run_one(step: PlaybookStep) -> tuple[PlaybookStep, StepResult]:
+                        started = time.perf_counter()
+                        args = _resolve_args(dict(step.args), ctx)
+                        sr = await self._dispatch(step, args, gate=gate, mode=mode)
+                        sr.took_ms = (time.perf_counter() - started) * 1000.0
+                        return step, sr
+
+                    finished_now = await asyncio.gather(
+                        *(_run_one(s) for s in executable)
                     )
-                    continue
 
-                started = time.perf_counter()
-                args = _resolve_args(dict(step.args), ctx)
-                step_result = await self._dispatch(step, args, gate=gate, mode=mode)
-                step_result.took_ms = (time.perf_counter() - started) * 1000.0
+                for step, sr in finished_now:
+                    results_in_order.append(sr)
+                    results_by_id[step.id] = sr
+                    if step.store_as and sr.ok and not sr.blocked:
+                        ctx["steps"][step.store_as] = sr.result
+                    await client.emit(
+                        "playbook.step.completed",
+                        {
+                            "playbook_id": playbook.id,
+                            "step_id": step.id,
+                            "ok": sr.ok,
+                            "blocked": sr.blocked,
+                            "parallel": step.parallel or len(executable) > 1,
+                            "took_ms": round(sr.took_ms, 3),
+                        },
+                    )
 
-                results.append(step_result)
-                if step.store_as and step_result.ok and not step_result.blocked:
-                    ctx["steps"][step.store_as] = step_result.result
-
-                await client.emit(
-                    "playbook.step.completed",
-                    {
-                        "playbook_id": playbook.id,
-                        "step_id": step.id,
-                        "ok": step_result.ok,
-                        "blocked": step_result.blocked,
-                        "took_ms": round(step_result.took_ms, 3),
-                    },
-                )
-
-                if step_result.blocked and playbook.on_block == "stop":
-                    stop = True
-                    continue
-                if not step_result.ok and step.on_error == "stop":
-                    stop = True
-                    continue
+                # Decide if we should stop after this group.
+                for step, sr in finished_now:
+                    if sr.blocked and playbook.on_block == "stop":
+                        stop = True
+                        break
+                    if not sr.ok and step.on_error == "stop":
+                        stop = True
+                        break
 
             await client.emit(
                 "playbook.completed",
                 {
                     "playbook_id": playbook.id,
                     "ok": not stop,
-                    "steps_run": sum(1 for r in results if not r.skipped),
-                    "steps_blocked": sum(1 for r in results if r.blocked),
+                    "steps_run": sum(1 for r in results_in_order if not r.skipped),
+                    "steps_blocked": sum(1 for r in results_in_order if r.blocked),
                     "steps_failed": sum(
-                        1 for r in results if not r.ok and not r.skipped and not r.blocked
+                        1 for r in results_in_order if not r.ok and not r.skipped and not r.blocked
                     ),
                 },
             )
+
+            # Re-emit the steps in the playbook's declared order so the
+            # response is deterministic regardless of completion order.
+            ordered = [
+                results_by_id[s.id]
+                for s in playbook.steps
+                if s.id in results_by_id
+            ]
 
             return {
                 "ok": not stop,
                 "playbook_id": playbook.id,
                 "trace_id": trace_id,
                 "mode": mode.value,
-                "steps": [r.to_dict() for r in results],
+                "steps": [r.to_dict() for r in ordered],
                 "context": ctx,
             }
 
@@ -331,6 +378,23 @@ class PlaybookRunner:
             id=step.id, action=action, ok=True, skipped=False,
             blocked=False, took_ms=0.0, result=result,
         )
+
+
+def _group_steps(steps: tuple["PlaybookStep", ...]) -> list[list["PlaybookStep"]]:
+    """Split steps into execution groups.
+
+    The first step of any chain is sequential. A step with
+    ``parallel: true`` is appended to the previous group (forming a
+    parallel batch). The next non-parallel step starts a new group.
+    """
+
+    groups: list[list[PlaybookStep]] = []
+    for step in steps:
+        if step.parallel and groups:
+            groups[-1].append(step)
+        else:
+            groups.append([step])
+    return groups
 
 
 def _parse_awareness_target(action: str) -> tuple[str, str]:

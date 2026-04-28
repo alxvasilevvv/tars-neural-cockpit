@@ -1,7 +1,7 @@
 {
   "id": "traders.morning_check",
   "name": "Morning trading check",
-  "description": "Snapshot the basket, the news tone, and the local portfolio.",
+  "description": "Snapshot the basket, the news tone, and the local portfolio in parallel.",
   "tags": ["morning", "traders", "read-only"],
   "on_block": "continue",
   "steps": [
@@ -15,13 +15,15 @@
       "id": "news",
       "action": "traders.awareness.news_feed.snapshot",
       "args": {},
-      "store_as": "news"
+      "store_as": "news",
+      "parallel": true
     },
     {
       "id": "portfolio",
       "action": "traders.awareness.portfolio_local.snapshot",
       "args": {},
-      "store_as": "portfolio"
+      "store_as": "portfolio",
+      "parallel": true
     }
   ]
 }
