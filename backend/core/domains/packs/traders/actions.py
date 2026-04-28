@@ -1,8 +1,9 @@
 """Action handlers for the traders pack.
 
 ``fetch_quote`` is a real adapter against the public DexScreener search
-API (no key required). Other actions stay as typed stubs until they get
-real ground.
+API (no key required). ``summarize_market`` aggregates a basket and asks
+the council to interpret it. Other actions stay as typed stubs until
+they get real ground.
 """
 
 from __future__ import annotations
@@ -11,6 +12,7 @@ from typing import Any, Mapping
 
 from ...base import ActionSpec
 from ..._http import get_json, NetworkError
+from ....council import get_council
 
 DEXSCREENER_SEARCH = "https://api.dexscreener.com/latest/dex/search"
 
@@ -192,11 +194,41 @@ async def summarize_market(args: Mapping[str, Any]) -> Mapping[str, Any]:
             }
         )
 
+    council_context: dict[str, Any] = {
+        "topic": "market",
+        "horizon": horizon,
+        "avg_change_24h": avg_change,
+        "top_gainers": top_gainers,
+        "top_losers": top_losers,
+        "contradictions": contradictions,
+        "basket": list(basket),
+    }
+    use_council = bool(args.get("council", True))
+    deliberation = None
+    council_summary = f"{bias.replace('_', '-').upper()} — {verb}."
+    if use_council:
+        deliberation = await get_council().deliberate(
+            "Interpret this basket snapshot for an active trader.",
+            council_context,
+            mode=str(args.get("council_mode") or "dual_vote"),
+        )
+        council_summary = deliberation.summary
+        # Surface council-recommended actions alongside aggregator signals.
+        for act in deliberation.actions_recommended:
+            signals.append(
+                {
+                    "kind": "council_action",
+                    "horizon": horizon,
+                    "action": act,
+                    "evidence": f"voted by {deliberation.chosen}",
+                }
+            )
+
     return {
         "ok": True,
         "horizon": horizon,
         "basket": list(basket),
-        "summary": f"{bias.replace('_', '-').upper()} — {verb}.",
+        "summary": council_summary,
         "avg_change_24h": avg_change,
         "top_gainers": top_gainers,
         "top_losers": top_losers,
@@ -204,7 +236,9 @@ async def summarize_market(args: Mapping[str, Any]) -> Mapping[str, Any]:
         "contradictions": contradictions,
         "quotes": quotes,
         "failures": failures,
-        "sources": ["dexscreener"],
+        "sources": ["dexscreener"]
+        + (["council"] if deliberation else []),
+        "council": deliberation.to_dict() if deliberation else None,
     }
 
 

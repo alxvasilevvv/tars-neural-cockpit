@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from ...base import ActionSpec
+from ....council import get_council
 
 _REPO_ROOT = Path(__file__).resolve().parents[5]
 _DEFAULT_KPI_PATH = _REPO_ROOT / "data" / "business_kpi.json"
@@ -186,25 +187,46 @@ async def daily_brief(args: Mapping[str, Any]) -> Mapping[str, Any]:
     else:
         summary = "No KPI deltas available; review pipeline manually."
 
+    cal_today_payload = [
+        {
+            "id": e.get("id"),
+            "title": e.get("title"),
+            "start": e.get("start"),
+            "kind": e.get("kind"),
+            "duration_min": e.get("duration_min"),
+        }
+        for e in today_events
+    ]
+
+    use_council = bool(args.get("council", True))
+    deliberation = None
+    headline_summary = summary
+    if use_council:
+        deliberation = await get_council().deliberate(
+            "Compose the morning brief for the operator.",
+            {
+                "topic": "kpi",
+                "deltas": deltas,
+                "calendar_today": cal_today_payload,
+                "deals_active": len(deals_active),
+                "deals_total": len(deals),
+            },
+            mode=str(args.get("council_mode") or "dual_vote"),
+        )
+        headline_summary = deliberation.summary
+
     return {
         "ok": True,
         "date": date,
-        "summary": summary,
+        "summary": headline_summary,
         "deltas": deltas,
         "actions": next_steps,
         "deals_total": len(deals),
         "deals_active": len(deals_active),
-        "calendar_today": [
-            {
-                "id": e.get("id"),
-                "title": e.get("title"),
-                "start": e.get("start"),
-                "kind": e.get("kind"),
-                "duration_min": e.get("duration_min"),
-            }
-            for e in today_events
-        ],
-        "sources": ["local-json", "calendar-local"],
+        "calendar_today": cal_today_payload,
+        "sources": ["local-json", "calendar-local"]
+        + (["council"] if deliberation else []),
+        "council": deliberation.to_dict() if deliberation else None,
     }
 
 
