@@ -8,6 +8,7 @@ import { Brackets } from "@/components/Brackets";
 import { Nav } from "@/components/Nav";
 import { Atmosphere } from "@/components/Atmosphere";
 import { MagneticCursor } from "@/components/MagneticCursor";
+import { SectionDivider } from "@/components/SectionDivider";
 
 export default function App() {
   return (
@@ -18,9 +19,13 @@ export default function App() {
       <Nav />
       <Hero />
       <Rail />
+      <SectionDivider label="01 / awareness" />
       <Layers />
+      <SectionDivider label="02 / packs" />
       <Domains />
+      <SectionDivider label="03 / flow" />
       <Steps />
+      <SectionDivider label="04 / cockpit" />
       <Footer />
     </main>
   );
