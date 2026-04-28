@@ -127,10 +127,15 @@ Every meaningful TARS request that crosses a service boundary must run inside
 - **Source of truth** for visual decisions: `design-system/tars/MASTER.md`.
   Page-specific overrides live under `design-system/tars/pages/`.
 - **Skill** `nextlevelbuilder/ui-ux-pro-max-skill` (v2.5+) is installed in
-  three places so every AI assistant on this machine sees it:
-  - `.cursor/skills/ui-ux-pro-max/` — Cursor (this project).
-  - `.claude/skills/ui-ux-pro-max/` — Claude Code (this project).
-  - `~/.claude/skills/ui-ux-pro-max/` — Claude Code (global fallback).
+  the canonical locations for every AI assistant on this machine:
+  - `~/.cursor/skills-cursor/ui-ux-pro-max/` — **Cursor agent global**
+    (registered in `~/.cursor/skills-cursor/.sync-manifest.json`). This
+    is what makes the skill appear in the agent's system prompt under
+    `<available_skills>`.
+  - `.cursor/skills/ui-ux-pro-max/` — Cursor (this project, fallback).
+  - `~/.claude/skills/ui-ux-pro-max/` — **Claude Code global**.
+  - `.claude/skills/ui-ux-pro-max/` — Claude Code (this project,
+    project-pinned data + scripts).
   Auto-activates on UI/UX requests (build, design, create, implement,
   fix, improve).
 - **Workflow** when touching any UI surface:

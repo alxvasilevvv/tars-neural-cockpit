@@ -86,10 +86,12 @@ Router: `web_extras/routers/domains.py` (`/api/domains`). Spec:
 ## Design system
 
 - Source of truth: `design-system/tars/MASTER.md`.
-- Skill `nextlevelbuilder/ui-ux-pro-max-skill` installed three ways:
-  `.cursor/skills/ui-ux-pro-max/` (Cursor),
-  `.claude/skills/ui-ux-pro-max/` (Claude Code project),
-  `~/.claude/skills/ui-ux-pro-max/` (Claude Code global).
+- Skill `nextlevelbuilder/ui-ux-pro-max-skill` installed in canonical
+  agent paths:
+  `~/.cursor/skills-cursor/ui-ux-pro-max/` (Cursor agent global),
+  `.cursor/skills/ui-ux-pro-max/` (Cursor project),
+  `~/.claude/skills/ui-ux-pro-max/` (Claude Code global),
+  `.claude/skills/ui-ux-pro-max/` (Claude Code project).
   Targeted lookups via `python3 .cursor/skills/ui-ux-pro-max/scripts/search.py
   "<query>" --domain <domain>`.
 - Aesthetic blend (per MASTER): HUD/Sci-Fi FUI + Exaggerated Minimalism +

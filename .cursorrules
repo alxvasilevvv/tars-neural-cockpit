@@ -96,11 +96,14 @@ user input, never auto-execute destructive ops.
 ## Design system & skill
 
 - Source of truth: `design-system/tars/MASTER.md`. Pages: `design-system/tars/pages/<slug>.md`.
-- Skill `nextlevelbuilder/ui-ux-pro-max-skill` installed in three places:
-  `.cursor/skills/ui-ux-pro-max/` (Cursor),
-  `.claude/skills/ui-ux-pro-max/` (Claude Code project),
-  `~/.claude/skills/ui-ux-pro-max/` (Claude Code global). Auto-activates
-  on UI/UX work.
+- Skill `nextlevelbuilder/ui-ux-pro-max-skill` installed in the canonical
+  Cursor + Claude Code locations:
+  - `~/.cursor/skills-cursor/ui-ux-pro-max/` (Cursor agent global,
+    registered in the `.sync-manifest.json`).
+  - `.cursor/skills/ui-ux-pro-max/` (Cursor project, fallback).
+  - `~/.claude/skills/ui-ux-pro-max/` (Claude Code global).
+  - `.claude/skills/ui-ux-pro-max/` (Claude Code project).
+  Auto-activates on UI/UX work.
 - Targeted lookup:
   `python3 .cursor/skills/ui-ux-pro-max/scripts/search.py "<query>"
   --domain style|landing|typography|ux|color`.
