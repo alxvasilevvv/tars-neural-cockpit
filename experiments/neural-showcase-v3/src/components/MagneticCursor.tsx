@@ -75,8 +75,9 @@ export function MagneticCursor() {
       <div
         ref={dot}
         aria-hidden
-        className="tars-cursor-dot pointer-events-none fixed left-0 top-0 z-[100] h-1.5 w-1.5 rounded-full bg-accent mix-blend-screen"
+        className="tars-cursor-dot pointer-events-none fixed left-0 top-0 z-[100] h-1.5 w-1.5 rounded-full mix-blend-screen"
         style={{
+          background: "var(--color-accent)",
           boxShadow: "0 0 12px var(--color-accent-soft)",
           willChange: "transform",
         }}
@@ -84,8 +85,11 @@ export function MagneticCursor() {
       <div
         ref={ring}
         aria-hidden
-        className="tars-cursor-ring pointer-events-none fixed left-0 top-0 z-[99] h-9 w-9 rounded-full border border-accent/45 mix-blend-screen transition-[border-color] duration-200"
-        style={{ willChange: "transform" }}
+        className="tars-cursor-ring pointer-events-none fixed left-0 top-0 z-[99] h-9 w-9 rounded-full mix-blend-screen transition-[border-color] duration-200"
+        style={{
+          border: "1px solid var(--color-accent-soft)",
+          willChange: "transform",
+        }}
       />
     </>
   );

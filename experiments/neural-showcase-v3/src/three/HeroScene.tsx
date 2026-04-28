@@ -43,35 +43,37 @@ function Core() {
   return (
     <Float speed={1.1} rotationIntensity={0.18} floatIntensity={0.55}>
       <group ref={root}>
+        {/* Inner reactor body — gold accent per design-system/tars/MASTER.md */}
         <Icosahedron args={[1.18, 4]}>
           <MeshDistortMaterial
-            color="#67E8F9"
-            emissive="#67E8F9"
-            emissiveIntensity={0.42}
+            color="#CA8A04"
+            emissive="#CA8A04"
+            emissiveIntensity={0.5}
             roughness={0.18}
-            metalness={0.65}
+            metalness={0.7}
             distort={0.34}
             speed={1.4}
           />
         </Icosahedron>
 
+        {/* HUD wireframe shell — cyan per HUD/Sci-Fi FUI rules */}
         <Icosahedron args={[1.55, 1]}>
           <meshBasicMaterial
-            color="#67E8F9"
+            color="#00FFFF"
             wireframe
             transparent
-            opacity={0.13}
+            opacity={0.16}
           />
         </Icosahedron>
 
         <Icosahedron args={[2.05, 0]}>
           <meshBasicMaterial transparent opacity={0} />
-          <Edges threshold={1} color="#67E8F9" />
+          <Edges threshold={1} color="#00FFFF" />
         </Icosahedron>
 
         <Icosahedron args={[2.62, 0]}>
           <meshBasicMaterial transparent opacity={0} />
-          <Edges threshold={1} color="#67E8F9" />
+          <Edges threshold={1} color="#00FFFF" />
         </Icosahedron>
       </group>
     </Float>
@@ -87,8 +89,10 @@ export function HeroScene() {
       style={{ position: "absolute", inset: 0, pointerEvents: "none" }}
     >
       <ambientLight intensity={0.18} />
-      <pointLight position={[3, 3, 5]} intensity={1.4} color="#67E8F9" />
-      <pointLight position={[-4, -2, -3]} intensity={0.4} color="#FBBF24" />
+      {/* Warm key light — gold accent per skill master. */}
+      <pointLight position={[3, 3, 5]} intensity={1.4} color="#CA8A04" />
+      {/* HUD rim light — cyan per HUD/Sci-Fi FUI. */}
+      <pointLight position={[-4, -2, -3]} intensity={0.45} color="#00FFFF" />
 
       <Suspense fallback={null}>
         <Environment preset="city" />
@@ -99,7 +103,7 @@ export function HeroScene() {
           speed={0.18}
           opacity={0.42}
           scale={[8, 6, 6]}
-          color="#67E8F9"
+          color="#CA8A04"
         />
       </Suspense>
 

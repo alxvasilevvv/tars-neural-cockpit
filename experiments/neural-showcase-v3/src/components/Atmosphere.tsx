@@ -12,16 +12,16 @@ export function Atmosphere() {
       aria-hidden
       className="pointer-events-none fixed inset-0 z-10 overflow-hidden"
     >
-      {/* Concentric guide rings echoing the WebGL core */}
+      {/* Concentric HUD guide rings — cyan per skill HUD/Sci-Fi FUI. */}
       <svg
         viewBox="-100 -100 200 200"
         className="absolute left-1/2 top-[42vh] h-[120vh] w-[120vh] -translate-x-1/2 -translate-y-1/2 opacity-[0.28] mix-blend-screen"
       >
         <defs>
           <radialGradient id="ring-fade" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#67E8F9" stopOpacity="0" />
-            <stop offset="55%" stopColor="#67E8F9" stopOpacity="0.55" />
-            <stop offset="100%" stopColor="#67E8F9" stopOpacity="0" />
+            <stop offset="0%" stopColor="#00FFFF" stopOpacity="0" />
+            <stop offset="55%" stopColor="#00FFFF" stopOpacity="0.55" />
+            <stop offset="100%" stopColor="#00FFFF" stopOpacity="0" />
           </radialGradient>
         </defs>
         <g
@@ -40,20 +40,21 @@ export function Atmosphere() {
         </g>
       </svg>
 
-      {/* Soft godray streaks */}
+      {/* Primary godray — gold accent (skill master CTA). */}
       <div
         className="absolute -left-[12vw] top-[-8vh] h-[68vh] w-[42vw] rotate-[18deg] mix-blend-screen"
         style={{
           background:
-            "radial-gradient(closest-side, rgba(103,232,249,0.16), rgba(103,232,249,0) 70%)",
-          filter: "blur(8px)",
+            "radial-gradient(closest-side, rgba(202,138,4,0.18), rgba(202,138,4,0) 70%)",
+          filter: "blur(10px)",
         }}
       />
+      {/* Secondary godray — cyan HUD highlight. */}
       <div
         className="absolute right-[-10vw] top-[24vh] h-[58vh] w-[40vw] -rotate-[16deg] mix-blend-screen"
         style={{
           background:
-            "radial-gradient(closest-side, rgba(251,191,36,0.07), rgba(251,191,36,0) 70%)",
+            "radial-gradient(closest-side, rgba(0,255,255,0.10), rgba(0,255,255,0) 70%)",
           filter: "blur(10px)",
         }}
       />

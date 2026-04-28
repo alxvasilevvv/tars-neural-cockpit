@@ -1,14 +1,15 @@
 /**
  * Decorative HUD corner brackets.
- * Source: design-system MASTER.md → "HUD/Sci-Fi FUI" style.
- * 1px lines, single accent colour, opacity 0.32, hidden under 880px.
+ * Source: design-system/tars/MASTER.md → "HUD / Sci-Fi FUI" rules.
+ * 1px lines, single HUD colour (cyan), opacity 0.32 base, hidden < 880px.
  */
 
 const Bracket = ({ d, className }: { d: string; className: string }) => (
   <svg
     viewBox="0 0 24 24"
     aria-hidden="true"
-    className={`pointer-events-none fixed z-30 hidden h-5 w-5 stroke-accent fill-none [stroke-width:1.4] [animation:pulseSoft_3.4s_ease-in-out_infinite] md:block ${className}`}
+    className={`pointer-events-none fixed z-30 hidden h-5 w-5 fill-none [stroke-width:1.4] [animation:pulseSoft_3.4s_ease-in-out_infinite] md:block ${className}`}
+    style={{ stroke: "var(--color-hud)" }}
   >
     <path d={d} />
   </svg>

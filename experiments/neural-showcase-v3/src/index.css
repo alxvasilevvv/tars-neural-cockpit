@@ -8,27 +8,37 @@
  */
 
 @theme {
-  --color-bg-0: #06070d;
-  --color-bg-1: #0a0d18;
-  --color-bg-2: #11162a;
-  --color-ink: #f4f6fb;
-  --color-ink-2: #9aa3b5;
-  --color-ink-3: #5c6377;
+  /* Skill master query → "Premium dark + gold accent" + Dark Mode (OLED). */
+  --color-bg-0: #000000;
+  --color-bg-1: #0b0b10;
+  --color-bg-2: #14141b;
+  --color-ink: #f5f5f0;
+  --color-ink-2: #a09e96;
+  --color-ink-3: #5c5a52;
 
-  --color-line: rgba(244, 246, 251, 0.06);
-  --color-line-strong: rgba(244, 246, 251, 0.12);
-  --color-line-hot: rgba(103, 232, 249, 0.28);
+  --color-line: rgba(245, 245, 240, 0.06);
+  --color-line-strong: rgba(245, 245, 240, 0.12);
+  --color-line-hot: rgba(202, 138, 4, 0.32);
 
-  --color-accent: #67e8f9;
-  --color-accent-soft: rgba(103, 232, 249, 0.55);
-  --color-accent-deep: rgba(103, 232, 249, 0.12);
+  /* Single primary accent — gold #CA8A04 from skill master. */
+  --color-accent: #ca8a04;
+  --color-accent-soft: rgba(202, 138, 4, 0.55);
+  --color-accent-deep: rgba(202, 138, 4, 0.12);
 
-  --color-alert: #fbbf24;
-  --color-alert-soft: rgba(251, 191, 36, 0.5);
+  /* HUD wireframe colour from --domain style "HUD/Sci-Fi FUI" — used
+     ONLY on technical decorations (1px lines, 3D rings, brackets). */
+  --color-hud: #00ffff;
+  --color-hud-soft: rgba(0, 255, 255, 0.32);
+  --color-hud-deep: rgba(0, 255, 255, 0.12);
 
-  --font-display: "Space Grotesk", "Inter", -apple-system, BlinkMacSystemFont, sans-serif;
-  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --font-mono: "Space Mono", "JetBrains Mono", "SF Mono", ui-monospace, monospace;
+  --color-alert: #ef4444;
+  --color-alert-soft: rgba(239, 68, 68, 0.5);
+  --color-success: #34d399;
+
+  /* Skill master typography — Share Tech Mono + Fira Code. */
+  --font-display: "Share Tech Mono", "Fira Code", ui-monospace, monospace;
+  --font-sans: "Fira Code", ui-monospace, "SF Mono", monospace;
+  --font-mono: "Fira Code", ui-monospace, "SF Mono", monospace;
 }
 
 /* shadcn / 21st.dev compatible tokens (mapped to TARS palette) */
@@ -81,9 +91,17 @@
 @layer utilities {
   .font-display {
     font-family: var(--font-display);
+    letter-spacing: 0.02em;
   }
   .font-mono-tech {
     font-family: var(--font-mono);
+    font-feature-settings: "calt" 0, "liga" 0;
+  }
+  .text-hud {
+    color: var(--color-hud);
+  }
+  .border-hud {
+    border-color: var(--color-hud-soft);
   }
 }
 
