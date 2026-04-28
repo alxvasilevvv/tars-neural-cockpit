@@ -19,7 +19,22 @@ from typing import Any, Iterable, Mapping, Optional
 
 from backend.core.meeet import current_trace, get_client, new_trace_id, trace_scope
 
+from .llm import detect_llm_voice
 from .voices import LocalVoice, MockCloudVoice, Proposal, Voice
+
+
+def _default_voice_panel() -> list[Voice]:
+    """Build the default voice panel.
+
+    Always includes the deterministic pair. Adds a third LLM voice if
+    a provider key is configured.
+    """
+
+    panel: list[Voice] = [LocalVoice(), MockCloudVoice()]
+    llm = detect_llm_voice()
+    if llm is not None:
+        panel.append(llm)
+    return panel
 
 
 @dataclass(frozen=True)
@@ -50,15 +65,19 @@ class Deliberation:
         }
 
 
+def _is_available(p: Proposal) -> bool:
+    return p.stance != "unavailable"
+
+
 def _agreement(voices: Iterable[Proposal]) -> float:
-    voices = list(voices)
-    if not voices:
+    voted = [v for v in voices if _is_available(v)]
+    if not voted:
         return 0.0
-    if len(voices) == 1:
+    if len(voted) == 1:
         return 1.0
-    counts = Counter(v.stance for v in voices)
+    counts = Counter(v.stance for v in voted)
     top_count = counts.most_common(1)[0][1]
-    return round(top_count / len(voices), 3)
+    return round(top_count / len(voted), 3)
 
 
 def _winner(voices: list[Proposal]) -> Proposal:
@@ -66,31 +85,37 @@ def _winner(voices: list[Proposal]) -> Proposal:
 
     Strategy: count stances; the most-common stance wins. Ties go to the
     voice with the highest confidence in that stance. With a single
-    voice it just returns it.
+    voice it just returns it. ``unavailable`` proposals are ignored.
     """
 
     if not voices:
         raise ValueError("no voices to choose from")
-    if len(voices) == 1:
+    voted = [v for v in voices if _is_available(v)]
+    if not voted:
+        # All voices unavailable — fall back to the first proposal so the
+        # orchestrator still emits a deterministic shape.
         return voices[0]
-    counts = Counter(v.stance for v in voices)
+    if len(voted) == 1:
+        return voted[0]
+    counts = Counter(v.stance for v in voted)
     top_count = counts.most_common(1)[0][1]
     top_stances = {s for s, c in counts.items() if c == top_count}
-    candidates = [v for v in voices if v.stance in top_stances]
+    candidates = [v for v in voted if v.stance in top_stances]
     candidates.sort(key=lambda v: (v.confidence, len(v.summary)), reverse=True)
     return candidates[0]
 
 
 def _contradictions(voices: list[Proposal]) -> list[str]:
-    if len(voices) < 2:
+    voted = [v for v in voices if _is_available(v)]
+    if len(voted) < 2:
         return []
-    counts = Counter(v.stance for v in voices)
+    counts = Counter(v.stance for v in voted)
     if len(counts) <= 1:
         return []
     out: list[str] = []
     seen: set[tuple[str, str]] = set()
-    for a in voices:
-        for b in voices:
+    for a in voted:
+        for b in voted:
             if a.model >= b.model:
                 continue
             if a.stance == b.stance:
@@ -109,7 +134,7 @@ class CouncilOrchestrator:
     """Runs multiple voices and arbitrates."""
 
     def __init__(self, voices: list[Voice] | None = None) -> None:
-        self.voices: list[Voice] = list(voices or [LocalVoice(), MockCloudVoice()])
+        self.voices: list[Voice] = list(voices) if voices is not None else _default_voice_panel()
 
     async def deliberate(
         self,
@@ -125,7 +150,7 @@ class CouncilOrchestrator:
             chosen_voices = self.voices[:1]
         elif mode == "dual_vote":
             chosen_voices = self.voices[:2]
-        else:  # n_vote
+        else:  # n_vote — use every voice configured (incl. LLM if present)
             chosen_voices = list(self.voices)
 
         if not chosen_voices:

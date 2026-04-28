@@ -21,6 +21,7 @@ from web_extras.routers import domains as domains_router
 from web_extras.routers import meeet as meeet_router
 from web_extras.routers import playbooks as playbooks_router
 from web_extras.routers import policy as policy_router
+from web_extras.routers import vault as vault_router
 
 START_TS = time.time()
 
@@ -49,6 +50,7 @@ app.include_router(meeet_router.router)
 app.include_router(council_router.router)
 app.include_router(policy_router.router)
 app.include_router(playbooks_router.router)
+app.include_router(vault_router.router)
 
 
 @app.get("/health")

@@ -5,6 +5,7 @@ Two voices propose, an arbiter decides. The orchestrator emits a
 per-model leaderboards across products.
 """
 
+from .llm import AnthropicVoice, OpenAIVoice, detect_llm_voice
 from .orchestrator import CouncilOrchestrator, Deliberation, get_council
 from .voices import (
     LocalVoice,
@@ -14,11 +15,14 @@ from .voices import (
 )
 
 __all__ = [
+    "AnthropicVoice",
     "CouncilOrchestrator",
     "Deliberation",
     "LocalVoice",
     "MockCloudVoice",
+    "OpenAIVoice",
     "Proposal",
     "Voice",
+    "detect_llm_voice",
     "get_council",
 ]
