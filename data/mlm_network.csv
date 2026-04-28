@@ -1,0 +1,16 @@
+handle,sponsor,joined_at,last_active_at,rank,volume_usd
+@nora,,2025-08-01,2026-04-27,gold,18400
+@kai,@nora,2025-08-12,2026-04-27,silver,11200
+@aria,@nora,2025-08-15,2026-03-20,silver,5400
+@theo,@kai,2025-09-02,2026-04-26,bronze,3100
+@iris,@kai,2025-09-12,2026-02-08,bronze,800
+@max,@aria,2025-10-01,2026-04-25,starter,2200
+@rin,@aria,2025-11-10,2026-01-15,starter,300
+@leo,@theo,2025-12-04,2026-04-22,starter,1100
+@zia,@theo,2025-12-22,2026-04-26,starter,1800
+@otto,@iris,2026-01-12,2026-04-21,starter,560
+@vera,@max,2026-02-01,2026-04-26,starter,950
+@sasha,@max,2026-02-14,2025-12-15,starter,120
+@finn,@leo,2026-03-04,2026-04-26,starter,420
+@nia,@zia,2026-03-15,2026-04-26,starter,640
+@arin,@vera,2026-04-04,2026-04-25,starter,210

@@ -27,8 +27,20 @@ Ideas for the next sprints. Triage by impact × cost and pull into
    - `traders.binance_pull_klines` (read-only).
    - `business.hubspot_pull_pipeline` (read-only).
    - `mlm.tg_outreach_draft` (returns markdown, no auto-send).
-   - `science.arxiv_search` (already trivial; expose limit/sort).
-   Each adapter must call `meeet.emit("integration.<vendor>.<call>", ...)`.
+   - `science.arxiv_search` ✅ shipped — `science.search_literature`
+     against the public Atom API.
+   - `science.summarize_paper` ✅ shipped — Atom by id, returns
+     title/authors/tldr/abstract.
+   - `traders.fetch_quote` ✅ shipped — DexScreener public search.
+   - `traders.summarize_market` ✅ shipped — basket aggregation +
+     bias + dispersion contradictions.
+   - `business.kpi_snapshot`, `business.daily_brief` ✅ shipped —
+     local JSON-backed.
+   - `mlm.downline_snapshot`, `mlm.retention_alert` ✅ shipped —
+     local CSV-backed; `score_recruit`, `generate_post` upgraded to
+     deterministic heuristics.
+   Each remaining adapter must call
+   `meeet.emit("integration.<vendor>.<call>", ...)`.
 7. **Pack composition.** Allow stacking — e.g. "business + science" for
    research-heavy founders. Composition resolves overlapping action ids
    with a deterministic priority.
@@ -43,10 +55,13 @@ Ideas for the next sprints. Triage by impact × cost and pull into
     on input. Adds the "alive" feel without forcing engagement.
 11. **GLB asset slot UI.** Drag-and-drop a GLB onto the page in dev to
     preview alternate cores; persist to `localStorage` until cleared.
-12. **Audio.** Subtle ambient hum + tactile "click" on magnetic hovers
-    via WebAudio. UI mute toggle, off by default.
-13. **Page-to-cockpit transition.** Click "Open cockpit" → camera dives into
-    the core, fades to a real cockpit shell at `/cockpit.html`.
+12. **Audio.** ✅ shipped (lib/sound.ts) — ambient hum + UI cues +
+    SoundToggle, muted by default. Open work: richer ambient bed
+    with 4-5 tones + slow LFO; per-route presence (cockpit cooler,
+    landing warmer).
+13. **Page-to-cockpit transition.** ✅ shipped — `BrowserRouter` +
+    `AnimatePresence` blur-slide between `/` and `/cockpit`. Open
+    work: shared overlay sweep on route change.
 14. **Dark / light variants.** A cooler "studio" lit variant for
     investor screenshots: still minimalist, but white background and ink
     type. Activated by `?theme=studio`.
@@ -69,6 +84,12 @@ Ideas for the next sprints. Triage by impact × cost and pull into
     multi-step action chains the operator triggers from a palette.
 20. **Hotkey palette.** ⌘K opens a fuzzy palette over packs, awareness
     sources, recent traces.
+26. **Awareness ticker.** ✅ shipped — `<AwarenessTicker/>` consumes
+    `/api/awareness/stream` SSE in the Cockpit page. Open work:
+    sparkline chart variant, replay-from-trace mode.
+27. **Smart response renderer.** Cockpit currently shows raw JSON.
+    Add per-action templates that pull `summary` / `top_gainers` /
+    `at_risk` / `tldr` into a HUD card on top of the JSON viewer.
 
 ## Engineering
 

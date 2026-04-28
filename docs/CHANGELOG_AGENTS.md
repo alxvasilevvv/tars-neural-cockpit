@@ -4,6 +4,122 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-04-28 — Cowork agent · v3 hero polish (skill --design-system audit)
+
+**Summary**
+
+User screenshot of `/` showed cyan neon flooding dominating the hero
+(massive sweeping curves + glowing tubes + saturated gold orb). Three
+batches of fixes touching only `experiments/neural-showcase-v3/`:
+
+1. `Hero.tsx` — stripped 5 staggered motion blocks → 1 entrance fade.
+   Removed `KineticText` from H1 (static text reads cleaner at 9rem),
+   `Marquee` (already in `<Rail/>`), `HudPlates` (over-decoration).
+2. `Atmosphere.tsx` — 100 → 49 lines. Removed cyan rotating rings,
+   gold + cyan godrays, animated turbulence grain. Scanlines reduced
+   from opacity 0.08 to 0.025 (Master §1.4 cap). Kept top/bottom
+   vignettes only.
+3. `App.tsx` — page-transition variants stripped of `filter:
+   blur(8px)` (was flickering every navigation). Plain opacity + y.
+4. `three/HeroScene.tsx` — full rewrite, 310 → 122 lines. Removed
+   2× FresnelShell with sweeping cyan GLSL bands, TorusKnot,
+   ChromaticAberration, mipmapBlur, 600 background Stars, two of
+   three Sparkle layers (420 → 60 particles), inner-shell + 2 edge
+   cages (7 nested glowing meshes → 3). Bloom `1.05 → 0.32`,
+   threshold `0.16 → 0.86` (Master cap ≤ 0.85 / ≥ 0.18). Vignette
+   `darkness 0.78 → 0.92`. Camera FOV `38 → 32`. Pointer rotation
+   amplitude `0.18 → 0.04`.
+5. Final polish via `--design-system` skill audit: H1 letter-spacing
+   `0.01em → -0.02em`, leading `0.96 → 0.94` per skill
+   `exaggerated-minimalism` rule (negative tracking + tight leading
+   for luxury/premium dark statement type).
+
+Skill confirmations: gold `#CA8A04` is canonical premium-dark CTA;
+Share Tech Mono + Fira Code is the Tech/HUD Mono pairing; OLED with
+sparing glow is the right palette frame.
+
+**Files**
+
+- `experiments/neural-showcase-v3/src/components/Hero.tsx`
+- `experiments/neural-showcase-v3/src/components/Atmosphere.tsx`
+- `experiments/neural-showcase-v3/src/App.tsx`
+- `experiments/neural-showcase-v3/src/three/HeroScene.tsx`
+- `docs/CHANGELOG_AGENTS.md` (this entry)
+
+## 2026-04-28 — Cursor agent · real adapters + SSE awareness + cockpit live wiring
+
+**Summary**
+
+- Replaced the four heaviest stubs with real, deterministic adapters:
+  - `business.kpi_snapshot` reads `data/business_kpi.json` (path
+    overridable via `BUSINESS_KPI_PATH` or per-call `path` arg) and
+    returns `metrics`, ranked `summary`, `as_of`, `sources`.
+  - `business.daily_brief` composes a deterministic operator brief
+    from KPI + `data/business_deals.json`: deltas, top next-step
+    actions, headline summary. Council can drop in without changing
+    the surface contract.
+  - `mlm.downline_snapshot` reads `data/mlm_network.csv`, walks
+    sponsor → handle ancestry, computes `total/active/dormant/ranks/
+    by_depth/volume_usd`, returns flat `members[]`.
+  - `mlm.retention_alert` filters by configurable `threshold_days`.
+  - `mlm.score_recruit`, `mlm.generate_post` upgraded to deterministic
+    heuristics with model labels + hints (still stubs but useful).
+  - `science.summarize_paper` accepts arxiv id / `arxiv:<id>` / full
+    URL via `_normalize_arxiv_ref`, fetches the Atom entry, returns
+    title/authors/published/primary_category/categories/tldr (first
+    two sentences)/abstract.
+  - `traders.summarize_market` aggregates a basket of tickers via
+    `fetch_quote`, computes `avg_change_24h`, surfaces `bias`
+    (risk-on/off/neutral/uncertain), `top_gainers`, `top_losers`,
+    and a dispersion `contradictions[]`. Sample run BTC/ETH/SOL/ARB
+    on 2026-04-28: RISK-OFF, basket -1.55%/24h.
+  - `traders.fetch_quote` picker upgraded to prefer the highest-liquidity
+    pair *with* `priceChange.h24` populated; falls back otherwise.
+- New SSE endpoint `GET /api/awareness/stream` in
+  `web_extras/routers/awareness.py` emits `hello`, `system.pulse`,
+  `domain.heartbeat`, `bye` frames. Tunable via env
+  `AWARENESS_PULSE_S`, `AWARENESS_TICK_LIMIT`. Trace-scoped.
+- Frontend Cockpit gains `<AwarenessTicker/>` (`src/components/
+  AwarenessTicker.tsx`) — connects via EventSource, animates CPU/RAM
+  bars, lists last 6 domain heartbeats, shows trace_id and live
+  status pill. SSE client at `src/lib/awareness.ts`.
+- Tests: `tests/test_real_adapters.py` (KPI, daily brief, downline
+  snapshot, retention alert, score recruit, arxiv ref normaliser),
+  `tests/test_awareness_stream.py` (hello + N pulses + bye, bounded
+  cpu/ram). Full suite: 34 passing.
+- Smoke verified end-to-end against `:9911`:
+  - `business.daily_brief` → "MRR_USD is up 4.6% — focus on Pelagic
+    Energy.", 4 next steps.
+  - `mlm.downline_snapshot` → 15 members, 11 active, $47,200 volume,
+    ranks `{starter:10, silver:2, bronze:2, gold:1}`.
+  - `mlm.retention_alert(40)` → @sasha (134d), @rin (103d), @iris (79d).
+  - `science.summarize_paper(2305.13245)` → "GQA: Training
+    Generalized Multi-Query Transformer Models from Multi-Head
+    Checkpoints" with two-sentence tldr.
+  - `traders.summarize_market` → BTC $76k, ETH $2.26k, RISK-OFF.
+  - SSE first frame: `hello{trace_id, domains: [business, mlm,
+    science, traders], interval_s: 1.2}`.
+
+**Files**
+
+- `backend/core/domains/packs/business/actions.py` — full rewrite.
+- `backend/core/domains/packs/mlm/actions.py` — full rewrite.
+- `backend/core/domains/packs/science/actions.py` — `summarize_paper`
+  + `_normalize_arxiv_ref`.
+- `backend/core/domains/packs/traders/actions.py` — real
+  `summarize_market`, `fetch_quote` picker upgrade.
+- `web_extras/routers/awareness.py` — new SSE router.
+- `web_extras/app.py` — mount awareness router.
+- `data/business_kpi.json`, `data/business_deals.json`,
+  `data/mlm_network.csv` — sample data.
+- `experiments/neural-showcase-v3/src/lib/awareness.ts`,
+  `experiments/neural-showcase-v3/src/components/AwarenessTicker.tsx`,
+  `experiments/neural-showcase-v3/src/pages/Cockpit.tsx` — frontend
+  consumer.
+- `tests/test_real_adapters.py`, `tests/test_awareness_stream.py`
+  — new suites.
+- `docs/AGENT_HANDOFF.md`, `docs/IDEAS.md` — sync.
+
 ## 2026-04-28 — Cursor agent · transcript + showcase v3 (React) + Claude Code
 
 **Summary**

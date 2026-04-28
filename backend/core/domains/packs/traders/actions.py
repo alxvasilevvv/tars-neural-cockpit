@@ -47,7 +47,17 @@ async def fetch_quote(args: Mapping[str, Any]) -> Mapping[str, Any]:
         key=lambda p: float((p.get("liquidity") or {}).get("usd") or 0.0),
         reverse=True,
     )
-    top = pairs[0] if pairs else None
+    # Prefer the highest-liquidity pair that has 24h change populated.
+    # Some pairs surface high liquidity but no priceChange — falling back
+    # to such a pair makes summarize_market noisy.
+    top = next(
+        (
+            p
+            for p in pairs
+            if (p.get("priceChange") or {}).get("h24") is not None
+        ),
+        pairs[0] if pairs else None,
+    )
 
     if not top:
         return {
@@ -101,14 +111,100 @@ async def place_alert(args: Mapping[str, Any]) -> Mapping[str, Any]:
     }
 
 
+DEFAULT_BASKET = ("BTC", "ETH", "SOL", "ARB")
+
+
 async def summarize_market(args: Mapping[str, Any]) -> Mapping[str, Any]:
     horizon = str(args.get("horizon", "intraday"))
+    basket_arg = args.get("basket")
+    if isinstance(basket_arg, list) and basket_arg:
+        basket = tuple(str(t).strip().upper() for t in basket_arg if t)
+    else:
+        basket = DEFAULT_BASKET
+
+    quotes: list[dict[str, Any]] = []
+    failures: list[dict[str, Any]] = []
+    for ticker in basket:
+        q = await fetch_quote({"ticker": ticker})
+        if q.get("ok") and q.get("price") is not None:
+            quotes.append(dict(q))
+        else:
+            failures.append({"ticker": ticker, "error": q.get("error")})
+
+    if not quotes:
+        return {
+            "ok": False,
+            "error": "no_quotes",
+            "horizon": horizon,
+            "basket": list(basket),
+            "failures": failures,
+        }
+
+    changes = [q.get("change_24h") for q in quotes if isinstance(q.get("change_24h"), (int, float))]
+    avg_change = round(sum(changes) / len(changes), 3) if changes else None
+
+    by_change = sorted(
+        [q for q in quotes if isinstance(q.get("change_24h"), (int, float))],
+        key=lambda q: q.get("change_24h", 0),
+        reverse=True,
+    )
+    top_gainers = [
+        {"ticker": q["ticker"], "change_24h": q["change_24h"], "price": q["price"]}
+        for q in by_change[:2]
+    ]
+    top_losers = [
+        {"ticker": q["ticker"], "change_24h": q["change_24h"], "price": q["price"]}
+        for q in by_change[-2:][::-1]
+        if q.get("change_24h", 0) < 0
+    ]
+
+    if avg_change is None:
+        bias = "uncertain"
+        verb = "no clear bias"
+    elif avg_change > 0.5:
+        bias = "risk_on"
+        verb = f"basket up {avg_change:+.2f}% on 24h"
+    elif avg_change < -0.5:
+        bias = "risk_off"
+        verb = f"basket down {avg_change:+.2f}% on 24h"
+    else:
+        bias = "neutral"
+        verb = f"basket flat ({avg_change:+.2f}%)"
+
+    signals = [
+        {
+            "kind": "trend",
+            "horizon": horizon,
+            "bias": bias,
+            "evidence": verb,
+        }
+    ]
+
+    contradictions: list[dict[str, Any]] = []
+    if top_gainers and top_losers:
+        contradictions.append(
+            {
+                "kind": "dispersion",
+                "detail": (
+                    f"{top_gainers[0]['ticker']} {top_gainers[0]['change_24h']:+.2f}% vs "
+                    f"{top_losers[0]['ticker']} {top_losers[0]['change_24h']:+.2f}%"
+                ),
+            }
+        )
+
     return {
         "ok": True,
         "horizon": horizon,
-        "summary": "Market summary stub. Replace with council output.",
-        "signals": [],
-        "contradictions": [],
+        "basket": list(basket),
+        "summary": f"{bias.replace('_', '-').upper()} — {verb}.",
+        "avg_change_24h": avg_change,
+        "top_gainers": top_gainers,
+        "top_losers": top_losers,
+        "signals": signals,
+        "contradictions": contradictions,
+        "quotes": quotes,
+        "failures": failures,
+        "sources": ["dexscreener"],
     }
 
 
@@ -142,7 +238,7 @@ ACTIONS: tuple[ActionSpec, ...] = (
     ActionSpec(
         id="summarize_market",
         name="Summarize market",
-        description="Synthesize a market summary using the council.",
+        description="Aggregate live quotes for a basket and surface bias + dispersion.",
         handler=summarize_market,
         schema={
             "type": "object",
@@ -150,7 +246,13 @@ ACTIONS: tuple[ActionSpec, ...] = (
                 "horizon": {
                     "type": "string",
                     "enum": ["intraday", "swing", "position"],
-                }
+                },
+                "basket": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "minItems": 1,
+                    "maxItems": 12,
+                },
             },
         },
     ),

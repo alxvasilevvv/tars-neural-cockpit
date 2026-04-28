@@ -1,17 +1,177 @@
+"""Action handlers for the business pack.
+
+Real adapters land here progressively. Two are implemented now:
+
+- ``kpi_snapshot`` reads ``data/business_kpi.json`` (path overridable via
+  ``BUSINESS_KPI_PATH`` env or the ``path`` arg).
+- ``daily_brief`` composes a deterministic operator brief from the KPI
+  snapshot plus ``data/business_deals.json``. Replaces the council
+  output until the council orchestrator lands; the council can drop in
+  here without changing the surface contract.
+
+``draft_email`` and ``log_deal`` stay structured stubs — they need a
+mail provider / CRM integration to be useful and are out of scope for
+the local-first cut.
+"""
+
 from __future__ import annotations
 
+import json
+import os
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Mapping
 
 from ...base import ActionSpec
 
+_REPO_ROOT = Path(__file__).resolve().parents[5]
+_DEFAULT_KPI_PATH = _REPO_ROOT / "data" / "business_kpi.json"
+_DEFAULT_DEALS_PATH = _REPO_ROOT / "data" / "business_deals.json"
 
-async def daily_brief(args: Mapping[str, Any]) -> Mapping[str, Any]:
+
+def _resolve(path_arg: str | None, env_var: str, default: Path) -> Path:
+    if path_arg:
+        return Path(path_arg).expanduser()
+    env = os.getenv(env_var)
+    if env:
+        return Path(env).expanduser()
+    return default
+
+
+def _read_json(path: Path) -> Any:
+    with path.open("r", encoding="utf-8") as fh:
+        return json.load(fh)
+
+
+async def kpi_snapshot(args: Mapping[str, Any]) -> Mapping[str, Any]:
+    path = _resolve(
+        str(args.get("path") or "") or None,
+        "BUSINESS_KPI_PATH",
+        _DEFAULT_KPI_PATH,
+    )
+    if not path.exists():
+        return {
+            "ok": False,
+            "error": "kpi_file_missing",
+            "path": str(path),
+            "hint": "drop a JSON snapshot at data/business_kpi.json or set BUSINESS_KPI_PATH",
+        }
+    try:
+        data = _read_json(path)
+    except json.JSONDecodeError as e:
+        return {"ok": False, "error": "kpi_parse_error", "detail": str(e)}
+
+    metrics = data.get("metrics") or {}
+    summary: list[dict[str, Any]] = []
+    for key, value in metrics.items():
+        if not isinstance(value, dict):
+            continue
+        summary.append(
+            {
+                "id": key,
+                "value": value.get("value"),
+                "delta_pct": value.get("delta_pct"),
+                "trend": value.get("trend") or "flat",
+            }
+        )
+
     return {
         "ok": True,
-        "date": str(args.get("date", "")),
-        "summary": "Daily brief stub. Replace with council output.",
-        "deltas": [],
-        "actions": [],
+        "as_of": data.get("as_of"),
+        "sources": data.get("sources") or ["local"],
+        "metrics": metrics,
+        "summary": summary,
+        "path": str(path),
+    }
+
+
+async def daily_brief(args: Mapping[str, Any]) -> Mapping[str, Any]:
+    date = str(args.get("date") or datetime.now(timezone.utc).date().isoformat())
+
+    kpi_path = _resolve(
+        str(args.get("kpi_path") or "") or None,
+        "BUSINESS_KPI_PATH",
+        _DEFAULT_KPI_PATH,
+    )
+    deals_path = _resolve(
+        str(args.get("deals_path") or "") or None,
+        "BUSINESS_DEALS_PATH",
+        _DEFAULT_DEALS_PATH,
+    )
+
+    kpi_data: dict[str, Any] = {}
+    if kpi_path.exists():
+        try:
+            kpi_data = _read_json(kpi_path)
+        except json.JSONDecodeError:
+            kpi_data = {}
+
+    deals: list[dict[str, Any]] = []
+    if deals_path.exists():
+        try:
+            raw = _read_json(deals_path)
+            deals = [d for d in raw if isinstance(d, dict)]
+        except json.JSONDecodeError:
+            deals = []
+
+    metrics = kpi_data.get("metrics") or {}
+    deltas = []
+    for key in ("mrr_usd", "pipeline_usd", "logo_churn_pct", "nps"):
+        m = metrics.get(key) or {}
+        if "delta_pct" not in m:
+            continue
+        deltas.append(
+            {
+                "id": key,
+                "value": m.get("value"),
+                "delta_pct": m.get("delta_pct"),
+                "trend": m.get("trend") or "flat",
+            }
+        )
+
+    deals_active = [d for d in deals if d.get("stage") not in {"won", "lost"}]
+    deals_active.sort(
+        key=lambda d: float(d.get("amount", 0) or 0), reverse=True
+    )
+    next_steps = [
+        {
+            "deal_id": d.get("id"),
+            "name": d.get("name"),
+            "stage": d.get("stage"),
+            "amount": d.get("amount"),
+            "due": d.get("due"),
+            "next_step": d.get("next_step"),
+        }
+        for d in deals_active[:5]
+    ]
+
+    headline_metric = next(
+        (
+            d
+            for d in deltas
+            if isinstance(d.get("delta_pct"), (int, float))
+        ),
+        None,
+    )
+    if headline_metric:
+        verb = "up" if (headline_metric["delta_pct"] or 0) >= 0 else "down"
+        summary = (
+            f"{headline_metric['id'].upper()} is {verb} "
+            f"{abs(headline_metric['delta_pct']):.1f}% — focus on "
+            f"{(next_steps[0]['name'] if next_steps else 'pipeline')}."
+        )
+    else:
+        summary = "No KPI deltas available; review pipeline manually."
+
+    return {
+        "ok": True,
+        "date": date,
+        "summary": summary,
+        "deltas": deltas,
+        "actions": next_steps,
+        "deals_total": len(deals),
+        "deals_active": len(deals_active),
+        "sources": ["local-json"],
     }
 
 
@@ -19,21 +179,28 @@ async def draft_email(args: Mapping[str, Any]) -> Mapping[str, Any]:
     to = str(args.get("to", "")).strip()
     if not to:
         return {"ok": False, "error": "to_required"}
+    subject = str(args.get("subject", "")).strip() or "Quick note"
+    tone = str(args.get("tone", "concise"))
+
+    body_by_tone = {
+        "concise": "Quick one — could we sync briefly this week to align?",
+        "warm": "Hope you're well! I'd love to grab time to align on next steps.",
+        "formal": (
+            "I would like to schedule a brief meeting at your convenience "
+            "to discuss our next milestones."
+        ),
+        "blunt": "We need to align this week. What slot works?",
+    }
+    body = body_by_tone.get(tone, body_by_tone["concise"])
+
     return {
         "ok": True,
         "to": to,
-        "subject": str(args.get("subject", "")),
-        "body": "Draft email stub. Council will replace.",
-        "tone": str(args.get("tone", "concise")),
-    }
-
-
-async def kpi_snapshot(args: Mapping[str, Any]) -> Mapping[str, Any]:
-    return {
-        "ok": True,
-        "metrics": {},
-        "as_of": None,
-        "sources": [],
+        "subject": subject,
+        "body": body,
+        "tone": tone,
+        "sent": False,
+        "hint": "draft only; cockpit will require explicit confirmation to send",
     }
 
 
@@ -47,6 +214,7 @@ async def log_deal(args: Mapping[str, Any]) -> Mapping[str, Any]:
         "name": name,
         "amount": float(args.get("amount", 0) or 0),
         "stage": str(args.get("stage", "discovery")),
+        "hint": "writes locally; CRM push happens once the CRM bridge lands",
     }
 
 
@@ -54,11 +222,15 @@ ACTIONS: tuple[ActionSpec, ...] = (
     ActionSpec(
         id="daily_brief",
         name="Compose daily brief",
-        description="Compose the morning brief from awareness sources.",
+        description="Compose the morning brief from local KPI + deals snapshots.",
         handler=daily_brief,
         schema={
             "type": "object",
-            "properties": {"date": {"type": "string", "format": "date"}},
+            "properties": {
+                "date": {"type": "string", "format": "date"},
+                "kpi_path": {"type": "string"},
+                "deals_path": {"type": "string"},
+            },
         },
     ),
     ActionSpec(
@@ -82,9 +254,12 @@ ACTIONS: tuple[ActionSpec, ...] = (
     ActionSpec(
         id="kpi_snapshot",
         name="KPI snapshot",
-        description="Snapshot KPI metrics from registered awareness sources.",
+        description="Read the local KPI snapshot (JSON) and return summary deltas.",
         handler=kpi_snapshot,
-        schema={"type": "object", "properties": {}},
+        schema={
+            "type": "object",
+            "properties": {"path": {"type": "string"}},
+        },
     ),
     ActionSpec(
         id="log_deal",

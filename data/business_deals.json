@@ -1,0 +1,7 @@
+[
+  { "id": "d-7012", "name": "Northstar Robotics", "amount": 84000, "stage": "negotiation", "owner": "you", "next_step": "send red-line", "due": "2026-04-30" },
+  { "id": "d-7010", "name": "Helix Bio", "amount": 22000, "stage": "discovery", "owner": "you", "next_step": "intro call #2", "due": "2026-04-29" },
+  { "id": "d-7004", "name": "Fold Capital", "amount": 196000, "stage": "proposal", "owner": "you", "next_step": "scope review", "due": "2026-05-02" },
+  { "id": "d-6998", "name": "Tessera AI", "amount": 48000, "stage": "won", "owner": "you", "next_step": "kick-off", "due": "2026-04-30" },
+  { "id": "d-6991", "name": "Pelagic Energy", "amount": 312000, "stage": "qualification", "owner": "you", "next_step": "BANT call", "due": "2026-05-04" }
+]

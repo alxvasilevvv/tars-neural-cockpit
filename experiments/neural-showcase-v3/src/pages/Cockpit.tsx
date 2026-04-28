@@ -12,6 +12,7 @@ import type { DomainPack, DomainAction, InvokeResult } from "@/lib/api";
 import { CornerFrame, StatusLozenge, BarStack } from "@/components/Glyphs";
 import { Waveform } from "@/components/Waveform";
 import { sound } from "@/lib/sound";
+import { AwarenessTicker } from "@/components/AwarenessTicker";
 
 interface TraceEntry {
   at: string;
@@ -188,6 +189,10 @@ export function Cockpit() {
           API · {API_BASE}{" "}
           {health ? `· uptime ${health.uptime_s.toFixed(1)}s` : ""}
         </p>
+      </div>
+
+      <div className="mb-8">
+        <AwarenessTicker />
       </div>
 
       {backendOffline && (

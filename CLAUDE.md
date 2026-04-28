@@ -46,8 +46,35 @@ specific audiences. Built-in packs: `traders`, `business`, `mlm`, `science`.
   `GET /api/domains/{slug}/awareness`, `GET /api/domains/{slug}/prompt`,
   `POST /api/domains/{slug}/actions/{action_id}`. The POST endpoint runs inside
   a meeet trace scope and emits `domain.action.invoked|completed|failed`.
-- Tests: `tests/test_domains.py`, `tests/test_meeet.py`.
+- Tests: `tests/test_domains.py`, `tests/test_meeet.py`,
+  `tests/test_real_adapters.py`, `tests/test_awareness_stream.py`.
 - Spec: `docs/DOMAIN_PACKS.md`.
+
+### Real adapters shipped (action contracts stay stable)
+
+- `traders.fetch_quote` — DexScreener public search, prefers
+  highest-liquidity pair with populated 24h change.
+- `traders.summarize_market` — basket aggregation: bias
+  (risk-on/off/neutral), top gainers/losers, dispersion contradictions.
+- `science.search_literature` — arXiv Atom feed.
+- `science.summarize_paper` — arXiv abstract by id / `arxiv:<id>` /
+  full URL; returns title/authors/tldr/abstract.
+- `business.kpi_snapshot`, `business.daily_brief` — local
+  JSON-backed (`data/business_kpi.json`, `data/business_deals.json`,
+  override via `BUSINESS_KPI_PATH` / `BUSINESS_DEALS_PATH` or the
+  `path` arg).
+- `mlm.downline_snapshot`, `mlm.retention_alert` — local
+  CSV-backed (`data/mlm_network.csv`, override via
+  `MLM_NETWORK_PATH`); `score_recruit`, `generate_post` are
+  deterministic heuristics with model labels.
+
+### SSE awareness stream (Phase 9.2)
+
+`GET /api/awareness/stream` (`web_extras/routers/awareness.py`) emits
+`hello`, `system.pulse`, `domain.heartbeat`, `bye` frames. Tunable via
+`AWARENESS_PULSE_S` and `AWARENESS_TICK_LIMIT`. Frontend consumer:
+`experiments/neural-showcase-v3/src/lib/awareness.ts` +
+`<AwarenessTicker/>` mounted at the top of `/cockpit`.
 
 Action handlers MUST:
 

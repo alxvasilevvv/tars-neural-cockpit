@@ -6,6 +6,7 @@ feed. Other actions remain typed stubs until they get real ground.
 
 from __future__ import annotations
 
+import re
 from typing import Any, Mapping
 from xml.etree import ElementTree as ET
 
@@ -117,16 +118,104 @@ async def search_literature(args: Mapping[str, Any]) -> Mapping[str, Any]:
     }
 
 
+_ARXIV_ID_RE = re.compile(
+    r"(\d{4}\.\d{4,5}(?:v\d+)?)|(?:^|/)([a-z\-]+/\d{7})"
+)
+
+
+def _normalize_arxiv_ref(ref: str) -> str | None:
+    """Pull a canonical arXiv id out of common shapes.
+
+    Accepts: ``2305.13245``, ``arxiv:2305.13245``, full URLs like
+    ``https://arxiv.org/abs/2305.13245`` and old-style ``cs.AI/0301001``.
+    Returns ``None`` if nothing recognisable is found.
+    """
+
+    if not ref:
+        return None
+    candidate = ref.strip()
+    candidate = candidate.replace("arxiv:", "").replace("arXiv:", "")
+    m = _ARXIV_ID_RE.search(candidate)
+    if not m:
+        return None
+    return (m.group(1) or m.group(2) or "").strip() or None
+
+
 async def summarize_paper(args: Mapping[str, Any]) -> Mapping[str, Any]:
     ref = str(args.get("ref", "")).strip()
     if not ref:
         return {"ok": False, "error": "ref_required"}
+
+    arxiv_id = _normalize_arxiv_ref(ref)
+    if not arxiv_id:
+        return {
+            "ok": False,
+            "error": "ref_unrecognised",
+            "hint": "expected arxiv id like 2305.13245 or full arxiv url",
+            "ref": ref,
+        }
+
+    try:
+        status, body = await get_text(
+            ARXIV_URL,
+            params={"id_list": arxiv_id, "max_results": 1},
+            timeout=8.0,
+        )
+    except NetworkError as e:
+        return {
+            "ok": False,
+            "error": "network_error",
+            "hint": "arxiv unreachable",
+            "detail": str(e),
+            "arxiv_id": arxiv_id,
+        }
+
+    if status != 200 or not body:
+        return {
+            "ok": False,
+            "error": "upstream_status",
+            "status": status,
+            "arxiv_id": arxiv_id,
+        }
+
+    try:
+        results = _parse_arxiv(body)
+    except ET.ParseError as e:
+        return {
+            "ok": False,
+            "error": "parse_error",
+            "detail": str(e),
+            "arxiv_id": arxiv_id,
+        }
+
+    if not results:
+        return {
+            "ok": False,
+            "error": "not_found",
+            "arxiv_id": arxiv_id,
+        }
+
+    paper = results[0]
+    abstract = paper.get("summary") or ""
+    sentences = [s.strip() for s in abstract.replace("\n", " ").split(". ") if s.strip()]
+    tldr = ". ".join(sentences[:2])
+    if tldr and not tldr.endswith("."):
+        tldr += "."
+
     return {
         "ok": True,
+        "arxiv_id": arxiv_id,
         "ref": ref,
-        "tldr": "Paper summary stub.",
-        "claims": [],
-        "experiments": [],
+        "title": paper.get("title"),
+        "authors": paper.get("authors"),
+        "published": paper.get("published"),
+        "primary_category": paper.get("primary_category"),
+        "categories": paper.get("categories"),
+        "tldr": tldr,
+        "abstract": abstract,
+        "sentences": len(sentences),
+        "url": paper.get("id"),
+        "sources": ["arxiv"],
     }
 
 

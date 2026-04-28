@@ -1,18 +1,158 @@
+"""Action handlers for the MLM pack.
+
+Real-ish adapters that read a local CSV downline and compute graph
+metrics. The CSV path is overridable via ``MLM_NETWORK_PATH`` env or
+the ``path`` arg. Format expected (header row required):
+
+    handle,sponsor,joined_at,last_active_at,rank,volume_usd
+
+``score_recruit`` and ``generate_post`` stay as structured stubs —
+recruit scoring needs a public-profile signal stack and content
+generation needs the council orchestrator.
+"""
+
 from __future__ import annotations
 
+import csv
+import os
+from collections import defaultdict
+from datetime import datetime, timezone
+from pathlib import Path
 from typing import Any, Mapping
 
 from ...base import ActionSpec
 
+_REPO_ROOT = Path(__file__).resolve().parents[5]
+_DEFAULT_NETWORK_PATH = _REPO_ROOT / "data" / "mlm_network.csv"
+
+
+def _resolve(path_arg: str | None) -> Path:
+    if path_arg:
+        return Path(path_arg).expanduser()
+    env = os.getenv("MLM_NETWORK_PATH")
+    if env:
+        return Path(env).expanduser()
+    return _DEFAULT_NETWORK_PATH
+
+
+def _parse_date(s: str) -> datetime | None:
+    s = (s or "").strip()
+    if not s:
+        return None
+    for fmt in ("%Y-%m-%d", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M:%SZ"):
+        try:
+            return datetime.strptime(s, fmt).replace(tzinfo=timezone.utc)
+        except ValueError:
+            continue
+    return None
+
+
+def _load(path: Path) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
+    with path.open("r", encoding="utf-8", newline="") as fh:
+        reader = csv.DictReader(fh)
+        for r in reader:
+            rows.append(r)
+    return rows
+
+
+def _depth_of(handle: str, parent_of: dict[str, str], cap: int = 32) -> int:
+    """Depth of ``handle`` from a root (no sponsor). Returns 0 for roots."""
+    depth = 0
+    cur = handle
+    seen: set[str] = set()
+    while True:
+        sponsor = (parent_of.get(cur) or "").strip()
+        if not sponsor:
+            return depth
+        if sponsor in seen or depth > cap:
+            return depth
+        seen.add(sponsor)
+        depth += 1
+        cur = sponsor
+
 
 async def downline_snapshot(args: Mapping[str, Any]) -> Mapping[str, Any]:
-    depth = int(args.get("depth", 5) or 5)
+    requested_depth = int(args.get("depth") or 12)
+    requested_depth = max(1, min(requested_depth, 32))
+    active_window_days = int(args.get("active_window_days") or 14)
+
+    path = _resolve(str(args.get("path") or "") or None)
+    if not path.exists():
+        return {
+            "ok": False,
+            "error": "network_file_missing",
+            "path": str(path),
+            "hint": "drop a CSV at data/mlm_network.csv or set MLM_NETWORK_PATH",
+        }
+
+    try:
+        rows = _load(path)
+    except Exception as exc:  # csv module raises a few different things
+        return {"ok": False, "error": "network_parse_error", "detail": str(exc)}
+
+    parent_of = {r.get("handle", ""): r.get("sponsor", "") for r in rows}
+    now = datetime.now(timezone.utc)
+
+    by_rank: dict[str, int] = defaultdict(int)
+    by_depth: dict[int, int] = defaultdict(int)
+    active = 0
+    dormant = 0
+    volume_total = 0.0
+    members: list[dict[str, Any]] = []
+
+    for r in rows:
+        handle = (r.get("handle") or "").strip()
+        if not handle:
+            continue
+        depth = _depth_of(handle, parent_of)
+        if depth > requested_depth:
+            continue
+        rank = (r.get("rank") or "starter").strip().lower()
+        try:
+            volume = float(r.get("volume_usd") or 0)
+        except ValueError:
+            volume = 0.0
+        last_active = _parse_date(r.get("last_active_at") or "")
+        is_active = bool(
+            last_active
+            and (now - last_active).days <= active_window_days
+        )
+        if is_active:
+            active += 1
+        else:
+            dormant += 1
+
+        volume_total += volume
+        by_rank[rank] += 1
+        by_depth[depth] += 1
+
+        members.append(
+            {
+                "handle": handle,
+                "sponsor": (r.get("sponsor") or "").strip() or None,
+                "depth": depth,
+                "rank": rank,
+                "volume_usd": volume,
+                "last_active_at": (
+                    last_active.isoformat() if last_active else None
+                ),
+                "active": is_active,
+            }
+        )
+
     return {
         "ok": True,
-        "depth": depth,
-        "active": 0,
-        "dormant": 0,
-        "ranks": {},
+        "depth": requested_depth,
+        "active_window_days": active_window_days,
+        "total": len(members),
+        "active": active,
+        "dormant": dormant,
+        "volume_usd": round(volume_total, 2),
+        "ranks": dict(sorted(by_rank.items(), key=lambda kv: -kv[1])),
+        "by_depth": {str(k): v for k, v in sorted(by_depth.items())},
+        "members": members,
+        "path": str(path),
     }
 
 
@@ -20,12 +160,22 @@ async def score_recruit(args: Mapping[str, Any]) -> Mapping[str, Any]:
     handle = str(args.get("handle", "")).strip()
     if not handle:
         return {"ok": False, "error": "handle_required"}
+
+    # Lightweight deterministic heuristic until we plug in a real public
+    # profile signal stack: hash the handle into a stable score and
+    # surface a couple of placeholder signals.
+    h = abs(hash(handle.lower())) % 100
+    score = round(0.4 + (h / 100.0) * 0.55, 2)
+    fit = ["consistent posting cadence"] if score > 0.7 else []
+    risk = ["low engagement on last 5 posts"] if score < 0.55 else []
     return {
         "ok": True,
         "handle": handle,
-        "score": 0.0,
-        "fit_signals": [],
-        "risk_signals": [],
+        "score": score,
+        "fit_signals": fit,
+        "risk_signals": risk,
+        "model": "heuristic-v0",
+        "hint": "stub heuristic; will be replaced by a real signal stack",
     }
 
 
@@ -33,20 +183,65 @@ async def generate_post(args: Mapping[str, Any]) -> Mapping[str, Any]:
     channel = str(args.get("channel", "ig")).lower()
     if channel not in {"ig", "tg", "wa"}:
         return {"ok": False, "error": "unsupported_channel", "channel": channel}
+    fmt = str(args.get("format", "post"))
+    topic = str(args.get("topic", "")).strip() or "team momentum"
+    drafts = {
+        "ig": f"Three things this week: traction, learning, and {topic}. Tag a teammate who's pushing the same direction.",
+        "tg": f"Quick update — {topic}. Reply with one win and one block. Will sync at 18:00.",
+        "wa": f"Hi! Sharing today's note on {topic}. Read in 60s; reply ✅ if useful.",
+    }
     return {
         "ok": True,
         "channel": channel,
-        "format": str(args.get("format", "post")),
-        "draft": "Content draft stub. Council will replace.",
-        "hashtags": [],
+        "format": fmt,
+        "topic": topic,
+        "draft": drafts[channel],
+        "hashtags": (
+            ["#momentum", "#team", "#" + topic.split()[0]] if channel == "ig" else []
+        ),
+        "hint": "deterministic draft; council will replace with personal voice",
     }
 
 
 async def retention_alert(args: Mapping[str, Any]) -> Mapping[str, Any]:
+    threshold_days = int(args.get("threshold_days") or 30)
+    path = _resolve(str(args.get("path") or "") or None)
+    if not path.exists():
+        return {
+            "ok": False,
+            "error": "network_file_missing",
+            "path": str(path),
+        }
+    try:
+        rows = _load(path)
+    except Exception as exc:
+        return {"ok": False, "error": "network_parse_error", "detail": str(exc)}
+
+    now = datetime.now(timezone.utc)
+    at_risk: list[dict[str, Any]] = []
+    for r in rows:
+        last_active = _parse_date(r.get("last_active_at") or "")
+        if last_active is None:
+            continue
+        days = (now - last_active).days
+        if days >= threshold_days:
+            at_risk.append(
+                {
+                    "handle": (r.get("handle") or "").strip(),
+                    "sponsor": (r.get("sponsor") or "").strip() or None,
+                    "rank": (r.get("rank") or "").strip(),
+                    "last_active_at": last_active.isoformat(),
+                    "days_silent": days,
+                    "reason": "no activity in window",
+                }
+            )
+    at_risk.sort(key=lambda d: d.get("days_silent", 0), reverse=True)
     return {
         "ok": True,
-        "at_risk": [],
-        "checked_at": None,
+        "threshold_days": threshold_days,
+        "at_risk": at_risk,
+        "checked_at": now.isoformat(),
+        "path": str(path),
     }
 
 
@@ -54,11 +249,15 @@ ACTIONS: tuple[ActionSpec, ...] = (
     ActionSpec(
         id="downline_snapshot",
         name="Downline snapshot",
-        description="Snapshot of network depth, activity and ranks.",
+        description="Snapshot of network depth, activity and ranks from the local CSV.",
         handler=downline_snapshot,
         schema={
             "type": "object",
-            "properties": {"depth": {"type": "integer", "minimum": 1, "maximum": 12}},
+            "properties": {
+                "depth": {"type": "integer", "minimum": 1, "maximum": 32},
+                "active_window_days": {"type": "integer", "minimum": 1, "maximum": 365},
+                "path": {"type": "string"},
+            },
         },
     ),
     ActionSpec(
@@ -93,8 +292,14 @@ ACTIONS: tuple[ActionSpec, ...] = (
     ActionSpec(
         id="retention_alert",
         name="Retention alert",
-        description="Find members going quiet and explain why.",
+        description="Find members going quiet beyond the threshold and explain.",
         handler=retention_alert,
-        schema={"type": "object", "properties": {}},
+        schema={
+            "type": "object",
+            "properties": {
+                "threshold_days": {"type": "integer", "minimum": 1, "maximum": 365},
+                "path": {"type": "string"},
+            },
+        },
     ),
 )
