@@ -13,6 +13,7 @@ import { CornerFrame, StatusLozenge, BarStack } from "@/components/Glyphs";
 import { Waveform } from "@/components/Waveform";
 import { sound } from "@/lib/sound";
 import { AwarenessTicker } from "@/components/AwarenessTicker";
+import { OperatorStrip } from "@/components/OperatorStrip";
 
 interface TraceEntry {
   at: string;
@@ -423,6 +424,8 @@ export function Cockpit() {
           </footer>
         </section>
       </div>
+
+      <OperatorStrip />
     </section>
   );
 }

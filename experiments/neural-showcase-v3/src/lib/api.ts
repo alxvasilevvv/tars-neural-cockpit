@@ -12,6 +12,7 @@ export interface DomainAction {
   name: string;
   description: string;
   schema: Record<string, unknown>;
+  destructive?: boolean;
 }
 
 export interface AwarenessSource {
@@ -20,6 +21,7 @@ export interface AwarenessSource {
   description: string;
   kind: string;
   config: Record<string, unknown>;
+  live?: boolean;
 }
 
 export interface DomainPack {
@@ -50,16 +52,24 @@ export async function listDomains(): Promise<DomainPack[]> {
   return d.domains;
 }
 
+export type PolicyMode = "autopilot" | "confirm" | "dry_run";
+
 export async function invokeAction(
   slug: string,
   actionId: string,
   args: Record<string, unknown>,
+  opts: { mode?: PolicyMode; traceId?: string } = {},
 ): Promise<InvokeResult> {
+  const headers: Record<string, string> = {
+    "content-type": "application/json",
+  };
+  if (opts.mode) headers["x-tars-policy-mode"] = opts.mode;
+  if (opts.traceId) headers["x-meeet-trace-id"] = opts.traceId;
   const r = await fetch(
     `${BASE}/api/domains/${slug}/actions/${actionId}`,
     {
       method: "POST",
-      headers: { "content-type": "application/json" },
+      headers,
       body: JSON.stringify(args),
     },
   );
@@ -68,6 +78,25 @@ export async function invokeAction(
     throw new Error(`HTTP ${r.status} · ${text}`);
   }
   return (await r.json()) as InvokeResult;
+}
+
+export async function snapshotAwareness(
+  slug: string,
+  sourceId: string,
+  args: Record<string, unknown> = {},
+): Promise<Record<string, unknown>> {
+  const qs = Object.keys(args).length
+    ? `?${new URLSearchParams(
+        Object.fromEntries(
+          Object.entries(args).map(([k, v]) => [k, String(v)]),
+        ),
+      ).toString()}`
+    : "";
+  const r = await fetch(
+    `${BASE}/api/domains/${slug}/awareness/${sourceId}/snapshot${qs}`,
+  );
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
 }
 
 export async function getHealth(): Promise<{
