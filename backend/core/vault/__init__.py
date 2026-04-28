@@ -16,6 +16,7 @@ from .keychain import (
     SecretRef,
     get_secret,
     list_known,
+    status_for_keys,
 )
 
 __all__ = [
@@ -23,4 +24,5 @@ __all__ = [
     "SecretRef",
     "get_secret",
     "list_known",
+    "status_for_keys",
 ]

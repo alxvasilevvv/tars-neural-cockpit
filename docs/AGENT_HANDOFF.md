@@ -121,7 +121,7 @@ cockpit can wire a live ticker.
   `tests/test_awareness_stream.py`, `tests/test_council.py`,
   `tests/test_policy.py`, `tests/test_playbooks.py`,
   `tests/test_mlm_db.py`, `tests/test_vault_and_llm_voice.py`.
-  **117 tests, all green.**
+  **122 tests, all green.**
 - **Specs:** `docs/DOMAIN_PACKS.md`, `docs/VIDEO_TRANSCRIPTS.md`,
   `docs/IDEAS.md`.
 - **Showcase v2 — vanilla:** `experiments/neural-showcase-v2/`
@@ -134,6 +134,18 @@ cockpit can wire a live ticker.
   `.cursor/rules/tars-architecture.mdc` — keep these three in sync.
 
 ## Done (running list, latest first)
+
+- **2026-04-29 — Adapters + per-pack auth + cockpit chunking:**
+  `DomainPack.auth_vault_keys()` + `status_for_keys()` feeds
+  `GET /api/domains/<slug>["auth"]`. `traders.news_feed` honours
+  `TRADERS_NEWS_RSS_URL` / `rss_url` (RSS/Atom parse + tone heuristics)
+  before falling back to JSON. `science/summarize_paper` appends
+  `openalex` when the DOI bridge resolves. `business.log_deal` POSTs
+  to HubSpot then Pipedrive when keys exist. New playbook
+  `mlm.recruitment_round`; `retention_round` uses `threshold_days`.
+  Frontend: `React.lazy` splits Landing vs Cockpit; Vite
+  `manualChunks` for react / r3f / three; OperatorStrip shows recent
+  `sampler.decision` rows.
 
 - **Phase F-J — second functional batch (LLM voice → cockpit hooks):**
   - **Phase F — Real LLM voice + Keychain vault.** New
@@ -266,40 +278,26 @@ cockpit can wire a live ticker.
 
 ### Owned by **Cursor agent (functional)**
 
-Tier-1 (Phase K) and the second batch (Phase F-J: LLM voice, vault,
-parallel playbooks, SQLite downline DB, replay loop, cockpit hooks)
-are **shipped**. Remaining items now:
+Tier-1 (Phase K) and follow-on batches (Phase F-J + 2026-04-29 adapters)
+are **shipped**. Remaining functional items:
 
-1. **Real outbound adapters.** Mail (IMAP/JMAP) for
-   `business.draft_email` actually sending; CRM (HubSpot or
-   Pipedrive) for `business.log_deal` actually pushing; OpenAlex /
-   Crossref enrichment in `science.summarize_paper`; web-feed RSS in
-   `traders.news_feed`. The vault keys (`HUBSPOT_API_KEY`,
-   `PIPEDRIVE_API_KEY`, `OPENALEX_EMAIL`) are already wired — wire
-   the calls.
-2. **Per-pack auth badges in `/api/domains/<slug>`.** The vault
-   endpoint exists but each pack should advertise which keys it
-   needs so the cockpit can render contextual badges. Today
-   `OperatorStrip` shows a flat vault list; we want per-pack scoping.
-3. **Code-split v3.** Bundle is ~1.6 MB pre-gzip after the latest
-   adds; split R3F into a route-level chunk so `/cockpit` doesn't
-   pay for the orbital scene.
-4. **meeet contract evolution.** Align event kinds with the
+1. **Mail outbound.** IMAP/SMTP or JMAP send path for
+   `business.draft_email` (draft today is local-only; policy gate
+   already guards real send).
+2. **meeet contract evolution.** Align event kinds with the
    `meeet.world` ingest contract when it lands. Keep
    `contract_version` pin updated; the durable buffer makes schema
    migrations cheap (replay + transform).
-5. **Cockpit polish hand-off.** `<OperatorStrip />` is functional
-   but visually flat — coordinate with Claude via `docs/IDEAS.md`
-   on how to fold it into the cockpit grid (sticky pending strip on
-   top? collapsible bridge tray? sampler.decision viewer is still
-   missing — events sit in `/api/meeet/events?kind=sampler.decision`).
-6. **Real LLM voice rollout polish.** With keys configured the
-   orchestrator already adds a third voice — but we should add a
-   small "voice gallery" UI panel + per-voice latency + token usage
-   chart (data is in every Proposal already).
-7. **Outbound MLM playbooks.** Add a `mlm.recruitment_round`
-   playbook that uses `mlm.add_member` + `mlm.log_activity` under
-   the policy gate to demonstrate the new mutations.
+3. **Cockpit polish (Claude-owned).** OperatorStrip is wired (pending
+   queue, playbooks, bridges, vault, council, **sampler.decision
+   poll**) — needs visual integration with the main cockpit grid.
+4. **Voice gallery UI.** Surface per-voice latency + token usage +
+   model id in a dedicated panel (Proposal fields already carry data).
+5. **CRM hardening.** HubSpot/Pipedrive `log_deal` uses minimal
+   properties; production portals may require pipeline IDs / stage
+   enums — evolve when real Hub IDs are supplied.
+6. **OLD arXiv ids** (`cs.AI/010203`) skip OpenAlex DOI enrichment —
+   Crossref fallback could layer in later.
 
 ## Conventions to keep
 

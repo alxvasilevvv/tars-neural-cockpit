@@ -12,11 +12,14 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
+from xml.etree import ElementTree as ET
 
 from ...base import AwarenessSource
+from ..._http import NetworkError, get_text
 from .actions import fetch_quote
 
 _REPO_ROOT = Path(__file__).resolve().parents[5]
@@ -53,6 +56,79 @@ def _resolve_path(arg_path: str, env_var: str, default: Path) -> Path:
     return default
 
 
+_BAD_TONE = re.compile(
+    r"\b(bear|crash|selloff|hack|regulat|war|inflation|panic)\b",
+    re.I,
+)
+_GOOD_TONE = re.compile(r"\b(rally|surge|record|etf|adopt|etf inflow)\b", re.I)
+
+
+def _tone_from_text(title: str, summary: str) -> str:
+    blob = f"{title} {summary}"
+    if _BAD_TONE.search(blob):
+        return "bearish"
+    if _GOOD_TONE.search(blob):
+        return "bullish"
+    return "neutral"
+
+
+def _parse_rss_atom(xml: str, limit: int = 40) -> list[dict[str, Any]]:
+    """Parse RSS 2.0 or Atom-ish XML into a lightweight item list."""
+
+    try:
+        root = ET.fromstring(xml)
+    except ET.ParseError:
+        return []
+
+    items: list[dict[str, Any]] = []
+    local = root.tag.split("}")[-1]
+
+    if local == "rss":
+        channel = root.find("channel")
+        if channel is None:
+            return []
+        for it in channel.findall("item")[:limit]:
+            title_el = it.find("title")
+            link_el = it.find("link")
+            pub_el = it.find("pubDate")
+            title = (title_el.text or "").strip() if title_el is not None else ""
+            href = ""
+            if link_el is not None:
+                txt = getattr(link_el, "text", None)
+                href = (txt or "").strip() if txt else ""
+            if not href:
+                # RSS link can live in child's href attr in some feeds
+                l2 = it.find("{http://www.w3.org/2005/Atom}link")
+                if l2 is not None and l2.attrib.get("href"):
+                    href = l2.attrib["href"]
+            pub = (pub_el.text or "").strip() if pub_el is not None else ""
+            items.append({"title": title, "href": href, "pub": pub, "tone": ""})
+    else:
+        # Atom feed
+        atom_ns = "http://www.w3.org/2005/Atom"
+        entries = root.findall(f"{{{atom_ns}}}entry")
+        for entry in entries[:limit]:
+            title_el = entry.find(f"{{{atom_ns}}}title")
+            link_el = None
+            for link in entry.findall(f"{{{atom_ns}}}link"):
+                if link.attrib.get("rel") in (None, "alternate"):
+                    link_el = link
+                    break
+            if link_el is None:
+                link_el = entry.find(f"{{{atom_ns}}}link")
+            updated = entry.find(f"{{{atom_ns}}}updated") or entry.find(
+                f"{{{atom_ns}}}published"
+            )
+            title = (title_el.text or "").strip() if title_el is not None else ""
+            href = (link_el.attrib.get("href") or "").strip() if link_el is not None else ""
+            pub = (updated.text or "").strip() if updated is not None else ""
+            items.append({"title": title, "href": href, "pub": pub, "tone": ""})
+
+    for it in items:
+        it["tone"] = _tone_from_text(it.get("title") or "", "")
+    return items
+
+
 async def _fetch_binance_ws(args: Mapping[str, Any]) -> Mapping[str, Any]:
     raw_tickers = args.get("tickers")
     if isinstance(raw_tickers, list) and raw_tickers:
@@ -81,6 +157,39 @@ async def _fetch_binance_ws(args: Mapping[str, Any]) -> Mapping[str, Any]:
 
 
 async def _fetch_news_feed(args: Mapping[str, Any]) -> Mapping[str, Any]:
+    rss_env = os.getenv("TRADERS_NEWS_RSS_URL", "").strip()
+    rss_url = str(args.get("rss_url") or "").strip() or rss_env
+    if rss_url:
+        try:
+            status, body = await get_text(rss_url, timeout=10.0)
+        except NetworkError:
+            status, body = 0, ""
+        if status == 200 and body:
+            raw_items = _parse_rss_atom(body)
+            if raw_items:
+                items = []
+                by_tone: dict[str, int] = {}
+                for it in raw_items:
+                    tone = it.get("tone") or "neutral"
+                    by_tone[str(tone)] = by_tone.get(str(tone), 0) + 1
+                    items.append(
+                        {
+                            "title": it.get("title"),
+                            "href": it.get("href"),
+                            "pub": it.get("pub"),
+                            "tone": tone,
+                        }
+                    )
+                return {
+                    "ok": True,
+                    "source": "rss",
+                    "as_of": datetime.now(timezone.utc).isoformat(),
+                    "rss_url": rss_url,
+                    "count": len(items),
+                    "by_tone": by_tone,
+                    "items": items,
+                }
+
     path = _resolve_path(
         str(args.get("path") or ""), "TRADERS_NEWS_PATH", _NEWS_PATH
     )
@@ -95,6 +204,7 @@ async def _fetch_news_feed(args: Mapping[str, Any]) -> Mapping[str, Any]:
         )
     return {
         "ok": True,
+        "source": "json",
         "as_of": data.get("as_of"),
         "count": len(items),
         "by_tone": by_tone,

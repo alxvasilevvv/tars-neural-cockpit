@@ -1,0 +1,35 @@
+{
+  "id": "mlm.recruitment_round",
+  "name": "MLM recruitment round",
+  "description": "Snapshot the network, stage a recruit under the policy gate, and log a first activity.",
+  "tags": ["mlm", "recruitment"],
+  "on_block": "continue",
+  "steps": [
+    {
+      "id": "snap",
+      "action": "mlm.downline_snapshot",
+      "args": {},
+      "store_as": "downline"
+    },
+    {
+      "id": "recruit",
+      "action": "mlm.add_member",
+      "args": {
+        "handle": "@scout_round",
+        "sponsor": "@nora",
+        "rank": "starter",
+        "on_conflict": "skip"
+      },
+      "store_as": "recruit"
+    },
+    {
+      "id": "ping",
+      "action": "mlm.log_activity",
+      "args": {
+        "handle": "@scout_round",
+        "volume_delta": 0
+      },
+      "store_as": "ping"
+    }
+  ]
+}

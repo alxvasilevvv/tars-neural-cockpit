@@ -26,6 +26,9 @@ class BusinessPack(DomainPack):
         audience="founders, operators, GTM leaders",
     )
 
+    def auth_vault_keys(self) -> tuple[str, ...]:
+        return ("HUBSPOT_API_KEY", "PIPEDRIVE_API_KEY", "MEEET_API_KEY")
+
     def actions(self):
         return ACTIONS
 

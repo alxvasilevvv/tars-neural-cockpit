@@ -4,6 +4,17 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-04-29 — Cursor agent · adapters + per-pack auth + code-split
+
+**Summary**
+
+Per-pack ``auth`` keys on ``GET /api/domains/<slug>``; RSS-aware
+``traders.news_feed`` when ``TRADERS_NEWS_RSS_URL`` set; OpenAlex
+enrichment on ``science.summarize_paper`` for new-style arXiv ids;
+HubSpot/Pipedrive pushes on ``business.log_deal`` when keys exist;
+``mlm.recruitment_round`` playbook; frontend lazy routes + chunk
+splitting + ``sampler.decision`` poll in OperatorStrip. **122 pytest.**
+
 ## 2026-04-28 — Cursor agent · Phase F-J (LLM voice → cockpit hooks)
 
 **Summary**

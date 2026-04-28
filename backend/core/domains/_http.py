@@ -88,3 +88,52 @@ async def get_json(
         return status, json.loads(body)
     except json.JSONDecodeError:
         return status, None
+
+
+def _do_post_json(
+    url: str,
+    body: Mapping[str, Any] | None,
+    *,
+    timeout: float,
+    headers: Mapping[str, str] | None,
+) -> tuple[int, str]:
+    data = json.dumps(dict(body or {})).encode("utf-8")
+    req = urllib.request.Request(url, data=data, method="POST")
+    req.add_header("User-Agent", DEFAULT_UA)
+    req.add_header("Content-Type", "application/json")
+    if headers:
+        for k, v in headers.items():
+            req.add_header(k, v)
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as resp:
+            raw = resp.read().decode("utf-8", errors="replace")
+            return resp.getcode() or 0, raw
+    except urllib.error.HTTPError as e:
+        raw = ""
+        try:
+            raw = e.read().decode("utf-8", errors="replace")
+        except Exception:  # pragma: no cover
+            pass
+        return e.code, raw
+    except (urllib.error.URLError, socket.timeout, OSError) as e:
+        raise NetworkError(str(e)) from e
+
+
+async def post_json(
+    url: str,
+    body: Mapping[str, Any] | None = None,
+    *,
+    headers: Mapping[str, str] | None = None,
+    timeout: float = DEFAULT_TIMEOUT,
+) -> tuple[int, Any]:
+    """POST JSON and parse the response body as JSON (or return raw)."""
+
+    status, raw = await asyncio.to_thread(
+        _do_post_json, url, body, timeout=timeout, headers=headers
+    )
+    if not raw:
+        return status, None
+    try:
+        return status, json.loads(raw)
+    except json.JSONDecodeError:
+        return status, raw

@@ -26,6 +26,9 @@ class TradersPack(DomainPack):
         audience="active traders, quants, prop desks",
     )
 
+    def auth_vault_keys(self) -> tuple[str, ...]:
+        return ("MEEET_API_KEY", "TARS_ANTHROPIC_API_KEY", "TARS_OPENAI_API_KEY")
+
     def actions(self):
         return ACTIONS
 

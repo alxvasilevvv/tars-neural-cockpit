@@ -11,6 +11,7 @@ import shutil
 import subprocess
 import sys
 from dataclasses import dataclass
+from typing import Iterable
 
 DEFAULT_SERVICE = "tars"
 
@@ -90,6 +91,36 @@ def list_known(*, service: str = DEFAULT_SERVICE) -> list[SecretRef]:
 
     out: list[SecretRef] = []
     for key in KNOWN_KEYS:
+        env_val = _from_env(key)
+        if env_val is not None:
+            out.append(SecretRef(key=key, source="env", available=True))
+            continue
+        kc_val = _from_keychain(key, service=service)
+        if kc_val is not None:
+            out.append(SecretRef(key=key, source="keychain", available=True))
+            continue
+        out.append(SecretRef(key=key, source="missing", available=False))
+    return out
+
+
+def status_for_keys(
+    keys: Iterable[str],
+    *,
+    service: str = DEFAULT_SERVICE,
+) -> list[SecretRef]:
+    """Resolve availability for an arbitrary subset of vault keys.
+
+    Keys can include identifiers not listed in KNOWN_KEYS — they still
+    resolve via env → Keychain the same way.
+    """
+
+    out: list[SecretRef] = []
+    seen: set[str] = set()
+    for raw in keys:
+        key = str(raw).strip()
+        if not key or key in seen:
+            continue
+        seen.add(key)
         env_val = _from_env(key)
         if env_val is not None:
             out.append(SecretRef(key=key, source="env", available=True))

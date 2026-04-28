@@ -27,6 +27,9 @@ class MLMPack(DomainPack):
         audience="MLM founders, network builders, distributors",
     )
 
+    def auth_vault_keys(self) -> tuple[str, ...]:
+        return ("MEEET_API_KEY",)
+
     def actions(self):
         return ACTIONS
 

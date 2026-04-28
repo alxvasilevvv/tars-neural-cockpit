@@ -27,6 +27,9 @@ class SciencePack(DomainPack):
         audience="researchers, PhD students, R&D leads",
     )
 
+    def auth_vault_keys(self) -> tuple[str, ...]:
+        return ("OPENALEX_EMAIL", "MEEET_API_KEY")
+
     def actions(self):
         return ACTIONS
 

@@ -28,12 +28,25 @@ def test_pack_to_dict_shape(slug: str) -> None:
     pack = get_pack(slug)
     assert pack is not None
     payload = pack.to_dict()
-    for key in ("slug", "name", "short", "description", "color", "capabilities", "audience", "actions", "awareness"):
+    for key in (
+        "slug",
+        "name",
+        "short",
+        "description",
+        "color",
+        "capabilities",
+        "audience",
+        "actions",
+        "awareness",
+        "auth",
+    ):
         assert key in payload, f"missing key {key} in {slug}"
     assert payload["slug"] == slug
     assert payload["color"].startswith("#")
     assert isinstance(payload["actions"], list) and payload["actions"]
     assert isinstance(payload["awareness"], list) and payload["awareness"]
+    assert isinstance(payload["auth"], dict)
+    assert isinstance(payload["auth"].get("keys"), list)
 
 
 @pytest.mark.parametrize("slug", sorted(EXPECTED_SLUGS))

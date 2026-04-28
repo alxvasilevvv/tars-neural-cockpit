@@ -11,7 +11,8 @@ from typing import Any, Mapping
 from xml.etree import ElementTree as ET
 
 from ...base import ActionSpec
-from ..._http import get_text, NetworkError
+from ..._http import NetworkError, get_text
+from .openalex import enrich_arxiv
 
 ARXIV_URL = "http://export.arxiv.org/api/query"
 _NS = {
@@ -202,7 +203,7 @@ async def summarize_paper(args: Mapping[str, Any]) -> Mapping[str, Any]:
     if tldr and not tldr.endswith("."):
         tldr += "."
 
-    return {
+    out: dict[str, Any] = {
         "ok": True,
         "arxiv_id": arxiv_id,
         "ref": ref,
@@ -217,6 +218,16 @@ async def summarize_paper(args: Mapping[str, Any]) -> Mapping[str, Any]:
         "url": paper.get("id"),
         "sources": ["arxiv"],
     }
+    try:
+        olex = await enrich_arxiv(arxiv_id)
+    except Exception:
+        olex = None
+    if olex:
+        out["openalex"] = olex
+        src = list(out["sources"])
+        src.append("openalex")
+        out["sources"] = src
+    return out
 
 
 async def extract_dataset(args: Mapping[str, Any]) -> Mapping[str, Any]:

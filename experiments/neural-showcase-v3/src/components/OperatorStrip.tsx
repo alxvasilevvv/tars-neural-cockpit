@@ -10,7 +10,7 @@
 import { useState } from "react";
 
 import { useDeliberation } from "@/lib/council";
-import { useMeeetHealth } from "@/lib/meeet";
+import { useMeeetEvents, useMeeetHealth } from "@/lib/meeet";
 import { usePlaybooks, usePlaybookRun } from "@/lib/playbooks";
 import {
   cancelToken,
@@ -29,6 +29,11 @@ function fmtAge(ts: number): string {
 
 export function OperatorStrip() {
   const { health: meeet } = useMeeetHealth(5000);
+  const { events: samplerEvents } = useMeeetEvents({
+    kind: "sampler.decision",
+    limit: 8,
+    intervalMs: 6000,
+  });
   const { status: vault } = useVaultStatus(60000);
   const { pending, refresh: refreshPending } = usePendingConfirmations(4000);
   const { playbooks } = usePlaybooks();
@@ -211,6 +216,43 @@ export function OperatorStrip() {
             </ul>
           ) : (
             <p className="mt-1 font-mono-tech text-[10.5px] text-ink-3">…</p>
+          )}
+        </div>
+
+        <div className="mb-3 rounded border border-line bg-[rgba(0,0,0,0.4)] p-2">
+          <div className="font-mono-tech text-[10px] uppercase tracking-[1.6px] text-ink-2">
+            sampler.decision (recent)
+          </div>
+          {samplerEvents.length === 0 ? (
+            <p className="mt-1 font-mono-tech text-[10.5px] text-ink-3">
+              no deliberations logged yet — run council
+            </p>
+          ) : (
+            <ul className="mt-1 grid max-h-[120px] gap-1 overflow-auto font-mono-tech text-[9.5px] text-ink-2">
+              {samplerEvents.slice(0, 8).map((ev) => {
+                const payload = ev.payload as {
+                  winner?: string;
+                  winning_stance?: string;
+                  agreement?: number;
+                  mode?: string;
+                };
+                return (
+                  <li key={ev.id} className="border-b border-line/40 pb-1">
+                    <span className="text-ink-3">
+                      {new Date(ev.ts * 1000).toISOString().slice(11, 19)}
+                    </span>{" "}
+                    <span className="text-accent">
+                      {(payload?.winning_stance ?? "—").toString()}
+                    </span>{" "}
+                    · {(payload?.winner ?? "—").toString()} · agr{" "}
+                    {typeof payload?.agreement === "number"
+                      ? payload.agreement.toFixed(2)
+                      : "—"}{" "}
+                    · {String(payload?.mode ?? "—")}
+                  </li>
+                );
+              })}
+            </ul>
           )}
         </div>
 

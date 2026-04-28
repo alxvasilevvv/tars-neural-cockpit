@@ -55,6 +55,7 @@ def test_loader_discovers_repo_playbooks() -> None:
     assert "traders.morning_check" in items
     assert "business.morning_brief" in items
     assert "mlm.retention_round" in items
+    assert "mlm.recruitment_round" in items
     pb = items["business.morning_brief"]
     assert any(s.action.startswith("business.") for s in pb.steps)
 

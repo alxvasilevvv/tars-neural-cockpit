@@ -18,11 +18,14 @@ from __future__ import annotations
 
 import json
 import os
+import urllib.parse
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
 
 from ...base import ActionSpec
+from ..._http import post_json
+from backend.core.vault import get_secret
 from ....council import get_council
 
 _REPO_ROOT = Path(__file__).resolve().parents[5]
@@ -230,6 +233,54 @@ async def daily_brief(args: Mapping[str, Any]) -> Mapping[str, Any]:
     }
 
 
+async def _push_hubspot_deal(name: str, amount: float) -> dict[str, Any] | None:
+    key = get_secret("HUBSPOT_API_KEY")
+    if not key:
+        return None
+    props: dict[str, str] = {"dealname": name}
+    if isinstance(amount, (int, float)) and amount > 0:
+        props["amount"] = str(amount)
+    status, data = await post_json(
+        "https://api.hubapi.com/crm/v3/objects/deals",
+        {"properties": props},
+        headers={
+            "Authorization": f"Bearer {key}",
+            "Content-Type": "application/json",
+        },
+        timeout=15.0,
+    )
+    if status in (200, 201) and isinstance(data, dict) and data.get("id"):
+        return {
+            "crm": "hubspot",
+            "deal_id": str(data["id"]),
+            "crm_pushed": True,
+        }
+    return None
+
+
+async def _push_pipedrive_deal(name: str, amount: float) -> dict[str, Any] | None:
+    token = get_secret("PIPEDRIVE_API_KEY")
+    if not token:
+        return None
+    q = urllib.parse.urlencode({"api_token": token})
+    url = f"https://api.pipedrive.com/v1/deals?{q}"
+    payload: dict[str, Any] = {"title": name, "currency": "USD"}
+    val = float(amount) if isinstance(amount, (int, float)) else 0.0
+    if val > 0:
+        payload["value"] = val
+    status, data = await post_json(url, payload, timeout=15.0)
+    if status not in (200, 201) or not isinstance(data, dict):
+        return None
+    inner = data.get("data")
+    if isinstance(inner, dict) and inner.get("id"):
+        return {
+            "crm": "pipedrive",
+            "deal_id": str(inner["id"]),
+            "crm_pushed": True,
+        }
+    return None
+
+
 async def draft_email(args: Mapping[str, Any]) -> Mapping[str, Any]:
     to = str(args.get("to", "")).strip()
     if not to:
@@ -263,13 +314,39 @@ async def log_deal(args: Mapping[str, Any]) -> Mapping[str, Any]:
     name = str(args.get("name", "")).strip()
     if not name:
         return {"ok": False, "error": "name_required"}
+    amount_f = float(args.get("amount", 0) or 0)
+    stage = str(args.get("stage", "discovery"))
+
+    pushed = await _push_hubspot_deal(name, amount_f)
+    if pushed:
+        return {
+            "ok": True,
+            "name": name,
+            "amount": amount_f,
+            "stage": stage,
+            **pushed,
+        }
+    pushed = await _push_pipedrive_deal(name, amount_f)
+    if pushed:
+        return {
+            "ok": True,
+            "name": name,
+            "amount": amount_f,
+            "stage": stage,
+            **pushed,
+        }
+
     return {
         "ok": True,
         "deal_id": "stub-deal-0001",
         "name": name,
-        "amount": float(args.get("amount", 0) or 0),
-        "stage": str(args.get("stage", "discovery")),
-        "hint": "writes locally; CRM push happens once the CRM bridge lands",
+        "amount": amount_f,
+        "stage": stage,
+        "crm_pushed": False,
+        "hint": (
+            "set HUBSPOT_API_KEY or PIPEDRIVE_API_KEY — otherwise deal "
+            "stays stub-local until a CRM vault entry is present."
+        ),
     }
 
 

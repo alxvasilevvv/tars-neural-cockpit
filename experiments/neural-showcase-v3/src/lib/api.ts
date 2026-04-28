@@ -34,6 +34,9 @@ export interface DomainPack {
   audience: string;
   actions: DomainAction[];
   awareness: AwarenessSource[];
+  auth?: {
+    keys: { key: string; source: string; available: boolean }[];
+  };
 }
 
 export interface InvokeResult {

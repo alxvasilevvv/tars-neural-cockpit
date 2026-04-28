@@ -14,7 +14,7 @@
     {
       "id": "alert",
       "action": "mlm.retention_alert",
-      "args": { "days_threshold": 21 },
+      "args": { "threshold_days": 21 },
       "store_as": "alert"
     },
     {

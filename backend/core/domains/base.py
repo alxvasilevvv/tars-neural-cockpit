@@ -10,6 +10,8 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any, Awaitable, Callable, Iterable, Mapping, Optional
 
+from backend.core.vault import status_for_keys
+
 ActionHandler = Callable[[Mapping[str, Any]], Awaitable[Mapping[str, Any]]]
 AwarenessFetcher = Callable[[Mapping[str, Any]], Awaitable[Mapping[str, Any]]]
 
@@ -91,6 +93,16 @@ class DomainPack(ABC):
     def system_prompt(self) -> str:
         """Return the system prompt the council uses in this mode."""
 
+    def auth_vault_keys(self) -> tuple[str, ...]:
+        """Names of secrets / API keys this pack may consume.
+
+        Used only for UI badges via :meth:`to_dict` — resolves each key
+        through the vault (env → Keychain → missing). Values are never
+        exposed.
+        """
+
+        return ()
+
     def find_action(self, action_id: str) -> ActionSpec | None:
         for spec in self.actions():
             if spec.id == action_id:
@@ -105,6 +117,7 @@ class DomainPack(ABC):
 
     def to_dict(self) -> dict[str, Any]:
         m = self.manifest
+        auth_refs = status_for_keys(self.auth_vault_keys())
         return {
             "slug": m.slug,
             "name": m.name,
@@ -113,6 +126,12 @@ class DomainPack(ABC):
             "color": m.color,
             "capabilities": list(m.capabilities),
             "audience": m.audience,
+            "auth": {
+                "keys": [
+                    {"key": r.key, "source": r.source, "available": r.available}
+                    for r in auth_refs
+                ]
+            },
             "actions": [
                 {
                     "id": a.id,
