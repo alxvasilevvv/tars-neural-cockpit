@@ -1,5 +1,6 @@
 import { motion, useMotionValue, animate } from "framer-motion";
 import { useEffect, useState } from "react";
+import { Waveform } from "@/components/Waveform";
 
 const STREAMS = ["concept", "memory", "code", "calendar", "mac", "voice"];
 
@@ -55,7 +56,13 @@ export function Rail() {
         <div className="flex flex-wrap items-center justify-center gap-4 justify-self-center md:justify-self-end">
           <span className="inline-flex items-center gap-2">
             integrity
-            <strong className="font-display text-[13px] font-medium text-ink">
+            <Waveform
+              bars={20}
+              width={84}
+              height={14}
+              className="opacity-90"
+            />
+            <strong className="font-display text-[13px] font-medium text-ink tabular-nums">
               {integrity.toFixed(1)}
               <em className="ml-0.5 text-[10px] not-italic text-ink-2">%</em>
             </strong>
@@ -65,7 +72,7 @@ export function Rail() {
           </span>
           <span className="inline-flex items-center gap-2">
             latency
-            <strong className="font-display text-[13px] font-medium text-ink">
+            <strong className="font-display text-[13px] font-medium text-ink tabular-nums">
               0.04<em className="ml-0.5 text-[10px] not-italic text-ink-2">ms</em>
             </strong>
           </span>

@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { ArrowRight } from "lucide-react";
+import { HeroScene } from "@/three/HeroScene";
 
 const word = {
   hidden: { y: "110%" },
@@ -14,13 +15,20 @@ const titleLine = {
 export function Hero() {
   return (
     <section className="relative z-20 mx-auto max-w-[1280px] px-8 pb-32 pt-12 text-center md:px-14 md:pb-32 md:pt-16">
-      {/* Soft spotlight under the hero so text always reads over the canvas */}
+      {/* WebGL reactor lives behind the hero text. */}
       <div
         aria-hidden
-        className="pointer-events-none absolute inset-x-[-8%] inset-y-[-2%] -z-10"
+        className="pointer-events-none absolute inset-x-[-12%] -top-[6vh] -z-20 h-[110vh]"
+      >
+        <HeroScene />
+      </div>
+      {/* Spotlight darkening so type stays legible over WebGL. */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-x-[-12%] inset-y-[-4%] -z-10"
         style={{
           background:
-            "radial-gradient(62% 68% at 50% 38%, rgba(6,7,13,0.92) 0%, rgba(6,7,13,0.55) 35%, transparent 75%)",
+            "radial-gradient(62% 68% at 50% 38%, rgba(6,7,13,0.78) 0%, rgba(6,7,13,0.42) 36%, transparent 76%)",
         }}
       />
 

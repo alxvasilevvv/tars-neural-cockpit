@@ -106,6 +106,52 @@
     opacity: 0.35;
   }
 }
+@keyframes tars-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Magnetic cursor: hide system cursor only when pointer is fine and motion is allowed */
+@media (pointer: fine) {
+  body:where(:not(.no-magnetic-cursor)) {
+    cursor: none;
+  }
+  body:where(:not(.no-magnetic-cursor)) a,
+  body:where(:not(.no-magnetic-cursor)) button,
+  body:where(:not(.no-magnetic-cursor)) [role="button"],
+  body:where(:not(.no-magnetic-cursor)) [data-magnetic] {
+    cursor: none;
+  }
+}
+
+.tars-cursor-ring.is-hot {
+  border-color: var(--color-accent) !important;
+  box-shadow:
+    0 0 0 1px var(--color-accent-soft),
+    0 0 18px var(--color-accent-soft);
+}
+
+/* Custom scrollbar — TARS hairline */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-accent-deep) transparent;
+}
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  background: var(--color-line-strong);
+  border: 3px solid var(--color-bg-0);
+  border-radius: 999px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--color-accent-deep);
+}
 
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -114,5 +160,8 @@
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
+  }
+  body {
+    cursor: auto !important;
   }
 }
