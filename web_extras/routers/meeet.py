@@ -5,7 +5,9 @@ Endpoints:
 - ``GET /api/meeet/stats`` — quick summary (total / unpushed / first_ts / last_ts).
 - ``GET /api/meeet/events`` — list events newest-first with filters
   ``limit, since, trace_id, kind, only_unpushed``.
-- ``POST /api/meeet/replay`` — flush unpushed events to ingest.
+- ``POST /api/meeet/replay`` — flush unpushed events to ingest now.
+- ``GET /api/meeet/health`` — bridge health (ingest url set?, api key set?,
+  contract version, store stats, last replay attempt).
 
 Every event TARS emits flows through the SQLite WAL store, so this is
 the operator's local "black box": survives offline, replays on
@@ -67,3 +69,8 @@ async def list_events(
 @router.post("/replay")
 async def replay(limit: int = Query(default=100, ge=1, le=1000)) -> dict[str, Any]:
     return await get_client().replay_unpushed(limit=limit)
+
+
+@router.get("/health")
+async def health() -> dict[str, Any]:
+    return await get_client().health()

@@ -18,6 +18,8 @@ import urllib.error
 import urllib.request
 from typing import Any, Mapping
 
+import time
+
 from .config import MeeetConfig, load_config
 from .events import TARSEvent
 from .store import MeeetStore, get_store
@@ -41,6 +43,8 @@ class MeeetClient:
         self.config = config or load_config()
         self.timeout_s = timeout_s
         self.store = store if store is not None else get_store()
+        # Last replay attempt metadata — used by /api/meeet/health.
+        self.last_replay: dict[str, Any] | None = None
 
     async def emit(
         self, kind: str, payload: Mapping[str, Any] | None = None
@@ -97,11 +101,21 @@ class MeeetClient:
     async def replay_unpushed(self, *, limit: int = 100) -> dict[str, Any]:
         """Flush any locally-buffered events to ingest.
 
-        No-op when the ingest is unset.
+        No-op when the ingest is unset. Always stamps ``self.last_replay``
+        so :func:`/api/meeet/health` can render the bridge state.
         """
 
+        ts = time.time()
         if not self.config.enabled or not self.config.ingest_url:
-            return {"enabled": False, "pushed": 0, "failed": 0, "remaining": 0}
+            out: dict[str, Any] = {
+                "enabled": False,
+                "pushed": 0,
+                "failed": 0,
+                "remaining": 0,
+                "ran_at": ts,
+            }
+            self.last_replay = dict(out)
+            return out
 
         async def _push(body: dict[str, Any]) -> None:
             await asyncio.to_thread(
@@ -113,7 +127,35 @@ class MeeetClient:
                 self.timeout_s,
             )
 
-        return await self.store.replay_unpushed(_push, limit=limit)
+        result = await self.store.replay_unpushed(_push, limit=limit)
+        result["enabled"] = True
+        result["ran_at"] = ts
+        self.last_replay = dict(result)
+        return result
+
+    async def health(self) -> dict[str, Any]:
+        """Snapshot of the durable-buffer + ingest bridge.
+
+        Cheap to call: hits the SQLite stats and returns the cached
+        ``last_replay`` blob without performing any network I/O.
+        """
+
+        try:
+            stats = await self.store.stats()
+        except Exception as exc:
+            stats = {"error": str(exc), "total": 0, "pending": 0, "pushed": 0, "failed": 0}
+        return {
+            "ok": True,
+            "client": {
+                "enabled": bool(self.config.enabled and self.config.ingest_url),
+                "ingest_url": self.config.ingest_url,
+                "api_key_set": bool(self.config.api_key),
+                "contract_version": self.config.contract_version,
+                "source": self.config.source,
+            },
+            "store": stats,
+            "last_replay": self.last_replay,
+        }
 
 
 def _post_json(
