@@ -4,47 +4,120 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
-## 2026-04-28 — Cowork agent · v3 hero polish (skill --design-system audit)
+## 2026-04-28 — Cursor agent · Tier-1 functional roadmap (Phase K)
 
 **Summary**
 
-User screenshot of `/` showed cyan neon flooding dominating the hero
-(massive sweeping curves + glowing tubes + saturated gold orb). Three
-batches of fixes touching only `experiments/neural-showcase-v3/`:
+Five sub-phases shipped in one push, each its own commit. End state:
+council deliberates, policy gate fires, durable buffer survives
+restarts, awareness sources actually return data, playbooks run.
 
-1. `Hero.tsx` — stripped 5 staggered motion blocks → 1 entrance fade.
-   Removed `KineticText` from H1 (static text reads cleaner at 9rem),
-   `Marquee` (already in `<Rail/>`), `HudPlates` (over-decoration).
-2. `Atmosphere.tsx` — 100 → 49 lines. Removed cyan rotating rings,
-   gold + cyan godrays, animated turbulence grain. Scanlines reduced
-   from opacity 0.08 to 0.025 (Master §1.4 cap). Kept top/bottom
-   vignettes only.
-3. `App.tsx` — page-transition variants stripped of `filter:
-   blur(8px)` (was flickering every navigation). Plain opacity + y.
-4. `three/HeroScene.tsx` — full rewrite, 310 → 122 lines. Removed
-   2× FresnelShell with sweeping cyan GLSL bands, TorusKnot,
-   ChromaticAberration, mipmapBlur, 600 background Stars, two of
-   three Sparkle layers (420 → 60 particles), inner-shell + 2 edge
-   cages (7 nested glowing meshes → 3). Bloom `1.05 → 0.32`,
-   threshold `0.16 → 0.86` (Master cap ≤ 0.85 / ≥ 0.18). Vignette
-   `darkness 0.78 → 0.92`. Camera FOV `38 → 32`. Pointer rotation
-   amplitude `0.18 → 0.04`.
-5. Final polish via `--design-system` skill audit: H1 letter-spacing
-   `0.01em → -0.02em`, leading `0.96 → 0.94` per skill
-   `exaggerated-minimalism` rule (negative tracking + tight leading
-   for luxury/premium dark statement type).
+- **Phase A — Awareness wiring.** `AwarenessSource` gained an optional
+  async `fetcher` field. New endpoint `GET /api/domains/<slug>/awareness/<id>/snapshot`
+  runs the fetcher inside a meeet trace scope and emits
+  `awareness.snapshot.{requested,completed,failed}`. Live fetchers
+  for calendar (`data/calendar_events.json`), HubSpot deals,
+  KPI sheet, traders binance basket (DexScreener poll), traders
+  news_feed, traders portfolio (NAV-enriched via live quotes), MLM
+  downline (CSV fallback), arXiv (cat:<...> via `search_literature`),
+  local-papers and datasets-dir. Path resolver: env > arg path
+  if exists > default. `business.daily_brief` integrates calendar
+  awareness and surfaces `calendar_today[]`.
+- **Phase B — SQLite durable event log.** New `backend/core/meeet/store.py`
+  with WAL DB at `~/.tars/meeet.sqlite` (override via
+  `MEEET_STORE_PATH`, disable via `MEEET_STORE=disabled`). Schema:
+  `events(id, ts, trace_id, kind, source, contract_version, payload,
+  pushed, pushed_at, last_error)` + three indices.
+  `MeeetClient.emit` writes to the store before any network attempt;
+  `MeeetClient.replay_unpushed` flushes pending events on reconnect.
+  New endpoints: `GET /api/meeet/stats`, `GET /api/meeet/events`
+  (filters: `limit`, `since`, `trace_id`, `kind`, `only_unpushed`),
+  `POST /api/meeet/replay`.
+- **Phase C — Council orchestrator.** `backend/core/council/`:
+  `Voice` ABC + `Proposal` dataclass + two real voices
+  (`tars-local-rules-v1`, `tars-mock-cloud-v1`). Modes
+  `single | dual_vote | n_vote` with confidence-weighted majority
+  arbitration. Emits `council.deliberation.{started,completed}` and
+  `sampler.decision` (id, mode, models, winner, winning_stance,
+  latency_ms, tokens_in/out, agreement, contradictions). Wired into
+  `traders.summarize_market` and `business.daily_brief`. New
+  endpoint: `POST /api/council/deliberate`.
+- **Phase D — Policy gate.** `ActionSpec.destructive` flag.
+  Destructive actions (`traders.place_alert`, `business.draft_email`,
+  `business.log_deal`, `mlm.generate_post`) flow through
+  `backend/core/policy/gate.py`. Modes: `autopilot | confirm | dry_run`,
+  default `confirm`. Confirmations persist in the same SQLite DB
+  (`PolicyStore`); resolve is idempotent; expiration baked in
+  (default 5 min TTL). New endpoints: `GET /api/policy/{pending,recent}`,
+  `POST /api/policy/{confirm,cancel}/{token}`, `POST /api/policy/expire`.
+  Header `x-tars-policy-mode` switches mode per request. Emits
+  `policy.{queued,allowed,blocked,confirm,cancelled}`.
+- **Phase E — Playbook runner.** `backend/core/playbooks/` with
+  loader + runner + JSON files under `playbooks/<pack>/<name>.json`.
+  Steps support `<slug>.<action_id>` and
+  `<slug>.awareness.<source_id>.snapshot`, arg templating
+  (`${steps.<id>.<json.path>}` and `${context.<key>}`, single-token
+  references survive native types), `when` clauses, `store_as`,
+  `on_error`. Sample playbooks shipped:
+  `traders.morning_check`, `business.morning_brief`, `mlm.retention_round`.
+  New endpoints: `GET /api/playbooks`, `GET /api/playbooks/{id}`,
+  `POST /api/playbooks/{id}/run`, `POST /api/playbooks/_reload`.
 
-Skill confirmations: gold `#CA8A04` is canonical premium-dark CTA;
-Share Tech Mono + Fira Code is the Tech/HUD Mono pairing; OLED with
-sparing glow is the right palette frame.
+**End-to-end smoke**
+
+- `business.daily_brief` returns council-arbitrated "EXPANDING — MRR up 4.6%."
+  with `calendar_today` populated.
+- `traders.summarize_market` BTC/ETH/SOL/ARB on 2026-04-28: council
+  splits — local says neutral/hold, mock-cloud says risk_off/tighten_stops,
+  arbiter picks neutral on confidence; full disagreement is logged.
+- `traders.morning_check` playbook: market + news + portfolio
+  (NAV $146,425) all green in <500 ms.
+- `mlm.retention_round` playbook in confirm mode: 2 read-only steps run,
+  destructive `generate_post` step blocks with `cfm_*` token; confirming
+  via `/api/policy/confirm/<token>` flushes the post.
+- Event trail across one demo run: 11 unique kinds in
+  `/api/meeet/events`, all trace-correlated, all persisted.
+
+**Tests**: 79 passing total (was 34 in the previous batch). New suites:
+`tests/test_awareness_fetchers.py`, `tests/test_meeet_store.py`,
+`tests/test_council.py`, `tests/test_policy.py`,
+`tests/test_playbooks.py`.
 
 **Files**
 
-- `experiments/neural-showcase-v3/src/components/Hero.tsx`
-- `experiments/neural-showcase-v3/src/components/Atmosphere.tsx`
-- `experiments/neural-showcase-v3/src/App.tsx`
-- `experiments/neural-showcase-v3/src/three/HeroScene.tsx`
-- `docs/CHANGELOG_AGENTS.md` (this entry)
+- `backend/core/domains/base.py` — `AwarenessSource.fetcher`,
+  `ActionSpec.destructive`, `DomainPack.find_awareness`,
+  `to_dict` extends with `live` and `destructive` flags.
+- `backend/core/domains/packs/{business,traders,mlm,science}/awareness.py`
+  — fetchers added.
+- `backend/core/domains/packs/business/actions.py` — calendar
+  integration in `daily_brief`, council hook.
+- `backend/core/domains/packs/traders/actions.py` — council hook in
+  `summarize_market`, `destructive=True` on `place_alert`.
+- `backend/core/domains/packs/mlm/actions.py` — `destructive=True`
+  on `generate_post`.
+- `backend/core/meeet/{store,client,__init__}.py` — durable buffer.
+- `backend/core/council/{__init__,voices,orchestrator}.py` — new package.
+- `backend/core/policy/{__init__,gate,store}.py` — new package.
+- `backend/core/playbooks/{__init__,loader,runner}.py` — new package.
+- `web_extras/app.py` — registers four new routers + extends CORS
+  allow-headers.
+- `web_extras/routers/{domains,meeet,council,policy,playbooks}.py`
+  — new endpoints + policy-aware action invoke pipeline.
+- `data/{calendar_events,traders_news,traders_portfolio}.json`
+  — sample data files.
+- `playbooks/{traders/morning_check,business/morning_brief,mlm/retention_round}.json`
+  — sample playbooks.
+- `tests/{test_awareness_fetchers,test_meeet_store,test_council,test_policy,test_playbooks}.py`
+  — 5 new suites; `tests/test_meeet.py` updated to use an explicit tmp store.
+
+**Commits** (from oldest to newest):
+
+- `5c8bdd5` feat(awareness): live fetchers + GET /api/domains/<slug>/awareness/<id>/snapshot
+- `b68ad4a` feat(meeet): SQLite durable buffer + replay + /api/meeet/{stats,events,replay}
+- `5bafd0c` feat(council): two-voice orchestrator + sampler.decision events + action wiring
+- `5540bb4` feat(policy): destructive-action gate (dry_run | confirm | autopilot)
+- `df120cb` feat(playbooks): JSON-defined multi-step action chains + runner + /api/playbooks
 
 ## 2026-04-28 — Cursor agent · real adapters + SSE awareness + cockpit live wiring
 

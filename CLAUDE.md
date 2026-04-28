@@ -47,7 +47,10 @@ specific audiences. Built-in packs: `traders`, `business`, `mlm`, `science`.
   `POST /api/domains/{slug}/actions/{action_id}`. The POST endpoint runs inside
   a meeet trace scope and emits `domain.action.invoked|completed|failed`.
 - Tests: `tests/test_domains.py`, `tests/test_meeet.py`,
-  `tests/test_real_adapters.py`, `tests/test_awareness_stream.py`.
+  `tests/test_meeet_store.py`, `tests/test_real_adapters.py`,
+  `tests/test_awareness_fetchers.py`, `tests/test_awareness_stream.py`,
+  `tests/test_council.py`, `tests/test_policy.py`,
+  `tests/test_playbooks.py`. **79 tests, all green.**
 - Spec: `docs/DOMAIN_PACKS.md`.
 
 ### Real adapters shipped (action contracts stay stable)
@@ -76,14 +79,58 @@ specific audiences. Built-in packs: `traders`, `business`, `mlm`, `science`.
 `experiments/neural-showcase-v3/src/lib/awareness.ts` +
 `<AwarenessTicker/>` mounted at the top of `/cockpit`.
 
+### Awareness snapshots (Phase K-A)
+
+Every `AwarenessSource` may carry an async `fetcher`. The HTTP surface
+`GET /api/domains/<slug>/awareness/<source_id>/snapshot` materialises
+the source on demand inside a meeet trace scope and emits
+`awareness.snapshot.{requested,completed,failed}`. Live fetchers
+ship for calendar / hubspot / kpi / traders binance basket / news /
+portfolio (NAV-enriched) / mlm downline (CSV) / arxiv / local-papers /
+datasets-dir.
+
+### Council (Phase K-C)
+
+`backend/core/council/` runs two voices (`tars-local-rules-v1` +
+`tars-mock-cloud-v1`). Modes `single | dual_vote | n_vote`. Emits
+`sampler.decision` for every deliberation. Hooked into
+`traders.summarize_market` and `business.daily_brief` — responses
+carry a `council` block with voices, agreement, contradictions and
+the chosen stance. New endpoint: `POST /api/council/deliberate`.
+Drop a third concrete `Voice` for the real LLM adapter.
+
+### Policy gate (Phase K-D)
+
+`backend/core/policy/` gates destructive actions. `ActionSpec.destructive`
+opts an action in. Modes `autopilot | confirm | dry_run`, default
+`confirm` (env `TARS_POLICY_MODE`, header `x-tars-policy-mode`).
+Pending tokens persist in the SQLite store. Endpoints:
+`GET /api/policy/{pending,recent}`,
+`POST /api/policy/{confirm,cancel}/{token}`,
+`POST /api/policy/expire`.
+
+### Playbooks (Phase K-E)
+
+JSON files under `playbooks/<pack>/<name>.json`. Steps support
+`<slug>.<action_id>` and `<slug>.awareness.<source_id>.snapshot`,
+`${steps.<id>...}` / `${context.<key>}` templating, `when` clauses,
+`store_as`, `on_error`, and `on_block`. Sample playbooks:
+`traders.morning_check`, `business.morning_brief`,
+`mlm.retention_round`. Endpoints: `GET /api/playbooks`,
+`GET /api/playbooks/{id}`, `POST /api/playbooks/{id}/run`,
+`POST /api/playbooks/_reload`. Override discovery root with
+`TARS_PLAYBOOKS_DIR`.
+
 Action handlers MUST:
 
 - be `async`, accept a `Mapping[str, Any]`, return a `dict` with an `ok` boolean,
 - never raise on bad user input — return `{"ok": False, "error": "..."}` instead,
-- never perform live trades, sends, or destructive actions without an explicit
-  confirmation flow added by the host app.
+- never perform live trades, sends, or destructive actions without an
+  explicit confirmation flow. Tag them with `destructive=True` on the
+  `ActionSpec` so the policy gate routes them through the confirmation
+  queue automatically.
 
-## meeet.world bridge (Phase 9.1)
+## meeet.world bridge (Phase 9.1 + Phase K-B)
 
 `backend/core/meeet/` provides end-to-end logging and trace propagation. The
 bridge is stdlib-only (no httpx) and is a no-op when `MEEET_INGEST_URL` is not
@@ -91,12 +138,20 @@ set, so it is safe in tests and offline envs.
 
 - `tracing.py` — `start_trace`, `current_trace`, `trace_scope`, `new_trace_id`.
 - `events.py` — `TARSEvent` (trace_id, kind, payload, source, contract_version, ts).
-- `client.py` — `MeeetClient.emit(kind, payload)` (async), local jsonl fallback.
+- `client.py` — `MeeetClient.emit(kind, payload)` (async), local jsonl fallback,
+  durable buffer.
+- `store.py` — SQLite WAL durable buffer at `~/.tars/meeet.sqlite`
+  (override `MEEET_STORE_PATH`; disable `MEEET_STORE=disabled`). Every
+  event is inserted before any network attempt; offline events stay
+  `pushed=0` until `MeeetClient.replay_unpushed()` (or
+  `POST /api/meeet/replay`) flushes them. `PolicyStore` shares the
+  same DB.
 - `config.py` — env-driven (`MEEET_INGEST_URL`, `MEEET_CONTRACT_VERSION`,
   `MEEET_API_KEY`, `MEEET_SOURCE`, `MEEET_LOCAL_LOG`). Default contract pin
   `1.0.0`.
 - HTTP entry: domain router accepts `x-meeet-trace-id` header to continue a
-  parent trace from meeet.world or any other surface.
+  parent trace from meeet.world or any other surface. New trace viewer
+  endpoints: `GET /api/meeet/{stats,events}` + `POST /api/meeet/replay`.
 
 Every meaningful TARS request that crosses a service boundary must run inside
 `trace_scope` and emit at least one `*.invoked` and one `*.completed` event.

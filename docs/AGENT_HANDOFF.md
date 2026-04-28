@@ -10,11 +10,12 @@ plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 
 - **Cursor agent (functional / backend / wiring):** owns domain packs,
   meeet bridge, real adapters, SSE awareness, FastAPI router, frontend
-  glue (Cockpit + AwarenessTicker). Most recent batch: real adapters for
-  `business.kpi_snapshot`, `business.daily_brief`, `mlm.downline_snapshot`,
-  `mlm.retention_alert`, `mlm.score_recruit`, `mlm.generate_post`,
-  `science.summarize_paper`, `traders.summarize_market`, plus
-  `/api/awareness/stream` SSE producer and `<AwarenessTicker/>`.
+  glue (Cockpit + AwarenessTicker). Latest batch shipped the full
+  Tier-1 functional roadmap: live awareness fetchers + snapshot
+  endpoint, SQLite durable event log + replay, two-voice council with
+  `sampler.decision`, destructive-action policy gate (dry_run /
+  confirm / autopilot) with persistent confirmations, and the JSON
+  playbook runner (`/api/playbooks`).
 - **Claude Code (design polish, GLB, sound, copy):** picks up the
   remaining design work, GLB asset, content/copy passes, and the still-
   open items in `docs/IDEAS.md`.
@@ -55,17 +56,50 @@ cockpit can wire a live ticker.
 - **Domain pack implementations:**
   `backend/core/domains/packs/{traders,business,mlm,science}/`
   Each pack has `pack.py`, `actions.py`, `awareness.py`, `prompts.py`,
-  `manifest.json`.
+  `manifest.json`. Awareness sources now have live fetchers — see
+  `_fetch_*` in each pack's `awareness.py`.
 - **Local data for adapters:** `data/business_kpi.json`,
-  `data/business_deals.json`, `data/mlm_network.csv`. Path overridable
-  via env vars `BUSINESS_KPI_PATH`, `BUSINESS_DEALS_PATH`,
-  `MLM_NETWORK_PATH` or per-call `path` arg.
+  `data/business_deals.json`, `data/mlm_network.csv`,
+  `data/calendar_events.json`, `data/traders_news.json`,
+  `data/traders_portfolio.json`. Path overridable via env vars
+  (`BUSINESS_KPI_PATH`, `BUSINESS_DEALS_PATH`, `MLM_NETWORK_PATH`,
+  `CALENDAR_PATH`, `TRADERS_NEWS_PATH`, `TRADERS_PORTFOLIO_PATH`) or
+  per-call `path` arg.
+- **Council:** `backend/core/council/{voices,orchestrator,__init__}.py`.
+  Two voices ship: `LocalVoice` (deterministic rules) and
+  `MockCloudVoice` (deliberately conservative under dispersion).
+  `Voice` is an ABC; new LLM adapters subclass and register.
+- **Policy gate:** `backend/core/policy/{gate,store,__init__}.py`.
+  Mode: `autopilot | confirm | dry_run`, default `confirm`.
+  Confirmations table sits in the same SQLite DB as the meeet store.
+- **Playbooks:** `backend/core/playbooks/{loader,runner,__init__}.py`,
+  JSON files under `playbooks/<pack>/<name>.json`. Override the root
+  with `TARS_PLAYBOOKS_DIR`.
 - **Domain HTTP router:** `web_extras/routers/domains.py`
 - **Awareness SSE router:** `web_extras/routers/awareness.py`
+- **Awareness snapshot:** `GET /api/domains/<slug>/awareness/<source_id>/snapshot`
+  — same router file, separate handler.
+- **meeet trace viewer:** `web_extras/routers/meeet.py`
+  → `/api/meeet/{stats,events,replay}`.
+- **Council:** `web_extras/routers/council.py`
+  → `POST /api/council/deliberate`.
+- **Policy:** `web_extras/routers/policy.py`
+  → `GET /api/policy/{pending,recent}`,
+    `POST /api/policy/confirm/{token}`,
+    `POST /api/policy/cancel/{token}`,
+    `POST /api/policy/expire`.
+- **Playbooks:** `web_extras/routers/playbooks.py`
+  → `GET /api/playbooks`, `GET /api/playbooks/{id}`,
+    `POST /api/playbooks/{id}/run`, `POST /api/playbooks/_reload`.
 - **FastAPI app + runner:** `web_extras/app.py`, `serve.py`
-- **meeet bridge:** `backend/core/meeet/{config,tracing,events,client,__init__}.py`
+- **meeet bridge:** `backend/core/meeet/{config,tracing,events,client,store,__init__}.py`.
+  Durable buffer sits in `~/.tars/meeet.sqlite` (override with
+  `MEEET_STORE_PATH`; disable with `MEEET_STORE=disabled`).
 - **Tests:** `tests/test_domains.py`, `tests/test_meeet.py`,
-  `tests/test_real_adapters.py`, `tests/test_awareness_stream.py`.
+  `tests/test_meeet_store.py`, `tests/test_real_adapters.py`,
+  `tests/test_awareness_fetchers.py`, `tests/test_awareness_stream.py`,
+  `tests/test_council.py`, `tests/test_policy.py`,
+  `tests/test_playbooks.py`. **79 tests, all green.**
 - **Specs:** `docs/DOMAIN_PACKS.md`, `docs/VIDEO_TRANSCRIPTS.md`,
   `docs/IDEAS.md`.
 - **Showcase v2 — vanilla:** `experiments/neural-showcase-v2/`
@@ -79,6 +113,43 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **Phase K — Tier 1 functional roadmap (council / policy / persistence):**
+  - **Awareness wiring (Phase A).** `AwarenessSource.fetcher` contract
+    + `GET /api/domains/<slug>/awareness/<id>/snapshot`. Live fetchers
+    for calendar, hubspot deals, kpi sheet, traders binance/news/portfolio
+    (NAV-enriched), mlm downline, arxiv, local-papers, datasets-dir.
+    `business.daily_brief` now surfaces `calendar_today[]`.
+  - **Durable event log (Phase B).** `backend/core/meeet/store.py`
+    SQLite WAL DB. Every event flows through the store before any
+    network attempt; offline events sit at `pushed=0` and
+    `replay_unpushed()` flushes them. New endpoints:
+    `GET /api/meeet/stats`, `GET /api/meeet/events`,
+    `POST /api/meeet/replay`.
+  - **Council orchestrator (Phase C).** Two voices
+    (`tars-local-rules-v1`, `tars-mock-cloud-v1`), modes
+    `single | dual_vote | n_vote`. Emits
+    `council.deliberation.{started,completed}` and `sampler.decision`
+    on every call. Wired into `traders.summarize_market` and
+    `business.daily_brief`. New endpoint:
+    `POST /api/council/deliberate`.
+  - **Policy gate (Phase D).** `ActionSpec.destructive` flag;
+    destructive actions (`traders.place_alert`, `business.draft_email`,
+    `business.log_deal`, `mlm.generate_post`) flow through the gate.
+    Modes: `autopilot | confirm | dry_run`, default `confirm`. Token
+    confirmations persisted in the same SQLite DB. New endpoints:
+    `GET /api/policy/{pending,recent}`,
+    `POST /api/policy/{confirm,cancel}/{token}`,
+    `POST /api/policy/expire`. Header `x-tars-policy-mode` switches
+    mode per request.
+  - **Playbook runner (Phase E).** JSON playbooks under
+    `playbooks/<pack>/<name>.json`. Steps support
+    `<slug>.<action_id>` and `<slug>.awareness.<source_id>.snapshot`,
+    `${steps.<id>...}` and `${context.<key>}` templating, `when`
+    clauses, `store_as`, `on_error`. Sample playbooks shipped:
+    `traders.morning_check`, `business.morning_brief`,
+    `mlm.retention_round`. New endpoints:
+    `GET /api/playbooks`, `POST /api/playbooks/{id}/run`,
+    `POST /api/playbooks/_reload`.
 - **Phase J — Real adapters + SSE awareness:**
   - `business.kpi_snapshot` reads `data/business_kpi.json`.
   - `business.daily_brief` composes deltas + next steps from KPI + deals
@@ -138,22 +209,39 @@ cockpit can wire a live ticker.
 
 ### Owned by **Cursor agent (functional)**
 
-1. **Council orchestrator.** Two LLM voices with explicit
-   disagreement detection; surface as
-   `traders.summarize_market.signals[*]` and
-   `business.daily_brief.summary` enrichment.
-2. **More real adapters.** Mail (IMAP/JMAP) for `business.draft_email`;
-   CRM (HubSpot or Pipedrive) for `business.log_deal`; OpenAlex/
-   Crossref enrichment in `science.summarize_paper`.
+Tier-1 roadmap (council / policy / persistence / playbooks /
+awareness wiring) is **shipped** in Phase K. Remaining items now:
+
+1. **Real LLM voice.** Drop a third concrete `Voice` subclass that
+   talks to OpenAI / Anthropic / a local Llama. Keep the deterministic
+   pair as the offline fallback. Honour the existing Proposal shape so
+   the orchestrator code doesn't change.
+2. **More real adapters.** Mail (IMAP/JMAP) for `business.draft_email`
+   sending; CRM (HubSpot or Pipedrive) for `business.log_deal`
+   pushing; OpenAlex/Crossref enrichment in `science.summarize_paper`;
+   web-feed RSS in `traders.news_feed`.
 3. **Code-split v3.** Bundle is 1.39 MB pre-gzip; split out R3F so
    `/cockpit` doesn't pay for the orbital scene.
-4. **Local-first persistence layer.** SQLite-backed event log so the
-   meeet bridge has a durable buffer when offline.
-5. **Auth-aware actions.** Once any pack needs a token, route through
-   the secrets vault and surface a per-pack auth state.
-6. **meeet contract evolution.** Align event kinds with the
+4. **Auth-aware actions.** Once any pack needs a token, route through
+   the secrets vault (Keychain on macOS) and surface per-pack auth
+   state in `/api/domains/<slug>` so the cockpit can render badges.
+5. **meeet contract evolution.** Align event kinds with the
    `meeet.world` ingest contract when it lands. Keep
-   `contract_version` pin updated.
+   `contract_version` pin updated; the durable buffer makes schema
+   migrations cheap (replay + transform).
+6. **SQLite migration to MLM downline DB.** `~/.tars/downline.sqlite`
+   is referenced by the awareness config but not yet implemented; the
+   CSV fallback works. Implement the SQLite version + writer pipeline
+   so the network mutates from the cockpit.
+7. **Playbook step parallelism.** All steps are sequential; add a
+   `parallel: true` block (or `group:` syntax) for awareness
+   snapshots that don't depend on each other. Today
+   `traders.morning_check` runs `news` + `portfolio` serially.
+8. **Cockpit UI surface for the new endpoints.** `/cockpit` has a
+   trace timeline and the awareness ticker; we still need: a
+   pending-confirmations panel, a sampler.decision viewer, a
+   playbook runner panel. (Owner-debate: design lives with Claude;
+   wiring lives here. Coordinate via `docs/IDEAS.md`.)
 
 ## Conventions to keep
 
@@ -173,7 +261,7 @@ cockpit can wire a live ticker.
 ## How to run locally
 
 ```bash
-# Backend (real adapters + SSE)
+# Backend (real adapters + SSE + council + policy + playbooks)
 cd Jarvis/jarvis
 PYTHONPATH=. PORT=9911 .venv/bin/python serve.py
 
@@ -187,3 +275,43 @@ npm run dev          # http://127.0.0.1:5174
 # Tests
 PYTHONPATH=. .venv/bin/python -m pytest -q
 ```
+
+### Useful curl recipes
+
+```bash
+# Live awareness snapshot
+curl -s http://127.0.0.1:9911/api/domains/business/awareness/gcalendar/snapshot
+
+# Council deliberation directly
+curl -s -XPOST -H 'content-type: application/json' \
+  http://127.0.0.1:9911/api/council/deliberate \
+  -d '{"prompt":"interpret","context":{"topic":"market","avg_change_24h":-1.5}}'
+
+# Run a playbook in autopilot
+curl -s -XPOST -H 'content-type: application/json' \
+  -H 'x-tars-policy-mode: autopilot' \
+  http://127.0.0.1:9911/api/playbooks/business.morning_brief/run -d '{}'
+
+# Stage destructive action → confirm
+TOKEN=$(curl -s -XPOST -H 'content-type: application/json' \
+  http://127.0.0.1:9911/api/domains/business/actions/draft_email \
+  -d '{"to":"x@y.z","tone":"warm"}' \
+  | jq -r .result.policy.confirmation_token)
+curl -s -XPOST http://127.0.0.1:9911/api/policy/confirm/$TOKEN
+
+# Browse the SQLite event log
+curl -s 'http://127.0.0.1:9911/api/meeet/events?limit=10' | jq
+```
+
+### Env vars that matter
+
+- `MEEET_STORE_PATH` — durable buffer location (default `~/.tars/meeet.sqlite`).
+- `MEEET_STORE=disabled` — bypass the SQLite buffer (events go to
+  ingest / local-log only).
+- `MEEET_INGEST_URL`, `MEEET_API_KEY`, `MEEET_CONTRACT_VERSION`,
+  `MEEET_LOCAL_LOG`, `MEEET_SOURCE` — meeet bridge config.
+- `TARS_POLICY_MODE` — default policy mode for the gate.
+- `TARS_PLAYBOOKS_DIR` — override the playbooks discovery root.
+- `BUSINESS_KPI_PATH`, `BUSINESS_DEALS_PATH`, `MLM_NETWORK_PATH`,
+  `CALENDAR_PATH`, `TRADERS_NEWS_PATH`, `TRADERS_PORTFOLIO_PATH`
+  — local data overrides.

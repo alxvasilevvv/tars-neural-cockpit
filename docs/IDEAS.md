@@ -5,10 +5,12 @@ Ideas for the next sprints. Triage by impact × cost and pull into
 
 ## Cross-cutting (meeet × TARS)
 
-1. **Sampler decision events.** Mirror the meeet sampler: emit
-   `sampler.decision` with `mode` (single | dual_vote | n_vote | arbiter),
-   `models`, `winner`, `latency_ms`, `tokens`. Lets meeet build per-model
-   leaderboards across products.
+1. **Sampler decision events.** ✅ shipped — every council deliberation
+   emits `sampler.decision` with `mode`, `models`, `winner`,
+   `winning_stance`, `latency_ms`, `tokens_in/out`, `agreement`,
+   `contradictions`. Wired in `traders.summarize_market` and
+   `business.daily_brief`. Open work: real LLM voice adapter + a
+   `route` flag (see #2).
 2. **Edge-vs-cloud routing flag.** Tag every event with
    `route="edge" | "cloud" | "fallback"` so meeet can show a routing map per
    user. TARS becomes a primary edge node.
@@ -17,9 +19,16 @@ Ideas for the next sprints. Triage by impact × cost and pull into
    "what was this user up to" reconstruction.
 4. **Cost ledger.** Emit `usage.tokens` with model + tier + tokens_in/out per
    meaningful call. meeet aggregates dollars and exposes them in a single
-   bill across products.
-5. **Policy guardrail events.** Emit `policy.allowed` / `policy.blocked` for
-   every Mac-actions call. meeet can audit destructive intent globally.
+   bill across products. (Council Proposals already track `tokens_in/out`;
+   plumb them through to a global event.)
+5. **Policy guardrail events.** ✅ shipped — `policy.{allowed,blocked,
+   queued,confirm,cancelled}` fire on every destructive-action attempt;
+   confirmations persist in the SQLite store with token + TTL. Open work:
+   confirmation UI in the cockpit and a "policy mode" badge per pack.
+26. **Local trace UI.** ✅ infra shipped — `/api/meeet/events` returns the
+    SQLite trail with filters by `kind` / `trace_id` / `since` /
+    `only_unpushed`. Owner: design — render this on a dedicated page
+    in v3.
 
 ## Domain pack improvements
 
@@ -68,28 +77,46 @@ Ideas for the next sprints. Triage by impact × cost and pull into
 
 ## Local-first, privacy
 
-15. **Local trace viewer.** Tail `MEEET_LOCAL_LOG` jsonl into a small page
-    `frontend/trace.html` with filter chips and timeline.
+15. **Local trace viewer.** ✅ infra shipped — `GET /api/meeet/events`
+    + `/api/meeet/stats`. Frontend page is the next move (owner:
+    design). The SQLite source of truth is `~/.tars/meeet.sqlite`.
 16. **Encrypted vault.** Wrap the awareness store in libsodium; key stays in
     Keychain. Required before MLM / business adapters touch real data.
 17. **Differential telemetry.** Default-off counters with k-anon aggregation
     that meeet can stream anonymised; opt-in switch in settings.
+28. **Replay-on-reconnect.** ✅ shipped — `MeeetClient.replay_unpushed`
+    + `POST /api/meeet/replay`. Open work: schedule a periodic replay
+    (e.g. every 60s) when ingest is configured.
 
 ## Operator / cockpit
 
-18. **Council debug panel.** Live view of last N
-    `sampler.decision` events with diff between candidates, model latencies,
-    and token costs. Operators see why a vote was won.
-19. **Action playbooks.** YAML files under `playbooks/<pack>/<task>.yml` —
-    multi-step action chains the operator triggers from a palette.
+18. **Council debug panel.** Backend shipped — every deliberation
+    persists in `/api/meeet/events?kind=sampler.decision` and
+    `traders.summarize_market`/`business.daily_brief` responses carry
+    a `council` block. Owner: design — render the dual-voice diff,
+    confidence bars, latency, agreement %, contradictions list.
+19. **Action playbooks.** ✅ shipped — JSON under
+    `playbooks/<pack>/<name>.json`, runner + `/api/playbooks` HTTP
+    surface. Sample playbooks: `traders.morning_check`,
+    `business.morning_brief`, `mlm.retention_round`. Open work:
+    cockpit palette UI, parallel step blocks, schema validator.
 20. **Hotkey palette.** ⌘K opens a fuzzy palette over packs, awareness
-    sources, recent traces.
+    sources, playbooks, recent traces.
 26. **Awareness ticker.** ✅ shipped — `<AwarenessTicker/>` consumes
     `/api/awareness/stream` SSE in the Cockpit page. Open work:
     sparkline chart variant, replay-from-trace mode.
 27. **Smart response renderer.** Cockpit currently shows raw JSON.
     Add per-action templates that pull `summary` / `top_gainers` /
-    `at_risk` / `tldr` into a HUD card on top of the JSON viewer.
+    `at_risk` / `tldr` / `council.summary` into a HUD card on top of
+    the JSON viewer.
+29. **Pending confirmations panel.** Backend shipped —
+    `/api/policy/pending` returns staged tokens with args/preview.
+    Owner: design — a left-rail "approval inbox" with one-click
+    confirm / cancel and an audit row.
+30. **Awareness explorer.** Backend shipped —
+    `/api/domains/<slug>/awareness/<id>/snapshot`. Owner: design —
+    per-source live preview cards (calendar list, deals pipeline,
+    arXiv abstracts).
 
 ## Engineering
 
