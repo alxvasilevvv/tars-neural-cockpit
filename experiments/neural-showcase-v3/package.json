@@ -8,7 +8,11 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
-    "typecheck": "tsc -b --noEmit"
+    "typecheck": "tsc -b --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "audit:lighthouse": "npx --yes lighthouse https://tars.meeet.world --only-categories=performance,accessibility --chrome-flags=\"--headless=new\" --output=json --output-path=./lighthouse.json",
+    "audit:axe": "npx --yes @axe-core/cli https://tars.meeet.world --exit"
   },
   "dependencies": {
     "@react-three/drei": "^9.122.0",

@@ -36,12 +36,18 @@ def test_pack_to_dict_shape(slug: str) -> None:
         "color",
         "capabilities",
         "audience",
+        "deprecated",
+        "deprecated_in_favor_of",
         "actions",
         "awareness",
         "auth",
     ):
         assert key in payload, f"missing key {key} in {slug}"
     assert payload["slug"] == slug
+    assert isinstance(payload["deprecated"], bool)
+    assert payload["deprecated_in_favor_of"] is None or isinstance(
+        payload["deprecated_in_favor_of"], str
+    )
     assert payload["color"].startswith("#")
     assert isinstance(payload["actions"], list) and payload["actions"]
     assert isinstance(payload["awareness"], list) and payload["awareness"]

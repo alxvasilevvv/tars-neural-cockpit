@@ -25,16 +25,44 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from backend.core.domains import packs as _packs  # noqa: F401  (registers)
 from backend.core.meeet import current_trace, get_client
+from web_extras.routers import agents as agents_router
 from web_extras.routers import awareness as awareness_router
+from web_extras.routers import chat as chat_router
 from web_extras.routers import council as council_router
 from web_extras.routers import domains as domains_router
 from web_extras.routers import meeet as meeet_router
 from web_extras.routers import playbooks as playbooks_router
+from web_extras.routers import pairing as pairing_router
 from web_extras.routers import policy as policy_router
+from web_extras.routers import product as product_router
+from web_extras.routers import recovery as recovery_router
+from web_extras.routers import search as search_router
+from web_extras.routers import usage as usage_router
 from web_extras.routers import vault as vault_router
+from web_extras.routers import voice as voice_router
+from web_extras.routers import wallet as wallet_router
 
 START_TS = time.time()
 log = logging.getLogger("tars.app")
+
+
+def _cors_allow_origins() -> list[str]:
+    """Production marketing origin + local Vite defaults + optional extras.
+
+    Comma-separated override: ``TARS_CORS_ORIGINS`` (merged, not replaced).
+    """
+
+    defaults = [
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:5174",
+        "https://tars.meeet.world",
+    ]
+    raw = os.getenv("TARS_CORS_ORIGINS", "").strip()
+    extras = [x.strip() for x in raw.split(",") if x.strip()]
+    merged = [*defaults, *extras]
+    return list(dict.fromkeys(merged))
 
 
 def _replay_interval_s() -> float:
@@ -78,13 +106,18 @@ async def _replay_loop() -> None:
 
 @contextlib.asynccontextmanager
 async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
-    task = asyncio.create_task(_replay_loop(), name="meeet-replay-loop")
+    from backend.core.agents.autopilot import autopilot_loop
+
+    replay = asyncio.create_task(_replay_loop(), name="meeet-replay-loop")
+    autopilot = asyncio.create_task(autopilot_loop(), name="agents-autopilot-loop")
     try:
         yield
     finally:
-        task.cancel()
-        with contextlib.suppress(asyncio.CancelledError, Exception):
-            await task
+        for task in (replay, autopilot):
+            task.cancel()
+        for task in (replay, autopilot):
+            with contextlib.suppress(asyncio.CancelledError, Exception):
+                await task
 
 
 app = FastAPI(
@@ -94,17 +127,24 @@ app = FastAPI(
     lifespan=_lifespan,
 )
 
+# Phase O1 — unified error envelope. Every error now carries a stable
+# `error_code` (taxonomy in web_extras/errors.py) plus the legacy
+# FastAPI `detail` field for backward compatibility.
+from web_extras import errors as _tars_errors
+
+_tars_errors.install(app)
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://localhost:5174",
-        "http://127.0.0.1:5173",
-        "http://127.0.0.1:5174",
-    ],
+    allow_origins=_cors_allow_origins(),
     allow_credentials=False,
     allow_methods=["GET", "POST", "OPTIONS"],
-    allow_headers=["*", "x-meeet-trace-id", "x-tars-policy-mode"],
+    allow_headers=[
+        "*",
+        "x-meeet-trace-id",
+        "x-tars-policy-mode",
+        "x-tars-session-id",
+    ],
 )
 
 app.include_router(domains_router.router)
@@ -114,6 +154,21 @@ app.include_router(council_router.router)
 app.include_router(policy_router.router)
 app.include_router(playbooks_router.router)
 app.include_router(vault_router.router)
+app.include_router(usage_router.router)
+app.include_router(chat_router.router)
+app.include_router(voice_router.router)
+app.include_router(search_router.router)
+app.include_router(search_router.timeline_router)
+app.include_router(product_router.router)
+app.include_router(pairing_router.router)
+app.include_router(recovery_router.router)
+app.include_router(agents_router.router)
+app.include_router(wallet_router.router)
+from web_extras.routers import entitlements as entitlements_router  # noqa: E402
+from web_extras.routers import roles as roles_router  # noqa: E402
+
+app.include_router(entitlements_router.router)
+app.include_router(roles_router.router)
 
 
 @app.get("/health")

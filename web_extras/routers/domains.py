@@ -24,7 +24,7 @@ from fastapi import APIRouter, Header, HTTPException
 
 from backend.core.domains import packs as _packs  # noqa: F401  (registers)
 from backend.core.domains.registry import all_packs, get_pack
-from backend.core.meeet import get_client, trace_scope
+from backend.core.meeet import get_client, set_route, trace_scope
 from backend.core.policy import get_gate, resolve_mode
 
 router = APIRouter(prefix="/api/domains", tags=["domains"])
@@ -33,6 +33,46 @@ router = APIRouter(prefix="/api/domains", tags=["domains"])
 @router.get("")
 async def list_domains() -> dict[str, Any]:
     return {"domains": [p.to_dict() for p in all_packs()]}
+
+
+@router.get("/manifest")
+async def manifest() -> dict[str, Any]:
+    """Static, cache-friendly manifest of every registered pack.
+
+    Designed for cold-start installers and external consumers that
+    need a stable list of slugs/capabilities without deep schema dumps.
+    """
+
+    contract_version = "1.0.0"
+    items: list[dict[str, Any]] = []
+    for pack in all_packs():
+        m = pack.manifest
+        composite = bool(getattr(pack, "composed_of", ()))
+        items.append(
+            {
+                "slug": m.slug,
+                "name": m.name,
+                "short": m.short,
+                "color": m.color,
+                "audience": m.audience,
+                "capabilities": list(m.capabilities),
+                "deprecated": m.deprecated,
+                "deprecated_in_favor_of": m.deprecated_in_favor_of,
+                "composite": composite,
+                "composed_of": list(getattr(pack, "composed_of", ())),
+                "action_count": sum(1 for _ in pack.actions()),
+                "destructive_action_count": sum(
+                    1 for a in pack.actions() if a.destructive
+                ),
+                "awareness_count": sum(1 for _ in pack.awareness()),
+            }
+        )
+    return {
+        "ok": True,
+        "contract_version": contract_version,
+        "count": len(items),
+        "domains": items,
+    }
 
 
 @router.get("/{slug}")
@@ -69,6 +109,7 @@ async def awareness_snapshot(
     slug: str,
     source_id: str,
     x_meeet_trace_id: str | None = Header(default=None),
+    x_tars_session_id: str | None = Header(default=None),
 ) -> dict[str, Any]:
     pack = get_pack(slug)
     if pack is None:
@@ -91,7 +132,11 @@ async def awareness_snapshot(
 
     client = get_client()
     started_at = time.perf_counter()
-    with trace_scope(parent=x_meeet_trace_id) as trace_id:
+    with trace_scope(
+        parent=x_meeet_trace_id,
+        session=x_tars_session_id,
+        route="edge",
+    ) as trace_id:
         await client.emit(
             "awareness.snapshot.requested",
             {"slug": slug, "source_id": source_id, "kind": source.kind},
@@ -149,6 +194,7 @@ async def invoke_action(
     payload: dict[str, Any] | None = None,
     x_meeet_trace_id: str | None = Header(default=None),
     x_tars_policy_mode: str | None = Header(default=None),
+    x_tars_session_id: str | None = Header(default=None),
 ) -> dict[str, Any]:
     pack = get_pack(slug)
     if pack is None:
@@ -158,7 +204,6 @@ async def invoke_action(
         raise HTTPException(status_code=404, detail="action_not_found")
     args = dict(payload or {})
 
-    # Pull off policy-related args before the handler ever sees them.
     arg_mode = args.pop("policy_mode", None)
     confirmed_by_token = bool(args.pop("_confirmed", False))
 
@@ -169,7 +214,14 @@ async def invoke_action(
 
     client = get_client()
     started_at = time.perf_counter()
-    with trace_scope(parent=x_meeet_trace_id) as trace_id:
+    # Domain actions default to "edge" — purely local execution. Any
+    # voice / adapter that crosses out to a cloud bumps the route via
+    # ``set_route("cloud")`` from inside its handler.
+    with trace_scope(
+        parent=x_meeet_trace_id,
+        session=x_tars_session_id,
+        route="edge",
+    ) as trace_id:
         await client.emit(
             "domain.action.invoked",
             {

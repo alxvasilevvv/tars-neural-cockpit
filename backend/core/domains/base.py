@@ -60,7 +60,15 @@ class AwarenessSource:
 
 @dataclass(frozen=True)
 class DomainManifest:
-    """Static metadata describing a pack."""
+    """Static metadata describing a pack.
+
+    Phase M / P6 adds a ``deprecated`` flag. Deprecated packs stay
+    importable and resolvable through ``get_pack`` so saved cockpit
+    state and agents pinned to the old slug keep working, but the
+    ``/api/domains/manifest`` payload omits them by default — pass
+    ``include_deprecated=true`` to surface the legacy entries.
+    ``deprecated_in_favor_of`` points operators at the canonical slug.
+    """
 
     slug: str
     name: str
@@ -69,6 +77,8 @@ class DomainManifest:
     color: str  # hex, e.g. "#22d3ee"
     capabilities: tuple[str, ...]
     audience: str
+    deprecated: bool = False
+    deprecated_in_favor_of: str | None = None
 
 
 class DomainPack(ABC):
@@ -126,6 +136,8 @@ class DomainPack(ABC):
             "color": m.color,
             "capabilities": list(m.capabilities),
             "audience": m.audience,
+            "deprecated": m.deprecated,
+            "deprecated_in_favor_of": m.deprecated_in_favor_of,
             "auth": {
                 "keys": [
                     {"key": r.key, "source": r.source, "available": r.available}

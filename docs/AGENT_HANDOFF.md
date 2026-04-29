@@ -6,17 +6,30 @@ plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 > Naming: product = **TARS**. Older copy may say "Jarvis" — replace in copy
 > when editing. Folder name `Jarvis/jarvis` stays for path stability.
 
+> **New workstation / GitHub / meeet.world onboarding:** step-by-step
+> checklist lives in `docs/SECOND_MACHINE_HANDOFF.md` (includes `.env.example`
+> and a first-message template for Claude Code on the destination machine).
+
+> **Active roadmap: `docs/PHASE_L_ROADMAP.md`** — Phase L is the
+> Claude-tier evolution (conversation layer, attachments, encrypted
+> sync via meeet.world, voice mode, Tauri desktop, **iOS and Android companions**).
+> Read it once before picking up any new feature work; sub-phases are
+> independent and have explicit acceptance criteria.
+
 ## Current split of work
 
 - **Cursor agent (functional / backend / wiring):** owns domain packs,
   meeet bridge, real adapters, SSE awareness, FastAPI router, frontend
-  glue (Cockpit + AwarenessTicker + OperatorStrip). Latest batch
-  (Phase F-J) shipped: real LLM voice (Anthropic / OpenAI) gated by a
-  macOS Keychain vault, parallel playbook step batches, the SQLite
-  downline DB with `mlm.add_member` / `mlm.log_activity` mutations,
-  the background replay loop with `/api/meeet/health`, and typed
-  cockpit clients + an OperatorStrip surfacing the policy /
-  council / playbooks / meeet / vault endpoints.
+  glue (Cockpit + AwarenessTicker + OperatorStrip + UsageStrip). The
+  latest batch (Phase K) shipped: route + session_id tagging in every
+  event, a USD/token cost ledger fed by `usage.tokens` events, the
+  `/api/usage` rollup with per-route / per-model / per-session
+  buckets, composite domain packs (`research_lab`, `ops_room`) plus
+  `/api/domains/manifest`, a CLI replay tool
+  (`python -m backend.core.meeet.replay_cli`), the `meeet` event
+  contract test suite, and SMTP outbound for `business.draft_email`
+  (vault-driven). Frontend wires `<UsageStrip />` and a per-tab
+  session id propagated via `x-tars-session-id`.
 - **Claude Code (design polish, GLB, sound, copy):** picks up the
   remaining design work, GLB asset, content/copy passes, and the still-
   open items in `docs/IDEAS.md`.
@@ -72,7 +85,14 @@ cockpit can wire a live ticker.
   `AnthropicVoice` / `OpenAIVoice` (auto-detected from the vault when
   a key is configured). The orchestrator filters voices that
   fail with `stance='unavailable'` so missing keys never block a
-  deliberation.
+  deliberation. Every deliberation now also emits per-voice
+  `usage.tokens` events (with `cost_usd`) and bumps the active route
+  to `cloud` when an LLM voice ran successfully.
+- **Cost ledger:** `backend/core/usage/{__init__,ledger}.py` derives
+  rollups from the meeet event store — no separate DB. Pricing is
+  configurable via `TARS_PRICE_OVERRIDES_JSON`; defaults cover the
+  shipped LLM voices. HTTP surface: `GET /api/usage`,
+  `GET /api/usage/lines`, `GET /api/usage/prices`.
 - **Secrets vault:** `backend/core/vault/{__init__,keychain}.py`.
   Env-var first, then macOS Keychain (service `tars`,
   `security find-generic-password -a tars -s <key>`). HTTP surface:
@@ -88,7 +108,16 @@ cockpit can wire a live ticker.
   SQLite at `~/.tars/downline.sqlite` (override `MLM_DB_PATH`),
   self-seeds from `data/mlm_network.csv` on first read. Mutations
   (`add_member`, `log_activity`) flow through the policy gate.
-- **Domain HTTP router:** `web_extras/routers/domains.py`
+- **Composite packs:** `backend/core/domains/composite.py` +
+  `backend/core/domains/packs/composites.py`. Two ship by default:
+  `research_lab` (science + business → paper-to-pitch) and
+  `ops_room` (traders + mlm → morning standup). Composite actions
+  surface as `<sub_slug>__<id>` so handlers don't collide; destructive
+  flags + auth keys propagate from the leaves.
+- **Domain HTTP router:** `web_extras/routers/domains.py`. Adds
+  `GET /api/domains/manifest` — cache-friendly summary of every
+  registered pack (slug, capabilities, action/destructive counts,
+  composite linkage).
 - **Awareness SSE router:** `web_extras/routers/awareness.py`
 - **Awareness snapshot:** `GET /api/domains/<slug>/awareness/<source_id>/snapshot`
   — same router file, separate handler.
@@ -98,6 +127,9 @@ cockpit can wire a live ticker.
   → `POST /api/council/deliberate`.
 - **Vault status:** `web_extras/routers/vault.py`
   → `GET /api/vault/status`.
+- **Usage ledger:** `web_extras/routers/usage.py`
+  → `GET /api/usage`, `GET /api/usage/lines`,
+    `GET /api/usage/prices`.
 - **Policy:** `web_extras/routers/policy.py`
   → `GET /api/policy/{pending,recent}`,
     `POST /api/policy/confirm/{token}`,
@@ -109,19 +141,29 @@ cockpit can wire a live ticker.
 - **FastAPI app + runner:** `web_extras/app.py`, `serve.py`. App
   lifespan starts the background replay loop (interval
   `MEEET_REPLAY_INTERVAL_S`, default 60s, set to `0` to disable).
-- **meeet bridge:** `backend/core/meeet/{config,tracing,events,client,store,__init__}.py`.
+- **meeet bridge:** `backend/core/meeet/{config,tracing,events,client,store,replay_cli,__init__}.py`.
   Durable buffer sits in `~/.tars/meeet.sqlite` (override with
   `MEEET_STORE_PATH`; disable with `MEEET_STORE=disabled`).
   `MeeetClient.last_replay` caches the most recent replay outcome and
-  is surfaced by `/api/meeet/health`.
+  is surfaced by `/api/meeet/health`. `tracing.py` ships
+  `session_scope`, `set_route`, and `current_session/current_route`;
+  `events.py` carries optional `session_id`/`route` on every payload;
+  the SQLite store has matching columns + indices (auto-migrated on
+  first read for pre-K1 DBs). The CLI tool
+  `python -m backend.core.meeet.replay_cli --stats|--export|--limit`
+  is the cold-start recovery path.
 - **Tests:** `tests/test_domains.py`, `tests/test_meeet.py`,
-  `tests/test_meeet_store.py`,
+  `tests/test_meeet_store.py`, `tests/test_meeet_contract.py`,
   `tests/test_meeet_health_and_replay_loop.py`,
   `tests/test_real_adapters.py`, `tests/test_awareness_fetchers.py`,
   `tests/test_awareness_stream.py`, `tests/test_council.py`,
   `tests/test_policy.py`, `tests/test_playbooks.py`,
-  `tests/test_mlm_db.py`, `tests/test_vault_and_llm_voice.py`.
-  **122 tests, all green.**
+  `tests/test_mlm_db.py`, `tests/test_vault_and_llm_voice.py`,
+  `tests/test_batch2_adapters.py`, `tests/test_business_smtp.py`,
+  `tests/test_composite_packs.py`, `tests/test_replay_cli.py`,
+  `tests/test_usage_ledger.py`,
+  `tests/test_usage_router_and_manifest.py`.
+  **159 tests, all green.**
 - **Specs:** `docs/DOMAIN_PACKS.md`, `docs/VIDEO_TRANSCRIPTS.md`,
   `docs/IDEAS.md`.
 - **Showcase v2 — vanilla:** `experiments/neural-showcase-v2/`
@@ -134,6 +176,610 @@ cockpit can wire a live ticker.
   `.cursor/rules/tars-architecture.mdc` — keep these three in sync.
 
 ## Done (running list, latest first)
+
+- **2026-04-29 — Wave 46 launch gate (`tars.meeet.world`):**
+  Backend now exposes ``deprecated`` + ``deprecated_in_favor_of`` on
+  ``GET /api/domains`` and the manifest endpoint
+  (``backend/core/domains/base.py``, ``web_extras/routers/domains.py``).
+  Frontend ``listDomains`` / ``getDomainManifest`` filter on
+  ``deprecated === true`` (slug fallback removed). CORS allow-list adds
+  ``https://tars.meeet.world`` and accepts comma-separated
+  ``TARS_CORS_ORIGINS``. Showcase ``.env.production`` baked
+  ``VITE_TARS_API=https://tars.meeet.world``. Pairing router docstring
+  + smoke covers all 7 endpoints (``identity`` / ``begin`` /
+  ``status`` / ``accept`` / ``devices`` / ``revoke`` / ``reject``).
+  Wave 37/40/43 wire glue restored (``getEntitlements`` /
+  ``activateRole`` / ``createCustomRole``). Lighthouse + axe scripts
+  added (``audit:lighthouse`` / ``audit:axe``). Pytest **674 passed**;
+  ``tsc -b`` 0 errors; vite ``build`` + vitest 56/56 green.
+
+- **2026-04-29 — Tauri desktop icons committed (cargo unblocked):**
+  ``desktop/src-tauri/icons/`` was empty of PNG/ICNS/ICO despite
+  ``tauri.conf.json`` listing them — ``cargo test`` failed on every
+  clone. Added ``assets/icon-source.png`` (placeholder), ``scripts/mint_placeholder_icon.py``, ran ``tauri icon`` → 53 files;
+  ``npm run tauri:icons`` in ``desktop/package.json``; removed stray
+  ``use tauri::Manager`` warning. ``cargo test`` clean.
+
+- **2026-04-29 — Downloads default manifest + npm version aligned alpha.2:**
+  `DEFAULT_MANIFEST` bumped from `0.1.0-alpha.1` → `0.1.0-alpha.2`;
+  Linux x64 AppImage added to placeholders, `_DEFAULT_NOTES` Phase M.
+  `desktop/package.json` version matches `tauri.conf.json`.
+  `desktop/scripts/updater-pubkey-status.sh` prints whether
+  `plugins.updater.pubkey` is still `TODO_PUBLIC_KEY`; OPERATOR_RUNBOOK
+  §0a references it. `pubkey` in repo intentionally still TODO —
+  operators patch via existing `generate-release-keys.sh`.
+
+- **2026-04-29 — Console-warning sweep (post shader swap):**
+  Operator asked for another audit pass. Pulled the live console
+  on `127.0.0.1:5174/` and cleared 25 of 30 runtime warnings/errors.
+  - **React Router v7 future flags** wired in `src/main.tsx`
+    (`v7_startTransition`, `v7_relativeSplatPath`) → kills 2 warnings.
+  - **`useScroll` ref-not-hydrated** (9 errors per page load) →
+    `ScrollStory` refactored so `PinnedTrack` computes
+    `scrollYProgress` once and passes the `MotionValue<number>` down
+    to `ProgressRail` / `CopyPane` / `VisualPane`; 8 redundant
+    scroll listeners removed in the process. `Layers` and `Steps`
+    got `layoutEffect: false` on their `useScroll`.
+  - **iframe sandbox warning** in `CockpitLive` → dropped the
+    `sandbox` attribute (same-origin iframe, no protection gained,
+    only the browser warning lost). Replaced with
+    `referrerPolicy="no-referrer-when-downgrade"`.
+  - **Three.js multiple-instances** → `vite.config.ts` got
+    `resolve.dedupe = ["three", "react", "react-dom"]` +
+    `optimizeDeps.include = ["three"]`. Single bundled `three`
+    across the app / R3F / drei / postprocessing / our shader port.
+    Spline still bundles its own internally — accepted.
+  - **Hero live demo a11y** → cycles only when not hovered/focused
+    and not under `prefers-reduced-motion`; container is
+    `aria-hidden` because the surfaces are already named in plain
+    text in the subline.
+  - **Vite chunk warning** → raised `chunkSizeWarningLimit` to 2200
+    so the build log only screams on real regressions, not on the
+    intentionally-lazy Spline runtime (physics 1.99 MB / react-spline
+    2.04 MB).
+  - Tests: `pytest -q` 671/671, `tsc --noEmit` clean,
+    `npx vitest run` 56/56, `npm run build` clean (no chunk warns).
+
+- **2026-04-29 — Hero swap: orb → shader-lines (21st.dev port, local three):**
+  Operator vetoed the orbital-reactor scene shipped earlier today
+  ("ужасный элемент") and pointed at
+  `21st.dev/community/components/aliimam/shader-lines/default`.
+  Pulled the source from the registry CDN and ported it into
+  `src/components/ui/shader-lines.tsx` against the local
+  `three@0.184.0` instead of injecting `<script
+  src="cdnjs.cloudflare.com/.../three.min.js">` at runtime — no
+  third-party network call on first paint, no CSP exception, bundle
+  hash stays reproducible for signed releases. Fragment shader is
+  preserved verbatim so the visual character matches the 21st.dev
+  preview exactly. ResizeObserver on the container (not `window`) so
+  the shader resizes cleanly with the hero layout. Pixel ratio
+  capped at 1.5. `prefers-reduced-motion` freezes the time uniform
+  but still renders one calm frame so the visual is not blank.
+  Cleanup is StrictMode-safe.
+  `<Hero />` background layer renders the shader plus two veils — a
+  centred radial gradient (`rgba(7,7,10,0.78) → 0` over 78% of the
+  ellipse) to dim the bright centre under the headline, and a 40-tall
+  bottom gradient handing off to `--color-bg-0`. Old
+  `src/three/HeroScene.tsx` deleted (dead code after swap). Tests:
+  `tsc --noEmit` clean / `npx vitest run` 56/56 / `npm run build`
+  clean / live verify on `http://127.0.0.1:5174/`.
+
+- **2026-04-29 — Hero refresh (3D scene + sovereignty headline + top-of-fold downloads):**
+  Operator pass on `/`. Three asks closed in one turn:
+  - **3D animation lit up.** `<HeroScene />` was defined in
+    `src/three/HeroScene.tsx` but **never mounted** — fixed via
+    `React.lazy` import in `<Hero />`. Reactor now ships with two
+    perpendicular orbital rings (cyan + gold) spinning at
+    independent sub-Hz rates around an indigo distort-icosa core.
+    Camera tuned (z=14, FOV 22) so the orb fills ~25% of viewport
+    height — visibly behind the headline, never as a HUD frame
+    around it. Bloom intensity 0.28 / threshold 0.86 per Master §6.
+    `prefers-reduced-motion` freezes ring rotation + slows orb
+    rotation to 0.02 rad/s.
+  - **New sovereignty headline.** Three-beat rhythm in both locales:
+    EN "Your AI. / Your machine. / Your terms." · RU "Твой ИИ. /
+    Твоя машина. / Твои правила." Last line is the gold accent
+    (Master §3, single primary accent only). Subline lists every
+    Phase-M surface explicitly (files / voice / calendar / code /
+    vision / on-chain) with the council-of-agents framing.
+  - **DownloadStrip moved top-of-fold.** OS-detected primary button
+    + version pill + all-installers chip row are now the FIRST
+    action surface a visitor reaches — between subline and demo.
+    Wrapped in a backdrop-blur card so it reads cleanly over the 3D
+    scene. The footer variant was already mounted in `<Footer />`
+    (Cursor shipped that in an earlier batch — Claude's handoff doc
+    item 11 was stale, now updated).
+  - **Live demo refreshed.** 5 cycling prompts show the surfaces
+    that actually shipped this phase: morning-brief, Phantom-wallet
+    `propose_send` flow with policy-gate confirm token, entrepreneur
+    lead-scoring on CSV, RAG with `[chunk_N]` citations, vision-OCR
+    whiteboard pass. No invented features.
+  - **Audit collateral.** Killed a dangling-symbol false positive
+    in `MarkdownView.tsx` (stale `.tsbuildinfo` cache); pinned
+    `VITE_TARS_API=http://127.0.0.1:8765` in `.env.local` so the
+    DownloadStrip doesn't render `offline` in local dev; replaced
+    `<MeetTars />` h2 ("Your machine, awakened.") with "Two voices.
+    One verdict." so it stops shadowing the new hero headline.
+  - **Tests:** pytest 671 / vitest 56 / `tsc --noEmit` clean /
+    `npm run build` clean. Zero deltas — pure presentation pass.
+
+- **2026-04-29 — K4 cockpit React surfaces (pairing + recovery):**
+  Wired `src/lib/{pairing,recovery}.ts` into the v3 cockpit.
+  **`RecoverySetup.tsx`** — generate → grid → checkbox → verify typed
+  phrase (`verifySeed`). **`PairingPanel.tsx`** — fingerprint, pubkey copy,
+  `accept_token` paste + accept, device list + revoke. **`Cockpit.tsx`**
+  — `#security` section with both panels + first-launch recovery overlay
+  when persisted vault marks `freshly_minted` and no verified fp / skip.
+  Plain HUD styling — Claude polishes visuals later. pytest 368 /
+  vitest 38 / `tsc --noEmit` clean.
+
+- **2026-04-29 — K2 updater channel + K1 host vault + K3 cockpit clients:**
+  Continuation of the same multi-block session. Three more blocks
+  from the «Next Cursor block» backlog landed.
+  - **K2 — Tauri updater channel publisher**
+    (`backend/core/product/updater.py` + CLI flags
+    `--updater-out`/`--updater-alias`). Maps sniffed artifacts to
+    Tauri target slugs (`darwin-aarch64`, `windows-x86_64`, …);
+    reads `<artifact>.sig` sidecars from `tauri signer sign`;
+    writes per-target `<target>/<version>.json` plus optional
+    aliases (`latest.json`).
+  - **K1 — Persistent host keyring**
+    (`backend/core/vault/file_vault.py`). XChaCha20-Poly1305 + PBKDF2
+    encryption at rest, `0o600` permissions enforced on POSIX hosts,
+    atomic writes via temp file + `os.replace`, public-key
+    consistency check on load.
+    `PairingStore` now accepts a `vault=` arg; default singleton
+    picks one from `TARS_PAIRING_VAULT*` env vars. `GET
+    /api/pairing/identity` surfaces vault status to the cockpit.
+  - **K3 — Cockpit typed clients**
+    (`experiments/neural-showcase-v3/src/lib/{pairing,recovery}.ts`).
+    Framework-free wrappers + pure helpers (fingerprint format /
+    match, QR base64url payload, 4×6 mnemonic grid). Vitest
+    coverage: 14 pairing + 12 recovery cases.
+  - **Tests:** pytest 368 (+25), vitest 38 (+26), `tsc --noEmit`
+    clean.
+
+- **2026-04-29 — L5 contract 1.1.0 + real crypto + recovery seed + Claude handoff:**
+  same multi-block session continued. Phase **L5** functionally
+  complete on the host side.
+  - **meeet contract → 1.1.0** (`backend/core/meeet/`): additive
+    `ciphertext` + `envelope` fields on `TARSEvent`; SQLite store +
+    replay round-trip them; `client.emit()` accepts the new kwargs.
+    Existing 1.0.0 events ride the same wire unchanged.
+  - **Real X25519 + XChaCha20-Poly1305 envelope**
+    (`backend/core/crypto/envelope.py`): `encrypt_event` /
+    `decrypt_event` / `decode_envelope` / `generate_device_key` —
+    AAD binds `trace_id|kind` so any tamper invalidates the AEAD
+    tag. `pynacl` added to `requirements.txt`.
+  - **Pairing real keys** (`backend/core/pairing/store.py`):
+    long-term X25519 host keypair on init; `host_public_key`
+    surfaced on `begin`; `client_epk` validated as 32-byte base64;
+    paired devices register a `DeviceKey` so the envelope can
+    encrypt-to-all-paired with one call.
+  - **BIP-39 24-word recovery seed** (`backend/core/crypto/recovery.py`,
+    `web_extras/routers/recovery.py`): stdlib-only BIP-39 (canonical
+    2048-word English list bundled at
+    `backend/core/crypto/data/bip39_english.txt`); PBKDF2-HMAC-SHA512
+    matches the spec exactly; `seed_to_master_key()` derives an
+    X25519 master key. Endpoints
+    `POST /api/recovery/{generate,verify}`, `GET .../wordlist/info`
+    emit `recovery.{shown,verified}` events carrying **only the
+    12-char fingerprint** — never the mnemonic.
+  - **Claude handoff package** (`docs/handoff-claude.md`): live API
+    outputs, prioritised polish list per cockpit surface, pairing +
+    recovery UX sketches, meeet.world SSR recipe, sensitive-data
+    rules, quick-start commands.
+  - **Tests:** +37 pytest (`test_meeet_contract_v11.py` × 9,
+    `test_crypto_envelope.py` × 10, `test_pairing_envelope_e2e.py`
+    × 3, `test_recovery_seed.py` × 15); existing
+    `test_pairing_contract.py` reworked to use real X25519 keys
+    + new field assertions. Full suite **343 pytest + 12 vitest**
+    green; cockpit `tsc --noEmit` clean.
+
+- **2026-04-29 — L5 pairing endpoints (mock crypto) + publish CLI + cockpit Vitest:**
+  follow-on slice in the same session — turned the L5 *draft* into
+  shape-correct, mock-crypto endpoints; landed the release publishing
+  CLI; added Vitest for the cockpit download client.
+  - **Pairing (`backend/core/pairing/`, `web_extras/routers/pairing.py`):**
+    six endpoints — `POST /api/pairing/{begin,accept/{token},reject/{token},revoke}`,
+    `GET /api/pairing/{status,devices}` — all emitting
+    `pair.{attempted,linked,rejected,revoked}` events into the meeet
+    store. In-memory `PairingStore` with stable `host_fingerprint`,
+    idempotent `begin`, expiry handling. Crypto stays mock for now
+    (the wire shape is final).
+  - **Publish CLI (`backend/core/product/publish.py`):** `python -m
+    backend.core.product.publish <dir> --version=<v>` sniffs
+    artifacts, computes SHA256, writes `~/.tars/releases.json`.
+    `--copy-to <dir>` mirrors into staging, `--dry-run` prints to
+    stdout, idempotent re-publish of `version+channel`.
+  - **Cockpit Vitest:** `vitest@^2` + `jsdom@^25` dev-deps,
+    `vite.config.ts` test registration, 12 cases pinning UA
+    detection edges (iPhone vs Mac, Pixel vs Linux, Apple Silicon vs
+    Intel) and `pickArtifact` fallbacks. Fixed an ordering bug —
+    mobile checks now run before desktop.
+  - **Tests:** +21 (`test_pairing_contract.py` × 12,
+    `test_product_publish.py` × 9, `downloads.test.ts` × 12);
+    full suite **305 pytest + 12 vitest** green; cockpit `tsc --noEmit`
+    clean.
+  - **Tooling:** `Makefile` gains `cockpit-test` + `test-all`.
+
+- **2026-04-29 — L9 desktop scaffold + product manifest API + L5/L10 contracts:**
+  full website-direct download channel landed end-to-end on backend +
+  cockpit, plus pinned wire shapes for the next phases.
+  - **Desktop (`desktop/`):** Tauri 2 layout (`pnpm tauri:dev/build`),
+    `src-tauri/` Rust shell with sidecar TODO, `tauri.conf.json` CSP +
+    `tauri-plugin-updater` endpoints. Package script copies the v3
+    cockpit dist into Tauri's web root before `tauri build`.
+  - **Manifest API:** `backend/core/product/{__init__,manifest}.py` +
+    `web_extras/routers/product.py` — `GET /api/product/downloads`,
+    `/downloads/latest?os=&channel=`, `/version`. Soft-fails to a
+    bundled `DEFAULT_MANIFEST`; relative URLs resolved at request
+    time via `TARS_DOWNLOAD_BASE_URL`; emits `X-Tars-Contract: 1.0.0`
+    + `Cache-Control: public, max-age=60`.
+  - **Contracts (`docs/contracts/`):** `MEEET_DOWNLOADS.md` (prose
+    contract), `download_manifest.schema.json` (JSON Schema), and
+    `L5_PAIRING_DRAFT.md` (full draft of pairing handshake +
+    XChaCha20-Poly1305 + X25519 sync envelope).
+  - **Landing CTAs:** new `lib/downloads.ts` + `<DownloadStrip />`
+    auto-target the visitor's OS via UA detection (macOS Apple
+    Silicon vs Intel via `userAgentData`, Windows, Linux, iOS,
+    Android); mounted in `<Hero />` beneath the existing CTAs.
+  - **Mobile stubs (`mobile/`):** `mobile/README.md`,
+    `mobile/ios/TARSCompanion/` (Swift Package skeleton + tests +
+    `Package.swift`), `mobile/android/TARSCompanion/`
+    (`settings.gradle.kts` + planned layout in README) — paths stable
+    in git so L10 implementation slices can drop straight into Xcode
+    or Android Studio.
+  - **Tests:** +14 (`test_product_downloads.py` × 10,
+    `test_product_schema.py` × 4); full suite **284 passed**;
+    cockpit `tsc --noEmit` clean.
+  - **Tooling:** root `Makefile` with `help / test / test-product /
+    cockpit{,-build,-tsc} / desktop-{dev,build} / clean`. No new
+    runner deps.
+
+- **2026-04-29 — Phase L8 (Search & observability v2):** unified
+  hybrid search + per-thread structured timeline. The cockpit can now
+  answer "where did I see that?" in one keystroke.
+  - **Backend module.** New `backend/core/search/`:
+    - `fts.py` — three SQLite **FTS5** virtual tables behind a single
+      stdlib-only API: `chunks_fts` (over `attachment_chunks.text`),
+      `messages_fts` (over `messages.content`), `events_fts` (over
+      `events.payload` in the meeet store). `unicode61
+      remove_diacritics 2` tokeniser → cyrillic + latin friendly.
+      Tables are content-less (no schema coupling), backfilled on
+      first creation, and synced from the chat / attachment write
+      paths via `index_chunk(s)` / `index_message` / `index_event`.
+      `sanitise_query()` strips FTS5 syntax (`AND/OR/NOT/NEAR`,
+      punctuation, stray quotes) and quotes individual tokens to
+      avoid injection.
+    - `engine.py` — unified `search(query, scope='all|chunks|
+      messages|traces')` dispatching to per-scope helpers
+      (`search_chunks`, `search_messages`, `search_traces`).
+      Chunk search runs hybrid: FTS5 BM25 + vector cosine fused with
+      reciprocal-rank (k=60). Cross-thread by default; `thread_id`
+      argument restricts to one thread. All hits carry a structured
+      `ref` with thread / message / attachment / trace ids so the
+      cockpit can deep-link.
+    - `timeline.py` — `get_thread_timeline(thread_id)` joins messages
+      + tool calls + attachments + relevant `meeet` events
+      (`voice.tts`, `usage.tokens`, `chat.context.retrieved`,
+      `council.*`, `policy.*`, `playbook.step.*`) and sorts by `ts`.
+  - **L2 retrieval moved off TF-overlap onto FTS5 BM25** (with the
+    old scorer kept as a graceful fallback). Same `RetrievedChunk`
+    contract — orchestrator side untouched.
+  - **HTTP surface.** New `web_extras/routers/search.py`:
+    `POST /api/search` (unified), `POST /api/search/chunks`,
+    `POST /api/search/messages`, `POST /api/search/traces`, plus
+    `GET /api/chat/threads/{id}/timeline`. All endpoints honour the
+    cockpit's `x-tars-session-id` / `x-meeet-trace-id` headers and
+    cap `top_k` at 50 / `limit` at 1000.
+  - **Sync hooks.** `ChatStore.insert_message` mirrors writes into
+    `messages_fts`. `attachments.pipeline.ingest()` bulk-indexes new
+    chunks into `chunks_fts`; `delete_attachment()` clears them.
+    All best-effort — search outage never breaks chat.
+  - **Frontend.**
+    - `experiments/neural-showcase-v3/src/lib/search.ts` — typed
+      client (`unifiedSearch`, `searchChunks`, `searchMessages`,
+      `searchTraces`, `fetchThreadTimeline`) plus three React hooks:
+      `useDebouncedSearch` (220 ms debounce, abort on stale),
+      `useGlobalShortcut` (⌘K / Ctrl-K), `useThreadTimeline`
+      (auto-refresh).
+    - `<CommandPalette />` (`src/components/CommandPalette.tsx`) —
+      ⌘K modal, scope chips (`all` · `files` · `messages` ·
+      `traces`), arrow-key navigation, BM25 `<mark>` highlights
+      (currently stripped — Claude can light them up). Selecting a
+      hit dispatches `tars:open-thread` so `<ChatPane />` jumps to
+      the right thread.
+    - `<ThreadTimeline />` (`src/components/ThreadTimeline.tsx`) —
+      collapsible per-thread observability feed mounted under the
+      conversation; shows `attachment / message / tool_call / event`
+      rows with timestamp + summary. Auto-refreshes every 6 s while
+      open.
+    - `<ChatPane />` listens for `tars:open-thread` to flip the
+      active thread when the operator picks a search hit.
+  - **Tests** (+21 new, 270 total green):
+    `tests/test_search_fts.py` (sanitiser, indexing, backfill,
+    delete cascade), `tests/test_search_engine.py` (cross-thread,
+    scope, cyrillic, vector fallback), `tests/test_search_router.py`
+    (HTTP unified / chunks / messages / traces / timeline + scope
+    validation + 400 on empty query). Fixed an unrelated voice test
+    that was sensitive to event-table fan-in.
+  - **Smoke.** `TestClient` end-to-end: 2 threads with KPI + trade
+    docs, full SSE chat turn, `/api/search` returns
+    `count=2 · {chunks:1, messages:1, traces:0}` for "EMEA blocker
+    GDPR" with the highlighted snippet,
+    `/api/chat/threads/{a}/timeline` returns 3 chronologically-
+    ordered entries (attachment ingest → operator question → TARS
+    reply).
+
+- **2026-04-29 — Phase L2 (Attachments + RAG with citations):** end-to-end
+  pipeline so operators can drop PDFs / Markdown / CSV / JSON / plain
+  text into a thread and have TARS ground answers in those files with
+  stable `[chunk_N]` citation markers.
+  - **Backend module.** New `backend/core/attachments/`:
+    - `extractors.py` — per-mime text extraction. `text/*`, `text/markdown`,
+      `application/json` (pretty-print + shape), `text/csv` (markdown
+      preview + raw text), `application/pdf` (lazy `pypdf`,
+      page-by-page → `## page N`). Image stub keeps bytes for L4 vision
+      routing. Best-effort: every error lands in `meta["error"]`
+      instead of bubbling out.
+    - `chunking.py` — token-aware (~800-token target via 4-char
+      heuristic), paragraph-first then sentence-aware splitting with
+      configurable overlap. Resolves nearest markdown heading + PDF
+      page for every slice.
+    - `embeddings.py` — two embedders behind one ABC. `OpenAIEmbedder`
+      hits `/v1/embeddings` (`text-embedding-3-small` by default,
+      env-pinned model + key from vault). `HashEmbedder` is a fully
+      offline deterministic hash-bigram fallback so the pipeline runs
+      with zero deps. `detect_embedder()` picks the best one available;
+      `TARS_EMBEDDER=openai|hash` pins explicitly.
+    - `index.py` — durable store on the same SQLite as chat
+      (`~/.tars/chat.sqlite`). Auto-migrates the existing `attachments`
+      table with `content_hash`, `status`, `error`, `meta_json`,
+      `char_count` columns; adds `attachment_chunks` (text + raw
+      float32 vector blob + heading/page/ord). All access wrapped in
+      `asyncio.to_thread`; singleton via `get_attachment_store()`.
+    - `retrieval.py` — hybrid search: cosine on vectors + tf-style
+      keyword overlap, fused with reciprocal rank (k=60). Returns
+      `RetrievedChunk` rows with stable `[chunk_N]` citation ids.
+      Gracefully handles dim-mismatched vectors (e.g. switched
+      embedder model) by skipping them.
+    - `pipeline.py` — `ingest()` orchestrates upload → extract →
+      chunk → embed → store, dedupes on `(thread_id, content_hash)`,
+      caps at 25 MB (env-tunable), writes bytes to
+      `~/.tars/attachments/<id>/<safe_filename>`, emits
+      `attachment.ingested` + `usage.tokens` (cost = $0.02/1M tokens
+      for `text-embedding-3-small`, $0 for hash). Bumps the meeet
+      route to `cloud` whenever a cloud embedder runs.
+      `delete_attachment()` removes row + chunks + bytes + parent
+      directory.
+  - **Chat orchestrator integration.**
+    `ChatOrchestrator._maybe_retrieve()` runs hybrid retrieval per
+    operator turn (skipped for prompts < 6 chars, gracefully empty
+    when no chunks). `_compose_system_prompt()` layers a "Reference
+    materials" block over the pack's system prompt with each
+    chunk labelled `[chunk_N] file.md · heading · pageK`,
+    instructing the assistant to cite. New stream event
+    `context.retrieved` is emitted before token streaming so the
+    cockpit can render sources live; `message.completed` carries a
+    final `sources: [...]` payload, also persisted in the assistant
+    message's `extra` so "Sources" footers survive reload.
+  - **HTTP surface (under `/api/chat`).**
+    `POST /threads/{id}/attachments` (multipart upload),
+    `GET /threads/{id}/attachments`,
+    `GET /attachments/{id}` (record + chunk previews),
+    `GET /attachments/{id}/download`,
+    `GET /attachments/{id}/extracted`,
+    `DELETE /attachments/{id}`,
+    `POST /threads/{id}/retrieve` (manual top-K query).
+  - **Frontend (`experiments/neural-showcase-v3/`).**
+    - New `lib/attachments.ts` — typed client + `useThreadAttachments`
+      hook (list / upload / progress / remove / refresh) + `useDropZone`
+      helper (drag-depth-counted, no flicker on inner-element
+      transitions).
+    - `<ChatPane />` enhancements: thread-scoped chip strip with
+      filename + KB + delete; "+ file" composer button + native file
+      input; full-pane drag overlay ("drop to attach · pdf · md · txt
+      · json · csv · up to 25 MB"); error toast row.
+    - `<MessageBubble />` grew a collapsible **Sources** footer:
+      `[chunk_1] kpi.md · heading · pK` with optional inline preview
+      for live retrieval (the persisted version reads from
+      `message.extra.sources`).
+    - `useChatThread` reducer now handles `context.retrieved` and
+      threads `RetrievedChunkRef[]` through `turn.retrieved` so the
+      footer can render before the LLM finishes streaming.
+  - **Tests (+39 new):**
+    - `test_attachments_extractors.py` (8) — sniff, plaintext line
+      endings, JSON pretty + invalid fallback, CSV markdown preview,
+      image stub, unknown mime, broken PDF.
+    - `test_attachments_chunking.py` (6) — empty input, single-slice
+      short docs, paragraph splitting with overlap, heading + page
+      resolution, dedup.
+    - `test_attachments_embeddings.py` (7) — hash always-on,
+      normalisation, similarity, empty handling, env pin, fallback,
+      OpenAI mocked endpoint.
+    - `test_attachments_pipeline.py` (7) — record + chunk persist,
+      dedupe, oversize, empty, retrieval ranking, empty-thread
+      retrieval, full delete.
+    - `test_attachments_router.py` (8) — multipart upload + dedupe,
+      404 unknown thread, list ordering, describe with previews,
+      extracted text, retrieve top-K, retrieve query required,
+      delete.
+    - `test_chat_with_rag.py` (3) — orchestrator emits
+      `context.retrieved`, persists `sources` on the assistant message,
+      skips retrieval for empty thread / short query.
+  - **Smoke proof.** Live HTTP run on `:8767`: created thread,
+    uploaded `kpi.md`, retrieved chunk_1 with score 0.0328 from both
+    semantic and keyword pools, then `POST /messages` SSE streamed
+    `message.started → context.retrieved → token… → usage → message.completed`
+    with `sources=[{citation_id: "chunk_1", filename: "kpi.md", …}]`,
+    matching the cockpit's expected wire format.
+  - **Doc surface.** `docs/PHASE_L_ROADMAP.md` §L2 marked shipped,
+    `docs/IDEAS.md` updated with post-L2 follow-ups (cross-thread
+    search, BM25-via-FTS5, image vision routing, zip walking,
+    streaming ingestion progress).
+
+- **2026-04-29 — Phase L4.1 (Voice persona layer — TTS + mic dictation):**
+  - **Backend.** New module `backend/core/voice/`:
+    - `personas.py` — registry of six characters (Jarvis · British
+      butler, Stark · Iron Man, HAL 9000, GLaDOS, Interstellar TARS,
+      Operator default) each with per-provider mappings:
+      ElevenLabs voice id (public starter library), OpenAI voice +
+      stylistic `instructions` for `gpt-4o-mini-tts`, macOS `say`
+      voice + rate. Env-overridable
+      (`TARS_PERSONA_<ID>_ELEVENLABS_ID`, `..._OPENAI_VOICE`,
+      `..._MAC_SAY_VOICE`). Plugin-extensible via
+      `register_persona`.
+    - `engines.py` — three providers: `ElevenLabsEngine` (best
+      character voices, mp3), `OpenAITTSEngine` (very natural,
+      `gpt-4o-mini-tts` honours persona instructions, mp3),
+      `MacSayEngine` (offline, WAV via `say -o file.wav
+      --file-format=WAVE --data-format=LEI16@22050`). Smart fallback
+      picks accent-appropriate substitute when the preferred mac
+      voice isn't installed (Daniel for British, Alex for American,
+      etc.). All engines wrap the network/process call in
+      `asyncio.to_thread`, never raise on transport errors —
+      they return `None` so `synthesize()` falls through.
+    - `synthesis.py` — orchestrator: pin via `provider="…"` arg or
+      `TARS_VOICE_PROVIDER` env, else walks
+      `elevenlabs → openai → mac_say`. Emits `voice.tts` and
+      `usage.tokens` events (model `voice/<provider>`, chars as
+      tokens, char-based USD pricing — defaults: ElevenLabs $0.18 /
+      1k chars, OpenAI $12 / 1M chars, mac say $0; all overridable
+      via `TARS_VOICE_PRICE_<PROVIDER>`). Cloud providers bump the
+      meeet route to `cloud` so the cost ledger reflects it.
+  - **HTTP.** New `web_extras/routers/voice.py` — `GET
+    /api/voice/personas` (full roster), `GET /api/voice/health`
+    (per-engine availability + preferred order), `POST
+    /api/voice/speak` (returns audio bytes, headers carry
+    `x-tars-voice-provider/voice-id/bytes/duration-ms`). Mounted
+    in `web_extras/app.py`.
+  - **Frontend.** New `lib/voice.ts` — typed client + four hooks:
+    `useVoicePlayback` (single shared `<audio>`, persona / provider
+    / autoplay / mute persisted in `localStorage`),
+    `usePersonas`, `useVoiceHealth`, and `useMicTranscription`
+    (browser Web Speech API — zero deps, degrades cleanly where
+    unsupported). `<ChatPane />` grew a `<VoiceControls />` row
+    (persona + provider picker, autoplay toggle, mute, "via …"
+    last-provider indicator), a per-assistant-message
+    `▶ speak` button, autoplay-on-new-reply, and a 🎙 mic button
+    in the composer that mirrors transcript into the textarea.
+  - **Tests.** 28 new pytest cases:
+    - `test_voice_personas.py` (8) — roster shape, provider matrix,
+      env override, default fallback, registry extension.
+    - `test_voice_engines.py` (6) — accent-aware mac say fallback,
+      duration heuristic.
+    - `test_voice_synthesis.py` (8) — provider order, fallback on
+      `None`, fallback on exception, env pin, arg pin, all-fail
+      raises, `voice.tts` + `usage.tokens` events emitted.
+    - `test_voice_router.py` (6) — personas/health/speak shapes,
+      503 when no engine, 400 on empty / oversized text.
+    - **Total: 210 passing** (182 → 210).
+  - **Smoke proof.** Live curl against the running server: Jarvis
+    rendered on macOS `say` as 131 KB WAV via Daniel (British
+    male); Stark fell back from "Aaron" (not installed) to "Tom"
+    via the new accent-aware fallback. Cost ledger shows
+    `voice/mac_say` row alongside chat models.
+  - **License note.** All persona names map to *generic* preset
+    voices (no Disney / Marvel / Valve / Paramount asset is
+    reused). The character names are inspirational; an operator
+    that wants a tighter likeness can drop in a custom ElevenLabs
+    voice id via env.
+
+- **2026-04-29 — Phase L1 (Conversation Layer):**
+  - **Plan first.** `docs/PHASE_L_ROADMAP.md` is now the canonical
+    spec for Phase L (chat, attachments, code exec, voice, encrypted
+    sync, planner, marketplace, search, Tauri desktop, iOS/Android companions).
+    `IDEAS.md` and this file point at it as the active roadmap.
+  - **Backend chat layer.** New module `backend/core/chat/`:
+    `models.py` (Thread / Message / ToolCall / Attachment / StreamEvent
+    + AttachmentRef), `store.py` (SQLite WAL at `~/.tars/chat.sqlite`,
+    disable with `TARS_CHAT_STORE=disabled`, override path with
+    `TARS_CHAT_DB_PATH`, full async API mirroring the meeet store),
+    `voices.py` (`ChatVoice` ABC + `LocalChatVoice` /
+    `AnthropicChatVoice` / `OpenAIChatVoice` streaming via stdlib
+    `urllib`, all wrapped in `asyncio.Queue`, no httpx),
+    `orchestrator.py` (ties chat to council + policy + meeet — opens
+    `trace_scope(session=…, route=edge)`, persists operator/assistant
+    rows, parses `<tool name="slug.action_id">{...}</tool>` sentinels
+    on the fly, runs them through `PolicyGate`, emits per-turn
+    `usage.tokens` events so the cost ledger automatically picks
+    chat costs up).
+  - **HTTP surface.** New `web_extras/routers/chat.py` mounts under
+    `/api/chat`: `POST/GET /threads`, `GET/PATCH/DELETE
+    /threads/{id}`, `GET/POST /threads/{id}/messages`. The POST is
+    a real SSE stream (`text/event-stream`) emitting
+    `message.started`, `token`, `tool_call.{proposed,queued,allowed,
+    completed,failed}`, `usage`, `message.completed`, `stream.closed`.
+    Honours `x-tars-session-id` and `x-tars-policy-mode` headers.
+  - **Frontend.** New `lib/chat.ts` (typed client + `useChatThread`
+    React hook with optimistic operator bubble + token-by-token
+    assistant reducer + tool-call card state) and `<ChatPane />`
+    component (thread sidebar + message stream + composer with
+    `⌘↵ to send`, inline tool-call cards). Mounted on `/cockpit` as
+    the primary panel; existing JSON invocation grid stays for
+    operators that want to drive packs raw.
+  - **Tests:** 23 new pytest cases — `test_chat_models.py` (models +
+    store CRUD, archive flow, attachment table), `test_chat_orchest
+    rator.py` (local stream, persisted rows, error path, scripted
+    tool-call routing through both autopilot and confirm modes,
+    sentinel parser including partial-block hold-back),
+    `test_chat_router.py` (CRUD over the HTTP API, SSE wire shape,
+    operator/tars persistence after stream drain, empty-text 400).
+    **Total: 182 passing** (was 159).
+  - **Smoke proof.** Live SSE round-trip on a clean port creates a
+    thread, streams the local-voice reply, persists both messages,
+    and surfaces in `/api/usage?session_id=…` under the
+    `tars-local-chat-v1` model bucket on the `edge` route.
+
+- **2026-04-29 — Phase K (operator-grade observability + extensibility):**
+  - **Phase K1 — route + session_id everywhere.** Added
+    `session_scope`, `set_route`, `current_route`, `current_session`
+    to `meeet.tracing`. `TARSEvent` and the durable store carry
+    optional `session_id` + `route`; SQLite store auto-migrates with
+    `ALTER TABLE` between table creation and index creation. Domain
+    router accepts `x-tars-session-id` and stamps every action scope
+    with `route="edge"` by default; LLM voices bump it to `cloud` on
+    a successful call.
+  - **Phase K2 — cost ledger.** `backend/core/usage/ledger.py` with a
+    configurable `PriceTable` (defaults for sonnet, haiku, opus,
+    gpt-4o, gpt-4o-mini, gpt-4.1; `TARS_PRICE_OVERRIDES_JSON` for
+    overrides). Council orchestrator emits per-voice `usage.tokens`
+    events with `tokens_in/out`, `latency_ms`, and `cost_usd`; the
+    `sampler.decision` event now also carries an aggregate `cost_usd`.
+  - **Phase K3 — `/api/usage` rollup.** `web_extras/routers/usage.py`
+    derives buckets (`by_model`, `by_route`, `by_session`) from the
+    meeet store. Two read paths: rollup (`GET /api/usage`) and raw
+    lines (`GET /api/usage/lines`). Frontend ships `useUsageRollup`
+    + `<UsageStrip />` mounted on `/cockpit`.
+  - **Phase K4 — composite packs + manifest.**
+    `backend/core/domains/composite.py` + `packs/composites.py`
+    register `research_lab` (science + business) and `ops_room`
+    (traders + mlm). Composite actions surface as
+    `<sub_slug>__<id>`, destructive flags + auth keys propagate.
+    New endpoint `GET /api/domains/manifest` for cache-friendly
+    install/discovery.
+  - **Phase K5 — replay CLI + contract test.** New
+    `python -m backend.core.meeet.replay_cli` with
+    `--stats / --export / --limit / --since / --kind / --session-id`.
+    `tests/test_meeet_contract.py` pins the wire shape and the
+    session/route round-trip through replay.
+  - **Phase K6 — SMTP outbound for `business.draft_email`.**
+    `backend/core/domains/packs/business/smtp.py` reads SMTP_*
+    config from the vault (env or Keychain), supports STARTTLS on
+    587 and implicit TLS on 465. With `send=true` and SMTP
+    configured (and the policy gate confirmed), `draft_email`
+    actually delivers; otherwise it returns the draft + a
+    `delivery.status` hint. Pack now declares `SMTP_HOST/USER/
+    PASSWORD/FROM` in `auth_vault_keys()`.
+  - **Frontend (Cursor lane).** `lib/usage.ts` (rollup hook),
+    `lib/session.ts` (per-tab `ses_<id>` via `sessionStorage`),
+    `<UsageStrip />` with per-route + per-model tables. The
+    Cockpit invocation now stamps every call with the session id.
+    `getDomainManifest()` typed client wraps `/api/domains/manifest`.
+    `composite` + `composed_of` flags exposed on `DomainPack`.
+  - **Tests:** total now **159 passing** (was 122 — added 37 across
+    contract, ledger, composite, manifest, smtp, replay-cli).
 
 - **2026-04-29 — Adapters + per-pack auth + cockpit chunking:**
   `DomainPack.auth_vault_keys()` + `status_for_keys()` feeds
@@ -275,29 +921,121 @@ cockpit can wire a live ticker.
    muted by default.
 7. **Design rev for `<AwarenessTicker/>`.** Currently a 3-pane card
    strip — consider a single ticker bar / chart variant.
+8. **`<ChatPane />` polish (Phase L1 + L2).** Functional surface ships
+   under `experiments/neural-showcase-v3/src/components/ChatPane.tsx`
+   and is mounted on `/cockpit`. Motion, copy, hover, focus, mobile
+   layout and tool-call card visual treatment are open. Ledger /
+   policy / sessions / voice / **attachment chips + sources footer**
+   are wired — touch only the chrome.
+9. **Attachment + sources visual treatment (Phase L2).** Drag-and-drop
+   overlay (`drop to attach · pdf · md · txt · json · csv`),
+   `AttachmentChipStrip`, and the collapsible sources footer in
+   `MessageBubble` are all functional (cite previews on live
+   retrieval, persisted citations on reload). Recommended polish:
+   richer chip motion on upload progress (`queued → uploading →
+   ingesting → ready`), inline mini icons by mime, and a hover state
+   that surfaces the chunk preview as a floating card.
+10. **Search palette + timeline visual treatment (Phase L8).**
+    `<CommandPalette />` (`src/components/CommandPalette.tsx`) is
+    fully wired — ⌘K toggles, scope chips, BM25 highlights stripped
+    for now. Polish open: render `<mark>` tags as gold-on-bg pulses,
+    add a "recent threads" / "frequent files" empty state, blur-slide
+    open animation, and per-kind icons (file / chat-bubble / trace).
+    `<ThreadTimeline />` (`src/components/ThreadTimeline.tsx`) is a
+    collapsible feed mounted under the conversation; consider a
+    timeline-spine motif (vertical glyph rail), grouping by hour, and
+    soft fade on auto-refresh insert. Cytoscape trace-graph view is
+    explicitly deferred for a future visual pass.
+11. **Landing download CTAs (Phase L9 brand pass).**
+    `<DownloadStrip />` (`src/components/DownloadStrip.tsx`) is mounted
+    in `<Hero />` and auto-targets the visitor's OS via the public
+    manifest — but the visual treatment is deliberately plain. Polish
+    open: OS-glyph icons (Apple, Windows, Tux, iOS, Android) with
+    micro-motion on hover, version pill that pulses on a fresh
+    release, "verified · sha256 ✓" affordance once a checksum is in
+    the manifest, mobile-friendly stacked layout. A second
+    `<DownloadStrip variant="footer" />` instance in the page footer
+    is a free win for landing-page conversion.
+12. **meeet.world embed (`docs/contracts/MEEET_DOWNLOADS.md`).**
+    The marketing site at `meeet.world` should consume
+    `GET /api/product/downloads` with the same shape — render
+    matching CTAs, OG cards, deep-link from `meeet.world/tars` into
+    the cockpit, and respect the contract version pin (1.0.0).
+    Coordinate any contract bump with a Cursor PR — never silently
+    invent fields.
+13. **Pairing flow visual (Phase L5 draft).**
+    `docs/contracts/L5_PAIRING_DRAFT.md` describes the QR + envelope
+    handshake. Before code lands, sketch the desktop UI (host
+    fingerprint pulse, accept-token confirm sheet) and the matching
+    iOS / Android scan UX so Cursor can wire components against a
+    pre-approved layout.
 
 ### Owned by **Cursor agent (functional)**
 
-Tier-1 (Phase K) and follow-on batches (Phase F-J + 2026-04-29 adapters)
-are **shipped**. Remaining functional items:
+Tier-1 (Phase K), Phase F-J, the 2026-04-29 adapter batch, and the
+fresh Phase K observability/extensibility batch are **shipped**.
 
-1. **Mail outbound.** IMAP/SMTP or JMAP send path for
-   `business.draft_email` (draft today is local-only; policy gate
-   already guards real send).
-2. **meeet contract evolution.** Align event kinds with the
+**Phase L (Claude-tier elevation)** is now the active roadmap —
+see `docs/PHASE_L_ROADMAP.md` for full functional descriptions,
+contracts, tests, and acceptance criteria per sub-phase. Sequence:
+
+1. L1 — Conversation Layer ✅ shipped
+2. L4.1 — Voice persona TTS + Web Speech mic ✅ shipped
+3. L2 — Attachments & context graph (RAG with citations) ✅ shipped
+4. L8 — Search & observability v2 (paired with L2) ✅ shipped (this batch)
+5. **L9 — Tauri desktop shell (macOS + Windows).** ✅ scaffolded
+   2026-04-29 (`desktop/`); ✅ public download manifest API live
+   (`/api/product/downloads`); ✅ release publishing CLI live
+   (`python -m backend.core.product.publish`); 🟡 next slice =
+   pyoxidizer sidecar, icons + branded assets, real signing pipeline,
+   first signed `.dmg`/`.exe` artifacts uploaded to the site.
+
+   **Public showcase (investor demo):**
+   `.github/workflows/cockpit-github-pages.yml` builds
+   `experiments/neural-showcase-v3` with `/REPO/` as `base`/`basename`
+   (repo name substituted in CI); one-time enable **Pages → GitHub Actions**
+   in repo settings. For a disposable public URL locally, run
+   `scripts/preview-demo-tunnel.sh` (install `cloudflared` for the
+   tunnel).
+6. L5 — Encrypted sync via meeet.world (bumps contract → 1.1.0). 🟡
+   pairing endpoints shipped 2026-04-29 with **mock crypto**; pin tests
+   ride in `tests/test_pairing_contract.py`. Next slice = real
+   XChaCha20-Poly1305 + X25519 envelope, sync fields on meeet events,
+   `pair.linked` recovery seed UI.
+7. L4 — Voice mode (full duplex: faster-whisper STT relay + iOS native loop)
+8. **L10 — Mobile companions:** native **iOS** (Swift/SwiftUI) + **Android** (Kotlin/Jetpack Compose); shared HTTP/SSE contract with desktop **L9**; pairing + E2E sync via **L5** (`PHASE_L_ROADMAP` § L10)
+9. L3 — Code execution & artifacts
+10. L6 — Planner / agent loop
+11. L7 — Skill marketplace v1
+
+Smaller functional items still pending in parallel:
+
+1. **meeet contract evolution.** Align event kinds with the
    `meeet.world` ingest contract when it lands. Keep
-   `contract_version` pin updated; the durable buffer makes schema
-   migrations cheap (replay + transform).
-3. **Cockpit polish (Claude-owned).** OperatorStrip is wired (pending
-   queue, playbooks, bridges, vault, council, **sampler.decision
-   poll**) — needs visual integration with the main cockpit grid.
-4. **Voice gallery UI.** Surface per-voice latency + token usage +
-   model id in a dedicated panel (Proposal fields already carry data).
-5. **CRM hardening.** HubSpot/Pipedrive `log_deal` uses minimal
+   `contract_version` pin updated; the durable buffer + the new
+   `tests/test_meeet_contract.py` make schema evolution cheap
+   (replay + transform).
+2. **Cockpit polish (Claude-owned).** `<OperatorStrip />` and
+   `<UsageStrip />` are functionally complete (pending queue,
+   playbooks, bridges, vault, council, sampler.decision poll, plus
+   route/model/session cost tables) — both still need visual
+   integration with the main cockpit grid.
+3. **Voice gallery UI.** Surface per-voice latency + token usage +
+   model id in a dedicated panel (Proposal fields already carry the
+   data; `usage.tokens` events expose it durably).
+4. **CRM hardening.** HubSpot/Pipedrive `log_deal` uses minimal
    properties; production portals may require pipeline IDs / stage
    enums — evolve when real Hub IDs are supplied.
-6. **OLD arXiv ids** (`cs.AI/010203`) skip OpenAlex DOI enrichment —
+5. **OLD arXiv ids** (`cs.AI/010203`) skip OpenAlex DOI enrichment —
    Crossref fallback could layer in later.
+6. **OAuth / JMAP outbound.** SMTP covers the local-first path for
+   `draft_email`; OAuth-based providers (Gmail / Office365) and JMAP
+   are the natural next step once the operator has accounts to
+   connect.
+7. **Composite playbooks.** Composite domain packs are live; the
+   playbook runner still scopes to a single pack — extend so a
+   playbook in `playbooks/research_lab/...` can call
+   `business__log_deal` etc. directly.
 
 ## Conventions to keep
 
@@ -357,6 +1095,16 @@ curl -s -XPOST http://127.0.0.1:9911/api/policy/confirm/$TOKEN
 
 # Browse the SQLite event log
 curl -s 'http://127.0.0.1:9911/api/meeet/events?limit=10' | jq
+
+# Cost / token rollup (optional ?session_id=ses_…)
+curl -s http://127.0.0.1:9911/api/usage | jq
+
+# Static manifest of every registered pack (incl. composites)
+curl -s http://127.0.0.1:9911/api/domains/manifest | jq
+
+# CLI replay tool — dump newest-first events to JSONL
+PYTHONPATH=. .venv/bin/python -m backend.core.meeet.replay_cli \
+  --export /tmp/tars-events.jsonl --limit 500
 ```
 
 ### Env vars that matter
@@ -368,6 +1116,269 @@ curl -s 'http://127.0.0.1:9911/api/meeet/events?limit=10' | jq
   `MEEET_LOCAL_LOG`, `MEEET_SOURCE` — meeet bridge config.
 - `TARS_POLICY_MODE` — default policy mode for the gate.
 - `TARS_PLAYBOOKS_DIR` — override the playbooks discovery root.
+- `TARS_PRICE_OVERRIDES_JSON` — JSON map (`{"model": {"input_per_mtok":
+  X, "output_per_mtok": Y}}`) merged into the cost ledger's price
+  table. Useful for plugging real (negotiated) prices.
+- `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASSWORD` /
+  `SMTP_FROM` (or vault keys with `TARS_SMTP_*` prefix) — outbound
+  mail relay for `business.draft_email` when called with `send=true`.
 - `BUSINESS_KPI_PATH`, `BUSINESS_DEALS_PATH`, `MLM_NETWORK_PATH`,
   `CALENDAR_PATH`, `TRADERS_NEWS_PATH`, `TRADERS_PORTFOLIO_PATH`
   — local data overrides.
+
+---
+
+## Next Cursor block (~5–6 hours dense functional work)
+
+> **Update — 2026-04-29 (Phase M sweep · backbone closed):**
+> Following the late-session "code-side complete" milestone, this
+> session closed the remaining functional gaps from the
+> launch-readiness audit:
+>
+> - **Cleanup pass** (4 items) — stale TODO comments in
+>   `desktop/src-tauri/src/main.rs` and `web_extras/routers/recovery.py`
+>   removed; recovery `/generate` + `/verify` now flow through the
+>   same HMAC policy gate as wallet ops (default-off, opt-in via
+>   `TARS_REQUIRE_OPERATOR_CONFIRM=1`); `generate-release-keys.sh`
+>   gained `--patch-tauri-conf` to auto-rewrite the
+>   `plugins.updater.pubkey` placeholder; mobile activity wiring on
+>   both platforms (Android `WalletActivity` + manifest + "open
+>   wallets" CTA from PairingScreen Linked state, iOS
+>   `TARSCompanionRoot` SwiftUI shell with `TabView { Pair, Wallets }`).
+> - **P5 — Entitlements**: `backend/core/entitlements/` ships the
+>   `Tier × LIMITS × can_run` module (free / pro / business with
+>   daily cap, BYO toggle relaxes), 5 HTTP endpoints
+>   (`/api/entitlements`, `/upgrade`, `/byo`, `/can_run`, `/tiers`),
+>   `entitlements.{upgraded,byo_toggled,cap_hit}` events to meeet,
+>   18 contract tests.
+> - **P6 — Entrepreneur pack**: canonical replacement for `mlm` with
+>   renamed action ids (`network_snapshot`, `lead_score`,
+>   `generate_content`, `add_lead`, `retention_alert`, `log_activity`).
+>   Legacy `mlm` slug stays registered with `manifest.deprecated=True`
+>   + `deprecated_in_favor_of="entrepreneur"` until 2026-07-29 — saved
+>   cockpit state and agents pinned to it keep working. Domain
+>   registry gained `register_alias` / `aliases()` / `resolve_alias`
+>   for future renames.
+> - **P7 — Roles**: `backend/core/roles/` ships 6 built-in roles
+>   matching the cockpit Onboarding page (founder / trader /
+>   researcher / marketer / engineer / operator) plus deterministic
+>   `synthesise_overlay()` for custom roles, single-tenant JSON
+>   persistence, 6 endpoints, and an orchestrator hook that prepends
+>   the active role's overlay before the pack prompt.
+>   24 contract tests.
+> - **P8 — Vision agent**: `backend/agents/vision_agent.py` runs an
+>   OCR fallback (pytesseract opt-in; reports `unavailable` cleanly
+>   when the binary is missing), folds image summaries into the
+>   system prompt for every voice, and surfaces native image refs to
+>   multimodal voices through the existing `attachments` parameter.
+>   `ChatVoice.supports_multimodal` flag set on Anthropic + OpenAI
+>   voices; LocalChatVoice stays text-only. New `context.vision`
+>   StreamEvent for cockpit rendering. 13 contract tests.
+>
+> Test totals: **671 pytest + 56 vitest + 18 swift + tsc clean**
+> (was 600 pytest pre-session). Phase M backbone complete.
+>
+> See `docs/CHANGELOG_AGENTS.md` for the per-file diff and
+> `docs/handoff-claude.md` for the brand-pass brief.
+
+> **Previous update — 2026-04-29 (final sweep · code-side complete):**
+> Following the O+P+Q+D close-out, this session closes the last
+> three Cursor-lane items on `LAUNCH_READINESS.md`:
+> - **Mobile companion wallet surface** — iOS `WalletClient.swift`
+>   + SwiftUI `WalletView`/`WalletViewModel`; Android
+>   `WalletClient.kt` + Compose `WalletScreen`/`WalletViewModel`.
+>   Read-only list + live balance fetch + prove-ownership over the
+>   paired channel. Mirrored decoder fixtures: 7 new Swift cases
+>   (now **18 swift tests**) + symmetric `WalletDecodersTest.kt`
+>   for Android.
+> - **Cinematic mnemonic-reveal** — `<MnemonicReveal />` ships a
+>   face-down card grid with a 60ms-stagger 3D card flip per word,
+>   gold/amber accent, "show again / hide / I wrote it down" gate,
+>   and pure-CSS perspective (no third-party motion libs). Helper
+>   tests: 6 new vitest cases (now **56 vitest tests**).
+> - **Release-key bootstrap** —
+>   `desktop/scripts/generate-release-keys.sh` is a guarded helper
+>   that mints a Tauri/minisign keypair locally, refuses to
+>   overwrite existing keys, prints the public key for
+>   `tauri.conf.json`, and prints the two `gh secret set …`
+>   commands needed to install the GitHub Actions secrets. Never
+>   uploads anything.
+>
+> Test totals: **600 pytest + 56 vitest + 18 swift + tsc clean**.
+> Code-side launch readiness is now **complete**. The only
+> remaining blockers are non-code (Apple/Windows/Minisign/Play
+> credentials — operational, project lead) and brand-grade
+> motion polish across the rest of the cockpit (Claude lane;
+> the cinematic-reveal foundation is shipped).
+>
+> See `docs/handoff-claude.md` for the updated brand-pass brief.
+
+> **Update — 2026-04-29 (O + P + Q + D close-out, binary-alpha-ready):**
+> Following M / N / N1–N5, this session shipped Phases **O1**
+> (structured error envelope + stable `error_code` taxonomy across
+> `/api/wallet`, `/api/agents`, `/api/pairing`), **O2** (HTTP-level
+> policy gate behind `TARS_REQUIRE_OPERATOR_CONFIRM=1` —
+> HMAC-SHA256 confirm tokens bound to wallet+action+params hash),
+> **O3** (SLIP-0010 Phantom-compatible Solana derivation
+> side-by-side with the legacy `tars-v1` scheme; pinned to the
+> canonical zero-mnemonic Phantom address), **O4** (audit log of
+> raw signed bytes in meeet — privacy-by-default, opt-in via
+> `TARS_AUDIT_RAW_TX=1`, TTL via `TARS_AUDIT_RETENTION_DAYS`,
+> prune endpoint), **P2/P3/P4** (live RPC helpers:
+> `/api/wallet/solana/blockhash`, `/api/wallet/evm/{addr}/nonce`,
+> `/api/wallet/ton/{addr}/seqno`), **P1** (chain-specific send
+> forms in the cockpit: per-chain inputs + autofill button +
+> auto-confirm-token plumbing), **Q1** (end-to-end smoke test:
+> pair → mint → sign → verify with independent crypto), **D1**
+> (root `README.md`), and **D4** (`docs/THREAT_MODEL.md`).
+> Test totals are now **600 pytest + 50 vitest + 11 swift + tsc clean**.
+> The launch-readiness audit (`docs/LAUNCH_READINESS.md`) updates to
+> **GO for local-first private alpha** AND **GO for a public binary
+> alpha as soon as operational signing keys exist**. The only
+> remaining blockers are non-code: minisign / Apple / Windows / Play
+> credentials (1–2h ops, project lead) and the cinematic
+> mnemonic-reveal pass (Claude lane).
+
+Rough order (pause after each milestone; run `pytest`, `vitest`, `tsc`):
+
+| Block | Time | Goal | Why deferred |
+| ----- | ---: | ---- | ------------ |
+| **~~A1. Sidecar pipeline~~** | ~~2 h~~ | ✅ **Shipped:** `desktop/pyoxidizer.bzl` (CPython 3.12 + repo → `tars-backend`); `src-tauri/src/sidecar.rs` resolves binary (`TARS_BACKEND_BIN` → bundled → `python3 serve.py`), polls `/health`, emits `desktop.sidecar.{started,failed,exited}` (schema v1.0.0 at `desktop/src-tauri/sidecar-events.schema.json`, pinned by `tests/test_desktop_sidecar_events_contract.py`). | — |
+| **~~K4. Cockpit React surfaces~~** | ~~3 h~~ | ✅ **Shipped:** `RecoverySetup`, `PairingPanel`, `/cockpit` overlays + `#security` section (functional wiring; Claude owns visual polish). See `docs/handoff-claude.md` § 3.4–3.5. | — |
+| **~~K5. Domain-pack secret rotation~~** | ~~1 h~~ | ✅ **Shipped:** `VaultSecretsPanel` on `/cockpit`; `GET /api/vault/status` merges `KNOWN_KEYS` + pack `auth_vault_keys()`; copyable macOS Keychain add command per key. | — |
+| **~~L1. iOS pairing-first slice~~** | ~~3 h~~ | ✅ **Shipped:** `mobile/ios/TARSCompanion/` SPM library (CryptoKit + URLSession + AVFoundation QR + SwiftUI shell). `swift test` runs 11 cases; the `idle → linked` state machine matches the host's pairing endpoints. | — |
+| **~~L2. Android pairing-first slice~~** | ~~3 h~~ | ✅ **Shipped:** `mobile/android/TARSCompanion/` (Compose + OkHttp + java.security XDH); JVM-only `PairingDecodersTest.kt` runs once Android SDK is installed. iOS↔Android symmetry pinned by `tests/test_mobile_pairing_contract.py`. | — |
+| **~~L3. Updater channel CI signer~~** | ~~1 h~~ | ✅ **Shipped:** `.github/workflows/release-desktop.yml` (matrix build × pyoxidizer × `tauri signer sign` × publish manifest + updater channel) + `desktop/scripts/sign-artifacts.sh`. Pinned by `tests/test_release_desktop_workflow.py`. Real minisign key still lives in repo secrets. | — |
+| **~~M1. Multi-agent registry + task queue~~** | ~~3 h~~ | ✅ **Shipped:** `backend/core/agents/{models,store,runner}.py` + `web_extras/routers/agents.py` (`POST /api/agents`, `…/tasks`, `…/run`, `…/cancel`). SQLite-backed; tasks run through the council orchestrator and emit `agent.created`, `agent.task.{queued,started,completed,failed,cancelled}` to meeet. Cockpit panel `AgentsPanel.tsx`. Tests: `tests/test_agents_router.py` (15 cases). | — |
+| **~~M2. Crypto wallets + wallet pack~~** | ~~3 h~~ | ✅ **Shipped:** `backend/core/wallet/` (BIP-39 mnemonic, XChaCha20-Poly1305 secrets at rest, Solana ed25519 signing, EVM/TON address derivation flagged `signing_supported=False`). HTTP under `/api/wallet/*`. Agent-controllable via the `wallet` domain pack — `propose_send`/`sign_message` are destructive and flow through the policy gate. Cockpit panel `WalletPanel.tsx` with one-time mnemonic reveal. Tests: `tests/test_wallet_{service,router,pack}.py` (31 cases). | — |
+| **~~N1. Wallet balance reader~~** | ~~1 h~~ | ✅ **Shipped:** `backend/core/wallet/balance.py` (stdlib `urllib` JSON-RPC for Solana / EVM / TON, env-overridable RPC URLs, structured `BalanceError`). New `GET /api/wallet/{id}/balance` route + `wallet.balance` action + cockpit "balance" pill in `WalletPanel.tsx`. Tests: `tests/test_wallet_balance.py` (15 cases). | — |
+| **~~N2. Agent autopilot loop~~** | ~~1 h~~ | ✅ **Shipped:** `backend/core/agents/autopilot.py` (`tick_once` + `autopilot_loop`, interval `TARS_AGENTS_AUTOPILOT_INTERVAL_S` default 30s, `0` disables). Per-agent toggle (`metadata.autopilot=true`), HTTP `POST /api/agents/{id}/autopilot?enabled=…` + force-tick endpoint, cockpit per-row autopilot pill + global "tick" button. Lifespan spawns the loop. Tests: `tests/test_agents_autopilot.py` (8 cases). | — |
+| **~~N3. Real EVM signing~~** | ~~2 h~~ | ✅ **Shipped:** `eth-account` dependency. `backend/core/wallet/sign_evm.py` (BIP-44 m/44'/60'/0'/0/{index}, EIP-191 personal_sign, EIP-1559 typed-2 + legacy tx). `Wallet.signing_supported = True` for EVM. New route `POST /api/wallet/{id}/sign_evm_tx`, new pack action `wallet.sign_evm_tx` (destructive). Cockpit "prove ownership" button. `mnemonic_to_entropy` accepts 12/15/18/21/24-word phrases for third-party imports. Anvil canonical mnemonic test vector pinned. Tests: `tests/test_wallet_evm_signing.py` (17 cases) + adjacent suite updates (+19 pytest total). | — |
+| **~~N4. Real TON signing~~** | ~~2 h~~ | ✅ **Shipped:** `tonsdk` dependency. `backend/core/wallet/sign_ton.py` (`derive_ton_account` → canonical wallet v3R2 contract address, `sign_ton_message` ed25519, `sign_ton_transfer` builds + signs broadcastable BoC). `Wallet.signing_supported = True` for TON (all three chains complete). New route `POST /api/wallet/{id}/sign_ton_transfer`, new pack action `wallet.sign_ton_transfer` (destructive). `parse_amount` helper accepts nanoton ints / digit-strings / decimal TON. Tests: `tests/test_wallet_ton_signing.py` (23 cases) + adjacent suite updates (+23 pytest total). | — |
+| **~~N5. Real Solana tx signing~~** | ~~1.5 h~~ | ✅ **Shipped:** `solders` dependency. `backend/core/wallet/sign_sol.py` (`derive_solana_keypair`, `sign_solana_transfer` builds `system_program::transfer` and emits raw_b64/b58/hex + tx_signature). New route `POST /api/wallet/{id}/sign_solana_transfer`, new pack action `wallet.sign_solana_transfer` (destructive). `parse_lamports` helper accepts lamports / SOL decimals / hex. Caller supplies `recent_blockhash` (matches EVM/TON trust model). Tests: `tests/test_wallet_sol_signing.py` (22 cases). | — |
+| **~~O1. Structured error envelope~~** | ~~1 h~~ | ✅ **Shipped:** `web_extras/errors.py` — `TARSAPIError` + `ERROR_CODES` taxonomy + `ERROR_HINTS`; handlers for `HTTPException` / `RequestValidationError` / `StarletteHTTPException`. Every error response carries `{ok:false, error_code, message, hint?, detail}`. Validation 422 surfaces a per-field `errors` list. Legacy FastAPI `detail` is preserved. Tests: `tests/test_error_envelope.py` (8 cases). | — |
+| **~~O2. HTTP policy gate~~** | ~~1.5 h~~ | ✅ **Shipped:** `web_extras/policy_gate.py` — HMAC-SHA256 confirm tokens bound to `(wallet_id, action, params_hash, expires_at)`, opt-in via `TARS_REQUIRE_OPERATOR_CONFIRM=1`. New `POST /api/wallet/{id}/confirm` mints; destructive routes call `policy_gate.require_confirm(...)`. Header is `X-TARS-Confirm: <token>`. Tests: `tests/test_policy_gate.py` (17 cases). | — |
+| **~~O3. SLIP-0010 Phantom derivation~~** | ~~1.5 h~~ | ✅ **Shipped:** `backend/core/wallet/slip10.py` implements official SLIP-0010 ed25519. `Wallet.derivation_scheme` field (default `tars-v1`, opt-in `bip44-501-phantom`). Idempotent SQLite ALTER for legacy DBs. Phantom-compat `m/44'/501'/0'/0'` pinned to canonical zero-mnemonic address `HAgk14JpMQLgt6rVgv7cBQFJWFto5Dqxi472uT3DKpqk`. Tests: `tests/test_wallet_slip10.py` (13 cases). | — |
+| **~~O4. Audit log raw signed bytes~~** | ~~1 h~~ | ✅ **Shipped:** `backend/core/wallet/audit.py` — `enrich_signed_event` attaches raw fields when `TARS_AUDIT_RAW_TX=1`. `MeeetStore.prune_kind_before` + `prune_signed_events` enforce TTL. New `POST /api/wallet/audit/prune`. Privacy-by-default. Tests: `tests/test_wallet_audit.py` (14 cases). | — |
+| **~~P2 / P3 / P4. Live RPC helpers~~** | ~~1 h~~ | ✅ **Shipped:** `backend/core/wallet/chain_helpers.py` (stdlib only). New routes: `GET /api/wallet/solana/blockhash`, `GET /api/wallet/evm/{address}/nonce?block_tag=`, `GET /api/wallet/ton/{address}/seqno`. All degrade to `502 wallet_balance_rpc_failure` envelope on transport error. Tests: `tests/test_wallet_chain_helpers.py` (19 cases). | — |
+| **~~P1. Chain-specific send forms~~** | ~~1.5 h~~ | ✅ **Shipped:** `experiments/neural-showcase-v3/src/components/ChainSendForm.tsx` (per-chain inputs, ⚡ autofill button, auto-confirm-token, signed-result viewer with copy buttons). `lib/wallet.ts` adds `fetchSolanaBlockhash` / `fetchEVMNonce` / `fetchTONSeqno` / `fetchPolicyStatus` / `mintConfirmToken`; sign functions accept optional `confirmToken`. WalletPanel toggles to `ChainSendForm` for any signing-capable wallet. | — |
+| **~~Q1. End-to-end smoke test~~** | ~~1 h~~ | ✅ **Shipped:** `tests/test_e2e_smoke.py` walks pair → mint Solana/EVM/TON → message-sign each → real-tx-sign each → independent crypto verify (Account.recover_transaction, b58decode 64-byte, TON body_hash) → agent + task lifecycle → meeet event presence assertions. (4 cases.) | — |
+| **~~D1. Root README.md~~** | ~~1 h~~ | ✅ **Shipped:** `README.md` — quickstart, full env-var reference (wallets / hardening / pairing / meeet), architecture diagram, common ops (Phantom-compat wallet, real Solana send), troubleshooting, test commands. | — |
+| **~~D4. THREAT_MODEL.md~~** | ~~1 h~~ | ✅ **Shipped:** `docs/THREAT_MODEL.md` — trust zones Z0–Z7, where every piece of crypto material lives + its at-rest encryption, attack surfaces ranked by blast radius, what we deliberately do not do, logging policy, primitive choices. | — |
+
+Carry **`AGENT_HANDOFF.md` § Handoff → Claude** below into the prompt when swapping agents.
+
+---
+
+## Handoff → Claude Code (design + meeet.world integration)
+
+**Owner:** Claude Code (`design-system/tars/MASTER.md`, Landing, brand,
+`meeet.world` frontend if that repo exists alongside this mono).
+
+Synchronise against shipped functional surfaces (**ChatPane**, ⌘K
+palette, timeline, attachment chips). Do **not** change HTTPS event
+contracts without a coordinating Cursor PR.
+
+Suggested sequence (prioritised):
+
+1. **Cockpit chrome (Phase L)** — ⌘K **`<CommandPalette />`**, **`<ThreadTimeline />`**, **`<ChatPane />`**: hover, motion, typography, **`mark`** highlight styling for BM25 hits, timeline spine / grouping-by-hour, responsive polish per **`design-system/tars/pages/cockpit.md`** (create if missing from skill output).
+2. **Landing `/` downloads** — primary CTAs fetching manifest from **`GET /api/product/downloads`** (or static JSON bundled at build-time with env substitution). Buttons: **Download for macOS**, **Windows**; checksum copy; version string.
+3. **meeet.world integration** — match **meeet** marketing shell: OG image, canonical URL, **`meeet.world` → TARS** deep links, optional embed iframe or CTA strip reusing MASTER palette (**gold accent + OLED cyan**). Respect existing ingest contract (**1.0.0**) — no silent bumps; flag **L5** when pairing UI ships.
+4. **Brand artefacts** — favicon, social card, typography pass aligned with MASTER voice (*operator-grade, minimal fluff*).
+
+Deliverable Claude should leave behind: screenshots or Storybook notes +
+short **PR description** referencing `HANDOFF § Handoff → Claude`
+so Cursor can sanity-check routes.
+
+Copy-paste cue for Claude:
+
+```
+Read Jarvis/jarvis/docs/AGENT_HANDOFF.md → sections «Next Cursor block»
+and «Handoff → Claude». Design source: design-system/tars/MASTER.md.
+Functional manifest: GET /api/product/downloads (after Cursor merges).
+Polish ⌘K, timeline, ChatPane; Landing download CTAs; meeet.world visual
+alignment. Do not invent backend contracts beyond docs/contracts/.
+```
+
+## Notes from Claude → Cursor / Brother (Waves 7–10, 2026-04-29)
+
+The marketing surface (`experiments/neural-showcase-v3/`) shipped four
+polish waves on top of Phase L. Inventory below — pick what to wire on
+the cloud side.
+
+### New routes (already lazy-loaded in `App.tsx`)
+
+| Path             | What                                                          | Static asset?                      |
+| ---------------- | ------------------------------------------------------------- | ---------------------------------- |
+| `/build-with`    | Viral badge generator. Two sizes × two themes, paste-ready embeds. | yes — `public/badge/*.svg` (4 files) |
+| `/privacy`       | Renders `docs/PRIVACY_POLICY.md` via `?raw` import.           | n/a                                |
+| `/terms`         | `docs/TERMS_OF_SERVICE.md`.                                   | n/a                                |
+| `/security`      | `docs/SECURITY.md`.                                           | n/a                                |
+| `/roadmap`       | `docs/ROADMAP.md`.                                            | n/a                                |
+| `/changelog`     | `docs/CHANGELOG_PUBLIC.md`.                                   | n/a                                |
+
+All five legal/info pages share `<LegalLayout/>` which auto-derives a
+one-line `og:description` from the markdown lede. Update the markdown
+once and every surface picks it up.
+
+### Static badge endpoint (brother needs to host)
+
+`/build-with` Markdown embed points at:
+
+```
+https://meeet.world/badge/built-with-tars.svg              # full · dark
+https://meeet.world/badge/built-with-tars-light.svg        # full · light
+https://meeet.world/badge/built-with-tars-compact.svg      # compact · dark
+https://meeet.world/badge/built-with-tars-compact-light.svg
+```
+
+Files live in `experiments/neural-showcase-v3/public/badge/`. They are
+`<svg>` inline (~1 KB each), no external font loads. When the deploy
+moves to `tars.meeet.world`, mirror them under `/badge/` so existing
+embedded badges keep working.
+
+### Analytics contract (`docs/contracts/ANALYTICS.md`)
+
+Frontend now emits `tars.<page|api|click>.<action>` events to
+`POST /api/log` via `src/lib/analytics.ts`. Pre-launch they buffer in
+`localStorage["tars-analytics-buffer"]` (cap 200, oldest-evicted).
+Wired today:
+
+- `tars.page.view` on every route change.
+- `tars.click.install_copy_(install|brew)` with `os` prop.
+- `tars.click.badge_copy_(html|md)` with `size`, `theme`.
+- `tars.click.download_<os>_<arch>` with `version`, `kind`, `surface`.
+
+Next click events I'd like Cursor to wire if it touches Hero / Pricing:
+`tars.click.cta_cockpit`, `tars.click.tier_selected`, `tars.click.faq_open`.
+
+Brother's responsibilities (full list in the ANALYTICS.md):
+
+1. Validate name regex `^tars\.(page|api|click)\.[a-z0-9_]+$`.
+2. Drop events with stale `ts` (>24h past or future).
+3. Stamp server-side `received_at`, `country` (CF-Country header), `ua`.
+4. Persist to ClickHouse, respond `204 No Content`.
+
+### Cookie posture (frontend already discloses functional-only)
+
+`<CookieConsent/>` ships globally. We declare four cookies:
+`tars-session`, theme, lang, Cloudflare bot-management. Anything else
+the brother adds (e.g. analytics consent variants) needs a cookie-
+inventory entry in `docs/PRIVACY_POLICY.md § 9` first.
+
+### Per-page SEO (titles + og)
+
+Every page now calls `useDocumentMeta({ title, description, ogImage })`
+from `src/lib/meta.ts`. The hook updates `document.title`, `<meta
+name=description>`, and the og/twitter pair on mount; restores defaults
+on unmount. Crawlers still read the static defaults baked into
+`index.html`, so brother's edge worker (when it stands up) should
+inject the per-route values at HTML send time for proper SSR SEO.
+
+### Don't-touch list (Cursor-owned)
+
+`src/lib/downloads.ts`, `src/lib/api.ts`, `src/lib/wallet.ts`, the
+backend, and the Cockpit's `<CommandPalette/>` (separate from the
+landing-side `<GlobalCommandPalette/>`). I added one minor change —
+`onClick` analytics on the download anchors in `DownloadStrip.tsx` —
+that's purely additive and doesn't alter the manifest contract.
