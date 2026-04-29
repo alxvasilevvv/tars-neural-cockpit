@@ -10,6 +10,18 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { API_BASE } from "./api";
 
+/** macOS Keychain account string TARS uses with ``security`` (see ``keychain.py``). */
+export const VAULT_KEYCHAIN_ACCOUNT = "tars";
+
+/** Shell command to add a secret to the default macOS Keychain entry TARS reads. */
+export function macOSKeychainAddCommand(
+  keyName: string,
+  account: string = VAULT_KEYCHAIN_ACCOUNT,
+): string {
+  const k = keyName.trim();
+  return `security add-generic-password -a ${account} -s ${k} -w`;
+}
+
 export interface VaultKey {
   key: string;
   source: "env" | "keychain" | "missing";

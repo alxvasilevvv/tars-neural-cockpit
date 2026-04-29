@@ -3,9 +3,13 @@
 Auto-loaded by Claude Code in every session. Cursor reads the same context via
 `.cursorrules` and `.cursor/rules/tars-architecture.mdc`. Keep all three in sync.
 
-> **Naming**: the product is **TARS**. Older artefacts may say "Jarvis" — when
-> editing, change copy to TARS. The folder name `Jarvis/jarvis` stays as-is so
-> existing paths don't break.
+> **Naming**: the product is **TARS** end-to-end. The legacy folder path
+> `Jarvis/jarvis` is the only mention left and stays as-is so existing
+> imports / scripts / venv paths don't break — rename the parent folder
+> manually in Finder if you want.
+
+> **Fresh clone / second machine / GitHub + meeet.world:**
+> follow `docs/SECOND_MACHINE_HANDOFF.md`; copy `.env.example` → `.env` (never commit).
 
 ## Project
 

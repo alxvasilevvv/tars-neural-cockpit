@@ -81,6 +81,9 @@ export function Layers() {
   const { scrollYProgress } = useScroll({
     target: ref,
     offset: ["start end", "end start"],
+    // Defer to useEffect — the ref is in the same component but
+    // framer-motion still races layoutEffect on the first paint.
+    layoutEffect: false,
   });
   const tilt = useTransform(scrollYProgress, [0, 0.5, 1], [12, 0, -12]);
 

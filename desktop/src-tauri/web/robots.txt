@@ -1,0 +1,15 @@
+# TARS · meeet.world
+# Public marketing surface — fully indexable.
+# Cockpit + onboarding routes are usable but rarely useful for search,
+# so we discourage crawling without disallowing.
+
+User-agent: *
+Allow: /
+Disallow: /cockpit
+Disallow: /onboarding
+
+# Frontend canonical lives at meeet.world (root), tars.meeet.world is
+# also canonical pending the brother's subdomain rollout (see
+# docs/contracts/TARS_SUBDOMAIN.md).
+
+Sitemap: https://meeet.world/sitemap.xml

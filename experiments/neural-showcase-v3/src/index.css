@@ -13,27 +13,73 @@
   --color-bg-1: #0b0b10;
   --color-bg-2: #14141b;
   --color-ink: #f5f5f0;
-  --color-ink-2: #a09e96;
-  --color-ink-3: #5c5a52;
+  --color-ink-2: #b0aea4;
+  /* Bumped from #5c5a52 (≈3.0:1 on bg-0) → #7a786f (≈4.6:1) so muted
+     body copy passes WCAG AA on the OLED background. */
+  --color-ink-3: #7a786f;
 
   --color-line: rgba(245, 245, 240, 0.06);
   --color-line-strong: rgba(245, 245, 240, 0.12);
-  --color-line-hot: rgba(202, 138, 4, 0.32);
+  --color-line-hot: rgba(99, 102, 241, 0.32);
 
-  /* Single primary accent — gold #CA8A04 from skill master. */
-  --color-accent: #ca8a04;
-  --color-accent-soft: rgba(202, 138, 4, 0.55);
-  --color-accent-deep: rgba(202, 138, 4, 0.12);
+  /* Primary accent — meeet.world brand indigo. Master.md previously
+     defined gold #CA8A04, but the marketing surface (showcase v3)
+     adopts the meeet brand triad instead. Cockpit/dashboard pages
+     can override locally to gold via :root in their own scope. */
+  --color-accent: #6366f1;
+  --color-accent-soft: rgba(99, 102, 241, 0.55);
+  --color-accent-deep: rgba(99, 102, 241, 0.12);
 
-  /* HUD wireframe colour from --domain style "HUD/Sci-Fi FUI" — used
-     ONLY on technical decorations (1px lines, 3D rings, brackets). */
-  --color-hud: #00ffff;
-  --color-hud-soft: rgba(0, 255, 255, 0.32);
-  --color-hud-deep: rgba(0, 255, 255, 0.12);
+  /* HUD lines — brand cyan (was bright #00FFFF, too neon for premium). */
+  --color-hud: #06b6d4;
+  --color-hud-soft: rgba(6, 182, 212, 0.32);
+  --color-hud-deep: rgba(6, 182, 212, 0.12);
 
   --color-alert: #ef4444;
   --color-alert-soft: rgba(239, 68, 68, 0.5);
   --color-success: #34d399;
+
+  /* meeet brand triad — single source of truth. Replaces ~25 hardcoded
+     hex values across CookieConsent / Waitlist / ProofStrip / BuildWith
+     / NotFound / Footer / GlobalCommandPalette. The same three values
+     also drive the OG cards in /public/og-*.svg (kept as inline hex
+     there because SVG can't read CSS vars in og: previews). */
+  --brand-indigo: #6366f1;
+  --brand-violet: #8b5cf6;
+  --brand-cyan:   #06b6d4;
+  --brand-orchid: #a78bfa;
+
+  /* The brand-triad sweep — 1px hairline used at the top of every
+     marketing card / dialog / section. Always horizontal, full-width. */
+  --brand-sweep: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--brand-indigo) 30%,
+    var(--brand-violet) 50%,
+    var(--brand-cyan) 70%,
+    transparent 100%
+  );
+
+  /* The 135° gradient used on every primary CTA. Indigo → violet. */
+  --brand-cta-gradient: linear-gradient(
+    135deg,
+    var(--brand-indigo) 0%,
+    var(--brand-violet) 100%
+  );
+
+  /* Shared CTA shadow tuple — 1px brand stroke + soft halo. Used on
+     every "primary brand action" button (Got it, Notify me, Download). */
+  --shadow-brand-cta:
+    0 0 0 1px rgba(99, 102, 241, 0.45),
+    0 8px 24px -10px rgba(99, 102, 241, 0.55);
+  --shadow-brand-cta-lg:
+    0 0 0 1px rgba(99, 102, 241, 0.45),
+    0 14px 38px -10px rgba(99, 102, 241, 0.6);
+
+  /* Display-size scale — replaces 5+ ad-hoc `clamp()` formulas. */
+  --text-display-xl: clamp(2.6rem, 6vw, 6.5rem);   /* Hero h1 */
+  --text-display-lg: clamp(2.4rem, 5.4vw, 4.6rem); /* Pitch slide title, NotFound h1 */
+  --text-display-md: clamp(2rem, 4.4vw, 3.4rem);   /* Waitlist h2, BuildWith h1 */
 
   /* Skill master typography — Share Tech Mono + Fira Code. */
   --font-display: "Share Tech Mono", "Fira Code", ui-monospace, monospace;
@@ -76,6 +122,11 @@
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     overflow-x: hidden;
+    /* iOS: kill the blue tap-highlight flash; we render our own focus ring */
+    -webkit-tap-highlight-color: transparent;
+    /* Better text rendering on iOS Safari + Android Chrome */
+    text-size-adjust: 100%;
+    -webkit-text-size-adjust: 100%;
   }
   ::selection {
     background: var(--color-accent-deep);
@@ -130,6 +181,17 @@
   }
 }
 
+/* SplineScene lazy-load fallback */
+.loader {
+  display: inline-block;
+  width: 1.75rem;
+  height: 1.75rem;
+  border: 2px solid var(--color-line-strong);
+  border-top-color: var(--color-accent);
+  border-radius: 999px;
+  animation: tars-spin 0.75s linear infinite;
+}
+
 /* Magnetic cursor: hide system cursor only when pointer is fine and motion is allowed */
 @media (pointer: fine) {
   body:where(:not(.no-magnetic-cursor)) {
@@ -182,4 +244,97 @@
   body {
     cursor: auto !important;
   }
+}
+
+/* Skip-to-content — visible only when focused (keyboard users) */
+.skip-link {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 100;
+  padding: 0.75rem 1rem;
+  font: 500 11px/1 var(--font-mono);
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--color-bg-0);
+  background: var(--color-accent);
+  border-radius: 0 0 8px 0;
+  transform: translateY(-200%);
+  transition: transform 0.25s ease;
+}
+.skip-link:focus,
+.skip-link:focus-visible {
+  transform: translateY(0);
+  outline: 2px solid var(--color-hud);
+  outline-offset: 2px;
+}
+
+/* High-contrast / forced-colors mode (Windows hi-contrast, etc.) */
+@media (forced-colors: active) {
+  *,
+  *::before,
+  *::after {
+    forced-color-adjust: auto;
+  }
+  a,
+  button,
+  [role="button"] {
+    border: 1px solid currentColor;
+  }
+}
+
+/* ─── Light theme — opt-in via <html data-theme="light"> ─────────
+   "Paper mode": warm off-white background, charcoal ink, brand
+   triad stays. The triad is colour-blind-friendly + carries enough
+   saturation that gradient text and CTA buttons read clearly on
+   white. Shadows shift to soft warm-grey instead of OLED-pure-black. */
+:root[data-theme="light"] {
+  --color-bg-0: #fbfaf6;       /* warm paper, not pure white — easier on eyes */
+  --color-bg-1: #ffffff;       /* card surfaces float to pure white */
+  --color-bg-2: #f3f2ec;       /* muted secondary fill */
+  --color-ink: #0b0b10;
+  --color-ink-2: #3a3833;       /* tighter contrast — was #4a4842 (≈8.5:1) */
+  --color-ink-3: #6e6c63;       /* meets WCAG AA on bg-0 */
+
+  --color-line: rgba(11, 11, 16, 0.08);
+  --color-line-strong: rgba(11, 11, 16, 0.16);
+  --color-line-hot: rgba(99, 102, 241, 0.32);
+
+  /* Halos / aurora overlays go subtle on white — full opacity reads
+     as garish day-glo. */
+  --color-accent-deep: rgba(99, 102, 241, 0.08);
+  --color-hud-deep: rgba(6, 182, 212, 0.08);
+
+  /* Soft warm shadow for cards (replaces OLED black). */
+  --shadow-paper-sm: 0 1px 2px rgba(11, 11, 16, 0.04),
+                     0 4px 12px -4px rgba(11, 11, 16, 0.06);
+  --shadow-paper-md: 0 2px 4px rgba(11, 11, 16, 0.04),
+                     0 14px 28px -8px rgba(11, 11, 16, 0.08);
+
+  /* Brand-CTA shadow — softened halo so it doesn't overpower paper. */
+  --shadow-brand-cta:
+    0 0 0 1px rgba(99, 102, 241, 0.55),
+    0 6px 18px -8px rgba(99, 102, 241, 0.45);
+  --shadow-brand-cta-lg:
+    0 0 0 1px rgba(99, 102, 241, 0.55),
+    0 10px 28px -8px rgba(99, 102, 241, 0.5);
+}
+:root[data-theme="light"] body {
+  background: var(--color-bg-0);
+  color: var(--color-ink);
+  color-scheme: light;
+}
+
+/* Light-mode tweaks for HUD selection / scrollbar — keep them visible
+   on warm paper instead of inheriting a too-faint OLED-only treatment. */
+:root[data-theme="light"] ::selection {
+  background: rgba(99, 102, 241, 0.18);
+  color: var(--color-ink);
+}
+:root[data-theme="light"] *::-webkit-scrollbar-thumb {
+  background: rgba(11, 11, 16, 0.18);
+  border: 3px solid var(--color-bg-0);
+}
+:root[data-theme="light"] *::-webkit-scrollbar-thumb:hover {
+  background: rgba(99, 102, 241, 0.32);
 }

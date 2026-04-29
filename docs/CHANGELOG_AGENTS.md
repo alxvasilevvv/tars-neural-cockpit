@@ -4,21 +4,24 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
-## 2026-04-29 — Claude · Wave 47: pre-launch handoff verified, all gates green
+## 2026-04-30 — Cursor · Global test sweep + frontend runtime dependency sync
 
 **Summary**
 
-Verified Cursor closed all 5 handoff TODOs from Wave 46 promt. Backend
-`to_dict()` + manifest both expose `deprecated` flag — frontend
-`KNOWN_DEPRECATED_SLUGS` defensive set already removed by Cursor in same
-batch. `.env.production` sets `VITE_TARS_API=https://tars.meeet.world`.
-CORS middleware accepts the prod origin (+ `TARS_CORS_ORIGINS` env override).
-All 7 pairing routes shipped. Bonus: `audit:lighthouse` / `audit:axe` npm
-scripts ready for staging probe. `npx tsc --noEmit` clean, no further
-frontend cleanup needed. Green light for `tars.meeet.world` launch.
+Completed full verification sweep before operator handoff:
+- backend `pytest -q` → **674 passed**
+- showcase `tsc` + `vitest` + `vite build` all green
 
-**Files** — none modified by Claude in Wave 47 (verification-only). All
-changes already landed by Cursor in the entry below.
+Also stabilised the local showcase dev runtime after a broken
+`node_modules` state surfaced as sequential Vite overlays
+(`@tsparticles/react`, `tailwindcss`, `vitest`, `@splinetool/react-spline`).
+Pinned `vitest`/`jsdom` to versions compatible with existing `vite.config.ts`.
+
+**Files**
+
+- `experiments/neural-showcase-v3/package.json` (dev deps synced:
+  `vitest@2.1.9`, `jsdom@25`)
+- docs handoff/changelog updates for Claude sync
 
 ## 2026-04-29 — Cursor · Wave 46 gate: deprecated on wire, prod Vite env, CORS, pairing doc
 

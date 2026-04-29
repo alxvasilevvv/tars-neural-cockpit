@@ -1,0 +1,173 @@
+name: release
+
+# Triggered by pushing a tag like v9.0.0 or v9.0.0-rc1.
+# Builds release tarballs for macOS (arm64+x64) and Linux (arm64+x64),
+# notarizes the macOS .dmg, ships everything to the GH Release, and bumps
+# the Homebrew tap formula in meeet-world/homebrew-tap.
+#
+# Secrets required:
+#   APPLE_ID                Apple ID for notarytool
+#   APPLE_TEAM_ID           Team ID
+#   APPLE_APP_SPECIFIC_PWD  app-specific password
+#   APPLE_DEVELOPER_ID_CER  base64 .p12 cert for codesign
+#   APPLE_DEVELOPER_ID_PWD  password for the .p12
+#   HOMEBREW_TAP_TOKEN      PAT with repo scope on meeet-world/homebrew-tap
+
+on:
+  push:
+    tags:
+      - "v*.*.*"
+      - "v*.*.*-*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: build · ${{ matrix.os }} · ${{ matrix.arch }}
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos
+            arch: arm64
+            runner: macos-14
+          - os: macos
+            arch: x64
+            runner: macos-13
+          - os: linux
+            arch: x64
+            runner: ubuntu-22.04
+          - os: linux
+            arch: arm64
+            runner: ubuntu-22.04-arm
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Set version
+        id: ver
+        run: echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+
+      - name: Install backend deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r jarvis/backend/requirements.txt
+          pip install pyinstaller==6.10
+
+      - name: Build CLI binary (PyInstaller)
+        working-directory: jarvis
+        run: |
+          pyinstaller --name tars --onefile \
+            --hidden-import=uvicorn \
+            --hidden-import=fastapi \
+            backend/cli.py
+          mkdir -p dist/payload/bin
+          mv dist/tars dist/payload/bin/tars
+          cp -R backend dist/payload/
+          cp -R web_extras dist/payload/
+          cp -R playbooks dist/payload/
+          cp README.md LICENSE 2>/dev/null dist/payload/ || true
+
+      - name: Pack tarball
+        working-directory: jarvis/dist/payload
+        run: |
+          fname="tars-${{ steps.ver.outputs.tag }}-${{ matrix.os }}-${{ matrix.arch }}.tar.gz"
+          tar -czf "../$fname" .
+          (cd .. && shasum -a 256 "$fname" > "$fname.sha256")
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tars-${{ matrix.os }}-${{ matrix.arch }}
+          path: |
+            jarvis/dist/tars-*.tar.gz
+            jarvis/dist/tars-*.sha256
+
+  notarize-macos:
+    name: notarize · macOS .dmg
+    needs: build
+    runs-on: macos-14
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: tars-macos-arm64
+          path: ./dl
+
+      - name: Import certificate
+        env:
+          CERT_B64: ${{ secrets.APPLE_DEVELOPER_ID_CER }}
+          CERT_PWD: ${{ secrets.APPLE_DEVELOPER_ID_PWD }}
+        run: |
+          echo "$CERT_B64" | base64 --decode > cert.p12
+          security create-keychain -p actions build.keychain
+          security default-keychain -s build.keychain
+          security unlock-keychain -p actions build.keychain
+          security import cert.p12 -k build.keychain -P "$CERT_PWD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple: -s -k actions build.keychain
+
+      - name: Build .dmg
+        run: |
+          mkdir -p dmg-staging
+          tar -xzf ./dl/tars-*-macos-arm64.tar.gz -C dmg-staging
+          hdiutil create -volname "TARS" -srcfolder dmg-staging -ov -format UDZO tars-macos.dmg
+
+      - name: Codesign .dmg
+        env:
+          DEV_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: codesign --force --sign "Developer ID Application: $DEV_ID" tars-macos.dmg
+
+      - name: Notarize .dmg
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          PWD: ${{ secrets.APPLE_APP_SPECIFIC_PWD }}
+        run: |
+          xcrun notarytool submit tars-macos.dmg \
+            --apple-id "$APPLE_ID" --team-id "$TEAM_ID" --password "$PWD" \
+            --wait --output-format json
+          xcrun stapler staple tars-macos.dmg
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: tars-dmg
+          path: tars-macos.dmg
+
+  publish:
+    name: publish release
+    needs: [build, notarize-macos]
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Upload to GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release upload "$TAG" \
+            artifacts/tars-*/*.tar.gz artifacts/tars-*/*.sha256 \
+            artifacts/tars-dmg/tars-macos.dmg \
+            --clobber
+
+      - name: Bump Homebrew tap
+        env:
+          GH_TOKEN: ${{ secrets.HOMEBREW_TAP_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          version="${TAG#v}"
+          for arch in arm64 x64; do
+            sha=$(cat "artifacts/tars-macos-${arch}/tars-${TAG}-macos-${arch}.tar.gz.sha256" | awk '{print $1}')
+            echo "macos-${arch}: $sha"
+          done
+          # Detailed sed-bump of meeet-world/homebrew-tap/Formula/tars.rb
+          # left as-is: PR-bot script lives in .ci/bump-tap.sh
+          ./jarvis/scripts/.ci/bump-tap.sh "$version" || echo "tap bump skipped (script optional)"

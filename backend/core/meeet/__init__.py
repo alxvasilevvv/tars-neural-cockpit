@@ -18,23 +18,44 @@ bridge is safe to import in tests and offline environments.
 
 from .client import MeeetClient, get_client, reset_client
 from .config import MeeetConfig, load_config
-from .events import TARSEvent
+from .events import (
+    BASELINE_CONTRACT_VERSION,
+    ENCRYPTED_CONTRACT_VERSION,
+    TARSEvent,
+)
 from .store import MeeetStore, StoredEvent, get_store, reset_store
-from .tracing import current_trace, new_trace_id, start_trace, trace_scope
+from .tracing import (
+    current_route,
+    current_session,
+    current_trace,
+    new_session_id,
+    new_trace_id,
+    session_scope,
+    set_route,
+    start_trace,
+    trace_scope,
+)
 
 __all__ = [
+    "BASELINE_CONTRACT_VERSION",
+    "ENCRYPTED_CONTRACT_VERSION",
     "MeeetClient",
     "MeeetConfig",
     "MeeetStore",
     "StoredEvent",
     "TARSEvent",
+    "current_route",
+    "current_session",
     "current_trace",
     "get_client",
     "get_store",
     "load_config",
+    "new_session_id",
     "new_trace_id",
     "reset_client",
     "reset_store",
+    "session_scope",
+    "set_route",
     "start_trace",
     "trace_scope",
 ]

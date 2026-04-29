@@ -1,6 +1,6 @@
 # TARS · Neural Showcase v2
 
-Active-Theory-flavored marketing surface for TARS / Jarvis. Built as an isolated experiment so it
+Active-Theory-flavored marketing surface for TARS. Built as an isolated experiment so it
 does not collide with the dependency-free `frontend/` of the main project.
 
 ## Stack

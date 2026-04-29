@@ -1,17 +1,26 @@
-"""Local secrets vault for TARS.
+"""Local-first secret storage for the TARS host.
 
-Hierarchy of resolution:
+This module spans two related but distinct concerns:
 
-1. Environment variable with the literal key name.
-2. macOS Keychain entry under service ``tars`` and account = key name
-   (e.g. ``security add-generic-password -a tars -s TARS_ANTHROPIC_API_KEY -w sk-...``).
-3. ``None`` — caller must handle.
+1. **Domain pack secrets** — env-vars / macOS Keychain lookup for API
+   keys (Anthropic, OpenAI, HubSpot, …). See :mod:`.keychain`.
+2. **Host identity vault** — durable storage for the host's long-term
+   X25519 keypair so that Phase L5 pairings survive restarts. See
+   :mod:`.file_vault`.
 
-The vault is intentionally narrow: read-only, no writes from the app.
-The user adds entries with the ``security`` CLI; we only fetch them.
+Both live behind this single module so callers don't have to learn
+two import paths.
 """
 
+from .file_vault import (
+    FileKeyringVault,
+    KeyringVault,
+    StoredHostIdentity,
+    VaultCorruptError,
+    VaultPermissionError,
+)
 from .keychain import (
+    DEFAULT_SERVICE,
     KNOWN_KEYS,
     SecretRef,
     get_secret,
@@ -20,6 +29,14 @@ from .keychain import (
 )
 
 __all__ = [
+    # Host identity vault (Phase L5 K1)
+    "FileKeyringVault",
+    "KeyringVault",
+    "StoredHostIdentity",
+    "VaultCorruptError",
+    "VaultPermissionError",
+    # Domain pack secret resolver
+    "DEFAULT_SERVICE",
     "KNOWN_KEYS",
     "SecretRef",
     "get_secret",

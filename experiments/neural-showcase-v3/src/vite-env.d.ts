@@ -7,3 +7,9 @@ interface ImportMetaEnv {
 interface ImportMeta {
   readonly env: ImportMetaEnv;
 }
+
+// Vite's ?raw import — text-as-string at build time
+declare module "*.md?raw" {
+  const content: string;
+  export default content;
+}

@@ -27,6 +27,7 @@ from ...base import ActionSpec
 from ..._http import post_json
 from backend.core.vault import get_secret
 from ....council import get_council
+from .smtp import SmtpConfig, send_email
 
 _REPO_ROOT = Path(__file__).resolve().parents[5]
 _DEFAULT_KPI_PATH = _REPO_ROOT / "data" / "business_kpi.json"
@@ -287,6 +288,7 @@ async def draft_email(args: Mapping[str, Any]) -> Mapping[str, Any]:
         return {"ok": False, "error": "to_required"}
     subject = str(args.get("subject", "")).strip() or "Quick note"
     tone = str(args.get("tone", "concise"))
+    cc = str(args.get("cc", "")).strip() or None
 
     body_by_tone = {
         "concise": "Quick one — could we sync briefly this week to align?",
@@ -297,16 +299,67 @@ async def draft_email(args: Mapping[str, Any]) -> Mapping[str, Any]:
         ),
         "blunt": "We need to align this week. What slot works?",
     }
-    body = body_by_tone.get(tone, body_by_tone["concise"])
+    raw_body = str(args.get("body") or "").strip()
+    body = raw_body or body_by_tone.get(tone, body_by_tone["concise"])
 
-    return {
+    base = {
         "ok": True,
         "to": to,
         "subject": subject,
         "body": body,
         "tone": tone,
-        "sent": False,
-        "hint": "draft only; cockpit will require explicit confirmation to send",
+        "cc": cc,
+    }
+
+    # Caller must opt in: ``send`` is the explicit on-the-wire flag, and
+    # the policy gate has already required confirmation by the time we're
+    # here (action is destructive=True). Without ``send`` we always
+    # return draft-only — same shape as before.
+    want_send = bool(args.get("send", False))
+    if not want_send:
+        return {
+            **base,
+            "sent": False,
+            "delivery": {"status": "draft", "via": "none"},
+            "hint": (
+                "set send=true to attempt real outbound (requires"
+                " policy confirmation + SMTP vault config)."
+            ),
+        }
+
+    cfg = SmtpConfig.load()
+    if cfg is None:
+        # Surface as a non-fatal degradation: handler succeeded, we just
+        # couldn't reach a relay. The policy token is still consumed.
+        return {
+            **base,
+            "sent": False,
+            "delivery": {
+                "status": "unavailable",
+                "via": "none",
+                "reason": "smtp_not_configured",
+                "hint": (
+                    "set SMTP_HOST + credentials (env or vault) to enable"
+                    " real outbound mail."
+                ),
+            },
+        }
+
+    delivery = await send_email(
+        to_addr=to,
+        subject=subject,
+        body=body,
+        cc=cc,
+        config=cfg,
+    )
+    sent = bool(delivery.get("sent"))
+    return {
+        **base,
+        "sent": sent,
+        "delivery": {
+            "status": "sent" if sent else "send_failed",
+            **delivery,
+        },
     }
 
 
@@ -368,16 +421,29 @@ ACTIONS: tuple[ActionSpec, ...] = (
     ActionSpec(
         id="draft_email",
         name="Draft email",
-        description="Draft an outbound email; never sends without confirmation.",
+        description=(
+            "Draft an outbound email. Always returns the draft body; with"
+            " send=true and SMTP configured, also attempts real delivery"
+            " (after policy confirmation)."
+        ),
         handler=draft_email,
         schema={
             "type": "object",
             "properties": {
                 "to": {"type": "string"},
+                "cc": {"type": "string"},
                 "subject": {"type": "string"},
+                "body": {"type": "string"},
                 "tone": {
                     "type": "string",
                     "enum": ["concise", "warm", "formal", "blunt"],
+                },
+                "send": {
+                    "type": "boolean",
+                    "description": (
+                        "Opt-in to actual SMTP delivery; requires SMTP_*"
+                        " vault config (otherwise returns draft + hint)."
+                    ),
                 },
             },
             "required": ["to"],

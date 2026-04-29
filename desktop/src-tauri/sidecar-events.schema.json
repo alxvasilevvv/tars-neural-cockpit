@@ -1,0 +1,46 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://meeet.world/schemas/desktop/sidecar-events-1.0.0.json",
+  "title": "TARS desktop sidecar lifecycle events",
+  "description": "Events emitted by the Tauri shell for the FastAPI sidecar process. Mirrored on both the Rust emitter (desktop/src-tauri/src/sidecar.rs) and the cockpit listener.",
+  "version": "1.0.0",
+  "events": {
+    "desktop.sidecar.started": {
+      "description": "Sidecar process is up AND /health returned 200.",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pid", "port", "took_ms"],
+      "properties": {
+        "pid":     { "type": "integer", "minimum": 1 },
+        "port":    { "type": "integer", "minimum": 1, "maximum": 65535 },
+        "took_ms": { "type": "integer", "minimum": 0 },
+        "binary":  { "type": "string" },
+        "mode":    { "type": "string", "enum": ["pyoxidizer", "python", "external"] }
+      }
+    },
+    "desktop.sidecar.failed": {
+      "description": "Sidecar bring-up failed (spawn error, health timeout, or premature exit).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stage", "error", "took_ms"],
+      "properties": {
+        "stage":   { "type": "string", "enum": ["spawn", "health_timeout", "early_exit"] },
+        "error":   { "type": "string" },
+        "took_ms": { "type": "integer", "minimum": 0 },
+        "pid":     { "type": ["integer", "null"], "minimum": 1 }
+      }
+    },
+    "desktop.sidecar.exited": {
+      "description": "Sidecar process terminated (clean shutdown OR crash).",
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pid", "ran_ms"],
+      "properties": {
+        "pid":       { "type": "integer", "minimum": 1 },
+        "ran_ms":    { "type": "integer", "minimum": 0 },
+        "exit_code": { "type": ["integer", "null"] },
+        "signal":    { "type": ["string", "null"] }
+      }
+    }
+  }
+}

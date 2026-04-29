@@ -28,7 +28,7 @@ from typing import Any, Iterable, Mapping, Optional
 
 DEFAULT_DB_PATH = "~/.tars/meeet.sqlite"
 
-SCHEMA = """
+_SCHEMA_TABLE = """
 CREATE TABLE IF NOT EXISTS events (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     ts REAL NOT NULL,
@@ -39,9 +39,15 @@ CREATE TABLE IF NOT EXISTS events (
     payload TEXT NOT NULL,
     pushed INTEGER NOT NULL DEFAULT 0,
     pushed_at REAL,
-    last_error TEXT
+    last_error TEXT,
+    session_id TEXT,
+    route TEXT,
+    ciphertext TEXT,
+    envelope TEXT
 );
+"""
 
+_SCHEMA_INDICES = """
 CREATE INDEX IF NOT EXISTS idx_events_pushed_ts
     ON events (pushed, ts);
 
@@ -50,7 +56,23 @@ CREATE INDEX IF NOT EXISTS idx_events_trace
 
 CREATE INDEX IF NOT EXISTS idx_events_kind_ts
     ON events (kind, ts DESC);
+
+CREATE INDEX IF NOT EXISTS idx_events_session_ts
+    ON events (session_id, ts);
 """
+
+# Forward-compat: if the DB existed before K1 the events table is missing
+# session_id / route. Run these between table creation and index creation.
+_MIGRATIONS: tuple[str, ...] = (
+    "ALTER TABLE events ADD COLUMN session_id TEXT",
+    "ALTER TABLE events ADD COLUMN route TEXT",
+    # Phase L5 — encrypted sync envelope (contract 1.1.0).
+    "ALTER TABLE events ADD COLUMN ciphertext TEXT",
+    "ALTER TABLE events ADD COLUMN envelope TEXT",
+)
+
+# Kept for callers that still reference SCHEMA (e.g. old tests).
+SCHEMA = _SCHEMA_TABLE + _SCHEMA_INDICES
 
 
 @dataclass(frozen=True)
@@ -65,6 +87,10 @@ class StoredEvent:
     pushed: bool
     pushed_at: float | None
     last_error: str | None
+    session_id: str | None = None
+    route: str | None = None
+    ciphertext: str | None = None
+    envelope: dict[str, Any] | None = None
 
 
 def _resolve_db_path(override: str | None = None) -> str:
@@ -109,7 +135,18 @@ class MeeetStore:
     def _ensure_schema(self) -> None:
         conn = self._connect()
         try:
-            conn.executescript(SCHEMA)
+            # 1. Table first — IF NOT EXISTS no-ops on an existing DB.
+            conn.executescript(_SCHEMA_TABLE)
+            # 2. Migrations — ALTER TABLE adds missing columns when the
+            #    DB was created before K1. Skip silently when columns
+            #    already exist.
+            for stmt in _MIGRATIONS:
+                try:
+                    conn.execute(stmt)
+                except sqlite3.OperationalError:
+                    continue
+            # 3. Indices last — they may reference newly-added columns.
+            conn.executescript(_SCHEMA_INDICES)
         finally:
             conn.close()
 
@@ -119,6 +156,15 @@ class MeeetStore:
             payload = json.loads(row["payload"])
         except (json.JSONDecodeError, TypeError):
             payload = {}
+        keys = row.keys()
+        envelope: dict[str, Any] | None = None
+        if "envelope" in keys and row["envelope"]:
+            try:
+                env_raw = json.loads(row["envelope"])
+                if isinstance(env_raw, dict):
+                    envelope = env_raw
+            except (json.JSONDecodeError, TypeError):
+                envelope = None
         return StoredEvent(
             id=row["id"],
             ts=row["ts"],
@@ -130,6 +176,10 @@ class MeeetStore:
             pushed=bool(row["pushed"]),
             pushed_at=row["pushed_at"],
             last_error=row["last_error"],
+            session_id=row["session_id"] if "session_id" in keys else None,
+            route=row["route"] if "route" in keys else None,
+            ciphertext=row["ciphertext"] if "ciphertext" in keys else None,
+            envelope=envelope,
         )
 
     # -- sync impls (run in to_thread) -----------------------------------
@@ -137,10 +187,17 @@ class MeeetStore:
     def _insert_sync(self, event: dict[str, Any]) -> int:
         conn = self._connect()
         try:
+            envelope = event.get("envelope")
+            envelope_json: str | None = None
+            if envelope:
+                envelope_json = json.dumps(envelope, separators=(",", ":"))
             cur = conn.execute(
                 """
-                INSERT INTO events (ts, trace_id, kind, source, contract_version, payload, pushed)
-                VALUES (?, ?, ?, ?, ?, ?, 0)
+                INSERT INTO events (
+                    ts, trace_id, kind, source, contract_version, payload,
+                    pushed, session_id, route, ciphertext, envelope
+                )
+                VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?)
                 """,
                 (
                     float(event.get("ts") or time.time()),
@@ -149,6 +206,10 @@ class MeeetStore:
                     str(event.get("source", "tars")),
                     str(event.get("contract_version", "1.0.0")),
                     json.dumps(event.get("payload") or {}, separators=(",", ":")),
+                    event.get("session_id"),
+                    event.get("route"),
+                    event.get("ciphertext"),
+                    envelope_json,
                 ),
             )
             return cur.lastrowid or 0
@@ -178,6 +239,7 @@ class MeeetStore:
         since: float | None,
         trace_id: str | None,
         kind: str | None,
+        session_id: str | None,
         only_unpushed: bool,
     ) -> list[StoredEvent]:
         clauses: list[str] = []
@@ -191,6 +253,9 @@ class MeeetStore:
         if kind:
             clauses.append("kind = ?")
             params.append(kind)
+        if session_id:
+            clauses.append("session_id = ?")
+            params.append(session_id)
         if only_unpushed:
             clauses.append("pushed = 0")
         where = ("WHERE " + " AND ".join(clauses)) if clauses else ""
@@ -245,6 +310,7 @@ class MeeetStore:
         since: float | None = None,
         trace_id: str | None = None,
         kind: str | None = None,
+        session_id: str | None = None,
         only_unpushed: bool = False,
     ) -> list[StoredEvent]:
         if not self.enabled:
@@ -256,6 +322,7 @@ class MeeetStore:
             since=since,
             trace_id=trace_id,
             kind=kind,
+            session_id=session_id,
             only_unpushed=only_unpushed,
         )
 
@@ -285,7 +352,7 @@ class MeeetStore:
         pushed = 0
         failed = 0
         for ev in reversed(events):  # oldest first
-            body = {
+            body: dict[str, Any] = {
                 "trace_id": ev.trace_id,
                 "kind": ev.kind,
                 "source": ev.source,
@@ -293,6 +360,13 @@ class MeeetStore:
                 "ts": ev.ts,
                 "payload": ev.payload,
             }
+            if ev.session_id:
+                body["session_id"] = ev.session_id
+            if ev.route:
+                body["route"] = ev.route
+            if ev.ciphertext and ev.envelope:
+                body["ciphertext"] = ev.ciphertext
+                body["envelope"] = ev.envelope
             try:
                 await push_callable(body)
             except Exception as exc:
@@ -309,6 +383,49 @@ class MeeetStore:
             "failed": failed,
             "remaining": stats.get("unpushed"),
         }
+
+
+    async def prune_kind_before(
+        self,
+        *,
+        kind_prefix: str = "",
+        kind_suffix: str = "",
+        before_unix: float,
+    ) -> int:
+        """Drop events with ``kind LIKE prefix%suffix`` older than ``before_unix``.
+
+        Returns the number of rows removed. No-op when the store is
+        disabled or ``before_unix`` is in the future.
+        """
+
+        if not self.enabled:
+            return 0
+        return await asyncio.to_thread(
+            self._prune_sync,
+            kind_prefix=kind_prefix,
+            kind_suffix=kind_suffix,
+            before_unix=float(before_unix),
+        )
+
+    def _prune_sync(
+        self,
+        *,
+        kind_prefix: str,
+        kind_suffix: str,
+        before_unix: float,
+    ) -> int:
+        # Use LIKE with escaped wildcards. SQLite parameter binding
+        # protects us from injection.
+        pattern = f"{kind_prefix}%{kind_suffix}"
+        conn = self._connect()
+        try:
+            cur = conn.execute(
+                "DELETE FROM events WHERE kind LIKE ? AND ts < ?",
+                (pattern, before_unix),
+            )
+            return cur.rowcount or 0
+        finally:
+            conn.close()
 
 
 _SINGLETON: Optional[MeeetStore] = None

@@ -1,0 +1,75 @@
+{
+  "$schema": "https://schema.tauri.app/config/2.0.0",
+  "productName": "TARS",
+  "version": "0.1.0-alpha.2",
+  "identifier": "world.meeet.tars",
+  "build": {
+    "frontendDist": "../web",
+    "devUrl": "http://localhost:5173",
+    "beforeDevCommand": "pnpm --dir ../../experiments/neural-showcase-v3 dev",
+    "beforeBuildCommand": "pnpm cockpit:build && pnpm cockpit:package"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "TARS",
+        "width": 1440,
+        "height": 900,
+        "minWidth": 980,
+        "minHeight": 640,
+        "resizable": true,
+        "fullscreen": false,
+        "center": true,
+        "decorations": true,
+        "transparent": false,
+        "titleBarStyle": "Overlay",
+        "hiddenTitle": true
+      }
+    ],
+    "security": {
+      "csp": "default-src 'self'; connect-src 'self' http://127.0.0.1:8765 ws://127.0.0.1:8765 https://meeet.world; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'"
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": ["dmg", "app", "msi", "nsis", "deb", "appimage"],
+    "category": "Productivity",
+    "shortDescription": "Local-first neural cockpit",
+    "longDescription": "TARS — local-first neural cockpit released under meeet.world. Threads, voice, automations, files, full observability.",
+    "publisher": "meeet.world",
+    "copyright": "© meeet.world",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "macOS": {
+      "minimumSystemVersion": "12.0",
+      "entitlements": null,
+      "exceptionDomain": null,
+      "providerShortName": "meeet"
+    },
+    "windows": {
+      "wix": {
+        "language": "en-US"
+      },
+      "nsis": {
+        "installMode": "currentUser"
+      }
+    }
+  },
+  "plugins": {
+    "updater": {
+      "active": true,
+      "endpoints": [
+        "https://meeet.world/updates/{{target}}/{{current_version}}.json",
+        "https://updates.meeet.world/tars/{{target}}/{{current_version}}.json"
+      ],
+      "dialog": false,
+      "pubkey": "TODO_PUBLIC_KEY"
+    }
+  }
+}

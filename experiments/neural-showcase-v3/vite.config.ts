@@ -1,22 +1,52 @@
+/// <reference types="vitest" />
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import path from "node:path";
 
 export default defineConfig({
+  // GitHub Pages project sites live under /<repo>/ ; set VITE_BASE_PATH in CI
+  // (see .github/workflows/cockpit-github-pages.yml). Local dev uses `/`.
+  base: process.env.VITE_BASE_PATH ?? "/",
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
+      // Legal / security pages render the canonical markdown from docs/
+      // via `?raw` imports — single source of truth.
+      "@docs": path.resolve(__dirname, "../../docs"),
     },
+    // Force a single resolved copy of `three` across the app, R3F,
+    // postprocessing, drei, and our shader-lines port. Without this,
+    // Vite's dev pre-bundler can ship two separate `three` chunks and
+    // the runtime fires `THREE.WARNING: Multiple instances of Three.js`.
+    dedupe: ["three", "react", "react-dom"],
+  },
+  optimizeDeps: {
+    include: ["three"],
   },
   server: {
     host: "127.0.0.1",
     port: 5174,
+    fs: {
+      // Allow imports from the parent docs/ folder for legal pages
+      allow: [path.resolve(__dirname, "../..")],
+    },
+  },
+  test: {
+    environment: "jsdom",
+    globals: true,
+    include: ["src/**/*.{test,spec}.{ts,tsx}"],
   },
   build: {
     target: "es2022",
     sourcemap: false,
+    // The Spline runtime (physics, navmesh, react-spline) is the
+    // largest dep and intentionally lazy-loaded inside <MeetTars />.
+    // Raising the chunk-size warning so the build log only screams
+    // when something genuinely regresses, not when Spline is doing
+    // its expected weight.
+    chunkSizeWarningLimit: 2200,
     rollupOptions: {
       output: {
         manualChunks(id) {

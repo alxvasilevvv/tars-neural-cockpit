@@ -17,10 +17,26 @@ from collections import Counter
 from dataclasses import dataclass, field
 from typing import Any, Iterable, Mapping, Optional
 
-from backend.core.meeet import current_trace, get_client, new_trace_id, trace_scope
+from backend.core.meeet import (
+    current_trace,
+    get_client,
+    new_trace_id,
+    set_route,
+    trace_scope,
+)
+from backend.core.usage import default_price_table
 
 from .llm import detect_llm_voice
 from .voices import LocalVoice, MockCloudVoice, Proposal, Voice
+
+
+_PRICE_TABLE = default_price_table()
+
+
+def _is_cloud_voice(model: str) -> bool:
+    if not model:
+        return False
+    return model.startswith(("anthropic/", "openai/"))
 
 
 def _default_voice_panel() -> list[Voice]:
@@ -49,6 +65,8 @@ class Deliberation:
     trace_id: str | None = None
     sampler_decision_id: str | None = None
     arbiter: str | None = None
+    cost_usd: float | None = None
+    route: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -62,6 +80,8 @@ class Deliberation:
             "trace_id": self.trace_id,
             "sampler_decision_id": self.sampler_decision_id,
             "arbiter": self.arbiter,
+            "cost_usd": self.cost_usd,
+            "route": self.route,
         }
 
 
@@ -171,11 +191,35 @@ class CouncilOrchestrator:
             for voice in chosen_voices:
                 p = await voice.propose(prompt, context)
                 proposals.append(p)
+                # Cloud voices crossed the boundary — bump the route on
+                # this scope so every later event in the same trace
+                # carries the right tag.
+                if _is_cloud_voice(p.model) and p.stance != "unavailable":
+                    set_route("cloud")
+                cost = _PRICE_TABLE.cost_usd(p.model, p.tokens_in, p.tokens_out)
+                await client.emit(
+                    "usage.tokens",
+                    {
+                        "model": p.model,
+                        "tokens_in": int(p.tokens_in),
+                        "tokens_out": int(p.tokens_out),
+                        "latency_ms": round(float(p.latency_ms), 3),
+                        "cost_usd": cost,
+                        "stance": p.stance,
+                        "topic": context.get("topic"),
+                    },
+                )
 
             winner = _winner(proposals)
             agreement = _agreement(proposals)
             contradictions = _contradictions(proposals)
             sampler_id = new_trace_id().replace("trc_", "smp_")
+
+            total_cost = 0.0
+            for p in proposals:
+                c = _PRICE_TABLE.cost_usd(p.model, p.tokens_in, p.tokens_out)
+                if c is not None:
+                    total_cost += c
 
             await client.emit(
                 "sampler.decision",
@@ -190,6 +234,7 @@ class CouncilOrchestrator:
                     ),
                     "tokens_in": sum(v.tokens_in for v in proposals),
                     "tokens_out": sum(v.tokens_out for v in proposals),
+                    "cost_usd": round(total_cost, 6),
                     "agreement": agreement,
                     "contradictions": contradictions,
                 },
@@ -205,6 +250,8 @@ class CouncilOrchestrator:
                 },
             )
 
+            from backend.core.meeet import current_route
+
             return Deliberation(
                 mode=mode,
                 chosen=winner.stance,
@@ -216,6 +263,8 @@ class CouncilOrchestrator:
                 trace_id=tid,
                 sampler_decision_id=sampler_id,
                 arbiter="confidence_weighted_majority",
+                cost_usd=round(total_cost, 6) if total_cost > 0 else None,
+                route=current_route(),
             )
 
 

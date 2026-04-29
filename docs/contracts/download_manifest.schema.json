@@ -1,0 +1,52 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://meeet.world/schemas/tars/download_manifest_v1.json",
+  "title": "TARS download manifest",
+  "description": "Wire shape returned by GET /api/product/downloads. See docs/contracts/MEEET_DOWNLOADS.md for the prose contract.",
+  "type": "object",
+  "required": ["product", "contract_version", "channel", "released_at", "releases"],
+  "properties": {
+    "ok":               { "type": "boolean" },
+    "source":           { "type": "string" },
+    "product":          { "type": "string", "const": "tars" },
+    "contract_version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "channel":          { "type": "string", "enum": ["stable", "beta", "nightly"] },
+    "released_at":      { "type": "string", "format": "date-time" },
+    "releases": {
+      "type": "array",
+      "minItems": 1,
+      "items": { "$ref": "#/$defs/release" }
+    }
+  },
+  "$defs": {
+    "release": {
+      "type": "object",
+      "required": ["version", "channel", "released_at", "artifacts"],
+      "properties": {
+        "version":     { "type": "string" },
+        "channel":     { "type": "string", "enum": ["stable", "beta", "nightly"] },
+        "released_at": { "type": "string", "format": "date-time" },
+        "notes":       { "type": ["string", "null"] },
+        "artifacts": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "$ref": "#/$defs/artifact" }
+        }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "required": ["os", "arch", "kind", "filename", "url"],
+      "properties": {
+        "os":            { "type": "string", "enum": ["macos","windows","linux","ios","android"] },
+        "arch":          { "type": "string", "enum": ["arm64","x64","x86","universal","any"] },
+        "kind":          { "type": "string", "enum": ["dmg","pkg","app","exe","msi","appimage","deb","ipa","apk","aab"] },
+        "filename":      { "type": "string", "minLength": 1 },
+        "size_bytes":    { "type": ["integer", "null"], "minimum": 0 },
+        "sha256":        { "type": ["string", "null"], "pattern": "^[A-Fa-f0-9]{64}$" },
+        "url":           { "type": "string", "format": "uri" },
+        "signature_url": { "type": ["string", "null"], "format": "uri" }
+      }
+    }
+  }
+}

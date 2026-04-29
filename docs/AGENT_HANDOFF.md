@@ -177,6 +177,15 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-04-30 — Global verification pass + frontend deps sanity (Cursor):**
+  Full backend suite green: `pytest -q` → **674 passed**. Showcase checks
+  green: `npx tsc --noEmit -p tsconfig.app.json`, `npm run test`
+  (56/56), `npm run build`. Local dev runtime was unstable due broken/
+  missing `node_modules`; reinstalled and aligned dev deps so Vite
+  overlay errors stopped (`tailwindcss` unresolved, missing
+  `@tsparticles/react`, missing `@splinetool/react-spline`, missing
+  `vitest`). `vitest`/`jsdom` now pinned to project-compatible versions.
+
 - **2026-04-29 — Wave 46 launch gate (`tars.meeet.world`):**
   Backend now exposes ``deprecated`` + ``deprecated_in_favor_of`` on
   ``GET /api/domains`` and the manifest endpoint

@@ -27,7 +27,15 @@ class BusinessPack(DomainPack):
     )
 
     def auth_vault_keys(self) -> tuple[str, ...]:
-        return ("HUBSPOT_API_KEY", "PIPEDRIVE_API_KEY", "MEEET_API_KEY")
+        return (
+            "HUBSPOT_API_KEY",
+            "PIPEDRIVE_API_KEY",
+            "MEEET_API_KEY",
+            "SMTP_HOST",
+            "SMTP_USER",
+            "SMTP_PASSWORD",
+            "SMTP_FROM",
+        )
 
     def actions(self):
         return ACTIONS

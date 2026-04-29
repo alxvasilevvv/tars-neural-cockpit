@@ -1,0 +1,45 @@
+# TARS — runtime dependencies (host backend only).
+#
+# Stdlib-first philosophy: this list stays as small as we can make it.
+# Cockpit / desktop / mobile have their own dependency manifests.
+#
+# Install with `pip install -r requirements.txt`.
+
+# Web / API
+fastapi==0.136.1
+uvicorn==0.46.0
+pydantic==2.13.3
+pydantic-settings==2.14.0
+
+# HTTP clients
+httpx==0.28.1
+httpx-sse==0.4.3
+
+# Optional file handling (attachment ingest pipeline)
+pypdf>=5.0,<6.0
+
+# Phase L5 — encrypted sync envelope (X25519 + XChaCha20-Poly1305)
+pynacl>=1.5,<2.0
+
+# Phase M2 / N3 — EVM wallet signing (BIP-44 + secp256k1 + Keccak-256
+# + EIP-1559 typed transactions + EIP-191 personal_sign).
+# Pulls in coincurve (libsecp256k1), pycryptodome (keccak), rlp, eth-keys.
+eth-account>=0.13,<0.14
+
+# Phase N4 — TON wallet (v3R2 contract address derivation, BoC/Cell
+# encoding, ed25519 transfer signing). ed25519 itself comes from
+# pynacl (already pinned above); tonsdk just wraps the wallet
+# contract code + Cell serialization.
+tonsdk>=1.0,<2.0
+
+# Phase N5 — Solana transaction signing (solders is the Rust-native
+# Python binding for solana-sdk; gives us Transaction / Message /
+# Instruction / Hash primitives so we can build + sign a real
+# system_program::transfer locally). Read-only RPC paths still go
+# through stdlib urllib (see `wallet/balance.py`).
+solders>=0.21,<1.0
+
+# Test / contracts
+pytest==9.0.3
+pytest-asyncio==1.3.0
+jsonschema==4.26.0

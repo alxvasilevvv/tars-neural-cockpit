@@ -8,6 +8,13 @@ from .prompts import SYSTEM_PROMPT
 
 
 class MLMPack(DomainPack):
+    """Deprecated. Use :class:`EntrepreneurPack` instead.
+
+    Kept registered so existing cockpit state and agent records pinned
+    to ``pack_slug=mlm`` keep resolving until 2026-07-29 (90 days from
+    Phase M ship).
+    """
+
     manifest = DomainManifest(
         slug="mlm",
         name="MLM",
@@ -15,7 +22,7 @@ class MLMPack(DomainPack):
         description=(
             "Network depth, activity and retention as living nodes; recruiting "
             "playbooks tuned to your tone; auto-content for newcomers across "
-            "IG, TG and WA."
+            "IG, TG and WA. (Deprecated — use Entrepreneur.)"
         ),
         color="#f472b6",
         capabilities=(
@@ -25,6 +32,8 @@ class MLMPack(DomainPack):
             "content_pipeline",
         ),
         audience="MLM founders, network builders, distributors",
+        deprecated=True,
+        deprecated_in_favor_of="entrepreneur",
     )
 
     def auth_vault_keys(self) -> tuple[str, ...]:

@@ -23,7 +23,7 @@ import time
 from .config import MeeetConfig, load_config
 from .events import TARSEvent
 from .store import MeeetStore, get_store
-from .tracing import current_trace, new_trace_id
+from .tracing import current_route, current_session, current_trace, new_trace_id
 
 
 class MeeetClient:
@@ -47,7 +47,14 @@ class MeeetClient:
         self.last_replay: dict[str, Any] | None = None
 
     async def emit(
-        self, kind: str, payload: Mapping[str, Any] | None = None
+        self,
+        kind: str,
+        payload: Mapping[str, Any] | None = None,
+        *,
+        session_id: str | None = None,
+        route: str | None = None,
+        ciphertext: str | None = None,
+        envelope: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
         trace_id = current_trace() or new_trace_id()
         event = TARSEvent(
@@ -56,6 +63,10 @@ class MeeetClient:
             payload=dict(payload or {}),
             source=self.config.source,
             contract_version=self.config.contract_version,
+            session_id=session_id or current_session(),
+            route=route or current_route(),
+            ciphertext=ciphertext,
+            envelope=dict(envelope) if envelope is not None else None,
         )
         body = event.to_dict()
 

@@ -36,6 +36,7 @@ async def list_events(
     since: Optional[float] = Query(default=None),
     trace_id: Optional[str] = Query(default=None),
     kind: Optional[str] = Query(default=None),
+    session_id: Optional[str] = Query(default=None),
     only_unpushed: bool = Query(default=False),
 ) -> dict[str, Any]:
     events = await get_store().list_events(
@@ -43,6 +44,7 @@ async def list_events(
         since=since,
         trace_id=trace_id,
         kind=kind,
+        session_id=session_id,
         only_unpushed=only_unpushed,
     )
     return {
@@ -53,6 +55,8 @@ async def list_events(
                 "id": e.id,
                 "ts": e.ts,
                 "trace_id": e.trace_id,
+                "session_id": e.session_id,
+                "route": e.route,
                 "kind": e.kind,
                 "source": e.source,
                 "contract_version": e.contract_version,

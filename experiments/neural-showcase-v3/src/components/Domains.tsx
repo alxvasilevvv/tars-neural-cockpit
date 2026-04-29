@@ -1,7 +1,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { useState } from "react";
 import { SectionHead } from "@/components/SectionHead";
-import { DomainsScene } from "@/three/DomainsScene";
+import { DomainsCards } from "@/components/DomainsCards";
 import { CornerFrame, StatusLozenge, BarStack } from "@/components/Glyphs";
 import { Waveform } from "@/components/Waveform";
 
@@ -27,7 +27,7 @@ const PACKS: Pack[] = [
       "Risk and portfolio actions guarded by policy.",
     ],
     schema: "BTC · ETH · SOL · NDX",
-    color: "#CA8A04",
+    color: "#6366F1",
   },
   {
     num: "02",
@@ -40,20 +40,20 @@ const PACKS: Pack[] = [
       "Daily brief composed by the council each morning.",
     ],
     schema: "CRM · GSHEETS · MAIL · CAL",
-    color: "#00FFFF",
+    color: "#8B5CF6",
   },
   {
     num: "03",
-    slug: "mlm",
-    name: "MLM",
-    title: "Downline as a graph, not a spreadsheet.",
+    slug: "entrepreneur",
+    name: "Entrepreneur",
+    title: "Pipeline, leads and outreach — all in one rhythm.",
     bullets: [
-      "Network depth, activity and retention tracked live.",
-      "Recruiting playbooks tuned to your tone of voice.",
-      "Auto content for newcomers across IG, TG, WA.",
+      "Pipeline depth, activity and churn tracked live.",
+      "Outreach playbooks tuned to your tone of voice.",
+      "Auto content drafts across IG, TG, WA, email.",
     ],
-    schema: "NETWORK · RANKS · CONTENT",
-    color: "#CA8A04",
+    schema: "PIPELINE · LEADS · CONTENT",
+    color: "#06B6D4",
   },
   {
     num: "04",
@@ -66,7 +66,7 @@ const PACKS: Pack[] = [
       "Hypothesis trees with model-voted evidence.",
     ],
     schema: "ARXIV · DATASETS · LATEX",
-    color: "#00FFFF",
+    color: "#A78BFA",
   },
 ];
 
@@ -83,22 +83,13 @@ export function Domains() {
         num="02"
         tag="PACKS"
         title="Same core, four crafts."
-        description="Plug-in packs that turn the neural core into a focused tool — traders, business, MLM, science. Hover a node to inspect."
+        description="Plug-in packs that turn the neural core into a focused tool — traders, business, entrepreneur, science. Hover a node to inspect."
       />
 
       <div className="grid grid-cols-1 gap-px overflow-hidden rounded-[14px] border border-line bg-line lg:grid-cols-[1.2fr_1fr]">
-        {/* Orbital scene */}
-        <div className="relative h-[480px] bg-[radial-gradient(60%_60%_at_50%_50%,rgba(202,138,4,0.06),transparent_70%)] md:h-[560px]">
-          <DomainsScene activeSlug={active} onActivate={setActive} />
-          {/* Decorative corner ticks */}
-          <CornerFrame className="rounded-[14px]" />
-          {/* Ring label on the canvas */}
-          <div className="pointer-events-none absolute left-5 top-4 z-10 font-mono-tech text-[10px] uppercase tracking-[2.6px] text-ink-2">
-            ORBIT // 04 NODES
-          </div>
-          <div className="pointer-events-none absolute bottom-4 right-5 z-10 font-mono-tech text-[10px] uppercase tracking-[2.6px] text-ink-2">
-            HOVER · ACTIVATE
-          </div>
+        {/* Pack cards — replaces the 3D scene */}
+        <div className="relative">
+          <DomainsCards activeSlug={active} onActivate={setActive} />
         </div>
 
         {/* Detail panel — animated swap on active change */}
@@ -147,7 +138,7 @@ export function Domains() {
                 <span className="text-ink">{pack.name}</span>
                 <StatusLozenge label="ARMED" tone="accent" className="ml-auto" />
               </header>
-              <h3 className="mb-5 max-w-[24ch] font-display text-[22px] font-medium uppercase leading-[1.18] tracking-[0.02em] text-ink">
+              <h3 className="mb-5 max-w-[28ch] font-display text-[24px] font-medium leading-[1.2] tracking-[-0.01em] text-ink">
                 {pack.title}
               </h3>
               <ul className="mb-6 grid gap-2.5 text-[13.5px] leading-[1.6] text-ink-2">

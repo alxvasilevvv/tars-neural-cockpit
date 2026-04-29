@@ -1,0 +1,210 @@
+name: release-desktop
+
+# Phase L9 L3 — Tauri desktop release pipeline.
+#
+# Triggered by pushing a tag like `desktop-v1.0.0`. Builds Tauri
+# installers across the matrix, signs each artifact with the org
+# minisign key (secret `TAURI_SIGNING_PRIVATE_KEY`), then runs
+# `python -m backend.core.product.publish --updater-out` to produce
+# the per-target Tauri updater channel JSON files. The marketing site
+# hosts both the binaries and the channel manifests; the desktop
+# auto-updater reads them via the URL pinned in
+# `desktop/src-tauri/tauri.conf.json`.
+#
+# Required GitHub repo secrets:
+#   TAURI_SIGNING_PRIVATE_KEY            base64 minisign secret key
+#   TAURI_SIGNING_PRIVATE_KEY_PASSWORD   passphrase for the key (may be empty)
+#   APPLE_ID, APPLE_TEAM_ID, …           reused from the existing release.yml
+#                                        for macOS notarisation (optional here).
+
+on:
+  push:
+    tags:
+      - "desktop-v*.*.*"
+      - "desktop-v*.*.*-*"
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Semver to publish (without the 'desktop-v' prefix)."
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+env:
+  TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+  TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+
+jobs:
+  resolve-version:
+    name: resolve · version
+    runs-on: ubuntu-22.04
+    outputs:
+      version: ${{ steps.ver.outputs.version }}
+    steps:
+      - id: ver
+        run: |
+          if [[ -n "${{ inputs.version }}" ]]; then
+            echo "version=${{ inputs.version }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=${GITHUB_REF#refs/tags/desktop-v}" >> "$GITHUB_OUTPUT"
+          fi
+
+  build:
+    name: build · ${{ matrix.label }}
+    needs: resolve-version
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - label: macos-aarch64
+            runner: macos-14
+            target: aarch64-apple-darwin
+          - label: macos-x86_64
+            runner: macos-13
+            target: x86_64-apple-darwin
+          - label: windows-x86_64
+            runner: windows-2022
+            target: x86_64-pc-windows-msvc
+          - label: linux-x86_64
+            runner: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "pnpm"
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+
+      - name: Install pyoxidizer
+        run: cargo install --locked pyoxidizer --version 0.24.0
+
+      - name: Install Linux Tauri deps
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev \
+            librsvg2-dev libssl-dev libudev-dev
+
+      - name: Build cockpit web bundle
+        run: |
+          pnpm --dir experiments/neural-showcase-v3 install --frozen-lockfile
+          pnpm --dir experiments/neural-showcase-v3 build
+
+      - name: Stage cockpit into Tauri web root
+        run: bash desktop/scripts/package-cockpit.sh
+
+      - name: Build pyoxidizer sidecar
+        working-directory: desktop
+        run: pyoxidizer build --release --target-triple ${{ matrix.target }} tars-backend
+
+      - name: Stage sidecar into Tauri resources
+        shell: bash
+        working-directory: desktop
+        run: |
+          mkdir -p src-tauri/resources
+          out=$(find build -type f \
+            \( -name "tars-backend" -o -name "tars-backend.exe" \) \
+            -path "*release*" | head -n 1)
+          if [[ -z "$out" ]]; then
+            echo "::error::pyoxidizer artifact not found"
+            exit 1
+          fi
+          cp "$out" src-tauri/resources/
+
+      - name: pnpm install (desktop)
+        run: pnpm --dir desktop install --frozen-lockfile
+
+      - name: Tauri build
+        working-directory: desktop
+        run: pnpm tauri:build -- --target ${{ matrix.target }}
+
+      - name: Sign installers (minisign)
+        shell: bash
+        working-directory: desktop
+        run: bash scripts/sign-artifacts.sh "src-tauri/target/${{ matrix.target }}/release/bundle"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: desktop-${{ matrix.label }}
+          path: |
+            desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*
+            !desktop/src-tauri/target/${{ matrix.target }}/release/bundle/**/*.dSYM/**
+
+  publish:
+    name: publish · channels
+    needs: [resolve-version, build]
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install backend deps
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements.txt || true
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Flatten artifacts
+        run: |
+          mkdir -p staged
+          find artifacts -type f \
+            \( -name "*.dmg" -o -name "*.app.tar.gz" -o -name "*.msi" \
+               -o -name "*Setup.exe" -o -name "*.AppImage" -o -name "*.deb" \
+               -o -name "*.sig" \) \
+            -exec cp {} staged/ \;
+          ls -la staged
+
+      - name: Publish manifest + updater channel
+        env:
+          TARS_DOWNLOAD_BASE: https://meeet.world/downloads/tars
+          TARS_RELEASES_PATH: dist/releases.json
+        run: |
+          python -m backend.core.product.publish staged \
+            --version "${{ needs.resolve-version.outputs.version }}" \
+            --channel stable \
+            --base-url "$TARS_DOWNLOAD_BASE" \
+            --out "$TARS_RELEASES_PATH" \
+            --copy-to "dist/releases/${{ needs.resolve-version.outputs.version }}/" \
+            --updater-out "dist/updates" \
+            --updater-alias latest
+
+      - name: Upload to GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          gh release upload "$TAG" \
+            staged/* \
+            dist/releases.json \
+            --clobber || echo "release upload skipped (workflow_dispatch)"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist-bundle
+          path: |
+            dist/releases.json
+            dist/releases/**/*
+            dist/updates/**/*

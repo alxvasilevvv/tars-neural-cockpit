@@ -1,0 +1,90 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="630" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0a0a12"/>
+      <stop offset="1" stop-color="#000000"/>
+    </linearGradient>
+    <linearGradient id="brand" x1="0" y1="0" x2="1200" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#6366F1"/>
+      <stop offset="0.5" stop-color="#8B5CF6"/>
+      <stop offset="1" stop-color="#06B6D4"/>
+    </linearGradient>
+    <radialGradient id="halo" cx="900" cy="320" r="380" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#8B5CF6" stop-opacity="0.32"/>
+      <stop offset="0.6" stop-color="#6366F1" stop-opacity="0.08"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="grid" x="0" y="0" width="48" height="48" patternUnits="userSpaceOnUse">
+      <path d="M 48 0 L 0 0 0 48" fill="none" stroke="#f5f5f0" stroke-opacity="0.04" stroke-width="1"/>
+    </pattern>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#grid)"/>
+  <rect width="1200" height="630" fill="url(#halo)"/>
+
+  <!-- Top hairline accent -->
+  <rect x="0" y="0" width="1200" height="2" fill="url(#brand)" opacity="0.85"/>
+
+  <!-- Corner ticks -->
+  <g stroke="#06B6D4" stroke-width="1.5" stroke-opacity="0.5" fill="none">
+    <path d="M 60 60 L 60 84 M 60 60 L 84 60"/>
+    <path d="M 1140 60 L 1140 84 M 1140 60 L 1116 60"/>
+    <path d="M 60 570 L 60 546 M 60 570 L 84 570"/>
+    <path d="M 1140 570 L 1140 546 M 1140 570 L 1116 570"/>
+  </g>
+
+  <!-- Eyebrow -->
+  <g transform="translate(80 110)">
+    <circle cx="0" cy="-2" r="3" fill="#06B6D4"/>
+    <text x="14" y="2" font-family="'Fira Code', ui-monospace, monospace" font-size="14" fill="#a09e96" letter-spacing="3px">TARS · NEURAL COCKPIT</text>
+  </g>
+
+  <!-- Headline -->
+  <g transform="translate(80 230)">
+    <text font-family="'Share Tech Mono', monospace" font-size="92" font-weight="500" fill="#f5f5f0" letter-spacing="-2px">
+      <tspan x="0" y="0">Your machine,</tspan>
+      <tspan x="0" y="106" fill="url(#brand)">your second brain.</tspan>
+    </text>
+  </g>
+
+  <!-- Sub -->
+  <g transform="translate(80 470)">
+    <text font-family="'Fira Code', monospace" font-size="22" fill="#a09e96" letter-spacing="0.2px">
+      <tspan x="0" y="0">Local-first AI agent. Multi-LLM council. Mac operator. $MEEET economy.</tspan>
+    </text>
+  </g>
+
+  <!-- Install pill -->
+  <g transform="translate(80 530)">
+    <rect x="0" y="0" width="640" height="58" rx="10" fill="#0b0b10" stroke="#6366F1" stroke-opacity="0.6"/>
+    <text x="22" y="38" font-family="'Fira Code', monospace" font-size="20" fill="#6366F1">$</text>
+    <text x="46" y="38" font-family="'Fira Code', monospace" font-size="20" fill="#f5f5f0">curl -fsSL meeet.world/install.sh | bash</text>
+  </g>
+
+  <!-- Right-side monolith -->
+  <g transform="translate(940 320)">
+    <circle cx="0" cy="0" r="180" fill="none" stroke="#6366F1" stroke-opacity="0.18"/>
+    <circle cx="0" cy="0" r="130" fill="none" stroke="#06B6D4" stroke-opacity="0.22"/>
+    <g>
+      <polygon points="0,-110 95,-55 95,55 0,110 -95,55 -95,-55" fill="none" stroke="url(#brand)" stroke-width="3" stroke-linejoin="round"/>
+      <polygon points="0,-110 95,-55 0,0" fill="#6366F1" fill-opacity="0.55"/>
+      <polygon points="0,-110 -95,-55 0,0" fill="#8B5CF6" fill-opacity="0.55"/>
+      <polygon points="0,110 95,55 0,0" fill="#06B6D4" fill-opacity="0.55"/>
+      <polygon points="0,110 -95,55 0,0" fill="#8B5CF6" fill-opacity="0.4"/>
+    </g>
+    <!-- Orbital nodes -->
+    <g fill="#A78BFA">
+      <circle cx="180" cy="0" r="6"/>
+      <circle cx="-180" cy="0" r="6"/>
+      <circle cx="0" cy="180" r="6"/>
+      <circle cx="0" cy="-180" r="6"/>
+    </g>
+  </g>
+
+  <!-- Bottom right meta -->
+  <g transform="translate(80 600)">
+    <text font-family="'Fira Code', monospace" font-size="13" fill="#5c5a52" letter-spacing="2.4px">MIT · LOCAL-FIRST · MEEET.WORLD</text>
+  </g>
+</svg>

@@ -19,7 +19,7 @@ const STEPS = [
   {
     num: "03",
     title: "Pick a domain pack",
-    body: "The core specialises into a tool for your craft — traders, business, MLM or science.",
+    body: "The core specialises into a tool for your craft — traders, business, entrepreneur or science.",
     cue: "specialise · arm · run",
   },
 ];
@@ -29,6 +29,8 @@ export function Steps() {
   const { scrollYProgress } = useScroll({
     target: ref,
     offset: ["start 0.85", "end 0.45"],
+    // Defer to useEffect — see Layers.tsx for context.
+    layoutEffect: false,
   });
   const lineScale = useTransform(scrollYProgress, [0, 1], [0, 1]);
 

@@ -1,10 +1,16 @@
 /**
- * Full-screen ambient layer:
- *   - animated SVG turbulence grain (very low opacity)
- *   - hairline scanlines
- *   - two soft godray streaks
- *   - slow-rotating concentric guide ring at the hero center
- * All decoration; pointer-events: none.
+ * Full-screen ambient layer — minimalist per MASTER.md §1.4:
+ *   "Decorative ambient: scanline opacity ≤ 0.04, only on the WebGL stage."
+ *
+ * Removed (were creating visual noise on every page):
+ *   - Cyan rotating concentric rings (kinetic distraction)
+ *   - Gold godray + cyan godray (mix-blend-screen tinted text)
+ *   - Animated turbulence grain (CPU drain + flicker)
+ *   - Heavy scanlines at opacity 0.08 (read-blocker)
+ *
+ * Kept:
+ *   - Subtle top/bottom vignette for depth on OLED black.
+ *   - Whisper-thin scanlines at opacity 0.025 (skill cap).
  */
 export function Atmosphere() {
   return (
@@ -12,89 +18,32 @@ export function Atmosphere() {
       aria-hidden
       className="pointer-events-none fixed inset-0 z-10 overflow-hidden"
     >
-      {/* Concentric HUD guide rings — cyan per skill HUD/Sci-Fi FUI. */}
-      <svg
-        viewBox="-100 -100 200 200"
-        className="absolute left-1/2 top-[42vh] h-[120vh] w-[120vh] -translate-x-1/2 -translate-y-1/2 opacity-[0.28] mix-blend-screen"
-      >
-        <defs>
-          <radialGradient id="ring-fade" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#00FFFF" stopOpacity="0" />
-            <stop offset="55%" stopColor="#00FFFF" stopOpacity="0.55" />
-            <stop offset="100%" stopColor="#00FFFF" stopOpacity="0" />
-          </radialGradient>
-        </defs>
-        <g
-          fill="none"
-          stroke="url(#ring-fade)"
-          strokeWidth="0.18"
-          style={{
-            transformOrigin: "center",
-            animation: "tars-spin 60s linear infinite",
-          }}
-        >
-          <circle r="38" />
-          <circle r="58" strokeDasharray="0.6 1.2" />
-          <circle r="78" strokeDasharray="2 4" />
-          <circle r="92" strokeDasharray="0.4 6" />
-        </g>
-      </svg>
-
-      {/* Primary godray — gold accent (skill master CTA). */}
+      {/* Top vignette for depth — pure dark, no colour cast. */}
       <div
-        className="absolute -left-[12vw] top-[-8vh] h-[68vh] w-[42vw] rotate-[18deg] mix-blend-screen"
+        className="absolute inset-x-0 top-0 h-[24vh]"
         style={{
           background:
-            "radial-gradient(closest-side, rgba(202,138,4,0.18), rgba(202,138,4,0) 70%)",
-          filter: "blur(10px)",
-        }}
-      />
-      {/* Secondary godray — cyan HUD highlight. */}
-      <div
-        className="absolute right-[-10vw] top-[24vh] h-[58vh] w-[40vw] -rotate-[16deg] mix-blend-screen"
-        style={{
-          background:
-            "radial-gradient(closest-side, rgba(0,255,255,0.10), rgba(0,255,255,0) 70%)",
-          filter: "blur(10px)",
+            "linear-gradient(to bottom, rgba(0,0,0,0.55), transparent)",
         }}
       />
 
-      {/* Scanlines (hairline horizontal lines) */}
+      {/* Bottom vignette mirrors the top for visual rhythm. */}
       <div
-        className="absolute inset-0 opacity-[0.08]"
+        className="absolute inset-x-0 bottom-0 h-[24vh]"
+        style={{
+          background:
+            "linear-gradient(to top, rgba(0,0,0,0.55), transparent)",
+        }}
+      />
+
+      {/* Whisper-thin scanlines — opacity capped at skill threshold. */}
+      <div
+        className="absolute inset-0 opacity-[0.025]"
         style={{
           backgroundImage:
-            "repeating-linear-gradient(0deg, rgba(244,246,251,0.28) 0px, rgba(244,246,251,0.28) 1px, transparent 1px, transparent 3px)",
-          mixBlendMode: "overlay",
+            "repeating-linear-gradient(0deg, rgba(244,246,251,0.5) 0px, rgba(244,246,251,0.5) 1px, transparent 1px, transparent 4px)",
         }}
       />
-
-      {/* Animated turbulence grain */}
-      <svg className="absolute inset-0 h-full w-full opacity-[0.07] mix-blend-overlay">
-        <filter id="tars-noise">
-          <feTurbulence
-            type="fractalNoise"
-            baseFrequency="0.9"
-            numOctaves="2"
-            stitchTiles="stitch"
-          >
-            <animate
-              attributeName="baseFrequency"
-              dur="14s"
-              values="0.85;1.15;0.85"
-              repeatCount="indefinite"
-            />
-          </feTurbulence>
-          <feColorMatrix
-            type="matrix"
-            values="0 0 0 0 0.95
-                    0 0 0 0 0.96
-                    0 0 0 0 1.00
-                    0 0 0 0.95 0"
-          />
-        </filter>
-        <rect width="100%" height="100%" filter="url(#tars-noise)" />
-      </svg>
     </div>
   );
 }

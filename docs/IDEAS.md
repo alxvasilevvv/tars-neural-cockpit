@@ -3,6 +3,147 @@
 Ideas for the next sprints. Triage by impact × cost and pull into
 `AGENT_HANDOFF.md → Pending` once committed to.
 
+> **Phase L roadmap is the canonical source of truth for the
+> Claude-tier evolution (conversation, attachments, voice, sync,
+> desktop, mobile, marketplace).** See `docs/PHASE_L_ROADMAP.md`.
+> Items below remain useful for cross-cutting / smaller proposals;
+> the ✅-marked ones already shipped through Phase K.
+
+## Voice (post-L4.1)
+
+- **Per-persona system-prompt overlay.** When the operator selects
+  Stark/Jarvis/etc., bias the chat voice's tone ("Stark would
+  shorten replies and crack a joke") via an additive prompt fragment.
+- **Per-thread persona pinning.** Persist `voice_persona_id` on
+  threads so coming back to a thread keeps the same voice.
+- **Voice cloning kit (offline).** Document the path for an operator
+  to capture 3 minutes of audio, mint an ElevenLabs IVC, paste the
+  voice id into `TARS_PERSONA_OPERATOR_ELEVENLABS_ID`.
+- **Native speech on mobile.** iOS: replace Web Speech in the companion
+  with native `Speech` API where applicable. Android: wire
+  `SpeechRecognizer` + `RecognitionService` (or ML Kit on-device ASR when
+  L4 exposes a relay) for offline / lower-latency dictation.
+- **`speech.intents` extraction.** Parse the dictated transcript for
+  TARS slash-commands ("/run traders.morning_check") before the LLM
+  sees it.
+
+## Attachments + RAG (post-L2)
+
+- **Cross-thread search.** Stand up `POST /api/search` that runs hybrid
+  retrieval across every thread the operator can see; return chunks
+  with their thread title + permalink. Pair with L8.
+- **BM25 via SQLite FTS5.** Replace the hand-rolled tf scorer with
+  an FTS5 virtual table over `attachment_chunks(text)` for production-
+  grade keyword side; fuse with vectors as before.
+- **Image vision routing.** When the chat voice is multimodal-capable
+  (Anthropic Claude / OpenAI gpt-4o), pack image bytes into the
+  request payload alongside the system prompt. Today images are
+  stored but the assistant never sees them.
+- **`application/zip` walker.** Expand archives recursively (max 200
+  entries), ingest each member as its own attachment, link via a
+  parent attachment record.
+- **Streaming ingestion progress.** Yield SSE events
+  (`attachment.extracting`, `attachment.embedding`,
+  `attachment.indexed`) over the upload connection so the cockpit
+  can render a live "indexing 12 chunks…" pill on the chip.
+- **Per-attachment hover preview.** Replace the chip's tooltip with a
+  floating card that previews the first chunk + heading list.
+- **Re-embed on demand.** Endpoint that re-embeds all chunks for an
+  attachment with a different model (e.g. promote from hash to OpenAI
+  once a key is set).
+- **Citation rendering in markdown.** Today the assistant says
+  "as `[chunk_2]` shows…". Render `[chunk_N]` as a clickable pill in
+  `<MessageBubble />` that scrolls to the matching source row.
+- **Vector quantisation.** When corpora grow beyond ~5k chunks per
+  thread, swap raw float32 blobs for int8 quantised vectors; gives
+  4× space + ~2× speed for negligible accuracy loss.
+- **Thread-scoped graph.** Track edges `attachment.cites_attachment`
+  by retrieving each chunk's neighbours during ingestion; surface
+  the resulting context graph in a side panel.
+
+## Distribution & desktop (post-L9 scaffold)
+
+- **Releases publishing CLI.** `python -m backend.core.product.publish
+  path/to/build/dir --version=1.0.0` — copies artifacts into a staging
+  folder, computes SHA256, writes `~/.tars/releases.json` and a
+  signed copy at `dist/releases.json` for `meeet.world` SSR.
+- **Updater channel manifests.** Generate the per-target JSON
+  `tauri-plugin-updater` consumes (`/updates/<target>/<current>.json`)
+  from the same source as `/api/product/downloads` so the two stay in
+  lock-step.
+- **Verify-on-download UI.** When `sha256` is present in the manifest,
+  surface a "verified ✓" affordance on `<DownloadStrip />` (read the
+  hash from `data-sha256`).
+- **Linux .deb / AppImage track.** L9 v1 only ships macOS + Windows;
+  add Linux once the signing dance for Apple/Authenticode is stable.
+- **Apple notarisation log scrape.** Detect a failed notary submission
+  in CI and bail before the `.dmg` is uploaded.
+
+## Pairing & sync (post-L5 v1 — host stack shipped)
+
+✅ Already shipped (2026-04-29): real X25519 + XChaCha20-Poly1305
+envelope, BIP-39 24-word recovery seed (with `recovery.shown` audit
+event carrying the fingerprint only), pairing endpoints with
+`host_public_key` exposed, contract bumped to **1.1.0** additively.
+
+Open ideas for the next layer:
+
+- **Persistent host keyring.** Move the in-process X25519 host
+  identity into Keychain / DPAPI / `secret-tool`; gate first-launch
+  on the recovery-seed flow so the master key is reproducible from
+  the 24 words on a fresh install.
+- **Per-thread sync envelope batching.** Batch encrypted blobs into
+  one `recipient_keys` block per thread to save bandwidth.
+- **Audit log of pairing events.** Render `pair.linked` / `pair.revoked`
+  / `recovery.{shown,verified}` on the cockpit timeline as a distinct
+  gold-pill lane so an operator can see device topology + recovery
+  events alongside chat activity.
+- **Pairing relay rate-limit.** `meeet.world/pair/<id>` should expire
+  after 120 s and rate-limit per source IP — the host re-mints on
+  failure rather than retrying the same `pair_id`.
+- **Multi-recipient envelope optimisation.** Today every recipient
+  gets its own `crypto_box_seal` of the per-event content key. For
+  high-fanout events (large fleets) we could move to a one-pass
+  X25519 ECDH with a stored static-pubkey + per-event ephemeral and
+  derive each wrapped key via HKDF — keep this on the back burner
+  until fleet sizes justify the complexity.
+- **Recovery seed verification policy.** Require the operator to
+  confirm 3 random words out of 24 (not the full phrase) on
+  subsequent rotations to balance friction vs. correctness; gate
+  the "rotate identity" action behind this check.
+
+## Search & observability (post-L8)
+
+- **Trace materialised view.** Background task rebuilds
+  `(trace_id → event_count, total_cost, contradictions, route)`
+  every 5 min into a `trace_summary` table; powers the trace
+  explorer header rollup without scanning the full event store.
+- **Cytoscape trace graph.** Toggleable from `<UsageStrip />`,
+  rendering each trace as a DAG of events shaded by route
+  (`local` / `cloud`) and decorated by cost. Click → drill into the
+  underlying meeet payload.
+- **Multi-mark BM25 highlights.** The backend already wraps matches
+  in `<mark>`; the cockpit currently strips them. Render them as
+  gold-on-bg pulses with hover-card chunk previews.
+- **Vector + BM25 blend for messages.** Currently messages are
+  keyword-only; embedding them on insert (and reusing the L2
+  embedder) would surface paraphrased question recall.
+- **Scoped operator filters.** Let the ⌘K palette accept
+  `pack:business`, `role:tars`, `since:7d`, `mime:pdf`, etc.,
+  parsing them out of the query before sanitising.
+- **Attachment hover-card preview.** When a chunk hit is highlighted
+  in the palette, surface the surrounding ±1 chunk in a floating
+  panel — the data is already on the chunk row.
+- **Saved searches.** Persist named searches (`my MRR slips`,
+  `risk-flagged trades`) per operator into `~/.tars/chat.sqlite`;
+  expose a "pinned" rail above the palette results.
+- **Cross-thread Cmd+J jump.** ⌘K is a search; ⌘J should be a
+  fuzzy thread / attachment / pack picker (lighter weight, no
+  scope chips, just deep-link nav).
+- **FTS5 backfill on schema bump.** When the chat DB is migrated
+  from a backup, run `backfill_chunk_fts` / `backfill_message_fts`
+  on first boot if the index is empty but the source tables aren't.
+
 ## Cross-cutting (meeet × TARS)
 
 1. **Sampler decision events.** ✅ shipped — every council deliberation
@@ -11,16 +152,24 @@ Ideas for the next sprints. Triage by impact × cost and pull into
    `contradictions`. Wired in `traders.summarize_market` and
    `business.daily_brief`. Open work: real LLM voice adapter + a
    `route` flag (see #2).
-2. **Edge-vs-cloud routing flag.** Tag every event with
-   `route="edge" | "cloud" | "fallback"` so meeet can show a routing map per
-   user. TARS becomes a primary edge node.
-3. **Session graph.** Maintain a `session_id` parent in `trace_scope`; emit
-   `session.opened` / `session.closed` with topic and participants. Powers
-   "what was this user up to" reconstruction.
-4. **Cost ledger.** Emit `usage.tokens` with model + tier + tokens_in/out per
-   meaningful call. meeet aggregates dollars and exposes them in a single
-   bill across products. (Council Proposals already track `tokens_in/out`;
-   plumb them through to a global event.)
+2. **Edge-vs-cloud routing flag.** ✅ shipped (Phase K1) — every
+   `trace_scope` carries a route (`edge` | `cloud` | `fallback` |
+   `mixed`); LLM voices bump it to `cloud`, the SQLite store
+   indexes by `(session_id, ts)` and `/api/usage` rolls cost up
+   `by_route`.
+3. **Session graph.** ✅ shipped (Phase K1) — `session_scope`
+   tracks `session_id`, propagated via `x-tars-session-id` header,
+   stamped on every event payload, filterable in
+   `/api/meeet/events?session_id=…` and `/api/usage?session_id=…`.
+   Open work: explicit `session.opened` / `session.closed` events
+   with topic + participants for narrative reconstruction.
+4. **Cost ledger.** ✅ shipped (Phase K2/K3) — orchestrator emits
+   `usage.tokens` per voice with `cost_usd`, aggregates land on
+   `sampler.decision`. `backend/core/usage/ledger.py` derives
+   rollups from the meeet store; `/api/usage` returns
+   per-model / per-route / per-session buckets and the cockpit
+   `<UsageStrip />` renders it live. Pricing overridable via
+   `TARS_PRICE_OVERRIDES_JSON`.
 5. **Policy guardrail events.** ✅ shipped — `policy.{allowed,blocked,
    queued,confirm,cancelled}` fire on every destructive-action attempt;
    confirmations persist in the SQLite store with token + TTL. Open work:
@@ -50,13 +199,16 @@ Ideas for the next sprints. Triage by impact × cost and pull into
      deterministic heuristics.
    Each remaining adapter must call
    `meeet.emit("integration.<vendor>.<call>", ...)`.
-7. **Pack composition.** Allow stacking — e.g. "business + science" for
-   research-heavy founders. Composition resolves overlapping action ids
-   with a deterministic priority.
+7. **Pack composition.** ✅ shipped (Phase K4) — `CompositePack`
+   stitches sub-packs with namespaced ids `<sub_slug>__<id>`.
+   `research_lab` (science + business) and `ops_room` (traders +
+   mlm) ship by default. Open work: composite-aware playbooks.
 8. **Per-pack memory partitions.** Memory keys prefixed with the pack slug
    so domain context cannot bleed.
-9. **Pack marketplace JSON.** Generate a static `domains.manifest.json` from
-   the registry; host it at `/api/domains/manifest` for installer UIs.
+9. **Pack marketplace JSON.** ✅ shipped (Phase K4) —
+   `GET /api/domains/manifest` returns a stable, cache-friendly
+   summary (slug / capabilities / action counts / composite
+   linkage) for installer UIs.
 
 ## Showcase polish
 
@@ -105,10 +257,11 @@ Ideas for the next sprints. Triage by impact × cost and pull into
 26. **Awareness ticker.** ✅ shipped — `<AwarenessTicker/>` consumes
     `/api/awareness/stream` SSE in the Cockpit page. Open work:
     sparkline chart variant, replay-from-trace mode.
-27. **Smart response renderer.** Cockpit currently shows raw JSON.
-    Add per-action templates that pull `summary` / `top_gainers` /
-    `at_risk` / `tldr` / `council.summary` into a HUD card on top of
-    the JSON viewer.
+27. **Smart response renderer.** Cockpit currently shows raw JSON
+    plus the new `<UsageStrip />` cost card. Open work: per-action
+    templates that pull `summary` / `top_gainers` / `at_risk` /
+    `tldr` / `council.summary` into a HUD card on top of the JSON
+    viewer.
 29. **Pending confirmations panel.** Backend shipped —
     `/api/policy/pending` returns staged tokens with args/preview.
     Owner: design — a left-rail "approval inbox" with one-click
@@ -120,12 +273,22 @@ Ideas for the next sprints. Triage by impact × cost and pull into
 
 ## Engineering
 
-21. **Contract tests against meeet ingest.** A tiny `tests/contracts/`
-    that asserts the event schema we emit matches the latest contract pin.
-22. **Replay.** A CLI `python -m backend.core.meeet.replay path.jsonl --to
-    https://...` so we can re-emit local logs into a fresh ingest.
+21. **Contract tests against meeet ingest.** ✅ shipped (Phase K5) —
+    `tests/test_meeet_contract.py` pins the on-the-wire shape, the
+    session/route round-trip, and the durable buffer's persistence
+    behaviour. Bump `contract_version` + this file together.
+22. **Replay.** ✅ shipped (Phase K5) —
+    `python -m backend.core.meeet.replay_cli` with
+    `--stats / --export / --limit / --since / --kind / --session-id`.
+    Doubles as the cold-start recovery story.
 23. **Docs site.** Build `docs/` into a static site under `dist-docs/` using
     one of the existing scripts (no new deps).
+31. **Composite playbooks.** Composite domain packs are live but the
+    playbook runner still scopes to a single pack. Extend so a playbook
+    in `playbooks/research_lab/...` can call `business__log_deal` etc.
+32. **OAuth / JMAP outbound.** SMTP outbound shipped (Phase K6); next
+    step is OAuth-based (Gmail / Office365) and JMAP for richer
+    providers — same vault interface, different transport.
 
 ## Branding
 

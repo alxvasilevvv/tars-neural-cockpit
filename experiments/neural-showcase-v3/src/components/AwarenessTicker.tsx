@@ -1,29 +1,44 @@
 import { useEffect, useState } from "react";
 import { motion } from "framer-motion";
-import { CornerFrame, StatusLozenge } from "@/components/Glyphs";
-import { Waveform } from "@/components/Waveform";
 import {
   subscribeAwareness,
   type AwarenessEvent,
   type AwarenessHello,
 } from "@/lib/awareness";
 
-interface PulseSlot {
+/**
+ * AwarenessTicker v2 — single-line ticker bar.
+ *
+ * Per `AGENT_HANDOFF.md → Owned by Claude Code (design)` item 7:
+ * dropped the 3-pane card strip in favour of a slim 36-40px row
+ * that reads as live telemetry rather than a dashboard panel.
+ *
+ * Slots (left → right):
+ *   1. status pill (LIVE/DOWN/WAIT)
+ *   2. identity (service · version · short trace_id)
+ *   3. tick counter + uptime
+ *   4. CPU bar (mini-meter)
+ *   5. RAM bar (mini-meter)
+ *   6. heartbeat marquee — recent domain heartbeats scrolling right→left
+ *
+ * Functional contract preserved — same `subscribeAwareness()` source.
+ */
+
+interface Pulse {
   cpu: number;
   ram: number;
   ticks: number;
   uptime_s: number;
 }
+const ZERO: Pulse = { cpu: 0, ram: 0, ticks: 0, uptime_s: 0 };
 
-const ZERO: PulseSlot = { cpu: 0, ram: 0, ticks: 0, uptime_s: 0 };
+type Status = "connecting" | "live" | "down";
 
 export function AwarenessTicker() {
-  const [pulse, setPulse] = useState<PulseSlot>(ZERO);
+  const [pulse, setPulse] = useState<Pulse>(ZERO);
   const [hello, setHello] = useState<AwarenessHello | null>(null);
   const [recent, setRecent] = useState<string[]>([]);
-  const [status, setStatus] = useState<"connecting" | "live" | "down">(
-    "connecting",
-  );
+  const [status, setStatus] = useState<Status>("connecting");
 
   useEffect(() => {
     const dispose = subscribeAwareness({
@@ -39,7 +54,7 @@ export function AwarenessTicker() {
             uptime_s: e.uptime_s,
           });
         } else if (e.kind === "domain.heartbeat") {
-          setRecent((rs) => [`${e.slug} · q${e.queue_depth}`, ...rs].slice(0, 6));
+          setRecent(rs => [`${e.slug} · q${e.queue_depth}`, ...rs].slice(0, 12));
         } else if (e.kind === "bye") {
           setStatus("down");
         }
@@ -48,106 +63,162 @@ export function AwarenessTicker() {
     return dispose;
   }, []);
 
-  const tone =
-    status === "live" ? "success" : status === "down" ? "alert" : "muted";
+  const statusTone =
+    status === "live"
+      ? { color: "var(--color-success)", label: "LIVE" }
+      : status === "down"
+        ? { color: "var(--color-alert)", label: "DOWN" }
+        : { color: "var(--color-ink-3)", label: "WAIT" };
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10 }}
+      initial={{ opacity: 0, y: 6 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-      className="relative grid grid-cols-1 gap-px overflow-hidden rounded-[10px] border border-line bg-line md:grid-cols-[260px_1fr_260px]"
+      role="status"
+      aria-label="awareness telemetry"
+      className="relative flex items-center gap-4 overflow-hidden rounded-[10px] border border-line bg-bg-1/70 px-3 py-2 font-mono-tech text-[10px] uppercase tracking-[2px] backdrop-blur-sm md:gap-5 md:px-4"
+      style={{ minHeight: 38 }}
     >
-      {/* Identity */}
-      <div className="relative bg-bg-1 p-4">
-        <CornerFrame />
-        <div className="mb-2 flex items-center justify-between font-mono-tech text-[9.5px] uppercase tracking-[2.6px] text-ink-2">
-          <span>awareness // sse</span>
-          <StatusLozenge
-            label={status === "live" ? "LIVE" : status === "down" ? "DOWN" : "WAIT"}
-            tone={tone}
-          />
-        </div>
-        <div className="font-display text-[14px] uppercase tracking-[0.04em] text-ink">
-          {hello?.service ?? "tars"} <span className="text-ink-2">v{hello?.version ?? "—"}</span>
-        </div>
-        <div className="mt-1 truncate font-mono-tech text-[10px] uppercase tracking-[2.4px] text-ink-3">
-          trace {hello?.trace_id?.slice(0, 16) ?? "—"}
-        </div>
+      {/* Top brand-triad hairline */}
+      <span
+        aria-hidden
+        className="pointer-events-none absolute inset-x-0 top-0 h-px"
+        style={{
+          background:
+            "linear-gradient(90deg, transparent 0%, rgba(99,102,241,0.6) 30%, rgba(139,92,246,0.6) 50%, rgba(6,182,212,0.6) 70%, transparent 100%)",
+          opacity: status === "live" ? 1 : 0.32,
+        }}
+      />
+
+      {/* 1. Status pill */}
+      <span
+        className="inline-flex shrink-0 items-center gap-1.5"
+        style={{ color: statusTone.color }}
+      >
+        <span
+          className="h-1.5 w-1.5 rounded-full"
+          style={{
+            background: statusTone.color,
+            boxShadow: status === "live" ? "0 0 8px var(--color-success)" : undefined,
+            animation:
+              status === "live" ? "pulseDot 1.6s ease-in-out infinite" : undefined,
+          }}
+          aria-hidden
+        />
+        {statusTone.label}
+      </span>
+
+      <Sep />
+
+      {/* 2. Identity */}
+      <span className="hidden shrink-0 items-baseline gap-2 text-ink-2 sm:inline-flex">
+        <span className="text-ink">{hello?.service ?? "tars"}</span>
+        <span className="text-ink-3">v{hello?.version ?? "—"}</span>
+        <span className="text-ink-3">·</span>
+        <span className="text-ink-3" title={hello?.trace_id ?? ""}>
+          trc {hello?.trace_id?.slice(0, 8) ?? "—"}
+        </span>
+      </span>
+
+      <Sep className="hidden sm:block" />
+
+      {/* 3. Tick + uptime */}
+      <span className="hidden shrink-0 items-baseline gap-2 text-ink-2 md:inline-flex">
+        <span className="text-ink-3">tick</span>
+        <span className="tabular-nums text-ink">
+          {pulse.ticks.toString().padStart(3, "0")}
+        </span>
+        <span className="text-ink-3">·</span>
+        <span className="tabular-nums text-ink">
+          {pulse.uptime_s.toFixed(1)}s
+        </span>
+      </span>
+
+      <Sep className="hidden md:block" />
+
+      {/* 4. CPU mini-meter */}
+      <MiniMeter label="CPU" value={pulse.cpu} color="#6366F1" />
+
+      {/* 5. RAM mini-meter */}
+      <MiniMeter label="RAM" value={pulse.ram} color="#06B6D4" />
+
+      <Sep />
+
+      {/* 6. Heartbeat marquee */}
+      <div className="relative min-w-0 flex-1 overflow-hidden">
+        {recent.length === 0 ? (
+          <span className="text-ink-3">…awaiting first frame</span>
+        ) : (
+          <div
+            className="flex animate-[tickerScroll_24s_linear_infinite] items-baseline gap-6 whitespace-nowrap will-change-transform"
+            aria-live="polite"
+          >
+            {recent.concat(recent).map((r, i) => (
+              <span
+                key={`${r}-${i}`}
+                className={i % recent.length === 0 ? "text-accent" : "text-ink-2"}
+              >
+                <span className="text-ink-3 mr-1">▸</span>
+                {r}
+              </span>
+            ))}
+          </div>
+        )}
+        {/* Right-edge fade */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-y-0 right-0 w-12"
+          style={{
+            background:
+              "linear-gradient(to right, transparent, var(--color-bg-1) 80%)",
+          }}
+        />
       </div>
 
-      {/* Pulses */}
-      <div className="relative bg-bg-1 p-4">
-        <CornerFrame />
-        <div className="mb-2 flex items-center justify-between font-mono-tech text-[9.5px] uppercase tracking-[2.6px] text-ink-2">
-          <span>system pulse · tick {pulse.ticks.toString().padStart(3, "0")}</span>
-          <span className="text-ink tabular-nums">
-            uptime {pulse.uptime_s.toFixed(1)}s
-          </span>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <Bar label="CPU" value={pulse.cpu} color="var(--color-accent)" />
-          <Bar label="RAM" value={pulse.ram} color="var(--color-hud)" />
-        </div>
-      </div>
-
-      {/* Recent heartbeats */}
-      <div className="relative bg-bg-1 p-4">
-        <CornerFrame />
-        <div className="mb-2 flex items-center justify-between font-mono-tech text-[9.5px] uppercase tracking-[2.6px] text-ink-2">
-          <span>domain heartbeats</span>
-          <Waveform
-            bars={14}
-            width={56}
-            height={12}
-            color="var(--color-accent)"
-          />
-        </div>
-        <ul className="grid gap-1 font-mono-tech text-[10.5px] tracking-[0.6px] text-ink-2">
-          {recent.length === 0 && (
-            <li className="text-ink-3">…awaiting first frame</li>
-          )}
-          {recent.map((r, i) => (
-            <li
-              key={`${r}-${i}`}
-              className={i === 0 ? "text-accent" : "text-ink-2"}
-            >
-              {r}
-            </li>
-          ))}
-        </ul>
-      </div>
+      <style>{`
+        @keyframes tickerScroll {
+          0%   { transform: translateX(0); }
+          100% { transform: translateX(-50%); }
+        }
+        @media (prefers-reduced-motion: reduce) {
+          [class*="animate-[tickerScroll"] { animation: none !important; }
+        }
+      `}</style>
     </motion.div>
   );
 }
 
-function Bar({
-  label,
-  value,
-  color,
-}: {
-  label: string;
-  value: number;
-  color: string;
-}) {
+function Sep({ className }: { className?: string }) {
+  return (
+    <span
+      aria-hidden
+      className={`shrink-0 ${className ?? ""}`}
+      style={{ width: 1, height: 14, background: "var(--color-line-strong)" }}
+    />
+  );
+}
+
+function MiniMeter({ label, value, color }: { label: string; value: number; color: string }) {
   const pct = Math.max(0, Math.min(value, 1));
   return (
-    <div>
-      <div className="mb-1 flex items-baseline justify-between font-mono-tech text-[9.5px] uppercase tracking-[2.6px] text-ink-3">
-        <span>{label}</span>
-        <span className="tabular-nums text-ink">{(pct * 100).toFixed(1)}%</span>
-      </div>
-      <div className="relative h-1.5 overflow-hidden rounded-sm bg-[rgba(255,255,255,0.06)]">
+    <span className="inline-flex shrink-0 items-center gap-2 text-ink-3">
+      <span>{label}</span>
+      <span
+        className="relative inline-block h-1.5 w-12 overflow-hidden rounded-sm"
+        style={{ background: "rgba(255,255,255,0.06)" }}
+      >
         <motion.span
           className="absolute inset-y-0 left-0"
           style={{
             background: color,
-            boxShadow: `0 0 12px ${color}`,
+            boxShadow: `0 0 8px ${color}55`,
           }}
           animate={{ width: `${pct * 100}%` }}
           transition={{ type: "spring", stiffness: 220, damping: 26 }}
         />
-      </div>
-    </div>
+      </span>
+      <span className="w-9 tabular-nums text-ink">{(pct * 100).toFixed(0)}%</span>
+    </span>
   );
 }
