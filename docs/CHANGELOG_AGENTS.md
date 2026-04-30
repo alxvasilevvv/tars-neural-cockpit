@@ -4,6 +4,89 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor · `tars.meeet.world` integration readiness — full Cursor lane
+
+**Summary**
+
+Operator confirmed live channel with Claude (issue handshake). While
+Claude reads tars-neural-cockpit#8 and meeet#1/#2 on his side, Cursor
+shipped every remaining piece of the `tars.meeet.world` integration
+that lives in the Cursor lane:
+
+1. **Cloudflare Pages hosting config**
+   - `experiments/neural-showcase-v3/public/_headers` — security
+     headers (HSTS, anti-click-jacking, Permissions-Policy) plus
+     per-path `Cache-Control` mirroring the spec §3.3 cache hints.
+     Hashed `/assets/*` are immutable; HTML uses short TTL with
+     stale-while-revalidate.
+   - `experiments/neural-showcase-v3/public/_redirects` — SPA
+     fallback (`/* → /index.html 200`), legacy redirects
+     (`/home → /`, `/sign-up → /onboarding`), `install.sh` 302 to
+     the canonical S3 mirror, and the downloads manifest proxied
+     directly to the Supabase `tars-downloads` Edge Function
+     (transparent until meeet-app exposes its `/api/tars/downloads`
+     shim per spec §4 Option A).
+   - `experiments/neural-showcase-v3/functions/_middleware.ts` —
+     Pages Function that implements spec §5 (issues
+     `tars_session_id` cookie with `Domain=.meeet.world`,
+     httpOnly + Secure + Lax, 30 day TTL) and spec §6
+     (best-effort `tars.page.viewed` emit through `core-bridge`,
+     fail-open if `BRIDGE_SHARED_SECRET` is missing). Generates and
+     propagates `x-trace-id`. Skips cookie issuing on preview
+     deploys (host !== `tars.meeet.world`) so PR previews don't
+     leak to production cookie domain.
+
+2. **CI deploy pipeline**
+   - `.github/workflows/tars-meeet-cloudflare-pages.yml` — build +
+     typecheck + test + deploy to Cloudflare Pages on every push
+     to `main` that touches `experiments/neural-showcase-v3/**`,
+     plus PR previews. Has a "Probe deploy credentials" guard:
+     skips the deploy step (with a `::warning::`) if
+     `CLOUDFLARE_API_TOKEN` / `CLOUDFLARE_ACCOUNT_ID` are not set,
+     so pushes to main never break solely on missing infra. Smoke
+     step probes `https://tars.meeet.world/api/product/downloads`
+     post-deploy.
+
+3. **Audit + ops docs**
+   - `docs/TARS_MEEET_READINESS.md` — full gap audit. TL;DR table
+     with status per layer, what is shipped on Cursor lane, what
+     blocks production (Operator infra + Claude proxy/cookie
+     work), acceptance gates Cursor will run before sign-off,
+     risk register, and an anti-checklist of intentional
+     non-deliverables.
+   - `docs/TARS_MEEET_OPS_TODO.md` — ordered, time-boxed
+     (~30 min total) checklist for Operator-Brother. Covers
+     Cloudflare Pages project creation, GitHub Actions secrets,
+     Pages env vars, DNS + custom domain, smoke run, optional
+     status row. Each step has a verification command and a
+     rollback plan.
+
+4. **SYNC handoff** — `docs/SYNC.md` table appended with the
+   2026-05-01 row pointing at this PR. Operator + Claude blocked
+   ratings noted explicitly.
+
+**Acceptance run plan (Cursor will execute post-DNS)**
+
+1. `https://tars.meeet.world/` → 200 + `X-Tars-Contract: 1.0.0`.
+2. SPA hydration on `/install`, `/pricing`, `/faq`, `/cockpit`.
+3. Manifest endpoint reachable + JSON-shaped per contract 1.0.0.
+4. `tars_session_id` cookie set with `Domain=.meeet.world`.
+5. `make smoke-core-bridge` green against prod secret.
+6. Page-view trace_id queryable in meeet event store within 30s.
+7. Lighthouse perf > 90, a11y > 95 on `/`.
+
+If 1–7 green for 7 days on `tars-staging.meeet.world` → flip DNS
+to production per spec §9.
+
+**Files** —
+`experiments/neural-showcase-v3/public/_headers` (new),
+`experiments/neural-showcase-v3/public/_redirects` (new),
+`experiments/neural-showcase-v3/functions/_middleware.ts` (new),
+`.github/workflows/tars-meeet-cloudflare-pages.yml` (new),
+`docs/TARS_MEEET_READINESS.md` (new),
+`docs/TARS_MEEET_OPS_TODO.md` (new),
+`docs/SYNC.md` (handoff row appended).
+
 ## 2026-04-30 — Cursor · Real root cause for release.yml false-positive runs
 
 **Summary**
