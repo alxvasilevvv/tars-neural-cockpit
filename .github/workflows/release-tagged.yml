@@ -136,7 +136,8 @@ jobs:
       - name: Codesign .dmg
         env:
           DEV_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: codesign --force --sign "Developer ID Application: $DEV_ID" tars-macos.dmg
+        run: |
+          codesign --force --sign "Developer ID Application: $DEV_ID" tars-macos.dmg
 
       - name: Notarize .dmg
         env:
