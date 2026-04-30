@@ -4,6 +4,62 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor · TARS QA Agent (autonomous E2E prober)
+
+**Summary**
+
+Ships the autonomous QA agent the Operator asked for: probes every
+piece of the production surface, exits non-zero on regression, runs
+in CI on a 30-minute cron, and is **stdlib-only** (no `pip install`,
+no deps).
+
+What it probes (16 categories, 28 individual probes today):
+
+- **infra** — DNS resolution for `tars.meeet.world`
+- **subdomain** — SPA root, X-Tars-Contract header, all 14 marketing
+  routes, security headers (HSTS, X-Frame-Options, X-Content-Type-Options),
+  `tars_session_id` cookie scoping, root TTFB
+- **api** — manifest from subdomain proxy + manifest from origin Edge
+  Function + `Origin: evil.example.com` 403 enforcement
+- **bridge** — `core-bridge /health` (authenticated), unauth blocked,
+  `/relay-event` round-trip with a real trace_id
+- **schema** — `sitemap.xml` + `robots.txt` validity
+- **economy** — Tokenomics distribution invariant (sums to 100%) when
+  the source file is reachable
+
+Each probe returns `pass | fail | warn | skip` and a structured
+evidence payload. Skips are clean (DNS not resolving → subdomain
+probes skip; no `BRIDGE_SHARED_SECRET` → bridge probes skip).
+
+**First production run** (without secrets, against the current
+DNS-but-no-CF-Pages state) found **6 real failures + 1 warning**
+which were fed back into `docs/TARS_MEEET_OPS_TODO.md` as the
+"CURRENT STATE" diagnosis: DNS resolves but CNAME points at Lovable
+wildcard instead of `tars-meeet.pages.dev`. The fix is one DNS
+override in CF dashboard (covered by the existing OPS_TODO Step 4).
+
+**Files**
+- `scripts/qa_agent/__init__.py` (new)
+- `scripts/qa_agent/probes.py` (new, 23 KB, 16 probe families)
+- `scripts/qa_agent/runner.py` (new)
+- `scripts/qa_agent/__main__.py` (new)
+- `Makefile` — adds `qa-agent` and `qa-agent-json` targets
+- `.github/workflows/qa-agent.yml` — runs on push, PR, every 30 min
+- `docs/TARS_MEEET_OPS_TODO.md` — adds CURRENT STATE diagnostic block
+
+**Validation**
+- Module loads cleanly
+- Self-test against current production: 18 pass / 6 fail / 1 warn / 3 skip
+  (the 6 fails are the documented OPS_TODO blockers)
+- JSON output schema validates
+
+**Lane** Cursor (control-tower automation + QA infrastructure).
+
+**Operator note** Run `make qa-agent` locally any time you want to
+verify the production surface. Run `BRIDGE_SHARED_SECRET=… make qa-agent`
+to include the bridge probes. The CI cron will surface regressions
+within 30 minutes regardless.
+
 ## 2026-05-01 — Cursor · retire `cockpit-github-pages.yml` workflow
 
 **Summary**
