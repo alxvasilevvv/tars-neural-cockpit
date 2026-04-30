@@ -4,6 +4,29 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor · synthetic monitor (zero-vendor pulse alert)
+
+**Summary**
+
+Replaces the planned `pg_cron` email alert (which would have required
+SMTP credentials) with a GitHub Actions cron probe every 15 minutes.
+Probes SPA root, `/api/product/downloads`, origin manifest, and
+`core-bridge/health`. A failed probe is a red workflow → GitHub email
+to repo owner.
+
+The job is DNS-aware: pre-launch (no `tars.meeet.world` resolution
+yet) it skips the subdomain probes with a notice and still runs the
+two Supabase probes.
+
+**Files**
+- `.github/workflows/tars-meeet-synthetic-monitor.yml` (new).
+- `docs/OBSERVABILITY.md` — §6.2 marked replaced/done.
+
+**Validation** YAML parses (Ruby `psych`). Workflow itself can only be
+proven by GitHub's first scheduled run.
+
+**Lane** Cursor (control-tower automation).
+
 ## 2026-05-01 — Cursor · `tars.client.error` global handler — Q4 closed
 
 **Summary**
