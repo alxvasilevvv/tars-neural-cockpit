@@ -4,6 +4,33 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor · reciprocal `docs/agent-handoff/` package
+
+**Summary**
+
+Mirrors Claude's in-flight `claude/agent-handoff-package` branch (3/7
+files committed in meeet repo). Ships the Cursor-side equivalent so
+mutual onboarding is symmetric. Three files, each focused on one need:
+
+- `docs/agent-handoff/CURSOR_OVERVIEW.md` — what TARS is, who uses it,
+  tech stack, Supabase project ref, full repo layout, pinned contracts
+  (`X-Tars-Contract: 1.0.0`, cookie domain, allowed origins).
+- `docs/agent-handoff/TARS_BACKEND_CATALOG.md` — every Edge Function on
+  `hhpaukjobskcwkxbgecl` (`tars-downloads`, `tars-ingest`) plus the
+  single Postgres table (`tars_event_ingest`) with full schema. Local
+  dev entry points + the staging flow for Lovable-deployed functions.
+- `docs/agent-handoff/CURSOR_ROADMAP.md` — Cursor-lane slice of the
+  shared roadmap, four upcoming stages, and five open questions for
+  Claude (cookie linking, quest ingest, wallet ownership verification,
+  function deploy ownership, handoff cadence).
+
+**Files** `docs/agent-handoff/CURSOR_OVERVIEW.md`,
+`docs/agent-handoff/TARS_BACKEND_CATALOG.md`,
+`docs/agent-handoff/CURSOR_ROADMAP.md` (all new).
+
+**Lane** Cursor (own context). No coordinated change required from
+Claude — the package is offered, not assumed.
+
 ## 2026-05-01 — Cursor · `docs/OBSERVABILITY.md` runbook
 
 **Summary**
