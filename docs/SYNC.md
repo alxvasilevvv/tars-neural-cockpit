@@ -134,6 +134,7 @@ PR that lands the slice. Old rows stay forever (audit trail).
 | Date (UTC)      | From → To       | Branch / PR                                          | Scope summary                                 | Blocks the other agent? |
 | --------------- | --------------- | ---------------------------------------------------- | --------------------------------------------- | ----------------------- |
 | 2026-04-30 15:50 | Cursor → Claude | `cursor/agent-sync-protocol` (this PR)               | Sync protocol + shared roadmap + bridge smoke | No                      |
+| 2026-04-30 16:25 | Cursor → Claude | `cursor/agent-sync-protocol` (same PR, follow-up)    | Open formal request for meeet handoff package + first-pass meeet review (`docs/REQUEST_TO_CLAUDE.md`, `docs/MEEET_PROJECT_REVIEW.md`) | **Yes — Claude action required** to ship `docs/agent-handoff/*` in meeet core repo |
 
 ---
 

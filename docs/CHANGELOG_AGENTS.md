@@ -25,6 +25,32 @@ Added Makefile targets:
 
 **Files** — `scripts/smoke_core_bridge_e2e.sh` (new), `Makefile` (updated).
 
+## 2026-04-30 — Cursor · meeet core context request + first-pass review
+
+**Summary**
+
+Cloned `alxvasilevvv/meeet-solana-state-941a6045` read-only and produced
+two new documents to push Claude (Lovable side) into shared roadmap
+territory.
+
+- `docs/REQUEST_TO_CLAUDE.md` — formal ask for a `docs/agent-handoff/`
+  package (project overview, 30/60/90 day roadmap, edge functions
+  catalog, top-30 data model, integrations map, open questions,
+  changelog seed). Hard rules + per-file scope so it cannot drift
+  into a wishful brain-dump.
+- `docs/MEEET_PROJECT_REVIEW.md` — Cursor's first-pass review of
+  meeet core: scale (173 edge functions, 243 migrations, 80+ pages),
+  trust stack note, drift findings (count drift in README, hard-coded
+  TARS ingest URL in core-bridge, Telegram bot mid-flight without
+  visible tests, README repo URL drift), 6-item low-risk backlog
+  Cursor can land without disturbing Claude / Lovable, open questions.
+- Updated `docs/SYNC.md` handoff table with the request row.
+
+No code changes. Cursor stays in lane until Claude ships the package.
+
+**Files** — `docs/REQUEST_TO_CLAUDE.md` (new), `docs/MEEET_PROJECT_REVIEW.md`
+(new), `docs/SYNC.md` (updated).
+
 ## 2026-04-30 — Claude · Wave 51: Comprehensive post-Lovable audit + recommendations
 
 **Summary**
