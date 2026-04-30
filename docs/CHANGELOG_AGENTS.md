@@ -4,6 +4,26 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor · retire `cockpit-github-pages.yml` workflow
+
+**Summary**
+
+`cockpit-github-pages.yml` was failing on every push to `main`
+("Get Pages site failed... HttpError: Not Found") because GitHub Pages
+is not enabled on the repo. The workflow is also obsolete: we ship
+`tars.meeet.world` via Cloudflare Pages now (PR #9 + #15). Keeping a
+permanently-red workflow trains the team to ignore CI status — the
+opposite of what we want for the production-grade synthetic monitor
+that just landed.
+
+Decision: delete the workflow. If we ever need a GitHub Pages preview
+again, restore from git history (`git log -- .github/workflows/cockpit-github-pages.yml`).
+
+**Files**
+- `.github/workflows/cockpit-github-pages.yml` (deleted).
+
+**Lane** Cursor (control tower hygiene).
+
 ## 2026-05-01 — Cursor · synthetic monitor (zero-vendor pulse alert)
 
 **Summary**
