@@ -1,0 +1,115 @@
+name: tars.meeet.world — Cloudflare Pages
+
+# Build the marketing surface and deploy to Cloudflare Pages on every
+# push to main that touches the showcase or this workflow file. Preview
+# deployments are produced on every PR.
+#
+# One-time repo setup (Operator):
+#   1. Create a Cloudflare Pages project named `tars-meeet`. Bind it to
+#      the custom domain `tars.meeet.world` once DNS is provisioned
+#      (see `docs/TARS_MEEET_OPS_TODO.md`).
+#   2. Add these secrets to the repo (Settings → Secrets and variables → Actions):
+#        - CLOUDFLARE_API_TOKEN  — token with Pages:Edit permission.
+#        - CLOUDFLARE_ACCOUNT_ID — your Cloudflare account id.
+#   3. Add these Pages-side env vars (Pages → Settings → Environment Variables):
+#        - BRIDGE_SHARED_SECRET — same value Lovable uses on `core-bridge`.
+#        - CORE_BRIDGE_URL      — defaults to prod core-bridge if unset.
+#
+# Without those secrets the workflow degrades to a build-only smoke
+# check (no deploy step) so pushes to main never fail solely on
+# missing infra.
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "experiments/neural-showcase-v3/**"
+      - ".github/workflows/tars-meeet-cloudflare-pages.yml"
+  pull_request:
+    paths:
+      - "experiments/neural-showcase-v3/**"
+
+permissions:
+  contents: read
+  deployments: write
+
+concurrency:
+  group: tars-meeet-pages-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  build-and-deploy:
+    name: build · deploy
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: experiments/neural-showcase-v3/package-lock.json
+
+      - name: Install deps
+        working-directory: experiments/neural-showcase-v3
+        run: npm ci
+
+      - name: Type check
+        working-directory: experiments/neural-showcase-v3
+        run: npm run typecheck
+
+      - name: Unit tests
+        working-directory: experiments/neural-showcase-v3
+        run: npm test
+
+      - name: Build (production)
+        working-directory: experiments/neural-showcase-v3
+        env:
+          VITE_TARS_API: https://tars.meeet.world
+        run: npm run build
+
+      # SPA fallback — Cloudflare Pages reads `_redirects` from the
+      # build output (already shipped via public/_redirects), but a
+      # 404.html fallback also helps if static handler runs first.
+      - name: SPA 404 fallback
+        working-directory: experiments/neural-showcase-v3
+        run: cp dist/index.html dist/404.html
+
+      # Probe whether the deploy secrets are configured. Skipping the
+      # deploy if they are not is intentional — keeps the build CI
+      # green even before Operator has wired up Cloudflare.
+      - name: Probe deploy credentials
+        id: probe
+        env:
+          API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          if [[ -n "$API_TOKEN" && -n "$ACCOUNT_ID" ]]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::warning::CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID not set; skipping deploy step. See docs/TARS_MEEET_OPS_TODO.md."
+          fi
+
+      - name: Deploy to Cloudflare Pages
+        if: steps.probe.outputs.ready == 'true'
+        uses: cloudflare/wrangler-action@v3
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          command: pages deploy experiments/neural-showcase-v3/dist --project-name=tars-meeet --branch=${{ github.head_ref || github.ref_name }}
+
+      - name: Smoke (manifest reachable)
+        if: github.event_name == 'push' && steps.probe.outputs.ready == 'true'
+        run: |
+          # Cloudflare Pages may take ~30s to propagate; tolerate a couple of retries.
+          for attempt in 1 2 3 4 5; do
+            if curl -sfI -o /dev/null https://tars.meeet.world/api/product/downloads; then
+              echo "manifest reachable on attempt $attempt"
+              exit 0
+            fi
+            echo "manifest not yet reachable (attempt $attempt) — sleeping"
+            sleep 12
+          done
+          echo "::warning::manifest endpoint did not become reachable within 60s"
