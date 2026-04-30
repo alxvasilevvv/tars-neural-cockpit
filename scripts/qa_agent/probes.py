@@ -59,6 +59,19 @@ class Probe:
 # ---------- HTTP helpers (stdlib only) ----------
 
 
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """Treat redirects as terminal responses — we want to *see* the
+    `Location` header instead of silently following it. Without this,
+    urllib follows 302 → meeet.world and the probe reports a 200 from
+    the wrong host."""
+
+    def redirect_request(self, req, fp, code, msg, headers, newurl):  # type: ignore[override]
+        return None
+
+
+_OPENER = urllib.request.build_opener(_NoRedirect())
+
+
 def _open(
     method: str,
     url: str,
@@ -67,13 +80,14 @@ def _open(
     body: bytes | None = None,
     timeout: float = DEFAULT_TIMEOUT_S,
 ) -> tuple[int, dict[str, str], bytes]:
-    """One-shot HTTP. Returns (status, headers_lowered, body). Never raises."""
+    """One-shot HTTP. Returns (status, headers_lowered, body). Never raises.
+    Does NOT follow redirects — see _NoRedirect."""
     h = {"User-Agent": USER_AGENT, "Accept": "*/*"}
     if headers:
         h.update(headers)
     req = urllib.request.Request(url, method=method, data=body, headers=h)
     try:
-        with urllib.request.urlopen(req, timeout=timeout) as resp:
+        with _OPENER.open(req, timeout=timeout) as resp:
             raw = resp.read()
             hdrs = {k.lower(): v for k, v in resp.headers.items()}
             return resp.status, hdrs, raw
@@ -121,10 +135,14 @@ def probe_dns(ctx: Context) -> Probe:
             ip = socket.gethostbyname(host)
             return _pass("dns.tars_subdomain", "infra", f"{host} → {ip}", host=host, ip=ip)
         except socket.gaierror as e:
-            return _fail(
+            # WARN, not FAIL — DNS-not-yet is a blocking-but-known state during
+            # bootstrap; we don't want CI cron to spam red while the Operator
+            # is in the middle of setup. Once DNS is live, downstream subdomain
+            # probes will run and any failures there are actionable.
+            return _warn(
                 "dns.tars_subdomain",
                 "infra",
-                f"{host} not resolving — DNS not provisioned yet",
+                f"{host} not resolving yet — pre-DNS state, downstream probes will skip",
                 host=host,
                 error=str(e),
             )
@@ -153,12 +171,34 @@ SPA_ROUTES = [
 ]
 
 
+def _looks_like_lovable_redirect(status: int, hdrs: dict[str, str]) -> bool:
+    """Detect the documented pre-cutover state where DNS is wired but the
+    CNAME points at the Lovable wildcard. Symptom: 302 → meeet.world host.
+    Probes downgrade to WARN in that case so CI doesn't go red on a
+    known-and-tracked Operator-side blocker.
+    """
+    if status != 302:
+        return False
+    location = hdrs.get("location", "")
+    # Match anything redirected off the tars subdomain, regardless of path.
+    if "//meeet.world" in location or location.startswith("https://meeet.world"):
+        return True
+    return False
+
+
 def probe_spa_root(ctx: Context) -> Probe:
     def run() -> Probe:
         if ctx.skip_subdomain:
             return _skip("http.spa_root", "subdomain", "DNS not live yet")
         url = ctx.tars_base + "/"
         status, hdrs, body = _open("GET", url, timeout=ctx.timeout_s)
+        if _looks_like_lovable_redirect(status, hdrs):
+            return _warn(
+                "http.spa_root",
+                "subdomain",
+                "302 → meeet.world (CNAME points at Lovable wildcard, OPS_TODO Step 4 pending)",
+                url=url,
+            )
         if status != 200:
             return _fail("http.spa_root", "subdomain", f"expected 200, got {status}", url=url)
         contract = hdrs.get("x-tars-contract", "")
@@ -196,6 +236,13 @@ def probe_spa_routes(ctx: Context) -> list[Probe]:
 
         def run(_url: str = url, _route: str = route) -> Probe:
             status, hdrs, _body = _open("GET", _url, timeout=ctx.timeout_s)
+            if _looks_like_lovable_redirect(status, hdrs):
+                return _warn(
+                    f"http.route{_route}",
+                    "subdomain",
+                    "Lovable redirect (CNAME pre-cutover)",
+                    url=_url,
+                )
             if status != 200:
                 return _fail(
                     f"http.route{_route}", "subdomain", f"expected 200, got {status}", url=_url
@@ -211,7 +258,14 @@ def probe_security_headers(ctx: Context) -> Probe:
         if ctx.skip_subdomain:
             return _skip("http.security_headers", "subdomain", "DNS not live yet")
         url = ctx.tars_base + "/"
-        _status, hdrs, _body = _open("GET", url, timeout=ctx.timeout_s)
+        status, hdrs, _body = _open("GET", url, timeout=ctx.timeout_s)
+        if _looks_like_lovable_redirect(status, hdrs):
+            return _warn(
+                "http.security_headers",
+                "subdomain",
+                "skipped — Lovable redirect (pre-cutover)",
+                url=url,
+            )
         required = {
             "x-frame-options": "DENY",
             "x-content-type-options": "nosniff",
@@ -235,9 +289,16 @@ def probe_session_cookie(ctx: Context) -> Probe:
             return _skip("http.session_cookie", "subdomain", "DNS not live yet")
         url = ctx.tars_base + "/"
         # Send Accept: text/html so middleware emits the cookie.
-        _status, hdrs, _body = _open(
+        status, hdrs, _body = _open(
             "GET", url, headers={"Accept": "text/html"}, timeout=ctx.timeout_s
         )
+        if _looks_like_lovable_redirect(status, hdrs):
+            return _warn(
+                "http.session_cookie",
+                "subdomain",
+                "skipped — Lovable redirect (pre-cutover)",
+                url=url,
+            )
         set_cookie = hdrs.get("set-cookie", "")
         if "tars_session_id=" not in set_cookie:
             return _fail(
@@ -290,9 +351,27 @@ def _validate_manifest(body: bytes) -> tuple[bool, str, dict[str, Any]]:
         ver = rel.get("version", "")
         if not isinstance(ver, str) or not _SEMVER_RE.match(ver.lstrip("v")):
             return False, f"releases[{i}].version '{ver}' not semver", data
-        plats = rel.get("platforms")
-        if not isinstance(plats, dict) or not plats:
-            return False, f"releases[{i}].platforms must be a non-empty object", data
+        # Frontend and tars-downloads EF agree on `artifacts` (flat array of
+        # {os, arch, kind, filename, url}). Older agent versions probed for
+        # `platforms` (mapped object) — that field has never been part of
+        # the contract.
+        artifacts = rel.get("artifacts")
+        if not isinstance(artifacts, list) or not artifacts:
+            return False, f"releases[{i}].artifacts must be a non-empty array", data
+        oses = {a.get("os") for a in artifacts if isinstance(a, dict)}
+        # We don't require all three OSes (early releases ship one), but at
+        # least one must be one of the supported set.
+        supported = {"macos", "windows", "linux"}
+        if not (oses & supported):
+            return False, f"releases[{i}].artifacts has no supported OS (saw {sorted(oses)})", data
+        for j, art in enumerate(artifacts):
+            if not isinstance(art, dict):
+                return False, f"releases[{i}].artifacts[{j}] not an object", data
+            for required_key in ("os", "arch", "kind", "filename", "url"):
+                if required_key not in art:
+                    return False, f"releases[{i}].artifacts[{j}] missing '{required_key}'", data
+            if not str(art["url"]).startswith("https://"):
+                return False, f"releases[{i}].artifacts[{j}].url must be https", data
     return True, "valid manifest", data
 
 
@@ -301,7 +380,14 @@ def probe_manifest_subdomain(ctx: Context) -> Probe:
         if ctx.skip_subdomain:
             return _skip("api.manifest_subdomain", "api", "DNS not live yet")
         url = ctx.tars_base + "/api/product/downloads"
-        status, _hdrs, body = _open("GET", url, timeout=ctx.timeout_s)
+        status, hdrs, body = _open("GET", url, timeout=ctx.timeout_s)
+        if _looks_like_lovable_redirect(status, hdrs):
+            return _warn(
+                "api.manifest_subdomain",
+                "api",
+                "skipped — Lovable redirect (pre-cutover)",
+                url=url,
+            )
         if status != 200:
             return _fail("api.manifest_subdomain", "api", f"expected 200, got {status}", url=url)
         ok, reason, _data = _validate_manifest(body)
@@ -476,7 +562,11 @@ def probe_sitemap(ctx: Context) -> Probe:
         if ctx.skip_subdomain:
             return _skip("schema.sitemap", "subdomain", "DNS not live yet")
         url = ctx.tars_base + "/sitemap.xml"
-        status, _hdrs, body = _open("GET", url, timeout=ctx.timeout_s)
+        status, hdrs, body = _open("GET", url, timeout=ctx.timeout_s)
+        if _looks_like_lovable_redirect(status, hdrs):
+            return _warn(
+                "schema.sitemap", "subdomain", "skipped — Lovable redirect (pre-cutover)", url=url
+            )
         if status != 200:
             return _fail("schema.sitemap", "subdomain", f"expected 200, got {status}", url=url)
         text = body.decode("utf-8", errors="replace")
@@ -504,7 +594,11 @@ def probe_robots(ctx: Context) -> Probe:
         if ctx.skip_subdomain:
             return _skip("schema.robots", "subdomain", "DNS not live yet")
         url = ctx.tars_base + "/robots.txt"
-        status, _hdrs, body = _open("GET", url, timeout=ctx.timeout_s)
+        status, hdrs, body = _open("GET", url, timeout=ctx.timeout_s)
+        if _looks_like_lovable_redirect(status, hdrs):
+            return _warn(
+                "schema.robots", "subdomain", "skipped — Lovable redirect (pre-cutover)", url=url
+            )
         if status != 200:
             return _fail("schema.robots", "subdomain", f"expected 200, got {status}", url=url)
         text = body.decode("utf-8", errors="replace")
@@ -575,8 +669,16 @@ def probe_root_ttfb(ctx: Context) -> Probe:
             return _skip("perf.ttfb_root", "subdomain", "DNS not live yet")
         url = ctx.tars_base + "/"
         t0 = time.perf_counter()
-        status, _hdrs, _body = _open("GET", url, timeout=ctx.timeout_s)
+        status, hdrs, _body = _open("GET", url, timeout=ctx.timeout_s)
         dt_ms = int((time.perf_counter() - t0) * 1000)
+        if _looks_like_lovable_redirect(status, hdrs):
+            return _warn(
+                "perf.ttfb_root",
+                "subdomain",
+                f"skipped — Lovable redirect (pre-cutover, ttfb {dt_ms}ms)",
+                url=url,
+                ttfb_ms=dt_ms,
+            )
         if status != 200:
             return _fail("perf.ttfb_root", "subdomain", f"got {status}", url=url, ttfb_ms=dt_ms)
         # Edge-served HTML should be < 800ms even from a hot cache miss.

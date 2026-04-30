@@ -54,7 +54,7 @@ def run_all(ctx: Context) -> list[Probe]:
 
     # 0. infra
     probes.append(probe_dns(ctx))
-    if probes[-1].status == "fail":
+    if probes[-1].status in ("fail", "warn"):
         ctx.skip_subdomain = True
 
     # 1. economy invariants (works without network)
