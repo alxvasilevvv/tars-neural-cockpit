@@ -21,6 +21,7 @@
 | `/api/product/downloads` returns 4xx/5xx | Supabase (TARS project `hhpaukjobskcwkxbgecl`) → Functions → `tars-downloads` → Logs | `TARS_ALLOWED_ORIGINS` env var on the function |
 | Page view emitted but missing in Supabase | Supabase (meeet core `zujrmifaabkletgnpoyw`) → Functions → `core-bridge` → Logs | TARS Supabase → `tars_event_ingest` table |
 | Cookie not set after first visit | `functions/_middleware.ts` → `isProductionHost()` check | DevTools → Application → Cookies → confirm `Domain=.meeet.world` |
+| Client-side JS error in production | Supabase SQL editor → `tars_event_ingest where kind='tars.client.error'` | `functions/api/client-error.ts` logs in CF Pages |
 | Deploy succeeded but content stale | CF Pages → Pages → Cache → Purge | `_headers` per-path `Cache-Control` (HTML SWR may be holding) |
 | GitHub Actions red | `Actions` tab → click run → "Build" or "Type Check" job | Cursor lane → `release-tagged.yml`; Claude lane → meeet GH Actions |
 | Cockpit (Tauri) won't start | macOS Console → search "TARS" | `~/Library/Logs/com.meeet.tars/` |
@@ -212,7 +213,40 @@ likely cause is that `og:image` URLs on `meeet.world` (older fanout
 posts on social) are still resolving. They will expire as scrapers
 re-fetch.
 
-### 3.5 "GitHub Actions is red"
+### 3.5 "Client-side error: how do I see it?"
+
+Every uncaught browser error and unhandled promise rejection on
+`tars.meeet.world` is now captured by
+`src/lib/clientError.ts` → `functions/api/client-error.ts` →
+`core-bridge` → `tars-ingest`. To inspect:
+
+```sql
+-- Supabase SQL editor on hhpaukjobskcwkxbgecl
+select created_at, payload->>'sub_kind' as kind, payload->>'message' as message,
+       payload->>'page' as page, payload->>'source' as source,
+       payload->>'line' as line, trace_id, session_id
+from public.tars_event_ingest
+where kind = 'tars.client.error'
+  and created_at > now() - interval '1 hour'
+order by created_at desc limit 100;
+```
+
+To follow a single user's error chain (errors share a session):
+
+```sql
+select created_at, kind, payload from public.tars_event_ingest
+where session_id = '<paste-from-tars_session_id-cookie>'
+order by created_at;
+```
+
+If errors are missing for a real user-reported failure, check:
+- `BRIDGE_SHARED_SECRET` is set on Cloudflare Pages (without it,
+  `/api/client-error` returns `200 persisted:false`).
+- `core-bridge` accepts `https://tars.meeet.world` origin.
+- The reporter is no-op on `localhost` and in the Tauri shell — both
+  by design.
+
+### 3.6 "GitHub Actions is red"
 
 ```bash
 # Step 1 — which workflow?
@@ -265,9 +299,14 @@ issue thread (`tars-neural-cockpit#8` is the live channel).
 
 ## §6 Future work — in priority order
 
-1. **`tars.client.error` emit** — global `unhandledrejection` and
-   `window.addEventListener("error", …)` that fires `core-bridge`
-   events. ~30 lines. Single biggest observability gap.
+1. ~~**`tars.client.error` emit**~~ — **SHIPPED 2026-05-01.**
+   `src/lib/clientError.ts` + `functions/api/client-error.ts` +
+   `installClientErrorReporter()` call in `src/main.tsx`. Captures
+   uncaught errors and unhandled rejections, dedupes per signature,
+   rate-limits to 10/min, pipes through `core-bridge` →
+   `tars-ingest` → `tars_event_ingest` table as
+   `kind = "tars.client.error"`. No-op on `localhost` and inside the
+   Tauri shell. Closes meeet OPEN_QUESTIONS.md Q4.
 2. **Pulse alert via pg_cron** — Supabase scheduled query that emails
    if `tars_event_ingest` event rate drops by >50% vs 24h average.
 3. **Web Vitals pipe** — `web-vitals` npm package emitting

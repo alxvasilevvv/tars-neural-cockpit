@@ -4,6 +4,55 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor · `tars.client.error` global handler — Q4 closed
+
+**Summary**
+
+Concrete answer to meeet's `OPEN_QUESTIONS.md` Q4 ("no Sentry, no APM").
+Zero-vendor client-error pipeline that lands in the same
+`tars_event_ingest` Postgres table as every other event.
+
+Three pieces:
+1. `experiments/neural-showcase-v3/src/lib/clientError.ts` (new) — pure
+   reporter logic with rate limiting (10/min), per-signature dedup
+   (60s window), bounded memory (50-entry signature cache),
+   PII-safe payload, no-op on `localhost` and inside Tauri.
+2. `experiments/neural-showcase-v3/functions/api/client-error.ts` (new)
+   — Cloudflare Pages Function POST handler that adds the
+   `BRIDGE_SHARED_SECRET` (must never live in browser bundle) and
+   forwards to `core-bridge/relay-event`. Schema validation, 16 KiB
+   body cap, structured failure modes (400 / 413 / 415 / 502 / 503).
+3. `experiments/neural-showcase-v3/src/main.tsx` — installs the
+   reporter at app boot. One line, no behavior change in dev or Tauri.
+
+Plus 7 pure-logic vitest cases in `clientError.test.ts` covering:
+signature stability, dedup, rate limit, window reset, memory bound.
+
+Updated `docs/OBSERVABILITY.md`:
+- §0 TL;DR adds "client-side JS error" row
+- §3.6 (renumbered from 3.5) new diagnostic runbook with copy-paste SQL
+- §6.1 marked SHIPPED
+
+Also updated `docs/MEEET_PROJECT_REVIEW.md` with a "drift vs. Claude's
+handoff package" section that reconciles the differences (EF count,
+token mint, multi-LLM status, wallet phase) and points readers to
+Claude's package as authoritative.
+
+**Files**
+- `experiments/neural-showcase-v3/src/lib/clientError.ts` (new)
+- `experiments/neural-showcase-v3/src/lib/clientError.test.ts` (new)
+- `experiments/neural-showcase-v3/functions/api/client-error.ts` (new)
+- `experiments/neural-showcase-v3/src/main.tsx` (modified)
+- `docs/OBSERVABILITY.md` (modified)
+- `docs/MEEET_PROJECT_REVIEW.md` (modified)
+
+**Validation**
+- `make cockpit-tsc` green
+- `make cockpit-test` green (63 / 63, +7 new)
+
+**Lane** Cursor (frontend + edge function + observability). No
+coordinated change required from Claude beyond merging meeet#3.
+
 ## 2026-05-01 — Cursor · reciprocal `docs/agent-handoff/` package
 
 **Summary**
