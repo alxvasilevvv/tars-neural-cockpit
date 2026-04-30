@@ -14,11 +14,17 @@ name: release
 #   HOMEBREW_TAP_TOKEN      PAT with repo scope on meeet-world/homebrew-tap
 
 on:
-  push:
-    tags:
-      - "v*.*.*"
-      - "v*.*.*-*"
+  # Releases are launched manually via the Actions UI / `gh workflow run release.yml --ref vX.Y.Z`.
+  # The previous on.push.tags trigger was creating GitHub-side 0-second
+  # failed validation runs on every branch push (including unrelated
+  # commits to main) and could not be silenced via branches-ignore or
+  # job-level `if:` guards. Manual dispatch is unaffected.
   workflow_dispatch:
+    inputs:
+      tag:
+        description: "Tag to release (e.g. v9.0.0). Must already exist."
+        required: true
+        type: string
 
 permissions:
   contents: write
@@ -26,11 +32,6 @@ permissions:
 jobs:
   build:
     name: build · ${{ matrix.os }} · ${{ matrix.arch }}
-    # Hard guard: only run for actual tag pushes or explicit dispatch.
-    # Without this, GitHub Actions creates 0-second failed runs on every
-    # branch push, despite the on.push.tags filter — a long-standing
-    # quirk for workflows that mix push.tags with workflow_dispatch.
-    if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')
     runs-on: ${{ matrix.runner }}
     strategy:
       fail-fast: false
@@ -57,7 +58,12 @@ jobs:
 
       - name: Set version
         id: ver
-        run: echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+        run: |
+          if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            echo "tag=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+          fi
 
       - name: Install backend deps
         run: |
