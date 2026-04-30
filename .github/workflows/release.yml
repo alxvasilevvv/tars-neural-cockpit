@@ -18,6 +18,10 @@ on:
     tags:
       - "v*.*.*"
       - "v*.*.*-*"
+    # Explicit no-op for branch pushes so GitHub does not create a
+    # failed "skipped" run on every commit to main / feature branches.
+    branches-ignore:
+      - "**"
   workflow_dispatch:
 
 permissions:

@@ -4,6 +4,182 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-04-30 — Cursor · CI noise fix + core-bridge contract freeze + meeet hotfix proposal
+
+**Summary**
+
+Three independent slices, none of which touch product code:
+
+1. **TARS `release.yml` / `release-desktop.yml` false-positive runs**
+   GitHub was creating a 0-second failed run for both release
+   workflows on **every** branch push (including Claude's pushes to
+   `main`), even though the trigger only declares `tags: v*.*.*`. The
+   inbox was getting "release.yml workflow run failed" notifications
+   for completely unrelated commits. Added an explicit
+   `branches-ignore: ['**']` next to the `tags:` filter in both
+   workflows — this is a strict no-op for actual tag releases (tags
+   never match `branches-ignore`) but makes GitHub stop minting the
+   skipped-failed runs on branch pushes. Verified the YAML parses on
+   GitHub's side via `gh workflow view --yaml`.
+
+2. **`core-bridge` contract freeze**
+   Promoted the (already deployed) cross-project bridge from "smoke
+   script + comment in SYNC.md" to a proper SHIPPED contract:
+   - `docs/contracts/CORE_BRIDGE.md` documents `/health`,
+     `/token-stats`, `/relay-event`, all error envelopes, version
+     bump rules and the smoke procedure.
+   - `docs/contracts/relay_event.schema.json` is the JSON Schema
+     (Draft 2020-12) for `POST /relay-event`. Two examples included.
+   - `docs/contracts/README.md` index updated.
+
+3. **Hotfix proposal for meeet core Vitest regression**
+   Latest Telegram-panel commits in `alxvasilevvv/meeet-solana-state-941a6045`
+   broke two `MobileBottomNav` E2E cases (`Главная → /`,
+   `Агенты → /marketplace`). Cursor lane does not push directly to
+   meeet core, so the diagnosis + 2-line patch went to
+   `docs/MEEET_HOTFIX_NAVBAR_REGRESSION.md` for Claude to apply on a
+   `claude/hotfix-navbar-i18n` branch. Root cause: `useLanguage` mock
+   missing `nav.home` key, plus `MobileBottomNav` reading
+   `t("nav.marketplace")` instead of `t("nav.agents")` for the Bot
+   icon item. Edge Functions Type Check failure has empty logs
+   (retention) — pending Claude's stderr capture.
+
+**Why "ничего не ломай" holds**
+
+- `branches-ignore` cannot affect tag triggers (GitHub treats branch
+  and tag refs as separate event lists).
+- The contract files are pure documentation; no runtime change.
+- No file in `meeet-solana-state-941a6045` was modified by this
+  agent in this slice (read-only clone only).
+
+**Files** —
+`.github/workflows/release.yml` (updated),
+`.github/workflows/release-desktop.yml` (updated),
+`docs/contracts/CORE_BRIDGE.md` (new),
+`docs/contracts/relay_event.schema.json` (new),
+`docs/contracts/README.md` (updated),
+`docs/MEEET_HOTFIX_NAVBAR_REGRESSION.md` (new),
+`docs/SYNC.md` (handoff row appended).
+
+## 2026-04-30 — Cursor · Core-bridge control-tower e2e smoke automation
+
+**Summary**
+
+Added an operator-grade smoke script for the dual-Supabase bridge and wired it
+into the project task runner so the full old->new relay can be validated in one
+command.
+
+Checks included in `scripts/smoke_core_bridge_e2e.sh`:
+- `GET /core-bridge/health` with allowed origin + bridge secret (expects 200)
+- `GET /core-bridge/token-stats` with allowed origin + bridge secret (expects 200)
+- `POST /core-bridge/relay-event` end-to-end relay to `tars-ingest` (expects 200 + `persisted:true`)
+- unauthorized health request without secret (expects 401)
+- blocked-origin relay request (expects 403)
+
+Added Makefile targets:
+- `smoke-core-bridge` — run bridge e2e smoke only
+- `gate-control-tower` — `cockpit-tsc` + `cockpit-test` + `smoke-core-bridge`
+
+**Files** — `scripts/smoke_core_bridge_e2e.sh` (new), `Makefile` (updated).
+
+## 2026-04-30 — Cursor · meeet core context request + first-pass review
+
+**Summary**
+
+Cloned `alxvasilevvv/meeet-solana-state-941a6045` read-only and produced
+two new documents to push Claude (Lovable side) into shared roadmap
+territory.
+
+- `docs/REQUEST_TO_CLAUDE.md` — formal ask for a `docs/agent-handoff/`
+  package (project overview, 30/60/90 day roadmap, edge functions
+  catalog, top-30 data model, integrations map, open questions,
+  changelog seed). Hard rules + per-file scope so it cannot drift
+  into a wishful brain-dump.
+- `docs/MEEET_PROJECT_REVIEW.md` — Cursor's first-pass review of
+  meeet core: scale (173 edge functions, 243 migrations, 80+ pages),
+  trust stack note, drift findings (count drift in README, hard-coded
+  TARS ingest URL in core-bridge, Telegram bot mid-flight without
+  visible tests, README repo URL drift), 6-item low-risk backlog
+  Cursor can land without disturbing Claude / Lovable, open questions.
+- Updated `docs/SYNC.md` handoff table with the request row.
+
+No code changes. Cursor stays in lane until Claude ships the package.
+
+**Files** — `docs/REQUEST_TO_CLAUDE.md` (new), `docs/MEEET_PROJECT_REVIEW.md`
+(new), `docs/SYNC.md` (updated).
+
+## 2026-04-30 — Claude · Wave 51: Comprehensive post-Lovable audit + recommendations
+
+**Summary**
+
+Triggered by brother connecting Cursor → Lovable directly. Verified drift,
+security, and gaps across the full stack. Output: `docs/AUDIT_WAVE_51.md`.
+
+Headlines:
+- **No P0 blockers.** Initial alarm about `.env` exposure was false positive
+  (gitignored, never committed, local-only on disk).
+- **4 P1** backend security issues to fix in first sprint:
+  P1-1 entitlements upgrade has no payment verification (any non-empty
+  string token passes); P1-2 `x-tars-policy-mode` header lets browser bypass
+  council; P1-3 no rate limiting on pairing/roles auth-adjacent endpoints;
+  P1-4 BYO toggle unauthenticated.
+- **6 P2 hardening items** for backlog.
+- **One contract drift** — `InvokeResult.result` shape on policy rejection
+  (backend nests, frontend expects flat).
+- **Lovable integration not in repo** — handled outside via Lovable's UI
+  pulling from GitHub. No code-side coordination needed.
+- **Cursor has 58 uncommitted files** locally — desktop-mode shell detection,
+  Tauri build path fixes, CSP widening, dev port 5173→5174. Should be
+  committed before next push.
+- **9 functional/UX improvements** suggested (telemetry wire, CSP tighten,
+  Mac OS permission priming, soft-delete threads, menu bar item, what's-new
+  modal, etc).
+
+Full report at `docs/AUDIT_WAVE_51.md` with file paths, line numbers, fix
+recommendations, and a 23-item prioritised action list.
+
+**Files** — `docs/AUDIT_WAVE_51.md` (new, ~340 lines).
+
+## 2026-04-30 — Claude · Wave 50: Pre-launch docs prep batch (6 files)
+
+**Summary**
+
+While brother handles `git push` + GitHub Actions deploy, prepared 6 supporting docs to land alongside the public launch:
+
+- `docs/POST_LAUNCH_SMOKE.md` — 60-row manual smoke test playbook (10 sections × ~6 rows). Covers marketing surface, routing, PWA, daemon-connected paths, onboarding wizard, keyboard shortcuts, theme, perf, mobile @ 380px, console hygiene. ~15-min run-through.
+- `docs/RELEASE_NOTES_v9.0.md` — public release notes covering all backend (P5/P6/P7/P8) + frontend changes, pricing tiers, 8 supported LLMs, security model, v9.1 roadmap teaser, acknowledgements.
+- `docs/POST_LAUNCH_BACKLOG.md` — structured P1 (10) + P2 (7) findings from Wave 48 audit, with file paths, line numbers, fix recommendations, 3-sprint sequencing recommendation (~5-7 person-days total).
+- `docs/DESIGN_PALETTE_V2.md` — implementation-ready spec for `⌘K` command palette: 25-command initial inventory across 5 sections, fzf-style search ranking, plugin extensibility API, full a11y treatment.
+- `docs/DESIGN_VOICE_MODE.md` — implementation-ready spec for voice mode: 3 activation patterns (push-to-talk / continuous / wake-word v9.2), local-first STT/TTS, mic LED honesty, state machine, settings panel additions.
+- `docs/LAUNCH_ANNOUNCEMENTS.md` — copy-paste-ready drafts for Twitter (10-tweet thread + single-tweet variant), Discord, Hacker News (Show HN), Reddit (r/LocalLLaMA / r/MacApps / r/AI), Product Hunt, early-access cohort email, internal Slack, press contact template, plus launch-coordinator timing notes.
+
+All v9.1 spec docs (Cockpit v2 + Palette v2 + Voice Mode) are pair-compatible — written so the three can be implemented in parallel after launch.
+
+**Files** — 6 new under `docs/`. No code changes.
+
+## 2026-04-30 — Claude · Wave 49: Cockpit v2 design spec (deferred to v9.1)
+
+**Summary**
+
+Operator feedback: current 4-column dense `Cockpit.tsx` is developer-debug, not
+operator-facing. Approved Claude-Desktop-style refactor — sidebar (chat list)
++ main (single chat focus) + composer, auto-routing via existing Smart Agent
+Router, action results rendered as inline `<ActionCard>` components, council
+score + receipts moved under-the-hood (one click reveals).
+
+Spec written to `docs/DESIGN_COCKPIT_V2.md` — implementation-ready: layout
+breakdown, 8 new components inventoried with day estimates, backend
+dependency (one new `POST /api/route` endpoint exposing existing router),
+4-phase migration plan with parallel `/cockpit-v2` surface, full acceptance
+criteria + lighthouse targets.
+
+Deferred to v9.1 post-launch sprint to avoid disrupting tars.meeet.world
+integration. Old `/cockpit` stays untouched; new view ships behind `?v=2`
+flag first, flips default in week 3, legacy moves to `/cockpit/raw`
+(palette-accessible).
+
+**Files** — `docs/DESIGN_COCKPIT_V2.md` (new, ~380 lines).
+
 ## 2026-04-30 — Cursor · Global test sweep + frontend runtime dependency sync
 
 **Summary**
