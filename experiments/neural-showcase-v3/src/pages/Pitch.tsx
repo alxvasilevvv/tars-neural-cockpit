@@ -40,7 +40,7 @@ export function Pitch() {
     title: "Pitch deck",
     description:
       "12 slides on TARS — the local-first AI cockpit. Problem, product, architecture, traction, ask. Keyboard nav (← → ↑ ↓).",
-    ogImage: "https://meeet.world/og-pitch.svg",
+    ogImage: "https://tars.meeet.world/og-pitch.svg",
   });
   const [idx, setIdx] = useState(0);
 

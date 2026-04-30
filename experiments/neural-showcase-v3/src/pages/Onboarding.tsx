@@ -148,7 +148,7 @@ export function Onboarding() {
   useDocumentMeta({
     title: "Onboarding",
     description: "Sign in, pick a role, and TARS delivers your first useful brief in 60 seconds.",
-    ogImage: "https://meeet.world/og-onboarding.svg",
+    ogImage: "https://tars.meeet.world/og-onboarding.svg",
   });
   const [step, setStep] = useState<Step>(0);
   const [authMode, setAuthMode] = useState<"wallet" | "email" | "skip" | null>(null);

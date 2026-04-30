@@ -56,7 +56,7 @@ export function Install() {
   useDocumentMeta({
     title: "Install",
     description: "Install TARS on Mac, Linux, or Windows. One curl, sixty seconds, no signup. Manifest-driven OS auto-detect.",
-    ogImage: "https://meeet.world/og-install.svg",
+    ogImage: "https://tars.meeet.world/og-install.svg",
   });
   const [os, setOs] = useState<OS>("mac");
   const [copied, setCopied] = useState<"install" | "brew" | null>(null);
