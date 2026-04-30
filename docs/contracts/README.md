@@ -20,6 +20,8 @@ the matching phase declares green.
 |------|--------|--------------|
 | `MEEET_DOWNLOADS.md` | SHIPPED | `GET /api/product/downloads` etc. — public download manifest. |
 | `download_manifest.schema.json` | SHIPPED | JSON Schema (Draft 2020-12) for `MEEET_DOWNLOADS.md`. |
+| `CORE_BRIDGE.md` | SHIPPED | meeet core ↔ TARS bridge: `/health`, `/token-stats`, `/relay-event` on the old Supabase project (`zujrmifaabkletgnpoyw`). |
+| `relay_event.schema.json` | SHIPPED | JSON Schema (Draft 2020-12) for `POST /functions/v1/core-bridge/relay-event`. |
 | `L5_PAIRING_DRAFT.md` | DRAFT | Device pairing handshake, encrypted sync envelope (`meeet` contract 1.1.0). |
 
 ## Conventions
