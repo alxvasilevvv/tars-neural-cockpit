@@ -1,0 +1,24 @@
+# Cloudflare Pages redirects — first match wins.
+# Format: https://developers.cloudflare.com/pages/configuration/redirects/
+
+# ----- Permanent redirects (legacy paths) -----
+/home              /                  301
+/sign-up           /onboarding        301
+/signup            /onboarding        301
+/get-started       /onboarding        301
+
+# ----- Install script (proxy to canonical S3 / R2 URL) -----
+# When the brother provisions the install script bucket, replace the
+# placeholder with the actual canonical URL and bump from 302 to 301.
+/install.sh        https://meeet.world/install.sh   302
+
+# ----- Downloads manifest (proxy to meeet-app, per spec §4) -----
+# Until meeet-app exposes /api/tars/downloads, point at the Supabase
+# tars-downloads function directly. The Edge Function already enforces
+# CORS allowlist for tars.meeet.world (see TARS_INTEGRATION_RUNBOOK.md).
+/api/product/downloads  https://hhpaukjobskcwkxbgecl.supabase.co/functions/v1/tars-downloads  200
+/api/product/version    https://hhpaukjobskcwkxbgecl.supabase.co/functions/v1/tars-downloads  200
+
+# ----- SPA fallback — must be last -----
+# All other paths render index.html so client router takes over.
+/*                 /index.html        200
