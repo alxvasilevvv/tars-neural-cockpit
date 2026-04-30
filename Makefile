@@ -13,7 +13,7 @@ COCKPIT   ?= experiments/neural-showcase-v3
 DESKTOP   ?= desktop
 
 .PHONY: help test test-product lint cockpit cockpit-build cockpit-tsc \
-        acceptance-tars-meeet \
+        acceptance-tars-meeet qa-agent qa-agent-json \
         backend backend-dev desktop-dev desktop-build smoke-core-bridge \
         gate-control-tower clean
 
@@ -81,6 +81,12 @@ gate-control-tower:  ## cockpit checks + core-bridge e2e smoke
 
 acceptance-tars-meeet:  ## production acceptance for tars.meeet.world (post-DNS)
 	bash scripts/acceptance_tars_meeet.sh
+
+qa-agent:            ## TARS QA Agent (python stdlib, no deps): autonomous probes
+	$(PY) -m scripts.qa_agent
+
+qa-agent-json:       ## QA agent in JSON mode (for CI / tooling)
+	$(PY) -m scripts.qa_agent --json --no-color
 
 # ---------------------------------------------------------------------
 # Housekeeping

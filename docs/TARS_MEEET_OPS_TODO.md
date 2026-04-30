@@ -16,6 +16,27 @@ Estimated total time: **30 minutes**.
 
 ---
 
+## CURRENT STATE (auto-detected by `make qa-agent` 2026-05-01)
+
+`tars.meeet.world` **DNS resolves** to `185.158.133.1` (Cloudflare),
+but **the CNAME currently points at the Lovable wildcard, not at the
+TARS Cloudflare Pages project**. Effect:
+
+- `tars.meeet.world/` returns `HTTP/2 302 → meeet.world/`
+- No `X-Tars-Contract` header
+- No `tars_session_id` cookie
+- `/api/product/downloads` proxy is not active
+- Lovable's `x-deployment-id` header confirms it's serving from the
+  meeet-app deployment
+
+**Fix:** Skip Step 1 (DNS already exists). Run Steps 1–3 as written
+(create CF Pages project + secrets + env vars), then **Step 4
+overrides the existing CNAME** so it points at `tars-meeet.pages.dev`
+instead of the Lovable target. After Step 4 the QA agent flips green
+in <5 min.
+
+---
+
 ## Step 1 — Cloudflare: create Pages project (5 min)
 
 1. Cloudflare dashboard → **Workers & Pages** → **Create application** → **Pages** → **Connect to Git**.
