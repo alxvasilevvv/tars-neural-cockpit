@@ -268,3 +268,28 @@ short note and file paths. The current open work and conventions live in
 `docs/AGENT_HANDOFF.md`. New ideas / proposals live in `docs/IDEAS.md`. Read
 all four (including `design-system/tars/MASTER.md`) when picking up a new
 chat.
+
+## Cross-agent sync (Cursor ↔ Claude ↔ Lovable)
+
+Two agents work on this stack from different machines. **Before any
+edit**, read `docs/SYNC.md` (the contract) and `docs/ROADMAP_SHARED.md`
+(the board). Hard rules in short:
+
+- Canonical remote in this repo is `integration` (not `origin`, which
+  currently 404s).
+- Cursor lane: `backend/`, `web_extras/`, `tests/`, `scripts/`,
+  `experiments/neural-showcase-v3/src/lib/**`, `desktop/src-tauri/src/**`,
+  `mobile/**`, control-tower (`Makefile` smoke targets).
+- Claude lane: cockpit visuals (`experiments/neural-showcase-v3/src/components/**`,
+  `pages/**`, `index.css`), brand assets, public docs (`docs/RELEASE_NOTES_*`,
+  `docs/LAUNCH_*`, `docs/POST_LAUNCH_*`, `docs/AUDIT_*`, `docs/DESIGN_*`,
+  `docs/handoff-claude.md`), `desktop/src-tauri/web/**` build artifacts.
+- Shared files (require SYNC note before edit): `CLAUDE.md`,
+  `docs/AGENT_HANDOFF.md`, `docs/CHANGELOG_AGENTS.md`, `docs/IDEAS.md`,
+  `docs/PHASE_L_ROADMAP.md`, `docs/SYNC.md`, `docs/ROADMAP_SHARED.md`,
+  `docs/contracts/**`, top-level `Makefile`.
+- Branch naming: `cursor/<topic>` or `claude/<topic>`; never force-push
+  to `main`; never amend commits authored by the other agent.
+- Cross-project bridge (TARS new Supabase ↔ Lovable old Supabase) is
+  validated with `make smoke-core-bridge` (requires
+  `BRIDGE_SHARED_SECRET`) and the full gate `make gate-control-tower`.

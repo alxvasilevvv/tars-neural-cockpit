@@ -13,7 +13,8 @@ COCKPIT   ?= experiments/neural-showcase-v3
 DESKTOP   ?= desktop
 
 .PHONY: help test test-product lint cockpit cockpit-build cockpit-tsc \
-        backend backend-dev desktop-dev desktop-build clean
+        backend backend-dev desktop-dev desktop-build smoke-core-bridge \
+        gate-control-tower clean
 
 help:                ## list targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -64,6 +65,18 @@ desktop-dev:         ## run the Tauri shell against the dev cockpit
 
 desktop-build:       ## bundle the cockpit + Tauri release artifacts
 	pnpm --dir $(DESKTOP) release
+
+# ---------------------------------------------------------------------
+# Control tower smoke (Supabase bridge)
+# ---------------------------------------------------------------------
+
+smoke-core-bridge:   ## end-to-end smoke: old core-bridge -> new tars-ingest
+	bash scripts/smoke_core_bridge_e2e.sh
+
+gate-control-tower:  ## cockpit checks + core-bridge e2e smoke
+	$(MAKE) cockpit-tsc
+	$(MAKE) cockpit-test
+	$(MAKE) smoke-core-bridge
 
 # ---------------------------------------------------------------------
 # Housekeeping
