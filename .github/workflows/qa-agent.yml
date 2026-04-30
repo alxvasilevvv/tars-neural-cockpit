@@ -1,0 +1,86 @@
+name: TARS QA Agent
+
+# Autonomous health-and-correctness probe for tars.meeet.world.
+# Runs:
+#   - on every push that touches the agent or related infra
+#   - on every PR
+#   - every 30 minutes via cron (independent of synthetic monitor)
+#
+# Stdlib-only: no `pip install` step. Probes are tolerant of pre-DNS
+# state (subdomain probes skip cleanly).
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "scripts/qa_agent/**"
+      - ".github/workflows/qa-agent.yml"
+      - "experiments/neural-showcase-v3/public/_headers"
+      - "experiments/neural-showcase-v3/public/_redirects"
+      - "experiments/neural-showcase-v3/functions/**"
+  pull_request:
+    paths:
+      - "scripts/qa_agent/**"
+      - "experiments/neural-showcase-v3/public/_headers"
+      - "experiments/neural-showcase-v3/public/_redirects"
+      - "experiments/neural-showcase-v3/functions/**"
+  schedule:
+    - cron: "*/30 * * * *"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: qa-agent-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  probe:
+    name: probe
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run QA agent (text)
+        env:
+          BRIDGE_SHARED_SECRET: ${{ secrets.BRIDGE_SHARED_SECRET }}
+        run: |
+          python -m scripts.qa_agent --no-color | tee qa-report.txt
+          rc=${PIPESTATUS[0]}
+          echo "qa_agent_exit=$rc" >> "$GITHUB_ENV"
+          exit $rc
+
+      - name: Run QA agent (json artifact)
+        if: always()
+        env:
+          BRIDGE_SHARED_SECRET: ${{ secrets.BRIDGE_SHARED_SECRET }}
+        run: |
+          python -m scripts.qa_agent --json --no-color > qa-report.json || true
+
+      - name: Append to GH summary
+        if: always()
+        run: |
+          {
+            echo "## TARS QA Agent — $(date -u +%FT%TZ)"
+            echo ""
+            echo '```'
+            head -200 qa-report.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: qa-report-${{ github.run_id }}
+          path: |
+            qa-report.txt
+            qa-report.json
+          retention-days: 30
