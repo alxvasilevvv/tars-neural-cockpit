@@ -307,8 +307,12 @@ issue thread (`tars-neural-cockpit#8` is the live channel).
    `tars-ingest` → `tars_event_ingest` table as
    `kind = "tars.client.error"`. No-op on `localhost` and inside the
    Tauri shell. Closes meeet OPEN_QUESTIONS.md Q4.
-2. **Pulse alert via pg_cron** — Supabase scheduled query that emails
-   if `tars_event_ingest` event rate drops by >50% vs 24h average.
+2. ~~**Pulse alert via pg_cron**~~ — **REPLACED 2026-05-01** with
+   `.github/workflows/tars-meeet-synthetic-monitor.yml` (zero-vendor
+   GitHub Actions cron probe every 15 min). Avoids the email-credential
+   dependency that pg_cron alerts would have introduced. Probes SPA
+   root, `/api/product/downloads`, the origin manifest, and
+   `core-bridge/health`; failure is a workflow red → GitHub email.
 3. **Web Vitals pipe** — `web-vitals` npm package emitting
    `tars.perf.lcp / fid / cls` through `core-bridge`. Maps to a single
    Supabase view that the cockpit dashboard can render.
