@@ -2,6 +2,7 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import App from "@/App";
+import { installClientErrorReporter } from "@/lib/clientError";
 import "@/index.css";
 
 // React Router v6 → v7 forward-compat opt-in. Silences the runtime
@@ -12,6 +13,11 @@ const ROUTER_FUTURE = {
   v7_startTransition: true,
   v7_relativeSplatPath: true,
 } as const;
+
+// Install global client-error reporter. No-op outside production hosts
+// and inside the Tauri shell. Pipes uncaught errors and rejections
+// through core-bridge → tars-ingest. See src/lib/clientError.ts.
+installClientErrorReporter();
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>

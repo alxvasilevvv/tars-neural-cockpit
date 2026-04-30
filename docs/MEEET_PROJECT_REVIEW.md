@@ -3,8 +3,41 @@
 > Source: read-only clone of `alxvasilevvv/meeet-solana-state-941a6045`
 > at sha `4762a1c` (2026-04-30) plus everything in TARS repo here.
 > Reviewer: Cursor agent (Mac #1)
-> Status: initial pass; will be expanded once Claude ships the
-> `docs/agent-handoff/` package requested in `docs/REQUEST_TO_CLAUDE.md`.
+> Status: **superseded in part by Claude's `docs/agent-handoff/`
+> package (PR #3 in meeet repo, 2026-05-01).** This document is kept
+> as Cursor's read-only inference baseline; for canonical project
+> facts, prefer Claude's package. Drift notes added below.
+
+---
+
+## Updated 2026-05-01 — drift vs. Claude's handoff package
+
+Claude shipped `docs/agent-handoff/{PROJECT_OVERVIEW,DATA_MODEL,
+EDGE_FUNCTIONS_CATALOG,INTEGRATIONS_MAP,OPEN_QUESTIONS,
+ROADMAP_NEXT_90_DAYS,CHANGELOG}.md` (PR #3). The Cursor-side review
+below was inferred from a read-only clone; differences vs. canonical:
+
+- **Edge Function count:** Cursor inferred 173; Claude says ~30 active.
+  The discrepancy is generated function templates inside
+  `supabase/functions/` that are not deployed. Claude's catalog is the
+  truth of record for the deployed surface.
+- **Token mint:** Cursor read `EJgyptJK58M9AmJi1w8ivGBjeTm5JoTqFefoQ6JTpump`
+  (pump.fun); Claude lists `meeetMzHgVofBBaRBoPaFGinkJq4oR44Gj4GFbLMRKr`.
+  Likely two tokens at different lifecycle stages, or one is the
+  pump.fun pre-launch and the other is the canonical Solana mint.
+  **Owner: Operator-Brother** to confirm which is the production
+  reference. Tracked in meeet OPEN_QUESTIONS.md Q3.
+- **Multi-LLM:** Cursor inferred all 8 models active; Claude clarifies
+  only OpenAI + Anthropic ship today, others scaffolded. Cursor
+  agrees and aligns the TARS-side roadmap accordingly.
+- **Wallet:** Cursor saw the `wallet-*` Edge Functions; Claude marks
+  Phase 2 (planned, not deployed). Cursor's review correctly noted
+  the stub state; aligned.
+- **Pricing:** Cursor saw $9.99 / $29.99 / $99.99 with 3× margin;
+  Claude confirms identical structure. No drift.
+
+The full review below stays as Cursor's onboarding artifact, but for
+authoritative facts use Claude's package.
 
 ---
 
