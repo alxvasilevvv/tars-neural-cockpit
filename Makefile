@@ -13,6 +13,7 @@ COCKPIT   ?= experiments/neural-showcase-v3
 DESKTOP   ?= desktop
 
 .PHONY: help test test-product lint cockpit cockpit-build cockpit-tsc \
+        acceptance-tars-meeet \
         backend backend-dev desktop-dev desktop-build smoke-core-bridge \
         gate-control-tower clean
 
@@ -77,6 +78,9 @@ gate-control-tower:  ## cockpit checks + core-bridge e2e smoke
 	$(MAKE) cockpit-tsc
 	$(MAKE) cockpit-test
 	$(MAKE) smoke-core-bridge
+
+acceptance-tars-meeet:  ## production acceptance for tars.meeet.world (post-DNS)
+	bash scripts/acceptance_tars_meeet.sh
 
 # ---------------------------------------------------------------------
 # Housekeeping
