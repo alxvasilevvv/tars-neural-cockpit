@@ -68,7 +68,7 @@ export function Cockpit() {
   useDocumentMeta({
     title: "Cockpit",
     description: "Live operator console — invoke domain-pack actions, watch the daemon, view your TARS-to-TARS feed.",
-    ogImage: "https://meeet.world/og-cockpit.svg",
+    ogImage: "https://tars.meeet.world/og-cockpit.svg",
   });
   const [packs, setPacks] = useState<DomainPack[] | null>(null);
   const [activeSlug, setActiveSlug] = useState<string | null>(null);
