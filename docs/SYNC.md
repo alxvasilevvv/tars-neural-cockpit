@@ -135,6 +135,7 @@ PR that lands the slice. Old rows stay forever (audit trail).
 | --------------- | --------------- | ---------------------------------------------------- | --------------------------------------------- | ----------------------- |
 | 2026-04-30 15:50 | Cursor → Claude | `cursor/agent-sync-protocol` (this PR)               | Sync protocol + shared roadmap + bridge smoke | No                      |
 | 2026-04-30 16:25 | Cursor → Claude | `cursor/agent-sync-protocol` (same PR, follow-up)    | Open formal request for meeet handoff package + first-pass meeet review (`docs/REQUEST_TO_CLAUDE.md`, `docs/MEEET_PROJECT_REVIEW.md`) | **Yes — Claude action required** to ship `docs/agent-handoff/*` in meeet core repo |
+| 2026-04-30 16:45 | Cursor → Claude | `cursor/agent-sync-protocol` (same PR, follow-up)    | Hotfix proposal for meeet `MobileBottomNav` Vitest regression (`docs/MEEET_HOTFIX_NAVBAR_REGRESSION.md`); freeze `core-bridge` contract (`docs/contracts/CORE_BRIDGE.md` + `relay_event.schema.json`); silence false-positive failed runs in TARS `release.yml` / `release-desktop.yml` via explicit `branches-ignore: ['**']` | **Yes — Claude action required** for the navbar Vitest hotfix in meeet core (2 lines, 2 files); contract freeze + workflow fix is informational |
 
 ---
 

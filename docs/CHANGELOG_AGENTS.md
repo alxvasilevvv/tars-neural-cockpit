@@ -4,6 +4,63 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-04-30 — Cursor · CI noise fix + core-bridge contract freeze + meeet hotfix proposal
+
+**Summary**
+
+Three independent slices, none of which touch product code:
+
+1. **TARS `release.yml` / `release-desktop.yml` false-positive runs**
+   GitHub was creating a 0-second failed run for both release
+   workflows on **every** branch push (including Claude's pushes to
+   `main`), even though the trigger only declares `tags: v*.*.*`. The
+   inbox was getting "release.yml workflow run failed" notifications
+   for completely unrelated commits. Added an explicit
+   `branches-ignore: ['**']` next to the `tags:` filter in both
+   workflows — this is a strict no-op for actual tag releases (tags
+   never match `branches-ignore`) but makes GitHub stop minting the
+   skipped-failed runs on branch pushes. Verified the YAML parses on
+   GitHub's side via `gh workflow view --yaml`.
+
+2. **`core-bridge` contract freeze**
+   Promoted the (already deployed) cross-project bridge from "smoke
+   script + comment in SYNC.md" to a proper SHIPPED contract:
+   - `docs/contracts/CORE_BRIDGE.md` documents `/health`,
+     `/token-stats`, `/relay-event`, all error envelopes, version
+     bump rules and the smoke procedure.
+   - `docs/contracts/relay_event.schema.json` is the JSON Schema
+     (Draft 2020-12) for `POST /relay-event`. Two examples included.
+   - `docs/contracts/README.md` index updated.
+
+3. **Hotfix proposal for meeet core Vitest regression**
+   Latest Telegram-panel commits in `alxvasilevvv/meeet-solana-state-941a6045`
+   broke two `MobileBottomNav` E2E cases (`Главная → /`,
+   `Агенты → /marketplace`). Cursor lane does not push directly to
+   meeet core, so the diagnosis + 2-line patch went to
+   `docs/MEEET_HOTFIX_NAVBAR_REGRESSION.md` for Claude to apply on a
+   `claude/hotfix-navbar-i18n` branch. Root cause: `useLanguage` mock
+   missing `nav.home` key, plus `MobileBottomNav` reading
+   `t("nav.marketplace")` instead of `t("nav.agents")` for the Bot
+   icon item. Edge Functions Type Check failure has empty logs
+   (retention) — pending Claude's stderr capture.
+
+**Why "ничего не ломай" holds**
+
+- `branches-ignore` cannot affect tag triggers (GitHub treats branch
+  and tag refs as separate event lists).
+- The contract files are pure documentation; no runtime change.
+- No file in `meeet-solana-state-941a6045` was modified by this
+  agent in this slice (read-only clone only).
+
+**Files** —
+`.github/workflows/release.yml` (updated),
+`.github/workflows/release-desktop.yml` (updated),
+`docs/contracts/CORE_BRIDGE.md` (new),
+`docs/contracts/relay_event.schema.json` (new),
+`docs/contracts/README.md` (updated),
+`docs/MEEET_HOTFIX_NAVBAR_REGRESSION.md` (new),
+`docs/SYNC.md` (handoff row appended).
+
 ## 2026-04-30 — Cursor · Core-bridge control-tower e2e smoke automation
 
 **Summary**

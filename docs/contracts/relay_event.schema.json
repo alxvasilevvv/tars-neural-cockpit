@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://meeet.world/contracts/relay_event.schema.json",
+  "title": "core-bridge relay-event request",
+  "description": "Payload accepted by POST /functions/v1/core-bridge/relay-event on the meeet core Supabase project (zujrmifaabkletgnpoyw). The bridge forwards an extended copy to the TARS Supabase tars-ingest function. Contract version 1.0.0.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "kind",
+    "trace_id",
+    "session_id",
+    "contract_version",
+    "payload"
+  ],
+  "properties": {
+    "kind": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$",
+      "description": "Dotted event kind. Convention: <source>.<surface>.<verb>. Lowercase, snake_case segments, at least two segments."
+    },
+    "trace_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Opaque trace identifier. Cursor / TARS use the meeet bridge trace_scope id; producers may use any unique string."
+    },
+    "session_id": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "description": "Opaque per-session identifier. Frontend conventionally uses ses_<base32>; backend uses ses_internal_*."
+    },
+    "contract_version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$",
+      "description": "Semver of the producer's TARS event contract. Pinned today at 1.0.0. Bump in lockstep with TARS backend bump and contract docs."
+    },
+    "payload": {
+      "type": "object",
+      "description": "Free-form event-specific payload. Additive keys are allowed. Do NOT include PII, raw secrets, full mnemonics, raw API keys, or any field whose name matches /(secret|password|key|token|mnemonic|seed|private)/i unless the producer is the policy gate (which is signed)."
+    }
+  },
+  "examples": [
+    {
+      "kind": "tars.page.viewed",
+      "trace_id": "trace_smoke_001",
+      "session_id": "ses_smoke_001",
+      "contract_version": "1.0.0",
+      "payload": {
+        "path": "/tars",
+        "source": "smoke"
+      }
+    },
+    {
+      "kind": "core.bridge.relay",
+      "trace_id": "trace_relay_2026_04_30_001",
+      "session_id": "ses_internal_meeet_core",
+      "contract_version": "1.0.0",
+      "payload": {
+        "from": "meeet.world",
+        "purpose": "agent_mint_event",
+        "agent_id": "agent_42",
+        "agent_class": "oracle"
+      }
+    }
+  ]
+}
