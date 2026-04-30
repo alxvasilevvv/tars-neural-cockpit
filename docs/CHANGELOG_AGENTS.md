@@ -4,6 +4,84 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor · `docs/OBSERVABILITY.md` runbook
+
+**Summary**
+
+Closes the observability gap Claude flagged in tars-neural-cockpit#8 Q3
+("no Sentry, no external APM"). Single document covering the four event
+streams (CF Pages build/runtime, Supabase functions, Supabase Postgres),
+the `trace_id` through-line, copy-paste diagnostic runbooks for the five
+common failures, an explicit "what we don't do" list, ownership matrix,
+and a prioritized future-work backlog.
+
+**Files** `docs/OBSERVABILITY.md` (new).
+
+**Lane** Cursor (control-tower documentation). Coordinated change with
+Claude is the meeet GH Actions row in §5 (Claude is the primary owner).
+
+## 2026-05-01 — Cursor · canonical flip from `meeet.world` → `tars.meeet.world`
+
+**Summary**
+
+After Claude ack'd the handshake (6/6) and unblocked DNS (CNAME target =
+`tars-meeet.pages.dev`), Cursor flipped the SEO canonicals on the TARS
+frontend so search engines and OG previews start treating
+`tars.meeet.world` as the home of TARS the moment DNS lands. This is the
+**non-destructive** part of the flip — meeet.world still serves these
+pages until Claude lands the 301 forward.
+
+**Files**
+- `experiments/neural-showcase-v3/index.html` — `link rel=canonical`,
+  `og:url`, `og:image`, `twitter:image` flipped to `tars.meeet.world`.
+- `experiments/neural-showcase-v3/public/sitemap.xml` — every `<loc>`
+  flipped from `meeet.world/*` → `tars.meeet.world/*`.
+- `experiments/neural-showcase-v3/public/robots.txt` — `Sitemap:` line
+  flipped + comment block updated to mark `tars.meeet.world` canonical.
+- `experiments/neural-showcase-v3/src/lib/meta.ts` and the six page
+  modules (`Cockpit.tsx`, `BuildWith.tsx`, `Onboarding.tsx`, `Press.tsx`,
+  `Install.tsx`, `Pitch.tsx`) — page-level `ogImage` constants flipped
+  to `https://tars.meeet.world/og-*.svg`. Files physically live in
+  `public/` so they ship from the same Cloudflare Pages deploy.
+
+**Deliberately not touched** (these stay at `meeet.world`, by design):
+- `Footer.tsx` — top-level "meeet.world" nav link is the link to the
+  parent product.
+- `MeeetWorldStrip.tsx` — auth/account links go to the meeet-app.
+- `Onboarding.tsx` — auth flow URLs.
+- `Install.tsx` — `meeet.world/dl/tars-latest.dmg` (downloads CDN).
+- `Press.tsx` — `meeet.world/press/brand-kit.sh`.
+- `BuildWith.tsx` — `meeet.world/badge/<slug>.svg`.
+- `_redirects` — `install.sh → meeet.world/install.sh 302`.
+
+**Validation**
+- `make cockpit-tsc` green.
+- `make cockpit-test` green (56 / 56).
+
+**Lane** Cursor (per `docs/SYNC.md` — TARS owns the subdomain). Commit
+shipped on `cursor/tars-meeet-canonical-flip`. PR opened as **draft**
+because the flip becomes user-visible only after DNS goes live; merging
+earlier would create temporarily broken og:images. Draft auto-promotes
+the moment Operator-Brother confirms DNS in the §3 acceptance gates.
+
+## 2026-05-01 — Cursor · acceptance automation for `tars.meeet.world`
+
+**Summary**
+
+Added the single command Cursor will run the moment Operator-Brother
+finishes the DNS + Cloudflare Pages ops checklist (`docs/TARS_MEEET_OPS_TODO.md`).
+
+**Files**
+- `scripts/acceptance_tars_meeet.sh` — covers all seven gates from
+  `docs/TARS_MEEET_READINESS.md` §3 (root 200 + `X-Tars-Contract`, SPA
+  hydration, manifest schema, cookie domain, core-bridge smoke, trace
+  round-trip, optional Lighthouse perf+a11y).
+- `Makefile` — adds `acceptance-tars-meeet` target.
+
+**Validation** `bash -n` clean. tsc + vitest unaffected.
+
+**Lane** Cursor (control-tower automation). PR #10 merged via squash.
+
 ## 2026-05-01 — Cursor · `tars.meeet.world` integration readiness — full Cursor lane
 
 **Summary**
