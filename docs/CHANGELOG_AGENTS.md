@@ -4,6 +4,67 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-04-30 — Cursor · Real root cause for release.yml false-positive runs
+
+**Summary**
+
+Found the actual reason every `release.yml` push (across **months** of
+commits, including the v9.x snapshot from this morning) generated a
+0-second failed validation run with no jobs and no logs:
+
+> **Line 139 was inline `run: codesign --force --sign "Developer ID Application: $DEV_ID" tars-macos.dmg`.** The `:` inside the quoted string is parsed by YAML as a mapping value separator. `pyyaml` confirms locally:
+>
+> ```
+> yaml.scanner.ScannerError: mapping values are not allowed here
+>   in '.github/workflows/release-tagged.yml', line 139, column 63
+> ```
+
+GitHub Actions runs the same validator on every push, silently rejects
+the workflow, but still emits a failed `workflow_run` for the broken
+`workflow_id`. This is why **PRs #1 (`branches-ignore`), #2 (job-level
+`if`), #3 (dispatch-only), #4 (rename), #5 (drop arm64)** all merged
+cleanly and **none** silenced the false positives — they papered over
+symptoms but never the parser error.
+
+**The fix (PR #6)**
+
+```diff
+       - name: Codesign .dmg
+         env:
+           DEV_ID: ${{ secrets.APPLE_TEAM_ID }}
+-        run: codesign --force --sign "Developer ID Application: $DEV_ID" tars-macos.dmg
++        run: |
++          codesign --force --sign "Developer ID Application: $DEV_ID" tars-macos.dmg
+```
+
+After landing PR #6, `gh api .../actions/workflows` started returning
+`name: "release"` (parsed from the YAML) instead of the path string,
+which is the canonical signal that GitHub now accepts the file. The
+merge commit produced **zero** new failed validation runs; the failed
+run table caps at the pre-fix commits.
+
+**Trail of attempts (kept for posterity, all merged into main)**
+
+- PR #1 — added `branches-ignore: ['**']` next to `tags:` filter — no effect.
+- PR #2 — added job-level `if: github.event_name == 'workflow_dispatch' || startsWith(github.ref, 'refs/tags/')` — no effect.
+- PR #3 — dropped `push.tags` entirely, switched to `workflow_dispatch` only with `inputs.tag` — no effect.
+- PR #4 — renamed files to `release-tagged.yml` / `release-desktop-tagged.yml` to allocate fresh workflow IDs — no effect (because the new file inherited the same broken YAML).
+- PR #5 — removed `linux/arm64` from the matrix (also a real correctness issue for private repos, the runner is paid-only) — no effect on the false positives.
+- PR #6 — actual fix: convert inline `run:` to `run: |` literal block on the Codesign step.
+
+**Lesson**
+
+`pyyaml`'s `yaml.safe_load` on **all** workflow files should be a
+local pre-flight in this repo (and in TARS in general). Today's
+session confirms GitHub Actions validation can fail invisibly,
+producing failed-run notifications with zero useful logs.
+
+**Files** —
+`.github/workflows/release-tagged.yml` (yaml fix on Codesign step),
+`.github/workflows/release-tagged.yml` history through PRs #1–#6,
+`.github/workflows/release-desktop-tagged.yml` (renamed, same dispatch-only treatment),
+`docs/CHANGELOG_AGENTS.md` (this entry).
+
 ## 2026-04-30 — Cursor · CI noise fix + core-bridge contract freeze + meeet hotfix proposal
 
 **Summary**
