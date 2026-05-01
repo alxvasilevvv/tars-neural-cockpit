@@ -193,6 +193,16 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-01 — entrepreneur pack schema parity for `generate_content` (Cursor [A]):**
+  Syncs the entrepreneur pack's `generate_content` `ActionSpec`
+  schema with the upgraded MLM drafter that landed earlier
+  today. Exposes the new `tone` / `language` / `cta` knobs and
+  the `linkedin` channel through the entrepreneur namespace so
+  the cockpit can render full dropdowns. Imports the enum
+  tuples directly from `mlm.post_drafter` so the entrepreneur
+  pack can never drift from the underlying drafter. Pinned by
+  2 new tests; full suite: **1561 green**.
+
 - **2026-05-01 — `mlm.generate_post` real multi-channel drafter (Cursor [A]):**
   Promotes the last user-facing stub in the MLM pack to a real
   deterministic drafter. New
