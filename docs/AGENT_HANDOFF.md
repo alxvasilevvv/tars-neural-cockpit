@@ -193,6 +193,24 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-01 — `mlm.generate_post` real multi-channel drafter (Cursor [A]):**
+  Promotes the last user-facing stub in the MLM pack to a real
+  deterministic drafter. New
+  `backend/core/domains/packs/mlm/post_drafter.py` lands a 4×4×3
+  template registry (channel × tone × language) plus per-format
+  overlays (story / reel / dm), language-aware CTAs, and
+  ASCII-safe hashtag generation for ig + linkedin. Channels now
+  cover ig / tg / wa / linkedin; tones add warm / professional /
+  urgent / celebratory; languages cover en / ru / es. The action
+  surfaces `draft`, `cta`, `hashtags`, `char_count`,
+  `word_count` per platform-budget UX, and emits `mlm.post_drafted`
+  per the cross-cutting adapter rule. Backward compat
+  preserved for `playbooks/mlm/retention_round.json`. Pinned by
+  33 new tests covering full-matrix template coverage,
+  determinism, coercion, format overlays, hashtag rules, and
+  retention_round playbook compatibility; full suite:
+  **1559 green**.
+
 - **2026-05-01 — `daily_brief` unions locally-logged deals (Cursor [A]):**
   Closes the loop on the `log_deal` adapter shipped earlier today.
   `daily_brief` now reads `~/.tars/business_deals.json` (override
