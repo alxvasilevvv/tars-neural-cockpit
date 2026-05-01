@@ -4,6 +4,98 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · Saved-search alerts (`saved_search.new_hits`)
+
+**Summary**
+
+Continuation of the saved-search trio (#44 + #46 + #48). The
+saved-search HTTP endpoints already let operators store and re-run
+queries; this slice turns each saved search into a passive watcher
+that emits `saved_search.new_hits` whenever fresh fingerprints
+appear. Design choices kept deliberately small for the first slice:
+
+- **Fingerprint = stable string per hit kind** — `chunk:<chunk_id>`,
+  `message:<msg_id>`, `trace:<event_id>` (event-level so re-emitted
+  events on a familiar trace still flag activity).
+- **First poll seeds, doesn't alert** — operators don't want a flood
+  of "everything is new" the moment they save a query. The seed runs
+  iff `last_run_at is None` *and* `seen_hits` is empty.
+- **Snapshot capped** at `MAX_SEEN_HITS=1000` so long-running
+  watchers don't bloat the JSON column. Oldest entries roll off when
+  the cap is hit.
+
+1. **Schema** (`backend/core/chat/store.py`)
+   - Migration: `ALTER TABLE saved_searches ADD COLUMN seen_hits_json
+     TEXT NOT NULL DEFAULT '[]'` + `last_alert_at REAL`.
+   - `_row_to_saved_search` decodes the new columns defensively
+     (handles legacy rows that still lack them — see also the
+     dedicated migration test).
+   - New `record_saved_search_alert(seen_hits, had_new_hits)` async
+     method persists the snapshot + stamps `last_run_at` (always)
+     and `last_alert_at` (only when an alert fired).
+
+2. **Model** (`backend/core/chat/models.py`)
+   - `SavedSearch` carries `seen_hits: tuple[str, ...]` (ordered,
+     fingerprint snapshot) + `last_alert_at: float | None`.
+   - `to_dict` exposes `seen_hit_count` (size, not the full array)
+     so HTTP responses stay compact.
+
+3. **Alert engine** (`backend/core/search/alerts.py`, new)
+   - `hit_fingerprint(hit)` — stable identifier per kind.
+   - `poll_saved_search(search_id, *, top_k=25)` — runs the saved
+     search via the existing `search_*` family, computes the new-hit
+     diff, emits `saved_search.new_hits` via
+     `MeeetClient.emit` when warranted, persists the snapshot.
+     Returns `{ok, search_id, label, scope, total, new_count,
+     new_hits, alerted, first_poll}`. Per-emit failures swallowed
+     (the snapshot still updates so subsequent polls don't re-fire).
+   - `poll_all_saved_searches(*, top_k=25, limit=100)` — walks every
+     saved search, isolates per-search failures, returns aggregate
+     stats `{ok, polled, alerted, results: [...]}`.
+
+4. **HTTP** (`web_extras/routers/search.py`)
+   - `POST /api/search/saved/{id}/poll` — single-search poll. Body
+     `{top_k?: int}` (default 25, max 100). 404 when the saved
+     search is missing.
+   - `POST /api/search/saved/poll-all` — fan-out poll for the
+     cockpit "alerts" tab. Body `{top_k?: int, limit?: int}`.
+
+5. **Tests** — `tests/test_saved_search_alerts.py` (new, 18 cases)
+   - Fingerprint helper across kinds + unknown-kind fallback.
+   - Poll cycle: first poll seeds without emitting, quiet poll
+     stays quiet, drift poll fires + persists `last_alert_at`,
+     repeated polls don't re-fire, MeeetClient failure doesn't
+     crash the poll, missing saved-search returns
+     `{ok: False, reason: 'not_found'}`, fingerprint cap honoured.
+   - Migration: legacy DB rows without the new columns hydrate
+     with empty `seen_hits` + `None` `last_alert_at` and the next
+     migration adds the columns.
+   - `poll_all`: walks every saved search, isolates failures,
+     returns `{ok: True, polled: 0, alerted: 0, results: []}` for
+     empty stores.
+   - HTTP: seed→alert flow over the live FastAPI app, 404 for
+     missing id, `poll-all` body with `{top_k, limit}`.
+
+**Verification**
+
+`pytest -q --ignore=tests/test_phase8_recovery.py
+       --deselect tests/test_pairing_contract.py::test_pair_attempted_event_emitted`
+→ **866 passed**, 1 deselected (pre-existing flake on `main`).
+Lints clean.
+
+**Files**
+
+- backend/core/chat/store.py
+- backend/core/chat/models.py
+- backend/core/search/alerts.py (new)
+- web_extras/routers/search.py
+- tests/test_saved_search_alerts.py (new)
+- docs/CHANGELOG_AGENTS.md
+- docs/AGENT_HANDOFF.md
+- docs/IDEAS.md
+
+---
+
 ## 2026-05-01 — Cursor [A] · Chunks attachment-DB JOIN for `pack:` / `mime:` / `since:` / `until:`
 
 **Summary**
