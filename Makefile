@@ -14,8 +14,8 @@ DESKTOP   ?= desktop
 
 .PHONY: help test test-product lint cockpit cockpit-build cockpit-tsc \
         acceptance-tars-meeet qa-agent qa-agent-json qa-loop qa-loop-once \
-        backend backend-dev desktop-dev desktop-build smoke-core-bridge \
-        gate-control-tower ops-bridge-secret clean
+        gate-release backend backend-dev desktop-dev desktop-build \
+        smoke-core-bridge gate-control-tower ops-bridge-secret clean
 
 help:                ## list targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -93,6 +93,9 @@ qa-loop:             ## autonomous QA loop (every QA_LOOP_INTERVAL_S, default 30
 
 qa-loop-once:        ## single QA loop iteration; writes JSON report to .qa-runs/
 	$(PY) -m scripts.qa_agent.loop --once
+
+gate-release:        ## full release readiness gate: pytest + cockpit + bridge + QA
+	bash scripts/gate_release.sh
 
 ops-bridge-secret:   ## one-shot: paste BRIDGE_SHARED_SECRET (Pages env + GH secret + redeploy + QA)
 	bash scripts/ops_set_bridge_shared_secret.sh

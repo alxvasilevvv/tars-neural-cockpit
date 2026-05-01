@@ -35,6 +35,7 @@ from web_extras.routers import playbooks as playbooks_router
 from web_extras.routers import pairing as pairing_router
 from web_extras.routers import policy as policy_router
 from web_extras.routers import product as product_router
+from web_extras.routers import qa as qa_router
 from web_extras.routers import recovery as recovery_router
 from web_extras.routers import search as search_router
 from web_extras.routers import usage as usage_router
@@ -169,6 +170,7 @@ from web_extras.routers import roles as roles_router  # noqa: E402
 
 app.include_router(entitlements_router.router)
 app.include_router(roles_router.router)
+app.include_router(qa_router.router)
 
 
 @app.get("/health")
