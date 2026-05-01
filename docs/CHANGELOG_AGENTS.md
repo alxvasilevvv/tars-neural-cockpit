@@ -119,6 +119,74 @@ fresh `recovery.challenge.passed` event for the same fingerprint.
   `docs/CHANGELOG_AGENTS.md`, `docs/AGENT_HANDOFF.md`,
   `docs/IDEAS.md`
 
+## 2026-05-01 — Cursor [A] · Per-IP rate limit on /api/recovery/challenge/{start,verify}
+
+**Summary**
+
+Closes the open follow-up from PR #74 (per-IP pairing rate-limit)
+to the rest of the anonymous attack surface. The 3-of-24
+challenge endpoints under `/api/recovery/challenge/{start,verify}`
+gate destructive flows (notably `POST /api/pairing/rotate-identity`
+which consumes a passed challenge) but were unprotected against
+two abuse vectors:
+
+- `start` mints + persists a challenge in the in-memory
+  `SeedChallengeStore`. Without a rate limit, a hostile client
+  could trivially exhaust process memory by spamming starts.
+- `verify` is anonymous and bound to a `challenge_id` with only 3
+  attempts; the brute-forcer's strategy is therefore to mint many
+  challenges and try one answer per challenge. The `start` cap
+  alone slows that, but verifying still benefits from its own
+  bucket so a stolen `challenge_id` from a friendly user can't
+  be brute-forced at network speed.
+
+1. **`web_extras/routers/recovery.py`**
+   - Reuses the `web_extras/rate_limit.py` token-bucket primitive
+     PR #74 introduced. Two named buckets:
+     - `recovery.challenge.start` — default 5 burst + 1 token /
+       30 s (`TARS_RECOVERY_CHALLENGE_START_BURST` /
+       `TARS_RECOVERY_CHALLENGE_START_RATE_PER_S`).
+     - `recovery.challenge.verify` — default 10 burst + 1 token /
+       10 s (`TARS_RECOVERY_CHALLENGE_VERIFY_BURST` /
+       `TARS_RECOVERY_CHALLENGE_VERIFY_RATE_PER_S`).
+   - `_client_ip` mirrors the pairing helper: honours
+     `X-Forwarded-For`'s left-most entry only when
+     `TARS_TRUST_FORWARDED_FOR=1`; otherwise falls back to
+     `request.client.host` so a hostile client can't spoof its
+     source IP via the header.
+   - 429 response uses the unified `TARSAPIError` envelope with
+     `error_code: "recovery_rate_limited"`, `Retry-After`,
+     `X-RateLimit-{Remaining,Reset,Bucket}` headers (with
+     `retry_after` capped at 86400 s).
+   - Emits `recovery.rate_limited` meeet event on every block so
+     the cockpit audit lane (the `/api/pairing/audit` feed shipped
+     in PR #77) can surface brute-force attempts alongside
+     `pair.rate_limited`.
+
+2. **`web_extras/errors.py`** — registers `recovery_rate_limited`.
+
+3. **Tests**
+   - `tests/test_recovery_challenge_rate_limit.py` (new) — 7 cases
+     covering 429 envelope shape, `recovery.rate_limited` event
+     emission, bucket isolation between `start` and `verify`,
+     per-subject isolation when `TARS_TRUST_FORWARDED_FOR=1`
+     (and the inverse — XFF ignored when the env flag is off),
+     and env-override of the default burst.
+   - `tests/test_seed_challenge.py` — `_isolated_challenge_store`
+     fixture also `reset_rate_limiter()`s before+after each test
+     so the singleton bucket can't leak state between cases.
+
+**Files**
+`web_extras/routers/recovery.py`,
+`web_extras/errors.py`,
+`tests/test_recovery_challenge_rate_limit.py` (new),
+`tests/test_seed_challenge.py`,
+`docs/CHANGELOG_AGENTS.md`,
+`docs/AGENT_HANDOFF.md`,
+`docs/IDEAS.md`.
+
+**Tests** — `pytest tests/` ⇒ 1399 passed (full suite).
+
 ## 2026-05-01 — Cursor [A] · Pairing audit feed + meeet kind_prefix filter
 
 **Summary**

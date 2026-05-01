@@ -177,6 +177,14 @@ Open ideas for the next layer:
   `pair.rate_limited` meeet event. The `pair_id` TTL piece is
   still pending — relay backend lives on meeet.world and is not in
   this repo's lane.
+  *Done (recovery half) 2026-05-01:* the same token-bucket
+  primitive now also gates
+  `POST /api/recovery/challenge/{start,verify}`. Defaults: 5 burst
+  + 1/30s on start (memory-exhaustion DoS), 10 burst + 1/10s on
+  verify (brute-force resistance). Env-tunable via
+  `TARS_RECOVERY_CHALLENGE_{START,VERIFY}_{BURST,RATE_PER_S}`.
+  Emits `recovery.rate_limited` events so the
+  `/api/pairing/audit` feed surfaces brute-force attempts.
 - **Multi-recipient envelope optimisation.** Today every recipient
   gets its own `crypto_box_seal` of the per-event content key. For
   high-fanout events (large fleets) we could move to a one-pass
