@@ -158,6 +158,7 @@ def test_action_specs_marked_destructive() -> None:
         ("mlm", "generate_post"),
         ("mlm", "add_member"),
         ("mlm", "log_activity"),
+        ("mlm", "update_member"),
     }
     found: set[tuple[str, str]] = set()
     for slug in ("traders", "business", "mlm", "science"):

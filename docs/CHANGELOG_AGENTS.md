@@ -4,6 +4,91 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · `mlm.update_member` + `mlm.list_members` close downline lifecycle
+
+**Summary**
+
+Closes the MLM downline lifecycle to match what just landed for the
+business pack: `add_member` writes, `downline_snapshot` /
+`retention_alert` summarise, but operators had no patch-style update
+path and no read-only "show me everyone in this branch" surface.
+This batch ships both.
+
+1. **DB helper** (`backend/core/domains/packs/mlm/db.py`)
+   - New `_parse_iso_loose` shared helper for tolerant ISO date /
+     datetime parsing (used by the `recent_days` filter and by the
+     action's timestamp validation).
+   - New `update_member_sync` / async `update_member(handle, updates)`.
+     Allowed fields: `sponsor / rank / joined_at / last_active_at /
+     volume_usd / notes`. Patch semantics: `""` clears an optional
+     string, `None` (or omission) leaves it untouched, `volume_usd`
+     must be a non-negative finite number.
+   - `update_member` returns `(member, changed_fields)`; an unknown
+     handle yields `(None, [])` (action layer maps to error code).
+   - `list_members(*, sponsor, rank, recent_days, limit)`: SQL
+     filters for sponsor / rank (case-insensitive equality), Python
+     post-filter for `recent_days` (uses `_parse_iso_loose` so
+     non-ISO strings are quietly excluded), positive-int `limit`.
+     Default no-arg call returns all rows in handle order (existing
+     behaviour preserved).
+
+2. **Actions** (`backend/core/domains/packs/mlm/actions.py`)
+   - New `update_member` handler with stable error envelopes
+     (`handle_required`, `no_updates`, `member_not_found`,
+     `volume_invalid`, `invalid_ts`).
+   - Returns `{ok, handle, member, unchanged, changed_fields,
+     db_path}`. `member` is the full row, including `updated_at`.
+     Idempotent: a no-op patch returns `unchanged=True` and emits
+     no event.
+   - Emits `mlm.member_updated` (handle, changed_fields, rank,
+     db_path) on the first transition.
+   - `ActionSpec` registered as `destructive=True`; rank enum
+     mirrors `add_member`.
+   - New `list_members` handler. Read-only; non-destructive; no
+     policy gate. Returns `{ok, count, members, db_path, filters,
+     summary}` with `summary.by_rank` (count by rank) and
+     `summary.total_volume_usd` (rounded sum) so the cockpit
+     renders a sidecar without a second pass. `limit` clamped to
+     `[1, 1000]`; garbage falls back to `None`.
+   - `recent_days` clamped to `[1, 3650]` in the schema.
+
+3. **Tests** (+33 new cases in
+   `tests/test_mlm_update_and_list_members.py`, 1 update in
+   `tests/test_policy.py`)
+   - `_parse_iso_loose`: accepts dates / datetimes / `Z` / offsets;
+     rejects garbage and blanks.
+   - `DownlineDB.update_member`: rank case-normalisation, idempotent
+     re-call, unknown handle, blank handle, invalid volume, optional
+     string clear vs None-skip, ignores fields outside the schema.
+   - `DownlineDB.list_members`: default returns all, sponsor / rank
+     normalisation, `recent_days` cutoff, positive-int `limit`.
+   - `update_member` action: happy path, missing / blank handle,
+     no_updates, unknown handle, invalid volume, invalid timestamp
+     payload, idempotent no-event, clearing optional string.
+   - `list_members` action: envelope + summary correctness, sponsor
+     / rank filters with case-normalisation, `recent_days` cutoff,
+     `limit` clamp, garbage `limit` falls back to None, total
+     volume rollup, empty-DB envelope.
+   - Spec wiring: `update_member` is destructive with `handle`
+     required; `list_members` is non-destructive with optional
+     filters.
+   - `test_action_specs_marked_destructive` extended to include
+     `("mlm", "update_member")`.
+
+**Test suite**: 1750 passed (was 1717). Lints clean.
+
+**Files**
+
+- `backend/core/domains/packs/mlm/db.py`
+- `backend/core/domains/packs/mlm/actions.py`
+- `tests/test_mlm_update_and_list_members.py` (new)
+- `tests/test_policy.py`
+- `docs/CHANGELOG_AGENTS.md`
+- `docs/AGENT_HANDOFF.md`
+- `docs/IDEAS.md`
+
+---
+
 ## 2026-05-01 — Cursor [A] · `business.local_deals` awareness source
 
 **Summary**

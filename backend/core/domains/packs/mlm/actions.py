@@ -233,6 +233,175 @@ async def downline_snapshot(args: Mapping[str, Any]) -> Mapping[str, Any]:
     }
 
 
+_UPDATABLE_MEMBER_FIELDS: tuple[str, ...] = (
+    "sponsor",
+    "rank",
+    "joined_at",
+    "last_active_at",
+    "volume_usd",
+    "notes",
+)
+
+
+async def update_member(args: Mapping[str, Any]) -> Mapping[str, Any]:
+    """Patch an existing member by handle.
+
+    Args:
+      ``handle``: required.
+      Any of ``sponsor / rank / joined_at / last_active_at / volume_usd
+      / notes``: passed through after coercion. Pass ``""`` for an
+      optional string to clear it; omit a field to leave it untouched.
+      ``handle`` itself cannot be patched.
+
+    Returns ``{ok: True, handle, member, unchanged, changed_fields,
+    db_path}`` on success, or ``{ok: False, error}`` with one of:
+    ``handle_required``, ``no_updates``, ``volume_invalid``,
+    ``member_not_found``, ``invalid_ts``.
+    """
+
+    handle = args.get("handle")
+    if not isinstance(handle, str) or not handle.strip():
+        return {"ok": False, "error": "handle_required"}
+
+    updates: dict[str, Any] = {}
+    for f in _UPDATABLE_MEMBER_FIELDS:
+        if f in args:
+            updates[f] = args[f]
+    if not updates:
+        return {"ok": False, "error": "no_updates"}
+
+    for ts_field in ("joined_at", "last_active_at"):
+        if ts_field in updates:
+            value = updates[ts_field]
+            if isinstance(value, str) and value.strip():
+                if _parse_date(value) is None:
+                    return {
+                        "ok": False,
+                        "error": "invalid_ts",
+                        "field": ts_field,
+                        "ts": value,
+                    }
+
+    db = get_downline_db()
+    await db.ensure_seeded()
+    try:
+        member, changed = await db.update_member(handle, updates)
+    except ValueError as exc:
+        return {"ok": False, "error": str(exc)}
+
+    if member is None:
+        return {
+            "ok": False,
+            "error": "member_not_found",
+            "handle": handle.strip(),
+        }
+
+    if changed:
+        client = get_client()
+        await client.emit(
+            "mlm.member_updated",
+            {
+                "handle": member.handle,
+                "changed_fields": list(changed),
+                "rank": member.rank,
+                "db_path": db.db_path,
+            },
+        )
+
+    return {
+        "ok": True,
+        "handle": handle.strip(),
+        "member": member.to_dict(),
+        "unchanged": not changed,
+        "changed_fields": list(changed),
+        "db_path": db.db_path,
+    }
+
+
+async def list_members(args: Mapping[str, Any]) -> Mapping[str, Any]:
+    """Read members from the downline DB with optional filters.
+
+    Args:
+      ``sponsor``: optional case-insensitive equality filter.
+      ``rank``: optional case-insensitive equality filter.
+      ``recent_days``: optional positive int. Keeps only members
+        with ``last_active_at`` within this many days of "now".
+      ``limit``: optional positive int (cap at 1000).
+
+    Returns ``{ok, count, members, db_path, filters, summary}``.
+    The ``summary`` block carries `by_rank` and `total_volume_usd`
+    rollups so the cockpit can render a sidecar without a second
+    pass.
+    """
+
+    db = get_downline_db()
+    await db.ensure_seeded()
+
+    sponsor_arg = args.get("sponsor")
+    sponsor = (
+        sponsor_arg.strip()
+        if isinstance(sponsor_arg, str) and sponsor_arg.strip()
+        else None
+    )
+    rank_arg = args.get("rank")
+    rank = (
+        rank_arg.strip()
+        if isinstance(rank_arg, str) and rank_arg.strip()
+        else None
+    )
+
+    recent_arg = args.get("recent_days")
+    if isinstance(recent_arg, bool):
+        recent_days: int | None = None
+    elif isinstance(recent_arg, int) and recent_arg > 0:
+        recent_days = recent_arg
+    else:
+        recent_days = None
+
+    limit_arg = args.get("limit")
+    if isinstance(limit_arg, bool):
+        limit: int | None = None
+    elif isinstance(limit_arg, int) and limit_arg > 0:
+        limit = min(limit_arg, 1000)
+    else:
+        limit = None
+
+    members = await db.list_members(
+        sponsor=sponsor,
+        rank=rank,
+        recent_days=recent_days,
+        limit=limit,
+    )
+
+    by_rank: dict[str, int] = {}
+    total_volume = 0.0
+    for m in members:
+        rk = (m.rank or "").lower()
+        if rk:
+            by_rank[rk] = by_rank.get(rk, 0) + 1
+        try:
+            total_volume += float(m.volume_usd or 0.0)
+        except (TypeError, ValueError):
+            pass
+
+    return {
+        "ok": True,
+        "count": len(members),
+        "members": [m.to_dict() for m in members],
+        "db_path": db.db_path,
+        "filters": {
+            "sponsor": sponsor.lower() if sponsor else None,
+            "rank": rank.lower() if rank else None,
+            "recent_days": recent_days,
+            "limit": limit,
+        },
+        "summary": {
+            "by_rank": by_rank,
+            "total_volume_usd": round(total_volume, 2),
+        },
+    }
+
+
 async def add_member(args: Mapping[str, Any]) -> Mapping[str, Any]:
     handle = str(args.get("handle") or "").strip()
     if not handle:
@@ -593,6 +762,67 @@ ACTIONS: tuple[ActionSpec, ...] = (
             "required": ["handle"],
         },
         destructive=True,
+    ),
+    ActionSpec(
+        id="update_member",
+        name="Update downline member",
+        description=(
+            "Patch a previously-added member by handle. Pass any subset "
+            "of sponsor / rank / joined_at / last_active_at / volume_usd "
+            "/ notes; omitted fields are untouched. Pass an empty string "
+            "for an optional string field to clear it. handle itself is "
+            "never patchable. Idempotent: a no-op patch returns "
+            "unchanged=True and emits no event. Stamps updated_at on "
+            "every change. Emits an mlm.member_updated meeet event "
+            "listing changed_fields. Marked destructive so the policy "
+            "gate routes the call through confirmation."
+        ),
+        handler=update_member,
+        schema={
+            "type": "object",
+            "properties": {
+                "handle": {"type": "string"},
+                "sponsor": {"type": "string"},
+                "rank": {
+                    "type": "string",
+                    "enum": ["starter", "bronze", "silver", "gold", "platinum"],
+                },
+                "joined_at": {"type": "string"},
+                "last_active_at": {"type": "string"},
+                "volume_usd": {"type": "number", "minimum": 0},
+                "notes": {"type": "string"},
+            },
+            "required": ["handle"],
+        },
+        destructive=True,
+    ),
+    ActionSpec(
+        id="list_members",
+        name="List downline members",
+        description=(
+            "Read members from the SQLite downline DB with optional "
+            "filters (sponsor / rank / recent_days / limit) and "
+            "pre-computed rollups (by_rank, total_volume_usd) so the "
+            "cockpit can render a sidecar without a second pass. "
+            "Read-only; no policy gate required."
+        ),
+        handler=list_members,
+        schema={
+            "type": "object",
+            "properties": {
+                "sponsor": {"type": "string"},
+                "rank": {
+                    "type": "string",
+                    "enum": ["starter", "bronze", "silver", "gold", "platinum"],
+                },
+                "recent_days": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 3650,
+                },
+                "limit": {"type": "integer", "minimum": 1, "maximum": 1000},
+            },
+        },
     ),
     ActionSpec(
         id="tg_outreach_draft",
