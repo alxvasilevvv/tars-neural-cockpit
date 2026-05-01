@@ -4,6 +4,74 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · SMTP OAuth refresh-token flow
+
+**Summary**
+
+Continuation of PR #40 (SASL XOAUTH2). PR #40 expected an externally-
+refreshed access token sitting in `TARS_SMTP_OAUTH_TOKEN` — fine for
+one-shot tests, but Gmail tokens expire after one hour and Microsoft
+behaves similarly. This slice plugs in stdlib-only OAuth2
+refresh-token exchange + an in-memory cache so long-lived TARS
+processes keep sending mail without operator intervention.
+
+1. **`backend/core/domains/packs/business/oauth.py`** (new, stdlib-only)
+   - `OAuthRefreshConfig.load(*, provider=None)` — reads
+     `TARS_SMTP_OAUTH_REFRESH_TOKEN` / `..._CLIENT_ID` / `..._CLIENT_SECRET`
+     / `..._TOKEN_URL` / `..._TENANT` / `..._SCOPE` from the vault
+     (with `SMTP_OAUTH_*` shorthand + env fallbacks). Returns `None`
+     when refresh token, client id, or token URL can't be resolved.
+   - `_PROVIDER_TOKEN_URLS` — provider shorthand → token endpoint
+     (gmail / office365 / outlook). Microsoft uses the configurable
+     tenant (default `common`).
+   - `get_fresh_access_token(cfg, *, force_refresh=False, timeout_s=10)`
+     — returns the cached token while it has more than `REFRESH_LEAD_S`
+     (default 300 s) of life left, otherwise hits the OAuth2 token
+     endpoint with `grant_type=refresh_token`. Failures isolated.
+   - In-process cache keyed on
+     `(client_id, token_url, refresh_token[:20])`. Test helpers
+     `reset_oauth_cache()` / `cache_size()`.
+
+2. **`backend/core/domains/packs/business/smtp.py`**
+   - `SmtpConfig` carries `oauth_token_source` (manual / refresh /
+     cache / none) + `oauth_expires_in`. `SmtpResult.to_dict` surfaces
+     both. Manual `TARS_SMTP_OAUTH_TOKEN` still wins (PR #40 contract
+     intact); refresh failure degrades to password fallback without
+     crashing.
+
+3. **`backend/core/domains/packs/business/pack.py`**
+   - `auth_vault_keys` declares the six new `SMTP_OAUTH_*` keys.
+
+4. **Tests** — `tests/test_business_smtp_oauth_refresh.py` (new, 18 cases)
+   - Parser: missing creds → None, provider shorthand resolves,
+     explicit URL beats provider, whitespace stripped.
+   - Cache: exchange + cache, second call hits cache,
+     `force_refresh` bypasses, `<REFRESH_LEAD_S` triggers refresh,
+     transport errors don't poison cache, OAuth `error` surfaces as
+     `decode_error`, missing `expires_in` defaults to 3600 s.
+   - Integration: refresh wins when no manual token, manual beats
+     refresh, refresh failure degrades to password fallback,
+     metadata surfaces in `to_dict`.
+
+**Verification**
+
+`pytest -q --ignore=tests/test_phase8_recovery.py
+       --deselect tests/test_pairing_contract.py::test_pair_attempted_event_emitted`
+→ **884 passed** (after rebase on PR #49 + saved-search-alerts).
+Lints clean.
+
+**Files**
+
+- backend/core/domains/packs/business/oauth.py (new)
+- backend/core/domains/packs/business/smtp.py
+- backend/core/domains/packs/business/pack.py
+- tests/test_business_smtp_oauth_refresh.py (new)
+- docs/CHANGELOG_AGENTS.md
+- docs/AGENT_HANDOFF.md
+- docs/IDEAS.md
+
+---
+
 ## 2026-05-01 — Cursor [A] · Saved-search alerts (`saved_search.new_hits`)
 
 **Summary**

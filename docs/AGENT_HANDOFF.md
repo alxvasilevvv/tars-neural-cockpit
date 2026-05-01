@@ -1119,11 +1119,25 @@ Smaller functional items still pending in parallel:
    `SMTP_PROVIDER=gmail|office365|outlook|fastmail|yahoo|zoho`
    pre-fills host/port/TLS so a Gmail setup is two env vars:
    `SMTP_PROVIDER=gmail` + `SMTP_USER=…` + `SMTP_OAUTH_TOKEN=…`.
-   Refresh / consent flows still belong upstream — provide an
-   externally-refreshed bearer token. **Still pending:** full
-   OAuth2 dance (`refresh_token` exchange) and JMAP
+   **Refresh-token flow shipped 2026-05-01:**
+   `backend/core/domains/packs/business/oauth.py` exchanges
+   `SMTP_OAUTH_REFRESH_TOKEN` + `SMTP_OAUTH_CLIENT_ID`
+   (+ optional `SMTP_OAUTH_CLIENT_SECRET` / `..._TOKEN_URL` /
+   `..._TENANT` / `..._SCOPE`) for a fresh access token via the
+   provider's OAuth2 token endpoint, caches it in-process, and
+   refreshes 5 minutes before expiry. Manual `SMTP_OAUTH_TOKEN`
+   still wins. Refresh failure degrades to password fallback
+   without crashing. Provider shorthand
+   `gmail` / `office365` / `outlook` resolves the token URL
+   (Microsoft uses the configurable tenant). `SmtpResult.to_dict`
+   now surfaces `oauth_token_source` (`manual` / `refresh` /
+   `cache` / `none`) + `oauth_expires_in` so the cockpit can show
+   token freshness. `tests/test_business_smtp_oauth_refresh.py`
+   (18 cases) pin parser, cache, refresh, and degradation paths.
+   **Still pending:** initial consent / authorization-code flow
+   (operator-side once-per-account dance) and JMAP
    (Fastmail-native protocol) — both require operator-side
-   infrastructure (consent UI, persistent store).
+   infrastructure (consent UI, persistent token store).
 7. ~~**Composite playbooks.** Composite domain packs are live; the
    playbook runner still scopes to a single pack — extend so a
    playbook in `playbooks/research_lab/...` can call
