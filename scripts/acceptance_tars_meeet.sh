@@ -40,9 +40,14 @@ need curl
 need awk
 need grep
 
+# BRIDGE_SHARED_SECRET is required for the bridge-end gates (5/6). When
+# absent we skip those gates with a yellow notice instead of refusing
+# to run; this lets the operator + agents sanity-check the surface
+# before they have access to the secret.
+SKIP_BRIDGE_GATES=0
 if [[ -z "${BRIDGE_SHARED_SECRET:-}" ]]; then
-  red "BRIDGE_SHARED_SECRET is required (sets the x-bridge-secret for relay-event tests)"
-  exit 2
+  yel "BRIDGE_SHARED_SECRET not set — gates 5/6 will be SKIPPED."
+  SKIP_BRIDGE_GATES=1
 fi
 
 failures=0
@@ -55,8 +60,11 @@ echo
 # ---------- Gate 1: root returns 200 + X-Tars-Contract ----------
 blue "[1/7] root → 200 + X-Tars-Contract: 1.0.0"
 headers=$(curl -sIL "${TARS_BASE}/" 2>/dev/null || true)
-status=$(printf '%s' "$headers" | awk 'NR==1 {print $2; exit}')
-contract=$(printf '%s' "$headers" | awk -F': ' 'tolower($1) == "x-tars-contract" {gsub(/\r/, "", $2); print $2; exit}')
+# Cloudflare emits `103 Early Hints` over HTTP/2 before the final
+# response, so the *first* status line is informational. Pick the last
+# non-1xx status line instead.
+status=$(printf '%s' "$headers" | awk '/^HTTP\// && $2 !~ /^1/ {s=$2} END{print s}')
+contract=$(printf '%s' "$headers" | awk -F': ' 'tolower($1) == "x-tars-contract" {gsub(/\r/, "", $2); v=$2} END{print v}')
 if [[ "$status" == "200" ]]; then
   ok "HTTP $status"
 else
@@ -122,7 +130,9 @@ echo
 
 # ---------- Gate 5: core-bridge smoke green ----------
 blue "[5/7] core-bridge end-to-end smoke (relay → tars-ingest)"
-if scripts/smoke_core_bridge_e2e.sh >/dev/null 2>&1; then
+if [[ "$SKIP_BRIDGE_GATES" == "1" ]]; then
+  yel "  SKIP: BRIDGE_SHARED_SECRET unset"
+elif scripts/smoke_core_bridge_e2e.sh >/dev/null 2>&1; then
   ok "smoke_core_bridge_e2e.sh: all assertions passed"
 else
   rc=$?
@@ -132,9 +142,12 @@ echo
 
 # ---------- Gate 6: trace_id round-trip via /relay-event ----------
 blue "[6/7] trace_id round-trip via core-bridge → tars-ingest"
-trace_id="acceptance_$(date -u +%s)_$(printf '%x' $$)"
-session_id="acceptance_session_$(printf '%x' $$)"
-relay_payload=$(cat <<JSON
+if [[ "$SKIP_BRIDGE_GATES" == "1" ]]; then
+  yel "  SKIP: BRIDGE_SHARED_SECRET unset"
+else
+  trace_id="acceptance_$(date -u +%s)_$(printf '%x' $$)"
+  session_id="acceptance_session_$(printf '%x' $$)"
+  relay_payload=$(cat <<JSON
 {
   "kind": "tars.acceptance.probe",
   "trace_id": "${trace_id}",
@@ -146,16 +159,17 @@ relay_payload=$(cat <<JSON
   }
 }
 JSON
-)
-relay_body=$(curl -sS -X POST "${CORE_BRIDGE_URL}/relay-event" \
-  -H "Content-Type: application/json" \
-  -H "Origin: https://tars.meeet.world" \
-  -H "x-bridge-secret: ${BRIDGE_SHARED_SECRET}" \
-  -d "$relay_payload" 2>/dev/null || true)
-if printf '%s' "$relay_body" | grep -q '"ok":true'; then
-  ok "relay returned ok:true (trace_id=${trace_id})"
-else
-  fail "relay rejected: $(printf '%s' "$relay_body" | head -c 200)"
+  )
+  relay_body=$(curl -sS -X POST "${CORE_BRIDGE_URL}/relay-event" \
+    -H "Content-Type: application/json" \
+    -H "Origin: https://tars.meeet.world" \
+    -H "x-bridge-secret: ${BRIDGE_SHARED_SECRET}" \
+    -d "$relay_payload" 2>/dev/null || true)
+  if printf '%s' "$relay_body" | grep -q '"ok":true'; then
+    ok "relay returned ok:true (trace_id=${trace_id})"
+  else
+    fail "relay rejected: $(printf '%s' "$relay_body" | head -c 200)"
+  fi
 fi
 echo
 

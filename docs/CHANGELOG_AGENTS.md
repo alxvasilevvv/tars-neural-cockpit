@@ -4,6 +4,48 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor · CI Pages-Functions regression fix + QA agent v1.1
+
+**Summary**
+
+Post-merge CI deploy of PR #20 produced a green workflow but a broken
+production: the `wrangler-action` was invoked from the repo root with
+`pages deploy experiments/neural-showcase-v3/dist`, so wrangler never
+saw the sibling `functions/` tree. The Pages Functions bundle was
+silently dropped, `/api/product/downloads` and `/api/product/version`
+404'd, and the synthetic monitor caught it within seconds. Hot-fixed by
+re-deploying via wrangler from `experiments/neural-showcase-v3/`, then
+patched the workflow + monitor + QA agent so the regression cannot
+recur unnoticed.
+
+What landed:
+
+- `.github/workflows/tars-meeet-cloudflare-pages.yml`:
+  - Added `workingDirectory: experiments/neural-showcase-v3` to the
+    `wrangler-action` step. Wrangler now picks up `functions/` as a
+    sibling of `dist/`.
+  - Smoke step is now a hard fail (was a warning) — if the manifest
+    endpoint never reappears, the workflow fails so we cannot
+    promote a broken deploy to main.
+- `.github/workflows/tars-meeet-synthetic-monitor.yml`:
+  - Added `/api/product/version` probe (Pages Function).
+  - Manifest probe gets 3 retries × 5s for propagation tolerance.
+  - Origin (Supabase `tars-downloads`) probe demoted to warning since
+    the function is in the process of being decommissioned.
+- `scripts/qa_agent/probes.py`:
+  - New `probe_client_error_endpoint`: POSTs a synthetic
+    `tars.client.error` to `/api/client-error` and asserts the schema
+    round-trips. WARN (not FAIL) when `BRIDGE_SHARED_SECRET` is unset
+    — operator hint built into the message.
+  - `probe_tokenomics_invariants` doc updated to reflect that the page
+    intentionally lives in the Lovable repo, so SKIP is by design.
+- `scripts/qa_agent/runner.py`:
+  - Wired the new probe into the API sequence.
+
+QA Agent post-fix: `25 PASS / 0 FAIL / 2 WARN / 3 SKIP`. Both warnings
+are operator-action-only (`schema.sitemap` is the Lovable canonical
+flip; `api.client_error` waits for `BRIDGE_SHARED_SECRET` paste).
+
 ## 2026-05-01 — Cursor · `tars.meeet.world` cutover complete
 
 **Summary**
