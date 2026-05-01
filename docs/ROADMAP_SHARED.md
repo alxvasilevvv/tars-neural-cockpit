@@ -62,7 +62,19 @@ Legend: `[ ]` open · `[~]` in progress · `[x]` done · `[CU]` Cursor ·
 - [ ] [CU] Rotate exposed secrets (`BRIDGE_SHARED_SECRET`,
       `TARS_INGEST_API_KEY`); re-run gate
 - [ ] [LV] Confirm rotated values landed in `core-bridge` env
-- [ ] [CU] Add origin allowlist test to `tars-ingest` deployment script
+- [x] [CU] Add origin allowlist on `tars-ingest` and `tars-downloads`
+      (`TARS_ALLOWED_ORIGINS` env, defaults `meeet.world,tars.meeet.world`).
+      Shipped via `meeet-solana-state-941a6045#7`.
+- [x] [CU] Cross-lane Control Tower scaffolding in core repo
+      (`COORDINATION.md`, `docs/CONTROL_TOWER.md`, `npm run gate:control-tower`,
+      `SOFT_SMOKE=1` for dev). Shipped via `meeet-solana-state-941a6045#7`.
+- [x] [CU] Realign `navbarItemsE2E.test.tsx` with the new Lovable Navbar
+      structure (Explore/Economy/Community/Academy + dropdown buttons).
+      Shipped via `meeet-solana-state-941a6045#6` (test-only, no UI code).
+- [ ] [LV] Review + merge #6 then #7 in `meeet-solana-state-941a6045`.
+- [ ] [LV] After #7 merges, redeploy `tars-{downloads,ingest}` and set
+      `TARS_ALLOWED_ORIGINS` + rotated `TARS_INGEST_API_KEY` secrets in
+      `hhpaukjobskcwkxbgecl`.
 - [ ] [CL] Wire `meeet.world` landing CTA to `GET /api/product/downloads`
       (or static export thereof). See `docs/contracts/MEEET_DOWNLOADS.md`.
 
