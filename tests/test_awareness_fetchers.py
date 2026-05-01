@@ -76,6 +76,7 @@ def test_science_local_papers_lists_real_files(tmp_path) -> None:
         ("business", "hubspot"),
         ("business", "gsheets_kpi"),
         ("traders", "news_feed"),
+        ("traders", "local_alerts"),
         ("mlm", "downline_db"),
     ],
 )
