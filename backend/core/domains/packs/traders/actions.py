@@ -4,7 +4,10 @@
 API (no key required). ``summarize_market`` aggregates a basket and asks
 the council to interpret it. ``pull_klines`` is a read-only adapter
 against Binance's public klines REST endpoint (no key required).
-Other actions stay as typed stubs until they get real ground.
+``place_alert`` persists alerts into a local-first JSON store
+(``~/.tars/traders_alerts.json`` by default) so the destructive-action
+gate has a real receipt on the other side. ``list_alerts`` reads them
+back with optional filters.
 """
 
 from __future__ import annotations
@@ -20,6 +23,13 @@ from .binance import (
     DEFAULT_LIMIT as BINANCE_DEFAULT_LIMIT,
     MAX_LIMIT as BINANCE_MAX_LIMIT,
     pull_klines as binance_pull_klines,
+)
+from .local_alerts import (
+    VALID_DIRECTIONS as ALERT_DIRECTIONS,
+    VALID_SOURCES as ALERT_SOURCES,
+    append_local_alert,
+    read_local_alerts,
+    resolve_local_alerts_path,
 )
 
 DEXSCREENER_SEARCH = "https://api.dexscreener.com/latest/dex/search"
@@ -108,16 +118,107 @@ def _to_float(v: Any) -> float | None:
 
 
 async def place_alert(args: Mapping[str, Any]) -> Mapping[str, Any]:
+    """Persist a price alert to the local-first JSON store.
+
+    Returns ``{ok: True, alert_id, store_path, ...}`` on success, or
+    ``{ok: False, error}`` with one of the stable codes:
+    ``missing_args``, ``ticker_required``, ``price_invalid``,
+    ``direction_invalid``, ``local_store_unwritable``.
+    """
+
     required = {"ticker", "price", "direction"}
     missing = sorted(k for k in required if k not in args)
     if missing:
         return {"ok": False, "error": "missing_args", "missing": missing}
+
+    path_override = args.get("path") if isinstance(args.get("path"), str) else None
+    note = args.get("note") if isinstance(args.get("note"), str) else None
+    source = args.get("source", "manual")
+
+    try:
+        record = await append_local_alert(
+            ticker=args["ticker"],
+            price=args["price"],
+            direction=args["direction"],
+            note=note,
+            source=source,
+            path=path_override,
+        )
+    except ValueError as exc:
+        return {"ok": False, "error": str(exc)}
+    except OSError as exc:
+        return {
+            "ok": False,
+            "error": "local_store_unwritable",
+            "detail": str(exc),
+        }
+
+    target = resolve_local_alerts_path(path_override)
     return {
         "ok": True,
-        "alert_id": "stub-0001",
-        "ticker": str(args["ticker"]).upper(),
-        "price": float(args["price"]),
-        "direction": str(args["direction"]),
+        "alert_id": record.id,
+        "ticker": record.ticker,
+        "price": record.price,
+        "direction": record.direction,
+        "source": record.source,
+        "note": record.note,
+        "created_at": record.created_at,
+        "active": record.active,
+        "store": "local",
+        "store_path": str(target),
+        "hint": (
+            "Stored locally; a future relay will push this to a venue alert "
+            "service. Inspect ~/.tars/traders_alerts.json for the full log."
+        ),
+    }
+
+
+async def list_alerts(args: Mapping[str, Any]) -> Mapping[str, Any]:
+    """Read alerts from the local store with optional filters.
+
+    Args:
+      ``ticker``: optional case-insensitive filter.
+      ``active_only``: optional bool, default ``False``.
+      ``limit``: optional positive int (most recent N entries).
+      ``path``: optional override for the local store path.
+    """
+
+    path_override = args.get("path") if isinstance(args.get("path"), str) else None
+    ticker = args.get("ticker") if isinstance(args.get("ticker"), str) else None
+    active_only = bool(args.get("active_only", False))
+    limit_arg = args.get("limit")
+    limit: int | None = None
+    if isinstance(limit_arg, bool):
+        limit = None
+    elif isinstance(limit_arg, int) and limit_arg > 0:
+        limit = limit_arg
+
+    try:
+        rows = read_local_alerts(
+            path=path_override,
+            active_only=active_only,
+            ticker=ticker,
+            limit=limit,
+        )
+    except OSError as exc:
+        return {
+            "ok": False,
+            "error": "local_store_unreadable",
+            "detail": str(exc),
+        }
+
+    target = resolve_local_alerts_path(path_override)
+    return {
+        "ok": True,
+        "count": len(rows),
+        "alerts": rows,
+        "store": "local",
+        "store_path": str(target),
+        "filters": {
+            "ticker": ticker.upper() if isinstance(ticker, str) and ticker else None,
+            "active_only": active_only,
+            "limit": limit,
+        },
     }
 
 
@@ -265,18 +366,53 @@ ACTIONS: tuple[ActionSpec, ...] = (
     ActionSpec(
         id="place_alert",
         name="Place price alert",
-        description="Create a price alert in the local policy engine.",
+        description=(
+            "Persist a price alert into the local-first JSON store at "
+            "~/.tars/traders_alerts.json (override via TARS_LOCAL_ALERTS_PATH). "
+            "Emits a traders.alert_placed meeet event. Marked destructive so "
+            "the policy gate routes the call through confirmation."
+        ),
         handler=place_alert,
         schema={
             "type": "object",
             "properties": {
                 "ticker": {"type": "string"},
-                "price": {"type": "number"},
-                "direction": {"type": "string", "enum": ["above", "below"]},
+                "price": {"type": "number", "exclusiveMinimum": 0},
+                "direction": {
+                    "type": "string",
+                    "enum": sorted(ALERT_DIRECTIONS),
+                },
+                "note": {"type": "string"},
+                "source": {
+                    "type": "string",
+                    "enum": sorted(ALERT_SOURCES),
+                    "default": "manual",
+                },
+                "path": {
+                    "type": "string",
+                    "description": "Optional override for the local store path.",
+                },
             },
             "required": ["ticker", "price", "direction"],
         },
         destructive=True,
+    ),
+    ActionSpec(
+        id="list_alerts",
+        name="List price alerts",
+        description=(
+            "Read the local-first traders alerts store with optional filters."
+        ),
+        handler=list_alerts,
+        schema={
+            "type": "object",
+            "properties": {
+                "ticker": {"type": "string"},
+                "active_only": {"type": "boolean", "default": False},
+                "limit": {"type": "integer", "minimum": 1, "maximum": 1000},
+                "path": {"type": "string"},
+            },
+        },
     ),
     ActionSpec(
         id="pull_klines",

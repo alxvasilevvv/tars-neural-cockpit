@@ -193,6 +193,25 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-01 — `traders.place_alert` real local-first store + `list_alerts` (Cursor [A]):**
+  Promotes the last hardcoded stub in the traders pack
+  (`return {"alert_id": "stub-0001"}`) into a real local-first
+  adapter. New `backend/core/domains/packs/traders/local_alerts.py`
+  persists every alert into `~/.tars/traders_alerts.json` (override
+  via `TARS_LOCAL_ALERTS_PATH` or `path` kwarg), mints monotonic
+  `local-alert-NNNN` ids, validates inputs strictly with stable
+  error codes (`ticker_required`, `price_invalid`,
+  `direction_invalid`), and emits `traders.alert_placed` meeet
+  events. Allowed directions expanded to
+  `above / below / cross_above / cross_below`. The destructive-action
+  policy gate now confirms a real persisted receipt instead of a
+  hardcoded echo. New non-destructive `list_alerts` action lets
+  operators / playbooks read the queue back with `ticker`,
+  `active_only`, `limit` filters. Pinned by 69 new tests covering
+  path resolution, store IO, atomic writes, ID generation,
+  coercion edge cases, the action handlers, and ActionSpec
+  wiring; full suite: **1630 green**.
+
 - **2026-05-01 — entrepreneur pack schema parity for `generate_content` (Cursor [A]):**
   Syncs the entrepreneur pack's `generate_content` `ActionSpec`
   schema with the upgraded MLM drafter that landed earlier

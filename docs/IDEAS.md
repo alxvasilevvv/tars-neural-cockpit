@@ -410,6 +410,22 @@ Open ideas for the next layer:
    - `traders.fetch_quote` ✅ shipped — DexScreener public search.
    - `traders.summarize_market` ✅ shipped — basket aggregation +
      bias + dispersion contradictions.
+   - `traders.place_alert` ✅ shipped (2026-05-01) — real
+     local-first adapter. New module
+     `backend/core/domains/packs/traders/local_alerts.py` persists
+     each alert into `~/.tars/traders_alerts.json` (override via
+     `TARS_LOCAL_ALERTS_PATH` env var or `path` kwarg) with
+     atomic tmp+rename writes, monotonic `local-alert-NNNN` ids,
+     strict input validation (stable error codes
+     `ticker_required` / `price_invalid` / `direction_invalid`),
+     and the broadened direction enum
+     `above / below / cross_above / cross_below`. Emits
+     `traders.alert_placed` per the cross-cutting adapter rule so
+     the destructive-action gate now confirms a real persisted
+     receipt instead of the old `stub-0001` echo. Sibling
+     **`traders.list_alerts`** (non-destructive) reads the queue
+     back with `ticker / active_only / limit` filters. Pinned by
+     `tests/test_traders_local_alerts.py` (69 cases).
    - `business.kpi_snapshot`, `business.daily_brief` ✅ shipped —
      local JSON-backed. `daily_brief` (2026-05-01 follow-up)
      now also unions the local `log_deal` store at
