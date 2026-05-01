@@ -361,6 +361,269 @@ def _is_cloud_embedder(embedder: Embedder) -> bool:
     return type(embedder).__name__ == "OpenAIEmbedder"
 
 
+# ---------------------------------------------------------------------
+# Re-embed on demand
+# ---------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class ReembedResult:
+    """Outcome of a :func:`reembed_attachment` call."""
+
+    ok: bool
+    attachment_id: str
+    chunk_count: int = 0
+    embedding_model: str | None = None
+    embedding_dim: int | None = None
+    tokens_used: int = 0
+    cost_usd: float = 0.0
+    previous_model: str | None = None
+    error: str | None = None
+    detail: str | None = None
+
+    def to_dict(self) -> dict:
+        body: dict = {
+            "ok": self.ok,
+            "attachment_id": self.attachment_id,
+            "chunk_count": self.chunk_count,
+            "embedding_model": self.embedding_model,
+            "embedding_dim": self.embedding_dim,
+            "tokens_used": self.tokens_used,
+            "cost_usd": self.cost_usd,
+            "previous_model": self.previous_model,
+        }
+        if self.error is not None:
+            body["error"] = self.error
+        if self.detail is not None:
+            body["detail"] = self.detail
+        return body
+
+
+def _resolve_embedder_by_name(name: str | None) -> Embedder:
+    """Map a short name (``openai`` / ``hash``) to a concrete
+    embedder. Anything else falls back to :func:`detect_embedder`.
+
+    Raised model names like ``text-embedding-3-large`` are routed
+    to :class:`OpenAIEmbedder` so an operator can promote the
+    corpus to a higher-quality vector without setting an env var.
+    """
+
+    cleaned = (name or "").strip().lower()
+    if not cleaned:
+        return detect_embedder()
+    if cleaned == "hash":
+        from .embeddings import HashEmbedder
+
+        return HashEmbedder()
+    if cleaned == "openai":
+        from .embeddings import OpenAIEmbedder
+
+        return OpenAIEmbedder()
+    if cleaned.startswith("text-embedding-"):
+        from .embeddings import OpenAIEmbedder
+
+        return OpenAIEmbedder(model=cleaned)
+    return detect_embedder()
+
+
+async def reembed_attachment(
+    attachment_id: str,
+    *,
+    embedder: Embedder | None = None,
+    embedder_name: str | None = None,
+    store: AttachmentStore | None = None,
+    session_id: str | None = None,
+) -> ReembedResult:
+    """Re-embed every chunk for ``attachment_id`` with a fresh
+    (or explicitly-named) embedder.
+
+    Use cases:
+
+    - **Promote to OpenAI**: a thread was indexed with the
+      offline ``HashEmbedder``; once the operator pastes an
+      OpenAI key into the vault they want to upgrade existing
+      attachments to ``text-embedding-3-small`` without
+      re-uploading.
+    - **Retire a model**: switch every chunk from a deprecated
+      ``-3-small`` to ``-3-large`` for higher recall.
+    - **Forced refresh**: same model name, but pricing tables
+      changed and the operator wants the cost ledger to record
+      the spend under the current rate.
+
+    Args:
+        attachment_id: target attachment id.
+        embedder: explicit embedder instance (mutually exclusive
+            with ``embedder_name``).
+        embedder_name: short name (``openai`` / ``hash``) or a
+            specific OpenAI model id.
+        store: explicit store override (tests).
+        session_id: optional session id for the meeet trace
+            scope.
+
+    Returns:
+        :class:`ReembedResult`. ``ok=False`` when the attachment
+        is missing (``error="attachment_not_found"``) or when
+        there are no chunks to re-embed
+        (``error="no_chunks"``). Never raises on bad operator
+        input — returns the structured error instead.
+    """
+
+    store = store or get_attachment_store()
+    record = await store.get_attachment(attachment_id)
+    if record is None:
+        return ReembedResult(
+            ok=False,
+            attachment_id=attachment_id,
+            error="attachment_not_found",
+        )
+
+    chunks = await store.list_chunks(
+        record.thread_id, attachment_id=attachment_id
+    )
+    if not chunks:
+        return ReembedResult(
+            ok=False,
+            attachment_id=attachment_id,
+            error="no_chunks",
+            detail=(
+                "attachment has no chunks to re-embed; ingest may "
+                "have produced extract_pending or zero text"
+            ),
+            previous_model=record.embedding_id,
+        )
+
+    if embedder is not None and embedder_name is not None:
+        return ReembedResult(
+            ok=False,
+            attachment_id=attachment_id,
+            error="embedder_args_conflict",
+            detail=(
+                "pass either an embedder instance or an "
+                "embedder_name, not both"
+            ),
+        )
+    chosen = embedder or _resolve_embedder_by_name(embedder_name)
+
+    previous_model = record.embedding_id
+    new_chunks: list[Chunk] = []
+    embed_tokens = 0
+    embedding_model: str | None = None
+    embedding_dim: int | None = None
+
+    with trace_scope(session=session_id, route="edge") as trace_id:
+        try:
+            if _is_cloud_embedder(chosen):
+                set_route("cloud")
+            result = await chosen.embed([c.text or "" for c in chunks])
+            vectors = result.vectors
+            embedding_model = result.model
+            embedding_dim = result.dim or (
+                len(vectors[0]) if vectors else None
+            )
+            embed_tokens = result.tokens_used or sum(
+                max(1, len((c.text or "")) // 4) for c in chunks
+            )
+        except Exception as exc:
+            client = get_client()
+            await client.emit(
+                "attachment.reembedded",
+                {
+                    "attachment_id": attachment_id,
+                    "thread_id": record.thread_id,
+                    "ok": False,
+                    "error": "embedder_failed",
+                    "detail": str(exc),
+                    "trace_id": trace_id,
+                },
+            )
+            return ReembedResult(
+                ok=False,
+                attachment_id=attachment_id,
+                previous_model=previous_model,
+                error="embedder_failed",
+                detail=str(exc),
+            )
+
+        now = time.time()
+        for chunk, vector in zip(chunks, vectors):
+            new_chunks.append(
+                Chunk(
+                    id=chunk.id,
+                    attachment_id=chunk.attachment_id,
+                    thread_id=chunk.thread_id,
+                    ord=chunk.ord,
+                    text=chunk.text,
+                    char_start=chunk.char_start,
+                    char_end=chunk.char_end,
+                    heading=chunk.heading,
+                    page=chunk.page,
+                    embedding_model=embedding_model,
+                    embedding_dim=embedding_dim,
+                    embedding=vector,
+                    tokens_in=chunk.tokens_in,
+                    created_at=now,
+                )
+            )
+        await store.replace_chunks(
+            attachment_id, record.thread_id, new_chunks
+        )
+
+        # Stamp the new model on the attachment row so the cockpit
+        # can render "indexed via <model>" without reading chunks.
+        record = AttachmentRecord(
+            **{
+                **record.__dict__,
+                "embedding_id": embedding_model,
+                "status": "ready",
+            }
+        )
+        await store.upsert_attachment(record)
+
+        cost_usd = _embedder_cost_usd(embedding_model, embed_tokens)
+
+        client = get_client()
+        await client.emit(
+            "attachment.reembedded",
+            {
+                "attachment_id": attachment_id,
+                "thread_id": record.thread_id,
+                "previous_model": previous_model,
+                "embedding_model": embedding_model,
+                "embedding_dim": embedding_dim,
+                "chunk_count": len(new_chunks),
+                "tokens_used": embed_tokens,
+                "cost_usd": cost_usd,
+                "trace_id": trace_id,
+                "route": current_route(),
+                "ok": True,
+            },
+        )
+        if embedding_model and embed_tokens > 0 and cost_usd > 0:
+            await client.emit(
+                "usage.tokens",
+                {
+                    "model": embedding_model,
+                    "tokens_in": embed_tokens,
+                    "tokens_out": 0,
+                    "latency_ms": 0.0,
+                    "cost_usd": cost_usd,
+                    "topic": "attachment.reembed",
+                    "thread_id": record.thread_id,
+                },
+            )
+
+    return ReembedResult(
+        ok=True,
+        attachment_id=attachment_id,
+        chunk_count=len(new_chunks),
+        embedding_model=embedding_model,
+        embedding_dim=embedding_dim,
+        tokens_used=embed_tokens,
+        cost_usd=cost_usd,
+        previous_model=previous_model,
+    )
+
+
 async def delete_attachment(
     attachment_id: str, *, store: AttachmentStore | None = None
 ) -> bool:

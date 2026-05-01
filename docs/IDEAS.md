@@ -84,9 +84,17 @@ Ideas for the next sprints. Triage by impact × cost and pull into
   `backend/core/attachments/index.py::get_chunk_neighbours` and
   `tests/test_attachments_chunk_neighbours.py` (19 cases).
   Cockpit hover-card UI is the Claude-lane follow-up.
-- **Re-embed on demand.** Endpoint that re-embeds all chunks for an
-  attachment with a different model (e.g. promote from hash to OpenAI
-  once a key is set).
+- ~~**Re-embed on demand.**~~ **shipped** (2026-05-01) —
+  `reembed_attachment(attachment_id, *, embedder, embedder_name,
+  session_id)` in `backend/core/attachments/pipeline.py` re-vectorises
+  every chunk under a new embedder while preserving chunk ids and
+  ords (so cockpit permalinks survive). `POST
+  /api/chat/attachments/{id}/reembed` body
+  `{model: "openai" | "hash" | "text-embedding-3-large"}`; defaults to
+  `detect_embedder()` when omitted/blank/unknown. Emits
+  `attachment.reembedded` + `usage.tokens`. Pinned by
+  `tests/test_attachments_reembed.py` (21 cases). Cockpit
+  "promote/swap embedder" UI is the Claude-lane follow-up.
 - **Citation rendering in markdown.** Today the assistant says
   "as `[chunk_2]` shows…". Render `[chunk_N]` as a clickable pill in
   `<MessageBubble />` that scrolls to the matching source row.
