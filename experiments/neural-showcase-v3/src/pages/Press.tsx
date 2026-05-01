@@ -46,7 +46,7 @@ export function Press() {
   useDocumentMeta({
     title: "Press kit",
     description: "Brand assets, boilerplate paragraphs, palette, founder bios, and contact for journalists writing about TARS.",
-    ogImage: "https://meeet.world/og-press.svg",
+    ogImage: "https://tars.meeet.world/og-press.svg",
   });
   const t = useT();
   return (

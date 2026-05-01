@@ -17,7 +17,7 @@ const DEFAULT = {
   title: "TARS — Neural Cockpit · meeet.world",
   description:
     "Local-first AI agent for Mac. Multi-LLM council, Mac operator, persistent memory, $MEEET economy. Install with one curl.",
-  ogImage: "https://meeet.world/og.svg",
+  ogImage: "https://tars.meeet.world/og.svg",
 };
 
 export interface PageMeta {
