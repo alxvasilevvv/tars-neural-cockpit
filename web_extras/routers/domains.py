@@ -60,9 +60,9 @@ async def manifest() -> dict[str, Any]:
                 "deprecated_in_favor_of": m.deprecated_in_favor_of,
                 "composite": composite,
                 "composed_of": list(getattr(pack, "composed_of", ())),
-                "action_count": sum(1 for _ in pack.actions()),
+                "action_count": sum(1 for _ in pack.all_actions()),
                 "destructive_action_count": sum(
-                    1 for a in pack.actions() if a.destructive
+                    1 for a in pack.all_actions() if a.destructive
                 ),
                 "awareness_count": sum(1 for _ in pack.awareness()),
             }

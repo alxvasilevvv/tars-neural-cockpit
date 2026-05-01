@@ -113,8 +113,24 @@ class DomainPack(ABC):
 
         return ()
 
+    def all_actions(self) -> Iterable[ActionSpec]:
+        """Return the pack's own actions plus any system-wide injected
+        actions.
+
+        The system-wide layer currently injects ``pack.memory.*`` —
+        a uniform memory partition contract every pack inherits.
+        Composite packs override this method to flatten per-leaf
+        memory actions (so callers can address
+        ``business__pack.memory.set`` etc).
+        """
+
+        from .memory_actions import memory_actions  # local import — avoid cycle
+
+        yield from self.actions()
+        yield from memory_actions(self.manifest.slug)
+
     def find_action(self, action_id: str) -> ActionSpec | None:
-        for spec in self.actions():
+        for spec in self.all_actions():
             if spec.id == action_id:
                 return spec
         return None
@@ -152,7 +168,7 @@ class DomainPack(ABC):
                     "schema": dict(a.schema),
                     "destructive": a.destructive,
                 }
-                for a in self.actions()
+                for a in self.all_actions()
             ],
             "awareness": [
                 {

@@ -4,6 +4,108 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · `pack.memory.*` action family (system-wide)
+
+**Summary**
+
+Activates the storage layer shipped in PR #56 by exposing memory as
+a uniform action surface on **every** domain pack. Agents,
+playbooks, and operators now read/write through the same
+`pack.memory.*` interface regardless of which pack they're acting
+on. Composite packs flatten sub-pack memory under
+`<sub_slug>__pack.memory.*` so a `research_lab` playbook can hop
+into business or science memory without a separate pack lookup.
+
+1. **Action factory** (`backend/core/domains/memory_actions.py`,
+   new) — closure-based factory returning six `ActionSpec` per
+   pack:
+   - `pack.memory.set` — upsert (TTL via `ttl_seconds` *or*
+     `ttl_until`).
+   - `pack.memory.get` — fetch by key (returns `found=False` for
+     missing/expired unless `include_expired=True`).
+   - `pack.memory.list` — list with optional `kind` / `key_prefix`
+     / `limit` / `include_expired`.
+   - `pack.memory.delete` — destructive=True (routed through the
+     policy gate).
+   - `pack.memory.purge_expired` — pack-scoped purge.
+   - `pack.memory.stats` — totals + kind breakdown.
+
+   Each handler accepts an optional `pack_slug` arg to redirect
+   into a sibling pack's partition. The default is the closure's
+   bound slug. `_pack_slug` is reserved for future agent-loop
+   plumbing.
+
+2. **Base injection** (`backend/core/domains/base.py`) —
+   `DomainPack` gains `all_actions()` which yields the pack's own
+   `actions()` *plus* `memory_actions(slug)`. `find_action` and
+   `to_dict` now both walk `all_actions()`. Existing `actions()`
+   stays abstract / pack-owned — packs don't have to know about
+   the system layer.
+
+3. **Composite hop** (`backend/core/domains/composite.py`) —
+   `CompositePack.actions()` now delegates to `sub.all_actions()`
+   so namespaced sub-pack memory actions
+   (`business__pack.memory.set`, `science__pack.memory.list`, …)
+   surface alongside the composite's own partition. The composite
+   inherits its own `pack.memory.*` family from
+   `DomainPack.all_actions` automatically.
+
+4. **HTTP / manifest** (`web_extras/routers/domains.py`) — manifest
+   action counts (`action_count`, `destructive_action_count`) now
+   walk `all_actions()` so the cockpit / installer manifests see
+   the full surface. The `/api/domains/{slug}` describe endpoint
+   already runs through `to_dict()` and gets the new actions for
+   free. Invocation endpoint
+   (`POST /api/domains/{slug}/actions/{action_id}`) finds memory
+   actions through `find_action()` — no router changes needed.
+
+5. **Tests** (`tests/test_memory_actions.py`, 27 cases)
+   - Factory: returns 6 actions, only delete is destructive,
+     schema fields populated.
+   - Injection invariants: every registered pack has the family;
+     `pack.actions()` stays clean; `find_action()` resolves the
+     injected ones.
+   - Handlers: set/get round-trip, missing get returns
+     `found=False`, validation errors (`key`, `value`,
+     `metadata`), TTL via `ttl_seconds` (positive only) and
+     `ttl_until`, mutual-exclusion, `include_expired` flag.
+   - Partitioning: list returns only the bound pack; sibling
+     pack writes don't bleed.
+   - Filtering: `kind` and `key_prefix` honoured; delete returns
+     a flag and twice-delete is False the second time;
+     `purge_expired` only drops past-TTL rows; stats break down
+     by kind.
+   - Composites: namespaced sub-pack actions present, hop writes
+     into the *sub-pack's* partition, `pack_slug` override
+     redirects.
+   - HTTP: describe endpoint surfaces injected actions;
+     `/api/domains/manifest` action_count matches; round-trip
+     via `POST /api/domains/business/actions/pack.memory.set`
+     into `pack.memory.get`; destructive delete in `confirm` mode
+     hits the policy gate (token issued, `allowed=False`); in
+     `autopilot` mode it runs immediately.
+
+**Files**
+
+- `backend/core/domains/memory_actions.py` (new)
+- `backend/core/domains/base.py` (added `all_actions`, updated
+  `find_action`, `to_dict`)
+- `backend/core/domains/composite.py` (sub-pack uses
+  `all_actions()`)
+- `web_extras/routers/domains.py` (manifest counts via
+  `all_actions()`)
+- `tests/test_memory_actions.py` (new, 27 cases)
+
+**Verification:** full backend suite **1000 passed**, lints
+clean. Builds on top of PR #56 (`cursor/pack-memory-foundations`).
+
+**Next slices** (separate PRs)
+
+- `_memory_purge_loop` background task in `app.py` so expired
+  rows don't accumulate without operator intervention.
+- Cockpit "facts" view that consumes
+  `pack.memory.list` and `pack.memory.stats` per pack.
+
 ## 2026-05-01 — Cursor [A] · Per-pack memory partitions (foundations)
 
 **Summary**
