@@ -65,29 +65,49 @@ jobs:
           fi
           echo "OK: / 200 with X-Tars-Contract: 1.0.0"
 
-      - name: Probe downloads manifest (proxied)
+      - name: Probe downloads manifest (Pages Function)
         if: steps.resolve.outputs.live == 'true'
         run: |
           set -e
-          body=$(curl -sf --max-time 10 https://tars.meeet.world/api/product/downloads)
-          if ! echo "$body" | grep -q '"contract_version":"1.0.0"'; then
-            echo "::error::manifest missing contract_version 1.0.0"; echo "$body" | head -c 400; exit 1
-          fi
-          if ! echo "$body" | grep -q '"releases"'; then
-            echo "::error::manifest missing releases array"; echo "$body" | head -c 400; exit 1
-          fi
-          echo "OK: /api/product/downloads"
+          # Pages takes a few seconds to propagate after deploy; retry.
+          for attempt in 1 2 3; do
+            body=$(curl -sf --max-time 10 https://tars.meeet.world/api/product/downloads || true)
+            if echo "$body" | grep -q '"contract_version":"1.0.0"' && echo "$body" | grep -q '"releases"'; then
+              echo "OK: /api/product/downloads (attempt $attempt)"
+              exit 0
+            fi
+            echo "manifest not valid yet (attempt $attempt) — sleeping 5s"
+            sleep 5
+          done
+          echo "::error::manifest endpoint never returned valid body"
+          echo "$body" | head -c 400
+          exit 1
 
-      - name: Probe downloads manifest (origin)
+      - name: Probe version endpoint (Pages Function)
+        if: steps.resolve.outputs.live == 'true'
         run: |
           set -e
-          status=$(curl -sf -o /tmp/origin-manifest.json -w '%{http_code}' --max-time 10 \
-            -H "Origin: https://tars.meeet.world" \
-            https://hhpaukjobskcwkxbgecl.supabase.co/functions/v1/tars-downloads)
-          if [[ "$status" != "200" ]]; then
-            echo "::error::origin manifest returned $status"; cat /tmp/origin-manifest.json | head -c 400; exit 1
+          body=$(curl -sf --max-time 10 https://tars.meeet.world/api/product/version)
+          if ! echo "$body" | grep -q '"version"'; then
+            echo "::error::version endpoint missing version field"; echo "$body" | head -c 400; exit 1
           fi
-          echo "OK: tars-downloads origin"
+          echo "OK: /api/product/version"
+
+      # Origin probe is deliberately tolerant: the Supabase tars-downloads
+      # function is in the process of being decommissioned (the source of
+      # truth lives in the Pages Functions above). Treat any non-200 as a
+      # warning rather than a failure so the cron does not page once the
+      # operator removes the function.
+      - name: Probe downloads manifest (origin — legacy)
+        run: |
+          status=$(curl -s -o /tmp/origin-manifest.json -w '%{http_code}' --max-time 10 \
+            -H "Origin: https://tars.meeet.world" \
+            https://hhpaukjobskcwkxbgecl.supabase.co/functions/v1/tars-downloads || true)
+          if [[ "$status" == "200" ]]; then
+            echo "OK: tars-downloads origin (still alive)"
+          else
+            echo "::warning::tars-downloads origin returned $status — likely decommissioned (see TARS_MEEET_OPS_TODO §3)"
+          fi
 
       - name: Probe core-bridge /health
         env:
