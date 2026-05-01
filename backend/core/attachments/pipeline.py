@@ -28,7 +28,30 @@ import re
 import secrets
 import time
 from dataclasses import dataclass
-from typing import Mapping
+from typing import Any, Awaitable, Callable, Mapping
+
+
+ProgressCallback = Callable[[str, Mapping[str, Any]], Awaitable[None]]
+"""Async callback invoked at each ingest phase.
+
+Signature: ``async def cb(phase: str, payload: Mapping[str, Any]) -> None``.
+
+Phases (each fired at most once per ingest call, in this order):
+
+- ``started`` — bytes accepted, before any disk I/O.
+- ``dedup_hit`` — terminal short-circuit when the same hash exists.
+- ``extracted`` — text extracted, before chunking.
+- ``chunked`` — chunks computed, before embedding.
+- ``embedding`` — embedder running.
+- ``embedded`` — vectors back, before persistence.
+- ``indexed`` — FTS sync complete (or skipped).
+- ``zip_walked`` — terminal for archive uploads.
+- ``completed`` — terminal for non-archive uploads.
+- ``error`` — terminal on transport / embedder failure (never raises).
+
+The callback is fire-and-forget from the pipeline's perspective: any
+exception inside it is logged and swallowed so a flaky SSE consumer
+can never break the ingest flow."""
 
 from backend.core.meeet import current_route, get_client, set_route, trace_scope
 
@@ -77,6 +100,24 @@ class IngestResult:
     duplicate: bool
 
 
+async def _safe_progress(
+    cb: ProgressCallback | None,
+    phase: str,
+    payload: Mapping[str, Any],
+) -> None:
+    """Invoke ``cb`` exactly once for ``phase``; swallow & log any error.
+
+    The pipeline must never fail because of a flaky SSE consumer.
+    """
+
+    if cb is None:
+        return
+    try:
+        await cb(phase, payload)
+    except Exception as exc:  # pragma: no cover - defensive
+        log.warning("ingest progress callback raised on phase=%s: %s", phase, exc)
+
+
 async def ingest(
     *,
     thread_id: str,
@@ -89,6 +130,7 @@ async def ingest(
     store: AttachmentStore | None = None,
     parent_attachment_id: str | None = None,
     walk_archives: bool = True,
+    progress: ProgressCallback | None = None,
 ) -> IngestResult:
     """Persist ``blob``, extract its text, chunk + embed, and index.
 
@@ -119,6 +161,17 @@ async def ingest(
     store = store or get_attachment_store()
     embedder = embedder or detect_embedder()
 
+    await _safe_progress(
+        progress,
+        "started",
+        {
+            "thread_id": thread_id,
+            "bytes_total": len(blob),
+            "filename": filename,
+            "mime": mime,
+        },
+    )
+
     content_hash = hashlib.sha256(blob).hexdigest()
     existing = await store.find_by_hash(thread_id, content_hash)
     if existing is not None:
@@ -127,6 +180,15 @@ async def ingest(
             thread_id,
             content_hash[:12],
             existing.id,
+        )
+        await _safe_progress(
+            progress,
+            "dedup_hit",
+            {
+                "attachment_id": existing.id,
+                "thread_id": thread_id,
+                "content_hash": content_hash,
+            },
         )
         return IngestResult(
             record=existing,
@@ -158,6 +220,30 @@ async def ingest(
 
     extraction = extract(blob, filename=filename, mime=resolved_mime)
     text = extraction.text
+    await _safe_progress(
+        progress,
+        "extracted",
+        {
+            "attachment_id": attachment_id,
+            "thread_id": thread_id,
+            "mime": extraction.mime,
+            "char_count": len(text or ""),
+            "extract_error": (
+                str(extraction.meta.get("error"))
+                if extraction.meta.get("error")
+                else None
+            ),
+        },
+    )
+    await get_client().emit(
+        "attachment.extracting",
+        {
+            "attachment_id": attachment_id,
+            "thread_id": thread_id,
+            "mime": extraction.mime,
+            "char_count": len(text or ""),
+        },
+    )
     record_meta: dict = dict(extraction.meta)
     if parent_attachment_id is not None:
         record_meta["parent_attachment_id"] = parent_attachment_id
@@ -222,6 +308,20 @@ async def ingest(
                 ),
             },
         )
+        await _safe_progress(
+            progress,
+            "zip_walked",
+            {
+                "attachment_id": record.id,
+                "thread_id": thread_id,
+                "expanded": walk_summary.expanded if walk_summary else 0,
+                "skipped": walk_summary.skipped if walk_summary else 0,
+                "failed": walk_summary.failed if walk_summary else 0,
+                "truncated": (
+                    walk_summary.truncated if walk_summary else False
+                ),
+            },
+        )
         return IngestResult(
             record=record,
             chunk_count=0,
@@ -238,6 +338,15 @@ async def ingest(
         if text and text.strip():
             slices = chunk_text(text)
             if slices:
+                await _safe_progress(
+                    progress,
+                    "chunked",
+                    {
+                        "attachment_id": attachment_id,
+                        "thread_id": thread_id,
+                        "chunk_count": len(slices),
+                    },
+                )
                 vectors: list[list[float]] = []
                 model_name = embedder.model
                 try:
@@ -245,6 +354,25 @@ async def ingest(
                         set_route("cloud")
                     if hasattr(embedder, "model"):
                         model_name = embedder.model
+                    await _safe_progress(
+                        progress,
+                        "embedding",
+                        {
+                            "attachment_id": attachment_id,
+                            "thread_id": thread_id,
+                            "chunk_count": len(slices),
+                            "embedding_model": model_name,
+                        },
+                    )
+                    await get_client().emit(
+                        "attachment.embedding",
+                        {
+                            "attachment_id": attachment_id,
+                            "thread_id": thread_id,
+                            "chunk_count": len(slices),
+                            "embedding_model": model_name,
+                        },
+                    )
                     result = await embedder.embed([s.text for s in slices])
                     vectors = result.vectors
                     embedding_model = result.model
@@ -284,11 +412,23 @@ async def ingest(
                             created_at=now,
                         )
                     )
+                await _safe_progress(
+                    progress,
+                    "embedded",
+                    {
+                        "attachment_id": attachment_id,
+                        "thread_id": thread_id,
+                        "chunk_count": len(chunks),
+                        "embedding_model": embedding_model,
+                        "tokens_used": embed_tokens,
+                    },
+                )
                 # Cost: only the cloud embedder has non-zero default.
                 embed_cost = _embedder_cost_usd(embedding_model, embed_tokens)
                 await store.replace_chunks(attachment_id, thread_id, chunks)
                 # Sync into the FTS5 keyword index — drives cross-thread
                 # search + the BM25 side of L2's hybrid retrieval.
+                fts_synced = False
                 try:
                     from backend.core.search.fts import (
                         ensure_fts_indexes,
@@ -303,8 +443,28 @@ async def ingest(
                         ],
                         chat=store.chat,
                     )
+                    fts_synced = True
                 except Exception as exc:  # never break the pipeline on FTS issues
                     log.warning("chunk fts sync failed: %s", exc)
+                await _safe_progress(
+                    progress,
+                    "indexed",
+                    {
+                        "attachment_id": attachment_id,
+                        "thread_id": thread_id,
+                        "chunk_count": len(chunks),
+                        "fts_synced": fts_synced,
+                    },
+                )
+                await get_client().emit(
+                    "attachment.indexed",
+                    {
+                        "attachment_id": attachment_id,
+                        "thread_id": thread_id,
+                        "chunk_count": len(chunks),
+                        "fts_synced": fts_synced,
+                    },
+                )
                 # Patch the record with the resolved embedding model so
                 # the UI can show "indexed via openai/text-embedding-3-small".
                 record = AttachmentRecord(
@@ -349,6 +509,18 @@ async def ingest(
                 },
             )
 
+    await _safe_progress(
+        progress,
+        "completed",
+        {
+            "attachment_id": record.id,
+            "thread_id": thread_id,
+            "chunk_count": len(chunks),
+            "embedding_model": embedding_model,
+            "tokens_used": embed_tokens,
+            "cost_usd": embed_cost,
+        },
+    )
     return IngestResult(
         record=record,
         chunk_count=len(chunks),
