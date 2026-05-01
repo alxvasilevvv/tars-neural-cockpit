@@ -79,13 +79,17 @@ tests, integrated into pytest via `tests/test_lab_ask_deno.py`, new
 2. **Synthetic monitor SLO refinement** — if any of the WARN-grade
    probes have flapped overnight, tune thresholds in
    `scripts/qa_agent/probes.py`.
-3. **Receipt-Ledger bridge spec stub** — start with `docs/contracts/
-   RECEIPT_LEDGER.md` even before Claude pins the consumer shape, so
-   the conversation has a concrete artifact to react to.
-4. **TARS pricing tier feature gates skeleton** — wire a no-op
-   `useTier()` hook in `experiments/neural-showcase-v3/src` plus a
-   typed `TIER_GATES` constant. Lovable later supplies the source of
-   truth (paid status from meeet wallet); we just consume it.
+3. ~~**Receipt-Ledger bridge spec stub**~~ — **shipped** (PR #36,
+   2026-05-01 22:15 UTC+7) at `docs/contracts/RECEIPT_LEDGER.md`
+   (DRAFT v0.1). Mirrors Claude's `TarsReceipt` interface from
+   TARS#8. Producer side (Lovable / meeet.world Edge Functions) is
+   the next blocker.
+4. ~~**TARS pricing tier feature gates skeleton**~~ — **shipped**
+   (same PR #36) at `experiments/neural-showcase-v3/src/lib/tier.ts`
+   with `TIER_GATES`, `useTier()`, `resolveTierFromReceipts`,
+   `tierAllows`, plus 23-case `tier.test.ts`. Producer URL read
+   from `VITE_TARS_TIER_URL` — `null` today; one-line flip when
+   Lovable lands `/functions/v1/tars-tier`.
 
 ### Cursor lane — needs Claude/Lovable input first
 - **Rate-limit SLA** for `/api/product/*` — token-bucket numbers.
