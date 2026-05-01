@@ -193,6 +193,21 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-01 — `business.local_deals` awareness source (Cursor [A]):**
+  Mirrors `traders.local_alerts` for the business pack. New
+  `_fetch_local_deals` returns a structurally-stable envelope
+  (`count` / `pipeline_usd` / `by_stage` / `by_owner` / `deals` /
+  `filters`) defaulting to `active_only=True`, `limit=50` (clamped
+  to 200). `pipeline_usd` excludes terminal stages so the ticker
+  shows only money still in motion. Registered as
+  `business.local_deals` (`kind="local"`) advertising the default
+  store path so the cockpit form renders sensible defaults. 13 new
+  tests cover defaults, terminal-stage handling, missing store,
+  path override, aggregations, owner/stage normalisation, limit
+  clamping, and pack wiring; the live-fetcher membership pin in
+  `tests/test_awareness_fetchers.py` is extended. Full suite:
+  **1717 green**.
+
 - **2026-05-01 — `business.list_deals` read-only side door (Cursor [A]):**
   Mirrors `traders.list_alerts` for the business pack. New
   `read_local_deals` helper + `list_deals` action provide a fast,

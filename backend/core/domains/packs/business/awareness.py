@@ -15,11 +15,18 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from ...base import AwarenessSource
+from .local_deals import (
+    DEFAULT_LOCAL_DEALS_PATH,
+    read_local_deals,
+    resolve_local_deals_path,
+)
 
 _REPO_ROOT = Path(__file__).resolve().parents[5]
 _CALENDAR_PATH = _REPO_ROOT / "data" / "calendar_events.json"
 _KPI_PATH = _REPO_ROOT / "data" / "business_kpi.json"
 _DEALS_PATH = _REPO_ROOT / "data" / "business_deals.json"
+
+_TERMINAL_STAGES: frozenset[str] = frozenset({"won", "lost"})
 
 
 def _read_json_or_none(path: Path) -> Any | None:
@@ -114,6 +121,91 @@ async def _fetch_gsheets_kpi(args: Mapping[str, Any]) -> Mapping[str, Any]:
     }
 
 
+async def _fetch_local_deals(args: Mapping[str, Any]) -> Mapping[str, Any]:
+    """Snapshot the local-first business deals store.
+
+    Defaults to ``active_only=True`` so the cockpit ticker only
+    surfaces deals still in flight; pass ``active_only=False`` to
+    inspect won / lost rows. ``stage`` filters to a single stage
+    (case-insensitive). ``owner`` filters case-insensitively. ``limit``
+    is clamped to the conservative range ``[1, 200]`` because the
+    awareness snapshot is meant for the cockpit ticker, not bulk
+    export.
+
+    Always returns a structurally-stable envelope so the cockpit can
+    bind unconditionally.
+    """
+
+    path_arg = str(args.get("path") or "").strip() or None
+    target = resolve_local_deals_path(path_arg)
+
+    active_only_raw = args.get("active_only")
+    active_only = True if active_only_raw is None else bool(active_only_raw)
+
+    stage_arg = args.get("stage")
+    stage = stage_arg if isinstance(stage_arg, str) and stage_arg.strip() else None
+    owner_arg = args.get("owner")
+    owner = owner_arg if isinstance(owner_arg, str) and owner_arg.strip() else None
+
+    limit_arg = args.get("limit")
+    if isinstance(limit_arg, bool):
+        limit: int | None = None
+    elif isinstance(limit_arg, int) and limit_arg > 0:
+        limit = min(limit_arg, 200)
+    else:
+        limit = 50
+
+    try:
+        rows = read_local_deals(
+            path=target,
+            active_only=active_only,
+            stage=stage,
+            owner=owner,
+            limit=limit,
+        )
+    except OSError:
+        return {
+            "ok": False,
+            "error": "local_deals_unreadable",
+            "path": str(target),
+        }
+
+    by_stage: dict[str, int] = {}
+    by_owner: dict[str, int] = {}
+    pipeline_total = 0.0
+    for row in rows:
+        st = str(row.get("stage") or "")
+        if st:
+            by_stage[st] = by_stage.get(st, 0) + 1
+        ow = row.get("owner")
+        if isinstance(ow, str) and ow.strip():
+            key = ow.strip()
+            by_owner[key] = by_owner.get(key, 0) + 1
+        if st not in _TERMINAL_STAGES:
+            try:
+                pipeline_total += float(row.get("amount") or 0)
+            except (TypeError, ValueError):
+                pass
+
+    return {
+        "ok": True,
+        "as_of": datetime.now(timezone.utc).isoformat(),
+        "path": str(target),
+        "exists": target.exists(),
+        "count": len(rows),
+        "pipeline_usd": round(pipeline_total, 2),
+        "by_stage": by_stage,
+        "by_owner": by_owner,
+        "filters": {
+            "active_only": active_only,
+            "stage": stage.lower() if stage else None,
+            "owner": owner.lower() if owner else None,
+            "limit": limit,
+        },
+        "deals": rows,
+    }
+
+
 SOURCES: tuple[AwarenessSource, ...] = (
     AwarenessSource(
         id="gmail",
@@ -146,5 +238,21 @@ SOURCES: tuple[AwarenessSource, ...] = (
         kind="poll",
         config={"interval_s": 600, "sheet_id": ""},
         fetcher=_fetch_gsheets_kpi,
+    ),
+    AwarenessSource(
+        id="local_deals",
+        name="Local deals",
+        description=(
+            "Snapshot the local-first business deals store. Defaults to "
+            "active_only=True so the cockpit ticker only shows deals "
+            "still in flight."
+        ),
+        kind="local",
+        config={
+            "path": DEFAULT_LOCAL_DEALS_PATH,
+            "active_only": True,
+            "limit": 50,
+        },
+        fetcher=_fetch_local_deals,
     ),
 )
