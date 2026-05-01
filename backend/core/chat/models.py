@@ -58,6 +58,13 @@ class SavedSearch:
     created_at: float
     updated_at: float
     last_run_at: float | None
+    # Snapshot of hit fingerprints last observed by ``poll_saved_search``.
+    # Populated lazily — older rows materialise as an empty tuple, which
+    # the alert path treats as "first poll" (everything counts as new
+    # for the fingerprint diff, but we suppress the event because there
+    # was no prior baseline to compare against).
+    seen_hits: tuple[str, ...] = ()
+    last_alert_at: float | None = None
 
     @staticmethod
     def fresh(
@@ -92,6 +99,8 @@ class SavedSearch:
             "created_at": self.created_at,
             "updated_at": self.updated_at,
             "last_run_at": self.last_run_at,
+            "seen_hit_count": len(self.seen_hits),
+            "last_alert_at": self.last_alert_at,
         }
 
 

@@ -42,6 +42,10 @@ from backend.core.chat import SavedSearch
 from backend.core.chat.embeddings import embed_pending_messages
 from backend.core.chat.store import get_chat_store
 from backend.core.meeet import get_store as get_meeet_store
+from backend.core.search.alerts import (
+    poll_all_saved_searches,
+    poll_saved_search,
+)
 from backend.core.search import (
     SearchScope,
     get_thread_timeline,
@@ -404,6 +408,63 @@ async def run_saved_search(
         "count": len(hits),
         "hits": hits,
     }
+
+
+@router.post("/saved/{search_id}/poll")
+async def poll_saved_search_endpoint(
+    search_id: str,
+    payload: dict[str, Any] | None = Body(default=None),
+) -> dict[str, Any]:
+    """Run a saved search and emit ``saved_search.new_hits`` on drift.
+
+    Polling differs from ``/run`` in three ways:
+
+    - The hit set is fingerprinted (``chunk:<id>`` / ``message:<id>`` /
+      ``trace:<event_id>``) and diffed against the snapshot persisted
+      on the prior poll.
+    - When the diff is non-empty *and* a baseline existed,
+      :class:`MeeetClient` emits ``saved_search.new_hits`` with the new
+      fingerprints + the saved-search metadata so meeet.world can
+      surface the alert.
+    - The fingerprint snapshot is replaced; the first poll seeds it
+      without firing an event so operators don't get a flood the moment
+      they save a query.
+
+    Body:
+    - ``top_k`` (int, default 25, max 100) — number of hits inspected
+      per poll. Higher values catch more "first-page" drift but cost
+      more SQLite work.
+    """
+
+    body = payload or {}
+    top_k = max(1, min(int(body.get("top_k") or 25), 100))
+    res = await poll_saved_search(search_id, top_k=top_k)
+    if not res.get("ok"):
+        if res.get("reason") == "not_found":
+            raise HTTPException(status_code=404, detail="not_found")
+        return res
+    return res
+
+
+@router.post("/saved/poll-all")
+async def poll_all_saved_searches_endpoint(
+    payload: dict[str, Any] | None = Body(default=None),
+) -> dict[str, Any]:
+    """Walk every saved search and poll it.
+
+    Operator-facing trigger for the cockpit "alerts" tab. Per-search
+    failures are isolated; the response carries the per-saved-search
+    poll result so the UI can render mixed success/failure.
+
+    Body:
+    - ``top_k`` (int, default 25, max 100) — same as ``/poll``.
+    - ``limit`` (int, default 100, max 500) — saved searches inspected.
+    """
+
+    body = payload or {}
+    top_k = max(1, min(int(body.get("top_k") or 25), 100))
+    limit = max(1, min(int(body.get("limit") or 100), 500))
+    return await poll_all_saved_searches(top_k=top_k, limit=limit)
 
 
 # ----------------------------------------------------------------------
