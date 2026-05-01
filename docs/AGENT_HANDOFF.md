@@ -193,6 +193,25 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-01 — Policy gate auto-expires stale confirmations + emits `policy.expired` (Cursor [A]):**
+  Closed two operator-workflow gaps in the destructive-action policy
+  gate. (1) Nothing automatically reaped stale `pending` confirmations
+  — a token sat in the cockpit's "approval inbox" forever unless an
+  operator manually hit `POST /api/policy/expire`. (2) The expire path
+  emitted no meeet event, so the audit lane saw `policy.queued` going
+  in but never the matching expiry. New `_policy_expire_loop` in
+  `web_extras/app.py` ticks every `TARS_POLICY_EXPIRE_INTERVAL_S`
+  (default `0` = off, opt-in like memory-purge), reaps stale tokens
+  via the refactored `PolicyStore.expire_stale()` (now returns
+  `list[PendingConfirmation]` so callers can emit per-token events),
+  and emits a `policy.expired` meeet event per reaped token carrying
+  `{token, slug, action, expired_at, trace_id}`. The
+  `POST /api/policy/expire` HTTP route emits the same event shape so
+  the cockpit treats both paths uniformly. Pinned by
+  `tests/test_policy_expire_loop.py` (15 cases) plus the existing
+  `tests/test_policy.py` test updated for the new return shape. Full
+  suite: **1806 passing**.
+
 - **2026-05-01 — Council orchestrator runs voices in parallel (Cursor [A]):**
   `CouncilOrchestrator.deliberate(...)` now fans every chosen voice out
   through `asyncio.gather(..., return_exceptions=True)` instead of

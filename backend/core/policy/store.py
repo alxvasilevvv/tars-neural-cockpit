@@ -204,18 +204,50 @@ class PolicyStore:
             conn.close()
         return [self._row(r) for r in rows]
 
-    def _expire_sync(self, before_ts: float) -> int:
+    def _expire_sync(self, before_ts: float) -> list[PendingConfirmation]:
+        """Atomically expire any ``pending`` rows whose TTL has elapsed.
+
+        Two-step inside one connection so a concurrent confirm/cancel
+        cannot win the race: first ``SELECT`` the candidates (so we can
+        emit per-token ``policy.expired`` events upstream), then
+        ``UPDATE`` them by primary key. The previous one-step UPDATE
+        returned only a count and left the cockpit timeline silent
+        about which tokens just expired.
+        """
+
         conn = self._connect()
         try:
             cur = conn.execute(
                 """
+                SELECT * FROM confirmations
+                WHERE status='pending' AND expires_at IS NOT NULL AND expires_at < ?
+                ORDER BY expires_at ASC
+                """,
+                (before_ts,),
+            )
+            rows = cur.fetchall()
+            if not rows:
+                return []
+            now = time.time()
+            tokens = [r["token"] for r in rows]
+            placeholders = ",".join("?" for _ in tokens)
+            conn.execute(
+                f"""
                 UPDATE confirmations
                 SET status='expired', resolved_at=?
-                WHERE status='pending' AND expires_at < ?
+                WHERE status='pending' AND token IN ({placeholders})
                 """,
-                (time.time(), before_ts),
+                (now, *tokens),
             )
-            return cur.rowcount or 0
+            # Re-fetch the freshly updated rows so the caller's
+            # PendingConfirmation views carry status='expired' /
+            # resolved_at=now (not the pre-update snapshot).
+            cur2 = conn.execute(
+                f"SELECT * FROM confirmations WHERE token IN ({placeholders}) "
+                "ORDER BY resolved_at ASC",
+                tokens,
+            )
+            return [self._row(r) for r in cur2.fetchall()]
         finally:
             conn.close()
 
@@ -261,7 +293,13 @@ class PolicyStore:
     async def list_recent(self, limit: int = 50) -> list[PendingConfirmation]:
         return await asyncio.to_thread(self._list_sync, None, max(1, min(limit, 1000)))
 
-    async def expire_stale(self) -> int:
+    async def expire_stale(self) -> list[PendingConfirmation]:
+        """Expire any pending confirmation whose TTL has elapsed.
+
+        Returns the list of newly-expired rows. Callers that only care
+        about the count should use ``len(await store.expire_stale())``.
+        """
+
         return await asyncio.to_thread(self._expire_sync, time.time())
 
 
