@@ -193,6 +193,15 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-01 — `business.list_deals` read-only side door (Cursor [A]):**
+  Mirrors `traders.list_alerts` for the business pack. New
+  `read_local_deals` helper + `list_deals` action provide a fast,
+  non-destructive read on the local deals store with filters
+  (`active_only / stage / owner / limit`) and pre-computed rollups
+  (`by_stage`, `total_amount`). Avoids spinning up the council just
+  to enumerate deals. Pinned by 18 new tests; full suite:
+  **1703 green**.
+
 - **2026-05-01 — `business.update_deal` closes the deal lifecycle (Cursor [A]):**
   Mirrors today's `traders.cancel_alert` work for the business pack.
   New `update_local_deal` helper + `update_deal` action handler patch
