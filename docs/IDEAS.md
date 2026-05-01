@@ -347,7 +347,11 @@ Open ideas for the next layer:
     `playbooks/<pack>/<name>.json`, runner + `/api/playbooks` HTTP
     surface. Sample playbooks: `traders.morning_check`,
     `business.morning_brief`, `mlm.retention_round`. Open work:
-    cockpit palette UI, parallel step blocks, schema validator.
+    cockpit palette UI, parallel step blocks. ✅ **schema validator
+    shipped 2026-05-01** — `backend/core/playbooks/validator.py` +
+    `POST /api/playbooks/_validate` + `GET /api/playbooks/_validate_all`,
+    `tests/test_playbook_validator.py` (40 cases) including a CI
+    smoke that pins every bundled playbook.
 20. **Hotkey palette.** ⌘K opens a fuzzy palette over packs, awareness
     sources, playbooks, recent traces.
 26. **Awareness ticker.** ✅ shipped — `<AwarenessTicker/>` consumes
