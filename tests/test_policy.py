@@ -151,6 +151,7 @@ def test_action_specs_marked_destructive() -> None:
 
     expected = {
         ("traders", "place_alert"),
+        ("traders", "cancel_alert"),
         ("business", "draft_email"),
         ("business", "log_deal"),
         ("mlm", "generate_post"),
