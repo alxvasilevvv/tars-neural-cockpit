@@ -328,6 +328,75 @@ async def _saved_search_poll_loop() -> None:
             log.warning("saved-search poll loop tick failed: %s", exc)
 
 
+def _policy_expire_interval_s() -> float:
+    """How often the policy gate sweeps stale ``pending`` confirmations.
+
+    Default ``0`` (off) so distros that don't use the policy gate
+    don't pay the SQLite hit. Operators enable with
+    ``TARS_POLICY_EXPIRE_INTERVAL_S=60`` (or whatever cadence) once
+    they have actions queued in confirm mode. The HTTP surface
+    (``POST /api/policy/expire``) covers the manual / admin path.
+    """
+
+    raw = os.getenv("TARS_POLICY_EXPIRE_INTERVAL_S")
+    if raw is None:
+        return 0.0
+    try:
+        return max(0.0, float(raw))
+    except ValueError:
+        return 0.0
+
+
+async def _policy_expire_loop() -> None:
+    """Periodic ``PolicyStore.expire_stale`` so abandoned confirmations
+    can't pile up in the cockpit's pending inbox.
+
+    Same safety contract as the other lifespan loops:
+
+    - Disabled when ``TARS_POLICY_EXPIRE_INTERVAL_S=0`` (default off).
+    - Logs INFO when a tick expires rows; otherwise silent so a healthy
+      machine doesn't fill the journal.
+    - Each newly-expired token emits a ``policy.expired`` meeet event
+      (token + slug + action + expired_at + originating trace_id)
+      so the cockpit gold-pill audit lane / pairing-audit feed sees
+      the auto-reap, not just the manual ``POST /api/policy/expire``
+      path.
+    - Catches everything (excluding ``CancelledError``) so a
+      transient SQLite blip cannot crash the host.
+    """
+
+    interval = _policy_expire_interval_s()
+    if interval <= 0:
+        return
+    from backend.core.policy import get_policy_store
+
+    log.info("policy expire loop active: interval_s=%.1f", interval)
+    client = get_client()
+    store = get_policy_store()
+    while True:
+        try:
+            await asyncio.sleep(interval)
+            expired = await store.expire_stale()
+            if not expired:
+                continue
+            log.info("policy expire tick: expired=%s", len(expired))
+            for c in expired:
+                await client.emit(
+                    "policy.expired",
+                    {
+                        "token": c.token,
+                        "slug": c.slug,
+                        "action": c.action_id,
+                        "expired_at": c.resolved_at,
+                        "trace_id": c.trace_id,
+                    },
+                )
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # never crash the host
+            log.warning("policy expire loop tick failed: %s", exc)
+
+
 def _memory_purge_interval_s() -> float:
     """How often the per-pack memory store sweeps expired rows.
 
@@ -461,6 +530,9 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     memory_purge = asyncio.create_task(
         _memory_purge_loop(), name="memory-purge-loop"
     )
+    policy_expire = asyncio.create_task(
+        _policy_expire_loop(), name="policy-expire-loop"
+    )
     tasks = (
         replay,
         autopilot,
@@ -468,6 +540,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         message_embed,
         saved_search_poll,
         memory_purge,
+        policy_expire,
     )
     try:
         yield
