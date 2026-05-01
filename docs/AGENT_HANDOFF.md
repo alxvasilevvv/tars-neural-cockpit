@@ -193,6 +193,31 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-01 — Master release roadmap + default-EN + QA browser suite (Cursor, cross-repo):**
+  Drafted the single source-of-truth release plan in
+  `docs/ROADMAP_TO_RELEASE.md` (Phases A–D: i18n parity, QA-suite,
+  TARS finalisation, release-readiness gate; with slices, owners,
+  acceptance, calendar, secrets matrix, and rollback). Then delivered
+  Phase A and the QA-suite skeleton (Phase B) as **core PR #8**
+  (`cursor/i18n-default-en-and-qa-suite`):
+  1. **Default-EN on first visit** — bumped `meeet-lang`→`meeet-lang-v2`
+     in `LanguageContext`; legacy `ru` is intentionally not migrated;
+     all visitors get English on first refresh.
+  2. **EN baseline on the most-mixed pages** — `Tars.tsx` (full),
+     `Tokenomics.tsx` (SEO meta), `Settings.tsx` (notif/profile/danger).
+     Remaining ~38 RU-mixed pages are Lovable's per the roadmap.
+  3. **QA-suite (Layer 2)** — new top-level `qa-suite/` with isolated
+     Playwright config, `qa-report/1.0.0` JSON schema (matches TARS
+     Layer-1 in `scripts/qa_agent/`), and four probes: `routing.discover`,
+     `i18n.parity`, `navigation.navbar`, `assets.console`.
+     `package.json` exposes `qa:browser`/`qa:browser:headed`/`qa:browser:report`.
+     Standalone strict tsconfig.
+  4. Bundles the navbar e2e fix from PR #6 → branch is green on its own.
+
+  Validation (core repo): `npx vitest run` → 332/337 (5 skipped),
+  `npm run build` → green ~4.9s, `tsc --noEmit -p qa-suite/tsconfig.json`
+  → green. Full PR description: <https://github.com/alxvasilevvv/meeet-solana-state-941a6045/pull/8>.
+
 - **2026-05-01 — Cross-repo: Control Tower in core repo (Cursor):**
   Landed 4 commits in **`meeet-solana-state-941a6045`** (Lovable lane,
   not pushed — awaiting Lovable review per SYNC rule):

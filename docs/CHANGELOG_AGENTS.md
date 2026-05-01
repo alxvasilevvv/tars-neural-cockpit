@@ -156,6 +156,78 @@ Files:
 - `docs/TARS_MEEET_OPS_TODO.md`
 - `.gitignore`
 
+## 2026-05-01 — Cursor · Default-EN public surface + QA browser suite (cross-repo)
+
+**Summary**
+
+Second cross-repo delivery on the same day. Two coupled improvements landed
+as **PR #8** in `meeet-solana-state-941a6045` (Lovable lane), branch
+`cursor/i18n-default-en-and-qa-suite`:
+
+1. **Default-EN on first visit.** The public site mixed Russian and English
+   because legacy visitors carried `meeet-lang=ru` in localStorage and three
+   public pages had Russian-only literals. Storage key bumped
+   `meeet-lang` → `meeet-lang-v2`; legacy `ru` is intentionally not
+   migrated (everyone gets English on first refresh). Mirrors still write
+   to legacy keys for non-React readers.
+   Translated to clean EN baseline:
+   - `src/pages/Tars.tsx` (STATS / FEATURES / MODES / FAQ / RELEASE_NOTES /
+     share buttons / install command / version selector / SEO meta — 0
+     cyrillic remaining).
+   - `src/pages/Tokenomics.tsx` (SEO meta only; body uses `{en, ru}` pairs).
+   - `src/pages/Settings.tsx` (notif options, toasts, section titles,
+     profile labels, danger zone, SEO).
+   - `src/test/askAiLangAppShell.test.tsx` updated to assert the new
+     EN-default invariant.
+2. **QA browser suite (Phase B of the release roadmap).** New top-level
+   folder `qa-suite/` with isolated Playwright config, fixtures, report
+   schema (`qa-report/1.0.0` — same shape as TARS Layer-1 probes), and
+   four probes:
+   - `routing.discover.spec.ts` — every public route reachable, has
+     `<title>`, has `<main>` + `<footer>`.
+   - `i18n.parity.spec.ts` — first visit on every public route renders 0
+     (or near-zero) cyrillic; switching to RU restores cyrillic.
+   - `navigation.navbar.spec.ts` — desktop + mobile nav: every dropdown
+     trigger and every link resolves to a page with `<main>`.
+   - `assets.console.spec.ts` — no `console.error`, every `<img>` has
+     non-empty `alt`.
+   `package.json` exposes `qa:browser`, `qa:browser:headed`,
+   `qa:browser:report`. Standalone `qa-suite/tsconfig.json` (strict, ES2022).
+
+This branch also bundles the navbar e2e fix from PR #6 so PR #8 is green
+on its own (whichever lands first, the other becomes a no-op on the test).
+
+The remaining ~38 pages with hardcoded RU strings are catalogued in
+`docs/ROADMAP_TO_RELEASE.md` §A.2 with owner = Lovable. They are
+non-blocking thanks to the EN-default switch.
+
+**Files**
+
+- core repo (in PR #8): `src/i18n/LanguageContext.tsx`,
+  `src/pages/{Tars,Tokenomics,Settings}.tsx`,
+  `src/test/{askAiLangAppShell,navbarItemsE2E}.test.tsx`,
+  `package.json`,
+  `qa-suite/{README.md,playwright.config.ts,tsconfig.json,.gitignore,
+  fixtures/site.ts,lib/{routes,report}.ts,
+  probes/{routing.discover,i18n.parity,navigation.navbar,assets.console}.spec.ts}`.
+- TARS repo: `docs/ROADMAP_TO_RELEASE.md` (master release plan, Phases A–D
+  with slices, owners, acceptance, calendar, secrets matrix, rollback).
+
+**Validation**
+
+- Core: `npx vitest run` → 332/337 green (5 skipped).
+- Core: `npm run build` → green, ~4.9s.
+- Core: `npx tsc --noEmit -p qa-suite/tsconfig.json` → green.
+- TARS: docs only (no code changes).
+
+**Cross-repo PRs in flight today**
+
+- core PR #6 — navbar e2e realignment (still mergeable; subsumed by PR #8 if PR #8 lands first).
+- core PR #7 — Control Tower + bridge hardening + SOFT_SMOKE.
+- core PR #8 — default-EN + qa-suite (this entry).
+- TARS PR #31 — handoff docs + release runbook.
+- TARS handoff doc PR — opens after this changelog entry, propagates ROADMAP_TO_RELEASE.md.
+
 ## 2026-05-01 — Cursor · Control Tower in core repo + bridge hardening (cross-repo)
 
 **Summary**
