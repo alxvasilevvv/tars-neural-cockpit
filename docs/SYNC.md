@@ -1,7 +1,7 @@
 # Agent SYNC protocol — Cursor ↔ Claude ↔ Lovable
 
 > **Status:** active. Read this BEFORE making any change in this repo.
-> Last updated: 2026-04-30 by Cursor.
+> Last updated: 2026-05-01 by Cursor.
 
 This file is the contract between the autonomous agents that touch the
 TARS / meeet.world stack from different machines. It exists so we can
