@@ -135,6 +135,7 @@ _MIGRATIONS: tuple[str, ...] = (
     "ALTER TABLE messages ADD COLUMN embedding_blob BLOB",
     "ALTER TABLE saved_searches ADD COLUMN seen_hits_json TEXT NOT NULL DEFAULT '[]'",
     "ALTER TABLE saved_searches ADD COLUMN last_alert_at REAL",
+    "ALTER TABLE saved_searches ADD COLUMN snoozed_until REAL",
 )
 
 
@@ -810,6 +811,9 @@ class ChatStore:
         last_alert_at: float | None = None
         if "last_alert_at" in keys:
             last_alert_at = row["last_alert_at"]
+        snoozed_until: float | None = None
+        if "snoozed_until" in keys:
+            snoozed_until = row["snoozed_until"]
         return SavedSearch(
             id=row["id"],
             label=row["label"],
@@ -822,6 +826,7 @@ class ChatStore:
             last_run_at=row["last_run_at"],
             seen_hits=seen_hits,
             last_alert_at=last_alert_at,
+            snoozed_until=snoozed_until,
         )
 
     def _insert_saved_search_sync(self, saved: SavedSearch) -> None:
@@ -1074,6 +1079,52 @@ class ChatStore:
             seen_hits=list(seen_hits),
             had_new_hits=had_new_hits,
             ts=_now(),
+        )
+
+    def _set_saved_search_snooze_sync(
+        self,
+        search_id: str,
+        *,
+        snoozed_until: float | None,
+    ) -> SavedSearch | None:
+        conn = self._connect()
+        try:
+            cur = conn.execute(
+                "UPDATE saved_searches "
+                "SET snoozed_until = ?, updated_at = ? "
+                "WHERE id = ?",
+                (snoozed_until, _now(), search_id),
+            )
+            if cur.rowcount == 0:
+                return None
+            row = conn.execute(
+                "SELECT * FROM saved_searches WHERE id = ?",
+                (search_id,),
+            ).fetchone()
+        finally:
+            conn.close()
+        return self._row_to_saved_search(row) if row else None
+
+    async def set_saved_search_snooze(
+        self,
+        search_id: str,
+        *,
+        snoozed_until: float | None,
+    ) -> SavedSearch | None:
+        """Mute (or un-mute) saved-search alerts.
+
+        ``snoozed_until=None`` clears the snooze. Polling continues
+        regardless — the snapshot is still maintained so resuming
+        alerts doesn't cause a flood of "everything is new" the
+        moment the snooze ends.
+        """
+
+        if not self.enabled:
+            return None
+        return await asyncio.to_thread(
+            self._set_saved_search_snooze_sync,
+            search_id,
+            snoozed_until=snoozed_until,
         )
 
 
