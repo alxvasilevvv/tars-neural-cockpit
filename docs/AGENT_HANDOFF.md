@@ -193,6 +193,23 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-01 — Council orchestrator runs voices in parallel (Cursor [A]):**
+  `CouncilOrchestrator.deliberate(...)` now fans every chosen voice out
+  through `asyncio.gather(..., return_exceptions=True)` instead of
+  awaiting each `propose(...)` call serially. With three LLM voices
+  configured (12 s transport timeout each) deliberation wall-clock
+  drops from up to ~36 s to `max(per-voice latency)`. Per-voice
+  exceptions are isolated as `unavailable` proposals so one broken
+  adapter cannot crash a council turn. `usage.tokens` events still
+  emit serially in input order after the gather to keep the cost
+  ledger deterministic. `sampler.decision` adds three additive keys
+  (`latency_ms` is now wall-clock, `cumulative_latency_ms` keeps the
+  sum, `parallel: bool`) without breaking existing consumers. New
+  `_propose_one(...)` helper backfills `latency_ms` for voices that
+  forget to stamp it. Pinned by `tests/test_council_parallel.py`
+  (17 cases). Existing council suite + chat orchestrator suite pass
+  unchanged. Full suite: **1791 passing**.
+
 - **2026-05-01 — `science.hypothesis_tree` real deterministic generator (Cursor [A]):**
   Promotes the last user-facing stub in the science pack
   (`hypothesis_tree` returned `{node, children: []}`) into a
