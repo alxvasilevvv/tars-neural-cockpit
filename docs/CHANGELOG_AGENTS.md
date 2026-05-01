@@ -4,6 +4,87 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · Vector + BM25 blend for chat messages
+
+**Summary**
+
+Pulled the **Vector + BM25 blend for messages** item from
+`IDEAS.md` "Search & observability (post-L8)". Same RRF (k=60) trick
+the L2 in-thread retrieval and chunk search already use — paraphrased
+question recall now fuses into `/api/search/messages` results.
+
+1. **`backend/core/chat/store.py`**
+   - Schema migration: `messages` gains `embedding_model TEXT`,
+     `embedding_dim INTEGER`, `embedding_blob BLOB`. Forward-compat via
+     `_MIGRATIONS` (re-adds are silent).
+   - New async helpers reusing the chunk-level
+     `pack_vector` / `unpack_vector` from
+     `backend.core.attachments.index`:
+     - `set_message_embedding(msg_id, *, model, dim, vector)`
+     - `get_message_embeddings(msg_ids)` → bulk `{id: {model, dim, vector}}`
+     - `list_messages_pending_embedding(limit)`
+     - `count_messages_pending_embedding()`
+     Pending walks ignore rows with empty `content`.
+
+2. **`backend/core/chat/embeddings.py`** (new)
+   - `embed_pending_messages(*, chat, embedder, limit, batch_size)` —
+     batches pending messages through whatever `Embedder` is reachable,
+     swallowing per-batch failures so a flapping upstream cannot starve
+     the loop. Returns
+     `{ok, embedded, skipped, failed, batches, total_pending,
+       remaining, model}`. `ok=False` only when no embedder available.
+
+3. **`backend/core/search/engine.py`** — `search_messages` now hybrid
+   - Pulls `top_k * 4` keyword candidates so RRF has room to re-rank.
+   - Loads embeddings for the candidate pool, embeds the query, and
+     blends BM25 with cosine via the same RRF formula chunk search
+     uses.
+   - Falls back to keyword-only silently when no embedder is reachable
+     or no candidate carries an embedding.
+   - Emits both `rank_keyword` and `rank_semantic` on every hit so the
+     cockpit can surface why a row scored.
+
+4. **`web_extras/routers/search.py`**
+   - New `POST /api/search/embed-messages` endpoint (operator-triggered
+     bulk embed). Body `{limit?, batch_size?}` capped at 1000 / 256.
+     Adds `pending_at_start` for observability.
+   - Module docstring updated to explain the hybrid path + the new
+     endpoint.
+
+5. **Tests** — `tests/test_chat_message_embeddings.py` (new, 13 cases)
+   - schema migration adds the three columns,
+   - `set_message_embedding` round-trips through `pack_vector`,
+   - pending count + list walk only un-embedded, non-empty rows,
+   - `embed_pending_messages` with `HashEmbedder` embeds all rows,
+   - returns `embedder_unavailable` when `is_available()` is False,
+   - short-circuits when nothing pending,
+   - swallows a failing embed batch (`embedded=0, failed=1`),
+   - `search_messages` keyword-only when no embeddings exist,
+   - `search_messages` blends vector + BM25 (`rank_semantic` populated),
+   - `search_messages` recovers silently when the embedder raises,
+   - `POST /api/search/embed-messages` runs end-to-end via TestClient,
+   - and caps oversized `limit` / `batch_size` inputs.
+
+**Verification**
+
+`pytest -q --ignore=tests/test_phase8_recovery.py` — `761 passed`,
+`1 deselected` (`test_pair_attempted_event_emitted` — pre-existing
+flake on this branch and on `main`, unrelated to this PR; opens an
+isolation issue with the events store cap).
+
+**Files**
+
+- backend/core/chat/store.py
+- backend/core/chat/embeddings.py (new)
+- backend/core/search/engine.py
+- web_extras/routers/search.py
+- tests/test_chat_message_embeddings.py (new)
+- docs/CHANGELOG_AGENTS.md
+- docs/AGENT_HANDOFF.md
+- docs/IDEAS.md
+
+---
+
 ## 2026-05-01 — Cursor [A] · `trace_summary` materialised view + endpoints + scheduler
 
 **Summary**

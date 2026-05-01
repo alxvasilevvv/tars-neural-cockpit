@@ -311,28 +311,112 @@ async def search_messages(
     *,
     top_k: int = 12,
     chat: ChatStore | None = None,
+    embedder: Embedder | None = None,
     thread_id: str | None = None,
     role: str | None = None,
 ) -> list[SearchHit]:
+    """Hybrid keyword + vector search over chat messages.
+
+    Pulls ``top_k * 4`` keyword candidates so the RRF fuse has room
+    to re-rank, then (when an embedder is reachable AND at least one
+    candidate carries an embedding) blends BM25 with cosine via the
+    same RRF formula used by chunk search. Falls back to keyword-only
+    silently when no embedder is available.
+    """
+
     chat = chat or get_chat_store()
     if not query.strip():
         return []
     ensure_fts_indexes(chat=chat)
+
+    keyword_pool = max(top_k * 4, 30)
     rows = await asyncio.to_thread(
         fts_match_messages,
         query,
         chat=chat,
-        limit=top_k,
+        limit=keyword_pool,
         thread_id=thread_id,
         role=role,
     )
     if not rows:
         return []
-    threads = await _load_thread_titles(
-        {r["thread_id"] for r in rows}, chat=chat
+
+    embeddings_by_id = await chat.get_message_embeddings(
+        [r["msg_id"] for r in rows]
     )
-    out: list[SearchHit] = []
+
+    semantic_ranking: list[tuple[str, float]] = []
+    if embeddings_by_id:
+        active = embedder or detect_embedder()
+        try:
+            qv: list[list[float]] | None = None
+            if await active.is_available():
+                qv = (await active.embed([query])).vectors
+            if qv and qv[0]:
+                qvec = qv[0]
+                qlen = len(qvec)
+                scored: list[tuple[str, float]] = []
+                for msg_id, info in embeddings_by_id.items():
+                    vec = info.get("vector") or []
+                    if not vec:
+                        continue
+                    if info.get("dim") and info["dim"] != qlen:
+                        continue
+                    if len(vec) != qlen:
+                        continue
+                    scored.append((msg_id, _cosine(qvec, vec)))
+                scored.sort(key=lambda x: x[1], reverse=True)
+                semantic_ranking = scored[: keyword_pool]
+        except Exception:
+            log.exception(
+                "embedder failed during message search; keyword-only"
+            )
+
+    fused: dict[str, dict[str, Any]] = {}
+    rows_by_id = {r["msg_id"]: r for r in rows}
     for rank, row in enumerate(rows, start=1):
+        msg_id = row["msg_id"]
+        bucket = fused.setdefault(
+            msg_id,
+            {
+                "row": row,
+                "score": 0.0,
+                "rank_keyword": None,
+                "rank_semantic": None,
+            },
+        )
+        bucket["score"] += 1.0 / (_RRF_K + rank)
+        bucket["rank_keyword"] = rank
+    for rank, (msg_id, _cos) in enumerate(semantic_ranking, start=1):
+        bucket = fused.get(msg_id)
+        if bucket is None:
+            # Vector hit only — synth-row from store if available; we
+            # already constrained semantic candidates to the keyword
+            # pool, so this branch only fires when the keyword row was
+            # filtered out (e.g. dropped by FTS scoring).
+            row = rows_by_id.get(msg_id)
+            if row is None:
+                continue
+            bucket = fused.setdefault(
+                msg_id,
+                {
+                    "row": row,
+                    "score": 0.0,
+                    "rank_keyword": None,
+                    "rank_semantic": None,
+                },
+            )
+        bucket["score"] += 1.0 / (_RRF_K + rank)
+        bucket["rank_semantic"] = rank
+
+    threads = await _load_thread_titles(
+        {fused[k]["row"]["thread_id"] for k in fused}, chat=chat
+    )
+
+    ordered = sorted(fused.values(), key=lambda e: e["score"], reverse=True)
+    out: list[SearchHit] = []
+    for entry in ordered[:top_k]:
+        row = entry["row"]
         thr = threads.get(row["thread_id"])
         title = (
             f"{row['role']} · {thr['title'] or 'untitled'}"
@@ -342,7 +426,7 @@ async def search_messages(
         out.append(
             SearchHit(
                 kind="message",
-                score=_bm25_to_score(row.get("rank")),
+                score=float(entry["score"]),
                 title=title,
                 snippet=row["snippet"] or "",
                 ref={
@@ -351,7 +435,8 @@ async def search_messages(
                     "thread_title": thr["title"] if thr else None,
                     "role": row["role"],
                 },
-                rank_keyword=rank,
+                rank_keyword=entry["rank_keyword"],
+                rank_semantic=entry["rank_semantic"],
             )
         )
     return out
