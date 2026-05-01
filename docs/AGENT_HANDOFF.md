@@ -1201,6 +1201,39 @@ Smaller functional items still pending in parallel:
     `{q?, query?, limit?, kinds?}` — clamped to 100 hits, unknown
     kinds dropped silently. `tests/test_jump_picker.py` (23 cases).
     Cockpit ⌘J palette UI is the Claude-lane follow-up.
+32. ~~**Recovery seed verification challenge (3-of-24).**~~ **shipped**
+    (2026-05-01) — closes the "Recovery seed verification
+    policy" idea from IDEAS' Pairing & sync section. New
+    pure-stdlib state machine in
+    `backend/core/crypto/seed_challenge.py` with
+    `SeedChallenge` + `mint_challenge()` +
+    `verify_challenge()` + `SeedChallengeStore` (thread-safe
+    in-memory dict with expiry-aware reads). Asks the
+    operator to confirm 3 random word **positions** out of
+    24 instead of retyping the entire phrase — balances
+    friction against meaningful proof-of-knowledge. `count`
+    clamped `[1, 8]`, `ttl_s` clamped `[30, 1800]` (default
+    5 min), `max_attempts` clamped `[1, 10]`. Wrong answers
+    decrement attempts; exhausted attempts mark the
+    challenge `exhausted`; expired pending challenges flip
+    to `expired`. Case + whitespace insensitive matching.
+    `to_public_dict()` strips `expected_words` so the
+    cockpit can never leak them. New HTTP routes
+    `POST /api/recovery/challenge/start` (mint),
+    `POST /api/recovery/challenge/verify` (404 unknown id,
+    410 expired, 200 + `ok=false` on wrong answers),
+    `GET /api/recovery/challenge/{id}` (public-safe state
+    for resume-after-refresh). All three emit
+    `recovery.challenge.{started, passed, failed, expired,
+    exhausted}` meeet events with the fingerprint shape so
+    the timeline UI can render the challenge cycle on the
+    same gold-pill lane as existing `recovery.shown` /
+    `recovery.verified`. Pinned by
+    `tests/test_seed_challenge.py` (30 cases). Follow-up
+    (deferred): gate the destructive "rotate identity"
+    flow on a fresh `recovery.challenge.passed` event for
+    the same fingerprint.
+
 31. ~~**Streaming ingestion progress (SSE).**~~ **shipped**
     (2026-05-01) — closes the "streaming ingestion progress"
     idea from IDEAS' attachments section. The ingest pipeline

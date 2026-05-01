@@ -13,6 +13,9 @@ Endpoints:
 
 - ``POST /api/recovery/generate``       → mints a fresh 24-word seed.
 - ``POST /api/recovery/verify``         → checks a mnemonic + returns the fingerprint.
+- ``POST /api/recovery/challenge/start`` → mints a 3-of-24 verification challenge.
+- ``POST /api/recovery/challenge/verify`` → checks the operator's answers.
+- ``GET  /api/recovery/challenge/{id}``  → fetches the public-safe challenge state.
 - ``GET  /api/recovery/wordlist/info``  → meta about the bundled BIP-39 wordlist.
 
 Both POST routes flow through the same HTTP policy gate that protects
@@ -36,6 +39,21 @@ from backend.core.crypto.recovery import (
     make_recovery_seed,
 )
 from backend.core.crypto.recovery import _wordlist  # type: ignore[attr-defined]
+from backend.core.crypto.seed_challenge import (
+    DEFAULT_CHALLENGE_COUNT,
+    DEFAULT_MAX_ATTEMPTS,
+    DEFAULT_TTL_S,
+    MAX_CHALLENGE_COUNT,
+    MAX_MAX_ATTEMPTS,
+    MAX_TTL_S,
+    MIN_CHALLENGE_COUNT,
+    MIN_MAX_ATTEMPTS,
+    MIN_TTL_S,
+    SeedChallenge,
+    get_challenge_store,
+    mint_challenge,
+    verify_challenge,
+)
 from backend.core.meeet import get_client, trace_scope
 from web_extras import policy_gate
 
@@ -145,6 +163,162 @@ async def verify(
             {"fingerprint": fp, "word_count": WORD_COUNT},
         )
         return {"ok": True, "trace_id": trace_id, "fingerprint": fp}
+
+
+class ChallengeStartRequest(BaseModel):
+    """Body for ``POST /api/recovery/challenge/start``.
+
+    The mnemonic is consumed only to fingerprint the seed and pick
+    word positions; it never persists. The cockpit can mint
+    multiple parallel challenges (e.g. one per device pairing
+    flow) — they're identified by ``challenge_id``.
+    """
+
+    mnemonic: str = Field(..., description="Whitespace-separated BIP-39 phrase.")
+    count: int = Field(
+        default=DEFAULT_CHALLENGE_COUNT,
+        ge=MIN_CHALLENGE_COUNT,
+        le=MAX_CHALLENGE_COUNT,
+        description="Number of word positions to challenge (1..8, default 3).",
+    )
+    ttl_s: int = Field(
+        default=DEFAULT_TTL_S,
+        ge=MIN_TTL_S,
+        le=MAX_TTL_S,
+        description=(
+            "Challenge lifetime in seconds. Default 5 min, hard cap 30 min."
+        ),
+    )
+    max_attempts: int = Field(
+        default=DEFAULT_MAX_ATTEMPTS,
+        ge=MIN_MAX_ATTEMPTS,
+        le=MAX_MAX_ATTEMPTS,
+        description="How many wrong tries before the challenge is exhausted.",
+    )
+
+
+class ChallengeVerifyRequest(BaseModel):
+    challenge_id: str = Field(..., description="From challenge/start.")
+    words: list[str] = Field(
+        ...,
+        description=(
+            "Operator answers, one per challenged position, in the same order."
+        ),
+    )
+
+
+@router.post("/challenge/start")
+async def challenge_start(
+    body: ChallengeStartRequest = Body(...),
+    x_meeet_trace_id: str | None = Header(default=None),
+) -> dict[str, Any]:
+    """Mint a 3-of-24 (or N-of-24) verification challenge.
+
+    Validates the mnemonic via the existing
+    :func:`fingerprint_of` first — a wrong word count or bad
+    checksum returns HTTP 400 (rather than a useless challenge
+    the operator can't pass). The seed words themselves are never
+    echoed back; only the **positions** the operator must answer.
+    """
+
+    try:
+        challenge = mint_challenge(
+            body.mnemonic,
+            count=body.count,
+            ttl_s=body.ttl_s,
+            max_attempts=body.max_attempts,
+        )
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400, detail=f"invalid_mnemonic: {exc}"
+        ) from exc
+
+    get_challenge_store().put(challenge)
+
+    client = get_client()
+    with trace_scope(parent=x_meeet_trace_id) as trace_id:
+        await client.emit(
+            "recovery.challenge.started",
+            {
+                "challenge_id": challenge.challenge_id,
+                "fingerprint": challenge.fingerprint,
+                "count": len(challenge.positions),
+                "ttl_s": int(challenge.expires_at - challenge.issued_at),
+                "word_count": WORD_COUNT,
+            },
+        )
+        public = challenge.to_public_dict()
+        return {"ok": True, "trace_id": trace_id, "challenge": public}
+
+
+@router.post("/challenge/verify")
+async def challenge_verify(
+    body: ChallengeVerifyRequest = Body(...),
+    x_meeet_trace_id: str | None = Header(default=None),
+) -> dict[str, Any]:
+    """Check the operator's answers against the in-flight challenge.
+
+    Wrong answers decrement ``attempts_remaining``. Exhausted
+    attempts mark the challenge consumed. Expired challenges 410
+    so the cockpit can re-mint cleanly.
+
+    On success the cockpit can use the returned
+    ``recovery.challenge.passed`` event as the gating proof for
+    the rotate-identity flow (follow-up: gate the destructive
+    rotate action on a fresh ``passed`` challenge for the same
+    fingerprint).
+    """
+
+    store = get_challenge_store()
+    challenge = store.get(body.challenge_id)
+    if challenge is None:
+        raise HTTPException(
+            status_code=404, detail="challenge_not_found"
+        )
+
+    outcome = verify_challenge(challenge, body.words)
+    store.put(outcome.challenge)
+
+    client = get_client()
+    with trace_scope(parent=x_meeet_trace_id) as trace_id:
+        if outcome.ok:
+            kind = "recovery.challenge.passed"
+        elif outcome.error == "expired":
+            kind = "recovery.challenge.expired"
+        elif outcome.error == "exhausted":
+            kind = "recovery.challenge.exhausted"
+        else:
+            kind = "recovery.challenge.failed"
+        await client.emit(
+            kind,
+            {
+                "challenge_id": outcome.challenge.challenge_id,
+                "fingerprint": outcome.challenge.fingerprint,
+                "matched": list(outcome.matched),
+                "attempts_remaining": outcome.challenge.attempts_remaining,
+                "status": outcome.challenge.status,
+            },
+        )
+        body_out: dict[str, Any] = {"trace_id": trace_id, **outcome.to_dict()}
+        if outcome.error == "expired":
+            raise HTTPException(status_code=410, detail=body_out)
+        return body_out
+
+
+@router.get("/challenge/{challenge_id}")
+async def challenge_state(challenge_id: str) -> dict[str, Any]:
+    """Public-safe state of an in-flight challenge.
+
+    Useful for the cockpit to resume after a refresh: returns
+    only ``challenge_id`` / ``fingerprint`` / ``positions`` /
+    ``status`` / ``attempts_remaining`` / ``expires_at`` —
+    never the words.
+    """
+
+    challenge = get_challenge_store().get(challenge_id)
+    if challenge is None:
+        raise HTTPException(status_code=404, detail="challenge_not_found")
+    return {"ok": True, "challenge": challenge.to_public_dict()}
 
 
 @router.get("/wordlist/info")
