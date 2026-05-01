@@ -133,6 +133,8 @@ _MIGRATIONS: tuple[str, ...] = (
     "ALTER TABLE messages ADD COLUMN embedding_model TEXT",
     "ALTER TABLE messages ADD COLUMN embedding_dim INTEGER",
     "ALTER TABLE messages ADD COLUMN embedding_blob BLOB",
+    "ALTER TABLE saved_searches ADD COLUMN seen_hits_json TEXT NOT NULL DEFAULT '[]'",
+    "ALTER TABLE saved_searches ADD COLUMN last_alert_at REAL",
 )
 
 
@@ -793,6 +795,21 @@ class ChatStore:
         scope = (row["scope"] or "all").strip().lower()
         if scope not in ("all", "chunks", "messages", "traces"):
             scope = "all"
+        seen_hits: tuple[str, ...] = ()
+        try:
+            keys = row.keys()
+        except Exception:
+            keys = []
+        if "seen_hits_json" in keys:
+            try:
+                raw_seen = json.loads(row["seen_hits_json"] or "[]")
+            except (json.JSONDecodeError, TypeError):
+                raw_seen = []
+            if isinstance(raw_seen, list):
+                seen_hits = tuple(str(x) for x in raw_seen if x)
+        last_alert_at: float | None = None
+        if "last_alert_at" in keys:
+            last_alert_at = row["last_alert_at"]
         return SavedSearch(
             id=row["id"],
             label=row["label"],
@@ -803,6 +820,8 @@ class ChatStore:
             created_at=row["created_at"],
             updated_at=row["updated_at"],
             last_run_at=row["last_run_at"],
+            seen_hits=seen_hits,
+            last_alert_at=last_alert_at,
         )
 
     def _insert_saved_search_sync(self, saved: SavedSearch) -> None:
@@ -990,6 +1009,70 @@ class ChatStore:
         return await asyncio.to_thread(
             self._stamp_saved_search_run_sync,
             search_id,
+            ts=_now(),
+        )
+
+    def _record_saved_search_alert_sync(
+        self,
+        search_id: str,
+        *,
+        seen_hits: Sequence[str],
+        had_new_hits: bool,
+        ts: float,
+    ) -> SavedSearch | None:
+        """Persist the latest fingerprint snapshot + run/alert times.
+
+        Always stamps ``last_run_at`` (poll happened); only stamps
+        ``last_alert_at`` when ``had_new_hits`` so the cockpit can
+        distinguish "polled and quiet" from "polled and surfaced new
+        rows".
+        """
+
+        seen_json = json.dumps(
+            [str(x) for x in seen_hits if x],
+            separators=(",", ":"),
+        )
+        conn = self._connect()
+        try:
+            if had_new_hits:
+                cur = conn.execute(
+                    "UPDATE saved_searches "
+                    "SET seen_hits_json = ?, last_run_at = ?, "
+                    "    last_alert_at = ? "
+                    "WHERE id = ?",
+                    (seen_json, ts, ts, search_id),
+                )
+            else:
+                cur = conn.execute(
+                    "UPDATE saved_searches "
+                    "SET seen_hits_json = ?, last_run_at = ? "
+                    "WHERE id = ?",
+                    (seen_json, ts, search_id),
+                )
+            if cur.rowcount == 0:
+                return None
+            row = conn.execute(
+                "SELECT * FROM saved_searches WHERE id = ?",
+                (search_id,),
+            ).fetchone()
+        finally:
+            conn.close()
+        return self._row_to_saved_search(row) if row else None
+
+    async def record_saved_search_alert(
+        self,
+        search_id: str,
+        *,
+        seen_hits: Sequence[str],
+        had_new_hits: bool,
+    ) -> SavedSearch | None:
+        if not self.enabled:
+            return None
+        return await asyncio.to_thread(
+            self._record_saved_search_alert_sync,
+            search_id,
+            seen_hits=list(seen_hits),
+            had_new_hits=had_new_hits,
             ts=_now(),
         )
 

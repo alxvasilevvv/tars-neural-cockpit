@@ -173,7 +173,15 @@ Open ideas for the next layer:
   via the existing search engine, stamps `last_run_at`). Listing
   orders pinned first, then most-recently-updated.
   `tests/test_saved_searches.py` (16 cases) pin the path. Cockpit
-  rail UI is the Claude-lane follow-up.
+  rail UI is the Claude-lane follow-up. **Alerts shipped same day:**
+  `backend/core/search/alerts.py` + `POST /api/search/saved/{id}/poll`
+  + `POST /api/search/saved/poll-all` fingerprint each hit
+  (`chunk:<id>` / `message:<msg_id>` / `trace:<event_id>`), diff
+  against the persisted snapshot, and emit
+  `saved_search.new_hits` via the meeet bridge — first poll seeds
+  quietly so saving a query doesn't trigger a flood. Snapshot
+  capped at 1000 entries. `tests/test_saved_search_alerts.py`
+  (18 cases) pin the cycle.
 - **Cross-thread Cmd+J jump.** ⌘K is a search; ⌘J should be a
   fuzzy thread / attachment / pack picker (lighter weight, no
   scope chips, just deep-link nav).

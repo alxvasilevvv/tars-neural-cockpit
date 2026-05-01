@@ -1176,6 +1176,20 @@ Smaller functional items still pending in parallel:
     can show what matched and what was stripped.
     `tests/test_search_filters.py` (29 cases) pin parser + engine +
     HTTP wiring. Saved-search bodies inherit the DSL automatically.
+12. ~~**Saved-search alerts.**~~ **shipped** (2026-05-01) —
+    `backend/core/search/alerts.py` adds passive watchers on top of
+    the saved-search store. `poll_saved_search` runs the query via
+    the existing `search_*` family, fingerprints hits
+    (`chunk:<id>` / `message:<msg_id>` / `trace:<event_id>`),
+    diffs against the persisted snapshot, and emits
+    `saved_search.new_hits` via `MeeetClient.emit` only when the
+    diff is non-empty *and* a baseline existed (first poll seeds
+    quietly so operators don't get a flood). Snapshot capped at
+    `MAX_SEEN_HITS=1000`. New endpoints
+    `POST /api/search/saved/{id}/poll` and
+    `POST /api/search/saved/poll-all`. `tests/test_saved_search_alerts.py`
+    (18 cases) pin the cycle, MeeetClient failure isolation, legacy
+    schema migration, and HTTP wiring.
 11. ~~**FTS5 backfill on schema bump.**~~ **shipped** (2026-05-01) —
     `verify_and_repair_chat_fts` + `verify_and_repair_events_fts`
     do row-count drift detection (not just empty-FTS fallback) and
