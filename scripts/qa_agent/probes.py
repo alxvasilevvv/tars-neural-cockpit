@@ -496,6 +496,96 @@ def probe_version_subdomain(ctx: Context) -> Probe:
     return _timed(run)
 
 
+def probe_client_error_endpoint(ctx: Context) -> Probe:
+    """`POST /api/client-error` must accept a well-formed payload.
+
+    The Pages Function is the public surface for browser-side errors. It
+    proxies into core-bridge via `BRIDGE_SHARED_SECRET`. Two healthy
+    outcomes:
+      • `persisted=true` → the bridge accepted the event end-to-end.
+      • `persisted=false` with `bridge_unconfigured` → schema OK, but
+        operator hasn't pasted the secret yet → warn, do not fail.
+    Anything else is a fail.
+    """
+
+    def run() -> Probe:
+        if ctx.skip_subdomain:
+            return _skip("api.client_error", "api", "DNS not live yet")
+        url = ctx.tars_base + "/api/client-error"
+        trace_id = uuid.uuid4().hex
+        session_id = "qa-agent-" + uuid.uuid4().hex[:12]
+        payload = {
+            "kind": "tars.client.error",
+            "trace_id": trace_id,
+            "session_id": session_id,
+            "contract_version": CONTRACT_VERSION,
+            "payload": {
+                "sub_kind": "qa.synthetic",
+                "message": "QA agent synthetic error report",
+                "url": ctx.tars_base + "/__qa__",
+                "user_agent": USER_AGENT,
+                "released_at_client": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            },
+        }
+        body_bytes = json.dumps(payload).encode("utf-8")
+        status, hdrs, body = _open(
+            "POST",
+            url,
+            headers={
+                "content-type": "application/json",
+                "x-tars-contract": CONTRACT_VERSION,
+                "x-trace-id": trace_id,
+            },
+            body=body_bytes,
+            timeout=ctx.timeout_s,
+        )
+        if _looks_like_lovable_redirect(status, hdrs):
+            return _warn(
+                "api.client_error",
+                "api",
+                "skipped — Lovable redirect (pre-cutover)",
+                url=url,
+            )
+        if status != 200:
+            return _fail(
+                "api.client_error",
+                "api",
+                f"expected 200, got {status}: {body[:200]!r}",
+                url=url,
+            )
+        try:
+            data = json.loads(body)
+        except json.JSONDecodeError as exc:
+            return _fail("api.client_error", "api", f"invalid JSON: {exc}", url=url)
+        if data.get("ok") is not True:
+            return _fail("api.client_error", "api", f"ok != true: {data!r}", url=url)
+        if data.get("persisted") is True:
+            return _pass(
+                "api.client_error",
+                "api",
+                "synthetic error persisted via core-bridge",
+                url=url,
+                trace_id=trace_id,
+            )
+        reason = str(data.get("reason") or data.get("upstream") or "")
+        if "bridge_unconfigured" in reason:
+            return _warn(
+                "api.client_error",
+                "api",
+                "schema OK but BRIDGE_SHARED_SECRET not pasted yet — see TARS_MEEET_OPS_TODO §1",
+                url=url,
+                trace_id=trace_id,
+            )
+        return _fail(
+            "api.client_error",
+            "api",
+            f"persisted=false and not bridge_unconfigured: {data!r}",
+            url=url,
+        )
+
+    return _timed(run)
+
+
 def probe_manifest_origin_blocked(ctx: Context) -> Probe:
     """Disallowed Origin must be 403'd by tars-downloads."""
 
@@ -692,7 +782,13 @@ def probe_robots(ctx: Context) -> Probe:
 
 
 def probe_tokenomics_invariants() -> Probe:
-    """Read the cockpit Tokenomics page source and assert distribution sums to 100%."""
+    """Read the cockpit Tokenomics page source and assert distribution sums to 100%.
+
+    The TARS cockpit (this repo) does not own the tokenomics page — that
+    lives in `meeet.world` (Lovable). We still keep the probe so that if
+    we ever add a `Tokenomics.tsx` mirror locally, it gets validated. In
+    the meantime the probe SKIPs cleanly rather than failing.
+    """
 
     def run() -> Probe:
         try:
@@ -705,7 +801,7 @@ def probe_tokenomics_invariants() -> Probe:
                 return _skip(
                     "economy.tokenomics_invariants",
                     "economy",
-                    f"{tok_path} not present",
+                    "Tokenomics page lives in meeet.world (Lovable lane), not in this repo",
                 )
             text = tok_path.read_text(encoding="utf-8")
             pcts = [int(m) for m in re.findall(r"pct:\s*(\d+)", text)]

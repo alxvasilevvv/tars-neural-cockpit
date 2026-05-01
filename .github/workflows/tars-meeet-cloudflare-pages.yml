@@ -92,24 +92,38 @@ jobs:
             echo "::warning::CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID not set; skipping deploy step. See docs/TARS_MEEET_OPS_TODO.md."
           fi
 
+      # Deploy must run with `experiments/neural-showcase-v3/` as the
+      # working directory so wrangler picks up the sibling `functions/`
+      # tree (Pages Functions for `/api/product/{downloads,version}` and
+      # `/api/client-error`). Without that, wrangler only uploads the
+      # static `dist/` and the API endpoints disappear in production. See
+      # the regression on commit 195547a7 (2026-05-01) where the manifest
+      # endpoint 404'd until a manual hot-fix re-deploy from the project
+      # root restored the Functions bundle.
       - name: Deploy to Cloudflare Pages
         if: steps.probe.outputs.ready == 'true'
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-          command: pages deploy experiments/neural-showcase-v3/dist --project-name=tars-meeet --branch=${{ github.head_ref || github.ref_name }}
+          workingDirectory: experiments/neural-showcase-v3
+          command: pages deploy dist --project-name=tars-meeet --branch=${{ github.head_ref || github.ref_name }}
 
       - name: Smoke (manifest reachable)
         if: github.event_name == 'push' && steps.probe.outputs.ready == 'true'
         run: |
-          # Cloudflare Pages may take ~30s to propagate; tolerate a couple of retries.
-          for attempt in 1 2 3 4 5; do
-            if curl -sfI -o /dev/null https://tars.meeet.world/api/product/downloads; then
-              echo "manifest reachable on attempt $attempt"
+          # Cloudflare Pages may take ~60s to propagate; tolerate retries.
+          # We *want* to fail the workflow if the endpoint never reappears
+          # because that is exactly the regression mode of dropping the
+          # Functions bundle (see 2026-05-01 incident).
+          for attempt in 1 2 3 4 5 6 7 8; do
+            body=$(curl -sf --max-time 10 https://tars.meeet.world/api/product/downloads || true)
+            if echo "$body" | grep -q '"contract_version":"1.0.0"'; then
+              echo "OK: manifest reachable on attempt $attempt"
               exit 0
             fi
             echo "manifest not yet reachable (attempt $attempt) — sleeping"
             sleep 12
           done
-          echo "::warning::manifest endpoint did not become reachable within 60s"
+          echo "::error::manifest endpoint did not return a valid body within 96s — Functions likely missing from deploy"
+          exit 1
