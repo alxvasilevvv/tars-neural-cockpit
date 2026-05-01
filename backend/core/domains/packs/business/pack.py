@@ -34,6 +34,8 @@ class BusinessPack(DomainPack):
             "SMTP_HOST",
             "SMTP_USER",
             "SMTP_PASSWORD",
+            "SMTP_OAUTH_TOKEN",
+            "SMTP_PROVIDER",
             "SMTP_FROM",
         )
 
