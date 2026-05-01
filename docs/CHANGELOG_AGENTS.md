@@ -119,6 +119,82 @@ fresh `recovery.challenge.passed` event for the same fingerprint.
   `docs/CHANGELOG_AGENTS.md`, `docs/AGENT_HANDOFF.md`,
   `docs/IDEAS.md`
 
+## 2026-05-01 — Cursor [A] · Rotate-identity gated by 3-of-24 challenge
+
+**Summary**
+
+Closes the "Recovery seed verification policy" idea from
+`docs/IDEAS.md` (Pairing & sync section): the 3-of-24 challenge
+shipped in PR #73 was a primitive nobody consumed yet. This wires
+the first real consumer — `POST /api/pairing/rotate-identity` —
+that mints a fresh host keypair only when the operator can prove
+they still hold the seed bound to the current identity, and only
+when that proof is fresh (single-use).
+
+1. **Consume helper** (`backend/core/crypto/seed_challenge.py`)
+   - New `consumed` status added to `_VALID_STATUSES` and to the
+     terminal-record sweep window.
+   - `ConsumeOutcome` dataclass — `(ok, challenge, error?, detail?)`
+     with a `to_dict()` that the HTTP layer can pour into a 4xx
+     envelope.
+   - `consume_passed_challenge(store, challenge_id, *,
+     expected_fingerprint=None)` atomically transitions a
+     `passed` proof to `consumed` under the store lock so two
+     racing rotates can't redeem the same challenge. Surfaces
+     four structured errors:
+     - `challenge_not_found` (unknown / swept id)
+     - `fingerprint_mismatch` (caller pinned a different seed)
+     - `challenge_not_passed` (any non-`passed` status, including
+       `consumed` — that's how replay protection works)
+   - On `fingerprint_mismatch` the proof is NOT consumed — a
+     legitimate caller bound to the *other* seed can still redeem
+     it.
+
+2. **Rotate-identity endpoint** (`web_extras/routers/pairing.py`)
+   - New `RotateIdentityRequest` body with `challenge_id` (required)
+     and optional `new_recovery_fingerprint` (so the operator can
+     rotate the bound seed at the same time as the keypair, e.g.
+     after a seed-leak event).
+   - `POST /api/pairing/rotate-identity`:
+     - 409 `recovery_not_bound` if the host has no
+       `recovery_fingerprint` yet (first install before any seed).
+     - Otherwise consumes the challenge against the host's bound
+       fingerprint and calls `store.rotate_host_identity(...)`.
+     - Emits `pair.host_rotated` with `host_id`, `old/new public
+       key`, `challenge_id`, and the bound `recovery_fingerprint`.
+     - Returns the new identity payload + `previous_host_public_key`
+       so the cockpit can render a clean before/after diff.
+   - Errors all flow through `TARSAPIError` for a uniform JSON
+     envelope; new error codes registered in
+     `web_extras/errors.py`: `challenge_not_found`,
+     `challenge_not_passed`, `fingerprint_mismatch`,
+     `recovery_not_bound`, `rotate_blocked`.
+
+3. **Tests**
+   - `tests/test_seed_challenge_consume.py` — 10 unit tests for
+     the helper: happy path, fingerprint match/mismatch (no
+     consume on mismatch), replay returns `not_passed`, unknown
+     id, pending / failed / expired all blocked, and the
+     module-singleton round-trip.
+   - `tests/test_pairing_rotate_identity.py` — 9 HTTP integration
+     tests: happy path, single-use enforcement, optional
+     `new_recovery_fingerprint` rebind, `pair.host_rotated` event
+     emission, 409 envelopes for unbound seed / pending challenge
+     / fingerprint mismatch, 404 for unknown challenge id, and
+     unified-envelope shape.
+
+**Files**
+`backend/core/crypto/seed_challenge.py`,
+`web_extras/routers/pairing.py`,
+`web_extras/errors.py`,
+`tests/test_seed_challenge_consume.py` (new),
+`tests/test_pairing_rotate_identity.py` (new),
+`docs/CHANGELOG_AGENTS.md`,
+`docs/AGENT_HANDOFF.md`,
+`docs/IDEAS.md`.
+
+**Tests** — `pytest tests/` ⇒ 1376 passed (full suite).
+
 ## 2026-05-01 — Cursor [A] · Pairing relay rate-limit (token-bucket)
 
 **Summary**

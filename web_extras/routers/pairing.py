@@ -7,8 +7,10 @@ Endpoints (pinned by ``docs/contracts/L5_PAIRING_DRAFT.md``):
 - ``POST /api/pairing/reject/{token}``  → operator-declined.
 - ``GET  /api/pairing/status``          → poll a pending pair_id.
 - ``POST /api/pairing/revoke``          → drop a paired device.
-- ``GET  /api/pairing/devices``        → list paired devices.
-- ``GET  /api/pairing/identity``       → host identity / vault fingerprints.
+- ``GET  /api/pairing/devices``         → list paired devices.
+- ``GET  /api/pairing/identity``        → host identity / vault fingerprints.
+- ``POST /api/pairing/rotate-identity`` → mint fresh host keypair (gated
+  behind a passed 3-of-24 recovery challenge for the current seed).
 
 Every state transition emits a ``pair.<state>`` event into the meeet
 event store so replay on a paired device gives the same audit trail
@@ -24,6 +26,10 @@ from typing import Any, Optional
 from fastapi import APIRouter, Body, Header, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
+from backend.core.crypto.seed_challenge import (
+    consume_passed_challenge,
+    get_challenge_store,
+)
 from backend.core.meeet import get_client, trace_scope
 from backend.core.pairing import PairingNotFound, get_pairing_store
 from web_extras.errors import TARSAPIError
@@ -97,6 +103,35 @@ class BeginRequest(BaseModel):
 
 class RevokeRequest(BaseModel):
     device_id: str = Field(..., min_length=4, max_length=64)
+
+
+class RotateIdentityRequest(BaseModel):
+    """Body for ``POST /api/pairing/rotate-identity``.
+
+    Closes the "Recovery seed verification policy" item from
+    ``docs/IDEAS.md``: the operator must mint and pass a 3-of-24
+    challenge against the seed bound to the host's current identity
+    before the rotate goes through.
+    """
+
+    challenge_id: str = Field(
+        ...,
+        min_length=4,
+        max_length=64,
+        description=(
+            "ID of a 3-of-24 challenge that already returned "
+            "``status: passed`` from /api/recovery/challenge/verify."
+        ),
+    )
+    new_recovery_fingerprint: str | None = Field(
+        default=None,
+        description=(
+            "Optional fingerprint to bind to the rotated identity. "
+            "Defaults to the existing recovery_fingerprint so a "
+            "rotate-only op (refresh device key) does not require "
+            "a fresh seed."
+        ),
+    )
 
 
 # --- helpers ---------------------------------------------------------
@@ -326,3 +361,124 @@ async def identity() -> dict[str, Any]:
         },
         "recovery_fingerprint": store.recovery_fingerprint,
     }
+
+
+_ROTATE_ERROR_HTTP: dict[str, int] = {
+    "challenge_not_found": 404,
+    "challenge_not_passed": 409,
+    "fingerprint_mismatch": 409,
+    "recovery_not_bound": 409,
+}
+
+
+@router.post("/rotate-identity")
+async def rotate_identity(
+    body: RotateIdentityRequest = Body(...),
+    x_meeet_trace_id: str | None = Header(default=None),
+) -> dict[str, Any]:
+    """Rotate the host's long-term keypair after a 3-of-24 proof.
+
+    Flow (cockpit):
+
+    1. ``POST /api/recovery/challenge/start`` against the seed bound
+       to the current identity (``store.recovery_fingerprint``).
+    2. Operator answers; ``POST /api/recovery/challenge/verify``
+       returns ``status: passed``.
+    3. ``POST /api/pairing/rotate-identity`` with the
+       ``challenge_id`` from step 1. The proof is consumed
+       atomically (single-use) and the host mints a fresh keypair.
+
+    Errors return the unified :class:`TARSAPIError` envelope:
+
+    - 409 ``recovery_not_bound`` → host has no recovery_fingerprint
+      yet (first-install, before any seed was generated). The
+      operator should call ``/api/recovery/generate`` first.
+    - 404 ``challenge_not_found`` → unknown / evicted challenge id.
+    - 409 ``fingerprint_mismatch`` → challenge was minted against
+      a different seed than the one bound to the current identity.
+    - 409 ``challenge_not_passed`` → status is anything other than
+      ``passed`` (pending, failed, expired, exhausted, or already
+      consumed by an earlier rotate).
+
+    On success emits ``pair.host_rotated`` (with
+    ``old_host_public_key``, ``new_host_public_key``,
+    ``challenge_id``, ``recovery_fingerprint``) and returns the new
+    host identity payload — the cockpit should mirror this into
+    ``/api/pairing/identity`` immediately after.
+    """
+
+    store = get_pairing_store()
+    current_fingerprint = store.recovery_fingerprint
+    if current_fingerprint is None:
+        raise TARSAPIError(
+            status_code=409,
+            error_code="recovery_not_bound",
+            message=(
+                "host has no recovery_fingerprint bound — generate "
+                "or import a recovery seed first"
+            ),
+            hint=(
+                "Call POST /api/recovery/generate to mint a fresh "
+                "24-word seed; the host identity will then be "
+                "bound to that seed's fingerprint."
+            ),
+        )
+
+    outcome = consume_passed_challenge(
+        get_challenge_store(),
+        body.challenge_id,
+        expected_fingerprint=current_fingerprint,
+    )
+    if not outcome.ok:
+        status_code = _ROTATE_ERROR_HTTP.get(outcome.error or "", 409)
+        raise TARSAPIError(
+            status_code=status_code,
+            error_code=outcome.error or "rotate_blocked",
+            message=outcome.detail
+            or (
+                "rotate-identity blocked: " + (outcome.error or "unknown_reason")
+            ),
+            hint=(
+                "Mint a fresh 3-of-24 challenge for the current "
+                "host fingerprint via "
+                "POST /api/recovery/challenge/start, then pass it "
+                "via /verify before calling rotate-identity."
+            ),
+        )
+
+    target_fingerprint = (
+        body.new_recovery_fingerprint
+        if body.new_recovery_fingerprint is not None
+        else current_fingerprint
+    )
+
+    old_public_key = store.host_public_key_b64
+    new_identity = store.rotate_host_identity(
+        recovery_fingerprint=target_fingerprint,
+    )
+
+    client = get_client()
+    with trace_scope(parent=x_meeet_trace_id) as trace_id:
+        await client.emit(
+            "pair.host_rotated",
+            {
+                "host_id": store.host_id,
+                "old_host_public_key": old_public_key,
+                "new_host_public_key": new_identity.public_b64,
+                "challenge_id": body.challenge_id,
+                "recovery_fingerprint": store.recovery_fingerprint,
+                "challenge_fingerprint": current_fingerprint,
+            },
+        )
+        return {
+            "ok": True,
+            "trace_id": trace_id,
+            "host_id": store.host_id,
+            "host_public_key": new_identity.public_b64,
+            "host_fingerprint": store.fingerprint(
+                host_id=store.host_id, pair_id=store.host_id
+            ),
+            "recovery_fingerprint": store.recovery_fingerprint,
+            "challenge_id": body.challenge_id,
+            "previous_host_public_key": old_public_key,
+        }
