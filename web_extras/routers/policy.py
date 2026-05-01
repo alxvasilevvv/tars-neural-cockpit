@@ -150,5 +150,21 @@ async def cancel(token: str) -> dict[str, Any]:
 
 @router.post("/expire")
 async def expire_stale() -> dict[str, Any]:
-    n = await get_policy_store().expire_stale()
-    return {"ok": True, "expired": n}
+    expired = await get_policy_store().expire_stale()
+    client = get_client()
+    for c in expired:
+        await client.emit(
+            "policy.expired",
+            {
+                "token": c.token,
+                "slug": c.slug,
+                "action": c.action_id,
+                "expired_at": c.resolved_at,
+                "trace_id": c.trace_id,
+            },
+        )
+    return {
+        "ok": True,
+        "expired": len(expired),
+        "tokens": [c.token for c in expired],
+    }
