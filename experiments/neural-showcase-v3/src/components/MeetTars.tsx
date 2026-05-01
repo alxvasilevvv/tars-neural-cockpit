@@ -19,10 +19,10 @@ const TARS_SCENE =
   "https://prod.spline.design/kZDDjO5HuC9GJUM2/scene.splinecode";
 
 const PROMPTS = [
-  "Подготовь заметки для встречи в 10:00",
-  "Сделай summary research.pdf",
-  "Отсортируй ~/Downloads по типу",
-  "Покажи PR'ы которые ждут review",
+  "Draft notes for the 10:00 meeting",
+  "Summarise research.pdf",
+  "Sort ~/Downloads by type",
+  "Show PRs waiting for review",
 ];
 
 interface Preview {
@@ -34,12 +34,12 @@ interface Preview {
 const PREVIEWS: Preview[] = [
   {
     label: "MEETING NOTES",
-    body: "10:00 — Sync. 3 участника, тема: Phase 9 review. Готовы: agenda, blocker list, 2 решения для обсуждения.",
+    body: "10:00 — Sync. 3 attendees, topic: Phase 9 review. Ready: agenda, blocker list, 2 decisions queued for discussion.",
     ms: "4.1s",
   },
   {
     label: "FILE SUMMARY",
-    body: "research.pdf · 18 страниц. Дискриминатор обучается в edge при батчах ≤ 256. 4 эксперимента, метрики 92%+.",
+    body: "research.pdf · 18 pages. Discriminator trains on-edge at batch sizes ≤ 256. 4 experiments, metrics steady at 92%+.",
     ms: "2.8s",
   },
   {

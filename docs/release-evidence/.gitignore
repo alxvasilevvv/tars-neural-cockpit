@@ -1,0 +1,8 @@
+# Auto-generated release-gate evidence files. They contain timestamps and
+# trace_ids that are unique per run; we keep the directory in git but not
+# the runs themselves.
+*.json
+*.qa-agent.json
+*.qa-agent.stderr
+!.gitignore
+!README.md
