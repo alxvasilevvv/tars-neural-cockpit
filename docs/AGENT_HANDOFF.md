@@ -1201,6 +1201,26 @@ Smaller functional items still pending in parallel:
     `{q?, query?, limit?, kinds?}` — clamped to 100 hits, unknown
     kinds dropped silently. `tests/test_jump_picker.py` (23 cases).
     Cockpit ⌘J palette UI is the Claude-lane follow-up.
+18. ~~**`pack.memory.*` action family.**~~ **shipped** (2026-05-01) —
+    Activates the storage core (PR #56) as a uniform action surface
+    on every domain pack. `backend/core/domains/memory_actions.py`
+    is a closure factory binding six `ActionSpec`s to the pack slug:
+    `set`, `get`, `list`, `delete`, `purge_expired`, `stats`.
+    `DomainPack.all_actions()` yields `actions() + memory_actions(slug)`;
+    `find_action` / `to_dict` / manifest counts now walk the
+    composed view. `CompositePack.actions()` flattens via
+    `sub.all_actions()` so a `research_lab` playbook hits
+    `business__pack.memory.set` and lands in the business
+    partition (sub-pack ownership preserved via the bound closure).
+    Optional `pack_slug` arg lets a caller redirect into a sibling
+    partition without going through the composite. Only `delete`
+    is `destructive=True` so the policy gate gates it; reads, list,
+    purge, and stats are first-class non-destructive ops.
+    `tests/test_memory_actions.py` (27 cases) pin factory, injection
+    invariants, handlers (TTL, validation, partitioning, filters),
+    composites, HTTP describe / manifest counts, and the policy
+    gate's confirm-vs-autopilot path. Full backend suite is now
+    1000 passed.
 17. ~~**Per-pack memory partitions (foundations).**~~ **shipped**
     (2026-05-01) — every domain pack now has its own SQLite-backed
     key-value store for facts/notes/preferences with optional TTL.
