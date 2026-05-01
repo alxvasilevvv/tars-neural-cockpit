@@ -12,6 +12,12 @@ Endpoints:
   ``os`` / ``channel`` filters).
 - ``GET /api/product/version`` — minimal version probe used by Tauri
   updater fallbacks and lightweight monitors.
+- ``GET /updates/{target}/{current_version}.json`` — live Tauri
+  updater channel manifest, generated from the same in-memory
+  ``DownloadManifest`` as ``/api/product/downloads`` so the two
+  surfaces never drift.
+- ``GET /updates/{target}/latest.json`` — alias for the latest
+  release of ``target`` (helpful for marketing site links).
 
 All endpoints are read-only, side-effect-free, and emit a permissive
 ``Cache-Control`` so a CDN can serve them with a one-minute TTL.
@@ -25,9 +31,20 @@ from fastapi import APIRouter, HTTPException, Query, Response
 
 from backend.core.product import DEFAULT_MANIFEST, load_manifest
 from backend.core.product.manifest import VALID_OS
+from backend.core.product.updater import (
+    build_channel_from_release,
+    known_targets,
+    target_to_os_arch,
+)
 
 
 router = APIRouter(prefix="/api/product", tags=["product"])
+
+# Tauri's updater plugin polls a hard-coded URL pattern that lives
+# *outside* the ``/api/product`` prefix (operators want to expose
+# ``https://meeet.world/updates/<target>/<v>.json``). We mount this
+# second router at the app level so the path stays stable.
+updates_router = APIRouter(prefix="/updates", tags=["product", "updater"])
 
 
 @router.get("/downloads")
@@ -74,3 +91,80 @@ async def get_version(response: Response) -> dict[str, Any]:
         "channel": manifest.channel,
         "version": latest.version if latest else None,
     }
+
+
+@router.get("/updater/targets")
+async def get_known_targets(response: Response) -> dict[str, Any]:
+    """Discovery helper: list every Tauri target the live channel
+    serves. Useful for monitors / marketing site to render
+    "available platforms" without hard-coding the matrix.
+    """
+
+    response.headers["Cache-Control"] = "public, max-age=300"
+    return {"ok": True, "targets": list(known_targets())}
+
+
+# ---------------------------------------------------------------------
+# Tauri updater channel JSON (live)
+# ---------------------------------------------------------------------
+
+
+def _resolve_channel_payload(
+    target: str, version_path: str
+) -> tuple[dict[str, Any], str] | None:
+    """Look up the channel manifest for ``target`` from the live
+    ``DownloadManifest``.
+
+    Returns ``(payload, version)`` where ``version`` is the latest
+    available version for the target's OS, or ``None`` when the
+    target is unknown / no release is available.
+
+    ``version_path`` is the URL segment the operator's installed app
+    sent (without the ``.json`` suffix). The function does not
+    compare versions — Tauri does that on the client side based on
+    the ``version`` field in the returned JSON.
+    """
+
+    os_arch = target_to_os_arch(target)
+    if os_arch is None:
+        return None
+    os_id, _arch = os_arch
+
+    manifest = load_manifest()
+    entry = manifest.latest(os_id=os_id)
+    if entry is None:
+        return None
+
+    channel = build_channel_from_release(entry, target=target)
+    if not channel.platforms:
+        return None
+    return channel.to_dict(), entry.version
+
+
+@updates_router.get("/{target}/{version_path}.json")
+async def get_updater_channel(
+    response: Response,
+    target: str,
+    version_path: str,
+) -> dict[str, Any]:
+    """Live updater channel JSON for one ``target``.
+
+    Tauri's plugin polls this URL with the *current* installed
+    version embedded in the path; we always respond with the
+    latest manifest and let the client's semver comparison decide
+    whether to upgrade. The endpoint never 304s — Tauri caches via
+    its own ETag / If-Modified-Since machinery.
+    """
+
+    if target not in set(known_targets()):
+        raise HTTPException(status_code=404, detail="unknown_target")
+
+    payload = _resolve_channel_payload(target, version_path)
+    if payload is None:
+        raise HTTPException(
+            status_code=404, detail="no_release_for_target"
+        )
+    body, _latest_version = payload
+    response.headers["Cache-Control"] = "public, max-age=60"
+    response.headers["X-Tars-Updater-Target"] = target
+    return body
