@@ -1167,8 +1167,11 @@ Smaller functional items still pending in parallel:
     date / timestamp. `search` / `search_messages` / `search_traces`
     honour every token (messages get `pack`/`since`/`until` JOINs,
     traces get `since`/`until` JOINs); `search_chunks` strips tokens
-    and honours `thread:` only (attachments-DB JOIN for
-    `pack`/`mime`/`since`/`until` is the next slice).
+    and honours `thread:` + (since 2026-05-01 follow-up)
+    `pack:` / `mime:` / `since:` / `until:` filters via JOINs to
+    `threads` and `attachments` (same DB — single SQLite file).
+    `mime:` accepts literal (`application/pdf`) or wildcard prefix
+    (`image/*` → LIKE `image/%`).
     `SearchResult` carries `filters` + `cleaned_query` so the cockpit
     can show what matched and what was stripped.
     `tests/test_search_filters.py` (29 cases) pin parser + engine +
