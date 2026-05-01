@@ -4,7 +4,7 @@ Endpoints:
 
 - ``GET /api/meeet/stats`` — quick summary (total / unpushed / first_ts / last_ts).
 - ``GET /api/meeet/events`` — list events newest-first with filters
-  ``limit, since, trace_id, kind, only_unpushed``.
+  ``limit, since, trace_id, kind, kind_prefix, session_id, only_unpushed``.
 - ``POST /api/meeet/replay`` — flush unpushed events to ingest now.
 - ``GET /api/meeet/health`` — bridge health (ingest url set?, api key set?,
   contract version, store stats, last replay attempt).
@@ -45,6 +45,14 @@ async def list_events(
     since: Optional[float] = Query(default=None),
     trace_id: Optional[str] = Query(default=None),
     kind: Optional[str] = Query(default=None),
+    kind_prefix: Optional[str] = Query(
+        default=None,
+        description=(
+            "Filter to events whose kind starts with this prefix "
+            "(e.g. 'pair.' for the pairing audit lane)."
+        ),
+        max_length=64,
+    ),
     session_id: Optional[str] = Query(default=None),
     only_unpushed: bool = Query(default=False),
 ) -> dict[str, Any]:
@@ -53,6 +61,7 @@ async def list_events(
         since=since,
         trace_id=trace_id,
         kind=kind,
+        kind_prefix=kind_prefix,
         session_id=session_id,
         only_unpushed=only_unpushed,
     )
