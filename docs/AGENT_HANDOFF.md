@@ -1201,6 +1201,16 @@ Smaller functional items still pending in parallel:
     `{q?, query?, limit?, kinds?}` — clamped to 100 hits, unknown
     kinds dropped silently. `tests/test_jump_picker.py` (23 cases).
     Cockpit ⌘J palette UI is the Claude-lane follow-up.
+14. ~~**Saved-search auto-poll loop.**~~ **shipped** (2026-05-01) —
+    Lifespan loop in `web_extras/app.py` (default off,
+    opt-in via `TARS_SAVED_SEARCH_POLL_INTERVAL_S=120` etc.) that
+    walks every saved search and triggers
+    `poll_all_saved_searches`. Combined with PR #49's emit path,
+    saved-search alerts now fire automatically without manual
+    cockpit triggers. `tests/test_saved_search_auto_poll.py`
+    (12 cases) pin env helpers, loop short-circuit when disabled,
+    a one-tick alert flow with stub MeeetClient, and lifespan
+    start/stop hygiene.
 12. ~~**Saved-search alerts.**~~ **shipped** (2026-05-01) —
     `backend/core/search/alerts.py` adds passive watchers on top of
     the saved-search store. `poll_saved_search` runs the query via

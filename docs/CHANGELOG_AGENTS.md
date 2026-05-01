@@ -4,6 +4,58 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · Saved-search auto-poll background loop
+
+**Summary**
+
+Follow-up to PR #49 (saved-search alerts). The alerts pipeline
+already emits `saved_search.new_hits` on demand via
+`POST /api/search/saved/{id}/poll` and `…/poll-all`; this slice adds
+a lifespan loop so saved-search alerts fire automatically without
+operator intervention. Same default-off / opt-in shape as the
+`message_embed` and `trace_summary` loops.
+
+1. **`web_extras/app.py`**
+   - `_saved_search_poll_interval_s()` — env-driven cadence
+     (`TARS_SAVED_SEARCH_POLL_INTERVAL_S`, default `0` = disabled).
+   - `_saved_search_poll_top_k()` — clamp `[1, 100]`,
+     `TARS_SAVED_SEARCH_POLL_TOP_K`, default 25.
+   - `_saved_search_poll_limit()` — clamp `[1, 500]`,
+     `TARS_SAVED_SEARCH_POLL_LIMIT`, default 100.
+   - `_saved_search_poll_loop()` — best-effort loop. Calls
+     `poll_all_saved_searches` every interval, logs at INFO when an
+     alert fires, swallows every exception so a flaky meeet bridge
+     doesn't crash the host.
+   - `_lifespan` spawns the new task alongside `replay`,
+     `autopilot`, `trace_summary`, `message_embed` and cancels them
+     all on shutdown.
+
+2. **Tests** — `tests/test_saved_search_auto_poll.py` (new, 12 cases)
+   - Env helpers: default off, parses float, clamps negative to
+     zero, garbage → zero, top_k / limit clamps + defaults.
+   - Loop: short-circuits to return when interval is 0; ticks at
+     50ms cadence and emits `saved_search.new_hits` once a drift
+     row appears between ticks (verified via stub MeeetClient).
+   - Lifespan: TestClient `__enter__/__exit__` round-trip starts
+     and cancels the task without raising, even with a 60s interval.
+
+**Verification**
+
+`pytest -q --ignore=tests/test_phase8_recovery.py
+       --deselect tests/test_pairing_contract.py::test_pair_attempted_event_emitted`
+→ **919 passed**, 1 deselected (pre-existing flake on `main`).
+Lints clean.
+
+**Files**
+
+- web_extras/app.py
+- tests/test_saved_search_auto_poll.py (new)
+- docs/CHANGELOG_AGENTS.md
+- docs/AGENT_HANDOFF.md
+- docs/IDEAS.md
+
+---
+
 ## 2026-05-01 — Cursor [A] · Cross-thread Cmd+J jump picker
 
 **Summary**
