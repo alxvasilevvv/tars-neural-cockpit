@@ -4,6 +4,41 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor · meeet-browser-agent phase1-lab hardening (cross-repo)
+
+**Summary**
+
+Cross-repo work on `Alvasilev12/meeet-browser-agent-bootstrap` /
+`alxvasilevvv/meeet-browser-agent` (Phase 1 Lab scaffold) — recorded
+here so the TARS lane has a single audit trail.
+
+What landed (in `meeet-browser-agent`, branch `cursor/bootstrap-workspace`):
+
+- Extracted `callModel` from `phase1-lab/supabase/functions/lab-ask/index.ts`
+  into `lab-ask/models.ts` with per-provider response-shape parsers
+  (OpenAI / Anthropic / Gemini), HTTP-status checks, and an
+  `isModelResponse` type guard that rejects empty / whitespace responses.
+- Refactored `lab-ask/index.ts` to use the new module and replaced the
+  buggy `r !== null` filter with the type guard, so an `ErrorResponse`
+  can no longer slip into `validResponses` (previously it would
+  generate an empty synthesis prompt with no real content).
+- Synthesizer also parses Anthropic content shape defensively.
+- 16 Deno tests in `models_test.ts` covering: unsupported model,
+  missing API key, OpenAI happy path, OpenAI HTTP 429 surfacing
+  provider message, OpenAI empty body, Anthropic multi-block content,
+  Anthropic malformed payload, Gemini parts/text, throwing fetch,
+  whitespace-response rejection, consensus heuristics (both branches),
+  cost estimation, and ErrorResponse separation.
+- `tests/test_lab_ask_deno.py` wraps the Deno suite in pytest so
+  `pytest` exercises both layers; auto-skips when `deno` is absent.
+- `pyproject.toml` adds `contract_validation.py` to the pytest
+  collection so all 7 tests run with default `pytest`.
+- `Makefile` exposes `test`, `test-contracts`, `test-lab-ask`, `deno-check`.
+- `phase1-lab/TODO.md` marks the response-shape guard item resolved.
+
+Local sanity in meeet-browser-agent: `make test` 7 passed,
+`deno test` 16 passed, `deno check` clean.
+
 ## 2026-05-01 — Cursor · SPA-200 regression tests + ops one-shot + sentinel
 
 **Summary**
