@@ -182,9 +182,16 @@ Open ideas for the next layer:
   quietly so saving a query doesn't trigger a flood. Snapshot
   capped at 1000 entries. `tests/test_saved_search_alerts.py`
   (18 cases) pin the cycle.
-- **Cross-thread Cmd+J jump.** ⌘K is a search; ⌘J should be a
+- ~~**Cross-thread Cmd+J jump.** ⌘K is a search; ⌘J should be a
   fuzzy thread / attachment / pack picker (lighter weight, no
-  scope chips, just deep-link nav).
+  scope chips, just deep-link nav).~~ — Backend shipped 2026-05-01:
+  `backend/core/search/jump.py` + `POST /api/search/jump`. Scoring
+  is a deliberately cheap `fuzzy_score` (exact / prefix / substring
+  / token-prefix / subsequence) and the fan-out covers threads,
+  attachments, saved searches, packs, and playbooks. Empty query
+  returns recency-first candidates. `tests/test_jump_picker.py`
+  (23 cases) pin the scorer + rank + engine + HTTP. Cockpit ⌘J
+  palette UI is the Claude-lane follow-up.
 - ~~**FTS5 backfill on schema bump.** When the chat DB is migrated
   from a backup, run `backfill_chunk_fts` / `backfill_message_fts`
   on first boot if the index is empty but the source tables aren't.~~
