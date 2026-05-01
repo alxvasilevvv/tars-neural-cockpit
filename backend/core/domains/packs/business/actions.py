@@ -27,6 +27,7 @@ from ...base import ActionSpec
 from ..._http import post_json
 from backend.core.vault import get_secret
 from ....council import get_council
+from .hubspot import pull_pipeline as hubspot_pull_pipeline
 from .smtp import SmtpConfig, send_email
 
 _REPO_ROOT = Path(__file__).resolve().parents[5]
@@ -475,5 +476,53 @@ ACTIONS: tuple[ActionSpec, ...] = (
             "required": ["name"],
         },
         destructive=True,
+    ),
+    ActionSpec(
+        id="hubspot_pull_pipeline",
+        name="Pull HubSpot pipeline",
+        description=(
+            "Read-only fetch of deals from HubSpot CRM "
+            "(GET /crm/v3/objects/deals). Requires HUBSPOT_API_KEY "
+            "in the vault. Supports pagination via 'after' cursor."
+        ),
+        handler=hubspot_pull_pipeline,
+        schema={
+            "type": "object",
+            "properties": {
+                "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100,
+                    "description": "Page size (1..100, default 25).",
+                },
+                "after": {
+                    "type": "string",
+                    "description": "Opaque cursor from a previous response.",
+                },
+                "properties": {
+                    "type": ["array", "string"],
+                    "description": (
+                        "Property keys to request. Pass a list or a "
+                        "comma-separated string. Defaults to a sane "
+                        "set of HubSpot built-ins."
+                    ),
+                },
+                "pipeline": {
+                    "type": "string",
+                    "description": (
+                        "Optional pipeline id filter (applied "
+                        "client-side; the public deals endpoint does "
+                        "not accept a server-side pipeline filter)."
+                    ),
+                },
+                "include_raw": {
+                    "type": "boolean",
+                    "description": (
+                        "Attach each deal's raw HubSpot row under "
+                        "'raw' for debugging."
+                    ),
+                },
+            },
+        },
     ),
 )

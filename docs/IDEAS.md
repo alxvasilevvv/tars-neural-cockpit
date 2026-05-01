@@ -304,7 +304,20 @@ Open ideas for the next layer:
      `integration.binance.klines` events (request / completed /
      error). Tests: `tests/test_traders_binance_klines.py` (21
      cases).
-   - `business.hubspot_pull_pipeline` (read-only).
+   - ~~`business.hubspot_pull_pipeline`~~ ✅ **Shipped 2026-05-01**
+     (read-only) — `backend/core/domains/packs/business/hubspot.py`
+     `pull_pipeline` handler against
+     `api.hubapi.com/crm/v3/objects/deals` (vault key
+     `HUBSPOT_API_KEY`). Returns normalised deals with
+     `stage_label` lookup + derived `active_count` /
+     `won_count` / `lost_count` / `pipeline_amount` rollups +
+     opaque `next_cursor` from HubSpot's `paging.next.after`.
+     Defensive structural errors (`auth_missing` /
+     `auth_invalid` / `invalid_limit` / `network_error` /
+     `upstream_status` / `upstream_payload_invalid`). Emits
+     `integration.hubspot.deals_list` events
+     (`request` / `completed` / `error`). Tests:
+     `tests/test_business_hubspot_pipeline.py` (35 cases).
    - `mlm.tg_outreach_draft` ✅ shipped (2026-05-01) — pure
      deterministic markdown drafter; six intents × three tones ×
      three languages (en/ru/es); `send_status="draft"` and
