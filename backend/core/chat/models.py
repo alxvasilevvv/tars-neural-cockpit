@@ -32,6 +32,69 @@ def new_attachment_id() -> str:
     return _new_id("att")
 
 
+def new_saved_search_id() -> str:
+    return _new_id("sv")
+
+
+SavedSearchScope = Literal["all", "chunks", "messages", "traces"]
+
+
+@dataclass(frozen=True)
+class SavedSearch:
+    """A persisted search filter combination.
+
+    The cockpit ⌘K palette uses these to let operators re-run their
+    common queries with one click. ``filters`` is a free-form JSON
+    bag — current consumers honour ``thread_id`` / ``role`` /
+    ``kind`` / ``trace_id``, additive keys are forward-compat.
+    """
+
+    id: str
+    label: str
+    query: str
+    scope: SavedSearchScope
+    filters: Mapping[str, Any]
+    pinned: bool
+    created_at: float
+    updated_at: float
+    last_run_at: float | None
+
+    @staticmethod
+    def fresh(
+        *,
+        label: str,
+        query: str,
+        scope: SavedSearchScope = "all",
+        filters: Mapping[str, Any] | None = None,
+        pinned: bool = False,
+    ) -> "SavedSearch":
+        now = time.time()
+        return SavedSearch(
+            id=new_saved_search_id(),
+            label=label.strip() or "untitled",
+            query=query,
+            scope=scope,
+            filters=dict(filters or {}),
+            pinned=bool(pinned),
+            created_at=now,
+            updated_at=now,
+            last_run_at=None,
+        )
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "id": self.id,
+            "label": self.label,
+            "query": self.query,
+            "scope": self.scope,
+            "filters": dict(self.filters),
+            "pinned": bool(self.pinned),
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "last_run_at": self.last_run_at,
+        }
+
+
 MessageRole = Literal["operator", "tars", "tool", "system"]
 ToolStatus = Literal["pending", "queued", "allowed", "completed", "failed", "cancelled"]
 

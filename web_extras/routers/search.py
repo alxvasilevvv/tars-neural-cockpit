@@ -12,9 +12,18 @@ Endpoints:
 - ``POST /api/search/embed-messages`` — embed pending messages so
   vector fusion has something to blend; returns counts. Equivalent
   to ``POST /api/meeet/traces/refresh`` for the trace materialised
-  view (operator-triggered until a periodic loop lands).
+  view (operator-triggered; the periodic loop is opt-in via
+  ``TARS_MESSAGE_EMBED_INTERVAL_S``).
 - ``POST /api/search/traces`` — free-text search over the meeet event
   durable buffer.
+- ``GET    /api/search/saved`` — list operator-saved search presets
+  (pinned first, then by last update).
+- ``POST   /api/search/saved`` — create a saved search.
+- ``GET    /api/search/saved/{id}`` — fetch one preset.
+- ``PATCH  /api/search/saved/{id}`` — partial update of a preset.
+- ``DELETE /api/search/saved/{id}`` — remove a preset.
+- ``POST   /api/search/saved/{id}/run`` — execute the preset and
+  stamp ``last_run_at``.
 - ``GET  /api/chat/threads/{id}/timeline`` — structured per-thread
   timeline (mounted under the existing chat router below).
 
@@ -28,6 +37,7 @@ from typing import Any, Optional
 
 from fastapi import APIRouter, Body, HTTPException, Query
 
+from backend.core.chat import SavedSearch
 from backend.core.chat.embeddings import embed_pending_messages
 from backend.core.chat.store import get_chat_store
 from backend.core.search import (
@@ -165,6 +175,176 @@ async def traces_search(
         "scope": "traces",
         "count": len(hits),
         "hits": [h.to_dict() for h in hits],
+    }
+
+
+# ----------------------------------------------------------------------
+# Saved searches — operator presets for the cockpit ⌘K palette.
+# Persisted in ~/.tars/chat.sqlite (table ``saved_searches``).
+# ----------------------------------------------------------------------
+
+
+def _saved_payload(saved: SavedSearch | None) -> dict[str, Any]:
+    return saved.to_dict() if saved else {}
+
+
+@router.get("/saved")
+async def list_saved_searches(
+    limit: int = Query(default=100, ge=1, le=500),
+) -> dict[str, Any]:
+    chat = get_chat_store()
+    rows = await chat.list_saved_searches(limit=limit)
+    return {
+        "ok": True,
+        "count": len(rows),
+        "items": [r.to_dict() for r in rows],
+    }
+
+
+@router.post("/saved")
+async def create_saved_search(
+    payload: dict[str, Any] | None = Body(default=None),
+) -> dict[str, Any]:
+    body = payload or {}
+    label = str(body.get("label") or "").strip()
+    query = str(body.get("query") or "").strip()
+    if not label:
+        raise HTTPException(status_code=400, detail="label_required")
+    if not query:
+        raise HTTPException(status_code=400, detail="query_required")
+    scope = _parse_scope(body.get("scope") or "all")
+    filters = body.get("filters") or {}
+    if not isinstance(filters, dict):
+        raise HTTPException(status_code=400, detail="filters_must_be_object")
+    pinned = bool(body.get("pinned") or False)
+    saved = SavedSearch.fresh(
+        label=label,
+        query=query,
+        scope=scope,
+        filters=filters,
+        pinned=pinned,
+    )
+    chat = get_chat_store()
+    await chat.insert_saved_search(saved)
+    return {"ok": True, "item": saved.to_dict()}
+
+
+@router.get("/saved/{search_id}")
+async def get_saved_search(search_id: str) -> dict[str, Any]:
+    chat = get_chat_store()
+    saved = await chat.get_saved_search(search_id)
+    if saved is None:
+        raise HTTPException(status_code=404, detail="not_found")
+    return {"ok": True, "item": saved.to_dict()}
+
+
+@router.patch("/saved/{search_id}")
+async def update_saved_search(
+    search_id: str,
+    payload: dict[str, Any] | None = Body(default=None),
+) -> dict[str, Any]:
+    body = payload or {}
+    label = body.get("label")
+    if label is not None and not str(label).strip():
+        raise HTTPException(status_code=400, detail="label_blank")
+    query = body.get("query")
+    if query is not None and not str(query).strip():
+        raise HTTPException(status_code=400, detail="query_blank")
+    scope = body.get("scope")
+    if scope is not None:
+        scope = _parse_scope(scope)
+    filters = body.get("filters")
+    if filters is not None and not isinstance(filters, dict):
+        raise HTTPException(status_code=400, detail="filters_must_be_object")
+    pinned = body.get("pinned")
+    if pinned is not None:
+        pinned = bool(pinned)
+    chat = get_chat_store()
+    saved = await chat.update_saved_search(
+        search_id,
+        label=str(label) if label is not None else None,
+        query=str(query) if query is not None else None,
+        scope=scope,
+        filters=filters,
+        pinned=pinned,
+    )
+    if saved is None:
+        raise HTTPException(status_code=404, detail="not_found")
+    return {"ok": True, "item": saved.to_dict()}
+
+
+@router.delete("/saved/{search_id}")
+async def delete_saved_search(search_id: str) -> dict[str, Any]:
+    chat = get_chat_store()
+    deleted = await chat.delete_saved_search(search_id)
+    if not deleted:
+        raise HTTPException(status_code=404, detail="not_found")
+    return {"ok": True, "deleted": search_id}
+
+
+@router.post("/saved/{search_id}/run")
+async def run_saved_search(
+    search_id: str,
+    payload: dict[str, Any] | None = Body(default=None),
+) -> dict[str, Any]:
+    """Execute a saved search and stamp ``last_run_at``.
+
+    Body:
+    - ``top_k`` (int, default 12, max 50) — overrides the default;
+      saved-search filters are honoured for ``thread_id`` / ``role`` /
+      ``kind`` / ``trace_id`` depending on the scope.
+    """
+
+    body = payload or {}
+    top_k = max(1, min(int(body.get("top_k") or 12), 50))
+    chat = get_chat_store()
+    saved = await chat.get_saved_search(search_id)
+    if saved is None:
+        raise HTTPException(status_code=404, detail="not_found")
+
+    filters = dict(saved.filters or {})
+    if saved.scope == "all":
+        res = await search(saved.query, scope="all", top_k=top_k)
+        hits = [h.to_dict() for h in res.hits]
+    elif saved.scope == "chunks":
+        thread_id = filters.get("thread_id")
+        hit_objs = await search_chunks(
+            saved.query,
+            top_k=top_k,
+            thread_id=str(thread_id) if thread_id else None,
+        )
+        hits = [h.to_dict() for h in hit_objs]
+    elif saved.scope == "messages":
+        thread_id = filters.get("thread_id")
+        role = filters.get("role")
+        hit_objs = await search_messages(
+            saved.query,
+            top_k=top_k,
+            thread_id=str(thread_id) if thread_id else None,
+            role=str(role) if role else None,
+        )
+        hits = [h.to_dict() for h in hit_objs]
+    elif saved.scope == "traces":
+        kind = filters.get("kind")
+        trace_id = filters.get("trace_id")
+        hit_objs = await search_traces(
+            saved.query,
+            top_k=top_k,
+            kind=str(kind) if kind else None,
+            trace_id=str(trace_id) if trace_id else None,
+        )
+        hits = [h.to_dict() for h in hit_objs]
+    else:  # pragma: no cover — _parse_scope already gates this
+        hits = []
+
+    refreshed = await chat.stamp_saved_search_run(search_id)
+    return {
+        "ok": True,
+        "item": _saved_payload(refreshed) or saved.to_dict(),
+        "query": saved.query,
+        "scope": saved.scope,
+        "count": len(hits),
+        "hits": hits,
     }
 
 
