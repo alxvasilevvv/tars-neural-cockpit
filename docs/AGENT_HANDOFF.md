@@ -1102,8 +1102,15 @@ Smaller functional items still pending in parallel:
 4. **CRM hardening.** HubSpot/Pipedrive `log_deal` uses minimal
    properties; production portals may require pipeline IDs / stage
    enums — evolve when real Hub IDs are supplied.
-5. **OLD arXiv ids** (`cs.AI/010203`) skip OpenAlex DOI enrichment —
-   Crossref fallback could layer in later.
+5. ~~**OLD arXiv ids** (`cs.AI/010203`) skip OpenAlex DOI
+   enrichment — Crossref fallback could layer in later.~~ **shipped**
+   (2026-05-01) — `backend/core/domains/packs/science/crossref.py`
+   resolves legacy ids (`cs/9901001`, `cs.AI/0301001`,
+   `math.AT/0701035`) via Crossref's bibliographic search with a
+   ≥0.4 Jaccard title gate. `summarize_paper` returns a `crossref`
+   block + `sources=["arxiv","crossref"]` only when the candidate
+   match is plausible; new-style ids never hit Crossref. Pinned by
+   `tests/test_science_crossref_fallback.py` (11 cases).
 6. **OAuth / JMAP outbound.** SMTP covers the local-first path for
    `draft_email`; OAuth-based providers (Gmail / Office365) and JMAP
    are the natural next step once the operator has accounts to
