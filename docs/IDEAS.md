@@ -429,8 +429,22 @@ Open ideas for the next layer:
      deals up the next morning. Pinned by
      `tests/test_business_local_deals.py` (43 cases).
    - `mlm.downline_snapshot`, `mlm.retention_alert` ✅ shipped —
-     local CSV-backed; `score_recruit`, `generate_post` upgraded to
-     deterministic heuristics.
+     local CSV-backed; `generate_post` upgraded to a deterministic
+     stub.
+   - `mlm.score_recruit` ✅ shipped (2026-05-01) — real scorer
+     over the local downline DB.
+     `backend/core/domains/packs/mlm/scoring.py` derives recency
+     (40%) / volume (30%) / rank (20%) / tenure (10%) signals
+     against sane saturation thresholds and a curated 7-step
+     rank ladder; falls back to a stable SHA-256-derived score
+     mapped onto `[0.40, 0.95]` for handles not yet in the
+     downline (so the cockpit number is reproducible across
+     machines and restarts, unlike the old `hash()` heuristic).
+     Action surfaces `signals{}`, `rank`, `volume_usd`,
+     `days_silent`, and labels itself `model="downline-v1"` or
+     `"heuristic-v1"` accordingly. DB lookup failures fall
+     through cleanly. Pinned by
+     `tests/test_mlm_score_recruit.py` (40 cases).
    Each remaining adapter must call
    `meeet.emit("integration.<vendor>.<call>", ...)`.
 7. **Pack composition.** ✅ shipped (Phase K4) — `CompositePack`

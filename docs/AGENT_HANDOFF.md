@@ -193,6 +193,25 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-01 — `mlm.score_recruit` over real downline signals (Cursor [A]):**
+  Promotes the score_recruit action from a one-line `hash()`
+  heuristic — which was non-deterministic across machines because
+  `hash()` is randomised by PYTHONHASHSEED — to a real local-first
+  scorer over the downline DB. New
+  `backend/core/domains/packs/mlm/scoring.py` lands a pure
+  scoring engine: `RecruitSignals` dataclass, recency / volume /
+  rank / tenure components with sane saturation thresholds,
+  weighted composition (`0.40 / 0.30 / 0.20 / 0.10`), a curated
+  7-step rank ladder (`junior → founder`), and a stable
+  SHA-256-derived fallback mapped onto `[0.40, 0.95]` for
+  unknown handles. The action now consults the downline DB,
+  surfaces `signals{}`, `rank`, `volume_usd`, `days_silent`,
+  and switches `model` between `"downline-v1"` (real) and
+  `"heuristic-v1"` (fallback). DB failures fall through cleanly
+  to the unknown-handle branch. Pinned by 40 new tests covering
+  per-component math, composition + clamping, and action
+  integration; full suite: **1516 green**.
+
 - **2026-05-01 — `business.log_deal` real local-first adapter (Cursor [A]):**
   Promotes the last open stub in the business pack to a real
   local-first action. When neither HubSpot nor Pipedrive
