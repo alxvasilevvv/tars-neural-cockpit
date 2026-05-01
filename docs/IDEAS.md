@@ -202,6 +202,13 @@ Open ideas for the next layer:
   `challenge_not_found`. Optional `new_recovery_fingerprint`
   body knob lets the operator rebind the seed at the same time
   as the keypair. Pinned by 19 new tests (10 unit + 9 HTTP).
+  *Done (epoch-bump) 2026-05-01:* the rotate endpoint now also
+  snapshots paired devices, revokes each, and emits a separate
+  `pair.epoch_bumped` event with the cleared list (so the
+  cockpit gold-pill audit lane gets a distinct row). Zero-device
+  rotates skip the epoch-bumped event to keep the timeline clean.
+  Closes the loose follow-up from `PairingStore.rotate_host_identity()`'s
+  docstring.
 
 ## Search & observability (post-L8)
 

@@ -13,12 +13,18 @@ challenge (the "Recovery seed verification policy" item from
 - ``new_recovery_fingerprint`` body knob lets the operator rotate
   the bound seed at the same time as the keypair (e.g. after a
   seed-leak event).
+- Paired devices pinned to the old host key are revoked as part of
+  the same epoch bump, with a ``pair.epoch_bumped`` event listing
+  the cleared devices.
 """
 
 from __future__ import annotations
 
+import base64
+
 import pytest
 from fastapi.testclient import TestClient
+from nacl.public import PrivateKey
 
 from backend.core.crypto.recovery import make_recovery_seed
 from backend.core.crypto.seed_challenge import (
@@ -31,6 +37,30 @@ from backend.core.domains import packs as _packs  # noqa: F401
 from backend.core.pairing.store import _reset_singleton_for_tests, get_pairing_store
 from web_extras.app import app
 from web_extras.rate_limit import reset_rate_limiter
+
+
+def _fresh_epk_b64() -> str:
+    return base64.b64encode(bytes(PrivateKey.generate().public_key)).decode("ascii")
+
+
+def _link_device(client: TestClient, kind: str = "mobile_ios") -> str:
+    """Run the begin → accept handshake to land a paired device.
+
+    Returns the linked ``device_id`` so callers can assert that a
+    rotate clears it.
+    """
+
+    res = client.post(
+        "/api/pairing/begin",
+        json={"client_epk": _fresh_epk_b64(), "kind": kind},
+    )
+    assert res.status_code == 200, res.text
+    token = res.json()["accept_token"]
+    accepted = client.post(f"/api/pairing/accept/{token}")
+    assert accepted.status_code == 200, accepted.text
+    body = accepted.json()
+    assert body["device_id"], body
+    return body["device_id"]
 
 
 @pytest.fixture(autouse=True)
@@ -281,3 +311,115 @@ def test_rotate_identity_response_is_unified_envelope(client: TestClient) -> Non
     assert set(body.keys()) >= {"ok", "error_code", "message"}
     assert body["ok"] is False
     assert isinstance(body["message"], str)
+
+
+# ---------------------------------------------------------------------
+# Epoch bump — paired devices invalidated alongside the rotate
+# ---------------------------------------------------------------------
+
+
+def test_rotate_identity_with_no_paired_devices_omits_epoch_bump(
+    client: TestClient,
+) -> None:
+    seed = make_recovery_seed()
+    _bind_recovery(seed.fingerprint)
+    challenge_id, _ = _mint_passed_challenge(seed.mnemonic)
+
+    res = client.post(
+        "/api/pairing/rotate-identity",
+        json={"challenge_id": challenge_id},
+    )
+    assert res.status_code == 200, res.text
+    body = res.json()
+    assert body["cleared_device_count"] == 0
+    assert body["cleared_devices"] == []
+
+
+def test_rotate_identity_clears_paired_devices(client: TestClient) -> None:
+    seed = make_recovery_seed()
+    _bind_recovery(seed.fingerprint)
+
+    device_a = _link_device(client, kind="mobile_ios")
+    device_b = _link_device(client, kind="desktop_macos")
+
+    devices = client.get("/api/pairing/devices").json()
+    assert devices["count"] == 2
+
+    challenge_id, _ = _mint_passed_challenge(seed.mnemonic)
+
+    res = client.post(
+        "/api/pairing/rotate-identity",
+        json={"challenge_id": challenge_id},
+    )
+    assert res.status_code == 200, res.text
+    body = res.json()
+
+    cleared_ids = {d["device_id"] for d in body["cleared_devices"]}
+    assert cleared_ids == {device_a, device_b}
+    assert all(d["removed"] is True for d in body["cleared_devices"])
+    assert body["cleared_device_count"] == 2
+
+    after = client.get("/api/pairing/devices").json()
+    assert after["count"] == 0
+    assert after["devices"] == []
+
+
+@pytest.mark.asyncio
+async def test_rotate_identity_emits_pair_epoch_bumped_event(
+    client: TestClient,
+) -> None:
+    seed = make_recovery_seed()
+    _bind_recovery(seed.fingerprint)
+    device_id = _link_device(client, kind="mobile_android")
+    challenge_id, _ = _mint_passed_challenge(seed.mnemonic)
+
+    before_ident = client.get("/api/pairing/identity").json()
+    res = client.post(
+        "/api/pairing/rotate-identity",
+        json={"challenge_id": challenge_id},
+    )
+    assert res.status_code == 200, res.text
+    after_pubkey = res.json()["host_public_key"]
+
+    events = await _list_meeet_events()
+    bumped = [e for e in events if e.kind == "pair.epoch_bumped"]
+    assert len(bumped) == 1
+    payload = bumped[0].payload
+    assert payload["host_id"] == before_ident["host_id"]
+    assert payload["old_host_public_key"] == before_ident["host_public_key"]
+    assert payload["new_host_public_key"] == after_pubkey
+    assert payload["challenge_id"] == challenge_id
+    assert payload["cleared_count"] == 1
+    cleared_ids = {d["device_id"] for d in payload["cleared_devices"]}
+    assert cleared_ids == {device_id}
+
+    rotated = [e for e in events if e.kind == "pair.host_rotated"]
+    assert len(rotated) == 1
+    assert rotated[0].payload["cleared_device_count"] == 1
+
+
+def test_rotate_identity_does_not_emit_epoch_bump_when_no_devices(
+    client: TestClient,
+) -> None:
+    """Symmetry check: ``pair.epoch_bumped`` should NOT fire when
+    there were no paired devices to revoke. The cockpit timeline
+    should stay clean of zero-count nuisance events."""
+
+    import asyncio
+
+    seed = make_recovery_seed()
+    _bind_recovery(seed.fingerprint)
+    challenge_id, _ = _mint_passed_challenge(seed.mnemonic)
+
+    res = client.post(
+        "/api/pairing/rotate-identity",
+        json={"challenge_id": challenge_id},
+    )
+    assert res.status_code == 200, res.text
+
+    events = asyncio.new_event_loop().run_until_complete(_list_meeet_events())
+    bumped = [e for e in events if e.kind == "pair.epoch_bumped"]
+    assert bumped == []
+    rotated = [e for e in events if e.kind == "pair.host_rotated"]
+    assert len(rotated) == 1
+    assert rotated[0].payload["cleared_device_count"] == 0
