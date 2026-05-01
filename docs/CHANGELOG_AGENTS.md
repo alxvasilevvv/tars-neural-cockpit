@@ -4,6 +4,56 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor · LAUNCH-TODAY snapshot + cross-repo gate
+
+**Summary**
+
+Operator pushed for "launch today / users waiting". Cursor performed a
+end-to-end readiness sweep across both lanes and produced an explicit
+operator hand-off:
+
+1. **TARS backend smoke**: `python3.12 -m uvicorn web_extras.app:app`
+   boots (108 routes); `pytest -q` → **686 passed in 15.23s**; HTTP
+   matrix on `/api/{domains, domains/manifest, usage, playbooks,
+   policy/recent, meeet/stats}` all 200. `/api/council/voices` returns
+   404 (no router; deliberation is `POST /api/council/deliberate`).
+2. **TARS cockpit smoke** (`experiments/neural-showcase-v3`): clean
+   `npm run build` (3.17s), `vite preview --port 5174` serves `/` 200.
+3. **TARS desktop**: `desktop/src-tauri/target/` already initialised;
+   full `pnpm release` deferred to operator (5–15 min, blocks chat).
+4. **meeet.world frontend** (`meeet-solana-state-941a6045`):
+   `npm run build` clean (5.59s); `npx serve dist` 200; `npm test` →
+   **336 passed | 5 skipped**; `SOFT_SMOKE=1 bash
+   scripts/smoke_release_gate.sh` → **GATE PASSED** (tars-downloads
+   reachable; ingest/core-connectivity correctly skipped without
+   secrets).
+5. **Cross-repo PR cleanup** (`meeet-solana-state-941a6045`):
+   - merged: #10 (i18n sweep), #11 (qa-suite api.core-rest probe), #7
+     (control-tower + bridge hardening), #3 (docs agent-handoff
+     package).
+   - closed as superseded: #6, #9.
+   - `gh pr list --state open` empty.
+6. **Hand-off doc** `docs/LAUNCH_TODAY_2026-05-01.md` lists the
+   minimal operator-only steps left for production:
+   - `supabase functions deploy entitlements` + `deploy-agent` on the
+     core meeet.world Supabase project.
+   - frontend deploy (Lovable autopilot expected).
+   - `tars.meeet.world` GitHub-Pages CNAME + the existing
+     `cockpit-github-pages.yml` workflow.
+   - `bash desktop/scripts/generate-release-keys.sh` + `gh secret
+     set …` for the Tauri release artefacts.
+   - paste of `MEEET_INGEST_URL`, `MEEET_API_KEY`,
+     `TARS_INGEST_API_KEY`, `BRIDGE_SHARED_SECRET` into
+     environment / repo secrets.
+
+Files:
+
+- `docs/LAUNCH_TODAY_2026-05-01.md` (new)
+- `docs/CHANGELOG_AGENTS.md` (this entry)
+
+No code changed in `Jarvis/jarvis` this batch. Heavier lane changes
+landed on the meeet-solana-state side via the four merged PRs above.
+
 ## 2026-05-01 — Cursor · QA agent loop + meeet-ingest heartbeat probe
 
 **Summary**
