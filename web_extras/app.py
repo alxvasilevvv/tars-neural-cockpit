@@ -238,6 +238,94 @@ async def _message_embed_loop() -> None:
             log.warning("message-embed loop tick failed: %s", exc)
 
 
+def _saved_search_poll_interval_s() -> float:
+    """How often the saved-search alert loop ticks.
+
+    Default ``0`` (off). Operators flip on
+    ``TARS_SAVED_SEARCH_POLL_INTERVAL_S=120`` (or whatever cadence
+    they want) once they've decided which saved searches should be
+    passive watchers. The on-demand path
+    (``POST /api/search/saved/{id}/poll`` /
+    ``POST /api/search/saved/poll-all``) covers manual triggers.
+    """
+
+    raw = os.getenv("TARS_SAVED_SEARCH_POLL_INTERVAL_S")
+    if raw is None:
+        return 0.0
+    try:
+        return max(0.0, float(raw))
+    except ValueError:
+        return 0.0
+
+
+def _saved_search_poll_top_k() -> int:
+    raw = os.getenv("TARS_SAVED_SEARCH_POLL_TOP_K")
+    if raw is None:
+        return 25
+    try:
+        return max(1, min(int(raw), 100))
+    except ValueError:
+        return 25
+
+
+def _saved_search_poll_limit() -> int:
+    raw = os.getenv("TARS_SAVED_SEARCH_POLL_LIMIT")
+    if raw is None:
+        return 100
+    try:
+        return max(1, min(int(raw), 500))
+    except ValueError:
+        return 100
+
+
+async def _saved_search_poll_loop() -> None:
+    """Periodic ``poll_all_saved_searches`` so saved-search alerts
+    fire without manual cockpit triggers.
+
+    Same safety contract as the other lifespan loops:
+
+    - Disabled when ``TARS_SAVED_SEARCH_POLL_INTERVAL_S=0`` (default
+      off — operators opt in once they trust the cadence + meeet
+      bridge).
+    - Disabled when the chat store is disabled.
+    - Never propagates exceptions; the alerts module already
+      isolates per-search failures, so the loop just logs +
+      continues.
+    """
+
+    interval = _saved_search_poll_interval_s()
+    if interval <= 0:
+        return
+    from backend.core.chat.store import get_chat_store
+    from backend.core.search.alerts import poll_all_saved_searches
+
+    chat = get_chat_store()
+    if not chat.enabled:
+        return
+    top_k = _saved_search_poll_top_k()
+    limit = _saved_search_poll_limit()
+    log.info(
+        "saved-search poll loop active: interval_s=%.1f top_k=%s limit=%s",
+        interval, top_k, limit,
+    )
+    while True:
+        try:
+            await asyncio.sleep(interval)
+            out = await poll_all_saved_searches(
+                chat=chat, top_k=top_k, limit=limit
+            )
+            if out.get("ok") and out.get("alerted"):
+                log.info(
+                    "saved-search poll: polled=%s alerted=%s",
+                    out.get("polled"),
+                    out.get("alerted"),
+                )
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # never crash the host
+            log.warning("saved-search poll loop tick failed: %s", exc)
+
+
 def _fts_verify_on_boot() -> bool:
     """Opt-in via ``TARS_FTS_VERIFY_ON_BOOT=1``.
 
@@ -305,7 +393,12 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     message_embed = asyncio.create_task(
         _message_embed_loop(), name="chat-message-embed-loop"
     )
-    tasks = (replay, autopilot, trace_summary, message_embed)
+    saved_search_poll = asyncio.create_task(
+        _saved_search_poll_loop(), name="search-saved-poll-loop"
+    )
+    tasks = (
+        replay, autopilot, trace_summary, message_embed, saved_search_poll
+    )
     try:
         yield
     finally:
