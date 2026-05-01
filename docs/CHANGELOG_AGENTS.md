@@ -4,6 +4,94 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · Per-persona system-prompt overlay
+
+**Summary**
+
+Closes the "per-persona system-prompt overlay" idea from
+`docs/IDEAS.md` (Voice section). The natural pair to per-thread
+persona pinning (PR #68): when a thread pins a voice persona,
+the chat orchestrator now stitches the persona's tone overlay
+into the system prompt — without overriding the operator role
+or pack guardrails.
+
+1. **Persona dataclass** (`backend/core/voice/personas.py`)
+   - New optional `system_prompt_overlay: str | None = None`
+     field on `Persona`. Wrapped in a stable header (`## Voice
+     persona — <name>`) and a safety footer that reminds the
+     model the overlay is voice / tone only, never licence to
+     bend pack guardrails or authorise destructive actions.
+   - Five built-in personas got a tone overlay (Jarvis, Stark,
+     HAL 9000, GLaDOS, TARS); the default `operator` persona
+     stays overlay-free so the base prompt drives the response
+     unchanged.
+   - `Persona.to_dict()` now exposes a
+     `has_system_prompt_overlay: bool` flag for the cockpit
+     UI.
+
+2. **Public helpers** (`backend/core/voice/personas.py` +
+   `backend/core/voice/__init__.py`)
+   - `get_system_prompt_overlay(persona_id)` returns the
+     overlay text or `None` (unknown / blank / opted-out
+     personas).
+   - `compose_system_prompt(*, role_overlay, pack_prompt,
+     persona_overlay, separator="\n\n---\n\n")` stitches the
+     three slots in a stable, intentional order:
+     **role → pack → persona**. Persona last keeps voice
+     closest to the user message so tone wins for ambiguous
+     cases without overriding role / pack instructions. Blank
+     or `None` slots are skipped silently; returns `None` when
+     every slot is empty.
+   - Both helpers re-exported from `backend.core.voice`.
+
+3. **Orchestrator wiring** (`backend/core/chat/orchestrator.py`)
+   - `ChatOrchestrator._system_prompt_for(thread)` now uses
+     `compose_system_prompt` to fold in the active operator
+     role overlay, the pack prompt, AND the thread-pinned
+     persona overlay.
+   - Defensive: if the persona registry raises (test
+     shenanigans, plugin pack misbehaviour) the orchestrator
+     falls back to role + pack and never crashes the chat
+     turn.
+
+4. **Tests** (`tests/test_persona_prompt_overlay.py`, 23
+   cases)
+   - **`get_system_prompt_overlay` (5):** unknown / blank /
+     `None` returns `None`; default `operator` opt-out;
+     parametrised over 5 named personas verifies each carries
+     a non-blank overlay; safety footer mentions guardrails
+     + destructive; blank-string overlay normalises to
+     `None`.
+   - **`compose_system_prompt` (5):** all-blank → `None`;
+     single piece returned unwrapped; explicit role/pack/
+     persona ordering check; blank middle slot dropped;
+     custom separator honoured.
+   - **Orchestrator wiring (7):** no-pin doesn't add overlay
+     marker; pinned `jarvis` adds `Voice persona — J.A.R.V.I.S.`;
+     `operator` opts out; unknown persona id is silently
+     ignored; with both `pack_slug=science` and
+     `voice_persona_id=tars`, persona block sits AFTER the
+     pack block; if the helper raises, the orchestrator
+     recovers and produces a pack-only prompt; async-loop
+     roundtrip smoke for HAL 9000.
+   - **Persona dict (2):** `to_dict()` carries the
+     `has_system_prompt_overlay` flag (true for stark, false
+     for operator); every persona has the expected metadata
+     keys.
+   - **Misc (4):** parametrised overlay carriers; default
+     persona id surfaces in the registry; safety footer
+     wording is stable.
+   - 23/23 green; full backend suite 1224/1224 green.
+
+**Files**
+
+- edited: `backend/core/voice/personas.py`,
+  `backend/core/voice/__init__.py`,
+  `backend/core/chat/orchestrator.py`
+- new: `tests/test_persona_prompt_overlay.py`
+- edited: `docs/CHANGELOG_AGENTS.md`, `docs/AGENT_HANDOFF.md`,
+  `docs/IDEAS.md`
+
 ## 2026-05-01 — Cursor [A] · Per-thread voice persona pinning
 
 **Summary**
