@@ -41,6 +41,7 @@ from .local_deals import (
     LOCAL_ID_PREFIX,
     append_local_deal,
     resolve_local_deals_path,
+    update_local_deal,
 )
 from .smtp import SmtpConfig, send_email
 
@@ -489,6 +490,86 @@ async def log_deal(args: Mapping[str, Any]) -> Mapping[str, Any]:
     }
 
 
+_UPDATABLE_DEAL_FIELDS: tuple[str, ...] = (
+    "name",
+    "amount",
+    "stage",
+    "owner",
+    "next_step",
+    "due",
+    "notes",
+)
+
+
+async def update_deal(args: Mapping[str, Any]) -> Mapping[str, Any]:
+    """Patch an existing local deal in-place.
+
+    Args:
+      ``deal_id``: required, the ``local-NNNN`` id from ``log_deal``.
+      Any of ``name`` / ``amount`` / ``stage`` / ``owner`` / ``next_step``
+      / ``due`` / ``notes``: passed through after coercion. Pass ``""``
+      for an optional string field to clear it; omit a field to leave
+      it untouched.
+      ``store_path`` / ``path``: optional override for the local store.
+
+    Returns ``{ok: True, deal_id, deal, unchanged, changed_fields,
+    store_path}`` on success, or ``{ok: False, error}`` with one of:
+    ``deal_id_required``, ``no_updates``, ``name_required``,
+    ``deal_not_found``, ``local_store_unwritable``.
+    """
+
+    deal_id = args.get("deal_id")
+    if not isinstance(deal_id, str) or not deal_id.strip():
+        return {"ok": False, "error": "deal_id_required"}
+
+    updates: dict[str, Any] = {}
+    for f in _UPDATABLE_DEAL_FIELDS:
+        if f in args:
+            updates[f] = args[f]
+    if not updates:
+        return {"ok": False, "error": "no_updates"}
+
+    store_path_arg = args.get("store_path") or args.get("path")
+    target = resolve_local_deals_path(
+        str(store_path_arg) if store_path_arg else None
+    )
+
+    try:
+        row = await update_local_deal(
+            deal_id,
+            updates=updates,
+            path=str(store_path_arg) if store_path_arg else None,
+        )
+    except KeyError as exc:
+        return {
+            "ok": False,
+            "error": str(exc.args[0]) if exc.args else "deal_not_found",
+            "deal_id": deal_id.strip(),
+        }
+    except ValueError as exc:
+        return {"ok": False, "error": str(exc)}
+    except OSError as exc:
+        return {
+            "ok": False,
+            "error": "local_store_unwritable",
+            "detail": str(exc),
+            "store_path": str(target),
+        }
+
+    deal_payload = {
+        k: v for k, v in row.items() if k not in {"unchanged", "changed_fields"}
+    }
+    return {
+        "ok": True,
+        "deal_id": deal_id.strip(),
+        "deal": deal_payload,
+        "unchanged": bool(row.get("unchanged")),
+        "changed_fields": list(row.get("changed_fields") or []),
+        "store": "local",
+        "store_path": str(target),
+    }
+
+
 ACTIONS: tuple[ActionSpec, ...] = (
     ActionSpec(
         id="daily_brief",
@@ -617,6 +698,52 @@ ACTIONS: tuple[ActionSpec, ...] = (
                 },
             },
             "required": ["name"],
+        },
+        destructive=True,
+    ),
+    ActionSpec(
+        id="update_deal",
+        name="Update deal",
+        description=(
+            "Patch a previously-logged local deal by its local-NNNN id. "
+            "Pass any subset of name / amount / stage / owner / next_step "
+            "/ due / notes; omitted fields are untouched. Pass an empty "
+            "string for a string field to clear it. Idempotent: a no-op "
+            "patch returns unchanged=True and emits no event. Stamps "
+            "updated_at on every change. Emits a business.deal_updated "
+            "meeet event listing changed_fields. Marked destructive so "
+            "the policy gate routes the call through confirmation."
+        ),
+        handler=update_deal,
+        schema={
+            "type": "object",
+            "properties": {
+                "deal_id": {
+                    "type": "string",
+                    "description": (
+                        "The local-NNNN id returned by log_deal."
+                    ),
+                },
+                "name": {"type": "string"},
+                "amount": {"type": "number"},
+                "stage": {
+                    "type": "string",
+                    "enum": [
+                        "discovery",
+                        "qualification",
+                        "proposal",
+                        "negotiation",
+                        "won",
+                        "lost",
+                    ],
+                },
+                "owner": {"type": "string"},
+                "next_step": {"type": "string"},
+                "due": {"type": "string"},
+                "notes": {"type": "string"},
+                "store_path": {"type": "string"},
+            },
+            "required": ["deal_id"],
         },
         destructive=True,
     ),
