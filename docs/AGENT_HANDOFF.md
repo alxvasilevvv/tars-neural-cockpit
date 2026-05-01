@@ -185,6 +185,32 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-01 — Cross-repo: Control Tower in core repo (Cursor):**
+  Landed 4 commits in **`meeet-solana-state-941a6045`** (Lovable lane,
+  not pushed — awaiting Lovable review per SYNC rule):
+  1. `chore(control-tower): add cross-lane control plane and bridge hardening`
+     — `COORDINATION.md`, `docs/CONTROL_TOWER.md`, runbook env knob,
+     three smoke scripts, three npm scripts (`smoke:tars-bridge`,
+     `smoke:core-connectivity`, `gate:control-tower`), and explicit
+     `TARS_ALLOWED_ORIGINS` allowlist on `tars-downloads` /
+     `tars-ingest` edge functions.
+  2. `fix(pricing,content)` — Deploy.tsx reads `plan.price_meeet` from
+     API instead of hardcoded `MEEET_PRICES`; toned-down FAQ copy on
+     Deploy + Tars; navbar mobile bottom nav test aligned with current
+     copy.
+  3. `content(tokenomics)` — distribution rebalance (Liquidity
+     5%→15%, Reserve 5% replaces Staking 15%) + APY copy 25%→30%.
+  4. `chore(control-tower): SOFT_SMOKE mode` — dev-only flag that lets
+     the bridge gate pass without `TARS_INGEST_API_KEY` (downloads
+     health only). Production gate must keep `SOFT_SMOKE` unset.
+
+  Also reverted an unstaged delete of cron `schedule` directives in
+  `supabase/config.toml` (Lovable-authored). Validation:
+  `npm run test` 326/331, `npm run build` ok,
+  `SOFT_SMOKE=1 npm run gate:control-tower` PASS,
+  `tars-downloads` reachable from `Origin: https://meeet.world`.
+  Full file list in `docs/CHANGELOG_AGENTS.md` entry of same date.
+
 - **2026-04-30 — Global verification pass + frontend deps sanity (Cursor):**
   Full backend suite green: `pytest -q` → **674 passed**. Showcase checks
   green: `npx tsc --noEmit -p tsconfig.app.json`, `npm run test`

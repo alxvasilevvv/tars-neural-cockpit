@@ -4,6 +4,82 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor · Control Tower in core repo + bridge hardening (cross-repo)
+
+**Summary**
+
+This entry is a cross-repo handoff: changes landed in the
+**meeet core** repo (`meeet-solana-state-941a6045`, Lovable lane), not in
+this TARS repo. Logged here so Claude/Lovable can locate the work and
+either accept or roll it back per `COORDINATION.md`.
+
+What landed in core repo (4 commits ahead of `origin/main`):
+
+1. `chore(control-tower): add cross-lane control plane and bridge hardening`
+   - new `COORDINATION.md` (integration contract + ownership split between
+     Lovable / Cursor lanes)
+   - new `docs/CONTROL_TOWER.md` (release gate + secret policy)
+   - `docs/TARS_INTEGRATION_RUNBOOK.md` documents
+     `TARS_ALLOWED_ORIGINS` env knob
+   - new `scripts/smoke_tars_bridge.sh`,
+     `scripts/smoke_old_core_connectivity.sh`,
+     `scripts/smoke_release_gate.sh`
+   - npm scripts: `smoke:tars-bridge`, `smoke:core-connectivity`,
+     `gate:control-tower`
+   - `supabase/functions/tars-{downloads,ingest}` get explicit browser
+     origin allowlist via `TARS_ALLOWED_ORIGINS`
+     (default `https://meeet.world,https://tars.meeet.world`); s2s
+     callers without `Origin` are still accepted; `tars-ingest`
+     keeps its existing API-key gate on top.
+2. `fix(pricing,content): drop hardcoded MEEET prices and tone down economy claims`
+   - `src/pages/Deploy.tsx` — removes static `MEEET_PRICES` table and
+     blanket `-20% off` badge / FAQ; reads `plan.price_meeet` from API.
+   - `src/pages/Tars.tsx` — FAQ no longer hardcodes "250 MEEET on signup"
+     or "~80% subscription return" (now season-/account-dependent).
+   - `src/test/navbarItemsE2E.test.tsx` — aligns with current copy
+     (Главная → /, Marketplace label).
+3. `content(tokenomics): rebalance distribution table and bump staking APY`
+   - `src/pages/Tokenomics.tsx` — Liquidity Pool 5%→15%, Staking Rewards
+     replaced by 5% Reserve, staking APY 25%→30% in marketing copy.
+4. `chore(control-tower): add SOFT_SMOKE mode for dev-only bridge gate`
+   - `scripts/smoke_tars_bridge.sh` — when `SOFT_SMOKE=1` and
+     `TARS_INGEST_API_KEY` is unset, the smoke runs only the public
+     downloads health check; production gate must leave `SOFT_SMOKE`
+     unset.
+   - `docs/CONTROL_TOWER.md` documents the new env knob.
+
+Also reverted in core repo: an unstaged delete of cron `schedule`
+directives in `supabase/config.toml` (`run-auto-duels`,
+`admin-update-rewards`, `system-monitor`, `auto-burn-scheduler`,
+`daily-security-scan`) and removal of `[functions.daily-challenges]` /
+`[functions.discovery-lottery]` blocks. Those were authored by
+`gpt-engineer-app[bot]` (Lovable lane) and removing them would have
+disabled production cron schedules.
+
+Validation:
+- `npm run test -- --run` → 326 passed / 5 skipped (15 files).
+- `npm run build` → success.
+- `SOFT_SMOKE=1 npm run gate:control-tower` → all 4 stages PASS
+  (tests + build + downloads health + core connectivity skipped).
+- `tars-downloads` reachable from `Origin: https://meeet.world` (200,
+  `ok=true`).
+
+Push status: **not pushed** to `origin/main`. Commits await Lovable
+review or operator-driven push. Cursor follows the SYNC rule:
+"Never push directly to meeet core repo from Cursor."
+
+Files (core repo):
+- new: `COORDINATION.md`, `docs/CONTROL_TOWER.md`,
+  `scripts/smoke_tars_bridge.sh`,
+  `scripts/smoke_old_core_connectivity.sh`,
+  `scripts/smoke_release_gate.sh`
+- modified: `docs/TARS_INTEGRATION_RUNBOOK.md`, `package.json`,
+  `supabase/functions/tars-downloads/index.ts`,
+  `supabase/functions/tars-ingest/index.ts`,
+  `src/pages/Deploy.tsx`, `src/pages/Tars.tsx`,
+  `src/pages/Tokenomics.tsx`,
+  `src/test/navbarItemsE2E.test.tsx`
+
 ## 2026-05-01 — Cursor · `unified_funnel` cross-domain telemetry spec for Lovable
 
 **Summary**
