@@ -134,13 +134,22 @@ def test_store_expire_stale(tmp_path) -> None:
     store = _store(tmp_path)
 
     async def run():
-        await store.create(
+        token = await store.create(
             slug="x", action_id="y", args={}, ttl_s=-10
         )
-        n = await store.expire_stale()
-        assert n == 1
+        expired = await store.expire_stale()
+        assert len(expired) == 1
+        # New shape: returns the list of newly-expired rows so the
+        # router / background loop can emit per-token meeet events.
+        assert expired[0].token == token
+        assert expired[0].status == "expired"
+        assert expired[0].slug == "x"
+        assert expired[0].action_id == "y"
         recent = await store.list_recent()
         assert recent and recent[0].status == "expired"
+        # Idempotent: a second pass on the same DB returns nothing.
+        again = await store.expire_stale()
+        assert again == []
 
     asyncio.run(run())
 
