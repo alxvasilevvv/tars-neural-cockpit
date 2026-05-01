@@ -191,6 +191,17 @@ Open ideas for the next layer:
   `tests/test_seed_challenge.py` (30 cases). Follow-up:
   gate the destructive rotate-identity flow on a fresh
   `recovery.challenge.passed` event for the same fingerprint.
+  *Done (rotate-gate) 2026-05-01:* new
+  `consume_passed_challenge(store, id, expected_fingerprint=…)`
+  helper transitions a `passed` proof to `consumed` atomically
+  (single-use, fingerprint-bound). New
+  `POST /api/pairing/rotate-identity` consumes that proof and
+  calls `PairingStore.rotate_host_identity(...)`, emitting
+  `pair.host_rotated`. 409 envelopes for `recovery_not_bound`,
+  `challenge_not_passed`, `fingerprint_mismatch`; 404 for
+  `challenge_not_found`. Optional `new_recovery_fingerprint`
+  body knob lets the operator rebind the seed at the same time
+  as the keypair. Pinned by 19 new tests (10 unit + 9 HTTP).
 
 ## Search & observability (post-L8)
 

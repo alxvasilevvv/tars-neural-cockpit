@@ -63,7 +63,7 @@ MAX_MAX_ATTEMPTS = 10
 
 
 _VALID_STATUSES: frozenset[str] = frozenset(
-    {"pending", "passed", "failed", "expired", "exhausted"}
+    {"pending", "passed", "failed", "expired", "exhausted", "consumed"}
 )
 
 
@@ -125,6 +125,34 @@ class VerifyOutcome:
             "status": self.challenge.status,
             "expires_at": self.challenge.expires_at,
         }
+        if self.error is not None:
+            body["error"] = self.error
+        if self.detail is not None:
+            body["detail"] = self.detail
+        return body
+
+
+@dataclass(frozen=True)
+class ConsumeOutcome:
+    """Result of :func:`consume_passed_challenge`.
+
+    Reports whether the requested challenge was a fresh ``passed``
+    proof tied to the expected fingerprint. On success the embedded
+    ``challenge`` carries ``status="consumed"`` so the same proof
+    can never be replayed against a second destructive action.
+    """
+
+    ok: bool
+    challenge: SeedChallenge | None
+    error: str | None = None
+    detail: str | None = None
+
+    def to_dict(self) -> dict:
+        body: dict = {"ok": self.ok}
+        if self.challenge is not None:
+            body["challenge_id"] = self.challenge.challenge_id
+            body["fingerprint"] = self.challenge.fingerprint
+            body["status"] = self.challenge.status
         if self.error is not None:
             body["error"] = self.error
         if self.detail is not None:
@@ -321,6 +349,77 @@ def verify_challenge(
     )
 
 
+def consume_passed_challenge(
+    store: "SeedChallengeStore",
+    challenge_id: str,
+    *,
+    expected_fingerprint: str | None = None,
+    now: float | None = None,
+) -> ConsumeOutcome:
+    """Atomically transition a ``passed`` challenge to ``consumed``.
+
+    A passed challenge is a one-shot proof: the operator demonstrated
+    knowledge of the seed once, so subsequent destructive actions
+    against the same fingerprint must mint and pass a *fresh*
+    challenge. Without this transition a single proof could be
+    replayed forever (e.g. rotate identity → rotate again →
+    revoke → …).
+
+    Returns :class:`ConsumeOutcome` with structured ``error`` codes
+    suitable for an HTTP 4xx envelope:
+
+    - ``challenge_not_found``    → unknown id or evicted by sweep.
+    - ``fingerprint_mismatch``   → caller pinned a different seed.
+    - ``challenge_not_passed``   → status is anything other than
+      ``passed`` (``pending`` / ``failed`` / ``expired`` /
+      ``exhausted`` / ``consumed``).
+    """
+
+    current = now if now is not None else time.time()
+    with store._lock:
+        challenge = store._by_id.get(challenge_id)
+        if challenge is None:
+            return ConsumeOutcome(
+                ok=False,
+                challenge=None,
+                error="challenge_not_found",
+            )
+        if (
+            expected_fingerprint is not None
+            and challenge.fingerprint != expected_fingerprint
+        ):
+            return ConsumeOutcome(
+                ok=False,
+                challenge=challenge,
+                error="fingerprint_mismatch",
+                detail=(
+                    "challenge fingerprint does not match the requested "
+                    "destructive action's expected seed"
+                ),
+            )
+        if challenge.status != "passed":
+            return ConsumeOutcome(
+                ok=False,
+                challenge=challenge,
+                error="challenge_not_passed",
+                detail=f"status is {challenge.status!r}, must be 'passed'",
+            )
+
+        consumed = SeedChallenge(
+            challenge_id=challenge.challenge_id,
+            fingerprint=challenge.fingerprint,
+            positions=challenge.positions,
+            expected_words=challenge.expected_words,
+            expires_at=challenge.expires_at,
+            attempts_remaining=challenge.attempts_remaining,
+            issued_at=challenge.issued_at,
+            status="consumed",
+        )
+        store._by_id[challenge.challenge_id] = consumed
+        _ = current  # intentionally unused; reserved for future TTL semantics
+        return ConsumeOutcome(ok=True, challenge=consumed)
+
+
 # ---------------------------------------------------------------------
 # In-memory store (one challenge per challenge_id)
 # ---------------------------------------------------------------------
@@ -381,7 +480,7 @@ class SeedChallengeStore:
             stale = [
                 cid
                 for cid, c in self._by_id.items()
-                if c.status in {"passed", "exhausted", "expired"}
+                if c.status in {"passed", "exhausted", "expired", "consumed"}
                 and (now - c.issued_at) >= 3600  # keep terminal records 1h
             ]
             for cid in stale:
@@ -431,9 +530,11 @@ __all__ = [
     "MIN_CHALLENGE_COUNT",
     "MIN_MAX_ATTEMPTS",
     "MIN_TTL_S",
+    "ConsumeOutcome",
     "SeedChallenge",
     "SeedChallengeStore",
     "VerifyOutcome",
+    "consume_passed_challenge",
     "get_challenge_store",
     "mint_challenge",
     "reset_challenge_store",
