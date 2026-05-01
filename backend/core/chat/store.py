@@ -16,7 +16,7 @@ import asyncio
 import json
 import os
 import sqlite3
-from typing import Any, Iterable, Mapping, Optional
+from typing import Any, Iterable, Mapping, Optional, Sequence
 
 from .models import (
     Attachment,
@@ -112,7 +112,11 @@ CREATE INDEX IF NOT EXISTS idx_threads_updated
 # Forward-compat: ``ALTER TABLE`` lines run between table + index
 # creation. Wrap each in try/except inside _ensure_schema so re-adds
 # are silent.
-_MIGRATIONS: tuple[str, ...] = ()
+_MIGRATIONS: tuple[str, ...] = (
+    "ALTER TABLE messages ADD COLUMN embedding_model TEXT",
+    "ALTER TABLE messages ADD COLUMN embedding_dim INTEGER",
+    "ALTER TABLE messages ADD COLUMN embedding_blob BLOB",
+)
 
 
 def _resolve_db_path(override: str | None = None) -> str:
@@ -461,6 +465,150 @@ class ChatStore:
             tokens_out=row["tokens_out"],
             voice_model=row["voice_model"],
             extra=extra,
+        )
+
+    # -- message embeddings (vector + BM25 blend) ----------------------
+
+    def _set_message_embedding_sync(
+        self,
+        msg_id: str,
+        *,
+        model: str,
+        dim: int,
+        blob: bytes,
+    ) -> None:
+        conn = self._connect()
+        try:
+            conn.execute(
+                """
+                UPDATE messages SET
+                    embedding_model = ?,
+                    embedding_dim = ?,
+                    embedding_blob = ?
+                WHERE id = ?
+                """,
+                (model, int(dim), blob, msg_id),
+            )
+        finally:
+            conn.close()
+
+    async def set_message_embedding(
+        self,
+        msg_id: str,
+        *,
+        model: str,
+        dim: int,
+        vector: Sequence[float],
+    ) -> None:
+        """Persist an embedding vector for a message.
+
+        Re-importing here (rather than at module load) keeps the
+        attachments package fully optional — the chat store stays
+        usable even when ``backend.core.attachments`` is not on the
+        path (e.g. tiny installs).
+        """
+
+        if not self.enabled or not msg_id or not vector:
+            return
+        from backend.core.attachments.index import pack_vector
+
+        blob = pack_vector(list(vector))
+        await asyncio.to_thread(
+            self._set_message_embedding_sync,
+            msg_id,
+            model=model,
+            dim=dim,
+            blob=blob,
+        )
+
+    def _get_message_embeddings_sync(
+        self, msg_ids: Sequence[str]
+    ) -> dict[str, dict[str, Any]]:
+        if not msg_ids:
+            return {}
+        from backend.core.attachments.index import unpack_vector
+
+        placeholders = ",".join("?" for _ in msg_ids)
+        sql = (
+            f"SELECT id, embedding_model, embedding_dim, embedding_blob "
+            f"FROM messages WHERE id IN ({placeholders})"
+        )
+        conn = self._connect()
+        try:
+            rows = conn.execute(sql, list(msg_ids)).fetchall()
+        finally:
+            conn.close()
+        out: dict[str, dict[str, Any]] = {}
+        for row in rows:
+            blob = row["embedding_blob"]
+            if not blob:
+                continue
+            out[row["id"]] = {
+                "model": row["embedding_model"],
+                "dim": int(row["embedding_dim"] or 0),
+                "vector": unpack_vector(blob),
+            }
+        return out
+
+    async def get_message_embeddings(
+        self, msg_ids: Sequence[str]
+    ) -> dict[str, dict[str, Any]]:
+        if not self.enabled or not msg_ids:
+            return {}
+        return await asyncio.to_thread(
+            self._get_message_embeddings_sync, list(msg_ids)
+        )
+
+    def _list_messages_pending_embedding_sync(
+        self, *, limit: int
+    ) -> list[Message]:
+        conn = self._connect()
+        try:
+            rows = conn.execute(
+                """
+                SELECT * FROM messages
+                WHERE embedding_blob IS NULL
+                  AND content IS NOT NULL
+                  AND length(content) > 0
+                ORDER BY created_at ASC
+                LIMIT ?
+                """,
+                (int(limit),),
+            ).fetchall()
+        finally:
+            conn.close()
+        return [self._row_to_message(r) for r in rows]
+
+    async def list_messages_pending_embedding(
+        self, *, limit: int = 100
+    ) -> list[Message]:
+        if not self.enabled:
+            return []
+        return await asyncio.to_thread(
+            self._list_messages_pending_embedding_sync,
+            limit=max(1, min(int(limit), 1000)),
+        )
+
+    def _count_messages_pending_embedding_sync(self) -> int:
+        conn = self._connect()
+        try:
+            row = conn.execute(
+                """
+                SELECT COUNT(*) AS c FROM messages
+                WHERE embedding_blob IS NULL
+                  AND content IS NOT NULL
+                  AND length(content) > 0
+                """
+            ).fetchone()
+        finally:
+            conn.close()
+        return int(row["c"]) if row else 0
+
+    async def count_messages_pending_embedding(self) -> int:
+        if not self.enabled:
+            return 0
+        return await asyncio.to_thread(
+            self._count_messages_pending_embedding_sync
         )
 
     # -- tool calls -----------------------------------------------------
