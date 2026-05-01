@@ -153,11 +153,15 @@ Open ideas for the next layer:
   relative (`7d`, `24h`, `45m`, `2w`) and ISO date / timestamp.
   `search` / `search_messages` / `search_traces` honour every token
   via the FTS path (messages get `pack`/`since`/`until` joins,
-  traces get `since`/`until` joins). `search_chunks` strips tokens
-  from the FTS body but only honours `thread:` so far —
-  `pack:` / `mime:` / `since:` / `until:` for chunks need an
-  attachments-DB join (separate slice). `tests/test_search_filters.py`
-  (29 cases) pin parser + engine + HTTP behaviour.
+  traces get `since`/`until` joins). `search_chunks` initially only
+  honoured `thread:`; the attachments-DB JOIN follow-up
+  (2026-05-01) extended `fts_match_chunks` and `search_chunks` to
+  accept `pack:` (JOIN `threads`), `mime:` (literal or `image/*`
+  wildcard, JOIN `attachments`), and `since:`/`until:` (POSIX vs.
+  `attachments.created_at`). `tests/test_search_filters.py`
+  (29 cases) pin the parser + base engine + HTTP behaviour;
+  `tests/test_search_chunk_filters.py` (19 cases) pin the chunks-
+  specific JOIN behaviour.
 - **Attachment hover-card preview.** When a chunk hit is highlighted
   in the palette, surface the surrounding ±1 chunk in a floating
   panel — the data is already on the chunk row.
