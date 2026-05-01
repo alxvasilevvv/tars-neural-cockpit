@@ -75,10 +75,16 @@ Ideas for the next sprints. Triage by impact × cost and pull into
   path/to/build/dir --version=1.0.0` — copies artifacts into a staging
   folder, computes SHA256, writes `~/.tars/releases.json` and a
   signed copy at `dist/releases.json` for `meeet.world` SSR.
-- **Updater channel manifests.** Generate the per-target JSON
-  `tauri-plugin-updater` consumes (`/updates/<target>/<current>.json`)
-  from the same source as `/api/product/downloads` so the two stay in
-  lock-step.
+- ~~**Updater channel manifests.**~~ ✅ **Shipped 2026-05-01** —
+  `backend/core/product/updater.py` `build_channel_from_release()`
+  bridges `DownloadManifest` → `TauriChannel`; `web_extras/routers/
+  product.py` exposes `GET /updates/{target}/{current}.json` (live
+  Tauri-shaped manifest, lock-step with `/api/product/downloads`)
+  + `GET /api/product/updater/targets`. Tests:
+  `tests/test_updater_channel_http.py` (18 cases) including a
+  lock-step assertion that channel `version` matches
+  `/api/product/downloads/latest`. Publish CLI continues to write
+  static files for static hosting.
 - **Verify-on-download UI.** When `sha256` is present in the manifest,
   surface a "verified ✓" affordance on `<DownloadStrip />` (read the
   hash from `data-sha256`).
