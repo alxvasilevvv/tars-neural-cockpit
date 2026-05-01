@@ -193,6 +193,19 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-01 — Pairing audit feed + meeet kind_prefix (Cursor [A]):**
+  Adds the missing read-side for the pairing audit lane.
+  `MeeetStore.list_events()` gains a `kind_prefix` filter
+  (`kind LIKE ? ESCAPE '\\'` with defensive metachar escape);
+  `GET /api/meeet/events` exposes it as a query param. New
+  `GET /api/pairing/audit` folds `pair.*` + `recovery.*` into one
+  newest-first deduped feed, returning the public-safe
+  `{id, ts, trace_id, kind, payload}` shape so internal-only
+  fields (`pushed`, `last_error`, `source`) don't bleed into the
+  operator timeline. Pinned by 12 new tests; full suite: 1392 green.
+  The cockpit gold-pill audit lane (Claude lane) can now consume
+  this directly.
+
 - **2026-05-01 — Rotate-identity epoch bump (Cursor [A]):**
   Closes the open follow-up on the rotate-identity endpoint. The
   rotate now snapshots paired devices, calls `store.revoke()` on
