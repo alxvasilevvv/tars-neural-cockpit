@@ -212,18 +212,18 @@ export function CockpitPreview() {
             {/* Daily briefing card */}
             <div className="mb-5 rounded-[12px] border border-line bg-bg-0/60 p-5 backdrop-blur-sm">
               <div className="mb-1 font-display text-[18px] font-medium leading-tight text-ink">
-                Доброе утро, Alien.
+                Good morning, Alien.
               </div>
               <div className="font-mono-tech text-[11px] tracking-[0.4px] text-ink-2">
-                Tuesday, 28 April · 2 встречи · 4 непрочитанных · 3 файла
+                Tuesday, 28 April · 2 meetings · 4 unread · 3 files
               </div>
 
               <div className="mt-4 grid grid-cols-2 gap-2">
                 {[
-                  { icon: "▣", label: "2 встречи сегодня",   detail: "10:00 Sync · 15:30 Разбор" },
-                  { icon: "◇", label: "3 PR ждут review",    detail: "tars · relayer · agent-sdk" },
-                  { icon: "◆", label: "Саша × 4 сообщения",  detail: "упомянул meeet brain" },
-                  { icon: "═", label: "proposal.docx",       detail: "редактировался 4 раза" },
+                  { icon: "▣", label: "2 meetings today",    detail: "10:00 Sync · 15:30 Review" },
+                  { icon: "◇", label: "3 PRs await review",  detail: "tars · relayer · agent-sdk" },
+                  { icon: "◆", label: "Sasha × 4 messages",  detail: "mentioned meeet brain" },
+                  { icon: "═", label: "proposal.docx",       detail: "edited 4 times" },
                 ].map((it) => (
                   <div
                     key={it.label}
@@ -255,7 +255,7 @@ export function CockpitPreview() {
             >
               <span style={{ color: "var(--color-meeet-indigo)" }}>$</span>
               <span className="flex-1 truncate text-ink-2">
-                Покажи PR'ы которые ждут review
+                Show PRs waiting for review
               </span>
               <span
                 aria-hidden
