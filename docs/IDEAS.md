@@ -269,7 +269,12 @@ Open ideas for the next layer:
      error). Tests: `tests/test_traders_binance_klines.py` (21
      cases).
    - `business.hubspot_pull_pipeline` (read-only).
-   - `mlm.tg_outreach_draft` (returns markdown, no auto-send).
+   - `mlm.tg_outreach_draft` ✅ shipped (2026-05-01) — pure
+     deterministic markdown drafter; six intents × three tones ×
+     three languages (en/ru/es); `send_status="draft"` and
+     `destructive=False` so the action is preview-only. See
+     `backend/core/domains/packs/mlm/tg_outreach.py` and
+     `tests/test_mlm_tg_outreach.py` (34 cases).
    - `science.arxiv_search` ✅ shipped — `science.search_literature`
      against the public Atom API.
    - `science.summarize_paper` ✅ shipped — Atom by id, returns
