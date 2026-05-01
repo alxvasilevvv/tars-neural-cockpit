@@ -13,6 +13,11 @@ Endpoints:
   stream the response back as SSE.
 - ``POST /api/chat/threads/{id}/attachments`` — multipart upload, runs
   the L2 ingest pipeline (extract → chunk → embed → index).
+- ``POST /api/chat/threads/{id}/attachments/stream`` — same upload as
+  above but yields per-phase SSE frames (``started`` / ``extracted``
+  / ``chunked`` / ``embedding`` / ``embedded`` / ``indexed`` /
+  ``completed`` / ``error``) so the cockpit can render a live
+  "indexing 12 chunks…" pill on the chip.
 - ``GET  /api/chat/threads/{id}/attachments`` — list ingested files.
 - ``GET  /api/chat/attachments/{id}`` — describe one record + chunks.
 - ``GET  /api/chat/attachments/{id}/download`` — original bytes.
@@ -317,6 +322,111 @@ async def upload_attachment(
         "embedding_model": result.embedding_model,
         "attachment": result.record.to_dict(),
     }
+
+
+@router.post("/threads/{thread_id}/attachments/stream")
+async def upload_attachment_stream(
+    thread_id: str,
+    file: UploadFile = File(...),
+    message_id: Optional[str] = Form(default=None),
+    x_tars_session_id: str | None = Header(default=None),
+):
+    """Multipart upload that returns a Server-Sent Events stream.
+
+    Each phase of the ingest pipeline (``started`` → ``extracted`` →
+    ``chunked`` → ``embedding`` → ``embedded`` → ``indexed`` →
+    ``completed``) yields one SSE frame so the cockpit can render
+    a live "indexing 12 chunks…" pill on the file chip without
+    polling. The terminal frame is always one of ``completed``,
+    ``dedup_hit``, ``zip_walked``, or ``error``.
+
+    SSE wire format: lines like ``event: <phase>`` followed by
+    ``data: <json>`` and a blank line. Frames stay under 2 KB so
+    every reasonable proxy will pass them through unchanged.
+    """
+
+    import asyncio
+    import time
+
+    chat_store = get_chat_store()
+    thread = await chat_store.get_thread(thread_id)
+    if thread is None:
+        raise HTTPException(status_code=404, detail="thread_not_found")
+
+    blob = await file.read()
+    if not blob:
+        raise HTTPException(status_code=400, detail="empty_file")
+
+    queue: asyncio.Queue[tuple[str, dict[str, Any]] | None] = asyncio.Queue()
+
+    async def progress(phase: str, payload: Any) -> None:
+        # Cast to a plain dict so SSE serialisation is deterministic.
+        await queue.put((phase, dict(payload)))
+
+    async def runner() -> None:
+        try:
+            result = await run_ingest(
+                thread_id=thread_id,
+                blob=blob,
+                filename=file.filename,
+                mime=file.content_type or None,
+                message_id=message_id,
+                session_id=x_tars_session_id,
+                progress=progress,
+            )
+            # ``completed`` / ``dedup_hit`` / ``zip_walked`` already
+            # arrived through ``progress``. Pipe a final ``result``
+            # frame with the canonical envelope so the consumer can
+            # update the chip without an extra GET.
+            await queue.put(
+                (
+                    "result",
+                    {
+                        "ok": True,
+                        "duplicate": result.duplicate,
+                        "chunk_count": result.chunk_count,
+                        "embedding_model": result.embedding_model,
+                        "attachment": result.record.to_dict(),
+                    },
+                )
+            )
+        except IngestError as exc:
+            await queue.put(("error", {"ok": False, "detail": str(exc)}))
+        except Exception as exc:
+            await queue.put(
+                ("error", {"ok": False, "detail": f"unexpected: {exc}"})
+            )
+        finally:
+            await queue.put(None)
+
+    task = asyncio.create_task(runner())
+
+    async def event_stream():
+        # Send a comment line so proxies (nginx) flush headers
+        # immediately and the consumer sees the connection open.
+        yield ": stream-open\n\n"
+        try:
+            while True:
+                item = await queue.get()
+                if item is None:
+                    break
+                phase, payload = item
+                payload = {**payload, "ts": time.time()}
+                data = json.dumps(payload, separators=(",", ":"))
+                yield f"event: {phase}\ndata: {data}\n\n"
+        finally:
+            # Wait for the runner to finish before tearing down so we
+            # never leak the ingest task even if the consumer hangs up.
+            await task
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @router.get("/threads/{thread_id}/attachments")
