@@ -1112,9 +1112,18 @@ Smaller functional items still pending in parallel:
    match is plausible; new-style ids never hit Crossref. Pinned by
    `tests/test_science_crossref_fallback.py` (11 cases).
 6. **OAuth / JMAP outbound.** SMTP covers the local-first path for
-   `draft_email`; OAuth-based providers (Gmail / Office365) and JMAP
-   are the natural next step once the operator has accounts to
-   connect.
+   `draft_email`. ✅ partial (2026-05-01) — SASL **XOAUTH2** wired
+   into `business.send_email` so Gmail / Office365 / Fastmail OAuth2
+   bearer tokens (or app passwords) authenticate cleanly via
+   `smtplib.SMTP.auth("XOAUTH2", ...)`. Provider shorthand
+   `SMTP_PROVIDER=gmail|office365|outlook|fastmail|yahoo|zoho`
+   pre-fills host/port/TLS so a Gmail setup is two env vars:
+   `SMTP_PROVIDER=gmail` + `SMTP_USER=…` + `SMTP_OAUTH_TOKEN=…`.
+   Refresh / consent flows still belong upstream — provide an
+   externally-refreshed bearer token. **Still pending:** full
+   OAuth2 dance (`refresh_token` exchange) and JMAP
+   (Fastmail-native protocol) — both require operator-side
+   infrastructure (consent UI, persistent store).
 7. **Composite playbooks.** Composite domain packs are live; the
    playbook runner still scopes to a single pack — extend so a
    playbook in `playbooks/research_lab/...` can call

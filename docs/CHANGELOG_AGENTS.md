@@ -4,6 +4,102 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · SMTP XOAUTH2 + provider shorthand for `business.draft_email`
+
+**Summary**
+
+Picked up handoff #6 from `AGENT_HANDOFF.md` "Smaller functional items
+still pending" (OAuth/JMAP outbound) — partial: the most useful slice
+(SASL XOAUTH2 over the existing SMTP path + provider shorthand for
+host/port/TLS) is shipped without dragging in a refresh-token dance or
+a consent UI. Refresh flows + JMAP stay open for a follow-up that
+needs operator-side infrastructure.
+
+1. **`backend/core/domains/packs/business/smtp.py`**
+   - New `SmtpConfig.oauth_token` field (env / vault keys
+     `TARS_SMTP_OAUTH_TOKEN` / `SMTP_OAUTH_TOKEN`). Optional with a
+     `None` default — direct instantiations in tests stay valid.
+   - New `SmtpConfig.provider` + `auth_method` properties.
+   - New `_PROVIDERS` table (gmail / googlemail / google → port 465
+     implicit TLS; office365 / o365 / outlook → port 587 starttls;
+     fastmail; yahoo; zoho). `SMTP_PROVIDER` pre-fills host/port if
+     the operator hasn't explicitly set them. **Explicit `SMTP_HOST`
+     always wins.**
+   - New `_xoauth2_authobj(user, token)` returns the SASL XOAUTH2
+     payload (`user=<u>\\x01auth=Bearer <t>\\x01\\x01`).
+   - New `_authenticate(server, config)` chooses XOAUTH2 (token+user)
+     → `LOGIN` (password+user) → `none`, returning the chosen
+     method. Auth failures bubble up as `smtplib.SMTPException` and
+     are caught by the outer `_send_sync` so the destructive action
+     stays deterministic.
+   - `_send_sync` + `SmtpResult` now carry `auth_method` so the
+     cockpit / event log can distinguish XOAUTH2 from password runs.
+   - `send_email` unavailable hint mentions `SMTP_OAUTH_TOKEN` and
+     `SMTP_PROVIDER` so first-time configuration is one read.
+
+2. **`backend/core/domains/packs/business/pack.py`** — `auth_vault_keys`
+   now also lists `SMTP_OAUTH_TOKEN` + `SMTP_PROVIDER` so the cockpit
+   vault picker surfaces them.
+
+3. **`tests/test_business_smtp_oauth.py`** (new, 15 cases)
+   - `_xoauth2_authobj` payload format, idempotent over challenge.
+   - `SmtpConfig.load` picks up the OAuth token, `auth_method`
+     prefers XOAUTH2 when both token + password are present, falls
+     back to `password` when only password set.
+   - Provider shorthand: gmail / office365 / outlook (alias) /
+     unknown-name dropped silently when no host fallback;
+     explicit-host wins over provider.
+   - `_send_sync` calls `server.auth("XOAUTH2", ...)` with the right
+     payload AND skips `server.login` when token is set; mirrors via
+     a `_FakeSmtpServer` that records every call.
+   - `_send_sync` calls `server.login` when no token; never invokes
+     `server.auth`.
+   - XOAUTH2 auth failure surfaces as `sent=False` with the SMTP
+     535 error string; `auth_method` reads `none` (auth never
+     completed).
+   - `send_email` returns the unavailable hint mentioning OAuth
+     keys when nothing is configured.
+   - End-to-end `send_email(...)` returns
+     `auth_method == "xoauth2"` for the Gmail config path.
+   - The business pack declares `SMTP_OAUTH_TOKEN` + `SMTP_PROVIDER`
+     in its vault keys.
+
+**Verification**
+
+- `pytest -q tests/test_business_smtp.py
+   tests/test_business_smtp_oauth.py` → **23/23**.
+- `pytest -q` (full backend suite) → **737 passed** (was 722; +15
+  from this batch).
+- `ReadLints` clean on all touched files.
+
+**Operator notes**
+
+Two-line Gmail setup (assuming an externally-refreshed bearer token):
+
+```
+SMTP_PROVIDER=gmail
+SMTP_USER=ops@yourdomain.com
+SMTP_OAUTH_TOKEN=ya29.…
+```
+
+Two-line Office365 setup:
+
+```
+SMTP_PROVIDER=office365
+SMTP_USER=ops@contoso.com
+SMTP_OAUTH_TOKEN=EwAAA…
+```
+
+App-Password (no OAuth) still works exactly as before — set
+`SMTP_PASSWORD` instead of `SMTP_OAUTH_TOKEN`.
+
+Files (this entry):
+- `backend/core/domains/packs/business/smtp.py`
+- `backend/core/domains/packs/business/pack.py`
+- `tests/test_business_smtp_oauth.py` (new)
+- `docs/AGENT_HANDOFF.md`
+- `docs/CHANGELOG_AGENTS.md` (this entry)
+
 ## 2026-05-01 — Cursor [A] · Crossref fallback + async session boundary events
 
 **Summary**
