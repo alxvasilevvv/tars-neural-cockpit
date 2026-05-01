@@ -4,6 +4,106 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · `trace_summary` materialised view + endpoints + scheduler
+
+**Summary**
+
+Pulled the **Trace materialised view** item from `IDEAS.md`
+"Search & observability (post-L8)". Backend-only Cursor lane: gives
+the (Claude-owned) trace-explorer a fast read path that doesn't scan
+the whole events table.
+
+1. **`backend/core/meeet/trace_summary.py`** (new)
+   - `_TRACE_SUMMARY_SCHEMA` — `trace_summary` SQLite table sharing
+     the meeet WAL DB (no second DB file). Columns: `trace_id PK`,
+     `event_count`, `kinds_json`, `routes_json`, `primary_route`,
+     `total_cost_usd`, `tokens_in/out`, `contradictions`,
+     `error_count`, `last_session_id`, `started_at` / `ended_at` /
+     `duration_ms`, `updated_at`. Three indices on `started_at DESC`,
+     `primary_route`, `last_session_id`.
+   - `TraceSummary` dataclass + `to_dict()` for the wire shape.
+   - `_rebuild_sync(db_path, since=None)` walks events ASC by ts,
+     rolls up per-trace counters / cost / token / contradictions /
+     error_count / route set, and writes via
+     `INSERT OR REPLACE` (idempotent). Returns
+     `{ok, scanned_events, traces, elapsed_ms}`.
+   - `_classify_route()` collapses the route set into a single
+     primary label: single-route → that route; `fallback` present →
+     `fallback`; otherwise `mixed`.
+   - Cost rollup pulls `payload.cost_usd` from `usage.tokens`;
+     contradictions pull from `sampler.decision.payload.contradictions`;
+     `error_count` increments on `*.failed` / `*.error` kinds and on
+     events whose `last_error` is set.
+   - `TraceSummaryStore` async wrapper: `rebuild`, `list_summaries`
+     (filters: limit / since / primary_route / session_id), `get`.
+     Singleton helper + `reset_trace_summary_store()` for tests.
+   - Disabled-store path: `rebuild` returns
+     `{ok: False, reason: "store_disabled"}`; list/get return empty.
+
+2. **`backend/core/meeet/__init__.py`** — exports `TraceSummary`,
+   `TraceSummaryStore`, `get_trace_summary_store`,
+   `reset_trace_summary_store` + adds them to `__all__`.
+
+3. **`web_extras/routers/meeet.py`**
+   - New `GET /api/meeet/traces` (filters: limit / since /
+     primary_route / session_id, capped at 500).
+   - New `GET /api/meeet/traces/{trace_id}` — 404 when missing.
+   - New `POST /api/meeet/traces/refresh` — triggers a rebuild
+     and returns the rebuild stats.
+
+4. **`web_extras/app.py`**
+   - New `_trace_summary_interval_s()` reads
+     `TARS_TRACE_SUMMARY_INTERVAL_S` (default 300, `0` disables).
+   - New `_trace_summary_loop()` mirrors `_replay_loop` shape: never
+     propagates exceptions, never crashes the host, logs only when
+     a tick produces work.
+   - Lifespan now spawns three background tasks (replay,
+     autopilot, trace-summary) and tears them down together.
+
+5. **`tests/test_meeet_trace_summary.py`** (new, 12 cases)
+   - Empty store → zero traces.
+   - Three-event multi-trace rollup with kinds set / routes set /
+     `primary_route="mixed"` / cost + tokens + contradictions /
+     `last_session_id` / `duration_ms`.
+   - Rebuild idempotence (run twice → same row count).
+   - Events without `trace_id` are skipped silently.
+   - `_classify_route` selects `fallback` when present alongside
+     `edge`.
+   - `*.failed` events bump `error_count`.
+   - `list_summaries` orders by `started_at DESC`, filters by
+     `primary_route`, `session_id`, `since`.
+   - `to_dict` shape pin.
+   - Disabled store short-circuits all three operations.
+   - HTTP: `GET /api/meeet/traces` + `GET /api/meeet/traces/{id}`
+     + 404 path + `POST /api/meeet/traces/refresh` + filter pin.
+
+**Verification**
+
+- `pytest -q tests/test_meeet_trace_summary.py` → **12/12**.
+- `pytest -q` (full backend suite) → **749 passed** (was 737; +12).
+- `ReadLints` clean on every touched file.
+- The `_trace_summary_loop` is wired into `_lifespan` alongside
+  the existing replay + autopilot loops; the in-process
+  `TestClient(app)` exercise inside the test fixture is enough to
+  prove the lifespan boots cleanly with the new task.
+
+**Operator notes**
+
+Default refresh interval is 5 minutes. Override with
+`TARS_TRACE_SUMMARY_INTERVAL_S` (set to `0` to disable; the manual
+`POST /api/meeet/traces/refresh` keeps working). The rollup table is
+*derived* — drop it any time and the next refresh recomputes from
+the events table.
+
+Files (this entry):
+- `backend/core/meeet/trace_summary.py` (new)
+- `backend/core/meeet/__init__.py`
+- `web_extras/routers/meeet.py`
+- `web_extras/app.py`
+- `tests/test_meeet_trace_summary.py` (new)
+- `docs/IDEAS.md`
+- `docs/CHANGELOG_AGENTS.md` (this entry)
+
 ## 2026-05-01 — Cursor [A] · SMTP XOAUTH2 + provider shorthand for `business.draft_email`
 
 **Summary**

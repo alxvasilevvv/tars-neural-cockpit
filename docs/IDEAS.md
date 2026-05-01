@@ -114,10 +114,20 @@ Open ideas for the next layer:
 
 ## Search & observability (post-L8)
 
-- **Trace materialised view.** Background task rebuilds
-  `(trace_id → event_count, total_cost, contradictions, route)`
-  every 5 min into a `trace_summary` table; powers the trace
-  explorer header rollup without scanning the full event store.
+- **Trace materialised view.** ✅ shipped (2026-05-01) — new
+  `backend/core/meeet/trace_summary.py` carries a derived
+  `trace_summary` SQLite table sharing the meeet WAL DB. Every row
+  rolls up `event_count`, sorted `kinds`, `routes`, `primary_route`
+  (`edge` / `cloud` / `fallback` / `mixed`), `total_cost_usd`,
+  `tokens_in/out` (from `usage.tokens`), `contradictions` (from
+  `sampler.decision`), `error_count`, `last_session_id`, and
+  `started_at` / `ended_at` / `duration_ms`. New endpoints
+  `GET /api/meeet/traces` (filters: limit/since/primary_route/
+  session_id), `GET /api/meeet/traces/{trace_id}`, and
+  `POST /api/meeet/traces/refresh`. Auto-refresh via the lifespan
+  `_trace_summary_loop` every `TARS_TRACE_SUMMARY_INTERVAL_S`
+  seconds (default 300, `0` disables). Pinned by
+  `tests/test_meeet_trace_summary.py` (12 cases).
 - **Cytoscape trace graph.** Toggleable from `<UsageStrip />`,
   rendering each trace as a DAG of events shaded by route
   (`local` / `cloud`) and decorated by cost. Click → drill into the
