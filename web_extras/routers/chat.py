@@ -19,6 +19,8 @@ Endpoints:
 - ``GET  /api/chat/attachments/{id}/extracted`` — extracted text.
 - ``GET  /api/chat/attachments/{id}/chunks/{chunk_id}/neighbours`` —
   return the chunk plus its ord-adjacent neighbours (hover preview).
+- ``POST /api/chat/attachments/{id}/reembed`` — re-embed every chunk
+  with a fresh (or explicitly named) embedder.
 - ``DELETE /api/chat/attachments/{id}`` — delete row + bytes + chunks.
 - ``POST /api/chat/threads/{id}/retrieve`` — manually run hybrid
   retrieval (top-K) for a query against the thread.
@@ -54,7 +56,10 @@ from backend.core.attachments import (
     ingest as run_ingest,
     retrieve as run_retrieve,
 )
-from backend.core.attachments.pipeline import delete_attachment as run_delete_attachment
+from backend.core.attachments.pipeline import (
+    delete_attachment as run_delete_attachment,
+    reembed_attachment as run_reembed_attachment,
+)
 from backend.core.chat import (
     AttachmentRef,
     Thread,
@@ -469,6 +474,43 @@ async def chunk_neighbors_alias(
         after=after,
         full_text=full_text,
     )
+
+
+@router.post("/attachments/{attachment_id}/reembed")
+async def reembed_attachment_route(
+    attachment_id: str,
+    payload: dict[str, Any] | None = Body(default=None),
+    x_tars_session_id: str | None = Header(default=None),
+) -> dict[str, Any]:
+    """Re-embed every chunk for ``attachment_id``.
+
+    Body (all optional):
+        ``{"model": "openai" | "hash" | "text-embedding-3-large"}``
+
+    Returns the structured :class:`ReembedResult` body. Maps the
+    ``attachment_not_found`` error to HTTP 404; everything else
+    (no chunks, embedder failure) returns HTTP 200 with
+    ``ok=False`` so the cockpit can surface the detail to the
+    operator.
+    """
+
+    body = payload or {}
+    model_arg = body.get("model")
+    embedder_name = (
+        str(model_arg).strip()
+        if isinstance(model_arg, str) and model_arg.strip()
+        else None
+    )
+    result = await run_reembed_attachment(
+        attachment_id,
+        embedder_name=embedder_name,
+        session_id=x_tars_session_id,
+    )
+    if result.error == "attachment_not_found":
+        raise HTTPException(
+            status_code=404, detail="attachment_not_found"
+        )
+    return result.to_dict()
 
 
 @router.delete("/attachments/{attachment_id}")
