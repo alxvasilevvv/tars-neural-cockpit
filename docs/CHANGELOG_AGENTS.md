@@ -4,6 +4,95 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · Streaming ingestion progress (SSE)
+
+**Summary**
+
+Closes the "streaming ingestion progress" idea from
+`docs/IDEAS.md`'s attachments + RAG section. New
+`POST /api/chat/threads/{id}/attachments/stream` endpoint that
+yields per-phase Server-Sent Event frames over the upload
+connection so the cockpit can render a live "indexing 12 chunks…"
+pill on the file chip without polling.
+
+The lift was structural: every ingest call now exposes a
+`progress: ProgressCallback | None` arg that fires once per
+pipeline phase (`started` → `extracted` → `chunked` →
+`embedding` → `embedded` → `indexed` → `completed`, plus
+`dedup_hit` / `zip_walked` / `error` terminal variants). The
+SSE endpoint is just a thin adapter that pipes that callback
+into a `StreamingResponse` queue.
+
+1. **Pipeline** (`backend/core/attachments/pipeline.py`)
+   - `ProgressCallback` typed alias —
+     `Callable[[str, Mapping[str, Any]], Awaitable[None]]` —
+     plus a defensive `_safe_progress(cb, phase, payload)`
+     helper that swallows + logs any exception so a flaky
+     consumer can never break the ingest flow.
+   - `ingest(...)` gains a new `progress=None` kwarg; existing
+     call-sites are unchanged. The function fires the
+     callback at every meaningful phase (with a stable JSON
+     payload schema per phase, including `attachment_id`,
+     `thread_id`, `chunk_count`, `embedding_model`,
+     `tokens_used`, `fts_synced`).
+   - Three new meeet events:
+     `attachment.extracting`, `attachment.embedding`,
+     `attachment.indexed`. Existing `attachment.ingested` /
+     `attachment.zip_walked` / `usage.tokens` events stay
+     unchanged so the cost ledger contract is preserved.
+
+2. **HTTP** (`web_extras/routers/chat.py`)
+   - `POST /api/chat/threads/{id}/attachments/stream` —
+     multipart upload that returns a `text/event-stream`
+     response. Each phase yields one SSE frame
+     (`event: <phase>\ndata: <json>\n\n`) and the terminal
+     `result` frame carries the canonical
+     `{ok, duplicate, chunk_count, embedding_model,
+     attachment}` envelope so the cockpit can update the chip
+     without an extra GET.
+   - Implementation uses an `asyncio.Queue` + a background
+     `asyncio.create_task` so the runner never blocks the
+     stream and the response always closes cleanly even if
+     the consumer hangs up.
+   - Defensive: 404 on unknown thread, 400 on empty file —
+     both still JSON (not SSE) so the cockpit can use the
+     same error-handling code path as the legacy upload
+     route. Headers include `Cache-Control: no-cache` and
+     `X-Accel-Buffering: no` so nginx flushes frames as soon
+     as they're generated.
+   - The original
+     `POST /api/chat/threads/{id}/attachments` endpoint is
+     unchanged — same JSON contract, same callers.
+
+3. **Tests** (`tests/test_attachments_streaming_upload.py`,
+   10 cases)
+   - **Function-level (4):** progress callback fires every
+     phase exactly once in the expected order on the happy
+     path; `dedup_hit` short-circuits before any extraction;
+     a flaky callback (raises mid-flight) does **not**
+     interrupt the ingest; the three new meeet events
+     (`attachment.extracting` / `attachment.embedding` /
+     `attachment.indexed`) land in the durable store.
+   - **HTTP (6):** SSE endpoint yields phase frames in the
+     expected order with `result` last and the canonical
+     envelope; dedup short-circuit yields exactly
+     `started → dedup_hit → result` with `duplicate=true`;
+     unknown thread returns 404 JSON; empty file returns 400
+     JSON; session id header threads through without breaking
+     the stream; legacy non-streaming endpoint still returns
+     the unchanged JSON shape.
+   - The fixture isolates a per-test meeet store under
+     `tmp_path` so the new phase events don't bump against
+     the global cap.
+
+**Files**
+
+- edited: `backend/core/attachments/pipeline.py`,
+  `web_extras/routers/chat.py`
+- new: `tests/test_attachments_streaming_upload.py`
+- edited: `docs/CHANGELOG_AGENTS.md`, `docs/AGENT_HANDOFF.md`,
+  `docs/IDEAS.md`
+
 ## 2026-05-01 — Cursor [A] · business.hubspot_pull_pipeline (read-only)
 
 **Summary**
