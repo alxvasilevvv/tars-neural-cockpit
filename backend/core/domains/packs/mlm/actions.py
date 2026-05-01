@@ -6,6 +6,8 @@ Real-ish adapters backed by an SQLite downline DB
 ``MLM_DB_PATH``; override the seed CSV with ``MLM_NETWORK_PATH``.
 
 ``score_recruit`` and ``generate_post`` stay as structured stubs.
+``tg_outreach_draft`` is a deterministic Telegram drafter (see
+``tg_outreach.py``).
 """
 
 from __future__ import annotations
@@ -19,6 +21,12 @@ from typing import Any, Mapping
 
 from ...base import ActionSpec
 from .db import get_downline_db
+from .tg_outreach import (
+    KNOWN_INTENTS as TG_OUTREACH_INTENTS,
+    KNOWN_LANGUAGES as TG_OUTREACH_LANGUAGES,
+    KNOWN_TONES as TG_OUTREACH_TONES,
+    tg_outreach_draft,
+)
 
 _REPO_ROOT = Path(__file__).resolve().parents[5]
 _DEFAULT_NETWORK_PATH = _REPO_ROOT / "data" / "mlm_network.csv"
@@ -471,5 +479,37 @@ ACTIONS: tuple[ActionSpec, ...] = (
             "required": ["handle"],
         },
         destructive=True,
+    ),
+    ActionSpec(
+        id="tg_outreach_draft",
+        name="Telegram outreach draft",
+        description=(
+            "Deterministic Telegram outreach drafter. Generates a "
+            "markdown + plain-text draft for an intent (welcome, "
+            "checkin, winback, recruit, celebrate, upsell), tone, "
+            "and language. Never auto-sends; preview only."
+        ),
+        handler=tg_outreach_draft,
+        schema={
+            "type": "object",
+            "properties": {
+                "intent": {
+                    "type": "string",
+                    "enum": list(TG_OUTREACH_INTENTS),
+                },
+                "name": {"type": "string"},
+                "tone": {
+                    "type": "string",
+                    "enum": list(TG_OUTREACH_TONES),
+                },
+                "language": {
+                    "type": "string",
+                    "enum": list(TG_OUTREACH_LANGUAGES),
+                },
+                "cta": {"type": "string"},
+                "signature": {"type": "string"},
+            },
+            "required": ["intent"],
+        },
     ),
 )
