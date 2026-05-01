@@ -4,6 +4,84 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · mlm.tg_outreach_draft (deterministic Telegram drafter)
+
+**Summary**
+
+Closes the `mlm.tg_outreach_draft` slot from IDEAS' real-adapters
+list. Pure deterministic markdown generator — no LLM, no I/O —
+that produces a Telegram-flavoured outreach draft for one of six
+intents (`welcome` / `checkin` / `winback` / `recruit` /
+`celebrate` / `upsell`) across three tones (`warm` / `direct` /
+`celebratory`) and three languages (`en` / `ru` / `es`).
+Operator reviews and sends manually; the action **never
+auto-sends** and is `destructive=False` because the output is a
+preview, not a side effect.
+
+1. **Module** (`backend/core/domains/packs/mlm/tg_outreach.py`,
+   new)
+   - `tg_outreach_draft(args)` handler returns
+     `{ok, intent, tone, language, recipient, cta, markdown,
+     plain_text, subject_hint, tags, length_chars,
+     send_status:"draft"}`.
+   - `OutreachDraft` frozen dataclass models the response and
+     stamps `send_status="draft"` on every payload, so cockpit
+     code never has to remember the no-auto-send promise.
+   - `_TEMPLATES` dict: per-intent, per-language opener / body /
+     closer / subject_hint / tags; missing translations fall
+     back to EN silently. Adding a new language = one dict
+     entry per intent.
+   - `KNOWN_INTENTS` / `KNOWN_TONES` / `KNOWN_LANGUAGES` tuples
+     drive the action schema enums in `actions.py`.
+   - Hard cap at `MAX_DRAFT_CHARS=4096` (Telegram's per-message
+     limit) — over-cap drafts surface as `draft_too_long` so the
+     operator can edit before sending.
+   - Light input hardening: `_safe_name`/`_safe_cta`/
+     `_safe_signature` strip newlines and clamp to length so a
+     pasted CTA can't break the markdown layout.
+
+2. **Wiring** (`backend/core/domains/packs/mlm/actions.py`)
+   - New `ActionSpec(id="tg_outreach_draft", …,
+     destructive=False)` in the MLM `ACTIONS` tuple with a JSON
+     schema that enumerates intents / tones / languages.
+   - Module docstring now mentions `tg_outreach_draft` next to
+     `score_recruit` / `generate_post`.
+
+3. **Tests** (`tests/test_mlm_tg_outreach.py`, 34 cases)
+   - **Argument validation (6):** missing intent, blank intent,
+     unknown intent, non-string intent, unknown tone falls back,
+     unknown language falls back, defaults applied with no
+     args.
+   - **Coverage (12):** parametrised happy paths over every
+     known intent / tone / language; verifies markdown +
+     plain_text + length_chars + send_status + subject_hint +
+     tags shape.
+   - **Determinism (3):** identical inputs ⇒ identical output;
+     drafts differ across intents and across languages for the
+     same recipient.
+   - **Personalisation (5):** name substitution, default
+     fallback to "there", signature appended after dash, CTA
+     overrides default closer, multi-line CTA flattened.
+   - **Length (2):** monkey-patched `MAX_DRAFT_CHARS=50`
+     triggers `draft_too_long`; normal drafts sit well under
+     the 4096-char Telegram cap.
+   - **Action wiring (2):** `ACTIONS` tuple registers
+     `tg_outreach_draft` with `destructive=False` and the right
+     enum; handler runnable via the spec.
+   - **Misc (4):** name truncation, response is JSON-
+     serialisable, `OutreachDraft.to_dict()` always includes
+     `send_status="draft"` and serialises tags as a list.
+   - 34/34 green; full mlm bucket 55/55 green; domain /
+     real-adapter / playbook suites all green.
+
+**Files**
+
+- new: `backend/core/domains/packs/mlm/tg_outreach.py`
+- edited: `backend/core/domains/packs/mlm/actions.py`
+- new: `tests/test_mlm_tg_outreach.py`
+- edited: `docs/CHANGELOG_AGENTS.md`, `docs/AGENT_HANDOFF.md`,
+  `docs/IDEAS.md`
+
 ## 2026-05-01 — Cursor [A] · Real adapter: traders.pull_klines (Binance)
 
 **Summary**

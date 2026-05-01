@@ -1201,6 +1201,43 @@ Smaller functional items still pending in parallel:
     `{q?, query?, limit?, kinds?}` — clamped to 100 hits, unknown
     kinds dropped silently. `tests/test_jump_picker.py` (23 cases).
     Cockpit ⌘J palette UI is the Claude-lane follow-up.
+25. ~~**mlm.tg_outreach_draft (deterministic Telegram drafter).**~~
+    **shipped** (2026-05-01) — closes the `mlm.tg_outreach_draft`
+    slot from IDEAS' real-adapters list.
+    `backend/core/domains/packs/mlm/tg_outreach.py` ships
+    `tg_outreach_draft(args)` — a deterministic markdown
+    generator with no I/O and no LLM. Six intents (`welcome`,
+    `checkin`, `winback`, `recruit`, `celebrate`, `upsell`),
+    three tones (`warm`, `direct`, `celebratory`), three
+    languages (`en`, `ru`, `es`). The handler renders an opener
+    (with `{name}` substitution and a `there` fallback for
+    unnamed recipients), a body sentence, and a closer (the
+    operator-supplied `cta` overrides the default closer when
+    present), then optionally appends a `signature` after a
+    dash separator. Output: `{ok, intent, tone, language,
+    recipient, cta, markdown, plain_text, subject_hint, tags,
+    length_chars, send_status:"draft"}`. The
+    `send_status="draft"` field is mirrored on every response
+    so cockpit code never has to remember the no-auto-send
+    promise. Hard cap at `MAX_DRAFT_CHARS=4096` (Telegram's
+    per-message limit) — over-cap drafts surface as
+    `draft_too_long`. Input hardening: name / cta / signature
+    strip newlines and clamp to length so a pasted blob can't
+    break the markdown layout. Missing translations fall back
+    to EN silently — adding a new language is one dict entry
+    per intent. New `ActionSpec` registered on the MLM pack
+    with `destructive=False` (the action produces only a
+    preview; sending is a separate, currently absent action).
+    `tests/test_mlm_tg_outreach.py` (34 cases) covers argument
+    validation, parametrised happy paths over every intent /
+    tone / language, determinism (same args ⇒ same output;
+    different intents / languages ⇒ different drafts),
+    personalisation (name substitution, default fallback,
+    signature, CTA override, multi-line CTA flattening),
+    length cap (monkey-patched
+    `MAX_DRAFT_CHARS=50` triggers `draft_too_long`), action
+    wiring, and JSON-serialisability.
+
 24. ~~**Real adapter: traders.pull_klines (Binance).**~~ **shipped**
     (2026-05-01) — closes the `traders.binance_pull_klines` slot
     from IDEAS' real-adapters list.
