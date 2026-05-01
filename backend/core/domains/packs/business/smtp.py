@@ -35,10 +35,14 @@ Behaviour:
   cockpit surfaces them; the policy gate already blocked unconfirmed
   sends.
 
-Provider shorthand maps host + default port + TLS posture only. The
-operator still owns auth: pick a password (App Password) or an OAuth2
-bearer token in the vault. Refresh / consent flows are out of scope
-for this module — provide an externally-refreshed token.
+Provider shorthand maps host + default port + TLS posture only.
+**OAuth refresh** lives in :mod:`backend.core.domains.packs.business.oauth`
+— if ``TARS_SMTP_OAUTH_REFRESH_TOKEN`` + ``TARS_SMTP_OAUTH_CLIENT_ID``
+are present, ``SmtpConfig.load`` exchanges them for a fresh access
+token and caches it in-process for ~55 minutes. The manually-pasted
+``TARS_SMTP_OAUTH_TOKEN`` from #40 still wins when set, and is also
+the fallback when refresh fails (transport / OAuth error → log + use
+the manual token if there is one).
 """
 
 from __future__ import annotations
@@ -53,6 +57,10 @@ from email.message import EmailMessage
 from typing import Any
 
 from backend.core.vault import get_secret
+from backend.core.domains.packs.business.oauth import (
+    OAuthRefreshConfig,
+    get_fresh_access_token,
+)
 
 
 @dataclass(frozen=True)
@@ -92,6 +100,13 @@ class SmtpConfig:
     implicit_tls: bool
     oauth_token: str | None = None
     provider: str | None = None
+    # Source label for observability:
+    # ``"manual"`` (operator pasted into vault) | ``"refresh"`` (just
+    # refreshed via OAuth2) | ``"cache"`` (still-valid cached refresh
+    # output) | ``"none"`` (no OAuth at all). The SMTP send result
+    # surfaces this as ``oauth_token_source``.
+    oauth_token_source: str = "none"
+    oauth_expires_in: float | None = None
 
     @property
     def auth_method(self) -> str:
@@ -143,6 +158,25 @@ class SmtpConfig:
             or get_secret("SMTP_OAUTH_TOKEN")
             or os.getenv("SMTP_OAUTH_TOKEN")
         )
+        oauth_token_source = "manual" if oauth_token else "none"
+        oauth_expires_in: float | None = None
+        # Refresh-token flow takes precedence when configured and no
+        # manual token is already in the vault. The manual token still
+        # wins when set so PR #40's contract isn't broken; the refresh
+        # flow degrades gracefully when transport / OAuth fails by
+        # falling back to ``oauth_token`` as-is.
+        if not oauth_token:
+            refresh_cfg = OAuthRefreshConfig.load(
+                provider=provider.slug if provider else None
+            )
+            if refresh_cfg is not None:
+                fresh = get_fresh_access_token(refresh_cfg)
+                if fresh.get("ok"):
+                    oauth_token = fresh.get("access_token")
+                    oauth_token_source = str(fresh.get("source") or "refresh")
+                    expires = fresh.get("expires_in")
+                    if isinstance(expires, (int, float)):
+                        oauth_expires_in = float(expires)
         from_addr = (
             get_secret("TARS_SMTP_FROM")
             or get_secret("SMTP_FROM")
@@ -166,6 +200,8 @@ class SmtpConfig:
                 oauth_token.strip() if isinstance(oauth_token, str) else None
             ),
             provider=provider.slug if provider else None,
+            oauth_token_source=oauth_token_source,
+            oauth_expires_in=oauth_expires_in,
         )
 
 
@@ -180,6 +216,8 @@ class SmtpResult:
     elapsed_ms: float
     auth_method: str = "none"
     error: str | None = None
+    oauth_token_source: str = "none"
+    oauth_expires_in: float | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -191,6 +229,12 @@ class SmtpResult:
             "response_code": self.response_code,
             "elapsed_ms": round(self.elapsed_ms, 3),
             "auth_method": self.auth_method,
+            "oauth_token_source": self.oauth_token_source,
+            "oauth_expires_in": (
+                round(self.oauth_expires_in, 1)
+                if self.oauth_expires_in is not None
+                else None
+            ),
             "error": self.error,
         }
 
@@ -292,6 +336,8 @@ def _send_sync(
             elapsed_ms=(time.perf_counter() - started) * 1000.0,
             auth_method=auth_method,
             error=str(exc),
+            oauth_token_source=config.oauth_token_source,
+            oauth_expires_in=config.oauth_expires_in,
         )
     return SmtpResult(
         sent=True,
@@ -303,6 +349,8 @@ def _send_sync(
         elapsed_ms=(time.perf_counter() - started) * 1000.0,
         auth_method=auth_method,
         error=None,
+        oauth_token_source=config.oauth_token_source,
+        oauth_expires_in=config.oauth_expires_in,
     )
 
 
