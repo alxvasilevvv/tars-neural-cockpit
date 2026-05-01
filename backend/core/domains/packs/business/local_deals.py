@@ -335,6 +335,53 @@ async def update_local_deal(
     return out
 
 
+_TERMINAL_STAGES: frozenset[str] = frozenset({"won", "lost"})
+
+
+def read_local_deals(
+    path: str | os.PathLike[str] | None = None,
+    *,
+    active_only: bool = False,
+    stage: str | None = None,
+    owner: str | None = None,
+    limit: int | None = None,
+) -> list[dict[str, Any]]:
+    """Read deals from the local store with optional filters.
+
+    ``active_only`` excludes rows whose ``stage`` is in
+    ``{"won", "lost"}``. ``stage`` filters to a single stage value
+    (case-insensitive, coerced via :func:`_coerce_stage`). ``owner``
+    filters case-insensitively on the row's ``owner`` field.
+    ``limit`` slices the most recent N entries (rows are appended
+    chronologically).
+    """
+
+    target = resolve_local_deals_path(path)
+    rows = _read_existing(target)
+    out = list(rows)
+    if active_only:
+        out = [
+            r
+            for r in out
+            if str(r.get("stage") or "").lower() not in _TERMINAL_STAGES
+        ]
+    if stage:
+        wanted_stage = _coerce_stage(stage)
+        out = [r for r in out if str(r.get("stage") or "").lower() == wanted_stage]
+    if owner:
+        wanted_owner = owner.strip().lower()
+        if wanted_owner:
+            out = [
+                r
+                for r in out
+                if isinstance(r.get("owner"), str)
+                and r["owner"].strip().lower() == wanted_owner
+            ]
+    if isinstance(limit, int) and limit > 0:
+        out = out[-limit:]
+    return out
+
+
 async def append_local_deal(
     *,
     name: str,
@@ -414,6 +461,7 @@ __all__ = [
     "LOCAL_ID_PREFIX",
     "LocalDealRecord",
     "append_local_deal",
+    "read_local_deals",
     "resolve_local_deals_path",
     "update_local_deal",
 ]
