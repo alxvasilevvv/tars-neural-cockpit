@@ -90,11 +90,48 @@ Handlers must:
 5. Extend `tests/test_domains.py` `EXPECTED_SLUGS`.
 6. Add a row in `docs/CHANGELOG_AGENTS.md`.
 
+## Composite packs
+
+`backend/core/domains/composite.py` stitches multiple existing packs
+into a single virtual pack. Action and awareness ids are namespaced
+as `<sub_slug>__<id>` so handlers don't collide; destructive flags
+and auth keys propagate from the leaf. Two ship by default:
+
+- **`research_lab`** = `science` + `business` (paper → pitch).
+- **`ops_room`** = `traders` + `mlm` (markets + downline).
+
+Composite packs surface through the same `/api/domains/...` endpoints
+and through the playbook runner.
+
+## Composite playbooks
+
+`backend/core/playbooks/runner.py` resolves each step's slug from the
+`step.action` prefix (not from the playbook's directory), so a
+playbook in `playbooks/research_lab/<name>.json` may freely reference:
+
+- a composite-namespaced action: `research_lab.business__kpi_snapshot`,
+- a composite-namespaced awareness: `research_lab.awareness.science__local_papers.snapshot`,
+- an atomic-pack action directly: `business.kpi_snapshot` (handler
+  is the same; the namespaced form is just a different surface).
+
+Built-in samples:
+
+- `playbooks/research_lab/paper_to_pitch.json` — papers + KPI in
+  parallel, then daily brief.
+- `playbooks/ops_room/morning_standup.json` — market summary +
+  downline + news in parallel.
+
+Tests pinning the cross-sub-pack flow live in
+`tests/test_composite_playbooks.py` (8 cases: loader, awareness
+parsing, sequential + parallel composite execution, destructive
+flag propagation through the policy gate, cross-sub-pack templating).
+
 ## Tests
 
 ```
-PYTHONPATH=. pytest tests/test_domains.py -q
+PYTHONPATH=. pytest tests/test_domains.py tests/test_composite_playbooks.py -q
 ```
 
 The suite asserts every expected slug is registered, the `to_dict()` shape is
-present, and that every action handler is safe with empty arguments.
+present, every action handler is safe with empty arguments, and composite
+playbooks dispatch sub-pack actions + awareness through one trace.
