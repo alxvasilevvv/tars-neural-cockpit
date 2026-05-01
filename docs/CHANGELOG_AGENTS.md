@@ -4,6 +4,121 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · Recovery seed verification challenge (3-of-24)
+
+**Summary**
+
+Closes the "Recovery seed verification policy" idea from
+`docs/IDEAS.md` (Pairing & sync section). On rotation flows
+asking the operator to retype the **entire** 24-word phrase is
+high-friction and bug-prone. Asking them to confirm three random
+word **positions** (e.g. "what's word #7? word #14? word #22?")
+balances friction against a meaningful proof-of-knowledge signal.
+
+This batch lands the primitives (mint / verify state machine +
+in-memory store + HTTP endpoints + audit events). The follow-up
+slice will gate the destructive "rotate identity" flow on a
+fresh `recovery.challenge.passed` event for the same fingerprint.
+
+1. **Module** (`backend/core/crypto/seed_challenge.py`)
+   - `SeedChallenge` frozen dataclass:
+     `challenge_id` (urlsafe random, prefix `chal_`),
+     `fingerprint` (12-char SHA-256, same shape as
+     `recovery.shown` / `recovery.verified` audit events),
+     `positions` (1-indexed sample over the 24 words),
+     `expected_words` (verifier-only, never echoed),
+     `expires_at`, `attempts_remaining`, `issued_at`,
+     `status` ∈ `{pending, passed, failed, expired,
+     exhausted}`. `to_public_dict()` strips
+     `expected_words` so the cockpit can never accidentally
+     leak them.
+   - `mint_challenge(mnemonic, *, count=3, ttl_s=300,
+     max_attempts=3, rng=None, now=None)` — validates the
+     mnemonic via the existing `fingerprint_of` (raises on
+     bad checksum / wrong word count / unknown word) before
+     picking positions, so a typo never produces a challenge
+     that can't be passed. `count` clamped to `[1, 8]`,
+     `ttl_s` to `[30, 1800]`, `max_attempts` to `[1, 10]`.
+   - `verify_challenge(challenge, answers, *, now=None)` —
+     case + whitespace insensitive 1:1 match. Wrong answers
+     decrement `attempts_remaining`; exhausted attempts mark
+     the challenge `exhausted`. Expired pending challenges
+     return `error="expired"` and flip `status="expired"`.
+     Already-terminal challenges (`passed` / `exhausted` /
+     `expired`) return `error="not_pending"` so the cockpit
+     can re-mint cleanly. `VerifyOutcome.matched` carries
+     per-position result so the UI can highlight which word
+     was wrong without leaking the right answer.
+   - `SeedChallengeStore` — thread-safe in-memory dict with
+     expiry-aware reads. `get()` / `list()` / `stats()` sweep
+     pending challenges past their TTL → `expired`, and
+     drop terminal records older than 1h to keep memory
+     bounded. No background loop, no SQLite — challenges are
+     short-lived (default 5 min) and cockpit-session scoped.
+   - Module-level `get_challenge_store()` / `reset_challenge_store()`
+     for the singleton + test isolation.
+
+2. **HTTP** (`web_extras/routers/recovery.py`)
+   - `POST /api/recovery/challenge/start` body
+     `{mnemonic, count?, ttl_s?, max_attempts?}` — mints a
+     challenge, returns the public-safe shape
+     (`challenge_id`, `fingerprint`, `positions`,
+     `expires_at`, `attempts_remaining`, `status`,
+     `issued_at`, `word_count`). Invalid mnemonics 400 with
+     a structured `invalid_mnemonic: <detail>`.
+   - `POST /api/recovery/challenge/verify` body
+     `{challenge_id, words}` — runs `verify_challenge`,
+     persists the updated state, returns the `VerifyOutcome`
+     payload. 404 on unknown id; 410 (gone) on `expired`
+     since the cockpit needs a fresh challenge.
+   - `GET /api/recovery/challenge/{id}` — public-safe state
+     for the resume-after-refresh case. 404 for unknown ids.
+   - All three emit `recovery.challenge.{started, passed,
+     failed, expired, exhausted}` meeet events with the
+     `fingerprint` + `attempts_remaining` shape, mirroring
+     the existing `recovery.shown` / `recovery.verified`
+     audit pattern (so the timeline UI can render the
+     challenge cycle on the same gold-pill lane).
+
+3. **Tests** (`tests/test_seed_challenge.py`, 30 cases)
+   - **Mint (9):** default 3 distinct positions, `count`
+     clamped to 8 / 1 / negative, `ttl_s` clamped to
+     `[30, 1800]`, `max_attempts` clamped to `[1, 10]`,
+     mnemonic word-count + checksum validation, public
+     dict doesn't leak `expected_words`, randomness
+     produces distinct samples across runs.
+   - **Verify (7):** correct words pass, wrong words
+     decrement, attempts run out → exhausted, wrong answer
+     count → `answer_count_mismatch` (without burning an
+     attempt), case + whitespace normalisation, expired
+     pending challenge → `error=expired` /
+     `status=expired`, already-passed challenge →
+     `error=not_pending`.
+   - **Store (5):** round-trip put/get, expiry-aware read
+     flips pending past TTL, `consume()` removes,
+     `stats()` counts by status, singleton helper +
+     reset.
+   - **HTTP (9):** `/start` returns positions and never
+     echoes `expected_words`, `/start` 400s on bad
+     mnemonic, `/verify` happy path passes, wrong answer
+     decrements attempts via HTTP, unknown challenge id
+     → 404, `/state` returns public-safe shape, unknown
+     `/state` → 404, `recovery.challenge.passed` event
+     emitted on happy path, `recovery.challenge.failed`
+     event emitted on wrong answers.
+   - The `client` fixture isolates a per-test meeet store
+     under `tmp_path` and resets the challenge-store
+     singleton via the `_isolated_challenge_store`
+     autouse fixture.
+
+**Files**
+
+- new: `backend/core/crypto/seed_challenge.py`,
+  `tests/test_seed_challenge.py`
+- edited: `web_extras/routers/recovery.py`,
+  `docs/CHANGELOG_AGENTS.md`, `docs/AGENT_HANDOFF.md`,
+  `docs/IDEAS.md`
+
 ## 2026-05-01 — Cursor [A] · Streaming ingestion progress (SSE)
 
 **Summary**
