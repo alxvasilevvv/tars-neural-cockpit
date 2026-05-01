@@ -67,6 +67,32 @@ def _csv_path(override: str | None = None) -> Path:
     return DEFAULT_CSV_PATH
 
 
+def _parse_iso_loose(s: str) -> datetime | None:
+    """Parse an ISO-ish date / datetime; return ``None`` on failure.
+
+    Tolerates ``YYYY-MM-DD``, ``YYYY-MM-DDTHH:MM:SS``, trailing ``Z``,
+    and offset suffixes. Returned datetimes are always tz-aware (UTC
+    assumed when no tzinfo is present).
+    """
+
+    raw = (s or "").strip()
+    if not raw:
+        return None
+    for fmt in ("%Y-%m-%d", "%Y-%m-%dT%H:%M:%S", "%Y-%m-%dT%H:%M:%SZ"):
+        try:
+            return datetime.strptime(raw, fmt).replace(tzinfo=timezone.utc)
+        except ValueError:
+            continue
+    try:
+        cleaned = raw.replace("Z", "+00:00")
+        out = datetime.fromisoformat(cleaned)
+        if out.tzinfo is None:
+            out = out.replace(tzinfo=timezone.utc)
+        return out
+    except ValueError:
+        return None
+
+
 @dataclass(frozen=True)
 class Member:
     handle: str
@@ -223,6 +249,140 @@ class DownlineDB:
         finally:
             conn.close()
 
+    _UPDATABLE_MEMBER_FIELDS: tuple[str, ...] = (
+        "sponsor",
+        "rank",
+        "joined_at",
+        "last_active_at",
+        "volume_usd",
+        "notes",
+    )
+
+    @classmethod
+    def _coerce_member_field(cls, field_name: str, value: Any) -> Any:
+        """Coerce a user-supplied update value to its canonical shape.
+
+        Returns ``...`` (Ellipsis) when the field should be left
+        untouched (e.g. caller passed ``None`` for an optional string).
+        Returns ``None`` to clear a nullable column; otherwise the
+        coerced value.
+        """
+
+        if field_name == "volume_usd":
+            try:
+                val = float(value)
+            except (TypeError, ValueError):
+                raise ValueError("volume_invalid") from None
+            if val < 0:
+                raise ValueError("volume_invalid")
+            return val
+        if value is None:
+            return ...
+        if isinstance(value, str):
+            s = value.strip()
+            if field_name == "rank":
+                return s.lower() if s else None
+            return s if s else None
+        return value
+
+    def _update_member_sync(
+        self,
+        handle: str,
+        updates: Mapping[str, Any],
+    ) -> tuple[Optional[Member], list[str]]:
+        """Patch a member row in-place. Returns ``(member, changed_fields)``.
+
+        Returns ``(None, [])`` when the handle is not found. ``updates``
+        only honours keys in :data:`_UPDATABLE_MEMBER_FIELDS`; other
+        keys are silently ignored. ``handle`` itself can never be
+        patched — change it via delete + add if you really need to.
+        """
+
+        coerced: dict[str, Any] = {}
+        for field_name in self._UPDATABLE_MEMBER_FIELDS:
+            if field_name not in updates:
+                continue
+            value = self._coerce_member_field(field_name, updates[field_name])
+            if value is ...:
+                continue
+            coerced[field_name] = value
+
+        conn = self._connect()
+        try:
+            row = conn.execute(
+                "SELECT * FROM members WHERE handle=?",
+                (handle,),
+            ).fetchone()
+            if row is None:
+                return None, []
+            current = self._row(row)
+            changed: list[str] = []
+            for field_name, value in coerced.items():
+                old = getattr(current, field_name, None)
+                old_norm = float(old) if field_name == "volume_usd" else old
+                new_norm = float(value) if (field_name == "volume_usd" and value is not None) else value
+                if old_norm != new_norm:
+                    changed.append(field_name)
+            if not changed:
+                return current, []
+            assignments = ", ".join(f"{f}=?" for f in changed)
+            params: list[Any] = [coerced[f] for f in changed]
+            params.extend([time.time(), handle])
+            conn.execute(
+                f"UPDATE members SET {assignments}, updated_at=? WHERE handle=?",
+                params,
+            )
+            row = conn.execute(
+                "SELECT * FROM members WHERE handle=?",
+                (handle,),
+            ).fetchone()
+        finally:
+            conn.close()
+        return self._row(row) if row else None, changed
+
+    def _list_members_sync(
+        self,
+        *,
+        sponsor: Optional[str],
+        rank: Optional[str],
+        recent_days: Optional[int],
+        limit: Optional[int],
+    ) -> list[Member]:
+        clauses: list[str] = []
+        params: list[Any] = []
+        if sponsor is not None:
+            clauses.append("LOWER(sponsor)=?")
+            params.append(sponsor.lower())
+        if rank is not None:
+            clauses.append("LOWER(rank)=?")
+            params.append(rank.lower())
+        sql = "SELECT * FROM members"
+        if clauses:
+            sql += " WHERE " + " AND ".join(clauses)
+        sql += " ORDER BY handle"
+        conn = self._connect()
+        try:
+            rows = conn.execute(sql, params).fetchall()
+        finally:
+            conn.close()
+        members = [self._row(r) for r in rows]
+        if recent_days is not None and recent_days > 0:
+            cutoff = datetime.now(timezone.utc).timestamp() - recent_days * 86400.0
+            kept: list[Member] = []
+            for m in members:
+                ts = m.last_active_at or ""
+                # Reuse the action-side parser via a local lazy import to
+                # keep db.py free of the action module.
+                parsed = _parse_iso_loose(ts)
+                if parsed is None:
+                    continue
+                if parsed.timestamp() >= cutoff:
+                    kept.append(m)
+            members = kept
+        if isinstance(limit, int) and limit > 0:
+            members = members[:limit]
+        return members
+
     def _log_activity_sync(
         self,
         handle: str,
@@ -301,11 +461,53 @@ class DownlineDB:
             "csv_path": str(self.csv_seed_path),
         }
 
-    async def list_members(self) -> list[Member]:
-        return await asyncio.to_thread(self._list_sync)
+    async def list_members(
+        self,
+        *,
+        sponsor: Optional[str] = None,
+        rank: Optional[str] = None,
+        recent_days: Optional[int] = None,
+        limit: Optional[int] = None,
+    ) -> list[Member]:
+        """Return members with optional filters.
+
+        - ``sponsor`` / ``rank``: case-insensitive equality.
+        - ``recent_days``: keep only members with ``last_active_at``
+          within this many days of "now".
+        - ``limit``: positive integer cap on the result.
+        """
+
+        if sponsor is None and rank is None and recent_days is None and limit is None:
+            return await asyncio.to_thread(self._list_sync)
+        return await asyncio.to_thread(
+            self._list_members_sync,
+            sponsor=sponsor,
+            rank=rank,
+            recent_days=recent_days,
+            limit=limit,
+        )
 
     async def get(self, handle: str) -> Optional[Member]:
         return await asyncio.to_thread(self._get_sync, handle)
+
+    async def update_member(
+        self,
+        handle: str,
+        updates: Mapping[str, Any],
+    ) -> tuple[Optional[Member], list[str]]:
+        """Patch a member row in-place. Returns ``(member, changed_fields)``.
+
+        Returns ``(None, [])`` when the handle is not found. Only
+        keys in :data:`_UPDATABLE_MEMBER_FIELDS` are honoured;
+        others are silently ignored. Raises :class:`ValueError`
+        (``handle_required``, ``volume_invalid``) on bad inputs.
+        """
+
+        if not isinstance(handle, str) or not handle.strip():
+            raise ValueError("handle_required")
+        return await asyncio.to_thread(
+            self._update_member_sync, handle.strip(), dict(updates)
+        )
 
     async def upsert(
         self,

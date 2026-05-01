@@ -491,7 +491,19 @@ Open ideas for the next layer:
      destructive-spec / live-fetcher membership pin updates in
      `tests/test_policy.py` and `tests/test_awareness_fetchers.py`.
    - `mlm.downline_snapshot`, `mlm.retention_alert` ✅ shipped —
-     local CSV-backed.
+     local CSV-backed. The local downline DB also got a
+     **`mlm.update_member`** (2026-05-01 follow-up, destructive,
+     patch semantics — pass `""` to clear an optional string,
+     `None` to leave it untouched, never patches `handle` itself,
+     idempotent on no-op, emits `mlm.member_updated` listing
+     `changed_fields`) and **`mlm.list_members`** (non-destructive,
+     filter by `sponsor / rank / recent_days / limit`, returns
+     pre-computed `summary.by_rank` + `summary.total_volume_usd`)
+     side door so the cockpit can browse + patch members without
+     going through `add_member` upserts. Pinned by
+     `tests/test_mlm_update_and_list_members.py` (33 cases) plus
+     a destructive-spec membership pin update in
+     `tests/test_policy.py`.
    - `mlm.generate_post` ✅ shipped (2026-05-01) — real
      multi-channel drafter.
      `backend/core/domains/packs/mlm/post_drafter.py` lands a
