@@ -11,9 +11,20 @@ Ideas for the next sprints. Triage by impact × cost and pull into
 
 ## Voice (post-L4.1)
 
-- **Per-persona system-prompt overlay.** When the operator selects
-  Stark/Jarvis/etc., bias the chat voice's tone ("Stark would
-  shorten replies and crack a joke") via an additive prompt fragment.
+- **Per-persona system-prompt overlay.** ✅ shipped
+  (2026-05-01) — `Persona.system_prompt_overlay` field +
+  built-in tone blocks for Jarvis / Stark / HAL 9000 / GLaDOS /
+  TARS (operator opts out). New helpers
+  `get_system_prompt_overlay(persona_id)` +
+  `compose_system_prompt(*, role_overlay, pack_prompt,
+  persona_overlay)` re-exported from `backend.core.voice`.
+  Orchestrator stitches role → pack → persona; persona block
+  carries a header (`## Voice persona — <name>`) and a safety
+  footer reminding the model that voice overlays never override
+  pack guardrails. Tests:
+  `tests/test_persona_prompt_overlay.py` (23 cases).
+  `Persona.to_dict()` now exposes
+  `has_system_prompt_overlay`.
 - **Per-thread persona pinning.** ✅ shipped (2026-05-01) —
   `threads.voice_persona_id` (additive migration), exposed on
   `Thread.to_dict()` and every API response. Set / clear via
