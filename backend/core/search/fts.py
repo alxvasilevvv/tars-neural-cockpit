@@ -457,7 +457,17 @@ def fts_match_messages(
     limit: int = 50,
     thread_id: str | None = None,
     role: str | None = None,
+    pack: str | None = None,
+    since: float | None = None,
+    until: float | None = None,
 ) -> list[dict]:
+    """FTS5 keyword match over messages.
+
+    Supports time-window bounds (``since``/``until`` POSIX seconds) and
+    a pack filter (resolves through ``threads.pack_slug`` via JOIN).
+    Filters compose with AND semantics.
+    """
+
     chat = chat or get_chat_store()
     sanitised = sanitise_query(query)
     if not chat.enabled or not sanitised:
@@ -466,18 +476,36 @@ def fts_match_messages(
     try:
         params: list = [sanitised]
         clauses = ["messages_fts MATCH ?"]
+        join = ""
         if thread_id:
-            clauses.append("thread_id = ?")
+            clauses.append("messages_fts.thread_id = ?")
             params.append(thread_id)
         if role:
-            clauses.append("role = ?")
+            clauses.append("messages_fts.role = ?")
             params.append(role)
+        if since is not None or until is not None or pack:
+            join = (
+                " JOIN messages m ON m.id = messages_fts.msg_id"
+            )
+            if since is not None:
+                clauses.append("m.created_at >= ?")
+                params.append(float(since))
+            if until is not None:
+                clauses.append("m.created_at <= ?")
+                params.append(float(until))
+        if pack:
+            join += " JOIN threads t ON t.id = m.thread_id"
+            clauses.append("t.pack_slug = ?")
+            params.append(pack)
         params.append(limit)
         rows = conn.execute(
             f"""
-            SELECT msg_id, thread_id, role, rank,
+            SELECT messages_fts.msg_id AS msg_id,
+                   messages_fts.thread_id AS thread_id,
+                   messages_fts.role AS role,
+                   rank,
                    snippet(messages_fts, 0, '<mark>', '</mark>', '…', 16) AS snippet
-            FROM messages_fts
+            FROM messages_fts{join}
             WHERE {' AND '.join(clauses)}
             ORDER BY rank
             LIMIT ?
@@ -499,7 +527,15 @@ def fts_match_events(
     limit: int = 50,
     kind: str | None = None,
     trace_id: str | None = None,
+    since: float | None = None,
+    until: float | None = None,
 ) -> list[dict]:
+    """FTS5 keyword match over the meeet event durable buffer.
+
+    ``since`` / ``until`` (POSIX seconds) clamp ``events.ts`` via a
+    JOIN into the events table. Compose with AND semantics.
+    """
+
     sanitised = sanitise_query(query)
     if not sanitised:
         return []
@@ -508,18 +544,31 @@ def fts_match_events(
     try:
         params: list = [sanitised]
         clauses = ["events_fts MATCH ?"]
+        join = ""
         if kind:
-            clauses.append("kind = ?")
+            clauses.append("events_fts.kind = ?")
             params.append(kind)
         if trace_id:
-            clauses.append("trace_id = ?")
+            clauses.append("events_fts.trace_id = ?")
             params.append(trace_id)
+        if since is not None or until is not None:
+            join = " JOIN events e ON e.id = events_fts.event_id"
+            if since is not None:
+                clauses.append("e.ts >= ?")
+                params.append(float(since))
+            if until is not None:
+                clauses.append("e.ts <= ?")
+                params.append(float(until))
         params.append(limit)
         rows = conn.execute(
             f"""
-            SELECT event_id, kind, trace_id, session_id, rank,
+            SELECT events_fts.event_id AS event_id,
+                   events_fts.kind AS kind,
+                   events_fts.trace_id AS trace_id,
+                   events_fts.session_id AS session_id,
+                   rank,
                    snippet(events_fts, 0, '<mark>', '</mark>', '…', 16) AS snippet
-            FROM events_fts
+            FROM events_fts{join}
             WHERE {' AND '.join(clauses)}
             ORDER BY rank
             LIMIT ?
