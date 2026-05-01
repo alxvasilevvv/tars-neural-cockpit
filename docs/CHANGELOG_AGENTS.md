@@ -4,6 +4,107 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · Scoped operator filters DSL (`role:`, `pack:`, `since:` …)
+
+**Summary**
+
+Pulled **Scoped operator filters** from `IDEAS.md` "Search &
+observability (post-L8)". The cockpit ⌘K palette + saved searches
+can now embed filter tokens directly in the query body — the engine
+extracts them before FTS sanitisation, so paraphrased search queries
+turn into precise filtered queries without the operator clicking
+through chips.
+
+1. **`backend/core/chat/...` audit (no-op)** — composite playbooks
+   already work end-to-end (see `tests/test_composite_playbooks.py
+   ::test_runner_dispatches_atomic_action_from_composite_dir`); the
+   pending item #7 in `AGENT_HANDOFF.md` was outdated. No code
+   changes there.
+
+2. **`backend/core/search/filters.py`** (new)
+   - `parse_query_filters(text) -> ParsedQuery(text, filters,
+     filters_neg)`. Token regex matches optional `-` (negation),
+     a recognised key (case-insensitive: `role | pack | thread |
+     trace | kind | since | until | mime`), `:`, then a quoted
+     `"value with spaces"` or a non-whitespace value.
+   - Repeated keys collapse into a list (`pack:a pack:b` →
+     `pack: ["a","b"]`).
+   - Unrecognised keys (`color:red`) fall through into the cleaned
+     text — FTS still has a fallback.
+   - `_parse_time_bound` accepts relative shorthand (`7d`, `24h`,
+     `45m`, `2w`), ISO date (`YYYY-MM-DD`, UTC midnight), or ISO
+     timestamp (`YYYY-MM-DDTHH:MM[:SS][Z]`). Garbage drops silently.
+   - `merge_filters(parsed, explicit)` — explicit kwargs win over
+     parsed; `None` values in explicit are ignored. Pinned at the
+     test layer.
+
+3. **`backend/core/search/fts.py`** — extended FTS helpers
+   - `fts_match_messages` gains `pack`, `since`, `until` (POSIX
+     seconds). When any of those is set, the query JOINs into the
+     `messages` table (and into `threads` for `pack`); existing
+     `thread_id` / `role` filters keep their semantics.
+   - `fts_match_events` gains `since`, `until` via JOIN into `events`
+     by `events_fts.event_id = events.id`.
+   - All new params optional, default `None` — back-compat with the
+     existing 14 search-FTS / engine tests.
+
+4. **`backend/core/search/engine.py`**
+   - `search` parses the query upfront and threads parsed filters
+     into each scope's call (`thread:` → all three scopes, `role:` /
+     `pack:` / `since:` / `until:` → messages, `kind:` / `trace:` /
+     `since:` / `until:` → traces). `SearchResult` gains `filters`
+     and `cleaned_query` so the cockpit can show "we matched on X,
+     stripped Y".
+   - `search_messages`, `search_traces`, `search_chunks` each parse
+     the inline DSL too (so direct calls / saved searches benefit).
+     Caller-supplied kwargs win over inline (explicit > inline).
+   - `search_chunks` strips DSL tokens from the FTS body and honours
+     `thread:` only — `pack:` / `mime:` / `since:` / `until:` for
+     chunks need an attachments-DB join (left for a follow-up;
+     parser already emits the values).
+
+5. **Tests** — `tests/test_search_filters.py` (new, 29 cases)
+   Parser:
+   - empty / blank / no-tokens / single / multi / quoted / repeated /
+     negation / unknown / leading + trailing position / case-insensitive
+     keys.
+   Time bounds:
+   - relative days / hours, ISO date, ISO timestamp,
+     invalid relative drops, invalid ISO drops.
+   `merge_filters`:
+   - explicit wins, parsed kept when no explicit, explicit `None` is
+     ignored.
+   Engine:
+   - `search_messages` honours inline `role:` / `pack:` / `since:`,
+     explicit kwarg wins over inline,
+   - `search` returns `filters` + `cleaned_query` in the wire shape,
+   - `search_traces` doesn't raise on parsed filters when meeet
+     store is disabled.
+   HTTP:
+   - `/api/search` returns filters + cleaned_query,
+   - `/api/search/messages` honours inline filter,
+   - `/api/search/saved/{id}/run` carries inline filter from the
+     stored query body.
+
+**Verification**
+
+`pytest -q --ignore=tests/test_phase8_recovery.py
+       --deselect tests/test_pairing_contract.py::test_pair_attempted_event_emitted`
+→ **814 passed**, 1 deselected (pre-existing flake on `main`).
+Lints clean.
+
+**Files**
+
+- backend/core/search/filters.py (new)
+- backend/core/search/engine.py
+- backend/core/search/fts.py
+- tests/test_search_filters.py (new)
+- docs/CHANGELOG_AGENTS.md
+- docs/AGENT_HANDOFF.md
+- docs/IDEAS.md
+
+---
+
 ## 2026-05-01 — Cursor [A] · Saved searches in `~/.tars/chat.sqlite`
 
 **Summary**

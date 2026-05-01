@@ -144,9 +144,20 @@ Open ideas for the next layer:
   search. Periodic backfill via `_message_embed_loop` in `_lifespan`
   followed in the same day (PR #43) — opt-in via
   `TARS_MESSAGE_EMBED_INTERVAL_S` (default 0).
-- **Scoped operator filters.** Let the ⌘K palette accept
+- ~~**Scoped operator filters.** Let the ⌘K palette accept
   `pack:business`, `role:tars`, `since:7d`, `mime:pdf`, etc.,
-  parsing them out of the query before sanitising.
+  parsing them out of the query before sanitising.~~ — Shipped
+  2026-05-01: `backend/core/search/filters.py` parses
+  `role:`, `pack:`, `thread:`, `trace:`, `kind:`, `since:`, `until:`,
+  `mime:` (positive + negation `-role:tool`); time bounds accept
+  relative (`7d`, `24h`, `45m`, `2w`) and ISO date / timestamp.
+  `search` / `search_messages` / `search_traces` honour every token
+  via the FTS path (messages get `pack`/`since`/`until` joins,
+  traces get `since`/`until` joins). `search_chunks` strips tokens
+  from the FTS body but only honours `thread:` so far —
+  `pack:` / `mime:` / `since:` / `until:` for chunks need an
+  attachments-DB join (separate slice). `tests/test_search_filters.py`
+  (29 cases) pin parser + engine + HTTP behaviour.
 - **Attachment hover-card preview.** When a chunk hit is highlighted
   in the palette, surface the surrounding ±1 chunk in a floating
   panel — the data is already on the chunk row.

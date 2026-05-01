@@ -1124,10 +1124,14 @@ Smaller functional items still pending in parallel:
    OAuth2 dance (`refresh_token` exchange) and JMAP
    (Fastmail-native protocol) — both require operator-side
    infrastructure (consent UI, persistent store).
-7. **Composite playbooks.** Composite domain packs are live; the
+7. ~~**Composite playbooks.** Composite domain packs are live; the
    playbook runner still scopes to a single pack — extend so a
    playbook in `playbooks/research_lab/...` can call
-   `business__log_deal` etc. directly.
+   `business__log_deal` etc. directly.~~ — Already shipped (audited
+   2026-05-01): the runner's `slug.action_id` split + `get_pack`
+   lookup is pack-agnostic;
+   `tests/test_composite_playbooks.py::test_runner_dispatches_atomic_action_from_composite_dir`
+   pins the cross-pack call from a composite-dir playbook.
 8. ~~**Vector + BM25 blend for messages.**~~ **shipped** (2026-05-01)
    — `messages` carries `embedding_model/dim/blob`,
    `embed_pending_messages` + `POST /api/search/embed-messages`
@@ -1155,6 +1159,20 @@ Smaller functional items still pending in parallel:
    `tests/test_saved_searches.py` (16 cases) pins store CRUD + HTTP +
    run shortcut. Cockpit "pinned rail" UI is the Claude-lane
    follow-up.
+10. ~~**Scoped operator filters DSL.**~~ **shipped** (2026-05-01) —
+    `backend/core/search/filters.py` parses `role:`, `pack:`,
+    `thread:`, `trace:`, `kind:`, `since:`, `until:`, `mime:`
+    (positive + negation) directly out of the search query; time
+    bounds accept relative (`7d`, `24h`, `45m`, `2w`) and ISO
+    date / timestamp. `search` / `search_messages` / `search_traces`
+    honour every token (messages get `pack`/`since`/`until` JOINs,
+    traces get `since`/`until` JOINs); `search_chunks` strips tokens
+    and honours `thread:` only (attachments-DB JOIN for
+    `pack`/`mime`/`since`/`until` is the next slice).
+    `SearchResult` carries `filters` + `cleaned_query` so the cockpit
+    can show what matched and what was stripped.
+    `tests/test_search_filters.py` (29 cases) pin parser + engine +
+    HTTP wiring. Saved-search bodies inherit the DSL automatically.
 
 ## Conventions to keep
 
