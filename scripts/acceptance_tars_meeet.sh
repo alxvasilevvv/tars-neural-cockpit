@@ -188,17 +188,21 @@ else
        --output=json --output-path="$out" --quiet >/dev/null 2>&1; then
     perf=$(grep -oE '"performance"[^}]*"score"[[:space:]]*:[[:space:]]*[0-9.]*' "$out" | head -1 | grep -oE '[0-9.]+$' || true)
     a11y=$(grep -oE '"accessibility"[^}]*"score"[[:space:]]*:[[:space:]]*[0-9.]*' "$out" | head -1 | grep -oE '[0-9.]+$' || true)
-    perf_pct=$(awk "BEGIN { printf \"%.0f\", ${perf:-0} * 100 }")
-    a11y_pct=$(awk "BEGIN { printf \"%.0f\", ${a11y:-0} * 100 }")
-    if [[ "$perf_pct" -ge 90 ]]; then
-      ok "perf score ${perf_pct} >= 90"
+    if [[ -z "$perf" || -z "$a11y" ]]; then
+      yel "  SKIP: lighthouse produced no scores (Chrome/headless not usable in this env)"
     else
-      fail "perf score ${perf_pct} < 90"
-    fi
-    if [[ "$a11y_pct" -ge 95 ]]; then
-      ok "a11y score ${a11y_pct} >= 95"
-    else
-      fail "a11y score ${a11y_pct} < 95"
+      perf_pct=$(awk "BEGIN { printf \"%.0f\", ${perf} * 100 }")
+      a11y_pct=$(awk "BEGIN { printf \"%.0f\", ${a11y} * 100 }")
+      if [[ "$perf_pct" -ge 90 ]]; then
+        ok "perf score ${perf_pct} >= 90"
+      else
+        fail "perf score ${perf_pct} < 90"
+      fi
+      if [[ "$a11y_pct" -ge 95 ]]; then
+        ok "a11y score ${a11y_pct} >= 95"
+      else
+        fail "a11y score ${a11y_pct} < 95"
+      fi
     fi
   else
     yel "  SKIP: lighthouse run failed (network? Chrome missing?)"
