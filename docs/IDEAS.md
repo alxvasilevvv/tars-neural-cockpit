@@ -161,8 +161,11 @@ Open ideas for the next layer:
    tracks `session_id`, propagated via `x-tars-session-id` header,
    stamped on every event payload, filterable in
    `/api/meeet/events?session_id=…` and `/api/usage?session_id=…`.
-   Open work: explicit `session.opened` / `session.closed` events
-   with topic + participants for narrative reconstruction.
+   ✅ follow-up (2026-05-01) — `async_session_scope` emits explicit
+   `session.opened` / `session.closed` events with `topic` +
+   `participants` + `started_at` / `ended_at` / `duration_ms`.
+   Sync `session_scope` stays silent for backward compat. Pinned by
+   `tests/test_session_boundary_events.py` (7 cases).
 4. **Cost ledger.** ✅ shipped (Phase K2/K3) — orchestrator emits
    `usage.tokens` per voice with `cost_usd`, aggregates land on
    `sampler.decision`. `backend/core/usage/ledger.py` derives
