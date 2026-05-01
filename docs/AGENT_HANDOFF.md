@@ -193,6 +193,23 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-01 — `science.hypothesis_tree` real deterministic generator (Cursor [A]):**
+  Promotes the last user-facing stub in the science pack
+  (`hypothesis_tree` returned `{node, children: []}`) into a
+  deterministic, audit-friendly hypothesis decomposition. New
+  `backend/core/domains/packs/science/hypothesis.py` ships a
+  `grow_tree(seed, *, depth=1)` builder that fans out along five
+  canonical dimensions (`mechanism / alternatives / confounders /
+  conditions / evidence`) with per-dimension grandchild templates
+  (steps, alternatives, confounders, conditions, tests). At depth=2
+  the tree is 16 nodes (1 seed + 5 children + 5×2 grandchildren).
+  Stable `h-NNNN` ids and typed `kind` per node so the cockpit
+  can pin expand state and colour-code layers. Seed normaliser
+  strips trailing punctuation so prompts read cleanly. Depth
+  clamped to `[0, 3]`. Action returns the *effective* depth
+  post-clamp + `model="heuristic-v1"` label. Pinned by 24 new
+  tests; full suite: **1774 green**.
+
 - **2026-05-01 — `mlm.update_member` + `mlm.list_members` close downline lifecycle (Cursor [A]):**
   Closes the MLM downline lifecycle: `add_member` writes,
   `downline_snapshot` / `retention_alert` summarise, but operators
