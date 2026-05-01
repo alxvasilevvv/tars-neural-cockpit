@@ -87,6 +87,8 @@ async def ingest(
     session_id: str | None = None,
     embedder: Embedder | None = None,
     store: AttachmentStore | None = None,
+    parent_attachment_id: str | None = None,
+    walk_archives: bool = True,
 ) -> IngestResult:
     """Persist ``blob``, extract its text, chunk + embed, and index.
 
@@ -94,6 +96,15 @@ async def ingest(
     chunk count and the embedding model used. The pipeline is
     idempotent: re-uploading the same bytes in the same thread
     returns the existing record without re-embedding.
+
+    When ``walk_archives`` is True (the default) and the upload is
+    a zip, the archive itself is stored as a parent attachment and
+    every safe member is recursively ingested as a child. The walk
+    summary is recorded on the parent's ``meta`` under
+    ``zip_walk``. Pass ``parent_attachment_id`` from the walker so
+    children link back to the archive without bleeding into the
+    public API. ``walk_archives=False`` is for the recursion guard
+    inside :func:`walk_zip` (depth-limited walks).
     """
 
     if not blob:
@@ -125,6 +136,19 @@ async def ingest(
         )
 
     resolved_mime = sniff_mime(filename, mime)
+
+    # Zip detection: if walking is enabled and the blob looks like a
+    # zip, hand the heavy lifting to the zip walker. The parent zip
+    # is recorded as a single attachment with ``zip_walk`` summary
+    # in its meta so the cockpit can render the per-member outcome.
+    from .zip_walker import is_zip_mime, looks_like_zip, walk_zip
+
+    is_archive = (
+        walk_archives
+        and parent_attachment_id is None  # never auto-walk children
+        and (is_zip_mime(resolved_mime) or looks_like_zip(blob, filename))
+    )
+
     attachment_id = f"att_{secrets.token_urlsafe(8)}"
     safe_name = _safe_filename(filename) or _default_filename(resolved_mime)
     storage_dir = os.path.join(_storage_root(), attachment_id)
@@ -134,6 +158,9 @@ async def ingest(
 
     extraction = extract(blob, filename=filename, mime=resolved_mime)
     text = extraction.text
+    record_meta: dict = dict(extraction.meta)
+    if parent_attachment_id is not None:
+        record_meta["parent_attachment_id"] = parent_attachment_id
     record = AttachmentRecord(
         id=attachment_id,
         thread_id=thread_id,
@@ -148,10 +175,59 @@ async def ingest(
         content_hash=content_hash,
         status="ready" if text else "extract_pending",
         error=str(extraction.meta.get("error")) if extraction.meta.get("error") else None,
-        meta=dict(extraction.meta),
+        meta=record_meta,
         char_count=len(text or ""),
     )
     await store.upsert_attachment(record)
+
+    # Archives: expand into children before chunking so the parent
+    # row stays opaque (no chunks); each child member gets its own
+    # full ingest cycle.
+    if is_archive:
+        try:
+            walk_summary = await walk_zip(
+                parent_record=record,
+                blob=blob,
+                thread_id=thread_id,
+                message_id=message_id,
+                session_id=session_id,
+                store=store,
+                depth=0,
+            )
+        except Exception as exc:  # never crash the parent ingest
+            log.warning("zip walk crashed for %s: %s", record.id, exc)
+            walk_summary = None
+        if walk_summary is not None:
+            record_meta = dict(record.meta)
+            record_meta["zip_walk"] = walk_summary.to_dict()
+            record = AttachmentRecord(
+                **{
+                    **record.__dict__,
+                    "meta": record_meta,
+                    "status": "ready",
+                }
+            )
+            await store.upsert_attachment(record)
+        client = get_client()
+        await client.emit(
+            "attachment.zip_walked",
+            {
+                "attachment_id": record.id,
+                "thread_id": thread_id,
+                "expanded": walk_summary.expanded if walk_summary else 0,
+                "skipped": walk_summary.skipped if walk_summary else 0,
+                "failed": walk_summary.failed if walk_summary else 0,
+                "truncated": (
+                    walk_summary.truncated if walk_summary else False
+                ),
+            },
+        )
+        return IngestResult(
+            record=record,
+            chunk_count=0,
+            embedding_model=None,
+            duplicate=False,
+        )
 
     chunks: list[Chunk] = []
     embedding_model: str | None = None
