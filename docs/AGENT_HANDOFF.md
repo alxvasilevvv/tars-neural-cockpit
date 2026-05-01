@@ -193,6 +193,23 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-01 — Pairing relay rate-limit (Cursor [A]):**
+  Added stdlib-only token-bucket rate limiter
+  (`web_extras/rate_limit.py`) and wired it into
+  `POST /api/pairing/begin` so pairing-token mints from a single IP
+  cannot be spammed. Defaults: 10 burst + 30/min (env-tunable via
+  `TARS_PAIR_BEGIN_CAPACITY` / `TARS_PAIR_BEGIN_REFILL_PER_MIN`).
+  Trust of `X-Forwarded-For` is opt-in via
+  `TARS_TRUST_FORWARDED_FOR=1`. 429 responses use the unified
+  `TARSAPIError` envelope with `Retry-After`,
+  `X-RateLimit-{Remaining,Reset,Bucket}` headers and emit a
+  `pair.rate_limited` meeet event; allowed calls also surface a
+  `rate_limit` block on the JSON body and the `pair.attempted`
+  event so operators can see how close the IP is to the cap.
+  Tests: 25 cases in `tests/test_rate_limit.py`; the
+  `test_pairing_contract.py` fixture also resets the limiter
+  singleton to avoid cross-test bleed. Full suite: 1312 green.
+
 - **2026-05-01 — Master release roadmap + default-EN + QA browser suite (Cursor, cross-repo):**
   Drafted the single source-of-truth release plan in
   `docs/ROADMAP_TO_RELEASE.md` (Phases A–D: i18n parity, QA-suite,

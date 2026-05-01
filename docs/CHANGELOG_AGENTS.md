@@ -119,6 +119,80 @@ fresh `recovery.challenge.passed` event for the same fingerprint.
   `docs/CHANGELOG_AGENTS.md`, `docs/AGENT_HANDOFF.md`,
   `docs/IDEAS.md`
 
+## 2026-05-01 — Cursor [A] · Pairing relay rate-limit (token-bucket)
+
+**Summary**
+
+Closes the "rate-limit `/api/pairing/begin` per-IP" follow-up from
+`docs/IDEAS.md`'s pairing section. Adds a stdlib-only token-bucket
+rate limiter and wires it into the only currently-anonymous pairing
+endpoint so a hostile or buggy client cannot spam pairing-token
+mints from a single IP. All other pairing endpoints already require
+either a valid pairing token or host signature, so they stay
+unprotected at the rate-limit layer for now (covered by the existing
+auth gates).
+
+1. **`web_extras/rate_limit.py`** — new module.
+   - `TokenBucket` dataclass (`capacity`, `rate`, `tokens`,
+     `last_refill`) with `_refill`, `acquire(cost)`,
+     `retry_after(cost)`, `reset_at`. Returns
+     `RateLimitOutcome(allowed, retry_after, remaining, reset_at,
+     bucket_id)`.
+   - `RateLimiter` registry: thread-safe, per-`(name, subject)`
+     buckets, `configure(name, capacity, rate)`, `acquire(name,
+     subject, cost)`, `reset_subject`, `reset_bucket`, `stats`,
+     plus an opportunistic `_sweep_stale_locked()` to evict idle
+     buckets older than 1h to keep memory flat under churn.
+   - Module-level singleton helpers `get_rate_limiter()` /
+     `reset_rate_limiter()` so tests can pin state.
+
+2. **`web_extras/routers/pairing.py`**
+   - On import, lazy-`_configure_pairing_rate_limit_once()` reads
+     `TARS_PAIR_BEGIN_CAPACITY` (default 10 burst) and
+     `TARS_PAIR_BEGIN_REFILL_PER_MIN` (default 30/min) and
+     registers the `pair.begin` bucket.
+   - `_client_ip(request)` extracts source IP, honouring the
+     left-most `X-Forwarded-For` entry only when
+     `TARS_TRUST_FORWARDED_FOR=1` is set; otherwise falls back to
+     `request.client.host` so spoofed headers behind a non-trusted
+     proxy can't bypass the bucket.
+   - `POST /api/pairing/begin` calls `limiter.acquire("pair.begin",
+     ip)`. If denied, raises a `TARSAPIError(429,
+     "pair_rate_limited", …)` with `Retry-After`,
+     `X-RateLimit-Remaining`, `X-RateLimit-Reset`,
+     `X-RateLimit-Bucket` headers and emits a `pair.rate_limited`
+     meeet event (capped at 86400s to avoid `OverflowError` on
+     quota-mode buckets). Successful calls also surface a
+     `rate_limit` block on the response + `pair.attempted` event
+     so operators can see how close they are to the cap.
+   - New error code `pair_rate_limited` registered in
+     `web_extras/errors.py` taxonomy.
+
+3. **Tests**
+   - `tests/test_rate_limit.py` — new, 25 cases covering
+     `TokenBucket` semantics (drain, refill, capacity clamp,
+     `retry_after`, quota-mode `inf`, `reset_at`), `RateLimiter`
+     behaviour (unconfigured passthrough, per-subject isolation,
+     reset/stats/sweep), singleton helpers, and the HTTP path
+     (allowed → blocked → 429 envelope shape, `X-Forwarded-For`
+     trust toggle, `pair.rate_limited` event emission).
+   - `tests/test_pairing_contract.py` — `reset_pairing_store`
+     fixture now also `reset_rate_limiter()`s before+after each
+     test so the singleton bucket can't leak state between
+     contract tests.
+
+**Files**
+`web_extras/rate_limit.py` (new),
+`web_extras/routers/pairing.py`,
+`web_extras/errors.py`,
+`tests/test_rate_limit.py` (new),
+`tests/test_pairing_contract.py`,
+`docs/CHANGELOG_AGENTS.md`,
+`docs/AGENT_HANDOFF.md`,
+`docs/IDEAS.md`.
+
+**Tests** — `pytest tests/` ⇒ 1312 passed (full suite).
+
 ## 2026-05-01 — Cursor [A] · Streaming ingestion progress (SSE)
 
 **Summary**

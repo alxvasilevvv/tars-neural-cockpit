@@ -162,6 +162,15 @@ Open ideas for the next layer:
 - **Pairing relay rate-limit.** `meeet.world/pair/<id>` should expire
   after 120 s and rate-limit per source IP — the host re-mints on
   failure rather than retrying the same `pair_id`.
+  *Done (rate-limit half) 2026-05-01:* `POST /api/pairing/begin` is
+  now gated by an in-process token-bucket per source IP (10 burst
+  + 30/min by default, env-tunable; `X-Forwarded-For` opt-in via
+  `TARS_TRUST_FORWARDED_FOR=1`). 429 responses carry the
+  `TARSAPIError` envelope, `Retry-After` /
+  `X-RateLimit-{Remaining,Reset,Bucket}` headers, and emit a
+  `pair.rate_limited` meeet event. The `pair_id` TTL piece is
+  still pending — relay backend lives on meeet.world and is not in
+  this repo's lane.
 - **Multi-recipient envelope optimisation.** Today every recipient
   gets its own `crypto_box_seal` of the per-event content key. For
   high-fanout events (large fleets) we could move to a one-pass
