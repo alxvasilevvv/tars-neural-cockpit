@@ -23,9 +23,14 @@ Ideas for the next sprints. Triage by impact × cost and pull into
   with native `Speech` API where applicable. Android: wire
   `SpeechRecognizer` + `RecognitionService` (or ML Kit on-device ASR when
   L4 exposes a relay) for offline / lower-latency dictation.
-- **`speech.intents` extraction.** Parse the dictated transcript for
-  TARS slash-commands ("/run traders.morning_check") before the LLM
-  sees it.
+- ~~**`speech.intents` extraction.**~~ ✅ **Shipped 2026-05-01** —
+  `backend/core/speech/intents.py` is a deterministic parser for
+  TARS slash + voice commands (`run` / `jump` / `search` /
+  `snooze` / `help`). Wake-word stripping
+  (`TARS, Hey TARS, Computer, Jarvis`), `dot`-keyword
+  normalisation, JSON args, registry-aware playbook arbitration,
+  duration parsing. HTTP: `POST /api/speech/intents`. Tests:
+  `tests/test_speech_intents.py` (35 cases).
 
 ## Attachments + RAG (post-L2)
 
