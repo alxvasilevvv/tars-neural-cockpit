@@ -16,55 +16,74 @@ Estimated total time: **30 minutes**.
 
 ---
 
-## CURRENT STATE — `tars.meeet.world` IS LIVE 2026-05-01 03:59 UTC
+## CURRENT STATE — `tars.meeet.world` IS LIVE 2026-05-01 04:34 UTC
 
-Cursor finished the cutover end-to-end via Cloudflare API + dashboard:
+Cursor finished the cutover end-to-end and ran two follow-up patches:
 
-- ✅ Cloudflare Pages project `tars-meeet` created
-  (`a4e491a3 → 359b4246` deployments green).
+- ✅ Cloudflare Pages project `tars-meeet` created.
 - ✅ CNAME `tars.meeet.world → tars-meeet.pages.dev` (proxied, TTL 1).
 - ✅ Pages custom domain status `active` (Google CA, http-01).
 - ✅ Production response: `HTTP/2 200`, `X-Tars-Contract: 1.0.0`,
   `tars_session_id` cookie scoped to `.meeet.world`, full HSTS / NEL /
   permissions-policy / X-Frame-Options stack.
-- ✅ Same-origin `/api/product/downloads` and `/api/product/version`
-  served by Pages Functions (no proxy loop into Supabase any more).
+- ✅ Same-origin `/api/product/{downloads,version,client-error}`
+  served by Pages Functions.
 - ✅ Pages production env: `CORE_BRIDGE_URL` set.
-- ✅ TARS QA Agent: 24 PASS / 0 FAIL / 1 WARN / 3 SKIP (yellow only
-  because `sitemap.xml` has not been canonical-flipped yet — Lovable
-  lane).
+- ✅ GitHub repo secrets `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID`
+  pushed via gh CLI — the deploy workflow runs autonomously on push to
+  main and PRs.
+- ✅ CI Pages deploy now runs from
+  `experiments/neural-showcase-v3/` so wrangler bundles `functions/`
+  (post-cutover regression in 195547a7 fixed in PR #21).
+- ✅ **SPA HTTP status:** Do **not** copy `dist/index.html` →
+  `dist/404.html` in CI. Cloudflare Pages serves `404.html` with a real
+  **404** status even when the body is the SPA shell, which defeats
+  `public/_redirects` (`/* → /index.html 200`) and breaks probes for
+  `/install`, `/cockpit`, etc. The deploy workflow omits that step; see
+  `docs/CHANGELOG_AGENTS.md` (2026-05-01 — Pages SPA HTTP 200).
+- ✅ Synthetic monitor green against prod; QA agent green once the
+  deploy above is on `main` (route probes expect HTTP 200, not 404).
+- ✅ Acceptance script (`scripts/acceptance_tars_meeet.sh`)
+  passes 5/5 reachable gates; 5/6 (bridge) and 7 (Lighthouse)
+  SKIP cleanly when prerequisites are absent.
+- ✅ Target QA Agent (no auth) after fixes: `25 PASS / 0 FAIL / 2 WARN / 3 SKIP`.
+  Both warnings are operator-action-only (`schema.sitemap` →
+  Lovable, `api.client_error` → bridge secret).
 
-### Outstanding items (operator must paste two secrets)
+### Outstanding items (operator must paste one secret + one cleanup)
 
 These cannot be set programmatically because Cursor never sees the
 secret value:
 
 1. **`BRIDGE_SHARED_SECRET` on Pages production env.**
-   Pages Settings → Environment variables → Production → Add:
-   `BRIDGE_SHARED_SECRET` = `<the value Lovable set on core-bridge>`.
-   Re-deploy after adding (or wait for the next CI deploy).
-2. **GitHub repo secrets for the `tars-meeet-cloudflare-pages.yml`
-   workflow.** Repo Settings → Secrets:
-   - `CLOUDFLARE_API_TOKEN` = `cfat_GqrUDDifBhJGHM3IYZlQo1aArxnZl8OzrTJvUNKrf42bf41b`
-     (token name `tars-admin`, scopes
-     `Account:Cloudflare Pages:Edit` + `Zone:DNS:Edit` for `meeet.world`,
-     no expiry — rotate quarterly).
-   - `CLOUDFLARE_ACCOUNT_ID` = `b746402b3b5d40781f78c1787d71a96b`.
-3. **Deprecate `tars-downloads` Supabase function.** Its `DEFAULT_ORIGIN`
-   was `https://tars.meeet.world/api/product/downloads`, which now points
-   back at the Pages Function and would create a fetch loop. Either
-   leave it as-is (its `try`/fallback branch returns the embedded
-   manifest, so it never actually loops in production) or remove it
-   from the new Supabase project. Preferred: remove, since the source
-   of truth now lives in code under `experiments/neural-showcase-v3/
-   functions/api/product/`.
+   Pages dashboard → `tars-meeet` → Settings → Environment variables →
+   Production → Add: `BRIDGE_SHARED_SECRET = <value Lovable uses on
+   core-bridge>`. Click "Save and deploy" (or wait for the next CI
+   deploy). This single paste unblocks:
+   - QA agent: 3 SKIPs + 1 WARN → 4 additional PASS.
+   - Synthetic monitor: enables `core-bridge /health` probe.
+   - Browser-side error reports actually persist into
+     `tars_event_ingest` (today they short-circuit with
+     `bridge_unconfigured`).
+   - Same secret is required for the `BRIDGE_SHARED_SECRET` GitHub
+     repo secret if you want the synthetic monitor's bridge probe
+     to run in CI.
+2. **(Optional) Decommission `tars-downloads` Supabase function** in
+   the new project (`hhpaukjobskcwkxbgecl`). The function is no
+   longer referenced by any client; its `DEFAULT_ORIGIN` would loop
+   back into the Pages Function. The synthetic monitor demotes its
+   probe to a warning so it'll degrade gracefully whether you keep
+   or remove it. Removal is preferred — the Pages Function is now
+   the source of truth.
+3. **(Lovable lane)** Sitemap canonical-flip:
+   `meeet.world/sitemap.xml` should add the `tars.meeet.world/*`
+   URLs. Tracked in the `meeet#5` Claude prompt batch.
 
-After those three are done, run:
+After step 1 is done, run:
 ```
 BRIDGE_SHARED_SECRET="<value>" make qa-agent
 ```
-to flip from yellow → green and unblock the bridge probes
-(`api.core_bridge_health`, `api.relay_roundtrip`).
+to confirm GREEN.
 
 ---
 

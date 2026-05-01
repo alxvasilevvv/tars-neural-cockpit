@@ -29,6 +29,7 @@ on:
   pull_request:
     paths:
       - "experiments/neural-showcase-v3/**"
+      - ".github/workflows/tars-meeet-cloudflare-pages.yml"
 
 permissions:
   contents: read
@@ -69,12 +70,13 @@ jobs:
           VITE_TARS_API: https://tars.meeet.world
         run: npm run build
 
-      # SPA fallback — Cloudflare Pages reads `_redirects` from the
-      # build output (already shipped via public/_redirects), but a
-      # 404.html fallback also helps if static handler runs first.
-      - name: SPA 404 fallback
-        working-directory: experiments/neural-showcase-v3
-        run: cp dist/index.html dist/404.html
+      # Do **not** copy `index.html` → `404.html`. When `404.html`
+      # exists, Cloudflare Pages serves it for unknown paths with a real
+      # **HTTP 404** while still returning the SPA shell body — all
+      # client-side routes break analytics + crawlers + our QA agent
+      # (see 2026-05-01 incident on `/install`, `/cockpit`, …).
+      # Deep links are covered by `public/_redirects`:
+      #   /*    /index.html    200
 
       # Probe whether the deploy secrets are configured. Skipping the
       # deploy if they are not is intentional — keeps the build CI
@@ -126,4 +128,20 @@ jobs:
             sleep 12
           done
           echo "::error::manifest endpoint did not return a valid body within 96s — Functions likely missing from deploy"
+          exit 1
+
+      - name: Smoke (SPA install route → HTTP 200)
+        if: github.event_name == 'push' && steps.probe.outputs.ready == 'true'
+        run: |
+          for attempt in 1 2 3 4 5 6; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 \
+              https://tars.meeet.world/install)
+            if [[ "$code" == "200" ]]; then
+              echo "OK: /install -> HTTP $code (attempt $attempt)"
+              exit 0
+            fi
+            echo "/install returned HTTP $code (attempt $attempt) — sleeping"
+            sleep 12
+          done
+          echo "::error::/install never returned HTTP 200 — SPA _redirects not active or stale 404.html deploy"
           exit 1
