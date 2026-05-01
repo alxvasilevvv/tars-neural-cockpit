@@ -327,6 +327,66 @@ async def _saved_search_poll_loop() -> None:
             log.warning("saved-search poll loop tick failed: %s", exc)
 
 
+def _memory_purge_interval_s() -> float:
+    """How often the per-pack memory store sweeps expired rows.
+
+    Default ``0`` (off) so distros that don't use the memory layer
+    don't pay the SQLite hit. Operators flip on
+    ``TARS_MEMORY_PURGE_INTERVAL_S=600`` (or whatever cadence) once
+    they have TTL'd entries in the wild. The action layer
+    (``pack.memory.purge_expired``) and HTTP surface
+    (``POST /api/memory/_purge_expired``) cover the manual path.
+    """
+
+    raw = os.getenv("TARS_MEMORY_PURGE_INTERVAL_S")
+    if raw is None:
+        return 0.0
+    try:
+        return max(0.0, float(raw))
+    except ValueError:
+        return 0.0
+
+
+async def _memory_purge_loop() -> None:
+    """Periodic global ``MemoryStore.purge_expired`` so TTL'd rows
+    don't accumulate without operator intervention.
+
+    Same safety contract as the other lifespan loops:
+
+    - Disabled when ``TARS_MEMORY_PURGE_INTERVAL_S=0`` (default off).
+    - Disabled when the memory store is disabled
+      (``MEMORY_STORE=disabled`` or no DB path resolved).
+    - Logs INFO when a tick deletes rows; otherwise silent so a
+      healthy machine doesn't fill the journal.
+    - Catches everything (excluding ``CancelledError``) so a
+      transient SQLite blip cannot crash the host.
+    """
+
+    interval = _memory_purge_interval_s()
+    if interval <= 0:
+        return
+    from backend.core.memory import get_memory_store
+
+    store = get_memory_store()
+    if not store.enabled:
+        return
+    log.info(
+        "memory purge loop active: interval_s=%.1f db=%s",
+        interval, store.db_path,
+    )
+    while True:
+        try:
+            await asyncio.sleep(interval)
+            out = await store.purge_expired()
+            deleted = int(out.get("deleted", 0)) if out.get("ok") else 0
+            if deleted:
+                log.info("memory purge tick: deleted=%s", deleted)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # never crash the host
+            log.warning("memory purge loop tick failed: %s", exc)
+
+
 def _fts_verify_on_boot() -> bool:
     """Opt-in via ``TARS_FTS_VERIFY_ON_BOOT=1``.
 
@@ -397,8 +457,16 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     saved_search_poll = asyncio.create_task(
         _saved_search_poll_loop(), name="search-saved-poll-loop"
     )
+    memory_purge = asyncio.create_task(
+        _memory_purge_loop(), name="memory-purge-loop"
+    )
     tasks = (
-        replay, autopilot, trace_summary, message_embed, saved_search_poll
+        replay,
+        autopilot,
+        trace_summary,
+        message_embed,
+        saved_search_poll,
+        memory_purge,
     )
     try:
         yield

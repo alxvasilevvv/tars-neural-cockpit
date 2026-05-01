@@ -1201,6 +1201,18 @@ Smaller functional items still pending in parallel:
     `{q?, query?, limit?, kinds?}` — clamped to 100 hits, unknown
     kinds dropped silently. `tests/test_jump_picker.py` (23 cases).
     Cockpit ⌘J palette UI is the Claude-lane follow-up.
+19. ~~**Memory purge background loop.**~~ **shipped** (2026-05-01) —
+    Closes the per-pack memory series. `_memory_purge_loop` in
+    `web_extras/app.py` ticks every
+    `TARS_MEMORY_PURGE_INTERVAL_S` seconds (default `0` = off) and
+    calls `MemoryStore.purge_expired()` globally so TTL'd rows do
+    not accumulate without operator intervention. Logs INFO when a
+    tick deletes rows, WARN on transient failures, never raises.
+    `tests/test_memory_purge_loop.py` (9 cases) pin env helper,
+    short-circuits, single-tick semantics, exception isolation,
+    and lifespan integration. Memory series (foundations + action
+    family + purge loop) complete on the backend; cockpit "facts"
+    view is the Claude-lane follow-up.
 18. ~~**`pack.memory.*` action family.**~~ **shipped** (2026-05-01) —
     Activates the storage core (PR #56) as a uniform action surface
     on every domain pack. `backend/core/domains/memory_actions.py`
