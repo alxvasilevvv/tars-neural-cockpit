@@ -4,6 +4,74 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · Receipt-Ledger draft contract + tier-gates cockpit skeleton
+
+**Summary**
+
+Picked up the two **autonomous** Cursor-lane items from
+`docs/CHAT_PICKUP_2026-05-01.md` § "What's still open" (#3 receipt
+ledger spec stub, #4 `useTier()` skeleton). Both are now live as
+DRAFT-grade artefacts on `main`-ready branch
+`cursor/receipt-ledger-tier-skeleton`. Producer side is Lovable-owned
+and stays open until the meeet.world Edge Functions land.
+
+1. **`docs/contracts/RECEIPT_LEDGER.md`** — new contract draft v0.1
+   pinning the tier matrix (`free` / `pro` / `business` / `lifetime`,
+   12 features), the `tars_receipts` table shape on the meeet.world
+   Supabase, the wire shape for `GET /functions/v1/tars-receipts`,
+   `GET /tars-receipts/{id}`, `GET /tars-tier`, hash-chain proof
+   construction (`prev || receipt_id || operator_id || ...`),
+   failure modes + cache hints (`Cache-Control: private, max-age=15`
+   on `/tars-tier`), and the producer-side event kinds
+   `tars.receipt.{minted,expired,cancelled}`. Mirror of Claude's
+   `TarsReceipt` interface from TARS#8 (PM updates 2026-05-01).
+2. **`docs/contracts/README.md`** — index updated with the new file
+   plus three previously-unindexed contracts (`UNIFIED_TELEMETRY.md`,
+   `TARS_SUBDOMAIN.md`, `WAITLIST.md`, `ANALYTICS.md`).
+3. **`experiments/neural-showcase-v3/src/lib/tier.ts`** — typed
+   consumer (no live calls today): `TierSlug` / `TierFeature` /
+   `TierResolution` types; `TIER_GATES` constant mirroring the
+   matrix in §1 of the contract; `featureToTier` lookup; pure
+   helpers `resolveTierFromReceipts(receipts, now)` (most-recent
+   active wins; null `expires_at` = lifetime), `featuresForTier`,
+   `tierAllows`, `normaliseTierResolution` (defensive parsing —
+   strips unknown features, falls back to projection); `fetchTier`
+   (silent failure → `FREE_TIER_RESOLUTION`); `useTier()` React
+   hook with 30 s polling + AbortController cleanup. Producer URL
+   read from `VITE_TARS_TIER_URL` (`null` today → short-circuit
+   to free tier; one-line flip when Lovable goes live).
+4. **`experiments/neural-showcase-v3/src/lib/tier.test.ts`** — 23
+   vitest cases pinning: TIER_GATES shape (free, pro, business,
+   lifetime supersets), monotonic message caps, featureToTier
+   minimum-tier mapping, `resolveTierFromReceipts` (empty / expired
+   / cancelled / null-expires_at / most-recent-wins),
+   `tierAllows` defensive null, `normaliseTierResolution` (unknown
+   tier → free, coherent payload trusted, unknown features stripped,
+   missing features falls back to projection), `fetchTier` (no URL,
+   non-OK, throws, JWT propagation).
+
+Verification:
+- `npx tsc --noEmit -p tsconfig.app.json` → clean.
+- `npx vitest run` → **86 passed** (was 63; +23 from `tier.test.ts`).
+- `pytest -q` → **693 passed** (no backend changes).
+
+Files (this entry):
+- `docs/contracts/RECEIPT_LEDGER.md` (new)
+- `docs/contracts/README.md` (index update)
+- `experiments/neural-showcase-v3/src/lib/tier.ts` (new)
+- `experiments/neural-showcase-v3/src/lib/tier.test.ts` (new)
+- `docs/CHANGELOG_AGENTS.md` (this entry)
+
+Coordination:
+- This is a **DRAFT contract**. Lovable / Claude lane owns the
+  producer (`/tars-receipts` + `/tars-tier` Edge Functions on
+  `meeet.world` Supabase, `tars_receipts` table, RLS audit).
+- Cursor lane will flip `tier.ts` to `RESOLVE_TIER_URL` non-null +
+  add a contract test (`tests/test_tier_contract.py`) the day
+  Lovable lands the producer.
+- TARS#8 task 4 ("pricing tier feature gate map") moves from
+  Cursor-lane "pending" to Cursor-lane "shipped (consumer stub)".
+
 ## 2026-05-01 — Cursor [A] · canonical flip live + acceptance-script lighthouse skip-on-empty
 
 **Summary**
