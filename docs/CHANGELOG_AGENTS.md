@@ -4,6 +4,69 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · `daily_brief` unions locally-logged deals
+
+**Summary**
+
+Closes the loop with the `business.log_deal` adapter that landed
+earlier today. Until now the brief only saw deals from the bundled
+snapshot (`data/business_deals.json`); deals logged via
+`log_deal` without a CRM key vanished from the morning brief
+because the action wrote to `~/.tars/business_deals.json` and the
+brief never read it.
+
+This batch teaches `daily_brief` to union the bundled snapshot with
+the local-store path on disk. Local rows whose id collides with a
+bundled row replace the bundled payload (operator's most recent
+action wins); brand-new local ids append.
+
+1. **Action** (`backend/core/domains/packs/business/actions.py`)
+   - `daily_brief` now accepts two new args:
+     `local_deals_path` (defaults to
+     `resolve_local_deals_path(...)` — same env / default chain
+     as `log_deal`) and `include_local_deals: bool` (default
+     `True`, set `False` to opt out per-call).
+   - Reads the local store defensively: missing file →
+     skipped silently, corrupted JSON → skipped silently,
+     non-dict rows → filtered.
+   - Refuses to double-load when `local_deals_path` resolves
+     to the same file as `deals_path`.
+   - Union strategy: `id`-keyed dict, local entries replace
+     bundled ones, anonymous rows (no id) get a synthetic
+     `__anon_<n>` key so they never collide.
+   - Response gains `deals_local_logged` (count of rows whose
+     id starts with `local-`), `local_deals_path` (resolved
+     path), and adds `"local-store"` to `sources` whenever
+     locally-logged rows are visible.
+   - `ActionSpec` description + schema updated; `council` /
+     `council_mode` / `calendar_path` are now declared in the
+     schema (they were always supported but weren't documented).
+
+2. **Tests**
+   - **New** `tests/test_business_daily_brief_local_union.py`
+     (10 cases): both stores present, local-only path, missing
+     local file, id collision (local wins), corrupt local
+     file (defensive), `include_local_deals=False`,
+     env-var fallback (`TARS_LOCAL_DEALS_PATH`), same-path
+     dedupe, schema wiring, **end-to-end closed loop** (call
+     `log_deal` then `daily_brief` and confirm the new row
+     shows up in `actions[]`).
+   - **Updated** `tests/test_real_adapters.py::test_daily_brief_handles_missing_files`
+     to also point `local_deals_path` at a missing file so the
+     test stays isolated even on a developer machine that has
+     real `~/.tars/business_deals.json` data.
+
+3. **Suite**: 1526 tests green (was 1516).
+
+**Files touched**
+
+- `backend/core/domains/packs/business/actions.py`
+- `tests/test_business_daily_brief_local_union.py` (new)
+- `tests/test_real_adapters.py`
+- `docs/CHANGELOG_AGENTS.md`
+- `docs/AGENT_HANDOFF.md`
+- `docs/IDEAS.md`
+
 ## 2026-05-01 — Cursor [A] · `mlm.score_recruit` over real downline signals
 
 **Summary**
