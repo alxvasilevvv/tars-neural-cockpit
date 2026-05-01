@@ -4,6 +4,100 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · Playbook schema validator (CI gate)
+
+**Summary**
+
+The playbook loader (`backend/core/playbooks/loader.py`) is
+permissive on purpose — it casts everything via `str()` /
+`bool()` and only rejects on the most obvious shape errors. That
+makes it forgiving for the bundled playbooks but bad for
+operator-authored ones: a typo in `on_error: stoip` silently ran
+the step with the default `stop`, a forward `${steps.next.value}`
+template silently resolved to `None`, and unknown step keys never
+surfaced. This slot ships a strict validator that produces a
+structured list of issues (errors + warnings with paths) so an
+operator can fix every problem in one pass.
+
+1. **Validator** (`backend/core/playbooks/validator.py`, new)
+   - `validate_playbook(blob)` returns
+     `ValidationResult(ok, issues)` even on totally malformed
+     input; never raises.
+   - **Vocabulary:** allowed top-level keys, allowed step keys,
+     `on_block` ∈ {`stop`, `continue`}, `on_error` ∈ same set.
+   - **Top-level errors:** root must be an object, `id`
+     required + `[A-Za-z0-9_.-]+` charset, `name`/`description`
+     must be strings, `pack` must be a slug, `tags` array of
+     non-empty strings, `on_block` whitelist.
+   - **Step errors:** must be an object, `id` required +
+     charset, **duplicate ids fail**, `action` required, `args`
+     ∈ object/array/string, `store_as` charset, `when` must be
+     a string, `on_error` whitelist, `parallel` must be bool.
+   - **Action grammar:** `<slug>.<action_id>` or
+     `<slug>.awareness.<source_id>.snapshot`. Slug = lowercase
+     `[a-z][a-z0-9_]*`, action_id = `[a-z][a-z0-9_.]*` so
+     dotted memory actions (`pack.memory.set`) are first-class.
+   - **Cross-step refs (warnings):** scans `when` + `args` for
+     `${steps.<id>...}` and flags unknown ids
+     (`step_ref_unknown`) and forward references
+     (`step_ref_forward`). Self-references don't trip the
+     forward warning.
+   - **Best-practice warnings:** unknown top-level / step keys
+     (so authors see typos), leading `parallel=true` (no
+     sibling to batch with).
+   - Severity model: `ok` is True iff zero **errors**.
+     Warnings never block.
+
+2. **Package surface** (`backend/core/playbooks/__init__.py`)
+   - Re-exports `Issue`, `ValidationResult`, `validate_playbook`,
+     `validate_payload` (alias).
+
+3. **HTTP** (`web_extras/routers/playbooks.py`)
+   - `POST /api/playbooks/_validate` body
+     `{playbook?, id?}` (mutually exclusive). Returns the
+     validator dict + the `id` for telemetry.
+   - `GET /api/playbooks/_validate_all` validates every playbook
+     on disk and returns per-id outcomes plus aggregate counts —
+     wire this into CI as a gate.
+   - **Routing fix:** the static `_*` endpoints (`/_reload`,
+     `/_validate`, `/_validate_all`) are now declared **before**
+     the dynamic `/{playbook_id}` route so FastAPI doesn't
+     shadow them with a 404 from `get_playbook`.
+
+4. **Tests** (`tests/test_playbook_validator.py`, 40 cases)
+   - **Happy paths (2):** clean playbook produces no issues;
+     minimal playbook (id + one step) passes.
+   - **Top-level errors (8):** root not an object, id missing,
+     id charset, pack slug, tags shape + per-tag types,
+     `on_block` whitelist, unknown top-level key is warning.
+   - **Step errors (10):** required `steps`, must be array, can't
+     be empty, step must be object, missing `id`/`action`,
+     duplicate id, unknown step key is warning, `args` type,
+     `when` must be string, `on_error` whitelist, `parallel`
+     bool, leading-parallel warning.
+   - **Action grammar (6):** missing dot, slug charset,
+     action_id charset, dotted action_ids OK, awareness happy
+     path, awareness target malformed, dotted source_id OK.
+   - **Cross-step refs (4):** unknown ref warns, forward ref
+     warns, backward ref clean, self-ref doesn't trip forward.
+   - **Smoke (1):** every shipped playbook validates cleanly —
+     CI gate against the bundled set.
+   - **HTTP (7):** payload round-trip, payload surfaces errors,
+     id round-trip against a real shipped playbook, unknown id
+     → 404, empty body → 400, both payload + id → 400,
+     `_validate_all` returns per-playbook outcome with
+     aggregate counts.
+
+**Files touched**
+
+- `backend/core/playbooks/validator.py` (new) — validator engine.
+- `backend/core/playbooks/__init__.py` — re-exports.
+- `web_extras/routers/playbooks.py` — `_validate` +
+  `_validate_all` endpoints, route order fix.
+- `tests/test_playbook_validator.py` (new) — 40 cases.
+
+Backend suite: **1116 passed in 28 s** (no skips, no flakes).
+
 ## 2026-05-01 — Cursor [A] · Live updater channel HTTP (Tauri lock-step)
 
 **Summary**
