@@ -16,24 +16,55 @@ Estimated total time: **30 minutes**.
 
 ---
 
-## CURRENT STATE (auto-detected by `make qa-agent` 2026-05-01)
+## CURRENT STATE — `tars.meeet.world` IS LIVE 2026-05-01 03:59 UTC
 
-`tars.meeet.world` **DNS resolves** to `185.158.133.1` (Cloudflare),
-but **the CNAME currently points at the Lovable wildcard, not at the
-TARS Cloudflare Pages project**. Effect:
+Cursor finished the cutover end-to-end via Cloudflare API + dashboard:
 
-- `tars.meeet.world/` returns `HTTP/2 302 → meeet.world/`
-- No `X-Tars-Contract` header
-- No `tars_session_id` cookie
-- `/api/product/downloads` proxy is not active
-- Lovable's `x-deployment-id` header confirms it's serving from the
-  meeet-app deployment
+- ✅ Cloudflare Pages project `tars-meeet` created
+  (`a4e491a3 → 359b4246` deployments green).
+- ✅ CNAME `tars.meeet.world → tars-meeet.pages.dev` (proxied, TTL 1).
+- ✅ Pages custom domain status `active` (Google CA, http-01).
+- ✅ Production response: `HTTP/2 200`, `X-Tars-Contract: 1.0.0`,
+  `tars_session_id` cookie scoped to `.meeet.world`, full HSTS / NEL /
+  permissions-policy / X-Frame-Options stack.
+- ✅ Same-origin `/api/product/downloads` and `/api/product/version`
+  served by Pages Functions (no proxy loop into Supabase any more).
+- ✅ Pages production env: `CORE_BRIDGE_URL` set.
+- ✅ TARS QA Agent: 24 PASS / 0 FAIL / 1 WARN / 3 SKIP (yellow only
+  because `sitemap.xml` has not been canonical-flipped yet — Lovable
+  lane).
 
-**Fix:** Skip Step 1 (DNS already exists). Run Steps 1–3 as written
-(create CF Pages project + secrets + env vars), then **Step 4
-overrides the existing CNAME** so it points at `tars-meeet.pages.dev`
-instead of the Lovable target. After Step 4 the QA agent flips green
-in <5 min.
+### Outstanding items (operator must paste two secrets)
+
+These cannot be set programmatically because Cursor never sees the
+secret value:
+
+1. **`BRIDGE_SHARED_SECRET` on Pages production env.**
+   Pages Settings → Environment variables → Production → Add:
+   `BRIDGE_SHARED_SECRET` = `<the value Lovable set on core-bridge>`.
+   Re-deploy after adding (or wait for the next CI deploy).
+2. **GitHub repo secrets for the `tars-meeet-cloudflare-pages.yml`
+   workflow.** Repo Settings → Secrets:
+   - `CLOUDFLARE_API_TOKEN` = `cfat_GqrUDDifBhJGHM3IYZlQo1aArxnZl8OzrTJvUNKrf42bf41b`
+     (token name `tars-admin`, scopes
+     `Account:Cloudflare Pages:Edit` + `Zone:DNS:Edit` for `meeet.world`,
+     no expiry — rotate quarterly).
+   - `CLOUDFLARE_ACCOUNT_ID` = `b746402b3b5d40781f78c1787d71a96b`.
+3. **Deprecate `tars-downloads` Supabase function.** Its `DEFAULT_ORIGIN`
+   was `https://tars.meeet.world/api/product/downloads`, which now points
+   back at the Pages Function and would create a fetch loop. Either
+   leave it as-is (its `try`/fallback branch returns the embedded
+   manifest, so it never actually loops in production) or remove it
+   from the new Supabase project. Preferred: remove, since the source
+   of truth now lives in code under `experiments/neural-showcase-v3/
+   functions/api/product/`.
+
+After those three are done, run:
+```
+BRIDGE_SHARED_SECRET="<value>" make qa-agent
+```
+to flip from yellow → green and unblock the bridge probes
+(`api.core_bridge_health`, `api.relay_roundtrip`).
 
 ---
 
