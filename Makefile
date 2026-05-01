@@ -15,7 +15,7 @@ DESKTOP   ?= desktop
 .PHONY: help test test-product lint cockpit cockpit-build cockpit-tsc \
         acceptance-tars-meeet qa-agent qa-agent-json \
         backend backend-dev desktop-dev desktop-build smoke-core-bridge \
-        gate-control-tower clean
+        gate-control-tower ops-bridge-secret clean
 
 help:                ## list targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -87,6 +87,9 @@ qa-agent:            ## TARS QA Agent (python stdlib, no deps): autonomous probe
 
 qa-agent-json:       ## QA agent in JSON mode (for CI / tooling)
 	$(PY) -m scripts.qa_agent --json --no-color
+
+ops-bridge-secret:   ## one-shot: paste BRIDGE_SHARED_SECRET (Pages env + GH secret + redeploy + QA)
+	bash scripts/ops_set_bridge_shared_secret.sh
 
 # ---------------------------------------------------------------------
 # Housekeeping

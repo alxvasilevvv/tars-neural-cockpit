@@ -4,6 +4,41 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor · SPA-200 regression tests + ops one-shot + sentinel
+
+**Summary**
+
+Three follow-ups so the 2026-05-01 SPA-as-404 incident cannot recur and
+the only operator-blocking step (`BRIDGE_SHARED_SECRET`) becomes a
+single command:
+
+1. New `tests/test_tars_meeet_pages_workflow.py` (5 asserts):
+   - The Pages workflow does not contain `cp dist/index.html dist/404.html`.
+   - The 404.html pitfall comment + `_redirects` reference stay in.
+   - The `Smoke (SPA install route → HTTP 200)` step exists and probes
+     `/install`.
+   - `experiments/neural-showcase-v3/public/_redirects` ends with
+     `/* /index.html 200`.
+   - `_redirects` does not regress to `/* /404 …`.
+2. New `.github/workflows/credential-sentinel.yml`: regex scan over the
+   working tree on every push/PR. Fails if a Cloudflare API token
+   literal (`cfat_…`) or hard-coded `Bearer …` token reappears.
+3. New `scripts/ops_set_bridge_shared_secret.sh` + `make
+   ops-bridge-secret`: prompts for the secret on stdin, then in one
+   shot patches Cloudflare Pages production env vars, sets the GitHub
+   repo secret via `gh`, dispatches a fresh Pages deploy, and
+   dispatches the QA agent. Spec doc updated in
+   `docs/TARS_MEEET_OPS_TODO.md` §1.
+
+Local sanity: `make test-all` 679 pytest + 63 vitest pass.
+
+Files:
+- `tests/test_tars_meeet_pages_workflow.py` (new)
+- `.github/workflows/credential-sentinel.yml` (new)
+- `scripts/ops_set_bridge_shared_secret.sh` (new)
+- `Makefile` (`ops-bridge-secret` target)
+- `docs/TARS_MEEET_OPS_TODO.md` (one-shot script blurb)
+
 ## 2026-05-01 — Cursor · release-desktop contract tests → `release-desktop-tagged.yml`
 
 **Summary**

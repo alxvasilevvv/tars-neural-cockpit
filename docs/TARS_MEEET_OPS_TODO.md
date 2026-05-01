@@ -56,10 +56,20 @@ These cannot be set programmatically because Cursor never sees the
 secret value:
 
 1. **`BRIDGE_SHARED_SECRET` on Pages production env.**
-   Pages dashboard → `tars-meeet` → Settings → Environment variables →
-   Production → Add: `BRIDGE_SHARED_SECRET = <value Lovable uses on
-   core-bridge>`. Click "Save and deploy" (or wait for the next CI
-   deploy). This single paste unblocks:
+
+   *Recommended:* run the one-shot script (Pages env + GH secret +
+   redeploy + QA dispatch all in one):
+
+   ```bash
+   export CLOUDFLARE_API_TOKEN=...   # tars-admin token
+   export CLOUDFLARE_ACCOUNT_ID=...
+   make ops-bridge-secret            # prompts for the secret on stdin
+   ```
+
+   *Manual alternative:* Pages dashboard → `tars-meeet` → Settings →
+   Environment variables → Production → Add: `BRIDGE_SHARED_SECRET =
+   <value Lovable uses on core-bridge>`. Click "Save and deploy" (or
+   wait for the next CI deploy). This single paste unblocks:
    - QA agent: 3 SKIPs + 1 WARN → 4 additional PASS.
    - Synthetic monitor: enables `core-bridge /health` probe.
    - Browser-side error reports actually persist into
