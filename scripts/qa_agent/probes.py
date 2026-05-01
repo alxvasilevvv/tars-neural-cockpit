@@ -407,12 +407,91 @@ def probe_manifest_origin(ctx: Context) -> Probe:
             headers={"Origin": "https://tars.meeet.world"},
             timeout=ctx.timeout_s,
         )
+        # The Supabase `tars-downloads` function is in the process of being
+        # decommissioned now that the source of truth lives in the Pages
+        # Function (`functions/api/product/downloads.ts`). Until the
+        # operator removes it from the new project we still probe it,
+        # but if it returns the legacy fallback shape that's still OK.
+        if status == 404:
+            return _skip(
+                "api.manifest_origin",
+                "api",
+                "Supabase tars-downloads decommissioned (see TARS_MEEET_OPS_TODO §3)",
+                url=url,
+            )
         if status != 200:
             return _fail("api.manifest_origin", "api", f"expected 200, got {status}", url=url)
         ok, reason, _data = _validate_manifest(body)
         if not ok:
             return _fail("api.manifest_origin", "api", reason, url=url)
         return _pass("api.manifest_origin", "api", "200 + valid manifest", url=url)
+
+    return _timed(run)
+
+
+def probe_version_subdomain(ctx: Context) -> Probe:
+    """Same-origin /api/product/version returns the embedded latest release."""
+
+    def run() -> Probe:
+        if ctx.skip_subdomain:
+            return _skip("api.version_subdomain", "api", "DNS not live yet")
+        url = ctx.tars_base + "/api/product/version"
+        status, hdrs, body = _open("GET", url, timeout=ctx.timeout_s)
+        if _looks_like_lovable_redirect(status, hdrs):
+            return _warn(
+                "api.version_subdomain",
+                "api",
+                "skipped — Lovable redirect (pre-cutover)",
+                url=url,
+            )
+        if status != 200:
+            return _fail(
+                "api.version_subdomain",
+                "api",
+                f"expected 200, got {status}",
+                url=url,
+            )
+        try:
+            data = json.loads(body)
+        except json.JSONDecodeError as exc:
+            return _fail(
+                "api.version_subdomain",
+                "api",
+                f"invalid JSON: {exc}",
+                url=url,
+            )
+        required = ("ok", "product", "contract_version", "channel", "version", "released_at")
+        missing = [k for k in required if k not in data]
+        if missing:
+            return _fail(
+                "api.version_subdomain",
+                "api",
+                f"missing keys: {','.join(missing)}",
+                url=url,
+            )
+        if data.get("ok") is not True:
+            return _fail("api.version_subdomain", "api", "ok != true", url=url)
+        if data.get("contract_version") != CONTRACT_VERSION:
+            return _fail(
+                "api.version_subdomain",
+                "api",
+                f"unexpected contract_version: {data.get('contract_version')}",
+                url=url,
+            )
+        version = str(data.get("version", ""))
+        if not re.match(r"^\d+\.\d+\.\d+", version):
+            return _fail(
+                "api.version_subdomain",
+                "api",
+                f"version not semver-like: {version!r}",
+                url=url,
+            )
+        return _pass(
+            "api.version_subdomain",
+            "api",
+            f"200 + version={version}",
+            url=url,
+        )
 
     return _timed(run)
 
