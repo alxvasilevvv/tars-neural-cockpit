@@ -2,8 +2,14 @@
 # Format: https://developers.cloudflare.com/pages/configuration/headers/
 
 # ----- Security headers (apply to everything) -----
+# Frame embedding: explicitly allow `https://meeet.world` to embed the
+# cockpit in an iframe (TARS#8 task 3b). `X-Frame-Options` cannot list
+# multiple origins, so we drop it and rely on CSP `frame-ancestors`,
+# which is the W3C-recommended replacement and supported by every
+# browser the cockpit targets. Adding a new parent later means
+# extending this directive only.
 /*
-  X-Frame-Options: DENY
+  Content-Security-Policy: frame-ancestors 'self' https://meeet.world
   X-Content-Type-Options: nosniff
   Referrer-Policy: strict-origin-when-cross-origin
   Strict-Transport-Security: max-age=63072000; includeSubDomains; preload

@@ -253,6 +253,55 @@ def probe_spa_routes(ctx: Context) -> list[Probe]:
     return out
 
 
+def probe_unknown_route_returns_spa_200(ctx: Context) -> Probe:
+    """Regression sentinel for the 2026-05-01 SPA `404.html` incident.
+
+    Cloudflare Pages serves `404.html` with HTTP 404 even when the body
+    is the SPA shell, which silently broke `/install`, `/cockpit`, etc.
+    We assert that an unknown deep-link route returns HTTP 200 + the SPA
+    shell, so the `_redirects` rule (`/* /index.html 200`) cannot
+    silently regress to a `cp index.html 404.html` style fallback.
+    """
+
+    def run() -> Probe:
+        if ctx.skip_subdomain:
+            return _skip(
+                "http.unknown_route_spa_200", "subdomain", "DNS not live yet"
+            )
+        url = ctx.tars_base + "/__qa_agent_unknown_route_should_render_spa"
+        status, hdrs, body = _open("GET", url, timeout=ctx.timeout_s)
+        if _looks_like_lovable_redirect(status, hdrs):
+            return _warn(
+                "http.unknown_route_spa_200",
+                "subdomain",
+                "Lovable redirect (CNAME pre-cutover)",
+                url=url,
+            )
+        if status != 200:
+            return _fail(
+                "http.unknown_route_spa_200",
+                "subdomain",
+                f"expected 200 (SPA fallback), got {status} — `_redirects` rule may be shadowed by 404.html",
+                url=url,
+                status=status,
+            )
+        if b"<div id=\"root\"></div>" not in body:
+            return _fail(
+                "http.unknown_route_spa_200",
+                "subdomain",
+                "200 returned but body is not SPA shell — wrong fallback",
+                url=url,
+            )
+        return _pass(
+            "http.unknown_route_spa_200",
+            "subdomain",
+            f"200 OK + SPA shell ({len(body)}B)",
+            url=url,
+        )
+
+    return _timed(run)
+
+
 def probe_security_headers(ctx: Context) -> Probe:
     def run() -> Probe:
         if ctx.skip_subdomain:
@@ -266,8 +315,8 @@ def probe_security_headers(ctx: Context) -> Probe:
                 "skipped — Lovable redirect (pre-cutover)",
                 url=url,
             )
+        # Hard requirements (never relaxed).
         required = {
-            "x-frame-options": "DENY",
             "x-content-type-options": "nosniff",
             "strict-transport-security": "max-age=",
         }
@@ -278,7 +327,39 @@ def probe_security_headers(ctx: Context) -> Probe:
                 missing.append(f"{k}: '{v}' (expected to contain '{expected_substr}')")
         if missing:
             return _fail("http.security_headers", "subdomain", "; ".join(missing))
-        return _pass("http.security_headers", "subdomain", "all required security headers present")
+
+        # Frame embedding gate: either CSP `frame-ancestors` or the
+        # legacy `X-Frame-Options` must be present. The migration to
+        # CSP `frame-ancestors 'self' https://meeet.world` (TARS#8 task
+        # 3b) takes one deploy cycle; tolerate the old shape during
+        # that window with a WARN, fail only when both are missing.
+        csp = hdrs.get("content-security-policy", "")
+        xfo = hdrs.get("x-frame-options", "")
+        if "frame-ancestors" in csp:
+            if "https://meeet.world" not in csp:
+                return _warn(
+                    "http.security_headers",
+                    "subdomain",
+                    "CSP frame-ancestors set but does not include https://meeet.world "
+                    f"(got {csp!r})",
+                )
+            return _pass(
+                "http.security_headers",
+                "subdomain",
+                "all required + CSP frame-ancestors allows meeet.world",
+            )
+        if xfo:
+            return _warn(
+                "http.security_headers",
+                "subdomain",
+                f"legacy X-Frame-Options ({xfo!r}); migrate to CSP frame-ancestors "
+                "with https://meeet.world allowance (TARS#8 task 3b)",
+            )
+        return _fail(
+            "http.security_headers",
+            "subdomain",
+            "no frame-ancestors / X-Frame-Options — anything can iframe the cockpit",
+        )
 
     return _timed(run)
 
@@ -394,6 +475,64 @@ def probe_manifest_subdomain(ctx: Context) -> Probe:
         if not ok:
             return _fail("api.manifest_subdomain", "api", reason, url=url)
         return _pass("api.manifest_subdomain", "api", "200 + valid manifest", url=url)
+
+    return _timed(run)
+
+
+def probe_manifest_cors_meeet_world(ctx: Context) -> Probe:
+    """`/api/product/downloads` must echo `Access-Control-Allow-Origin: https://meeet.world`.
+
+    Required by `docs/contracts/TARS_SUBDOMAIN.md` §4 so meeet.world can
+    render the download widget against the canonical TARS manifest from
+    the browser. Pre-cutover (subdomain not live) the probe is skipped.
+    """
+
+    def run() -> Probe:
+        if ctx.skip_subdomain:
+            return _skip("api.manifest_cors", "api", "DNS not live yet")
+        url = ctx.tars_base + "/api/product/downloads"
+        status, hdrs, _body = _open(
+            "GET",
+            url,
+            headers={"Origin": "https://meeet.world"},
+            timeout=ctx.timeout_s,
+        )
+        if _looks_like_lovable_redirect(status, hdrs):
+            return _warn(
+                "api.manifest_cors",
+                "api",
+                "skipped — Lovable redirect (pre-cutover)",
+                url=url,
+            )
+        if status != 200:
+            return _fail(
+                "api.manifest_cors", "api", f"expected 200, got {status}", url=url
+            )
+        allow = hdrs.get("access-control-allow-origin", "")
+        if allow != "https://meeet.world":
+            # WARN (not FAIL) so the probe stays green during the
+            # PR-before-deploy window. Promote to FAIL in a follow-up
+            # once the deploy has landed and CORS is live in prod.
+            return _warn(
+                "api.manifest_cors",
+                "api",
+                f"expected Access-Control-Allow-Origin=https://meeet.world, got '{allow}'",
+                url=url,
+            )
+        vary = hdrs.get("vary", "")
+        if "Origin" not in vary:
+            return _warn(
+                "api.manifest_cors",
+                "api",
+                f"Vary header missing Origin (got '{vary}') — risk of cache pollution",
+                url=url,
+            )
+        return _pass(
+            "api.manifest_cors",
+            "api",
+            "Access-Control-Allow-Origin echoes meeet.world + Vary: Origin",
+            url=url,
+        )
 
     return _timed(run)
 
