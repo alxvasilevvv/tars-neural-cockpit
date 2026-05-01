@@ -4,6 +4,105 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · Speech intents extraction (slash + voice)
+
+**Summary**
+
+Operators dictate or type TARS in two registers — explicit slash
+commands (`/run traders.morning_check`) and verbose voice
+("TARS, run traders morning check"). This slot ships a
+deterministic parser that extracts a structured **Intent** before
+the LLM sees the transcript: confident commands fire directly,
+ambiguous residue gets routed to chat. No LLM dependency, no I/O.
+
+1. **Parser** (`backend/core/speech/intents.py`, new)
+   - `parse_intent(transcript, *, known_playbook_ids=None)`
+     returns a frozen `Intent(kind, target, query, args,
+     duration_s, cleaned, consumed, confidence, error)`.
+   - Vocabulary: `run_action`, `run_playbook`, `jump`, `search`,
+     `snooze`, `help`, `none`.
+   - Wake-word stripping: `TARS,?` / `Hey TARS,?` / `Computer,?`
+     / `Jarvis` (case-insensitive, comma-tolerant). When only the
+     wake word is spoken the intent is `none/consumed=True` so
+     the LLM doesn't see a stub.
+   - Slash forms: `/run <pack>.<action> [json-args]`,
+     `/run <playbook_id>`, `/jump <q>`, `/search <q>`,
+     `/snooze <id> [for] <duration>`, `/help`.
+   - Voice forms: `run pack action [...]`, `run pack dot action`,
+     `jump [to] <q>`, `search [for] <q>`, `snooze <id> ...`,
+     `help` / `what can you do?`.
+   - `dot` keyword is normalised to `.` so dictation works
+     (`"traders dot morning check"` → `traders.morning_check`).
+   - Voice forms without a `.` collapse trailing word-shaped
+     tokens with `_` (best-effort; lower confidence so the
+     cockpit can confirm).
+   - `run_playbook` vs `run_action` arbitration: a registry hint
+     (`known_playbook_ids`) wins; bare-token bodies optimistic-
+     dispatch as playbooks when no registry is supplied; an
+     empty registry rejects unknown bare tokens with
+     `run_target_unrecognised`.
+   - Snooze duration parser handles `s/m/h/d/w` units +
+     `seconds/minutes/hours/days/weeks`.
+   - JSON args: only `{...}` bodies attempt parse; objects pass,
+     non-objects + invalid JSON surface `args_must_be_object` /
+     `invalid_json_args` while keeping the matched intent kind.
+   - Unknown slash verbs land as `none/error="unknown_verb:<v>"`
+     so the cockpit can show "unknown command" without re-
+     routing the transcript to chat.
+
+2. **HTTP** (`web_extras/routers/speech.py`, new)
+   - `POST /api/speech/intents` body
+     `{transcript, use_playbook_registry=true}`. Response:
+     `{"ok": true, "intent": <Intent.to_dict()>}`.
+   - Validates length (≤ 4 000 chars) + non-empty transcript.
+   - When `use_playbook_registry` is true (default), consults
+     `playbooks.loader.list_playbooks()` to resolve bare-token
+     and pack-action playbook ids; a flapping loader is caught
+     and degrades silently to "empty registry".
+   - Wired into `web_extras/app.py` alongside `voice` /
+     `search` / `chat`.
+
+3. **Tests** (`tests/test_speech_intents.py`, 35 cases)
+   - Empty + whitespace-only transcripts; wake-word-only;
+     plain-chat fall-through with `cleaned` populated.
+   - `run_action` happy paths (canonical, JSON args, missing
+     target, invalid args, array args silently dropped).
+   - Voice forms: `dot` keyword, no-dot fallback, confidence
+     bands.
+   - Playbook arbitration: registry hit, dotted target also a
+     playbook, optimistic dispatch, empty-registry rejection.
+   - `jump` / `search` with + without query.
+   - `snooze` with `s/m/h/d/w` units, missing duration, missing
+     target.
+   - Slash + voice `help` variants ("commands?", "what can you
+     do?").
+   - Wake-word variants: `Hey TARS`, `Ok TARS`, `OKAY TARS`,
+     `TARS please`, `Computer`, `Hey computer`, `Jarvis`.
+   - HTTP: success round-trip (run_action), jump round-trip,
+     400s on empty / oversized / missing body, registry-default
+     resolves playbook ids, opting-out preserves optimistic
+     dispatch, registry exception is swallowed.
+
+4. **Side fix: deflake `tests/test_recovery_seed.py`** — same
+   pattern used for the pairing contract suite. The
+   `client` fixture now isolates the meeet event store under
+   `tmp_path` and resets the `meeet.store` / `meeet.client`
+   singletons; `test_generate_emits_recovery_shown_event` was
+   hitting the durable 500-event read cap when the global
+   `~/.tars/meeet.sqlite` had accumulated `recovery.shown`
+   history.
+
+**Files touched**
+
+- `backend/core/speech/__init__.py` (new) — package surface.
+- `backend/core/speech/intents.py` (new) — parser engine.
+- `web_extras/routers/speech.py` (new) — HTTP wrapper.
+- `web_extras/app.py` — register the speech router.
+- `tests/test_speech_intents.py` (new) — 35 cases.
+- `tests/test_recovery_seed.py` — isolate meeet store in fixture.
+
+Backend suite: **1045 + 13 (pairing) = 1058 passed.**
+
 ## 2026-05-01 — Cursor [A] · Zip archive walker (attachments)
 
 **Summary**
