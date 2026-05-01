@@ -4,6 +4,73 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · `traders.cancel_alert` closes the alerts lifecycle
+
+**Summary**
+
+Natural follow-up to the `place_alert` real adapter that landed
+earlier today. The store knows how to *create* alerts but not how to
+*close* them — operators had to reach into `~/.tars/traders_alerts.json`
+by hand. This batch adds an idempotent, audit-friendly `cancel_alert`
+action so the lifecycle is complete (place → list → cancel).
+
+1. **Store helper** (`backend/core/domains/packs/traders/local_alerts.py`)
+   - New `cancel_local_alert(alert_id, reason=None, path=None, now=None)`.
+   - Marks `active=False`, stamps `cancelled_at` (UTC ISO Z), and
+     records optional `cancel_reason` on the row. Other fields are
+     preserved untouched, so the audit trail keeps the original
+     direction / price / source.
+   - Idempotent: cancelling an already-inactive alert returns the
+     same row with `already_inactive=True` and does **not** emit a
+     second meeet event.
+   - Raises `ValueError("alert_id_required")` for blank ids and
+     `KeyError("alert_not_found")` when no row matches; OSError from
+     the underlying write surfaces unchanged for the action handler
+     to map to `local_store_unwritable`.
+   - Emits `traders.alert_cancelled` (id, ticker, reason, store_path)
+     on the first successful transition.
+
+2. **Action** (`backend/core/domains/packs/traders/actions.py`)
+   - New `cancel_alert` handler with stable error envelopes
+     (`alert_id_required`, `alert_not_found`, `local_store_unwritable`).
+   - Returns `{ok, alert_id, alert, already_inactive, store, store_path}`.
+     The nested `alert` payload strips the bookkeeping
+     `already_inactive` flag so the UI can render the row as-is.
+   - `ActionSpec` registered as `destructive=True` (policy gate
+     routes it through confirmation), required `alert_id`, optional
+     `reason` + `path`.
+
+3. **Tests** (+14 new cases in `tests/test_traders_local_alerts.py`,
+   1 update in `tests/test_policy.py`)
+   - `cancel_local_alert`: happy path with explicit `now` override
+     verifying on-disk state + meeet event payload; idempotency (no
+     duplicate event on second call, original `cancel_reason`
+     preserved); blank-id and unknown-id errors; blank reason drops
+     to `None`.
+   - `cancel_alert` action: missing / blank id, unknown id,
+     idempotent re-call, OSError → `local_store_unwritable`, path
+     override, `place_alert → cancel_alert → list_alerts(active_only=True)`
+     end-to-end flow.
+   - `test_action_specs_marked_destructive` extended to expect
+     `("traders", "cancel_alert")` so future stub upgrades can't
+     forget the policy gate.
+   - New spec sanity test pins `destructive=True` and required
+     `alert_id`.
+
+**Test suite**: 1644 passed (was 1630). Lints clean.
+
+**Files**
+
+- `backend/core/domains/packs/traders/local_alerts.py`
+- `backend/core/domains/packs/traders/actions.py`
+- `tests/test_traders_local_alerts.py`
+- `tests/test_policy.py`
+- `docs/CHANGELOG_AGENTS.md`
+- `docs/AGENT_HANDOFF.md`
+- `docs/IDEAS.md`
+
+---
+
 ## 2026-05-01 — Cursor [A] · `traders.place_alert` real local-first store + new `list_alerts`
 
 **Summary**

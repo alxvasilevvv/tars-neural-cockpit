@@ -16,6 +16,7 @@ from typing import Any
 import pytest
 
 from backend.core.domains.packs.traders.actions import (
+    cancel_alert,
     list_alerts,
     place_alert,
 )
@@ -35,6 +36,7 @@ from backend.core.domains.packs.traders.local_alerts import (
     _next_local_id,
     _read_existing,
     append_local_alert,
+    cancel_local_alert,
     read_local_alerts,
     resolve_local_alerts_path,
 )
@@ -506,3 +508,184 @@ def test_list_alerts_spec_is_present_and_safe() -> None:
     assert "ticker" in spec.schema["properties"]
     assert "limit" in spec.schema["properties"]
     assert "active_only" in spec.schema["properties"]
+
+
+def test_cancel_alert_spec_is_destructive_and_requires_id() -> None:
+    spec = _spec_by_id("cancel_alert")
+    assert spec.destructive is True
+    assert spec.schema["required"] == ["alert_id"]
+    assert "reason" in spec.schema["properties"]
+    assert "path" in spec.schema["properties"]
+
+
+# ---------------------------------------------------------------- cancel_local_alert
+
+def test_cancel_local_alert_marks_inactive_and_emits_event(
+    _isolated_env: Path, _spy_meeet: list[tuple[str, dict[str, Any]]]
+) -> None:
+    rec = _run(append_local_alert(ticker="BTC", price=1, direction="above"))
+    _spy_meeet.clear()
+
+    out = _run(
+        cancel_local_alert(
+            rec.id,
+            reason="hit target",
+            now="2030-01-02T03:04:05Z",
+        )
+    )
+    assert out["id"] == rec.id
+    assert out["active"] is False
+    assert out["cancelled_at"] == "2030-01-02T03:04:05Z"
+    assert out["cancel_reason"] == "hit target"
+    assert out["already_inactive"] is False
+
+    on_disk = json.loads(_isolated_env.read_text(encoding="utf-8"))
+    assert on_disk[0]["active"] is False
+    assert on_disk[0]["cancelled_at"] == "2030-01-02T03:04:05Z"
+    assert on_disk[0]["cancel_reason"] == "hit target"
+
+    assert _spy_meeet, "expected cancellation event"
+    kind, payload = _spy_meeet[-1]
+    assert kind == "traders.alert_cancelled"
+    assert payload["id"] == rec.id
+    assert payload["ticker"] == "BTC"
+    assert payload["reason"] == "hit target"
+    assert payload["store_path"] == str(_isolated_env)
+
+
+def test_cancel_local_alert_idempotent_no_double_event(
+    _isolated_env: Path, _spy_meeet: list[tuple[str, dict[str, Any]]]
+) -> None:
+    rec = _run(append_local_alert(ticker="BTC", price=1, direction="above"))
+    _run(cancel_local_alert(rec.id))
+    _spy_meeet.clear()
+    out = _run(cancel_local_alert(rec.id, reason="ignored second time"))
+    assert out["already_inactive"] is True
+    assert out["active"] is False
+    assert out.get("cancel_reason") != "ignored second time"
+    assert _spy_meeet == []
+
+
+def test_cancel_local_alert_unknown_id_raises(_isolated_env: Path) -> None:
+    with pytest.raises(KeyError, match="alert_not_found"):
+        _run(cancel_local_alert("local-alert-9999"))
+
+
+def test_cancel_local_alert_blank_id_raises(_isolated_env: Path) -> None:
+    with pytest.raises(ValueError, match="alert_id_required"):
+        _run(cancel_local_alert("   "))
+
+
+def test_cancel_local_alert_blank_reason_drops_to_none(
+    _isolated_env: Path,
+) -> None:
+    rec = _run(append_local_alert(ticker="BTC", price=1, direction="above"))
+    out = _run(cancel_local_alert(rec.id, reason="   "))
+    assert "cancel_reason" not in out
+
+
+# ---------------------------------------------------------------- cancel_alert action
+
+def test_cancel_alert_action_happy_path(
+    _isolated_env: Path, _spy_meeet: list[tuple[str, dict[str, Any]]]
+) -> None:
+    place_resp = _run(
+        place_alert({"ticker": "BTC", "price": 1, "direction": "above"})
+    )
+    aid = place_resp["alert_id"]
+    _spy_meeet.clear()
+
+    out = _run(cancel_alert({"alert_id": aid, "reason": "manual close"}))
+    assert out["ok"] is True
+    assert out["alert_id"] == aid
+    assert out["already_inactive"] is False
+    assert out["alert"]["active"] is False
+    assert out["alert"]["cancel_reason"] == "manual close"
+    assert "already_inactive" not in out["alert"]
+    assert out["store"] == "local"
+    assert out["store_path"] == str(_isolated_env)
+    assert _spy_meeet and _spy_meeet[-1][0] == "traders.alert_cancelled"
+
+
+def test_cancel_alert_action_missing_id() -> None:
+    out = _run(cancel_alert({}))
+    assert out == {"ok": False, "error": "alert_id_required"}
+
+
+def test_cancel_alert_action_blank_id() -> None:
+    out = _run(cancel_alert({"alert_id": "   "}))
+    assert out == {"ok": False, "error": "alert_id_required"}
+
+
+def test_cancel_alert_action_unknown_id(_isolated_env: Path) -> None:
+    _run(place_alert({"ticker": "BTC", "price": 1, "direction": "above"}))
+    out = _run(cancel_alert({"alert_id": "local-alert-9999"}))
+    assert out == {"ok": False, "error": "alert_not_found"}
+
+
+def test_cancel_alert_action_idempotent(
+    _isolated_env: Path, _spy_meeet: list[tuple[str, dict[str, Any]]]
+) -> None:
+    place_resp = _run(
+        place_alert({"ticker": "BTC", "price": 1, "direction": "above"})
+    )
+    aid = place_resp["alert_id"]
+    _run(cancel_alert({"alert_id": aid}))
+    _spy_meeet.clear()
+
+    out = _run(cancel_alert({"alert_id": aid}))
+    assert out["ok"] is True
+    assert out["already_inactive"] is True
+    assert _spy_meeet == []
+
+
+def test_cancel_alert_action_store_unwritable(
+    monkeypatch: pytest.MonkeyPatch, _isolated_env: Path
+) -> None:
+    place_resp = _run(
+        place_alert({"ticker": "BTC", "price": 1, "direction": "above"})
+    )
+    monkeypatch.setattr(
+        "backend.core.domains.packs.traders.local_alerts._atomic_write",
+        lambda *a, **k: (_ for _ in ()).throw(OSError("disk full")),
+    )
+    out = _run(cancel_alert({"alert_id": place_resp["alert_id"]}))
+    assert out["ok"] is False
+    assert out["error"] == "local_store_unwritable"
+    assert "disk full" in out["detail"]
+
+
+def test_cancel_alert_action_path_override(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.delenv(LOCAL_ALERTS_ENV_VAR, raising=False)
+    target = tmp_path / "explicit.json"
+    place_resp = _run(
+        place_alert(
+            {
+                "ticker": "BTC",
+                "price": 1,
+                "direction": "above",
+                "path": str(target),
+            }
+        )
+    )
+    out = _run(
+        cancel_alert(
+            {"alert_id": place_resp["alert_id"], "path": str(target)}
+        )
+    )
+    assert out["ok"] is True
+    assert out["store_path"] == str(target)
+    rows = json.loads(target.read_text(encoding="utf-8"))
+    assert rows[0]["active"] is False
+
+
+def test_cancel_alert_then_list_active_only_excludes(_isolated_env: Path) -> None:
+    a = _run(place_alert({"ticker": "BTC", "price": 1, "direction": "above"}))
+    b = _run(place_alert({"ticker": "ETH", "price": 2, "direction": "below"}))
+    _run(cancel_alert({"alert_id": a["alert_id"]}))
+    out = _run(list_alerts({"active_only": True}))
+    assert out["count"] == 1
+    assert out["alerts"][0]["ticker"] == "ETH"
+    assert out["alerts"][0]["id"] == b["alert_id"]

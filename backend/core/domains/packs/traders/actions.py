@@ -28,6 +28,7 @@ from .local_alerts import (
     VALID_DIRECTIONS as ALERT_DIRECTIONS,
     VALID_SOURCES as ALERT_SOURCES,
     append_local_alert,
+    cancel_local_alert,
     read_local_alerts,
     resolve_local_alerts_path,
 )
@@ -170,6 +171,57 @@ async def place_alert(args: Mapping[str, Any]) -> Mapping[str, Any]:
             "Stored locally; a future relay will push this to a venue alert "
             "service. Inspect ~/.tars/traders_alerts.json for the full log."
         ),
+    }
+
+
+async def cancel_alert(args: Mapping[str, Any]) -> Mapping[str, Any]:
+    """Mark a previously-placed local alert inactive.
+
+    Args:
+      ``alert_id``: required, the ``local-alert-NNNN`` id returned by
+        ``place_alert``.
+      ``reason``: optional free-form note recorded on the row and on
+        the meeet event.
+      ``path``: optional override for the local store path.
+
+    Returns ``{ok: True, alert_id, alert, already_inactive,
+    store_path}`` on success, or ``{ok: False, error}`` with one of
+    the stable codes: ``alert_id_required``, ``alert_not_found``,
+    ``local_store_unwritable``.
+    """
+
+    aid = args.get("alert_id")
+    if not isinstance(aid, str) or not aid.strip():
+        return {"ok": False, "error": "alert_id_required"}
+
+    path_override = args.get("path") if isinstance(args.get("path"), str) else None
+    reason = args.get("reason") if isinstance(args.get("reason"), str) else None
+
+    try:
+        row = await cancel_local_alert(
+            aid,
+            reason=reason,
+            path=path_override,
+        )
+    except KeyError as exc:
+        return {"ok": False, "error": str(exc.args[0]) if exc.args else "alert_not_found"}
+    except ValueError as exc:
+        return {"ok": False, "error": str(exc)}
+    except OSError as exc:
+        return {
+            "ok": False,
+            "error": "local_store_unwritable",
+            "detail": str(exc),
+        }
+
+    target = resolve_local_alerts_path(path_override)
+    return {
+        "ok": True,
+        "alert_id": aid.strip(),
+        "alert": {k: v for k, v in row.items() if k != "already_inactive"},
+        "already_inactive": bool(row.get("already_inactive")),
+        "store": "local",
+        "store_path": str(target),
     }
 
 
@@ -413,6 +465,41 @@ ACTIONS: tuple[ActionSpec, ...] = (
                 "path": {"type": "string"},
             },
         },
+    ),
+    ActionSpec(
+        id="cancel_alert",
+        name="Cancel price alert",
+        description=(
+            "Deactivate a previously-placed local alert by its "
+            "local-alert-NNNN id. Idempotent: cancelling an already-"
+            "inactive alert is a no-op (no second event emitted). "
+            "Emits a traders.alert_cancelled meeet event on the first "
+            "transition. Marked destructive so the policy gate routes "
+            "the call through confirmation."
+        ),
+        handler=cancel_alert,
+        schema={
+            "type": "object",
+            "properties": {
+                "alert_id": {
+                    "type": "string",
+                    "description": (
+                        "The local-alert-NNNN id returned by "
+                        "place_alert / list_alerts."
+                    ),
+                },
+                "reason": {
+                    "type": "string",
+                    "description": (
+                        "Optional free-form note. Recorded on the row "
+                        "and on the cancellation event for audit."
+                    ),
+                },
+                "path": {"type": "string"},
+            },
+            "required": ["alert_id"],
+        },
+        destructive=True,
     ),
     ActionSpec(
         id="pull_klines",
