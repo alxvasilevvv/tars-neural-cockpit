@@ -193,6 +193,22 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-01 — Rotate-identity gated by 3-of-24 challenge (Cursor [A]):**
+  Wires the first real consumer for the seed-challenge primitive
+  shipped in PR #73. New `consume_passed_challenge` helper
+  atomically transitions a `passed` challenge to `consumed`
+  (single-use, fingerprint-bound), and a new
+  `POST /api/pairing/rotate-identity` endpoint mints a fresh host
+  keypair only when the operator can prove they still hold the
+  seed bound to the current identity. Optional
+  `new_recovery_fingerprint` body knob lets the operator rebind
+  the seed at the same time as the keypair (e.g. after a seed-leak
+  event). 409 envelopes for `recovery_not_bound`,
+  `challenge_not_passed`, `fingerprint_mismatch`; 404 for
+  `challenge_not_found`; all via `TARSAPIError`. Emits
+  `pair.host_rotated` on success with old/new public key + bound
+  fingerprint. Tests: 10 unit + 9 HTTP. Full suite: 1376 green.
+
 - **2026-05-01 — Pairing relay rate-limit (Cursor [A]):**
   Added stdlib-only token-bucket rate limiter
   (`web_extras/rate_limit.py`) and wired it into
