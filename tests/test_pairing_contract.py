@@ -18,6 +18,7 @@ from nacl.public import PrivateKey
 from backend.core.domains import packs as _packs  # noqa: F401
 from backend.core.pairing.store import _reset_singleton_for_tests
 from web_extras.app import app
+from web_extras.rate_limit import reset_rate_limiter
 
 
 def _fresh_epk_b64() -> str:
@@ -48,8 +49,13 @@ def reset_pairing_store(monkeypatch, tmp_path):
         meeet_client_mod, "_SINGLETON", None, raising=False
     )
     _reset_singleton_for_tests()
+    # The pairing rate limiter is a process-wide singleton; reset it
+    # so a previous test's begin attempts don't drain the bucket and
+    # cause a 429 on the next test's first call.
+    reset_rate_limiter()
     yield
     _reset_singleton_for_tests()
+    reset_rate_limiter()
     monkeypatch.setattr(
         meeet_store_mod, "_SINGLETON", None, raising=False
     )

@@ -64,6 +64,7 @@ ERROR_CODES: Mapping[str, str] = {
     # pairing / vault / recovery
     "pairing_invalid_token": "Pairing token is malformed, unknown, or expired.",
     "pairing_invalid_payload": "Pairing payload failed validation.",
+    "pair_rate_limited": "Per-IP pairing-begin rate limit exceeded; retry after the Retry-After window.",
     "vault_unavailable": "Encrypted vault is locked or missing.",
     "recovery_invalid_mnemonic": "Mnemonic failed BIP-39 validation.",
 }

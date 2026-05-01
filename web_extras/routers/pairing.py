@@ -17,20 +17,73 @@ that already exists for tool calls and policy actions.
 
 from __future__ import annotations
 
+import os
 import time
 from typing import Any, Optional
 
-from fastapi import APIRouter, Body, Header, HTTPException, Query
+from fastapi import APIRouter, Body, Header, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
 from backend.core.meeet import get_client, trace_scope
 from backend.core.pairing import PairingNotFound, get_pairing_store
+from web_extras.errors import TARSAPIError
+from web_extras.rate_limit import RateLimitOutcome, get_rate_limiter
 
 
 router = APIRouter(prefix="/api/pairing", tags=["pairing"])
 
 
 VALID_KINDS = {"desktop_macos", "desktop_windows", "mobile_ios", "mobile_android"}
+
+
+# Rate-limit defaults: 5 begin attempts per IP, refilling at 1 token / 30s
+# (so a steady spammer gets one fresh begin every 30 seconds, while a
+# normal operator's quick retries on a single QR scan never trip the
+# bucket). All three knobs are env-overridable so a stress-test or a
+# kiosk deployment can dial them up.
+PAIR_BEGIN_BUCKET = "pairing.begin"
+
+
+def _f(env: str, default: float) -> float:
+    raw = os.getenv(env)
+    if raw is None or not raw.strip():
+        return default
+    try:
+        return max(0.0, float(raw))
+    except ValueError:
+        return default
+
+
+def _configure_pairing_rate_limit_once() -> None:
+    limiter = get_rate_limiter()
+    if limiter.is_configured(PAIR_BEGIN_BUCKET):
+        return
+    capacity = _f("TARS_PAIRING_RATE_BURST", 5.0)
+    rate = _f("TARS_PAIRING_RATE_PER_S", 1.0 / 30.0)
+    if capacity <= 0:
+        capacity = 1.0
+    limiter.configure(PAIR_BEGIN_BUCKET, capacity=capacity, rate=rate)
+
+
+def _client_ip(request: Request) -> str:
+    """Resolve the client IP for rate-limiting.
+
+    Prefers ``X-Forwarded-For`` when the host runs behind a trusted
+    proxy (controlled by ``TARS_TRUST_FORWARDED_FOR=1``). Otherwise
+    falls back to ``request.client.host``. An empty string is
+    coerced to ``__anonymous__`` by the limiter so a misbehaving
+    proxy can't disable the bucket entirely.
+    """
+
+    if os.getenv("TARS_TRUST_FORWARDED_FOR", "0") in ("1", "true", "yes"):
+        fwd = request.headers.get("x-forwarded-for")
+        if fwd:
+            # First entry is the original client per the standard
+            # ``X-Forwarded-For: client, proxy1, proxy2`` shape.
+            return fwd.split(",")[0].strip()
+    if request.client is not None and request.client.host:
+        return request.client.host
+    return ""
 
 
 # --- request / response models ---------------------------------------
@@ -59,11 +112,58 @@ def _record_to_dict(rec: Any) -> dict[str, Any]:
 
 @router.post("/begin")
 async def begin(
+    request: Request,
     body: BeginRequest = Body(...),
     x_meeet_trace_id: str | None = Header(default=None),
 ) -> dict[str, Any]:
     if body.kind not in VALID_KINDS:
         raise HTTPException(status_code=400, detail="invalid_kind")
+
+    _configure_pairing_rate_limit_once()
+    subject = _client_ip(request)
+    outcome: RateLimitOutcome = get_rate_limiter().acquire(
+        bucket_id=PAIR_BEGIN_BUCKET,
+        subject=subject,
+    )
+    if not outcome.allowed:
+        # ``retry_after`` is +inf for pure-quota buckets (rate <= 0); cap
+        # it at 1 day so JSON serialisation stays clean and the client
+        # never sees a literal "Infinity".
+        retry_payload = (
+            86400.0
+            if outcome.retry_after == float("inf") or outcome.retry_after > 86400
+            else float(outcome.retry_after)
+        )
+        retry_seconds = max(1, int(retry_payload) + 1)
+        client = get_client()
+        await client.emit(
+            "pair.rate_limited",
+            {
+                "subject": outcome.subject,
+                "bucket_id": outcome.bucket_id,
+                "retry_after": retry_payload,
+                "remaining": outcome.remaining,
+                "kind": body.kind,
+            },
+        )
+        raise TARSAPIError(
+            status_code=429,
+            error_code="pair_rate_limited",
+            message=(
+                f"pair_rate_limited: retry in {retry_seconds}s "
+                f"(remaining={outcome.remaining:.2f})"
+            ),
+            hint=(
+                "Slow down pairing attempts from this IP, or wait until "
+                "the rate limit resets."
+            ),
+            headers={
+                "Retry-After": str(retry_seconds),
+                "X-RateLimit-Remaining": f"{outcome.remaining:.4f}",
+                "X-RateLimit-Bucket": outcome.bucket_id,
+                "X-RateLimit-Reset": f"{outcome.reset_at:.4f}",
+            },
+        )
 
     store = get_pairing_store()
     try:
@@ -85,6 +185,7 @@ async def begin(
                 "host_id": rec.host_id,
                 "host_fingerprint": rec.host_fingerprint,
                 "expires_at": rec.expires_at,
+                "rate_limit_remaining": outcome.remaining,
             },
         )
         return {
@@ -96,6 +197,11 @@ async def begin(
             "host_fingerprint": rec.host_fingerprint,
             "host_public_key": rec.host_public_key,
             "expires_at": rec.expires_at,
+            "rate_limit": {
+                "remaining": outcome.remaining,
+                "reset_at": outcome.reset_at,
+                "capacity": outcome.capacity,
+            },
         }
 
 
