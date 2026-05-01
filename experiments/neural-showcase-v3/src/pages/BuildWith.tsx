@@ -47,7 +47,7 @@ export function BuildWith() {
     title: "Built with TARS",
     description:
       "Grab the embed badge for your project — 4 variants, paste-ready HTML or Markdown, attribution back to meeet.world.",
-    ogImage: "https://meeet.world/og-build-with.svg",
+    ogImage: "https://tars.meeet.world/og-build-with.svg",
   });
   const [size, setSize] = useState<Size>("full");
   const [theme, setTheme] = useState<Theme>("dark");

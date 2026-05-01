@@ -21,13 +21,16 @@
     <meta name="apple-mobile-web-app-title" content="TARS" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
 
-    <!-- Canonical -->
-    <link rel="canonical" href="https://meeet.world/" />
+    <!-- Canonical — pinned to tars.meeet.world per docs/SYNC.md ("TARS owns
+         the subdomain") + docs/contracts/TARS_SUBDOMAIN.md §3 (one canonical
+         host, no /tars/* mirror on root). The marketing landing on
+         meeet.world/* will 301 → tars.meeet.world/* when Claude flips it. -->
+    <link rel="canonical" href="https://tars.meeet.world/" />
 
     <!-- meeet.world integration metadata —
-         consumed by meeet.world SSR and the (Cursor's pending) public
-         /api/product/downloads handshake. Contract version pinned to 1.0.0
-         per docs/AGENT_HANDOFF.md → Handoff → Claude. -->
+         consumed by meeet.world SSR and the public /api/product/downloads
+         handshake. Contract version pinned to 1.0.0 per
+         docs/contracts/CORE_BRIDGE.md. -->
     <meta name="meeet:product" content="tars" />
     <meta name="meeet:contract-version" content="1.0.0" />
     <meta name="meeet:downloads-endpoint" content="/api/product/downloads" />
@@ -36,17 +39,17 @@
     <meta property="og:type" content="website" />
     <meta property="og:title" content="TARS — your machine, your second brain." />
     <meta property="og:description" content="Local-first AI agent. Multi-LLM council. Mac operator. $MEEET economy. One curl, sixty seconds." />
-    <meta property="og:image" content="https://meeet.world/og.svg" />
+    <meta property="og:image" content="https://tars.meeet.world/og.svg" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:url" content="https://meeet.world/" />
+    <meta property="og:url" content="https://tars.meeet.world/" />
     <meta property="og:site_name" content="TARS · meeet.world" />
 
     <!-- Twitter Card -->
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="TARS — your machine, your second brain." />
     <meta name="twitter:description" content="Local-first AI agent. Multi-LLM council. Mac operator. $MEEET economy." />
-    <meta name="twitter:image" content="https://meeet.world/og.svg" />
+    <meta name="twitter:image" content="https://tars.meeet.world/og.svg" />
     <meta name="twitter:site" content="@meeetworld" />
 
     <link rel="preconnect" href="https://fonts.googleapis.com" />
