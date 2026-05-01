@@ -40,6 +40,7 @@ from .hubspot import pull_pipeline as hubspot_pull_pipeline
 from .local_deals import (
     LOCAL_ID_PREFIX,
     append_local_deal,
+    read_local_deals,
     resolve_local_deals_path,
     update_local_deal,
 )
@@ -490,6 +491,92 @@ async def log_deal(args: Mapping[str, Any]) -> Mapping[str, Any]:
     }
 
 
+async def list_deals(args: Mapping[str, Any]) -> Mapping[str, Any]:
+    """Read deals from the local store with optional filters.
+
+    Args:
+      ``active_only``: optional bool, default ``False``. Excludes
+        won / lost rows when true.
+      ``stage``: optional single stage value (case-insensitive,
+        coerced via the standard stage normaliser).
+      ``owner``: optional case-insensitive owner filter.
+      ``limit``: optional positive int (most recent N entries),
+        capped at 1000.
+      ``store_path`` / ``path``: optional override for the local
+        store path.
+
+    Returns ``{ok, count, deals, store, store_path, filters,
+    summary}``. ``summary`` carries pre-computed rollups
+    (`total_amount`, `by_stage`) so the cockpit can render a
+    sidecar without a second pass.
+    """
+
+    path_arg = args.get("store_path") or args.get("path")
+    target = resolve_local_deals_path(
+        str(path_arg) if path_arg else None
+    )
+
+    active_only = bool(args.get("active_only", False))
+    stage_arg = args.get("stage")
+    stage = stage_arg.strip() if isinstance(stage_arg, str) and stage_arg.strip() else None
+    owner_arg = args.get("owner")
+    owner = owner_arg.strip() if isinstance(owner_arg, str) and owner_arg.strip() else None
+
+    limit_arg = args.get("limit")
+    if isinstance(limit_arg, bool):
+        limit: int | None = None
+    elif isinstance(limit_arg, int) and limit_arg > 0:
+        limit = min(limit_arg, 1000)
+    else:
+        limit = None
+
+    try:
+        rows = read_local_deals(
+            path=target,
+            active_only=active_only,
+            stage=stage,
+            owner=owner,
+            limit=limit,
+        )
+    except OSError as exc:
+        return {
+            "ok": False,
+            "error": "local_store_unreadable",
+            "detail": str(exc),
+            "store_path": str(target),
+        }
+
+    by_stage: dict[str, int] = {}
+    total_amount = 0.0
+    for row in rows:
+        st = str(row.get("stage") or "")
+        if st:
+            by_stage[st] = by_stage.get(st, 0) + 1
+        try:
+            amt = float(row.get("amount") or 0)
+        except (TypeError, ValueError):
+            amt = 0.0
+        total_amount += amt
+
+    return {
+        "ok": True,
+        "count": len(rows),
+        "deals": rows,
+        "store": "local",
+        "store_path": str(target),
+        "filters": {
+            "active_only": active_only,
+            "stage": stage.lower() if stage else None,
+            "owner": owner.lower() if owner else None,
+            "limit": limit,
+        },
+        "summary": {
+            "by_stage": by_stage,
+            "total_amount": round(total_amount, 2),
+        },
+    }
+
+
 _UPDATABLE_DEAL_FIELDS: tuple[str, ...] = (
     "name",
     "amount",
@@ -655,6 +742,38 @@ ACTIONS: tuple[ActionSpec, ...] = (
         schema={
             "type": "object",
             "properties": {"path": {"type": "string"}},
+        },
+    ),
+    ActionSpec(
+        id="list_deals",
+        name="List deals",
+        description=(
+            "Read the local-first business deals store with optional "
+            "filters (active_only / stage / owner / limit). Returns "
+            "structured rollups (by_stage, total_amount) so the cockpit "
+            "can render a sidecar without a second pass. Read-only; no "
+            "policy gate required."
+        ),
+        handler=list_deals,
+        schema={
+            "type": "object",
+            "properties": {
+                "active_only": {"type": "boolean", "default": False},
+                "stage": {
+                    "type": "string",
+                    "enum": [
+                        "discovery",
+                        "qualification",
+                        "proposal",
+                        "negotiation",
+                        "won",
+                        "lost",
+                    ],
+                },
+                "owner": {"type": "string"},
+                "limit": {"type": "integer", "minimum": 1, "maximum": 1000},
+                "store_path": {"type": "string"},
+            },
         },
     ),
     ActionSpec(

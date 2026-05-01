@@ -472,8 +472,15 @@ Open ideas for the next layer:
      `name / amount / stage / owner / next_step / due / notes` on a
      previously-logged local row, stamps `updated_at`, and emits
      `business.deal_updated`. Idempotent (`unchanged=True`, no event
-     on a no-op patch). Pinned by `tests/test_business_update_deal.py`
-     (30 cases) plus a destructive-spec membership pin update in
+     on a no-op patch). **`business.list_deals`** (2026-05-01
+     follow-up, non-destructive) gives a fast read-only side door
+     on the local store with filters (`active_only / stage / owner
+     / limit`) and pre-computed rollups (`by_stage`,
+     `total_amount`), so the cockpit can render a deals view
+     without going through `daily_brief` (which spins up the
+     council). Pinned by `tests/test_business_update_deal.py`
+     (30 cases), `tests/test_business_list_deals.py` (18 cases),
+     and a destructive-spec membership pin update in
      `tests/test_policy.py`.
    - `mlm.downline_snapshot`, `mlm.retention_alert` ✅ shipped —
      local CSV-backed.
