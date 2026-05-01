@@ -25,6 +25,7 @@ from datetime import datetime, timezone
 from .probes import (
     Context,
     Probe,
+    probe_client_error_endpoint,
     probe_core_bridge_health,
     probe_core_bridge_relay_roundtrip,
     probe_core_bridge_unauth,
@@ -77,6 +78,7 @@ def run_all(ctx: Context) -> list[Probe]:
     probes.append(probe_manifest_origin_blocked(ctx))
     probes.append(probe_manifest_subdomain(ctx))
     probes.append(probe_version_subdomain(ctx))
+    probes.append(probe_client_error_endpoint(ctx))
 
     # 5. core-bridge
     probes.append(probe_core_bridge_unauth(ctx))
