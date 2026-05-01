@@ -1201,6 +1201,27 @@ Smaller functional items still pending in parallel:
     `{q?, query?, limit?, kinds?}` — clamped to 100 hits, unknown
     kinds dropped silently. `tests/test_jump_picker.py` (23 cases).
     Cockpit ⌘J palette UI is the Claude-lane follow-up.
+26. ~~**Attachment chunk-neighbours endpoint.**~~ **shipped**
+    (2026-05-01) — backs the "per-attachment hover preview"
+    surface from IDEAS. New
+    `AttachmentStore.get_chunk_neighbours(chunk_id, *, before,
+    after)` returns `(target, before_chunks, after_chunks)` by
+    `ord` adjacency on the same `attachment_id`. The chunker
+    doesn't emit dense `ord` values (overlap windows leave
+    gaps), so "neighbours" means the closest chunks by `ord`,
+    not by `ord ± 1`. Window args clamp to `[0, 10]`. New HTTP
+    route `GET /api/chat/attachments/{attachment_id}/chunks/
+    {chunk_id}/neighbours` (plus a `/neighbors` US alias)
+    returns `{ok, attachment, chunk, before, after, window}`
+    with optional `full_text=false` to ship only the 240-char
+    `preview`. Two 404 paths defended (unknown attachment +
+    chunk-not-in-attachment, so a typo can't leak chunks across
+    attachments) and 422 on negative / oversized window.
+    `tests/test_attachments_chunk_neighbours.py` (19 cases) pin
+    the store unit + window semantics + HTTP shape +
+    cross-attachment leak guard. Cockpit hover-card UI is the
+    Claude-lane follow-up.
+
 25. ~~**mlm.tg_outreach_draft (deterministic Telegram drafter).**~~
     **shipped** (2026-05-01) — closes the `mlm.tg_outreach_draft`
     slot from IDEAS' real-adapters list.

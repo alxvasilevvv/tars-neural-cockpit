@@ -56,6 +56,14 @@ Ideas for the next sprints. Triage by impact × cost and pull into
   can render a live "indexing 12 chunks…" pill on the chip.
 - **Per-attachment hover preview.** Replace the chip's tooltip with a
   floating card that previews the first chunk + heading list.
+  Backend bridge ✅ shipped (2026-05-01) —
+  `GET /api/chat/attachments/{id}/chunks/{chunk_id}/neighbours`
+  (plus `/neighbors` US alias) returns the chunk plus its
+  ord-adjacent neighbours; `before` / `after` clamp `[0, 10]`,
+  `full_text=false` for preview-only payloads. See
+  `backend/core/attachments/index.py::get_chunk_neighbours` and
+  `tests/test_attachments_chunk_neighbours.py` (19 cases).
+  Cockpit hover-card UI is the Claude-lane follow-up.
 - **Re-embed on demand.** Endpoint that re-embeds all chunks for an
   attachment with a different model (e.g. promote from hash to OpenAI
   once a key is set).
