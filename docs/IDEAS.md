@@ -266,8 +266,19 @@ Open ideas for the next layer:
    stitches sub-packs with namespaced ids `<sub_slug>__<id>`.
    `research_lab` (science + business) and `ops_room` (traders +
    mlm) ship by default. Open work: composite-aware playbooks.
-8. **Per-pack memory partitions.** Memory keys prefixed with the pack slug
-   so domain context cannot bleed.
+8. **Per-pack memory partitions.** ✅ partial (2026-05-01) —
+   foundation slice shipped. `backend/core/memory/` is a new package
+   with `MemoryEntry` + `MemoryStore` (SQLite at
+   `~/.tars/memory.sqlite`, override `TARS_MEMORY_DB_PATH`). The
+   `pack_memory` table is uniquely keyed on `(pack_slug, key)` so
+   domain context cannot bleed. Optional TTL eviction is built in.
+   HTTP surface (`web_extras/routers/memory.py`) covers list /
+   upsert / get / delete / purge / stats per pack plus global
+   stats + global purge. `tests/test_memory_store.py` (28 cases)
+   pin partitioning, TTL, and HTTP round-trip. **Open follow-ups:**
+   `pack.memory.*` action family on every pack so the agent loop +
+   playbooks use it through the standard interface, periodic
+   `_memory_purge_loop` background task, cockpit "facts" view.
 9. **Pack marketplace JSON.** ✅ shipped (Phase K4) —
    `GET /api/domains/manifest` returns a stable, cache-friendly
    summary (slug / capabilities / action counts / composite

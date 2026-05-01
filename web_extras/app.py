@@ -41,6 +41,7 @@ from web_extras.routers import policy as policy_router
 from web_extras.routers import product as product_router
 from web_extras.routers import qa as qa_router
 from web_extras.routers import recovery as recovery_router
+from web_extras.routers import memory as memory_router
 from web_extras.routers import search as search_router
 from web_extras.routers import usage as usage_router
 from web_extras.routers import vault as vault_router
@@ -448,6 +449,7 @@ app.include_router(chat_router.router)
 app.include_router(voice_router.router)
 app.include_router(search_router.router)
 app.include_router(search_router.timeline_router)
+app.include_router(memory_router.router)
 app.include_router(product_router.router)
 app.include_router(pairing_router.router)
 app.include_router(recovery_router.router)

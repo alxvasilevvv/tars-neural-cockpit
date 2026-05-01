@@ -27,13 +27,35 @@ def _fresh_epk_b64() -> str:
 
 
 @pytest.fixture(autouse=True)
-def reset_pairing_store(monkeypatch):
+def reset_pairing_store(monkeypatch, tmp_path):
     # The in-process vault default writes to ~/.tars/; tests must not
     # touch the developer's real home dir.
     monkeypatch.setenv("TARS_PAIRING_VAULT", "disabled")
+    # Pin the meeet event store to a tmp path so accumulated events
+    # from earlier tests don't overflow the ``list_events(limit=500)``
+    # window the assertions use. Previously this fixture left
+    # ``~/.tars/meeet.sqlite`` in place, which made
+    # ``test_pair_attempted_event_emitted`` /
+    # ``test_pair_linked_event_emitted_on_accept`` flake once the
+    # backend suite grew past ~500 events.
+    monkeypatch.setenv("MEEET_STORE_PATH", str(tmp_path / "meeet.sqlite"))
+    from backend.core.meeet import store as meeet_store_mod
+    monkeypatch.setattr(
+        meeet_store_mod, "_SINGLETON", None, raising=False
+    )
+    from backend.core.meeet import client as meeet_client_mod
+    monkeypatch.setattr(
+        meeet_client_mod, "_SINGLETON", None, raising=False
+    )
     _reset_singleton_for_tests()
     yield
     _reset_singleton_for_tests()
+    monkeypatch.setattr(
+        meeet_store_mod, "_SINGLETON", None, raising=False
+    )
+    monkeypatch.setattr(
+        meeet_client_mod, "_SINGLETON", None, raising=False
+    )
 
 
 @pytest.fixture
