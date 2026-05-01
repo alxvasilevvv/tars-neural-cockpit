@@ -14,6 +14,7 @@ from ...base import ActionSpec
 from ..._http import NetworkError, get_text
 from .crossref import enrich_via_crossref
 from .datasets import extract_datasets_from_text
+from .hypothesis import grow_tree
 from .openalex import enrich_arxiv
 
 ARXIV_URL = "http://export.arxiv.org/api/query"
@@ -386,13 +387,52 @@ async def extract_dataset(args: Mapping[str, Any]) -> Mapping[str, Any]:
 
 
 async def hypothesis_tree(args: Mapping[str, Any]) -> Mapping[str, Any]:
-    seed = str(args.get("seed", "")).strip()
-    if not seed:
+    """Grow a deterministic hypothesis tree from a seed claim.
+
+    Args:
+      ``seed``: required, the parent claim (e.g. "X causes Y").
+      ``depth``: optional int in ``[0, 3]``; default ``1`` (seed +
+        one child layer along the five canonical dimensions).
+        Garbage / negative values are coerced to ``1``.
+
+    Returns ``{ok: True, seed, depth, tree, model}`` on success or
+    ``{ok: False, error: "seed_required"}`` if the seed is blank.
+
+    The tree carries stable ``h-NNNN`` ids so the cockpit can pin
+    expand state across renders, and a ``kind`` per node
+    (`seed / mechanism / alternatives / confounders / conditions /
+    evidence / step / alternative / confounder / condition / test`)
+    so the renderer can colour-code the layers.
+    """
+
+    seed_raw = str(args.get("seed", "")).strip()
+    if not seed_raw:
         return {"ok": False, "error": "seed_required"}
+
+    depth_arg = args.get("depth", 1)
+    if isinstance(depth_arg, bool):
+        depth = 1
+    elif isinstance(depth_arg, int):
+        depth = depth_arg
+    else:
+        depth = 1
+
+    try:
+        tree = grow_tree(seed_raw, depth=depth)
+    except ValueError as exc:
+        return {"ok": False, "error": str(exc)}
+
+    # The action echoes the *effective* depth so callers can verify
+    # what the tree actually contains. ``grow_tree`` clamps negatives
+    # back to the default (1) and clips above 3.
+    effective_depth = depth if depth >= 0 else 1
+    effective_depth = min(effective_depth, 3)
     return {
         "ok": True,
-        "seed": seed,
-        "tree": {"node": seed, "children": []},
+        "seed": tree.node,
+        "depth": effective_depth,
+        "tree": tree.to_dict(),
+        "model": "heuristic-v1",
     }
 
 
@@ -461,11 +501,27 @@ ACTIONS: tuple[ActionSpec, ...] = (
     ActionSpec(
         id="hypothesis_tree",
         name="Hypothesis tree",
-        description="Grow a hypothesis tree from a seed claim.",
+        description=(
+            "Grow a deterministic hypothesis tree from a seed claim. "
+            "Each child probes one of five canonical dimensions a peer "
+            "reviewer would interrogate (mechanism, alternatives, "
+            "confounders, conditions, evidence). Nodes carry stable "
+            "h-NNNN ids and a typed 'kind' so the cockpit can colour-"
+            "code the layers. Set 'depth' to 0 for the seed only, 1 "
+            "for one layer (default), 2 for grandchildren, max 3."
+        ),
         handler=hypothesis_tree,
         schema={
             "type": "object",
-            "properties": {"seed": {"type": "string"}},
+            "properties": {
+                "seed": {"type": "string"},
+                "depth": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 3,
+                    "default": 1,
+                },
+            },
             "required": ["seed"],
         },
     ),

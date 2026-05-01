@@ -390,6 +390,18 @@ Open ideas for the next layer:
      against the public Atom API.
    - `science.summarize_paper` ✅ shipped — Atom by id, returns
      title/authors/tldr/abstract.
+   - `science.hypothesis_tree` ✅ shipped (2026-05-01) — real
+     deterministic decomposer. New
+     `backend/core/domains/packs/science/hypothesis.py` lands a
+     `grow_tree(seed, *, depth=1)` builder that fans out along
+     five canonical dimensions any peer reviewer would interrogate
+     (`mechanism / alternatives / confounders / conditions /
+     evidence`) with per-dimension grandchild templates. Stable
+     `h-NNNN` ids and typed `kind` per node so the cockpit can
+     pin expand state across renders and colour-code layers.
+     Depth clamped to `[0, 3]`. Action returns the effective
+     depth + `model="heuristic-v1"` label. Tests:
+     `tests/test_science_hypothesis_tree.py` (24 cases).
    - `science.extract_dataset` ✅ shipped (2026-05-01) —
      `backend/core/domains/packs/science/datasets.py` lands two
      detectors: a curated `KnownDataset` registry (~25 entries

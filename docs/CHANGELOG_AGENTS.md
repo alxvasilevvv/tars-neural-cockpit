@@ -4,6 +4,70 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · `science.hypothesis_tree` real deterministic generator
+
+**Summary**
+
+Promotes the last user-facing stub in the science pack
+(`hypothesis_tree` returned `{node: <seed>, children: []}` and
+forgot the seed) into a deterministic, audit-friendly hypothesis
+decomposition. Every science action now ships a real adapter.
+
+1. **New module** (`backend/core/domains/packs/science/hypothesis.py`)
+   - `HypothesisNode` dataclass + `grow_tree(seed, *, depth=1)`.
+   - Five canonical dimensions any peer reviewer would interrogate:
+     `mechanism / alternatives / confounders / conditions / evidence`.
+     Per-dimension grandchild templates fan out one more layer
+     (steps / alternatives / confounders / conditions / tests) so
+     `depth=2` yields a 16-node tree (1 seed + 5 children + 5×2
+     grandchildren) without hand-authoring 5×5 prompts.
+   - Stable `h-NNNN` ids minted monotonically per generation so the
+     cockpit can pin expand state across renders. Each node also
+     carries a typed `kind` so the renderer can colour-code the
+     layers.
+   - Seed normaliser strips trailing `.?!,;:` so the prompt
+     templates read cleanly even when the operator pastes a
+     sentence with terminator. Punctuation-only seeds raise
+     `ValueError("seed_required")`.
+   - Depth clamped to `[0, 3]`; negative / non-int defaults to `1`.
+
+2. **Action** (`backend/core/domains/packs/science/actions.py`)
+   - `hypothesis_tree` now wraps `grow_tree` and returns
+     `{ok, seed, depth, tree, model="heuristic-v1"}`. The echoed
+     `depth` is the *effective* depth (post-clamp) so callers can
+     verify what the tree contains.
+   - `ActionSpec` schema picks up the new `depth` knob with
+     `minimum=0`, `maximum=3`, `default=1`, plus a longer
+     description naming the five dimensions.
+
+3. **Tests** (+24 new cases in
+   `tests/test_science_hypothesis_tree.py`)
+   - `grow_tree`: seed required, depth-0 returns only the seed,
+     default depth, depth-2 grandchildren, depth clamped to 3,
+     negative falls back to 1, seed normalisation (single &
+     repeated terminators), dimension order pinned, grandchild
+     `kind` typing pinned, monotonic & unique ids (16 total at
+     depth 2), `to_dict` round-trip, full determinism.
+   - Action handler: blank seed, punctuation-only seed, default
+     depth, depth=2, depth clamped, negative depth, garbage
+     depth, seed normalisation, tree carries `kind` + `id`,
+     determinism.
+   - Spec wiring: `destructive=False`, `depth` schema bounds
+     pinned.
+
+**Test suite**: 1774 passed (was 1750). Lints clean.
+
+**Files**
+
+- `backend/core/domains/packs/science/hypothesis.py` (new)
+- `backend/core/domains/packs/science/actions.py`
+- `tests/test_science_hypothesis_tree.py` (new)
+- `docs/CHANGELOG_AGENTS.md`
+- `docs/AGENT_HANDOFF.md`
+- `docs/IDEAS.md`
+
+---
+
 ## 2026-05-01 — Cursor [A] · `mlm.update_member` + `mlm.list_members` close downline lifecycle
 
 **Summary**
