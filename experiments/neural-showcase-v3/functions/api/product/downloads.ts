@@ -16,6 +16,8 @@
 //   2. Bump the top-level `released_at` to the new release timestamp.
 //   3. Deploy via wrangler / Pages CI.
 
+import { corsHeaders, preflightResponse } from "../../_cors.ts";
+
 interface Env {
   TARS_DOWNLOADS_OVERRIDE_URL?: string;
 }
@@ -105,25 +107,27 @@ function manifest(): DownloadsManifest {
   };
 }
 
-function jsonResponse(status: number, body: unknown): Response {
+function jsonResponse(status: number, body: unknown, origin: string | null): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: {
       "content-type": "application/json; charset=utf-8",
       ...CACHE_HEADERS,
+      ...corsHeaders(origin),
     },
   });
 }
 
-function methodNotAllowed(): Response {
+function methodNotAllowed(origin: string | null): Response {
   return new Response(
     JSON.stringify({ ok: false, error: "method_not_allowed" }),
     {
       status: 405,
       headers: {
         "content-type": "application/json; charset=utf-8",
-        "allow": "GET, HEAD",
+        "allow": "GET, HEAD, OPTIONS",
         ...CACHE_HEADERS,
+        ...corsHeaders(origin),
       },
     },
   );
@@ -161,8 +165,13 @@ async function loadFromOverride(env: Env): Promise<DownloadsManifest | null> {
 
 export const onRequest: PagesFunction<Env> = async (context) => {
   const { request, env } = context;
+  const origin = request.headers.get("Origin");
+
+  if (request.method === "OPTIONS") {
+    return preflightResponse(origin);
+  }
   if (request.method !== "GET" && request.method !== "HEAD") {
-    return methodNotAllowed();
+    return methodNotAllowed(origin);
   }
 
   const override = await loadFromOverride(env);
@@ -174,9 +183,10 @@ export const onRequest: PagesFunction<Env> = async (context) => {
       headers: {
         "content-type": "application/json; charset=utf-8",
         ...CACHE_HEADERS,
+        ...corsHeaders(origin),
       },
     });
   }
 
-  return jsonResponse(200, body);
+  return jsonResponse(200, body, origin);
 };

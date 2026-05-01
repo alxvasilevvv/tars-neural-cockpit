@@ -2,6 +2,8 @@
 // the canonical downloads manifest defined in `./downloads.ts`. Mirrors
 // the same source of truth (no remote fetch, no proxy loop).
 
+import { corsHeaders, preflightResponse } from "../../_cors.ts";
+
 const CONTRACT_VERSION = "1.0.0";
 const PRODUCT = "tars";
 const CHANNEL = "stable";
@@ -16,25 +18,27 @@ const CACHE_HEADERS: Record<string, string> = {
   "x-tars-contract": CONTRACT_VERSION,
 };
 
-function jsonResponse(status: number, body: unknown): Response {
+function jsonResponse(status: number, body: unknown, origin: string | null): Response {
   return new Response(JSON.stringify(body), {
     status,
     headers: {
       "content-type": "application/json; charset=utf-8",
       ...CACHE_HEADERS,
+      ...corsHeaders(origin),
     },
   });
 }
 
-function methodNotAllowed(): Response {
+function methodNotAllowed(origin: string | null): Response {
   return new Response(
     JSON.stringify({ ok: false, error: "method_not_allowed" }),
     {
       status: 405,
       headers: {
         "content-type": "application/json; charset=utf-8",
-        "allow": "GET, HEAD",
+        "allow": "GET, HEAD, OPTIONS",
         ...CACHE_HEADERS,
+        ...corsHeaders(origin),
       },
     },
   );
@@ -42,8 +46,13 @@ function methodNotAllowed(): Response {
 
 export const onRequest: PagesFunction = async (context) => {
   const { request } = context;
+  const origin = request.headers.get("Origin");
+
+  if (request.method === "OPTIONS") {
+    return preflightResponse(origin);
+  }
   if (request.method !== "GET" && request.method !== "HEAD") {
-    return methodNotAllowed();
+    return methodNotAllowed(origin);
   }
 
   const body = {
@@ -62,9 +71,10 @@ export const onRequest: PagesFunction = async (context) => {
       headers: {
         "content-type": "application/json; charset=utf-8",
         ...CACHE_HEADERS,
+        ...corsHeaders(origin),
       },
     });
   }
 
-  return jsonResponse(200, body);
+  return jsonResponse(200, body, origin);
 };
