@@ -3,6 +3,14 @@
 Pick this up if you are continuing the work in a fresh chat. Read this file
 plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 
+> **2026-05-01 LAUNCH-DAY pickup:** read `docs/LAUNCH_TODAY_2026-05-01.md`
+> first — it's the "what is green / what is the operator-only blocker"
+> snapshot taken just before opening the gate to public users. After
+> that, if you are the **second parallel Cursor window** the operator
+> opened, jump to `docs/SYNC.md` §11 — it lists the branch prefix
+> (`cursor-b/`), local ports (8866 / 5184 / 8084), and the file-level
+> mutex protocol so the two windows don't trample each other.
+
 > **2026-05-01 chat-handoff:** before the rest of this doc, read
 > `docs/CHAT_PICKUP_2026-05-01.md` — it's a one-shot pickup written
 > when the operator switched to the multi-root `tars-meeet.code-workspace`

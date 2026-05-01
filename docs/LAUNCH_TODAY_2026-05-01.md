@@ -141,6 +141,33 @@ SOFT_SMOKE=1 bash scripts/smoke_release_gate.sh
 - WorldMap бандл meeet.world ~989 KB — code-split позднее.
 - Cockpit `physics-*.js` 1.98 MB — три-вендор, ленивая подгрузка.
 - `/api/council/voices` отсутствует на TARS API; фронт использует
-  `POST /api/council/deliberate` напрямую.
+  `POST /api/council/deliberate` напрямую (это by design, не баг).
 - meeet.world `npx serve` стартует с предупреждением про
   глобальный install — игнорировать.
+
+## Что я доделал follow-up'ом (после первого LAUNCH-snapshot)
+
+- **`meeet.world/package.json`**: `npm run preview` теперь `vite
+  preview`, а не `bunx vite preview` — на машинах без bun больше не
+  падает.
+- **`meeet.world/.gitignore`**: добавил `deno.lock` (артефакт `deno
+  check` Edge Functions, не source-of-truth).
+- **`docs/SYNC.md` §11**: добавил протокол для двух **параллельных
+  Cursor-сессий** на одной машине — branch namespace
+  (`cursor/` vs `cursor-b/`), таблица портов (8765 vs 8866 / 5174 vs
+  5184 / 8083 vs 8084), file-level mutex, что разрешено окну B без
+  оператора.
+- **`docs/AGENT_HANDOFF.md`**: первая ссылка теперь ведёт сюда; и
+  явный pointer в §11 SYNC для второй Cursor-сессии.
+
+## Что параллельный Cursor (window B) может делать сразу, без оператора
+
+- Читать код / искать (Grep / Glob / SemanticSearch).
+- Запускать `pytest` / `vitest` / `npm run build`.
+- Создавать новые ветки под `cursor-b/...` и открывать PR.
+- Править копирайт страниц cockpit (lane-overlap с Claude — пометить
+  в CHANGELOG_AGENTS).
+- Добавлять тесты / fixtures.
+
+**Что окно B НЕ делает без оператора:** мерджи, force-push,
+закрытие PR, удаление remote-веток, ротация секретов.
