@@ -24,7 +24,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from backend.core.domains import packs as _packs  # noqa: F401  (registers)
-from backend.core.meeet import current_trace, get_client
+from backend.core.meeet import (
+    current_trace,
+    get_client,
+    get_trace_summary_store,
+)
 from web_extras.routers import agents as agents_router
 from web_extras.routers import awareness as awareness_router
 from web_extras.routers import chat as chat_router
@@ -76,6 +80,23 @@ def _replay_interval_s() -> float:
         return 60.0
 
 
+def _trace_summary_interval_s() -> float:
+    """How often the trace-summary materialised view rebuilds.
+
+    Default 300 s (5 min). ``0`` disables the loop entirely; the
+    `POST /api/meeet/traces/refresh` endpoint still works for
+    on-demand rebuilds.
+    """
+
+    raw = os.getenv("TARS_TRACE_SUMMARY_INTERVAL_S")
+    if raw is None:
+        return 300.0
+    try:
+        return max(0.0, float(raw))
+    except ValueError:
+        return 300.0
+
+
 async def _replay_loop() -> None:
     """Best-effort periodic replay.
 
@@ -105,18 +126,53 @@ async def _replay_loop() -> None:
             log.warning("meeet replay loop tick failed: %s", exc)
 
 
+async def _trace_summary_loop() -> None:
+    """Periodic rebuild of the meeet ``trace_summary`` materialised view.
+
+    Same shape as the replay loop: never propagates, never crashes the
+    host. Disabled when ``TARS_TRACE_SUMMARY_INTERVAL_S=0`` or when the
+    durable store is disabled.
+    """
+
+    interval = _trace_summary_interval_s()
+    if interval <= 0:
+        return
+    summary_store = get_trace_summary_store()
+    if not summary_store.enabled:
+        return
+    log.info("trace-summary loop active: interval_s=%.1f", interval)
+    while True:
+        try:
+            await asyncio.sleep(interval)
+            out = await summary_store.rebuild()
+            if out.get("traces") or out.get("scanned_events"):
+                log.info(
+                    "trace-summary refresh: traces=%s scanned=%s elapsed_ms=%s",
+                    out.get("traces"),
+                    out.get("scanned_events"),
+                    out.get("elapsed_ms"),
+                )
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # never crash the host
+            log.warning("trace-summary loop tick failed: %s", exc)
+
+
 @contextlib.asynccontextmanager
 async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     from backend.core.agents.autopilot import autopilot_loop
 
     replay = asyncio.create_task(_replay_loop(), name="meeet-replay-loop")
     autopilot = asyncio.create_task(autopilot_loop(), name="agents-autopilot-loop")
+    trace_summary = asyncio.create_task(
+        _trace_summary_loop(), name="meeet-trace-summary-loop"
+    )
     try:
         yield
     finally:
-        for task in (replay, autopilot):
+        for task in (replay, autopilot, trace_summary):
             task.cancel()
-        for task in (replay, autopilot):
+        for task in (replay, autopilot, trace_summary):
             with contextlib.suppress(asyncio.CancelledError, Exception):
                 await task
 
