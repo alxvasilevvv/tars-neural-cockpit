@@ -65,6 +65,11 @@ ERROR_CODES: Mapping[str, str] = {
     "pairing_invalid_token": "Pairing token is malformed, unknown, or expired.",
     "pairing_invalid_payload": "Pairing payload failed validation.",
     "pair_rate_limited": "Per-IP pairing-begin rate limit exceeded; retry after the Retry-After window.",
+    "challenge_not_found": "Recovery challenge id is unknown or has been swept by the in-memory store.",
+    "challenge_not_passed": "Recovery challenge has not been passed yet (or was consumed/expired/exhausted).",
+    "fingerprint_mismatch": "Recovery challenge fingerprint does not match the current host's bound seed.",
+    "recovery_not_bound": "Host identity has no recovery fingerprint bound yet; generate a seed first.",
+    "rotate_blocked": "Rotate-identity is gated behind a passed 3-of-24 recovery challenge.",
     "vault_unavailable": "Encrypted vault is locked or missing.",
     "recovery_invalid_mnemonic": "Mnemonic failed BIP-39 validation.",
 }
