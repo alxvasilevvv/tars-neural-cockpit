@@ -119,6 +119,62 @@ fresh `recovery.challenge.passed` event for the same fingerprint.
   `docs/CHANGELOG_AGENTS.md`, `docs/AGENT_HANDOFF.md`,
   `docs/IDEAS.md`
 
+## 2026-05-01 — Cursor [A] · Pairing audit feed + meeet kind_prefix filter
+
+**Summary**
+
+Closes the "audit log of pairing events" idea from `docs/IDEAS.md`'s
+pairing & sync section: every state transition has been emitting
+`pair.*` / `recovery.*` events into the meeet store for a while,
+but the cockpit had no clean way to read them back as a single
+gold-pill audit lane. This adds the missing read-side: a
+`kind_prefix` filter on the events table + a dedicated
+`/api/pairing/audit` endpoint that merges `pair.*` and
+`recovery.*` into one newest-first feed.
+
+1. **`backend/core/meeet/store.py`** — `MeeetStore.list_events()`
+   gains a `kind_prefix: str | None = None` arg that adds a
+   `kind LIKE ? ESCAPE '\\'` clause. Defensive escape of `\\`,
+   `%`, `_` so a future caller passing a stranger prefix can't
+   trip the LIKE matcher. `_list_sync` mirrors the new arg.
+
+2. **`web_extras/routers/meeet.py`** — `GET /api/meeet/events`
+   gains a `kind_prefix` query param (max 64 chars). Existing
+   filter combinations stay backwards-compatible: callers that
+   pass both `kind=` and `kind_prefix=` get the logical `AND`.
+
+3. **`web_extras/routers/pairing.py`** — new
+   `GET /api/pairing/audit?limit=&since=`:
+   - Folds two prefix queries (`pair.` + `recovery.`) into one
+     newest-first list, dedups by event id, caps at `limit`.
+   - Returns the public-safe shape per event: `{id, ts,
+     trace_id, kind, payload}` — no `pushed` / `last_error` /
+     `source` fields, which are bridge / replay concerns and
+     don't belong on the operator timeline.
+   - The `prefixes` array is echoed in the response body so the
+     cockpit can render a "lanes: pair, recovery" pill without
+     guessing.
+
+4. **`tests/test_pairing_audit.py`** — 12 tests covering:
+   - store-level `kind_prefix` filter (pair-only, recovery-only,
+     mixed-kind exclusion, AND-logic with `kind=`, defensive
+     LIKE escape for `%` / `_`),
+   - `/api/meeet/events?kind_prefix=…` round-trip,
+   - `/api/pairing/audit` merged feed (kinds, newest-first
+     ordering, public-safe shape, `since=` filter, `limit=`
+     respected, dedup across the two prefix buckets).
+
+**Files**
+`backend/core/meeet/store.py`,
+`web_extras/routers/meeet.py`,
+`web_extras/routers/pairing.py`,
+`tests/test_pairing_audit.py` (new),
+`docs/CHANGELOG_AGENTS.md`,
+`docs/AGENT_HANDOFF.md`,
+`docs/IDEAS.md`.
+
+**Tests** — `pytest tests/` ⇒ 1392 passed (full suite).
+
 ## 2026-05-01 — Cursor [A] · Rotate-identity epoch bump (clear paired devices)
 
 **Summary**
