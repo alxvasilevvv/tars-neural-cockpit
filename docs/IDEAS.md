@@ -412,6 +412,22 @@ Open ideas for the next layer:
      bias + dispersion contradictions.
    - `business.kpi_snapshot`, `business.daily_brief` ✅ shipped —
      local JSON-backed.
+   - `business.log_deal` ✅ shipped (2026-05-01) — real
+     local-first adapter. Routes to HubSpot if
+     `HUBSPOT_API_KEY` is set, Pipedrive if `PIPEDRIVE_API_KEY`
+     is set, otherwise appends to a local JSON store at
+     `~/.tars/business_deals.json` (override via
+     `TARS_LOCAL_DEALS_PATH` or `store_path` arg). New module
+     `backend/core/domains/packs/business/local_deals.py`
+     handles atomic tmp+rename writes, monotonically
+     incrementing `local-NNNN` ids that ignore unrelated CRM
+     rows, defensive load (corrupted JSON / non-list /
+     mixed-row shapes all tolerated), and a process-local
+     lock. Emits `business.deal_logged` per the cross-cutting
+     adapter rule. The format is wire-compatible with the file
+     `daily_brief` already reads, so the brief picks logged
+     deals up the next morning. Pinned by
+     `tests/test_business_local_deals.py` (43 cases).
    - `mlm.downline_snapshot`, `mlm.retention_alert` ✅ shipped —
      local CSV-backed; `score_recruit`, `generate_post` upgraded to
      deterministic heuristics.

@@ -9,9 +9,18 @@ Real adapters land here progressively. Two are implemented now:
   output until the council orchestrator lands; the council can drop in
   here without changing the surface contract.
 
-``draft_email`` and ``log_deal`` stay structured stubs — they need a
-mail provider / CRM integration to be useful and are out of scope for
-the local-first cut.
+``log_deal`` is a real adapter:
+
+- HubSpot ``HUBSPOT_API_KEY`` (vault) wins the routing.
+- Pipedrive ``PIPEDRIVE_API_KEY`` (vault) is the second choice.
+- When neither is configured the deal is appended to a local JSON
+  store at ``~/.tars/business_deals.json`` (override via
+  ``TARS_LOCAL_DEALS_PATH`` or the ``store_path`` arg). The brief
+  reader (``daily_brief``) can union this store with the bundled
+  sample so logged deals show up the next morning.
+
+``draft_email`` is also a real adapter via SMTP outbound (XOAUTH2 +
+refresh flow when configured), with policy gating for actual sends.
 """
 
 from __future__ import annotations
@@ -28,6 +37,7 @@ from ..._http import post_json
 from backend.core.vault import get_secret
 from ....council import get_council
 from .hubspot import pull_pipeline as hubspot_pull_pipeline
+from .local_deals import append_local_deal, resolve_local_deals_path
 from .smtp import SmtpConfig, send_email
 
 _REPO_ROOT = Path(__file__).resolve().parents[5]
@@ -368,7 +378,10 @@ async def log_deal(args: Mapping[str, Any]) -> Mapping[str, Any]:
     name = str(args.get("name", "")).strip()
     if not name:
         return {"ok": False, "error": "name_required"}
-    amount_f = float(args.get("amount", 0) or 0)
+    try:
+        amount_f = float(args.get("amount", 0) or 0)
+    except (TypeError, ValueError):
+        amount_f = 0.0
     stage = str(args.get("stage", "discovery"))
 
     pushed = await _push_hubspot_deal(name, amount_f)
@@ -390,16 +403,42 @@ async def log_deal(args: Mapping[str, Any]) -> Mapping[str, Any]:
             **pushed,
         }
 
+    store_path_arg = args.get("store_path") or args.get("path")
+    target = resolve_local_deals_path(
+        str(store_path_arg) if store_path_arg else None
+    )
+    try:
+        record = await append_local_deal(
+            name=name,
+            amount=amount_f,
+            stage=stage,
+            owner=str(args.get("owner") or "") or None,
+            next_step=str(args.get("next_step") or "") or None,
+            due=str(args.get("due") or "") or None,
+            notes=str(args.get("notes") or "") or None,
+            path=str(store_path_arg) if store_path_arg else None,
+        )
+    except OSError as exc:
+        return {
+            "ok": False,
+            "error": "local_store_unwritable",
+            "detail": str(exc),
+            "store_path": str(target),
+        }
+
     return {
         "ok": True,
-        "deal_id": "stub-deal-0001",
-        "name": name,
-        "amount": amount_f,
-        "stage": stage,
+        "deal_id": record.id,
+        "name": record.name,
+        "amount": record.amount,
+        "stage": record.stage,
+        "crm": "local",
         "crm_pushed": False,
+        "store_path": str(target),
+        "deal": record.to_dict(),
         "hint": (
-            "set HUBSPOT_API_KEY or PIPEDRIVE_API_KEY — otherwise deal "
-            "stays stub-local until a CRM vault entry is present."
+            "deal saved to local JSON store; set HUBSPOT_API_KEY or "
+            "PIPEDRIVE_API_KEY to push to a real CRM next time."
         ),
     }
 
@@ -464,14 +503,42 @@ ACTIONS: tuple[ActionSpec, ...] = (
     ActionSpec(
         id="log_deal",
         name="Log deal",
-        description="Stage a new deal locally before pushing to CRM.",
+        description=(
+            "Log a deal. Routes to HubSpot if HUBSPOT_API_KEY is set, "
+            "Pipedrive if PIPEDRIVE_API_KEY is set, otherwise appends "
+            "to the local JSON store at ~/.tars/business_deals.json "
+            "(override via TARS_LOCAL_DEALS_PATH or store_path arg). "
+            "Emits 'business.deal_logged' on the local-store path so "
+            "the cost ledger and audit timeline see the row."
+        ),
         handler=log_deal,
         schema={
             "type": "object",
             "properties": {
                 "name": {"type": "string"},
                 "amount": {"type": "number"},
-                "stage": {"type": "string"},
+                "stage": {
+                    "type": "string",
+                    "enum": [
+                        "discovery",
+                        "qualification",
+                        "proposal",
+                        "negotiation",
+                        "won",
+                        "lost",
+                    ],
+                },
+                "owner": {"type": "string"},
+                "next_step": {"type": "string"},
+                "due": {"type": "string"},
+                "notes": {"type": "string"},
+                "store_path": {
+                    "type": "string",
+                    "description": (
+                        "Optional override for the local JSON store. "
+                        "Useful for tests / multi-workspace setups."
+                    ),
+                },
             },
             "required": ["name"],
         },
