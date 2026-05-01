@@ -4,6 +4,102 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · `mlm.score_recruit` over real downline signals
+
+**Summary**
+
+Promotes `score_recruit` from a one-line `hash()` heuristic — which
+was non-deterministic across machines because Python's built-in
+`hash()` is randomised by `PYTHONHASHSEED` — to a real
+local-first scorer over the downline DB. Two wins:
+
+1. **Determinism.** The unknown-handle fallback uses a SHA-256
+   prefix instead of `hash()`, so `@nora` scores the same on every
+   machine and across process restarts.
+2. **Real signals.** When the handle is found in the local
+   downline DB, the score is a weighted composition of recency
+   (40%), volume (30%), rank (20%), and tenure (10%). Operators
+   see an explanatory `signals{}` block plus `fit_signals` /
+   `risk_signals` strings derived from the components.
+
+1. **Module** (`backend/core/domains/packs/mlm/scoring.py`)
+   - `RecruitSignals` frozen dataclass: per-component scores plus
+     interpretable extras (`days_silent`, `volume_usd`,
+     `rank_label`, `tenure_days`, `fit`, `risk` tuples).
+   - `_recency_score(last_active_at, now)` — saturates at 1.0 for
+     ≤7 days, drops linearly to 0.0 by day 90; missing field →
+     neutral 0.5.
+   - `_volume_score(volume_usd)` — linear up to a $5000
+     saturation; negatives clamp to 0.
+   - `_rank_score(rank)` — ordinal over a curated 7-step ladder
+     (`junior → founder`); unknown ranks return the midpoint so
+     the cockpit can't accidentally reward exotic strings.
+   - `_tenure_score(joined_at, now)` — 0 below 30d, saturates at
+     365d; missing field → neutral.
+   - `_fit_and_risk(signals, days_silent)` — composes the
+     operator-facing strings.
+   - `signals_for_member(member, *, now=None)` — pure function
+     so tests can pin the math without going through the action.
+   - `compose_score(signals)` — weighted average, clamped to
+     `[0, 1]`, rounded to 2dp.
+   - `stable_handle_score(handle)` — `int.from_bytes(sha256(...)[:4])`
+     mapped onto `[0.40, 0.95]`. Stable across machines and
+     restarts; lowercase + whitespace insensitive.
+   - `score_for_unknown_handle(handle)` — neutral signal record
+     with the SHA-256 score on every component so the
+     composition stays defensive.
+   - Knobs (`RECENCY_FLOOR_DAYS`, `VOLUME_SATURATION_USD`, …) and
+     `WEIGHTS` are module-level constants — easy to monkey-patch
+     in tests / promote to env vars later.
+
+2. **Action** (`backend/core/domains/packs/mlm/actions.py`)
+   - `score_recruit` now consults the downline DB
+     (`get_downline_db().get(handle)`), feeds the member through
+     `signals_for_member` + `compose_score`, and surfaces
+     `signals{}`, `rank`, `volume_usd`, `days_silent`, plus
+     `model="downline-v1"`, `source="downline_db"`.
+   - Unknown handles drop into the `score_for_unknown_handle`
+     branch with `model="heuristic-v1"` and an explicit hint
+     pointing at `mlm.add_member`.
+   - DB lookup failures (`Exception`) fall through to the
+     unknown-handle branch instead of crashing the action — so
+     the cockpit gets a value even when the SQLite file is
+     temporarily locked.
+   - Module docstring no longer calls `score_recruit` a stub.
+
+3. **Tests** (`tests/test_mlm_score_recruit.py`, 40 cases)
+   - Sanity: weights sum to 1, rank ladder is unique + lowercase.
+   - Stable hash: range `[0.40, 0.95]`, deterministic across
+     calls, case-insensitive, distinguishes handles.
+   - Unknown-handle signals carry the "not in downline" risk
+     string and uniform components.
+   - Recency: saturated active / silent / interpolation /
+     missing / Z-suffix / garbage parsing.
+   - Volume: zero / saturation / linear midpoint / negative.
+   - Rank: unknown string / blank / lowest=0 + highest=1 /
+     case-insensitivity.
+   - Tenure: floor / saturation / missing.
+   - Composite: full path member, silent member emits risk,
+     strong member emits fit; `compose_score` weighted average
+     and clamping; `to_dict` rounding.
+   - Action handler: `handle_required` validation, unknown
+     handle path emits `heuristic-v1`, known handle emits
+     `downline-v1` with > 0.5 score on a senior+active+volume
+     row, inactive member emits a "silent / zero" risk line,
+     determinism across calls, schema unchanged at top level,
+     DB exceptions fall through cleanly.
+
+4. **Suite**: 1516 tests green (was 1476).
+
+**Files touched**
+
+- `backend/core/domains/packs/mlm/scoring.py` (new)
+- `backend/core/domains/packs/mlm/actions.py`
+- `tests/test_mlm_score_recruit.py` (new)
+- `docs/CHANGELOG_AGENTS.md`
+- `docs/AGENT_HANDOFF.md`
+- `docs/IDEAS.md`
+
 ## 2026-05-01 — Cursor [A] · `business.log_deal` real local-first adapter
 
 **Summary**

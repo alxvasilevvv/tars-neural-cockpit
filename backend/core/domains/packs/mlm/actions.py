@@ -5,9 +5,11 @@ Real-ish adapters backed by an SQLite downline DB
 ``data/mlm_network.csv`` on first run. Override the DB path with
 ``MLM_DB_PATH``; override the seed CSV with ``MLM_NETWORK_PATH``.
 
-``score_recruit`` and ``generate_post`` stay as structured stubs.
-``tg_outreach_draft`` is a deterministic Telegram drafter (see
-``tg_outreach.py``).
+``score_recruit`` is a deterministic scorer over the local downline
+DB (see ``scoring.py``); falls back to a stable SHA-256-derived
+score for unknown handles. ``generate_post`` stays as a structured
+stub. ``tg_outreach_draft`` is a deterministic Telegram drafter
+(see ``tg_outreach.py``).
 """
 
 from __future__ import annotations
@@ -21,6 +23,11 @@ from typing import Any, Mapping
 
 from ...base import ActionSpec
 from .db import get_downline_db
+from .scoring import (
+    compose_score,
+    score_for_unknown_handle,
+    signals_for_member,
+)
 from .tg_outreach import (
     KNOWN_INTENTS as TG_OUTREACH_INTENTS,
     KNOWN_LANGUAGES as TG_OUTREACH_LANGUAGES,
@@ -295,25 +302,72 @@ async def log_activity(args: Mapping[str, Any]) -> Mapping[str, Any]:
 
 
 async def score_recruit(args: Mapping[str, Any]) -> Mapping[str, Any]:
+    """Score a candidate against the local downline.
+
+    When ``handle`` exists in the downline DB the score is the
+    weighted composition of recency / volume / rank / tenure
+    signals (``model="downline-v1"``). When the handle is unknown
+    we fall back to a stable SHA-256 hash mapped onto ``[0.40,
+    0.95]`` (``model="heuristic-v1"``) so the cockpit gets a
+    deterministic number across machines and process restarts.
+
+    See :mod:`backend.core.domains.packs.mlm.scoring` for the
+    arithmetic. The action surface stays stable: ``score`` is the
+    composite, ``fit_signals`` / ``risk_signals`` are short
+    operator-facing strings derived from the components.
+    """
+
     handle = str(args.get("handle", "")).strip()
     if not handle:
         return {"ok": False, "error": "handle_required"}
 
-    # Lightweight deterministic heuristic until we plug in a real public
-    # profile signal stack: hash the handle into a stable score and
-    # surface a couple of placeholder signals.
-    h = abs(hash(handle.lower())) % 100
-    score = round(0.4 + (h / 100.0) * 0.55, 2)
-    fit = ["consistent posting cadence"] if score > 0.7 else []
-    risk = ["low engagement on last 5 posts"] if score < 0.55 else []
+    db = get_downline_db()
+    try:
+        await db.ensure_seeded()
+    except Exception:
+        # Seed failures shouldn't break scoring — we'll just take
+        # the unknown-handle branch.
+        pass
+
+    member = None
+    try:
+        member = await db.get(handle)
+    except Exception:
+        member = None
+
+    if member is not None:
+        signals = signals_for_member(member)
+        score = compose_score(signals)
+        return {
+            "ok": True,
+            "handle": handle,
+            "score": score,
+            "fit_signals": list(signals.fit),
+            "risk_signals": list(signals.risk),
+            "signals": signals.to_dict(),
+            "model": "downline-v1",
+            "source": "downline_db",
+            "rank": signals.rank_label,
+            "volume_usd": signals.volume_usd,
+            "days_silent": signals.days_silent,
+        }
+
+    signals = score_for_unknown_handle(handle)
+    score = compose_score(signals)
     return {
         "ok": True,
         "handle": handle,
         "score": score,
-        "fit_signals": fit,
-        "risk_signals": risk,
-        "model": "heuristic-v0",
-        "hint": "stub heuristic; will be replaced by a real signal stack",
+        "fit_signals": list(signals.fit),
+        "risk_signals": list(signals.risk),
+        "signals": signals.to_dict(),
+        "model": "heuristic-v1",
+        "source": "stable_hash",
+        "hint": (
+            "handle not found in local downline — score is a stable "
+            "SHA-256-derived placeholder. Add the member via "
+            "mlm.add_member to get real signals."
+        ),
     }
 
 
