@@ -2,8 +2,9 @@
 
 ``fetch_quote`` is a real adapter against the public DexScreener search
 API (no key required). ``summarize_market`` aggregates a basket and asks
-the council to interpret it. Other actions stay as typed stubs until
-they get real ground.
+the council to interpret it. ``pull_klines`` is a read-only adapter
+against Binance's public klines REST endpoint (no key required).
+Other actions stay as typed stubs until they get real ground.
 """
 
 from __future__ import annotations
@@ -13,6 +14,13 @@ from typing import Any, Mapping
 from ...base import ActionSpec
 from ..._http import get_json, NetworkError
 from ....council import get_council
+from .binance import (
+    ALLOWED_INTERVALS as BINANCE_INTERVALS,
+    DEFAULT_INTERVAL as BINANCE_DEFAULT_INTERVAL,
+    DEFAULT_LIMIT as BINANCE_DEFAULT_LIMIT,
+    MAX_LIMIT as BINANCE_MAX_LIMIT,
+    pull_klines as binance_pull_klines,
+)
 
 DEXSCREENER_SEARCH = "https://api.dexscreener.com/latest/dex/search"
 
@@ -269,6 +277,40 @@ ACTIONS: tuple[ActionSpec, ...] = (
             "required": ["ticker", "price", "direction"],
         },
         destructive=True,
+    ),
+    ActionSpec(
+        id="pull_klines",
+        name="Pull klines",
+        description=(
+            "Fetch OHLCV klines for a symbol from Binance's public REST "
+            "API. Read-only, no API key required."
+        ),
+        handler=binance_pull_klines,
+        schema={
+            "type": "object",
+            "properties": {
+                "symbol": {
+                    "type": "string",
+                    "description": (
+                        "Binance pair symbol, e.g. 'BTCUSDT'. Common "
+                        "separators (/, -, _, :, space) are stripped "
+                        "automatically."
+                    ),
+                },
+                "interval": {
+                    "type": "string",
+                    "enum": list(BINANCE_INTERVALS),
+                    "default": BINANCE_DEFAULT_INTERVAL,
+                },
+                "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": BINANCE_MAX_LIMIT,
+                    "default": BINANCE_DEFAULT_LIMIT,
+                },
+            },
+            "required": ["symbol"],
+        },
     ),
     ActionSpec(
         id="summarize_market",
