@@ -88,9 +88,13 @@ class CompositePack(DomainPack):
         return tuple(p.manifest.slug for p in self._sub_packs)
 
     def actions(self) -> Iterable[ActionSpec]:
+        # Include the sub-pack's full action surface (own actions
+        # *plus* its system-injected ``pack.memory.*`` family). The
+        # composite's own ``pack.memory.*`` partition is added on top
+        # by ``DomainPack.all_actions``.
         out: list[ActionSpec] = []
         for sub in self._sub_packs:
-            for spec in sub.actions():
+            for spec in sub.all_actions():
                 out.append(_namespaced_action(sub.manifest.slug, spec))
         return out
 
