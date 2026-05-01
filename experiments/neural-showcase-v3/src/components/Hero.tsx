@@ -39,8 +39,8 @@ const PROMPTS_DEMO: { input: string; label: string; body: string }[] = [
     input: "Brief me on my morning",
     label: "MORNING BRIEF · drafted in 1.8s",
     body:
-      "10:00 — Sync с командой (3 уч.). Phase 9 review. " +
-      "2 deals waiting on a response · 1 PR ждёт review · " +
+      "10:00 — Team sync (3 attendees). Phase 9 review. " +
+      "2 deals waiting on a response · 1 PR awaits review · " +
       "Council voted: ship the Friday demo.",
   },
   {
@@ -63,9 +63,9 @@ const PROMPTS_DEMO: { input: string; label: string; body: string }[] = [
     input: "Summarize research.pdf and pull citations",
     label: "FILE SUMMARY · 18 pages, 4 sources",
     body:
-      "Главный тезис: дискриминатор обучается в edge-режиме при " +
-      "батчах ≤ 256. 4 эксперимента подтверждают, метрики " +
-      "стабильны 92%+. Citations: [chunk_3], [chunk_7], [chunk_11].",
+      "Core thesis: the discriminator trains on-edge at batch sizes " +
+      "≤ 256. 4 experiments confirm, metrics steady at 92%+. " +
+      "Citations: [chunk_3], [chunk_7], [chunk_11].",
   },
   {
     input: "Read this whiteboard photo and turn it into a checklist",

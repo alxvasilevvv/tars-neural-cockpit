@@ -51,7 +51,7 @@ const DELIBERATIONS: MockDeliberation[] = [
         model: "gpt-5",
         brand: "#34D399",
         stance: "draft + send",
-        summary: "Reply directly. Saша's prompt is procedural — confirmation overhead would break the flow.",
+        summary: "Reply directly. Sasha's prompt is procedural — confirmation overhead would break the flow.",
         confidence: 0.62,
         latency: "538ms",
         tokens: "1.6k / 410",
