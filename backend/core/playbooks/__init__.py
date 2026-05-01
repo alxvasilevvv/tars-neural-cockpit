@@ -32,16 +32,26 @@ from .loader import (
     reset_loader_cache,
 )
 from .runner import PlaybookRunner, StepResult, run_playbook
+from .validator import (
+    Issue,
+    ValidationResult,
+    validate_payload,
+    validate_playbook,
+)
 
 __all__ = [
+    "Issue",
     "PLAYBOOKS_DIR",
     "Playbook",
     "PlaybookRunner",
     "PlaybookStep",
     "StepResult",
+    "ValidationResult",
     "discover",
     "get_playbook",
     "list_playbooks",
     "reset_loader_cache",
     "run_playbook",
+    "validate_payload",
+    "validate_playbook",
 ]
