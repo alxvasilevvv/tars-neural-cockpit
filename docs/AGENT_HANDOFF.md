@@ -193,6 +193,27 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-01 — `business.log_deal` real local-first adapter (Cursor [A]):**
+  Promotes the last open stub in the business pack to a real
+  local-first action. When neither HubSpot nor Pipedrive
+  credentials are configured, deals append to a local JSON
+  store at `~/.tars/business_deals.json` (override via
+  `TARS_LOCAL_DEALS_PATH` or the new `store_path` arg) — the
+  same shape `daily_brief` already reads, so logged deals show
+  up next morning. New
+  `backend/core/domains/packs/business/local_deals.py` covers
+  path resolution, defensive load (corrupted JSON / non-list /
+  mixed rows tolerated), atomic tmp+rename writes,
+  monotonically-incrementing `local-NNNN` ids that ignore
+  unrelated CRM rows, and a process-local lock. Each successful
+  append emits `business.deal_logged` per the cross-cutting
+  adapter rule. The `log_deal` action's `ActionSpec` schema
+  also gains `owner` / `next_step` / `due` / `notes` /
+  `store_path` plus a `stage` enum for cockpit dropdowns.
+  Pinned by 43 new tests (incl. `OSError` surface, corrupt-store
+  recovery, monotonic ids, CRM short-circuit untouching the
+  local store); full suite: **1476 green**.
+
 - **2026-05-01 — `science.extract_dataset` reads attachments (Cursor [A]):**
   Closes the natural follow-up to the real-adapter promotion:
   the action now accepts `attachment_id` alongside `text` and
