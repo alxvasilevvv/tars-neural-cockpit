@@ -254,18 +254,26 @@ async def summarize_paper(args: Mapping[str, Any]) -> Mapping[str, Any]:
 async def extract_dataset(args: Mapping[str, Any]) -> Mapping[str, Any]:
     """Surface dataset references in a paper abstract or raw text.
 
-    Two input shapes are supported:
+    Three input shapes are supported (in priority order):
 
-    - ``ref`` (preferred): an arXiv id / DOI / arxiv URL — the
-      handler fetches the title + abstract via the same arXiv
-      Atom path that backs ``summarize_paper`` and runs the
-      detector against ``title + ". " + summary``.
     - ``text``: any operator-provided string. Useful for the
       cockpit's "paste a paper passage" affordance and to keep
-      the detector unit-testable without network.
+      the detector unit-testable without network or storage.
+    - ``attachment_id``: id of a chat attachment that's already
+      been ingested. The handler reads ``record.extracted_text``
+      (the same field that backs the chunker / FTS index) and
+      runs the detector over it. Lets an operator point at a
+      PDF they've uploaded and ask "what datasets does this
+      paper cite?" without re-fetching arXiv.
+    - ``ref``: an arXiv id / DOI / arxiv URL. The handler fetches
+      the title + abstract via the same arXiv Atom path that
+      backs ``summarize_paper`` and runs the detector over
+      ``title + ". " + summary``.
 
-    If both are provided, ``text`` overrides — the operator may
-    legitimately want to probe an excerpt without re-fetching.
+    If multiple are provided, the priority above wins. The
+    detector is the same in all three cases — it operates on
+    text, so the input shape only changes the *source* of that
+    text.
 
     Returns ``{ok, datasets[], count, sources[]}`` where each
     dataset row is ``{canonical_id, name, source, evidence,
@@ -278,12 +286,44 @@ async def extract_dataset(args: Mapping[str, Any]) -> Mapping[str, Any]:
     """
 
     text = str(args.get("text") or "").strip()
+    attachment_id = str(args.get("attachment_id") or "").strip()
     ref = str(args.get("ref") or "").strip()
 
-    if not text and not ref:
-        return {"ok": False, "error": "ref_or_text_required"}
+    if not text and not attachment_id and not ref:
+        return {"ok": False, "error": "ref_or_text_or_attachment_required"}
 
     payload: dict[str, Any] = {"ok": True}
+
+    if not text and attachment_id:
+        # Lazy import to keep the science pack importable in test
+        # environments that don't bring up the chat / attachment
+        # stack.
+        from backend.core.attachments import get_attachment_store
+
+        store = get_attachment_store()
+        record = await store.get_attachment(attachment_id)
+        if record is None:
+            return {
+                "ok": False,
+                "error": "attachment_not_found",
+                "attachment_id": attachment_id,
+            }
+        attachment_text = (record.extracted_text or "").strip()
+        if not attachment_text:
+            return {
+                "ok": False,
+                "error": "attachment_empty",
+                "hint": (
+                    "attachment has no extracted text — re-ingest with a "
+                    "supported extractor or run with text=… instead"
+                ),
+                "attachment_id": attachment_id,
+            }
+        text = attachment_text
+        payload["attachment_id"] = attachment_id
+        payload["filename"] = record.filename
+        payload["mime"] = record.mime
+        payload["thread_id"] = record.thread_id
 
     if not text:
         arxiv_id = _normalize_arxiv_ref(ref)
@@ -386,10 +426,11 @@ ACTIONS: tuple[ActionSpec, ...] = (
         id="extract_dataset",
         name="Extract dataset",
         description=(
-            "Surface dataset references in a paper (arXiv ref) or "
-            "operator-provided text. Detects ~25 named datasets "
-            "(ImageNet, COCO, GLUE, SQuAD, …) plus repository URL "
-            "patterns (Zenodo, Figshare, HuggingFace, Kaggle, …)."
+            "Surface dataset references in a paper (arXiv ref), an "
+            "uploaded attachment, or operator-provided text. Detects "
+            "~25 named datasets (ImageNet, COCO, GLUE, SQuAD, …) plus "
+            "repository URL patterns (Zenodo, Figshare, HuggingFace, "
+            "Kaggle, …)."
         ),
         handler=extract_dataset,
         schema={
@@ -402,8 +443,16 @@ ACTIONS: tuple[ActionSpec, ...] = (
                 "text": {
                     "type": "string",
                     "description": (
-                        "Raw text to scan; overrides 'ref' when both "
-                        "are provided. Useful for excerpts."
+                        "Raw text to scan; takes priority over "
+                        "'attachment_id' and 'ref' when provided."
+                    ),
+                },
+                "attachment_id": {
+                    "type": "string",
+                    "description": (
+                        "Id of an ingested chat attachment. Reads "
+                        "extracted_text from the attachment store; "
+                        "falls back to 'ref' when both are missing."
                     ),
                 },
             },

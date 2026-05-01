@@ -224,7 +224,7 @@ async def test_extract_dataset_with_text_returns_inline_mentions():
 async def test_extract_dataset_without_input_errors():
     res = await science_actions.extract_dataset({})
     assert res["ok"] is False
-    assert res["error"] == "ref_or_text_required"
+    assert res["error"] == "ref_or_text_or_attachment_required"
 
 
 @pytest.mark.asyncio
@@ -334,4 +334,216 @@ def test_extract_dataset_action_is_registered_with_schema():
     assert target is not None
     assert "ref" in target.schema["properties"]
     assert "text" in target.schema["properties"]
+    assert "attachment_id" in target.schema["properties"]
     assert target.handler is science_actions.extract_dataset
+
+
+# ---------------------------------------------------------------------
+# Action handler — attachment_id path
+# ---------------------------------------------------------------------
+
+
+class _FakeAttachmentRecord:
+    """Bare-minimum stand-in for `AttachmentRecord` covering the
+    fields the extractor reads. Avoids spinning up the SQLite store
+    just to feed a string of text through the detector."""
+
+    def __init__(
+        self,
+        *,
+        id: str,
+        thread_id: str = "thr_test",
+        filename: str = "paper.pdf",
+        mime: str = "application/pdf",
+        extracted_text: str | None = "",
+    ) -> None:
+        self.id = id
+        self.thread_id = thread_id
+        self.filename = filename
+        self.mime = mime
+        self.extracted_text = extracted_text
+
+
+class _FakeAttachmentStore:
+    """In-memory attachment store that mirrors the async API the
+    handler actually calls (`get_attachment`)."""
+
+    def __init__(self, records: dict[str, _FakeAttachmentRecord] | None = None) -> None:
+        self._records = records or {}
+
+    async def get_attachment(self, attachment_id: str):
+        return self._records.get(attachment_id)
+
+
+@pytest.fixture
+def patch_attachment_store(monkeypatch):
+    """Inject a fake attachment store via the lazy import the
+    handler performs. Returns a setter so individual tests can
+    seed the records they need."""
+
+    import backend.core.attachments as attachments_pkg
+
+    holder: dict[str, _FakeAttachmentStore] = {
+        "store": _FakeAttachmentStore(),
+    }
+
+    def _factory():
+        return holder["store"]
+
+    monkeypatch.setattr(attachments_pkg, "get_attachment_store", _factory)
+
+    def _set(records: dict[str, _FakeAttachmentRecord]) -> None:
+        holder["store"] = _FakeAttachmentStore(records)
+
+    return _set
+
+
+@pytest.mark.asyncio
+async def test_extract_dataset_with_attachment_id_uses_extracted_text(
+    patch_attachment_store,
+):
+    patch_attachment_store(
+        {
+            "att_abc": _FakeAttachmentRecord(
+                id="att_abc",
+                filename="benchmarks.pdf",
+                mime="application/pdf",
+                extracted_text=(
+                    "This paper benchmarks ResNet on ImageNet and SQuAD."
+                ),
+            )
+        }
+    )
+
+    res: dict[str, Any] = dict(
+        await science_actions.extract_dataset({"attachment_id": "att_abc"})
+    )
+
+    assert res["ok"] is True
+    assert res["attachment_id"] == "att_abc"
+    assert res["filename"] == "benchmarks.pdf"
+    assert res["mime"] == "application/pdf"
+    assert res["thread_id"] == "thr_test"
+    canonical = {d["canonical_id"] for d in res["datasets"]}
+    assert {"imagenet", "squad"} <= canonical
+    assert "known_dataset" in res["sources"]
+
+
+@pytest.mark.asyncio
+async def test_extract_dataset_attachment_not_found(patch_attachment_store):
+    patch_attachment_store({})
+    res = await science_actions.extract_dataset({"attachment_id": "missing"})
+    assert res["ok"] is False
+    assert res["error"] == "attachment_not_found"
+    assert res["attachment_id"] == "missing"
+
+
+@pytest.mark.asyncio
+async def test_extract_dataset_attachment_empty_text(patch_attachment_store):
+    patch_attachment_store(
+        {
+            "att_blank": _FakeAttachmentRecord(
+                id="att_blank",
+                extracted_text="   \n  ",
+            )
+        }
+    )
+    res = await science_actions.extract_dataset({"attachment_id": "att_blank"})
+    assert res["ok"] is False
+    assert res["error"] == "attachment_empty"
+    assert res["attachment_id"] == "att_blank"
+    assert "hint" in res
+
+
+@pytest.mark.asyncio
+async def test_extract_dataset_attachment_none_text(patch_attachment_store):
+    patch_attachment_store(
+        {
+            "att_none": _FakeAttachmentRecord(
+                id="att_none",
+                extracted_text=None,
+            )
+        }
+    )
+    res = await science_actions.extract_dataset({"attachment_id": "att_none"})
+    assert res["ok"] is False
+    assert res["error"] == "attachment_empty"
+
+
+@pytest.mark.asyncio
+async def test_extract_dataset_text_overrides_attachment_id(
+    patch_attachment_store, monkeypatch
+):
+    """Explicit text always wins. The handler must not even consult
+    the attachment store when ``text`` is provided."""
+
+    called = {"hits": 0}
+
+    class _BoomStore:
+        async def get_attachment(self, attachment_id: str):  # pragma: no cover
+            called["hits"] += 1
+            raise AssertionError("attachment store should not be consulted")
+
+    import backend.core.attachments as attachments_pkg
+
+    monkeypatch.setattr(
+        attachments_pkg, "get_attachment_store", lambda: _BoomStore()
+    )
+
+    res = await science_actions.extract_dataset(
+        {
+            "attachment_id": "att_should_be_ignored",
+            "text": "We use CIFAR-10 in this excerpt.",
+        }
+    )
+    assert res["ok"] is True
+    canonical = {d["canonical_id"] for d in res["datasets"]}
+    assert canonical == {"cifar-10"}
+    assert called["hits"] == 0
+
+
+@pytest.mark.asyncio
+async def test_extract_dataset_attachment_id_overrides_ref(
+    patch_attachment_store, monkeypatch
+):
+    """When both ``attachment_id`` and ``ref`` are supplied the
+    attachment wins — arXiv must not be hit."""
+
+    patch_attachment_store(
+        {
+            "att_priority": _FakeAttachmentRecord(
+                id="att_priority",
+                extracted_text="Trained on COCO.",
+            )
+        }
+    )
+
+    fake_get_text = AsyncMock(side_effect=AssertionError("arxiv not expected"))
+    monkeypatch.setattr(science_actions, "get_text", fake_get_text)
+
+    res = await science_actions.extract_dataset(
+        {"attachment_id": "att_priority", "ref": "arxiv:2305.13245"}
+    )
+    assert res["ok"] is True
+    canonical = {d["canonical_id"] for d in res["datasets"]}
+    assert canonical == {"coco"}
+    fake_get_text.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_extract_dataset_attachment_id_blank_falls_back_to_ref(
+    patch_attachment_store, monkeypatch
+):
+    """An empty / whitespace ``attachment_id`` should not short-circuit
+    the handler — it should still try the ``ref`` path."""
+
+    fake_get_text = AsyncMock(return_value=(200, _FAKE_ARXIV_BODY))
+    monkeypatch.setattr(science_actions, "get_text", fake_get_text)
+
+    res = await science_actions.extract_dataset(
+        {"attachment_id": "   ", "ref": "arxiv:2305.13245"}
+    )
+    assert res["ok"] is True
+    assert res["arxiv_id"] == "2305.13245"
+    canonical = {d["canonical_id"] for d in res["datasets"]}
+    assert {"imagenet", "coco"} <= canonical

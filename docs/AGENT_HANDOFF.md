@@ -193,6 +193,23 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-01 — `science.extract_dataset` reads attachments (Cursor [A]):**
+  Closes the natural follow-up to the real-adapter promotion:
+  the action now accepts `attachment_id` alongside `text` and
+  `ref`. Resolves chat attachments via the existing
+  `AttachmentStore.get_attachment(id)` async API, runs the same
+  deterministic detector against `record.extracted_text`, and
+  surfaces `attachment_id` / `filename` / `mime` / `thread_id`
+  on the response so the cockpit can label result rows with
+  the source paper. New error codes `attachment_not_found` and
+  `attachment_empty` (with a `hint`) cover the missing /
+  ingestion-still-running cases. Lazy import keeps the science
+  pack importable in offline / unit-test envs. Priority order
+  documented in the docstring + `ActionSpec` schema:
+  `text` > `attachment_id` > `ref`. Pinned by 7 new tests
+  (incl. priority enforcement and attachment-not-found / empty
+  paths); full suite: **1433 green**.
+
 - **2026-05-01 — `science.extract_dataset` real adapter (Cursor [A]):**
   Promotes the science pack's `extract_dataset` action from a typed
   stub to a deterministic detector. Surfaces dataset references in
