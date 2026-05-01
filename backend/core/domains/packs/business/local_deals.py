@@ -47,6 +47,7 @@ import re
 import threading
 import uuid
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
 
@@ -210,6 +211,130 @@ def _coerce_stage(stage: Any) -> str:
     return "discovery"
 
 
+_UPDATABLE_FIELDS: tuple[str, ...] = (
+    "name",
+    "amount",
+    "stage",
+    "owner",
+    "next_step",
+    "due",
+    "notes",
+)
+
+
+def _coerce_update_value(field_name: str, value: Any) -> Any:
+    """Coerce a user-supplied update value to its canonical shape.
+
+    Returns ``...`` (Ellipsis) when the field should be left untouched
+    (e.g. caller passed ``None`` for a non-stage / non-amount field
+    that's still optional). Returns ``None`` to explicitly clear a
+    field; returns the coerced value otherwise.
+    """
+
+    if field_name == "name":
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError("name_required")
+        return value.strip()
+    if field_name == "amount":
+        return _coerce_amount(value)
+    if field_name == "stage":
+        return _coerce_stage(value)
+    # Optional string fields: blank/None means "don't touch".
+    if value is None:
+        return ...
+    if isinstance(value, str):
+        s = value.strip()
+        return s if s else None
+    return value
+
+
+async def update_local_deal(
+    deal_id: str,
+    *,
+    updates: Mapping[str, Any] | None = None,
+    path: str | os.PathLike[str] | None = None,
+    now: str | None = None,
+) -> dict[str, Any]:
+    """Apply patch-style updates to an existing local deal row.
+
+    Only fields in :data:`_UPDATABLE_FIELDS` may be patched. Values
+    outside the schema are silently ignored — the cockpit must use
+    the action contract. Returns the updated row as a dict on
+    success, or raises :class:`KeyError` (``deal_not_found``) /
+    :class:`ValueError` (``deal_id_required``, ``no_updates``,
+    ``name_required``).
+
+    Stamps ``updated_at`` (UTC ISO Z) on every change. If no field
+    actually changes, the row is returned with ``unchanged=True``
+    and *no* meeet event is emitted (idempotent).
+    """
+
+    if not isinstance(deal_id, str) or not deal_id.strip():
+        raise ValueError("deal_id_required")
+    aid = deal_id.strip()
+
+    if not isinstance(updates, Mapping) or not updates:
+        raise ValueError("no_updates")
+
+    coerced: dict[str, Any] = {}
+    for field_name in _UPDATABLE_FIELDS:
+        if field_name not in updates:
+            continue
+        value = _coerce_update_value(field_name, updates[field_name])
+        if value is ...:
+            continue
+        coerced[field_name] = value
+    if not coerced:
+        raise ValueError("no_updates")
+
+    when = now or datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    target = resolve_local_deals_path(path)
+
+    changed_fields: list[str] = []
+    updated_row: dict[str, Any]
+    with _lock:
+        rows = _read_existing(target)
+        idx: int | None = None
+        for i, row in enumerate(rows):
+            if str(row.get("id") or "") == aid:
+                idx = i
+                break
+        if idx is None:
+            raise KeyError("deal_not_found")
+        current = dict(rows[idx])
+        for field_name, value in coerced.items():
+            if current.get(field_name) != value:
+                changed_fields.append(field_name)
+                if value is None:
+                    current.pop(field_name, None)
+                else:
+                    current[field_name] = value
+        if changed_fields:
+            current["updated_at"] = when
+            rows[idx] = current
+            _atomic_write(target, rows)
+        updated_row = current
+
+    if changed_fields:
+        client = get_client()
+        await client.emit(
+            "business.deal_updated",
+            {
+                "id": aid,
+                "name": updated_row.get("name"),
+                "stage": updated_row.get("stage"),
+                "changed_fields": list(changed_fields),
+                "store_path": str(target),
+            },
+        )
+
+    out = dict(updated_row)
+    out["unchanged"] = not changed_fields
+    out["changed_fields"] = list(changed_fields)
+    return out
+
+
 async def append_local_deal(
     *,
     name: str,
@@ -290,4 +415,5 @@ __all__ = [
     "LocalDealRecord",
     "append_local_deal",
     "resolve_local_deals_path",
+    "update_local_deal",
 ]

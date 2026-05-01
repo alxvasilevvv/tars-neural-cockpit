@@ -193,6 +193,19 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-01 — `business.update_deal` closes the deal lifecycle (Cursor [A]):**
+  Mirrors today's `traders.cancel_alert` work for the business pack.
+  New `update_local_deal` helper + `update_deal` action handler patch
+  any subset of `name / amount / stage / owner / next_step / due /
+  notes` on a previously-logged local row, stamp `updated_at`, and
+  emit `business.deal_updated` listing `changed_fields`. Optional
+  strings: `""` clears a field, `None` (or omission) leaves it
+  untouched. Idempotent: a no-op patch returns `unchanged=True` and
+  emits no event. Policy gate routes `business.update_deal` through
+  confirmation alongside `log_deal`. Pinned by 30 new tests
+  (including end-to-end `log → update → daily_brief reflects won
+  deal`); full suite: **1685 green**.
+
 - **2026-05-01 — `traders.local_alerts` awareness source (Cursor [A]):**
   Closes the cockpit-side loop on the new local-first alerts store.
   New `_fetch_local_alerts` returns a structurally-stable envelope
