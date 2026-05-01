@@ -522,7 +522,27 @@ def fts_match_chunks(
     chat: ChatStore | None = None,
     limit: int = 50,
     thread_id: str | None = None,
+    pack: str | None = None,
+    mime: str | None = None,
+    since: float | None = None,
+    until: float | None = None,
 ) -> list[dict]:
+    """FTS5 keyword match over attachment chunks.
+
+    Supports the same scoped operators as :func:`fts_match_messages`:
+
+    - ``thread_id`` — narrow to a thread (FTS5-shadowed column, no JOIN).
+    - ``pack`` — match ``threads.pack_slug`` (JOIN ``threads``).
+    - ``mime`` — match ``attachments.mime``; supports literal
+      (``application/pdf``) or wildcard prefix (``image/*`` →
+      ``image/%`` LIKE) (JOIN ``attachments``).
+    - ``since`` / ``until`` — POSIX seconds against
+      ``attachments.created_at`` (JOIN ``attachments``).
+
+    Joins are added lazily — searches that only use ``thread_id`` keep
+    the BM25-only fast path.
+    """
+
     chat = chat or get_chat_store()
     sanitised = sanitise_query(query)
     if not chat.enabled or not sanitised:
@@ -531,17 +551,49 @@ def fts_match_chunks(
     try:
         params: list = [sanitised]
         clauses = ["chunks_fts MATCH ?"]
+        joins: list[str] = []
         if thread_id:
-            clauses.append("thread_id = ?")
+            clauses.append("chunks_fts.thread_id = ?")
             params.append(thread_id)
+
+        need_attachments = mime is not None or since is not None or until is not None
+        if need_attachments:
+            joins.append(
+                "JOIN attachments a "
+                "ON a.id = chunks_fts.attachment_id"
+            )
+            if mime:
+                if mime.endswith("/*"):
+                    clauses.append("a.mime LIKE ?")
+                    params.append(mime[:-1] + "%")
+                else:
+                    clauses.append("a.mime = ?")
+                    params.append(mime)
+            if since is not None:
+                clauses.append("a.created_at >= ?")
+                params.append(float(since))
+            if until is not None:
+                clauses.append("a.created_at <= ?")
+                params.append(float(until))
+
+        if pack:
+            joins.append(
+                "JOIN threads t "
+                "ON t.id = chunks_fts.thread_id"
+            )
+            clauses.append("t.pack_slug = ?")
+            params.append(pack)
+
         params.append(limit)
+        join_sql = (" " + " ".join(joins)) if joins else ""
         rows = conn.execute(
             f"""
-            SELECT chunk_id, attachment_id, thread_id, rank,
+            SELECT chunks_fts.chunk_id, chunks_fts.attachment_id,
+                   chunks_fts.thread_id, chunks_fts.rank,
                    snippet(chunks_fts, 0, '<mark>', '</mark>', '…', 16) AS snippet
-            FROM chunks_fts
+            FROM chunks_fts{join_sql}
             WHERE {' AND '.join(clauses)}
-            ORDER BY rank
+            ORDER BY chunks_fts.rank
             LIMIT ?
             """,
             params,
