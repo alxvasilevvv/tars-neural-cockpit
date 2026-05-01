@@ -4,6 +4,45 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor · CSP frame-ancestors + CORS allowlist on `/api/product/*`
+
+**Summary**
+
+Implements TARS#8 task 3b enabler (cockpit must be embeddable in a
+`meeet.world` iframe) and task 5 CORS requirement (Lovable can call
+the canonical TARS manifest from JS).
+
+What landed:
+
+- `experiments/neural-showcase-v3/public/_headers`: replaced
+  `X-Frame-Options: DENY` with
+  `Content-Security-Policy: frame-ancestors 'self' https://meeet.world`.
+  XFO cannot list multiple origins; CSP `frame-ancestors` is the W3C
+  successor and is honoured by every browser the cockpit targets.
+- `experiments/neural-showcase-v3/functions/_cors.ts` (new): shared
+  allowlist (`https://meeet.world`, `https://tars.meeet.world`,
+  `https://tars-meeet.pages.dev`), preflight helper, `Vary: Origin`.
+- `experiments/neural-showcase-v3/functions/api/product/{downloads,version}.ts`:
+  use the helper, echo CORS headers when the `Origin` is allowlisted,
+  answer preflight OPTIONS with 204.
+- `scripts/qa_agent/probes.py`:
+  - `probe_security_headers` now accepts CSP `frame-ancestors` *or*
+    legacy XFO and warns until the migration deploy lands.
+  - new `probe_manifest_cors_meeet_world` asserts
+    `Access-Control-Allow-Origin: https://meeet.world` + `Vary: Origin`
+    on the manifest endpoint; soft-warns until prod has the deploy.
+- `scripts/qa_agent/runner.py`: wires the new probe.
+- `tests/test_tars_meeet_cors_frame.py` (new, 7 asserts): pins both
+  contracts in source — header config + CORS module + per-function
+  imports + preflight handling.
+
+Local sanity: `make test` 686 pytest pass; `make qa-agent` against
+prod returns YELLOW with the expected migration WARNs (will flip to
+PASS once the Pages deploy lands).
+
+Coordination: see TARS#8 sit-rep posted alongside this PR for the
+full Cursor ↔ Lovable zone split for the May 2 deadline batch.
+
 ## 2026-05-01 — Cursor · meeet-browser-agent phase1-lab hardening (cross-repo)
 
 **Summary**
