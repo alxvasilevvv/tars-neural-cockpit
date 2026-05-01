@@ -466,7 +466,15 @@ Open ideas for the next layer:
      adapter rule. The format is wire-compatible with the file
      `daily_brief` already reads, so the brief picks logged
      deals up the next morning. Pinned by
-     `tests/test_business_local_deals.py` (43 cases).
+     `tests/test_business_local_deals.py` (43 cases). Sibling
+     **`business.update_deal`** (2026-05-01 follow-up, destructive)
+     closes the lifecycle: patches any subset of
+     `name / amount / stage / owner / next_step / due / notes` on a
+     previously-logged local row, stamps `updated_at`, and emits
+     `business.deal_updated`. Idempotent (`unchanged=True`, no event
+     on a no-op patch). Pinned by `tests/test_business_update_deal.py`
+     (30 cases) plus a destructive-spec membership pin update in
+     `tests/test_policy.py`.
    - `mlm.downline_snapshot`, `mlm.retention_alert` ✅ shipped —
      local CSV-backed.
    - `mlm.generate_post` ✅ shipped (2026-05-01) — real
