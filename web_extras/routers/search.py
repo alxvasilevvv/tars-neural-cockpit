@@ -46,6 +46,7 @@ from backend.core.search.alerts import (
     poll_all_saved_searches,
     poll_saved_search,
 )
+from backend.core.search.jump import jump as run_jump
 from backend.core.search import (
     SearchScope,
     get_thread_timeline,
@@ -134,6 +135,47 @@ async def messages_search(
         "count": len(hits),
         "hits": [h.to_dict() for h in hits],
     }
+
+
+@router.post("/jump")
+async def jump_endpoint(
+    payload: dict[str, Any] | None = Body(default=None),
+) -> dict[str, Any]:
+    """Cross-thread Cmd+J navigation picker.
+
+    A fuzzy fast path over local catalogues — threads, attachments,
+    saved searches, packs, playbooks — sorted by relevance. Used by
+    the cockpit ⌘J palette as a navigation surface (distinct from
+    ⌘K, which is the content-search palette backed by the unified
+    BM25 + vector engine).
+
+    Body:
+    - ``q`` (str, optional) — free-text. Empty / blank returns a
+      "recent first" list so the palette opens with something useful
+      before typing.
+    - ``limit`` (int, default 20, max 100).
+    - ``kinds`` (list[str], optional) — restrict to a subset of
+      ``thread`` / ``attachment`` / ``saved_search`` / ``pack`` /
+      ``playbook``. Unknown kinds are ignored silently.
+    """
+
+    body = payload or {}
+    q = body.get("q") or body.get("query") or ""
+    if not isinstance(q, str):
+        raise HTTPException(status_code=400, detail="q_must_be_string")
+    limit = max(1, min(int(body.get("limit") or 20), 100))
+    raw_kinds = body.get("kinds")
+    kinds: list[str] | None
+    if raw_kinds is None:
+        kinds = None
+    elif not isinstance(raw_kinds, list):
+        raise HTTPException(status_code=400, detail="kinds_must_be_list")
+    else:
+        allowed = {
+            "thread", "attachment", "saved_search", "pack", "playbook"
+        }
+        kinds = [k for k in raw_kinds if isinstance(k, str) and k in allowed]
+    return await run_jump(q, limit=limit, kinds=kinds)  # type: ignore[arg-type]
 
 
 @router.post("/fts-repair")
