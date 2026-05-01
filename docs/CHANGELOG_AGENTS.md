@@ -4,6 +4,76 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · Live updater channel HTTP (Tauri lock-step)
+
+**Summary**
+
+The publish CLI has shipped per-target channel JSON files since
+PR #44 (`backend/core/product/updater.py`), but the operator
+needed a way to serve them straight from `meeet.world` so the
+desktop app can poll `/updates/<target>/<current>.json` without a
+deploy step every time the manifest changes. This slot wires the
+generator into the live FastAPI surface so the wire `tauri-plugin-
+updater` consumes is always in lock-step with `/api/product/
+downloads` (both pull from the same in-memory `DownloadManifest`).
+
+1. **Bridge** (`backend/core/product/updater.py`)
+   - Added `known_targets()` — full Tauri slug matrix derived from
+     `_TARGET_BY_OS_ARCH` so callers can't drift when adding a
+     new target.
+   - Added `target_to_os_arch(slug)` — reverse lookup returning
+     `(os, arch)` or `None` for unknown slugs.
+   - Added `build_channel_from_release(entry, *, target=None,
+     artifacts_dir=None)` — converts a `ReleaseEntry` (the source
+     of truth for `/api/product/downloads`) into a `TauriChannel`
+     using the existing `build_channel()` engine. When `target`
+     is provided the channel is filtered to just that platform
+     so the live endpoint serves a single per-target body
+     without leaking siblings.
+
+2. **HTTP** (`web_extras/routers/product.py`)
+   - New module-level `updates_router` (separate `/updates`
+     prefix because the marketing URL pattern lives outside
+     `/api/product`).
+   - `GET /updates/{target}/{current_version}.json` — Tauri
+     channel JSON; 404 on unknown target,
+     `no_release_for_target` when the manifest has no artifact
+     for the slug's OS, 200 otherwise. Custom header
+     `x-tars-updater-target` for log filtering. Cache 60 s.
+   - `GET /api/product/updater/targets` — discovery helper
+     listing every known Tauri slug (cached 5 min).
+   - Both new endpoints registered in `web_extras/app.py`
+     alongside the existing product router.
+
+3. **Tests** (`tests/test_updater_channel_http.py`, 18 cases)
+   - **Bridge primitives** (8): full target matrix coverage,
+     reverse-mapping happy path + unknown slug, full + filtered
+     channel build, target-with-no-artifact returns empty,
+     pub_date passthrough, sidecar `.sig` resolution from disk.
+   - **HTTP** (10): targets endpoint shape + cache header,
+     channel returns Tauri-required fields (`version`, `pub_date`,
+     `platforms.<target>.{url, signature}`) and the
+     `x-tars-updater-target` header, every advertised target
+     either 200s or 404s with `no_release_for_target` (no
+     unknown 404s), unknown slug → 404 `unknown_target`,
+     URL-encoded pre-release path, **lock-step assertion** that
+     channel `version` matches `/api/product/downloads/latest`,
+     cache `max-age=60`, monkeypatched manifest demonstrates
+     OS-without-artifact → 404 + windows-only manifest serves
+     correctly, signature is empty when manifest doesn't ship
+     one.
+
+**Files touched**
+
+- `backend/core/product/updater.py` — `known_targets`,
+  `target_to_os_arch`, `build_channel_from_release`.
+- `web_extras/routers/product.py` — new `updates_router` + the
+  `updater/targets` discovery endpoint.
+- `web_extras/app.py` — register `updates_router`.
+- `tests/test_updater_channel_http.py` (new) — 18 cases.
+
+Backend suite: **1076 passed in 32 s** (no skips, no flakes).
+
 ## 2026-05-01 — Cursor [A] · Speech intents extraction (slash + voice)
 
 **Summary**
