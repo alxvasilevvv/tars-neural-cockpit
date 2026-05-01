@@ -28,6 +28,7 @@ or ``recovery.verify``. Mint the token via
 
 from __future__ import annotations
 
+import os
 from typing import Any
 
 from fastapi import APIRouter, Body, Header, HTTPException, Request
@@ -56,9 +57,125 @@ from backend.core.crypto.seed_challenge import (
 )
 from backend.core.meeet import get_client, trace_scope
 from web_extras import policy_gate
+from web_extras.errors import TARSAPIError
+from web_extras.rate_limit import RateLimitOutcome, get_rate_limiter
 
 
 router = APIRouter(prefix="/api/recovery", tags=["recovery"])
+
+
+# Rate-limit defaults: a legit operator scans the QR, types 3 word
+# answers, possibly retries once, and is done. So a tight burst with
+# a slow refill is plenty of headroom. ``challenge.start`` is more
+# expensive (mints + persists a challenge) so it gets a smaller
+# burst. ``challenge.verify`` is cheaper (constant-time compare) but
+# more attractive to a brute-forcer, so it gets a smaller refill.
+RECOVERY_CHALLENGE_START_BUCKET = "recovery.challenge.start"
+RECOVERY_CHALLENGE_VERIFY_BUCKET = "recovery.challenge.verify"
+
+
+def _f(env: str, default: float) -> float:
+    raw = os.getenv(env)
+    if raw is None or not raw.strip():
+        return default
+    try:
+        return max(0.0, float(raw))
+    except ValueError:
+        return default
+
+
+def _configure_recovery_rate_limit_once() -> None:
+    limiter = get_rate_limiter()
+    if not limiter.is_configured(RECOVERY_CHALLENGE_START_BUCKET):
+        capacity = _f("TARS_RECOVERY_CHALLENGE_START_BURST", 5.0)
+        rate = _f("TARS_RECOVERY_CHALLENGE_START_RATE_PER_S", 1.0 / 30.0)
+        if capacity <= 0:
+            capacity = 1.0
+        limiter.configure(
+            RECOVERY_CHALLENGE_START_BUCKET, capacity=capacity, rate=rate
+        )
+    if not limiter.is_configured(RECOVERY_CHALLENGE_VERIFY_BUCKET):
+        capacity = _f("TARS_RECOVERY_CHALLENGE_VERIFY_BURST", 10.0)
+        rate = _f("TARS_RECOVERY_CHALLENGE_VERIFY_RATE_PER_S", 1.0 / 10.0)
+        if capacity <= 0:
+            capacity = 1.0
+        limiter.configure(
+            RECOVERY_CHALLENGE_VERIFY_BUCKET, capacity=capacity, rate=rate
+        )
+
+
+def _client_ip(request: Request) -> str:
+    """Resolve the source IP. Mirrors the pairing module's helper.
+
+    Honours ``X-Forwarded-For`` only when ``TARS_TRUST_FORWARDED_FOR=1``
+    is explicitly set (typical reverse-proxy deployment), otherwise
+    falls back to ``request.client.host`` so a hostile client can't
+    spoof its source IP via that header.
+    """
+
+    if os.getenv("TARS_TRUST_FORWARDED_FOR", "0") in ("1", "true", "yes"):
+        fwd = request.headers.get("x-forwarded-for")
+        if fwd:
+            return fwd.split(",")[0].strip()
+    if request.client is not None and request.client.host:
+        return request.client.host
+    return ""
+
+
+async def _enforce_recovery_rate_limit(
+    request: Request, *, bucket_id: str, route: str
+) -> None:
+    """Acquire a token from ``bucket_id`` or raise a 429.
+
+    Emits a ``recovery.rate_limited`` event so an operator audit
+    pass can spot brute-force attempts. The 429 envelope mirrors
+    the pairing one: ``Retry-After`` + ``X-RateLimit-{Remaining,
+    Reset,Bucket}`` headers, JSON body with ``error_code``.
+    """
+
+    _configure_recovery_rate_limit_once()
+    subject = _client_ip(request)
+    outcome: RateLimitOutcome = get_rate_limiter().acquire(
+        bucket_id=bucket_id, subject=subject
+    )
+    if outcome.allowed:
+        return
+
+    retry_payload = (
+        86400.0
+        if outcome.retry_after == float("inf") or outcome.retry_after > 86400
+        else float(outcome.retry_after)
+    )
+    retry_seconds = max(1, int(retry_payload) + 1)
+    client = get_client()
+    await client.emit(
+        "recovery.rate_limited",
+        {
+            "subject": outcome.subject,
+            "bucket_id": outcome.bucket_id,
+            "retry_after": retry_payload,
+            "remaining": outcome.remaining,
+            "route": route,
+        },
+    )
+    raise TARSAPIError(
+        status_code=429,
+        error_code="recovery_rate_limited",
+        message=(
+            f"recovery_rate_limited: retry in {retry_seconds}s "
+            f"(remaining={outcome.remaining:.2f})"
+        ),
+        hint=(
+            "Slow down recovery-challenge attempts from this IP, or "
+            "wait until the rate limit resets."
+        ),
+        headers={
+            "Retry-After": str(retry_seconds),
+            "X-RateLimit-Remaining": f"{outcome.remaining:.4f}",
+            "X-RateLimit-Bucket": outcome.bucket_id,
+            "X-RateLimit-Reset": f"{outcome.reset_at:.4f}",
+        },
+    )
 
 
 class VerifyRequest(BaseModel):
@@ -209,6 +326,7 @@ class ChallengeVerifyRequest(BaseModel):
 
 @router.post("/challenge/start")
 async def challenge_start(
+    request: Request,
     body: ChallengeStartRequest = Body(...),
     x_meeet_trace_id: str | None = Header(default=None),
 ) -> dict[str, Any]:
@@ -219,7 +337,18 @@ async def challenge_start(
     checksum returns HTTP 400 (rather than a useless challenge
     the operator can't pass). The seed words themselves are never
     echoed back; only the **positions** the operator must answer.
+
+    Rate-limited per source IP (default 5 burst + 1 token / 30 s,
+    env-tunable via ``TARS_RECOVERY_CHALLENGE_START_BURST`` /
+    ``TARS_RECOVERY_CHALLENGE_START_RATE_PER_S``) so a hostile
+    client can't exhaust the in-memory challenge store.
     """
+
+    await _enforce_recovery_rate_limit(
+        request,
+        bucket_id=RECOVERY_CHALLENGE_START_BUCKET,
+        route="recovery.challenge.start",
+    )
 
     try:
         challenge = mint_challenge(
@@ -253,6 +382,7 @@ async def challenge_start(
 
 @router.post("/challenge/verify")
 async def challenge_verify(
+    request: Request,
     body: ChallengeVerifyRequest = Body(...),
     x_meeet_trace_id: str | None = Header(default=None),
 ) -> dict[str, Any]:
@@ -264,10 +394,20 @@ async def challenge_verify(
 
     On success the cockpit can use the returned
     ``recovery.challenge.passed`` event as the gating proof for
-    the rotate-identity flow (follow-up: gate the destructive
-    rotate action on a fresh ``passed`` challenge for the same
-    fingerprint).
+    the rotate-identity flow (now consumed by
+    :func:`web_extras.routers.pairing.rotate_identity`).
+
+    Rate-limited per source IP (default 10 burst + 1 token / 10 s,
+    env-tunable via ``TARS_RECOVERY_CHALLENGE_VERIFY_BURST`` /
+    ``TARS_RECOVERY_CHALLENGE_VERIFY_RATE_PER_S``) so brute-forcing
+    answers across many challenges costs more than guessing one.
     """
+
+    await _enforce_recovery_rate_limit(
+        request,
+        bucket_id=RECOVERY_CHALLENGE_VERIFY_BUCKET,
+        route="recovery.challenge.verify",
+    )
 
     store = get_challenge_store()
     challenge = store.get(body.challenge_id)

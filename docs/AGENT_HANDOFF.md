@@ -193,6 +193,17 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-01 — Recovery challenge rate-limit (Cursor [A]):**
+  Closes the open follow-up from PR #74 by extending the per-IP
+  token-bucket pattern to the `/api/recovery/challenge/{start,
+  verify}` endpoints. Default 5 burst + 1/30s on `start` and
+  10 burst + 1/10s on `verify` (env-tunable via
+  `TARS_RECOVERY_CHALLENGE_{START,VERIFY}_{BURST,RATE_PER_S}`).
+  429 envelopes use `TARSAPIError` and emit a
+  `recovery.rate_limited` meeet event so the
+  `/api/pairing/audit` feed (PR #77) surfaces brute-force
+  attempts. Pinned by 7 new tests; full suite: 1399 green.
+
 - **2026-05-01 — Pairing audit feed + meeet kind_prefix (Cursor [A]):**
   Adds the missing read-side for the pairing audit lane.
   `MeeetStore.list_events()` gains a `kind_prefix` filter
