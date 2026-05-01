@@ -1201,6 +1201,35 @@ Smaller functional items still pending in parallel:
     `{q?, query?, limit?, kinds?}` — clamped to 100 hits, unknown
     kinds dropped silently. `tests/test_jump_picker.py` (23 cases).
     Cockpit ⌘J palette UI is the Claude-lane follow-up.
+30. ~~**business.hubspot_pull_pipeline (read-only).**~~ **shipped**
+    (2026-05-01) — closes the `business.hubspot_pull_pipeline`
+    slot from IDEAS' "real adapters" list. New
+    `backend/core/domains/packs/business/hubspot.py` ships
+    `pull_pipeline(args)` against
+    `https://api.hubapi.com/crm/v3/objects/deals` (vault key
+    `HUBSPOT_API_KEY`). Returns a `PipelineResult` envelope
+    (per-deal `id`/`name`/`amount`/`stage_id`/`stage_label`/
+    `pipeline`/`close_date`/`created_at`/`updated_at`) with
+    derived rollups (`active_count`, `won_count`,
+    `lost_count`, `pipeline_amount`) when deals are present,
+    plus the opaque `next_cursor` from HubSpot's
+    `paging.next.after`. Stage labels resolve HubSpot's
+    default-pipeline ids to human strings; unknown / custom
+    stages pass through as the raw id. Defensive: structured
+    errors for `auth_missing` / `auth_invalid` (401) /
+    `invalid_limit` / `network_error` /
+    `upstream_status` / `upstream_payload_invalid` —
+    handler never raises on bad operator input. Emits
+    `integration.hubspot.deals_list` events
+    (`request` / `completed` / `error`) per the
+    meeet × TARS adapter rule. Optional `include_raw=true`
+    attaches each deal's raw HubSpot row under `raw` for
+    debugging. `pipeline=<id>` filters client-side. Action is
+    `destructive=False` — read-only, policy gate stays out
+    of the way. Pinned by
+    `tests/test_business_hubspot_pipeline.py` (35 cases).
+    Cockpit "deals strip" UI is the Claude-lane follow-up.
+
 29. ~~**Re-embed attachment chunks on demand.**~~ **shipped**
     (2026-05-01) — closes the "re-embed on demand" idea from
     IDEAS' attachments section. New

@@ -4,6 +4,116 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · business.hubspot_pull_pipeline (read-only)
+
+**Summary**
+
+Closes the `business.hubspot_pull_pipeline` slot from
+`docs/IDEAS.md`'s "real adapters" list. New non-destructive
+action that reads deals from HubSpot CRM
+(`GET https://api.hubapi.com/crm/v3/objects/deals`) and returns
+a normalised pipeline shape so downstream playbooks /
+dashboards can reason about deal stage / amount / next step
+without re-parsing HubSpot's verbose schema. Pairs with the
+already-shipped `_push_hubspot_deal()` write-side helper —
+together the business pack now spans both directions of the
+HubSpot integration.
+
+1. **Adapter** (`backend/core/domains/packs/business/hubspot.py`)
+   - Stdlib-only via `backend.core.domains._http.get_json`; no
+     httpx / requests.
+   - Auth via vault key `HUBSPOT_API_KEY` (HubSpot "private app"
+     access token), with explicit `api_key=` arg override for
+     tests / playbooks.
+   - Frozen dataclasses: `HubSpotDeal` (per-row normalised
+     shape) and `PipelineResult` (envelope with derived
+     `active_count` / `won_count` / `lost_count` /
+     `pipeline_amount` rollups when deals are present).
+   - Stage labels: built-in HubSpot default-pipeline ids
+     (`appointmentscheduled`, `qualifiedtobuy`,
+     `presentationscheduled`, `decisionmakerboughtin`,
+     `contractsent`, `closedwon`, `closedlost`) get
+     human-friendly `stage_label`s; unknown / custom stages
+     pass through as the raw id so we never mask data.
+   - `_parse_amount` accepts string / float / int / blank;
+     `_normalise_properties` accepts list / tuple / CSV string
+     / blank with sane fallback to `DEFAULT_PROPERTIES`;
+     `_next_cursor_from` extracts HubSpot's `paging.next.after`.
+   - Defensive shape: returns structured errors
+     (`auth_missing`, `auth_invalid`, `invalid_limit`,
+     `network_error`, `upstream_status`,
+     `upstream_payload_invalid`) without raising. 401 maps to
+     `auth_invalid` distinctly so the cockpit can surface a
+     "key expired — paste a fresh one" hint.
+   - Optional `pipeline=` arg filters client-side (HubSpot's
+     public deals endpoint requires the search endpoint for
+     server-side pipeline filtering, which is opt-in by API
+     key tier — keeping it client-side keeps the contract
+     simple).
+   - Optional `include_raw=true` attaches each deal's raw
+     HubSpot row under `raw` for debugging / downstream
+     transformation.
+   - Emits `integration.hubspot.deals_list` events
+     (`request` / `completed` / `error`) per the
+     "meeet × TARS" adapter rule, with pipeline-level
+     payload (`limit`, `after`, `properties`,
+     `pipeline_filter`, `count`, `has_next`, `error`,
+     `status`, `detail`).
+
+2. **Action wiring**
+   (`backend/core/domains/packs/business/actions.py`)
+   - New `ActionSpec(id="hubspot_pull_pipeline", ...)` with
+     full JSON schema (limit / after / properties / pipeline /
+     include_raw). Marked `destructive=False` since it's
+     read-only — the policy gate stays out of the way for
+     pipeline pulls.
+   - Existing `_push_hubspot_deal()` write helper unchanged;
+     the pull and push helpers now share the same vault key.
+
+3. **Tests** (`tests/test_business_hubspot_pipeline.py`,
+   35 cases)
+   - 6 parser tests: `_parse_amount` (strings / floats /
+     blanks), `_stage_label_for` (known / unknown / blank),
+     `_normalise_properties` (list / CSV / blank / non-string),
+     `_parse_deal_row` (missing optional props / missing id /
+     bad shape), `_next_cursor_from`
+     (present / absent / partial).
+   - 5 validation tests: invalid `limit` (string / too-high /
+     zero), missing api_key returns `auth_missing`, explicit
+     `api_key` arg overrides vault.
+   - 11 HTTP-shape tests: default limit 25, custom limit
+     passes through, `after` cursor threads / blank dropped,
+     `properties` serialised as CSV, default properties used
+     when none passed, `Authorization: Bearer <token>` header,
+     happy path with derived rollups (`active_count=2`,
+     `won_count=1`, `lost_count=1`, `pipeline_amount=65000`),
+     `next_cursor` propagated / absent, pipeline filter drops
+     unrelated deals / blank treated as unset, `include_raw`
+     attaches / omits raw row.
+   - 6 error-path tests: `NetworkError` returned structurally,
+     401 → `auth_invalid`, 502 → `upstream_status` with
+     detail, non-object payload → `upstream_payload_invalid`,
+     empty results → `ok=true count=0` (rollups omitted),
+     malformed rows skipped without crashing the rest.
+   - 2 wiring tests: action registered in `business` pack and
+     `destructive=False`.
+   - 2 event-emission tests: `request` + `completed` phases
+     emitted on the happy path; `error` phase with
+     `error=network_error` emitted on transport failure.
+   - The fixture isolates a per-test meeet store under
+     `tmp_path` and resets the singletons so events don't
+     accumulate against the global store cap (the same
+     pattern used in `tests/test_pairing_contract.py` and
+     `tests/test_recovery_seed.py`).
+
+**Files**
+
+- new: `backend/core/domains/packs/business/hubspot.py`,
+  `tests/test_business_hubspot_pipeline.py`
+- edited: `backend/core/domains/packs/business/actions.py`,
+  `docs/CHANGELOG_AGENTS.md`, `docs/AGENT_HANDOFF.md`,
+  `docs/IDEAS.md`
+
 ## 2026-05-01 — Cursor [A] · Re-embed attachment chunks on demand
 
 **Summary**
