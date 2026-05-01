@@ -47,9 +47,12 @@ def test_parse_rss_atom_minimal() -> None:
 
 
 
-def test_log_deal_stub_without_crm_keys(monkeypatch) -> None:
+def test_log_deal_local_fallback_without_crm_keys(monkeypatch, tmp_path) -> None:
     monkeypatch.delenv("HUBSPOT_API_KEY", raising=False)
     monkeypatch.delenv("PIPEDRIVE_API_KEY", raising=False)
+    monkeypatch.setenv(
+        "TARS_LOCAL_DEALS_PATH", str(tmp_path / "deals.json")
+    )
     out = asyncio.run(
         business_actions.log_deal(
             {"name": "Acme", "amount": 1200, "stage": "discovery"}
@@ -57,7 +60,11 @@ def test_log_deal_stub_without_crm_keys(monkeypatch) -> None:
     )
     assert out["ok"] is True
     assert out.get("crm_pushed") is False
-    assert out.get("deal_id") == "stub-deal-0001"
+    assert out.get("crm") == "local"
+    # Local fallback now mints a local-NNNN id and persists the row;
+    # a hardcoded stub id is no longer good enough for daily_brief
+    # to pick the deal up the next morning.
+    assert out.get("deal_id", "").startswith("local-")
 
 
 def test_log_deal_hubspot_when_key_and_api_ok(monkeypatch) -> None:

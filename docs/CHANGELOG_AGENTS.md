@@ -4,6 +4,102 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · `business.log_deal` real local-first adapter
+
+**Summary**
+
+Promotes the last open stub in the business pack from
+"hardcoded `stub-deal-0001` + a hint" to a real local-first
+adapter. Closes the docstring caveat that called the action a
+"structured stub" and keeps a stable surface for the existing
+HubSpot / Pipedrive routes.
+
+When neither `HUBSPOT_API_KEY` nor `PIPEDRIVE_API_KEY` is in the
+vault, deals are appended to a local JSON store at
+`~/.tars/business_deals.json` (override via `TARS_LOCAL_DEALS_PATH`
+env or `store_path` arg). The format is wire-compatible with the
+file `business.daily_brief` already reads, so logged deals show
+up the next morning.
+
+1. **Module** (`backend/core/domains/packs/business/local_deals.py`)
+   - `LocalDealRecord` frozen dataclass mirroring the existing
+     deal row shape (`id`, `name`, `amount`, `stage`, optional
+     `owner` / `next_step` / `due` / `notes`). `to_dict()` drops
+     `None` so we don't pollute the file with empty fields.
+   - `resolve_local_deals_path(override=None)` picks
+     `override > TARS_LOCAL_DEALS_PATH > ~/.tars/business_deals.json`
+     and always expands `~`.
+   - `_read_existing(path)` is defensive: missing file → `[]`,
+     corrupted JSON → `[]` (logged), non-list shape → `[]`,
+     list with non-dict rows → filtered. Existing CRM rows
+     (`d-7012`, `deal-77`, …) are preserved unchanged.
+   - `_atomic_write(path, rows)` writes via `tmp + os.replace`
+     so a simultaneous `daily_brief` reader sees either the old
+     file or the new one, never a torn state. `path.parent` is
+     auto-created.
+   - `_next_local_id(rows)` mints monotonic `local-NNNN` ids
+     (zero-padded to 4 digits, grows naturally beyond 9999).
+     Only rows whose id matches `local-<digits>` participate;
+     unrelated CRM ids are ignored.
+   - `_coerce_amount` clamps negatives to 0 and tolerates
+     `"123"` / `None` / garbage. `_coerce_stage` falls back to
+     `discovery` for unknown values; the stage enum is
+     `discovery / qualification / proposal / negotiation / won /
+     lost`.
+   - `append_local_deal(...)` is the public async helper.
+     Validates name; emits `business.deal_logged` (id, name,
+     amount, stage, store_path, `crm_pushed=False`) via the
+     meeet client per the cross-cutting adapter rule.
+   - Process-local `threading.Lock` serialises read+mutate+write
+     so two coroutines on the same loop never lose a row.
+
+2. **Action** (`backend/core/domains/packs/business/actions.py`)
+   - `log_deal` now resolves CRM credentials in the same priority
+     order, but the no-CRM branch calls `append_local_deal`
+     instead of returning a hardcoded id. Response shape:
+     `{ok=True, crm="local", crm_pushed=False, deal_id=local-NNNN,
+     store_path, deal{...}, hint}`.
+   - `OSError` from the file write surfaces as
+     `{ok=False, error="local_store_unwritable", detail, store_path}`
+     so the operator sees what failed instead of a 500.
+   - `amount` parse failure (`float()` on garbage) now coerces
+     to 0 instead of crashing the action.
+   - `ActionSpec` schema gains `owner`, `next_step`, `due`,
+     `notes`, `store_path` properties; `stage` is now an enum
+     so the cockpit can render a dropdown.
+   - Module docstring no longer calls `log_deal` a stub.
+
+3. **Tests**
+   - **New** `tests/test_business_local_deals.py` (43 cases):
+     path resolution, `_read_existing` defenses, id minting
+     (empty / continuation / mixed-id rows), coercion helpers,
+     `append_local_deal` happy path + corrupt-store recovery
+     + parent-dir creation + blank-name rejection + meeet
+     event side effect, action-handler local fallback +
+     persistence + monotonic ids across calls + explicit
+     `store_path` override + HubSpot/Pipedrive short-circuit
+     (local store untouched), schema enum.
+   - **Updated** `tests/test_batch2_adapters.py` — the
+     `test_log_deal_stub_without_crm_keys` regression now
+     asserts the new local-`local-NNNN` shape and points
+     `TARS_LOCAL_DEALS_PATH` at a tmp file so the test never
+     touches the operator's `~/.tars/`.
+   - **Idea** entry under "Domain pack improvements" in
+     `docs/IDEAS.md` flipped from "stay structured stubs" to
+     "shipped 2026-05-01".
+
+4. **Suite**: 1476 tests green (was 1433).
+
+**Files touched**
+
+- `backend/core/domains/packs/business/local_deals.py` (new)
+- `backend/core/domains/packs/business/actions.py`
+- `tests/test_business_local_deals.py` (new)
+- `tests/test_batch2_adapters.py`
+- `docs/CHANGELOG_AGENTS.md`
+- `docs/AGENT_HANDOFF.md`
+- `docs/IDEAS.md`
+
 ## 2026-05-01 — Cursor [A] · `science.extract_dataset` reads chat attachments
 
 **Summary**
