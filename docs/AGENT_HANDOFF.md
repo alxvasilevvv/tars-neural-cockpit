@@ -193,6 +193,20 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-01 — `daily_brief` unions locally-logged deals (Cursor [A]):**
+  Closes the loop on the `log_deal` adapter shipped earlier today.
+  `daily_brief` now reads `~/.tars/business_deals.json` (override
+  via `TARS_LOCAL_DEALS_PATH` or new `local_deals_path` arg) and
+  unions it with the bundled snapshot. Local rows whose id
+  collides with a bundled row replace the bundled payload
+  (operator's latest action wins); brand-new local ids append.
+  Response gains `deals_local_logged` count, `local_deals_path`
+  (resolved), and a `"local-store"` source marker. Defensive
+  against missing / corrupt local files; refuses to double-load
+  when both paths resolve to the same file. Pinned by 10 new
+  tests including the end-to-end "log_deal → daily_brief"
+  closed-loop test; full suite: **1526 green**.
+
 - **2026-05-01 — `mlm.score_recruit` over real downline signals (Cursor [A]):**
   Promotes the score_recruit action from a one-line `hash()`
   heuristic — which was non-deterministic across machines because

@@ -411,7 +411,15 @@ Open ideas for the next layer:
    - `traders.summarize_market` ✅ shipped — basket aggregation +
      bias + dispersion contradictions.
    - `business.kpi_snapshot`, `business.daily_brief` ✅ shipped —
-     local JSON-backed.
+     local JSON-backed. `daily_brief` (2026-05-01 follow-up)
+     now also unions the local `log_deal` store at
+     `~/.tars/business_deals.json` (override via
+     `TARS_LOCAL_DEALS_PATH` or `local_deals_path` arg),
+     surfacing `deals_local_logged` + `local_deals_path` on
+     the response. Tests:
+     `tests/test_business_daily_brief_local_union.py` (10 cases,
+     incl. an end-to-end `log_deal → daily_brief` closed-loop
+     test).
    - `business.log_deal` ✅ shipped (2026-05-01) — real
      local-first adapter. Routes to HubSpot if
      `HUBSPOT_API_KEY` is set, Pipedrive if `PIPEDRIVE_API_KEY`

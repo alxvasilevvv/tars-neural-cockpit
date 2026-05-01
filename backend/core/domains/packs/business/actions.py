@@ -37,7 +37,11 @@ from ..._http import post_json
 from backend.core.vault import get_secret
 from ....council import get_council
 from .hubspot import pull_pipeline as hubspot_pull_pipeline
-from .local_deals import append_local_deal, resolve_local_deals_path
+from .local_deals import (
+    LOCAL_ID_PREFIX,
+    append_local_deal,
+    resolve_local_deals_path,
+)
 from .smtp import SmtpConfig, send_email
 
 _REPO_ROOT = Path(__file__).resolve().parents[5]
@@ -117,6 +121,11 @@ async def daily_brief(args: Mapping[str, Any]) -> Mapping[str, Any]:
         "BUSINESS_DEALS_PATH",
         _DEFAULT_DEALS_PATH,
     )
+    local_deals_arg = args.get("local_deals_path")
+    local_deals_path = resolve_local_deals_path(
+        str(local_deals_arg) if local_deals_arg else None
+    )
+    include_local = bool(args.get("include_local_deals", True))
     cal_path = _resolve(
         str(args.get("calendar_path") or "") or None,
         "CALENDAR_PATH",
@@ -137,6 +146,30 @@ async def daily_brief(args: Mapping[str, Any]) -> Mapping[str, Any]:
             deals = [d for d in raw if isinstance(d, dict)]
         except json.JSONDecodeError:
             deals = []
+
+    # Union with the local store written by ``log_deal``.
+    # Local rows whose id collides with a bundled row replace the
+    # bundled one; brand-new local ids append. This keeps the brief
+    # in sync with whatever the operator logged after the bundled
+    # snapshot was taken.
+    local_deals: list[dict[str, Any]] = []
+    if include_local and local_deals_path.exists() and local_deals_path != deals_path:
+        try:
+            raw_local = _read_json(local_deals_path)
+            local_deals = [d for d in raw_local if isinstance(d, dict)]
+        except json.JSONDecodeError:
+            local_deals = []
+    if local_deals:
+        by_id: dict[str, dict[str, Any]] = {}
+        order: list[str] = []
+        for row in deals + local_deals:
+            rid = str(row.get("id") or "").strip()
+            if not rid:
+                rid = f"__anon_{len(order)}"
+            if rid not in by_id:
+                order.append(rid)
+            by_id[rid] = row
+        deals = [by_id[rid] for rid in order]
 
     calendar_events: list[dict[str, Any]] = []
     if cal_path.exists():
@@ -230,6 +263,18 @@ async def daily_brief(args: Mapping[str, Any]) -> Mapping[str, Any]:
         )
         headline_summary = deliberation.summary
 
+    locally_logged_count = sum(
+        1
+        for d in deals
+        if str(d.get("id") or "").startswith(LOCAL_ID_PREFIX)
+    )
+
+    sources = ["local-json", "calendar-local"]
+    if locally_logged_count > 0:
+        sources.append("local-store")
+    if deliberation:
+        sources.append("council")
+
     return {
         "ok": True,
         "date": date,
@@ -238,9 +283,10 @@ async def daily_brief(args: Mapping[str, Any]) -> Mapping[str, Any]:
         "actions": next_steps,
         "deals_total": len(deals),
         "deals_active": len(deals_active),
+        "deals_local_logged": locally_logged_count,
+        "local_deals_path": str(local_deals_path),
         "calendar_today": cal_today_payload,
-        "sources": ["local-json", "calendar-local"]
-        + (["council"] if deliberation else []),
+        "sources": sources,
         "council": deliberation.to_dict() if deliberation else None,
     }
 
@@ -447,7 +493,15 @@ ACTIONS: tuple[ActionSpec, ...] = (
     ActionSpec(
         id="daily_brief",
         name="Compose daily brief",
-        description="Compose the morning brief from local KPI + deals snapshots.",
+        description=(
+            "Compose the morning brief from local KPI + deals + "
+            "calendar snapshots, optionally unioned with the local "
+            "log_deal store at ~/.tars/business_deals.json (override "
+            "via TARS_LOCAL_DEALS_PATH or local_deals_path arg). "
+            "Local rows whose id starts with 'local-' are surfaced "
+            "in 'deals_local_logged' so the cockpit can highlight "
+            "operator-logged deals separately."
+        ),
         handler=daily_brief,
         schema={
             "type": "object",
@@ -455,6 +509,28 @@ ACTIONS: tuple[ActionSpec, ...] = (
                 "date": {"type": "string", "format": "date"},
                 "kpi_path": {"type": "string"},
                 "deals_path": {"type": "string"},
+                "local_deals_path": {
+                    "type": "string",
+                    "description": (
+                        "Override for the local log_deal store. "
+                        "Defaults to ~/.tars/business_deals.json or "
+                        "TARS_LOCAL_DEALS_PATH."
+                    ),
+                },
+                "include_local_deals": {
+                    "type": "boolean",
+                    "description": (
+                        "Set false to skip the local-store union; "
+                        "useful in playbooks that want to look at "
+                        "the bundled snapshot alone."
+                    ),
+                },
+                "calendar_path": {"type": "string"},
+                "council": {"type": "boolean"},
+                "council_mode": {
+                    "type": "string",
+                    "enum": ["single", "dual_vote", "n_vote"],
+                },
             },
         },
     ),
