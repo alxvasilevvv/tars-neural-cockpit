@@ -4,6 +4,59 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · Composite playbooks: samples + pytest pin (IDEAS #31)
+
+**Summary**
+
+Picked up `docs/IDEAS.md` item **#31 — Composite playbooks** from
+the "Smaller functional items still pending" lane. Verified the
+runner already resolves `slug` from `step.action` (not the playbook
+directory) so composite packs work end-to-end without code changes;
+the open work was canonical samples + a pin so the next refactor
+doesn't silently regress. Both ship in this batch.
+
+1. **`playbooks/research_lab/paper_to_pitch.json`** (new) — papers
+   awareness + KPI snapshot in parallel, then `business__daily_brief`
+   sequentially. Cross-sub-pack composition through one trace.
+2. **`playbooks/ops_room/morning_standup.json`** (new) — market
+   summary + downline snapshot + news feed (one sequential leader,
+   two parallel awareness/snapshot siblings). Solo-operator
+   morning view crossing traders + mlm.
+3. **`tests/test_composite_playbooks.py`** (new, 8 cases) — pins
+   loader discovery + dir-as-label, awareness parser for namespaced
+   source ids (`research_lab.awareness.science__local_papers.snapshot`),
+   end-to-end execution of both shipped samples, atomic-vs-namespaced
+   action dispatch from a composite directory, destructive
+   sub-pack action gated through the policy queue
+   (`research_lab.business__draft_email` → blocked + `confirmation_token`
+   in confirm mode), and cross-sub-pack templating
+   (`${steps.papers.count}` consumed by a `business__*` step).
+4. **`docs/DOMAIN_PACKS.md`** — new "Composite packs" + "Composite
+   playbooks" sections naming the slug forms, the two shipped
+   samples, and the test module. Tests command updated.
+5. **`docs/IDEAS.md`** — item #31 ✅ marked shipped with pointers.
+
+Verification:
+- `pytest -q tests/test_composite_playbooks.py` → 8/8.
+- `pytest -q` (full backend suite) → **701 passed** (was 693; +8).
+- Live smoke through `run_playbook(...)` for both new playbook ids
+  → `ok=True`, all steps green.
+- No code changes in `backend/core/playbooks/` or
+  `backend/core/domains/composite.py` — the runner was already
+  composite-aware; this batch is samples + a pin + docs.
+
+Files (this entry):
+- `playbooks/research_lab/paper_to_pitch.json` (new)
+- `playbooks/ops_room/morning_standup.json` (new)
+- `tests/test_composite_playbooks.py` (new)
+- `docs/DOMAIN_PACKS.md`
+- `docs/IDEAS.md`
+- `docs/CHANGELOG_AGENTS.md` (this entry)
+
+Coordination: pure Cursor-lane backend work. No contract bumps;
+no Claude / Lovable touch points. Cockpit-side palette grouping
+"composite vs atomic" stays Claude's call (item #31 follow-up).
+
 ## 2026-05-01 — Cursor [A] · Receipt-Ledger draft contract + tier-gates cockpit skeleton
 
 **Summary**
