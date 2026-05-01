@@ -1201,6 +1201,30 @@ Smaller functional items still pending in parallel:
     `{q?, query?, limit?, kinds?}` — clamped to 100 hits, unknown
     kinds dropped silently. `tests/test_jump_picker.py` (23 cases).
     Cockpit ⌘J palette UI is the Claude-lane follow-up.
+22. ~~**Live updater channel HTTP (Tauri lock-step).**~~ **shipped**
+    (2026-05-01) — closes the desktop distribution loop. The
+    publish CLI has been writing `<target>/<version>.json` files
+    since PR #44, but the live wire `tauri-plugin-updater`
+    consumes was missing. This slot adds
+    `GET /updates/{target}/{current_version}.json` (mounted on a
+    new `updates_router` outside `/api/product` because the
+    marketing URL pattern lives at the root) and a discovery
+    helper `GET /api/product/updater/targets`. Both endpoints
+    pull from the same `load_manifest()` as
+    `/api/product/downloads`, so the two surfaces never drift.
+    `backend/core/product/updater.build_channel_from_release()`
+    is the bridge: it converts a `ReleaseEntry` to a
+    `TauriChannel`, optionally filtered to a single target.
+    `known_targets()` and `target_to_os_arch(slug)` are
+    derived from the existing `_TARGET_BY_OS_ARCH` map so
+    adding a new target only touches one source. Custom header
+    `x-tars-updater-target` for log filtering; cache `max-age=60`.
+    `tests/test_updater_channel_http.py` (18 cases) include a
+    **lock-step assertion** (`channel.version` == `/api/product/
+    downloads/latest`) and exhaustive coverage of every known
+    target via the discovery endpoint. Backend suite: **1076
+    passed**.
+
 21. ~~**`speech.intents` extraction.**~~ **shipped** (2026-05-01) —
     Deterministic parser for TARS slash + voice commands so
     confident actions fire without an LLM round-trip and only the
