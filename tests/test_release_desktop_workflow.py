@@ -1,9 +1,11 @@
-"""Pin the contract of `.github/workflows/release-desktop.yml` (Phase L9 L3).
+"""Pin the contract of `.github/workflows/release-desktop-tagged.yml` (Phase L9 L3).
 
 We do not run GitHub Actions locally; instead we assert the workflow
 file has the shape downstream tools depend on:
 
-1. Triggered by the `desktop-v*.*.*` tag prefix.
+1. Triggered via `workflow_dispatch` with an explicit semver `version`
+   input (tag-push triggers were retired to silence GitHub's spurious
+   validation runs — see YAML header comment.)
 2. Reads the minisign secret from `TAURI_SIGNING_PRIVATE_KEY` (and the
    passphrase from `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`).
 3. Calls `python -m backend.core.product.publish` with `--updater-out`
@@ -29,7 +31,7 @@ from pathlib import Path
 import pytest
 
 REPO = Path(__file__).resolve().parents[1]
-WORKFLOW = REPO / ".github" / "workflows" / "release-desktop.yml"
+WORKFLOW = REPO / ".github" / "workflows" / "release-desktop-tagged.yml"
 SIGN_SCRIPT = REPO / "desktop" / "scripts" / "sign-artifacts.sh"
 
 
@@ -43,9 +45,11 @@ def sign_script() -> str:
     return SIGN_SCRIPT.read_text(encoding="utf-8")
 
 
-def test_workflow_triggers_on_desktop_tag(workflow: str) -> None:
-    assert '"desktop-v*.*.*"' in workflow
-    assert '"desktop-v*.*.*-*"' in workflow
+def test_workflow_uses_dispatch_with_version_input(workflow: str) -> None:
+    assert "workflow_dispatch:" in workflow
+    assert "inputs:" in workflow
+    assert "version:" in workflow
+    assert "Semver to publish" in workflow
 
 
 def test_workflow_passes_minisign_secret_to_env(workflow: str) -> None:
