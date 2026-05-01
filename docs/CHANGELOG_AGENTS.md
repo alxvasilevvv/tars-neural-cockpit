@@ -4,6 +4,86 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · FTS5 drift detection + auto-repair
+
+**Summary**
+
+Pulled **FTS5 backfill on schema bump** from `IDEAS.md` "Search &
+observability (post-L8)". The existing `ensure_fts_indexes` only
+rebuilds when the FTS table is *empty* — that misses the partial-
+drift case (e.g., backup restore where source has 1000 rows but FTS
+has 5). Added two-stage drift detection: count comparison + on-demand
+rebuild + opt-in boot-time hook.
+
+1. **`backend/core/search/fts.py`**
+   - `_count(conn, table)` — null-safe row count (returns 0 for
+     missing tables).
+   - `verify_and_repair_chat_fts(*, chat=None, force=False)` —
+     compares `chunks_fts` ↔ `attachment_chunks` and `messages_fts`
+     ↔ `messages`. Re-creates the FTS schema first (catches the
+     "DROP TABLE" recovery path), then rebuilds any index whose
+     count doesn't match the source. Returns
+     `{ok, scopes: [{name, fts, source, rebuilt, inserted}], rebuilt}`.
+     `force=True` drops + rebuilds both regardless of drift.
+   - `verify_and_repair_events_fts(meeet_db_path, *, force=False)` —
+     same pattern for the meeet DB's `events_fts` table.
+   - Both helpers are stdlib-only (sqlite3 + the existing
+     `_backfill_*` row-stream functions).
+
+2. **`backend/core/search/__init__.py`**
+   - Exports `verify_and_repair_chat_fts`,
+     `verify_and_repair_events_fts`, `ensure_events_fts`,
+     `ParsedQuery`, `merge_filters`, `parse_query_filters`.
+
+3. **`web_extras/routers/search.py`**
+   - New `POST /api/search/fts-repair`. Body:
+     `{force?: bool, scopes?: ["chat" | "events"]}` (default both).
+     Dispatches via `asyncio.to_thread` so the SQLite roundtrip
+     doesn't block the event loop. Returns the merged scopes diff.
+   - 400 when `scopes` isn't a list.
+
+4. **`web_extras/app.py`**
+   - `_fts_verify_on_boot()` — env `TARS_FTS_VERIFY_ON_BOOT`,
+     truthy values `1 | true | yes | on`. Default off so cold
+     starts stay fast.
+   - `_verify_fts_on_boot()` — best-effort coroutine awaited in
+     `_lifespan` enter. Walks chat then events, logs at INFO when
+     anything was rebuilt, swallows every exception so the host
+     boot is never blocked by a flaky FTS path.
+
+5. **Tests** — `tests/test_fts_auto_backfill.py` (new, 15 cases)
+   - chat: idempotent no-drift call, drift detected after wipe,
+     `force=True` rebuilds both indexes, dropped FTS tables get
+     re-created and backfilled, disabled chat returns
+     `chat_store_disabled`.
+   - events: no-drift call, drift detected after wipe, blank path
+     returns `meeet_store_disabled`.
+   - HTTP: no-drift returns `rebuilt=[]`, drift triggers rebuild,
+     `force=True` + scope list works, non-list scope returns 400.
+   - Boot hook: default off, recognises every truthy spelling, end-
+     to-end drift rebuild via TestClient lifespan with the env flag
+     on.
+
+**Verification**
+
+`pytest -q --ignore=tests/test_phase8_recovery.py
+       --deselect tests/test_pairing_contract.py::test_pair_attempted_event_emitted`
+→ **829 passed**, 1 deselected (pre-existing flake on `main`).
+Lints clean.
+
+**Files**
+
+- backend/core/search/fts.py
+- backend/core/search/__init__.py
+- web_extras/app.py
+- web_extras/routers/search.py
+- tests/test_fts_auto_backfill.py (new)
+- docs/CHANGELOG_AGENTS.md
+- docs/AGENT_HANDOFF.md
+- docs/IDEAS.md
+
+---
+
 ## 2026-05-01 — Cursor [A] · Scoped operator filters DSL (`role:`, `pack:`, `since:` …)
 
 **Summary**

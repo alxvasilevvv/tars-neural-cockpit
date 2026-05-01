@@ -1173,6 +1173,15 @@ Smaller functional items still pending in parallel:
     can show what matched and what was stripped.
     `tests/test_search_filters.py` (29 cases) pin parser + engine +
     HTTP wiring. Saved-search bodies inherit the DSL automatically.
+11. ~~**FTS5 backfill on schema bump.**~~ **shipped** (2026-05-01) —
+    `verify_and_repair_chat_fts` + `verify_and_repair_events_fts`
+    do row-count drift detection (not just empty-FTS fallback) and
+    rebuild on demand. `POST /api/search/fts-repair` body
+    `{force?, scopes?}` is the manual path; opt-in boot-time hook
+    via `TARS_FTS_VERIFY_ON_BOOT=1` runs the same check on lifespan
+    enter, never crashes the host. `tests/test_fts_auto_backfill.py`
+    (15 cases) pin chat + events + HTTP + boot-hook behaviour.
+    Default off so cold starts stay fast.
 
 ## Conventions to keep
 
