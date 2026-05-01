@@ -21,8 +21,9 @@ from __future__ import annotations
 import contextvars
 import secrets
 import time
-from contextlib import contextmanager
-from typing import Iterator, Literal
+from contextlib import asynccontextmanager, contextmanager
+from datetime import datetime, timezone
+from typing import Any, AsyncIterator, Iterator, Literal, Mapping, Sequence
 
 Route = Literal["edge", "cloud", "fallback", "mixed"]
 
@@ -115,11 +116,91 @@ def trace_scope(
 
 @contextmanager
 def session_scope(session_id: str | None = None) -> Iterator[str]:
-    """Open a session scope. Generates an id when one isn't provided."""
+    """Open a session scope. Generates an id when one isn't provided.
+
+    Synchronous and silent — does not emit boundary events. Use
+    :func:`async_session_scope` when you want narrative reconstruction
+    via ``session.opened`` / ``session.closed`` events.
+    """
 
     sid = session_id or new_session_id()
     token = _session.set(sid)
     try:
         yield sid
     finally:
+        _session.reset(token)
+
+
+def _iso_utc(ts: float) -> str:
+    return datetime.fromtimestamp(ts, tz=timezone.utc).isoformat(
+        timespec="milliseconds"
+    )
+
+
+async def _safe_emit_session_event(
+    kind: str, payload: Mapping[str, Any]
+) -> None:
+    """Best-effort emit; swallow any failure so boundary calls never crash callers.
+
+    Uses a deferred import to avoid the ``meeet.client`` ↔ ``meeet.tracing``
+    import cycle.
+    """
+
+    try:
+        from .client import get_client
+
+        await get_client().emit(kind, dict(payload))
+    except Exception:
+        return
+
+
+@asynccontextmanager
+async def async_session_scope(
+    session_id: str | None = None,
+    *,
+    topic: str | None = None,
+    participants: Sequence[str] | None = None,
+    emit_boundary: bool = True,
+) -> AsyncIterator[str]:
+    """Async session scope that emits ``session.opened`` / ``session.closed``.
+
+    Both events carry ``session_id``, ``topic``, ``participants`` and the
+    paired ``started_at`` ISO timestamp; ``session.closed`` additionally
+    carries ``ended_at`` and ``duration_ms``. The events are routed
+    through :class:`MeeetClient` so they hit the durable SQLite buffer and
+    (when configured) the meeet.world ingest. Pass ``emit_boundary=False``
+    to inherit the silent semantics of :func:`session_scope`.
+    """
+
+    sid = session_id or new_session_id()
+    parts = list(participants or ())
+    started_at = time.time()
+    started_iso = _iso_utc(started_at)
+    token = _session.set(sid)
+    if emit_boundary:
+        await _safe_emit_session_event(
+            "session.opened",
+            {
+                "session_id": sid,
+                "topic": topic,
+                "participants": parts,
+                "started_at": started_iso,
+            },
+        )
+    try:
+        yield sid
+    finally:
+        if emit_boundary:
+            ended_at = time.time()
+            await _safe_emit_session_event(
+                "session.closed",
+                {
+                    "session_id": sid,
+                    "topic": topic,
+                    "participants": parts,
+                    "started_at": started_iso,
+                    "ended_at": _iso_utc(ended_at),
+                    "duration_ms": int((ended_at - started_at) * 1000),
+                },
+            )
         _session.reset(token)
