@@ -35,6 +35,7 @@ from backend.core.attachments.index import (
 from backend.core.chat.store import ChatStore, get_chat_store
 from backend.core.meeet import get_store as get_meeet_store
 
+from .filters import ParsedQuery, parse_query_filters
 from .fts import (
     ensure_events_fts,
     ensure_fts_indexes,
@@ -89,6 +90,8 @@ class SearchResult:
     scope: SearchScope
     hits: list[SearchHit]
     counts: dict[str, int] = field(default_factory=dict)
+    filters: dict[str, Any] = field(default_factory=dict)
+    cleaned_query: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -96,6 +99,8 @@ class SearchResult:
             "scope": self.scope,
             "count": len(self.hits),
             "counts": dict(self.counts),
+            "filters": dict(self.filters),
+            "cleaned_query": self.cleaned_query,
             "hits": [h.to_dict() for h in self.hits],
         }
 
@@ -120,6 +125,11 @@ async def search(
     fast since they're SQLite-local). For ``scope='all'`` we pull the
     top ~K from each scope, then trim down to ``top_k`` overall by
     score.
+
+    Operator-friendly filters embedded in the query
+    (``role:operator``, ``pack:business``, ``since:7d``, ``kind:…``,
+    ``thread:thr_…``, ``trace:trc_…``, ``mime:pdf``) are parsed out via
+    :func:`parse_query_filters` and applied to each scope.
     """
 
     chat = chat or get_chat_store()
@@ -128,31 +138,56 @@ async def search(
 
     ensure_fts_indexes(chat=chat)
 
+    parsed = parse_query_filters(query)
+    cleaned = parsed.text or query  # never run an FTS with an empty body
+    f = parsed.filters
+
     counts: dict[str, int] = {}
     hits: list[SearchHit] = []
 
     if scope in ("all", "chunks"):
         chunk_hits = await search_chunks(
-            query,
+            cleaned,
             top_k=top_k,
             chat=chat,
             attachments=attachments,
             embedder=embedder,
+            thread_id=f.get("thread"),
         )
         counts["chunks"] = len(chunk_hits)
         hits.extend(chunk_hits)
     if scope in ("all", "messages"):
-        msg_hits = await search_messages(query, top_k=top_k, chat=chat)
+        msg_hits = await search_messages(
+            cleaned,
+            top_k=top_k,
+            chat=chat,
+            thread_id=f.get("thread"),
+            role=f.get("role"),
+            pack=f.get("pack"),
+            since=f.get("since"),
+            until=f.get("until"),
+        )
         counts["messages"] = len(msg_hits)
         hits.extend(msg_hits)
     if scope in ("all", "traces"):
-        trace_hits = await search_traces(query, top_k=top_k)
+        trace_hits = await search_traces(
+            cleaned,
+            top_k=top_k,
+            kind=f.get("kind"),
+            trace_id=f.get("trace"),
+            since=f.get("since"),
+            until=f.get("until"),
+        )
         counts["traces"] = len(trace_hits)
         hits.extend(trace_hits)
 
     hits.sort(key=lambda h: h.score, reverse=True)
     hits = hits[:top_k]
-    return SearchResult(query=query, scope=scope, hits=hits, counts=counts)
+    return SearchResult(
+        query=query, scope=scope, hits=hits, counts=counts,
+        filters=dict(parsed.filters),
+        cleaned_query=parsed.text,
+    )
 
 
 # ---------------------------------------------------------------------
@@ -173,6 +208,14 @@ async def search_chunks(
 
     ``thread_id`` scopes to one thread (used by the L2 in-thread
     retrieval rebuilt on top of FTS5 — see :func:`hybrid_chunks_in_thread`).
+
+    Operator-DSL tokens (``thread:``) embedded in the query are
+    parsed via :func:`parse_query_filters`. Caller-supplied
+    ``thread_id`` wins over the inline value. Other tokens
+    (``pack:``, ``mime:``, ``since:``, ``until:``) are stripped from
+    the FTS query but not yet applied — see TODO in IDEAS.md
+    "Scoped operator filters" follow-up; the attachments DB join is
+    a separate slice.
     """
 
     chat = chat or get_chat_store()
@@ -180,6 +223,10 @@ async def search_chunks(
     embedder = embedder or detect_embedder()
     if not query.strip():
         return []
+    parsed = parse_query_filters(query)
+    query = parsed.text or query
+    if thread_id is None:
+        thread_id = parsed.filters.get("thread")
 
     ensure_fts_indexes(chat=chat)
 
@@ -314,6 +361,9 @@ async def search_messages(
     embedder: Embedder | None = None,
     thread_id: str | None = None,
     role: str | None = None,
+    pack: str | None = None,
+    since: float | None = None,
+    until: float | None = None,
 ) -> list[SearchHit]:
     """Hybrid keyword + vector search over chat messages.
 
@@ -322,6 +372,11 @@ async def search_messages(
     candidate carries an embedding) blends BM25 with cosine via the
     same RRF formula used by chunk search. Falls back to keyword-only
     silently when no embedder is available.
+
+    Operator-DSL tokens (``role:``, ``pack:``, ``since:``, ``until:``,
+    ``thread:``) embedded directly in ``query`` are parsed via
+    :func:`parse_query_filters`. Caller-supplied kwargs win over
+    parsed values (explicit > inline).
     """
 
     chat = chat or get_chat_store()
@@ -329,14 +384,26 @@ async def search_messages(
         return []
     ensure_fts_indexes(chat=chat)
 
+    parsed = parse_query_filters(query)
+    cleaned = parsed.text or query
+    pf = parsed.filters
+    eff_thread = thread_id if thread_id is not None else pf.get("thread")
+    eff_role = role if role is not None else pf.get("role")
+    eff_pack = pack if pack is not None else pf.get("pack")
+    eff_since = since if since is not None else pf.get("since")
+    eff_until = until if until is not None else pf.get("until")
+
     keyword_pool = max(top_k * 4, 30)
     rows = await asyncio.to_thread(
         fts_match_messages,
-        query,
+        cleaned,
         chat=chat,
         limit=keyword_pool,
-        thread_id=thread_id,
-        role=role,
+        thread_id=eff_thread,
+        role=eff_role,
+        pack=eff_pack,
+        since=eff_since,
+        until=eff_until,
     )
     if not rows:
         return []
@@ -448,6 +515,8 @@ async def search_traces(
     top_k: int = 12,
     kind: str | None = None,
     trace_id: str | None = None,
+    since: float | None = None,
+    until: float | None = None,
 ) -> list[SearchHit]:
     if not query.strip():
         return []
@@ -458,14 +527,24 @@ async def search_traces(
     if not db_path:
         return []
 
+    parsed = parse_query_filters(query)
+    cleaned = parsed.text or query
+    pf = parsed.filters
+    eff_kind = kind if kind is not None else pf.get("kind")
+    eff_trace = trace_id if trace_id is not None else pf.get("trace")
+    eff_since = since if since is not None else pf.get("since")
+    eff_until = until if until is not None else pf.get("until")
+
     def _ensure_and_query() -> list[dict]:
         ensure_events_fts(db_path)
         return fts_match_events(
-            query,
+            cleaned,
             meeet_db_path=db_path,
             limit=top_k,
-            kind=kind,
-            trace_id=trace_id,
+            kind=eff_kind,
+            trace_id=eff_trace,
+            since=eff_since,
+            until=eff_until,
         )
 
     rows = await asyncio.to_thread(_ensure_and_query)
