@@ -40,6 +40,7 @@ from .probes import (
     probe_spa_root,
     probe_spa_routes,
     probe_tokenomics_invariants,
+    probe_version_subdomain,
 )
 
 
@@ -75,6 +76,7 @@ def run_all(ctx: Context) -> list[Probe]:
     probes.append(probe_manifest_origin(ctx))
     probes.append(probe_manifest_origin_blocked(ctx))
     probes.append(probe_manifest_subdomain(ctx))
+    probes.append(probe_version_subdomain(ctx))
 
     # 5. core-bridge
     probes.append(probe_core_bridge_unauth(ctx))

@@ -22,7 +22,9 @@
  * blobs. Bump on every visual/content change of the precache set.
  */
 
-const VERSION = "tars-v9.0";
+// Bumped 2026-04-30 (Wave 52) to bust stale precache after Cursor's
+// desktop-mode refactor stranded some users on a void-black hero.
+const VERSION = "tars-v9.0.1";
 const PRECACHE = `${VERSION}-precache`;
 const RUNTIME = `${VERSION}-runtime`;
 
