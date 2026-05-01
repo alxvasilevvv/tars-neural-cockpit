@@ -1143,6 +1143,18 @@ Smaller functional items still pending in parallel:
    logs `debug` on embedder-unavailable and keeps ticking until the
    upstream comes back. `tests/test_message_embed_loop.py` (8 cases)
    pins the wiring.
+9. ~~**Saved searches.**~~ **shipped** (2026-05-01) — new
+   `saved_searches` table in `~/.tars/chat.sqlite` (cols `id label
+   query scope filters_json pinned created_at updated_at
+   last_run_at`, composite index on `(pinned DESC, updated_at DESC)`).
+   Full CRUD on `/api/search/saved` (`GET` list, `POST` create,
+   `GET/{id}`, `PATCH/{id}`, `DELETE/{id}`) plus
+   `POST /api/search/saved/{id}/run` that executes via the existing
+   search engine and stamps `last_run_at`. Filters honoured per
+   scope (`thread_id`, `role`, `kind`, `trace_id`).
+   `tests/test_saved_searches.py` (16 cases) pins store CRUD + HTTP +
+   run shortcut. Cockpit "pinned rail" UI is the Claude-lane
+   follow-up.
 
 ## Conventions to keep
 

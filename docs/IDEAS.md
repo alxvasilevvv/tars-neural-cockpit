@@ -150,9 +150,15 @@ Open ideas for the next layer:
 - **Attachment hover-card preview.** When a chunk hit is highlighted
   in the palette, surface the surrounding ±1 chunk in a floating
   panel — the data is already on the chunk row.
-- **Saved searches.** Persist named searches (`my MRR slips`,
+- ~~**Saved searches.** Persist named searches (`my MRR slips`,
   `risk-flagged trades`) per operator into `~/.tars/chat.sqlite`;
-  expose a "pinned" rail above the palette results.
+  expose a "pinned" rail above the palette results.~~ — Shipped
+  2026-05-01: `saved_searches` table + full CRUD on
+  `/api/search/saved` + `POST /api/search/saved/{id}/run` (executes
+  via the existing search engine, stamps `last_run_at`). Listing
+  orders pinned first, then most-recently-updated.
+  `tests/test_saved_searches.py` (16 cases) pin the path. Cockpit
+  rail UI is the Claude-lane follow-up.
 - **Cross-thread Cmd+J jump.** ⌘K is a search; ⌘J should be a
   fuzzy thread / attachment / pack picker (lighter weight, no
   scope chips, just deep-link nav).
