@@ -9,7 +9,9 @@ Endpoints:
 - ``POST /api/voice/speak`` — synthesise an utterance. Returns
   ``audio/mpeg`` (cloud providers) or ``audio/wav`` (mac say) bytes.
   Optional query/body fields: ``persona``, ``provider``,
-  ``session_id`` (also honoured via ``x-tars-session-id`` header).
+  ``thread_id`` (when set, the thread's pinned ``voice_persona_id``
+  acts as a fallback persona), ``session_id`` (also honoured via
+  ``x-tars-session-id`` header).
 
 The endpoint is **not policy-gated** — TTS is non-destructive and the
 cost rolls up automatically through the meeet bridge as a
@@ -23,6 +25,7 @@ from typing import Any, Optional
 from fastapi import APIRouter, Body, Header, HTTPException
 from fastapi.responses import Response
 
+from backend.core.chat import get_chat_store
 from backend.core.voice import (
     SynthesisError,
     available_engines,
@@ -72,6 +75,19 @@ async def speak_endpoint(
     session_id = (
         body.get("session_id") or x_tars_session_id or None
     )
+
+    # Thread-pinned persona fallback: if the caller didn't specify
+    # an explicit ``persona`` but did pass ``thread_id``, look up
+    # the thread's pinned ``voice_persona_id`` so coming back to a
+    # thread keeps the same voice.
+    persona_source = "request" if persona else None
+    thread_id_arg = body.get("thread_id")
+    if not persona and thread_id_arg:
+        thread = await get_chat_store().get_thread(str(thread_id_arg))
+        if thread and thread.voice_persona_id:
+            persona = thread.voice_persona_id
+            persona_source = "thread"
+
     try:
         result = await synthesize(
             text,
@@ -89,4 +105,6 @@ async def speak_endpoint(
         "x-tars-voice-duration-ms": str(result.duration_estimate_ms),
         "cache-control": "no-store",
     }
+    if persona_source:
+        headers["x-tars-voice-persona-source"] = persona_source
     return Response(content=result.audio, media_type=result.mime, headers=headers)

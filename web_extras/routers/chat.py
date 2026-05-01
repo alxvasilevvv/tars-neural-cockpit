@@ -5,7 +5,8 @@ Endpoints:
 - ``POST /api/chat/threads`` — create a thread.
 - ``GET /api/chat/threads`` — list threads (filter by archived/pack).
 - ``GET /api/chat/threads/{id}`` — describe one thread + recent messages.
-- ``PATCH /api/chat/threads/{id}`` — rename / archive / pin a pack.
+- ``PATCH /api/chat/threads/{id}`` — rename / archive / pin a pack /
+  pin a voice persona.
 - ``DELETE /api/chat/threads/{id}`` — soft delete = archive.
 - ``GET /api/chat/threads/{id}/messages`` — paginated history.
 - ``POST /api/chat/threads/{id}/messages`` — start an assistant turn,
@@ -61,6 +62,33 @@ from backend.core.chat import (
 )
 from backend.core.chat.orchestrator import ChatOrchestrator
 from backend.core.policy import PolicyMode, resolve_mode
+from backend.core.voice.personas import iter_personas
+
+
+def _validate_voice_persona_id(value: Any) -> str | None:
+    """Coerce / validate a ``voice_persona_id`` payload value.
+
+    Accepts ``None`` and the empty string (both clear the pin) plus
+    any registered persona id. Raises ``HTTPException(400)`` on an
+    unknown id so the cockpit gets a clear error rather than a
+    silent no-op.
+    """
+
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise HTTPException(
+            status_code=400, detail="voice_persona_id_invalid"
+        )
+    cleaned = value.strip()
+    if not cleaned:
+        return None
+    known = {persona.id for persona in iter_personas()}
+    if cleaned not in known:
+        raise HTTPException(
+            status_code=400, detail="voice_persona_id_unknown"
+        )
+    return cleaned
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 
@@ -78,10 +106,16 @@ async def create_thread(
     title = body.get("title")
     pack_slug = body.get("pack_slug")
     project_id = body.get("project_id")
+    voice_persona_id = (
+        _validate_voice_persona_id(body.get("voice_persona_id"))
+        if "voice_persona_id" in body
+        else None
+    )
     thread = Thread.fresh(
         title=str(title).strip() if title else None,
         pack_slug=str(pack_slug).strip() if pack_slug else None,
         project_id=str(project_id).strip() if project_id else None,
+        voice_persona_id=voice_persona_id,
     )
     await get_chat_store().insert_thread(thread)
     return {"ok": True, "thread": thread.to_dict()}
@@ -135,6 +169,10 @@ async def patch_thread(
     for k in ("title", "pack_slug", "project_id", "archived"):
         if k in payload:
             updates[k] = payload[k]
+    if "voice_persona_id" in payload:
+        updates["voice_persona_id"] = _validate_voice_persona_id(
+            payload["voice_persona_id"]
+        )
     thread = await get_chat_store().patch_thread(thread_id, updates)
     if thread is None:
         raise HTTPException(status_code=404, detail="thread_not_found")

@@ -14,8 +14,17 @@ Ideas for the next sprints. Triage by impact × cost and pull into
 - **Per-persona system-prompt overlay.** When the operator selects
   Stark/Jarvis/etc., bias the chat voice's tone ("Stark would
   shorten replies and crack a joke") via an additive prompt fragment.
-- **Per-thread persona pinning.** Persist `voice_persona_id` on
-  threads so coming back to a thread keeps the same voice.
+- **Per-thread persona pinning.** ✅ shipped (2026-05-01) —
+  `threads.voice_persona_id` (additive migration), exposed on
+  `Thread.to_dict()` and every API response. Set / clear via
+  `POST /api/chat/threads` body or `PATCH /api/chat/threads/{id}`
+  with validation against `iter_personas()`.
+  `POST /api/voice/speak` accepts an optional `thread_id` field:
+  when no explicit `persona` is supplied, the endpoint resolves
+  the thread and uses its pinned id as a fallback (response header
+  `x-tars-voice-persona-source` is `request` or `thread`). Tests:
+  `tests/test_thread_persona_pinning.py` (26 cases). Cockpit
+  voice picker UI is the Claude-lane follow-up.
 - **Voice cloning kit (offline).** Document the path for an operator
   to capture 3 minutes of audio, mint an ElevenLabs IVC, paste the
   voice id into `TARS_PERSONA_OPERATOR_ELEVENLABS_ID`.
