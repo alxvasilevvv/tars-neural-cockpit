@@ -1201,6 +1201,36 @@ Smaller functional items still pending in parallel:
     `{q?, query?, limit?, kinds?}` — clamped to 100 hits, unknown
     kinds dropped silently. `tests/test_jump_picker.py` (23 cases).
     Cockpit ⌘J palette UI is the Claude-lane follow-up.
+21. ~~**`speech.intents` extraction.**~~ **shipped** (2026-05-01) —
+    Deterministic parser for TARS slash + voice commands so
+    confident actions fire without an LLM round-trip and only the
+    ambiguous residue routes to chat.
+    `backend/core/speech/intents.py` exposes
+    `parse_intent(transcript, *, known_playbook_ids=None)`
+    returning a frozen `Intent(kind, target, query, args,
+    duration_s, cleaned, consumed, confidence, error)`. Vocabulary:
+    `run_action / run_playbook / jump / search / snooze / help /
+    none`. Wake-word stripping for `TARS / Hey TARS / Ok TARS /
+    Computer / Jarvis`. Slash forms `/run pack.action [json-args]`,
+    `/run playbook_id`, `/jump <q>`, `/search <q>`,
+    `/snooze <id> [for] <duration>`, `/help`. Voice forms with
+    `dot`-keyword normalisation
+    (`"traders dot morning check"` → `traders.morning_check`).
+    Snooze duration parser handles `s / m / h / d / w` units.
+    Registry-aware playbook arbitration: `known_playbook_ids` wins;
+    bare-token bodies optimistic-dispatch when no registry is
+    supplied; an empty registry rejects unknown tokens with
+    `run_target_unrecognised`. JSON args parse only on
+    `{ ... }` bodies; non-objects + invalid JSON surface
+    `args_must_be_object` / `invalid_json_args`. HTTP:
+    `POST /api/speech/intents` body
+    `{transcript, use_playbook_registry=true}`. A flapping loader
+    is caught and degrades to empty-registry. Side fix: deflaked
+    `test_recovery_seed.py::test_generate_emits_recovery_shown_event`
+    using the same `tmp_path / meeet.sqlite` isolation pattern as
+    pairing. `tests/test_speech_intents.py` (35 cases). Backend
+    suite: **1045 passed** + 13 pairing = 1058.
+
 20. ~~**`application/zip` walker.**~~ **shipped** (2026-05-01) —
     Zip uploads previously fell through the binary path so the
     operator got nothing useful. With this slot, dragging a zip
