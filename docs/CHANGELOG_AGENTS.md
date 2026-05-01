@@ -4,6 +4,73 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · Zip archive walker (attachments)
+
+**Summary**
+
+`application/zip` uploads were previously treated as a single
+opaque blob — the extractor fell back to the binary path and the
+operator got nothing useful. With this slot, dropping a zip on the
+cockpit fans the archive out: every safe member becomes its own
+fully-ingested attachment (extract → chunk → embed → FTS), linked
+back to the parent zip via `meta.parent_attachment_id`. The parent
+row stays opaque (no chunks of its own) and carries a `zip_walk`
+summary in meta so the cockpit can render the per-member outcome.
+
+1. **Walker** (`backend/core/attachments/zip_walker.py`, new)
+   - `walk_zip(parent_record, blob, …)` — async, opens the
+     archive, iterates `infolist()`, applies safety checks
+     (unsafe paths, directory entries, oversize members, empty
+     payloads), and calls back into `pipeline.ingest` for every
+     leaf member with `parent_attachment_id` + a depth-aware
+     `walk_archives` flag.
+   - `ZipEntryResult` / `ZipWalkSummary` dataclasses report the
+     per-entry and aggregated outcome (expanded / skipped /
+     failed / truncated).
+   - Env knobs: `TARS_ZIP_MAX_ENTRIES` (default 200, capped at
+     5 000), `TARS_ZIP_MAX_ENTRY_BYTES` (default 25 MB, floor
+     1 KB), `TARS_ZIP_MAX_DEPTH` (default 2, capped at 5).
+   - `is_zip_mime` / `looks_like_zip` — detection based on MIME
+     family + filename suffix + PK magic bytes.
+   - `_is_unsafe_name` — rejects absolute paths, traversal
+     segments (`..`), and `__MACOSX/*` resource forks.
+
+2. **Pipeline integration** (`backend/core/attachments/pipeline.py`)
+   - `ingest()` grows two parameters: `parent_attachment_id`
+     (links a child member to its parent zip in `meta`) and
+     `walk_archives` (enables / disables expansion; the walker
+     uses this for depth-limited recursion).
+   - On a detected zip with `walk_archives=True` and no parent,
+     the parent row is upserted, then `walk_zip` runs, then the
+     parent meta is patched with `zip_walk` summary and an
+     `attachment.zip_walked` event is emitted (counts +
+     truncated flag). The parent skips its own chunk / embed
+     cycle (no chunks).
+
+3. **Tests** (`tests/test_zip_walker.py`, 14 cases)
+   - Detection primitives: MIME family, magic bytes, filename
+     suffix fallback.
+   - Safety: unsafe-name predicate covers traversal, absolute,
+     `__MACOSX`, empty.
+   - Env helpers: clamp garbage, defaults.
+   - Pipeline: a zip upload expands into siblings; children
+     carry `parent_attachment_id` in meta; directories +
+     unsafe paths skipped; per-archive entries cap honoured
+     (`truncated=True`); oversize members skipped with reason;
+     corrupt archives counted as failed (no crash);
+     `walk_archives=False` keeps the zip as a single blob;
+     nested zips walk up to `TARS_ZIP_MAX_DEPTH` then stop;
+     dedup within a thread still applies (one stored child for
+     duplicate members).
+
+**Files touched**
+
+- `backend/core/attachments/pipeline.py` — `ingest()` signature
+  + zip detection + walker hand-off.
+- `backend/core/attachments/zip_walker.py` (new) — walker engine
+  + safety + summaries + env knobs.
+- `tests/test_zip_walker.py` (new) — 14 unit + integration cases.
+
 ## 2026-05-01 — Cursor [A] · Memory purge background loop
 
 **Summary**
