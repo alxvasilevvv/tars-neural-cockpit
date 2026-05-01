@@ -70,10 +70,21 @@ Ideas for the next sprints. Triage by impact × cost and pull into
   `meta.parent_attachment_id`, surfaces a `zip_walk` summary on the
   parent. Tunable via `TARS_ZIP_MAX_ENTRIES` / `TARS_ZIP_MAX_ENTRY_BYTES`
   / `TARS_ZIP_MAX_DEPTH`. Tests: `tests/test_zip_walker.py`.
-- **Streaming ingestion progress.** Yield SSE events
-  (`attachment.extracting`, `attachment.embedding`,
-  `attachment.indexed`) over the upload connection so the cockpit
-  can render a live "indexing 12 chunks…" pill on the chip.
+- ~~**Streaming ingestion progress.**~~ ✅ **Shipped 2026-05-01** —
+  every ingest call now accepts a
+  `progress: ProgressCallback | None` kwarg that fires once per
+  phase (`started` / `extracted` / `chunked` / `embedding` /
+  `embedded` / `indexed` / `completed` / `dedup_hit` /
+  `zip_walked` / `error`). New HTTP route
+  `POST /api/chat/threads/{id}/attachments/stream` pipes that
+  callback into an SSE `StreamingResponse` (one frame per phase
+  + terminal `result` frame with the canonical upload envelope).
+  Three new meeet events `attachment.extracting` /
+  `attachment.embedding` / `attachment.indexed` for cross-cutting
+  observability. Pinned by
+  `tests/test_attachments_streaming_upload.py` (10 cases).
+  Cockpit "indexing 12 chunks…" pill UI is the Claude-lane
+  follow-up.
 - **Per-attachment hover preview.** Replace the chip's tooltip with a
   floating card that previews the first chunk + heading list.
   Backend bridge ✅ shipped (2026-05-01) —

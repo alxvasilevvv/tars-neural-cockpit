@@ -1201,6 +1201,32 @@ Smaller functional items still pending in parallel:
     `{q?, query?, limit?, kinds?}` — clamped to 100 hits, unknown
     kinds dropped silently. `tests/test_jump_picker.py` (23 cases).
     Cockpit ⌘J palette UI is the Claude-lane follow-up.
+31. ~~**Streaming ingestion progress (SSE).**~~ **shipped**
+    (2026-05-01) — closes the "streaming ingestion progress"
+    idea from IDEAS' attachments section. The ingest pipeline
+    now accepts a `progress: ProgressCallback | None` kwarg
+    that fires once per phase (`started` → `extracted` →
+    `chunked` → `embedding` → `embedded` → `indexed` →
+    `completed`, plus `dedup_hit` / `zip_walked` / `error`
+    terminal variants). A defensive `_safe_progress()`
+    wrapper swallows + logs any exception inside the callback
+    so a flaky SSE consumer can never break the ingest flow.
+    Three new meeet events `attachment.extracting`,
+    `attachment.embedding`, `attachment.indexed` accompany the
+    callback for cross-cutting observability. New HTTP route
+    `POST /api/chat/threads/{id}/attachments/stream` is a
+    thin adapter that pipes the callback into a
+    `StreamingResponse` queue — frames are SSE
+    (`event: <phase>\ndata: <json>\n\n`), terminal `result`
+    frame carries the same envelope as the legacy upload so
+    the cockpit can update the chip without an extra GET.
+    Headers include `Cache-Control: no-cache` and
+    `X-Accel-Buffering: no` so nginx flushes immediately. The
+    original non-streaming endpoint is unchanged. Pinned by
+    `tests/test_attachments_streaming_upload.py` (10 cases).
+    Cockpit "indexing 12 chunks…" pill UI is the Claude-lane
+    follow-up.
+
 30. ~~**business.hubspot_pull_pipeline (read-only).**~~ **shipped**
     (2026-05-01) — closes the `business.hubspot_pull_pipeline`
     slot from IDEAS' "real adapters" list. New
