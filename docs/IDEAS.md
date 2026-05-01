@@ -266,19 +266,27 @@ Open ideas for the next layer:
    stitches sub-packs with namespaced ids `<sub_slug>__<id>`.
    `research_lab` (science + business) and `ops_room` (traders +
    mlm) ship by default. Open work: composite-aware playbooks.
-8. **Per-pack memory partitions.** ✅ partial (2026-05-01) —
-   foundation slice shipped. `backend/core/memory/` is a new package
-   with `MemoryEntry` + `MemoryStore` (SQLite at
-   `~/.tars/memory.sqlite`, override `TARS_MEMORY_DB_PATH`). The
-   `pack_memory` table is uniquely keyed on `(pack_slug, key)` so
-   domain context cannot bleed. Optional TTL eviction is built in.
-   HTTP surface (`web_extras/routers/memory.py`) covers list /
-   upsert / get / delete / purge / stats per pack plus global
-   stats + global purge. `tests/test_memory_store.py` (28 cases)
-   pin partitioning, TTL, and HTTP round-trip. **Open follow-ups:**
-   `pack.memory.*` action family on every pack so the agent loop +
-   playbooks use it through the standard interface, periodic
-   `_memory_purge_loop` background task, cockpit "facts" view.
+8. **Per-pack memory partitions.** ✅ shipped in two slices
+   (2026-05-01).
+   - **Foundations (PR #56):** `backend/core/memory/` package with
+     `MemoryEntry` + `MemoryStore` (SQLite at
+     `~/.tars/memory.sqlite`, override `TARS_MEMORY_DB_PATH`).
+     `pack_memory` table uniquely keyed on `(pack_slug, key)` so
+     domain context cannot bleed. Optional TTL eviction.
+     `web_extras/routers/memory.py` exposes pack-scoped + global
+     CRUD/stats/purge endpoints.
+   - **Action family (this slice):**
+     `backend/core/domains/memory_actions.py` injects
+     `pack.memory.set / get / list / delete / purge_expired /
+     stats` into every pack via
+     `DomainPack.all_actions()`. Composite packs flatten sub-pack
+     memory under `<sub_slug>__pack.memory.*`. Only `delete` is
+     `destructive=True` (policy-gated); reads/list/purge/stats are
+     non-destructive. Pinned by `tests/test_memory_actions.py`
+     (27 cases) on top of `tests/test_memory_store.py` (28 cases).
+   - **Open follow-ups:** periodic `_memory_purge_loop` background
+     task in `app.py`, cockpit "facts" view that consumes the new
+     actions per pack.
 9. **Pack marketplace JSON.** ✅ shipped (Phase K4) —
    `GET /api/domains/manifest` returns a stable, cache-friendly
    summary (slug / capabilities / action counts / composite
