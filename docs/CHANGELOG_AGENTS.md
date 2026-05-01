@@ -4,6 +4,55 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor · QA agent loop + meeet-ingest heartbeat probe
+
+**Summary**
+
+Closes the last two pending TARS items in the Phase-3 roadmap:
+
+1. `scripts/qa_agent/loop.py` — autonomous QA loop wrapping
+   `qa_agent.runner`. Runs probes on a configurable interval
+   (`--interval`, default 300s, env `QA_LOOP_INTERVAL_S`), persists
+   each run as JSON under `.qa-runs/` (override `QA_RUN_DIR`), keeps a
+   `.qa-runs/latest.json` pointer for dashboards, and emits a
+   single-line summary so cron / launchd / journald can surface
+   results without parsing JSON. Best-effort `qa_agent.run.completed`
+   meeet event when the bridge is configured. SIGINT/SIGTERM clean
+   shutdown. Exit codes mirror `runner.main`: `0` GREEN/YELLOW, `1`
+   RED, `130` clean Ctrl-C.
+2. `probe_meeet_ingest_heartbeat` — synthetic
+   `awareness.snapshot.completed` event POSTed into the core
+   `tars-ingest` Edge Function. Validates the meeet ingest contract
+   end-to-end without depending on the Python `MeeetClient` being
+   wired up. Behaviour:
+   - 200 + `accepted >= 1` + `persisted=true` → PASS.
+   - 200 with `persisted=false` → WARN (table not migrated yet).
+   - 401 with no `--ingest-api-key`/`TARS_INGEST_API_KEY` → WARN
+     (operator action gap, mirrors `api.client_error` pattern).
+   - 401 with key set → FAIL (mismatch).
+   - Network 0 → WARN (offline).
+3. New `Context` fields `core_supabase_url` + `tars_ingest_api_key`,
+   plumbed through `runner.py` (CLI flags `--core-supabase`,
+   `--ingest-api-key`) and `loop.py` (same flags).
+4. `Makefile`: new `qa-loop` and `qa-loop-once` targets.
+5. `docs/TARS_MEEET_OPS_TODO.md` step 4: documents the
+   `MEEET_INGEST_URL` / `MEEET_API_KEY` paste so the Python emitter
+   ends up writing the same events the heartbeat already verifies.
+6. `.gitignore`: ignore `.qa-runs/`.
+
+Verification: `make qa-loop-once` against prod returns YELLOW
+(26 PASS / 0 FAIL / 3 WARN / 3 SKIP) — heartbeat probe correctly
+identifies `tars-ingest` as deployed and enforcing auth, and demotes
+to WARN until the operator pastes the key.
+
+Files:
+- `scripts/qa_agent/loop.py` (new)
+- `scripts/qa_agent/probes.py`
+- `scripts/qa_agent/runner.py`
+- `Makefile`
+- `docs/TARS_MEEET_OPS_TODO.md`
+- `.gitignore`
+
 ## 2026-05-01 — Cursor · `unified_funnel` cross-domain telemetry spec for Lovable
 
 **Summary**

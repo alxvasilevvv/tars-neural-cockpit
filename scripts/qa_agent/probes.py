@@ -35,6 +35,11 @@ class Context:
         "https://zujrmifaabkletgnpoyw.supabase.co/functions/v1/core-bridge"
     )
     tars_supabase_url: str = "https://hhpaukjobskcwkxbgecl.supabase.co"
+    # ``tars-ingest`` lives on the *core* Supabase project (`meeet.world` lane).
+    # Default points at the canonical project URL. Override via CLI / env if
+    # the heartbeat is being directed elsewhere (e.g. a staging mirror).
+    core_supabase_url: str = "https://zujrmifaabkletgnpoyw.supabase.co"
+    tars_ingest_api_key: str | None = None
     bridge_shared_secret: str | None = None
     skip_subdomain: bool = False
     skip_authenticated: bool = False
@@ -1015,3 +1020,149 @@ def probe_root_ttfb(ctx: Context) -> Probe:
         return _pass("perf.ttfb_root", "subdomain", f"{dt_ms}ms", url=url, ttfb_ms=dt_ms)
 
     return _timed(run)
+
+
+# ---------- meeet.world heartbeat (tars-ingest) ----------
+
+
+def probe_meeet_ingest_heartbeat(ctx: Context) -> Probe:
+    """Synthetic ``awareness.snapshot.completed`` heartbeat into ``tars-ingest``.
+
+    Goal: prove end-to-end that the meeet bridge has somewhere live to
+    ingest TARS events. We don't go through the Python client here — the
+    probe must work even when the operator runs the QA agent without the
+    full backend installed. We simulate exactly what
+    ``MeeetClient.emit("awareness.snapshot.completed", ...)`` would put on
+    the wire.
+
+    Healthy outcomes:
+
+      • 200 with ``{ok: true, accepted: 1}`` → end-to-end green.
+      • 200 with ``persisted: false`` and ``warning`` mentioning the
+        ingest table → schema accepted, persistence not wired yet → warn.
+      • 401 ``unauthorized`` → fail (operator forgot the API key).
+      • 0 / network error → warn (offline).
+    """
+
+    def run() -> Probe:
+        ingest_url = ctx.core_supabase_url.rstrip("/") + "/functions/v1/tars-ingest"
+        trace_id = uuid.uuid4().hex
+        session_id = "qa-agent-" + uuid.uuid4().hex[:12]
+        payload = {
+            "kind": "awareness.snapshot.completed",
+            "trace_id": trace_id,
+            "session_id": session_id,
+            "source": "tars-qa-agent",
+            "contract_version": CONTRACT_VERSION,
+            "ts": time.time(),
+            "payload": {
+                "slug": "qa.synthetic",
+                "source_id": "qa.heartbeat",
+                "took_ms": 1,
+                "ok": True,
+                "agent": "tars-qa-agent",
+            },
+        }
+        headers: dict[str, str] = {
+            "content-type": "application/json",
+            "x-meeet-contract-version": CONTRACT_VERSION,
+            "x-tars-contract-version": CONTRACT_VERSION,
+        }
+        if ctx.tars_ingest_api_key:
+            headers["authorization"] = f"Bearer {ctx.tars_ingest_api_key}"
+            headers["x-api-key"] = ctx.tars_ingest_api_key
+        body_bytes = json.dumps(payload).encode("utf-8")
+        status, _hdrs, body = _open(
+            "POST",
+            ingest_url,
+            headers=headers,
+            body=body_bytes,
+            timeout=ctx.timeout_s,
+        )
+        if status == 0:
+            return _warn(
+                "meeet.ingest_heartbeat",
+                "meeet",
+                "tars-ingest unreachable (offline?)",
+                url=ingest_url,
+                error=body[:200].decode("utf-8", errors="replace"),
+            )
+        if status == 401:
+            # No key configured → operator action gap, keep CI yellow not red
+            # (mirrors how api.client_error handles bridge_unconfigured).
+            if not ctx.tars_ingest_api_key:
+                return _warn(
+                    "meeet.ingest_heartbeat",
+                    "meeet",
+                    "tars-ingest enforcing auth — TARS_INGEST_API_KEY not provided "
+                    "(see docs/TARS_MEEET_OPS_TODO §1 step 4)",
+                    url=ingest_url,
+                    trace_id=trace_id,
+                )
+            return _fail(
+                "meeet.ingest_heartbeat",
+                "meeet",
+                "tars-ingest rejected request (TARS_INGEST_API_KEY mismatch)",
+                url=ingest_url,
+                trace_id=trace_id,
+            )
+        if status == 405:
+            return _warn(
+                "meeet.ingest_heartbeat",
+                "meeet",
+                "tars-ingest reported method_not_allowed — function not deployed?",
+                url=ingest_url,
+            )
+        if status != 200:
+            return _fail(
+                "meeet.ingest_heartbeat",
+                "meeet",
+                f"expected 200, got {status}: {body[:200]!r}",
+                url=ingest_url,
+                trace_id=trace_id,
+            )
+        try:
+            data = json.loads(body)
+        except json.JSONDecodeError as exc:
+            return _fail(
+                "meeet.ingest_heartbeat",
+                "meeet",
+                f"non-JSON response: {exc}",
+                url=ingest_url,
+            )
+        if data.get("ok") is not True:
+            return _fail(
+                "meeet.ingest_heartbeat",
+                "meeet",
+                f"ok != true: {data!r}",
+                url=ingest_url,
+                trace_id=trace_id,
+            )
+        accepted = int(data.get("accepted") or 0)
+        if accepted < 1:
+            return _fail(
+                "meeet.ingest_heartbeat",
+                "meeet",
+                f"no events accepted: {data!r}",
+                url=ingest_url,
+                trace_id=trace_id,
+            )
+        if data.get("persisted") is False:
+            return _warn(
+                "meeet.ingest_heartbeat",
+                "meeet",
+                f"accepted but not persisted: {data.get('warning') or 'no detail'}",
+                url=ingest_url,
+                trace_id=trace_id,
+            )
+        return _pass(
+            "meeet.ingest_heartbeat",
+            "meeet",
+            f"awareness.snapshot.completed accepted+persisted (trace {trace_id[:8]})",
+            url=ingest_url,
+            trace_id=trace_id,
+            accepted=accepted,
+        )
+
+    return _timed(run)
+

@@ -13,7 +13,7 @@ COCKPIT   ?= experiments/neural-showcase-v3
 DESKTOP   ?= desktop
 
 .PHONY: help test test-product lint cockpit cockpit-build cockpit-tsc \
-        acceptance-tars-meeet qa-agent qa-agent-json \
+        acceptance-tars-meeet qa-agent qa-agent-json qa-loop qa-loop-once \
         backend backend-dev desktop-dev desktop-build smoke-core-bridge \
         gate-control-tower ops-bridge-secret clean
 
@@ -87,6 +87,12 @@ qa-agent:            ## TARS QA Agent (python stdlib, no deps): autonomous probe
 
 qa-agent-json:       ## QA agent in JSON mode (for CI / tooling)
 	$(PY) -m scripts.qa_agent --json --no-color
+
+qa-loop:             ## autonomous QA loop (every QA_LOOP_INTERVAL_S, default 300s)
+	$(PY) -m scripts.qa_agent.loop
+
+qa-loop-once:        ## single QA loop iteration; writes JSON report to .qa-runs/
+	$(PY) -m scripts.qa_agent.loop --once
 
 ops-bridge-secret:   ## one-shot: paste BRIDGE_SHARED_SECRET (Pages env + GH secret + redeploy + QA)
 	bash scripts/ops_set_bridge_shared_secret.sh

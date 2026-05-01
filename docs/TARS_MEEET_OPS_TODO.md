@@ -88,6 +88,25 @@ secret value:
 3. **(Lovable lane)** Sitemap canonical-flip:
    `meeet.world/sitemap.xml` should add the `tars.meeet.world/*`
    URLs. Tracked in the `meeet#5` Claude prompt batch.
+4. **`MEEET_INGEST_URL` + `MEEET_API_KEY` for the TARS backend.**
+   Connects the Python `MeeetClient` (Phase 9.1) to the
+   `tars-ingest` Supabase Edge Function on the *core* project
+   (`zujrmifaabkletgnpoyw`). Once set, every `awareness.snapshot.*`,
+   `domain.action.*`, and `qa_agent.run.completed` event lands in
+   `tars_event_ingest` end-to-end.
+
+   - `MEEET_INGEST_URL=https://zujrmifaabkletgnpoyw.supabase.co/functions/v1/tars-ingest`
+   - `MEEET_API_KEY=<value of TARS_INGEST_API_KEY on the core project>`
+   - `MEEET_SOURCE=tars-backend` (or whatever surface emits, e.g.
+     `tars-cockpit`).
+   - `MEEET_CONTRACT_VERSION=1.0.0` (default).
+
+   Verify with the QA agent's heartbeat probe:
+
+   ```bash
+   TARS_INGEST_API_KEY="<value>" make qa-agent
+   # expect: meeet.ingest_heartbeat → PASS
+   ```
 
 After step 1 is done, run:
 ```
