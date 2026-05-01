@@ -7,9 +7,10 @@ Real-ish adapters backed by an SQLite downline DB
 
 ``score_recruit`` is a deterministic scorer over the local downline
 DB (see ``scoring.py``); falls back to a stable SHA-256-derived
-score for unknown handles. ``generate_post`` stays as a structured
-stub. ``tg_outreach_draft`` is a deterministic Telegram drafter
-(see ``tg_outreach.py``).
+score for unknown handles. ``generate_post`` is a deterministic
+multi-channel / multi-language drafter (see ``post_drafter.py``).
+``tg_outreach_draft`` is a deterministic Telegram drafter (see
+``tg_outreach.py``).
 """
 
 from __future__ import annotations
@@ -22,7 +23,15 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from ...base import ActionSpec
+from ....meeet import get_client
 from .db import get_downline_db
+from .post_drafter import (
+    KNOWN_CHANNELS as POST_CHANNELS,
+    KNOWN_FORMATS as POST_FORMATS,
+    KNOWN_LANGUAGES as POST_LANGUAGES,
+    KNOWN_TONES as POST_TONES,
+    draft_post,
+)
 from .scoring import (
     compose_score,
     score_for_unknown_handle,
@@ -372,27 +381,54 @@ async def score_recruit(args: Mapping[str, Any]) -> Mapping[str, Any]:
 
 
 async def generate_post(args: Mapping[str, Any]) -> Mapping[str, Any]:
-    channel = str(args.get("channel", "ig")).lower()
-    if channel not in {"ig", "tg", "wa"}:
-        return {"ok": False, "error": "unsupported_channel", "channel": channel}
-    fmt = str(args.get("format", "post"))
-    topic = str(args.get("topic", "")).strip() or "team momentum"
-    drafts = {
-        "ig": f"Three things this week: traction, learning, and {topic}. Tag a teammate who's pushing the same direction.",
-        "tg": f"Quick update — {topic}. Reply with one win and one block. Will sync at 18:00.",
-        "wa": f"Hi! Sharing today's note on {topic}. Read in 60s; reply ✅ if useful.",
-    }
-    return {
+    """Draft a channel-appropriate piece of content for the operator.
+
+    Backed by :mod:`backend.core.domains.packs.mlm.post_drafter`.
+    All knobs are optional (channel / format / tone / language /
+    topic / cta) and unknown enum values fall back to defaults so
+    existing playbooks ride through unchanged. Output includes
+    ``draft``, ``cta``, ``hashtags``, ``char_count``,
+    ``word_count`` so the cockpit can preview length budgets per
+    platform.
+
+    Validation: explicit but unknown ``channel`` strings still
+    return ``{ok=False, error="unsupported_channel"}`` to keep the
+    pre-existing cockpit safety net (the playbook YAML schema also
+    pins it).
+    """
+
+    channel_arg = args.get("channel")
+    if channel_arg is not None:
+        channel_str = str(channel_arg).strip().lower()
+        if channel_str and channel_str not in POST_CHANNELS:
+            return {
+                "ok": False,
+                "error": "unsupported_channel",
+                "channel": channel_str,
+                "supported": list(POST_CHANNELS),
+            }
+
+    draft = draft_post(args)
+
+    client = get_client()
+    await client.emit(
+        "mlm.post_drafted",
+        {
+            "channel": draft.channel,
+            "format": draft.format,
+            "tone": draft.tone,
+            "language": draft.language,
+            "topic": draft.topic,
+            "char_count": draft.char_count,
+            "word_count": draft.word_count,
+        },
+    )
+
+    payload: dict[str, Any] = {
         "ok": True,
-        "channel": channel,
-        "format": fmt,
-        "topic": topic,
-        "draft": drafts[channel],
-        "hashtags": (
-            ["#momentum", "#team", "#" + topic.split()[0]] if channel == "ig" else []
-        ),
-        "hint": "deterministic draft; council will replace with personal voice",
+        **draft.to_dict(),
     }
+    return payload
 
 
 async def retention_alert(args: Mapping[str, Any]) -> Mapping[str, Any]:
@@ -460,17 +496,41 @@ ACTIONS: tuple[ActionSpec, ...] = (
     ActionSpec(
         id="generate_post",
         name="Generate post",
-        description="Draft a channel-appropriate piece of content.",
+        description=(
+            "Draft a channel-appropriate piece of content. "
+            "Deterministic: same args always render the same draft. "
+            "Supports ig / tg / wa / linkedin × post / story / reel "
+            "/ dm × warm / professional / urgent / celebratory × "
+            "en / ru / es. Emits 'mlm.post_drafted' on every call."
+        ),
         handler=generate_post,
         schema={
             "type": "object",
             "properties": {
-                "channel": {"type": "string", "enum": ["ig", "tg", "wa"]},
+                "channel": {
+                    "type": "string",
+                    "enum": list(POST_CHANNELS),
+                },
                 "format": {
                     "type": "string",
-                    "enum": ["story", "post", "reel", "dm"],
+                    "enum": list(POST_FORMATS),
+                },
+                "tone": {
+                    "type": "string",
+                    "enum": list(POST_TONES),
+                },
+                "language": {
+                    "type": "string",
+                    "enum": list(POST_LANGUAGES),
                 },
                 "topic": {"type": "string"},
+                "cta": {
+                    "type": "string",
+                    "description": (
+                        "Optional explicit call-to-action; falls back "
+                        "to a tone-appropriate default."
+                    ),
+                },
             },
             "required": ["channel"],
         },
