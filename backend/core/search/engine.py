@@ -153,6 +153,10 @@ async def search(
             attachments=attachments,
             embedder=embedder,
             thread_id=f.get("thread"),
+            pack=f.get("pack"),
+            mime=f.get("mime"),
+            since=f.get("since"),
+            until=f.get("until"),
         )
         counts["chunks"] = len(chunk_hits)
         hits.extend(chunk_hits)
@@ -203,19 +207,30 @@ async def search_chunks(
     attachments: AttachmentStore | None = None,
     embedder: Embedder | None = None,
     thread_id: str | None = None,
+    pack: str | None = None,
+    mime: str | None = None,
+    since: float | None = None,
+    until: float | None = None,
 ) -> list[SearchHit]:
     """Cross-thread (or single-thread) hybrid chunk search.
 
     ``thread_id`` scopes to one thread (used by the L2 in-thread
     retrieval rebuilt on top of FTS5 — see :func:`hybrid_chunks_in_thread`).
 
-    Operator-DSL tokens (``thread:``) embedded in the query are
-    parsed via :func:`parse_query_filters`. Caller-supplied
-    ``thread_id`` wins over the inline value. Other tokens
-    (``pack:``, ``mime:``, ``since:``, ``until:``) are stripped from
-    the FTS query but not yet applied — see TODO in IDEAS.md
-    "Scoped operator filters" follow-up; the attachments DB join is
-    a separate slice.
+    Operator-DSL tokens parsed via :func:`parse_query_filters`:
+
+    - ``thread:`` → ``thread_id`` (caller-supplied wins).
+    - ``pack:``   → ``threads.pack_slug`` (JOIN ``threads``).
+    - ``mime:``   → ``attachments.mime`` (literal or ``image/*``
+      wildcard prefix; JOIN ``attachments``).
+    - ``since:``  → POSIX seconds, ``attachments.created_at >=``.
+    - ``until:``  → POSIX seconds, ``attachments.created_at <=``.
+
+    Explicit kwargs always win over inline filters. The vector
+    fallback path doesn't honour ``pack``/``mime``/time bounds today —
+    it only fires when keyword has zero hits, which is rare for
+    real queries; tightening it is a separate slice if it ever
+    matters in practice.
     """
 
     chat = chat or get_chat_store()
@@ -227,6 +242,18 @@ async def search_chunks(
     query = parsed.text or query
     if thread_id is None:
         thread_id = parsed.filters.get("thread")
+    if pack is None:
+        pack = parsed.filters.get("pack")
+    if mime is None:
+        mime = parsed.filters.get("mime")
+    if since is None:
+        since_val = parsed.filters.get("since")
+        if isinstance(since_val, (int, float)):
+            since = float(since_val)
+    if until is None:
+        until_val = parsed.filters.get("until")
+        if isinstance(until_val, (int, float)):
+            until = float(until_val)
 
     ensure_fts_indexes(chat=chat)
 
@@ -236,6 +263,10 @@ async def search_chunks(
         chat=chat,
         limit=max(top_k * 4, 30),
         thread_id=thread_id,
+        pack=pack,
+        mime=mime,
+        since=since,
+        until=until,
     )
     if not keyword_rows:
         # No keyword hits at all — fall back to vector-only over the

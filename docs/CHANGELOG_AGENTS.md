@@ -4,6 +4,75 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · Chunks attachment-DB JOIN for `pack:` / `mime:` / `since:` / `until:`
+
+**Summary**
+
+Follow-up to PR #46 (scoped operator filters). The `search_chunks`
+path stripped `pack:`/`mime:`/time-window tokens but didn't honour
+them — the original PR called out the attachments-DB JOIN as a
+separate slice. Turns out `attachments`, `attachment_chunks`,
+`messages`, and `threads` all live in the same SQLite WAL file
+(`~/.tars/chat.sqlite`), so this is a single-DB JOIN, not a cross-
+store dance.
+
+1. **`backend/core/search/fts.py`** — `fts_match_chunks` accepts
+   four new kwargs (`pack`, `mime`, `since`, `until`). JOINs are
+   added lazily so callers that only pass `thread_id` keep the
+   FTS-only fast path.
+   - `pack` → JOIN `threads ON t.id = chunks_fts.thread_id` + filter
+     on `t.pack_slug`.
+   - `mime` → JOIN `attachments ON a.id =
+     chunks_fts.attachment_id` + literal match (`a.mime = ?`) or
+     wildcard prefix (`image/*` → `a.mime LIKE 'image/%'`).
+   - `since` / `until` → reuse the `attachments` JOIN, filter on
+     `a.created_at`.
+   - Multiple filters compose with AND.
+
+2. **`backend/core/search/engine.py`**
+   - `search_chunks` now mirrors `search_messages`: parses inline
+     DSL via `parse_query_filters`, threads `pack` / `mime` /
+     `since` / `until` to `fts_match_chunks`, with explicit kwargs
+     winning over inline values.
+   - Unified `search()` propagates the same filters to the chunks
+     scope so `POST /api/search` honours
+     `EMEA pack:business mime:application/pdf since:7d` end-to-end.
+
+3. **HTTP** — `POST /api/search/chunks` inherits the DSL automatically
+   through `search_chunks` (the body shape stays unchanged so
+   existing clients don't break).
+
+4. **Tests** — `tests/test_search_chunk_filters.py` (new, 19 cases)
+   - Low-level `fts_match_chunks`: no-filter sanity, pack narrowing
+     (business/science), mime literal, mime wildcard `image/*`,
+     `since` excludes back-dated rows, `until` keeps old drops new,
+     pack+mime AND, thread_id+mime AND, no-match returns `[]`.
+   - Engine `search_chunks`: inline `pack:` token, inline `mime:`
+     token, explicit kwarg wins over inline, inline `since:` excludes
+     back-dated attachment.
+   - Unified `search()`: chunks scope honours `pack:`, chunks scope
+     honours `mime:image/*`, cleaned query strips filter tokens.
+   - HTTP `/api/search/chunks`: inline `pack:` and `mime:` filters
+     materialise via the live FastAPI app.
+
+**Verification**
+
+`pytest -q --ignore=tests/test_phase8_recovery.py
+       --deselect tests/test_pairing_contract.py::test_pair_attempted_event_emitted`
+→ **848 passed**, 1 deselected (pre-existing flake on `main`).
+Lints clean.
+
+**Files**
+
+- backend/core/search/fts.py
+- backend/core/search/engine.py
+- tests/test_search_chunk_filters.py (new)
+- docs/CHANGELOG_AGENTS.md
+- docs/AGENT_HANDOFF.md
+- docs/IDEAS.md
+
+---
+
 ## 2026-05-01 — Cursor [A] · FTS5 drift detection + auto-repair
 
 **Summary**
