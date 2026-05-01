@@ -12,6 +12,7 @@ from xml.etree import ElementTree as ET
 
 from ...base import ActionSpec
 from ..._http import NetworkError, get_text
+from .crossref import enrich_via_crossref
 from .openalex import enrich_arxiv
 
 ARXIV_URL = "http://export.arxiv.org/api/query"
@@ -120,16 +121,21 @@ async def search_literature(args: Mapping[str, Any]) -> Mapping[str, Any]:
 
 
 _ARXIV_ID_RE = re.compile(
-    r"(\d{4}\.\d{4,5}(?:v\d+)?)|(?:^|/)([a-z\-]+/\d{7})"
+    r"(\d{4}\.\d{4,5}(?:v\d+)?)|((?:[a-z\-]+(?:\.[A-Z]{2})?)/\d{7})"
 )
+_ARXIV_NEW_STYLE = re.compile(r"^\d{4}\.\d{4,5}(?:v\d+)?$")
+
+
+def _is_old_style_arxiv(arxiv_id: str) -> bool:
+    return "/" in arxiv_id and not _ARXIV_NEW_STYLE.match(arxiv_id)
 
 
 def _normalize_arxiv_ref(ref: str) -> str | None:
     """Pull a canonical arXiv id out of common shapes.
 
     Accepts: ``2305.13245``, ``arxiv:2305.13245``, full URLs like
-    ``https://arxiv.org/abs/2305.13245`` and old-style ``cs.AI/0301001``.
-    Returns ``None`` if nothing recognisable is found.
+    ``https://arxiv.org/abs/2305.13245`` and old-style ``cs/9901001`` or
+    ``cs.AI/0301001``. Returns ``None`` if nothing recognisable is found.
     """
 
     if not ref:
@@ -227,6 +233,20 @@ async def summarize_paper(args: Mapping[str, Any]) -> Mapping[str, Any]:
         src = list(out["sources"])
         src.append("openalex")
         out["sources"] = src
+    elif _is_old_style_arxiv(arxiv_id):
+        try:
+            cref = await enrich_via_crossref(
+                arxiv_id,
+                title=paper.get("title"),
+                authors=paper.get("authors") or (),
+            )
+        except Exception:
+            cref = None
+        if cref:
+            out["crossref"] = cref
+            src = list(out["sources"])
+            src.append("crossref")
+            out["sources"] = src
     return out
 
 

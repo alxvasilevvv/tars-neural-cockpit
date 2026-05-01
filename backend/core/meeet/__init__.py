@@ -25,6 +25,7 @@ from .events import (
 )
 from .store import MeeetStore, StoredEvent, get_store, reset_store
 from .tracing import (
+    async_session_scope,
     current_route,
     current_session,
     current_trace,
@@ -44,6 +45,7 @@ __all__ = [
     "MeeetStore",
     "StoredEvent",
     "TARSEvent",
+    "async_session_scope",
     "current_route",
     "current_session",
     "current_trace",

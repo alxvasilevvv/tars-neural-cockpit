@@ -4,6 +4,104 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · Crossref fallback + async session boundary events
+
+**Summary**
+
+Two small autonomous slices off the "Smaller functional items still
+pending" list in `AGENT_HANDOFF.md`:
+
+### A. Crossref fallback for OLD-style arXiv ids (handoff #5)
+
+`science.summarize_paper` already enriched new-style ids
+(`2305.13245`) via the OpenAlex DOI mint
+(`10.48550/arXiv.<id>`). Pre-2007 papers like `cs/9901001` or
+`cs.AI/0301001` skip that path because arXiv never minted a DOI for
+them. This batch fills the gap by querying Crossref's bibliographic
+search using the title + first-author surname taken from the arXiv
+Atom record.
+
+1. **`backend/core/domains/packs/science/crossref.py`** (new) —
+   stdlib-only `enrich_via_crossref(arxiv_id, *, title, authors)`.
+   Hits `https://api.crossref.org/works`, picks the best match by a
+   crude Jaccard title overlap (gate ≥ 0.4 — drops confidently-wrong
+   top hits), returns
+   `{source, doi, url, publisher, publication_year, cited_by_count,
+   title_match}`. Polite-pool UA via `CROSSREF_EMAIL` /
+   `OPENALEX_EMAIL` from the vault.
+2. **`backend/core/domains/packs/science/actions.py`** —
+   `_normalize_arxiv_ref` regex extended to recognise
+   `[a-z\-]+(\.[A-Z]{2})?/\d{7}` so old-style + sub-categorised ids
+   (`cs.AI/0301001`, `math.AT/0701035`) parse correctly. New
+   `_is_old_style_arxiv` helper. `summarize_paper` falls back to
+   Crossref when OpenAlex returns `None` **and** the id is old-style;
+   on success the response gets a `crossref` block and `sources`
+   becomes `["arxiv", "crossref"]`. New-style ids never trigger
+   Crossref (test pins this).
+3. **`tests/test_science_crossref_fallback.py`** (new, 11 cases) —
+   covers `_is_old_style_arxiv`, `_title_overlap`, `_first_surname`,
+   `_publication_year`, an empty-title short-circuit, best-match
+   selection vs. a noise candidate, the 0.4 Jaccard floor (unrelated
+   top hit dropped), exception swallowing, end-to-end Crossref
+   fallback for an old id, an explicit assertion that new-style ids
+   skip Crossref entirely, and the both-fail path
+   (sources stays `["arxiv"]`).
+4. **`tests/test_real_adapters.py`** — 3 new normalize cases
+   (`cs/9901001`, `arXiv:cs.AI/0301001`,
+   `https://arxiv.org/abs/math.AT/0701035`).
+
+### B. `async_session_scope` with `session.opened` / `session.closed`
+
+The synchronous `session_scope` from Phase K1 stays silent. Adding an
+async sibling lets the meeet event log carry explicit boundary events
+for narrative reconstruction (operator opens "morning_standup",
+participants join, scope closes with duration).
+
+1. **`backend/core/meeet/tracing.py`** —
+   `async_session_scope(session_id=None, *, topic, participants,
+   emit_boundary=True)`. Emits `session.opened` on enter and
+   `session.closed` on exit (also on exception — close fires from
+   `finally`). Both events carry
+   `{session_id, topic, participants, started_at}`; `session.closed`
+   adds `{ended_at, duration_ms}`. The session token is reset
+   **after** the close emit so the durable store records the right
+   `session_id` column. Deferred `from .client import get_client`
+   import inside `_safe_emit_session_event` keeps the
+   `tracing` ↔ `client` cycle clean. Failures inside emit are
+   swallowed — boundary events never crash the wrapped block.
+2. **`backend/core/meeet/__init__.py`** — `async_session_scope`
+   exported and added to `__all__`.
+3. **`tests/test_session_boundary_events.py`** (new, 7 cases) —
+   sync `session_scope` stays silent; async scope emits both events
+   with the correct payload + session_id column + ISO `+00:00`
+   timestamps; auto-id generation (`ses_<token>`); `emit_boundary=False`
+   restores silent semantics; `session.closed` still fires when the
+   wrapped block raises (and the exception propagates); the session
+   context var is popped after exit; a `_BoomClient` whose `emit`
+   raises does not crash the scope (resilience pin).
+
+**Verification (this batch)**
+
+- `pytest -q tests/test_science_crossref_fallback.py
+   tests/test_session_boundary_events.py
+   tests/test_real_adapters.py` → **29/29**.
+- `pytest -q` (full backend suite) → **722 passed** (was 715
+  baseline; +7 from session boundary tests; the 11 Crossref +
+  3 normalize cases were already counted in 715 → 715 baseline
+  taken **after** Crossref-fallback module landed locally).
+  Net delta vs. previous CHANGELOG entry (701): **+21 cases**.
+- `ReadLints` over both touched modules + tests → clean.
+
+Files (this entry):
+- `backend/core/domains/packs/science/crossref.py` (new)
+- `backend/core/domains/packs/science/actions.py`
+- `backend/core/meeet/tracing.py`
+- `backend/core/meeet/__init__.py`
+- `tests/test_science_crossref_fallback.py` (new)
+- `tests/test_session_boundary_events.py` (new)
+- `tests/test_real_adapters.py`
+- `docs/CHANGELOG_AGENTS.md` (this entry)
+
 ## 2026-05-01 — Cursor [A] · Composite playbooks: samples + pytest pin (IDEAS #31)
 
 **Summary**
