@@ -34,6 +34,7 @@ from .probes import (
     probe_manifest_origin,
     probe_manifest_origin_blocked,
     probe_manifest_subdomain,
+    probe_meeet_ingest_heartbeat,
     probe_robots,
     probe_root_ttfb,
     probe_security_headers,
@@ -86,6 +87,9 @@ def run_all(ctx: Context) -> list[Probe]:
     probes.append(probe_core_bridge_unauth(ctx))
     probes.append(probe_core_bridge_health(ctx))
     probes.append(probe_core_bridge_relay_roundtrip(ctx))
+
+    # 6. meeet bridge heartbeat
+    probes.append(probe_meeet_ingest_heartbeat(ctx))
 
     return probes
 
@@ -184,6 +188,18 @@ def main(argv: list[str] | None = None) -> int:
         help="Shared secret for authenticated core-bridge probes",
     )
     parser.add_argument(
+        "--core-supabase",
+        default=os.environ.get(
+            "CORE_SUPABASE_URL", "https://zujrmifaabkletgnpoyw.supabase.co"
+        ),
+        help="Core (meeet.world) Supabase project URL — used for tars-ingest heartbeat",
+    )
+    parser.add_argument(
+        "--ingest-api-key",
+        default=os.environ.get("TARS_INGEST_API_KEY", "") or None,
+        help="Bearer / x-api-key for tars-ingest heartbeat (required if function enforces auth)",
+    )
+    parser.add_argument(
         "--json", action="store_true", help="Emit JSON instead of text"
     )
     parser.add_argument(
@@ -199,6 +215,8 @@ def main(argv: list[str] | None = None) -> int:
         tars_base=args.target.rstrip("/"),
         core_bridge_url=args.core_bridge.rstrip("/"),
         tars_supabase_url=args.tars_supabase.rstrip("/"),
+        core_supabase_url=args.core_supabase.rstrip("/"),
+        tars_ingest_api_key=args.ingest_api_key,
         bridge_shared_secret=args.bridge_secret,
     )
 
