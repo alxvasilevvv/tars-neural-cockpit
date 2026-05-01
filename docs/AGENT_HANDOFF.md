@@ -1201,6 +1201,29 @@ Smaller functional items still pending in parallel:
     `{q?, query?, limit?, kinds?}` — clamped to 100 hits, unknown
     kinds dropped silently. `tests/test_jump_picker.py` (23 cases).
     Cockpit ⌘J palette UI is the Claude-lane follow-up.
+28. ~~**Per-persona system-prompt overlay.**~~ **shipped**
+    (2026-05-01) — closes the "per-persona system-prompt
+    overlay" idea from IDEAS' Voice section. Persona dataclass
+    learns an optional `system_prompt_overlay` field; the five
+    named personas (Jarvis, Stark, HAL 9000, GLaDOS, TARS)
+    each carry a tone block wrapped in a stable header and a
+    safety footer that reminds the model voice overlays never
+    override pack guardrails. The default `operator` persona
+    opts out so the base prompt drives the response unchanged.
+    New helpers `get_system_prompt_overlay(persona_id)` and
+    `compose_system_prompt(*, role_overlay, pack_prompt,
+    persona_overlay)` are re-exported from
+    `backend.core.voice`. The chat orchestrator's
+    `_system_prompt_for` now stitches role → pack → persona in
+    that intentional order — persona last keeps voice closest
+    to the user message so tone wins for ambiguous cases
+    without overriding role / pack instructions. Defensive:
+    if the persona registry raises, the orchestrator
+    gracefully falls back to role + pack. Pinned by
+    `tests/test_persona_prompt_overlay.py` (23 cases).
+    `Persona.to_dict()` now exposes `has_system_prompt_overlay`
+    so the cockpit voice picker can render an info chip.
+
 27. ~~**Per-thread voice persona pinning.**~~ **shipped**
     (2026-05-01) — closes the "per-thread persona pinning"
     idea from IDEAS' Voice section. Threads now carry an

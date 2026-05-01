@@ -636,12 +636,19 @@ class ChatOrchestrator:
         # Phase M / P7 — the active operator role overlay always
         # prepends the pack prompt. The overlay names the operator's
         # position + priorities; the pack prompt names the toolset.
-        # Together they describe both *who* the assistant works for and
-        # *what* tools are reachable.
+        # Phase L4.1 — when the thread pins a voice persona, the
+        # persona's prompt overlay is appended last (closest to the
+        # user message) so tone wins for ambiguous cases without
+        # overriding role / pack guardrails.
         try:
             from backend.core.roles import get_active_role
         except Exception:  # pragma: no cover — defensive
             get_active_role = None  # type: ignore[assignment]
+
+        from backend.core.voice import (
+            compose_system_prompt as _compose,
+            get_system_prompt_overlay,
+        )
 
         overlay: str | None = None
         if get_active_role is not None:
@@ -661,9 +668,17 @@ class ChatOrchestrator:
                 except Exception:
                     pack_prompt = None
 
-        if overlay and pack_prompt:
-            return f"{overlay}\n\n---\n\n{pack_prompt}"
-        return overlay or pack_prompt
+        persona_overlay: str | None = None
+        try:
+            persona_overlay = get_system_prompt_overlay(thread.voice_persona_id)
+        except Exception:
+            persona_overlay = None
+
+        return _compose(
+            role_overlay=overlay,
+            pack_prompt=pack_prompt,
+            persona_overlay=persona_overlay,
+        )
 
     @staticmethod
     async def _maybe_retrieve(
