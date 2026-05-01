@@ -4,6 +4,74 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · Saved-search snooze
+
+**Summary**
+
+Completion of the saved-search alert lifecycle (PRs #44, #46, #48,
+#49, #53). Operators get noisy saved searches sometimes — a "watch
+EMEA" rule that fires every 5 minutes during a release week. Until
+now the only fix was to delete and re-create the saved search,
+losing the snapshot baseline. Snooze is the right primitive: **mute
+the alarm, keep the watcher** so polling still maintains the
+fingerprint snapshot, and when the snooze ends only *genuinely
+new* hits fire.
+
+1. **Schema** (`backend/core/chat/store.py`)
+   - Migration: `ALTER TABLE saved_searches ADD COLUMN snoozed_until
+     REAL`.
+   - `_row_to_saved_search` decodes it defensively (legacy rows
+     materialise as `None`).
+   - New `set_saved_search_snooze(search_id, *, snoozed_until)` —
+     returns the refreshed row or `None` when the id is missing.
+
+2. **Model** (`backend/core/chat/models.py`)
+   - `SavedSearch.snoozed_until: float | None`.
+   - `SavedSearch.is_snoozed(*, now=None)` — convenience predicate
+     (treats past timestamps as "not snoozed", which is also what
+     the alert path expects).
+   - `to_dict` exposes `snoozed_until`.
+
+3. **Alerts** (`backend/core/search/alerts.py`)
+   - `poll_saved_search` checks `saved.is_snoozed()` before emitting
+     `saved_search.new_hits`. When snoozed: snapshot still updates,
+     `alerted=False`. Response carries `snoozed` + `snoozed_until`.
+
+4. **HTTP** (`web_extras/routers/search.py`)
+   - `POST /api/search/saved/{id}/snooze`. Body accepts exactly one
+     of `minutes` (int), `hours` (float), or `until` (POSIX float).
+     Past `until` clears the snooze. Empty / no-arg body resumes
+     immediately. Non-numeric → 400. Missing id → 404.
+
+5. **Tests** — `tests/test_saved_search_snooze.py` (new, 15 cases)
+   - Schema migration: legacy rows load with `snoozed_until=None`.
+   - Store: set + clear + missing-id + past-timestamp predicate.
+   - Poll cycle: snoozed → silent + snapshot still advances; unsnooze
+     + new drift → alert fires (proves snapshot was kept current).
+   - Poll response includes `snoozed` + `snoozed_until` metadata.
+   - HTTP: `minutes`, `hours`, absolute `until`, past `until`
+     clears, empty body clears, 400 on non-numeric, 404 on missing.
+
+**Verification**
+
+`pytest -q --ignore=tests/test_phase8_recovery.py
+       --deselect tests/test_pairing_contract.py::test_pair_attempted_event_emitted`
+→ **944 passed**, 1 deselected (pre-existing flake on `main`).
+Lints clean.
+
+**Files**
+
+- backend/core/chat/store.py
+- backend/core/chat/models.py
+- backend/core/search/alerts.py
+- web_extras/routers/search.py
+- tests/test_saved_search_snooze.py (new)
+- docs/CHANGELOG_AGENTS.md
+- docs/AGENT_HANDOFF.md
+- docs/IDEAS.md
+
+---
+
 ## 2026-05-01 — Cursor [A] · Domains health endpoint
 
 **Summary**

@@ -1201,6 +1201,16 @@ Smaller functional items still pending in parallel:
     `{q?, query?, limit?, kinds?}` — clamped to 100 hits, unknown
     kinds dropped silently. `tests/test_jump_picker.py` (23 cases).
     Cockpit ⌘J palette UI is the Claude-lane follow-up.
+16. ~~**Saved-search snooze.**~~ **shipped** (2026-05-01) —
+    Completes the saved-search alert lifecycle. Snooze is "mute the
+    alarm, keep the watcher" — `poll_saved_search` keeps the
+    fingerprint snapshot current during the snooze window so when it
+    lifts only genuinely new hits fire. New schema column
+    `snoozed_until REAL`, `SavedSearch.is_snoozed()`, and
+    `POST /api/search/saved/{id}/snooze` accepting `minutes` /
+    `hours` / `until` (past timestamps + empty body clear).
+    `tests/test_saved_search_snooze.py` (15 cases) pin migration,
+    store, poll cycle, and HTTP shapes.
 15. ~~**Domains health endpoint.**~~ **shipped** (2026-05-01) —
     `GET /api/domains/health` walks every registered pack, resolves
     its declared `auth_vault_keys` against env + macOS Keychain, and

@@ -488,6 +488,69 @@ async def poll_saved_search_endpoint(
     return res
 
 
+@router.post("/saved/{search_id}/snooze")
+async def snooze_saved_search(
+    search_id: str,
+    payload: dict[str, Any] | None = Body(default=None),
+) -> dict[str, Any]:
+    """Mute saved-search alerts for a window.
+
+    Snooze is a "mute the alarm, not the watcher" signal — polling
+    continues (so the fingerprint snapshot stays current and the
+    moment the snooze ends, only *genuinely new* hits will fire),
+    but ``saved_search.new_hits`` is suppressed while
+    ``time.time() < snoozed_until``.
+
+    Body (all optional, exactly one of the three needed):
+    - ``minutes`` (int) — relative window in minutes.
+    - ``hours`` (float) — relative window in hours.
+    - ``until`` (float) — absolute POSIX timestamp; values in the
+      past clear the snooze.
+
+    No body / all unset → resume immediately (clears the snooze).
+    """
+
+    body = payload or {}
+    import time
+
+    until: float | None = None
+    if "until" in body and body["until"] is not None:
+        try:
+            until = float(body["until"])
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=400, detail="until_must_be_number")
+    elif "minutes" in body and body["minutes"] is not None:
+        try:
+            until = time.time() + max(0.0, float(body["minutes"]) * 60.0)
+        except (TypeError, ValueError):
+            raise HTTPException(
+                status_code=400, detail="minutes_must_be_number"
+            )
+    elif "hours" in body and body["hours"] is not None:
+        try:
+            until = time.time() + max(0.0, float(body["hours"]) * 3600.0)
+        except (TypeError, ValueError):
+            raise HTTPException(
+                status_code=400, detail="hours_must_be_number"
+            )
+    if until is not None and until <= time.time():
+        until = None  # past timestamp clears the snooze
+
+    chat = get_chat_store()
+    saved = await chat.get_saved_search(search_id)
+    if saved is None:
+        raise HTTPException(status_code=404, detail="not_found")
+    refreshed = await chat.set_saved_search_snooze(
+        search_id, snoozed_until=until
+    )
+    return {
+        "ok": True,
+        "snoozed": refreshed is not None and refreshed.is_snoozed(),
+        "snoozed_until": refreshed.snoozed_until if refreshed else None,
+        "item": _saved_payload(refreshed),
+    }
+
+
 @router.post("/saved/poll-all")
 async def poll_all_saved_searches_endpoint(
     payload: dict[str, Any] | None = Body(default=None),
