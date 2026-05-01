@@ -4,6 +4,81 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · Saved searches in `~/.tars/chat.sqlite`
+
+**Summary**
+
+Pulled the **Saved searches** item from `IDEAS.md` "Search &
+observability (post-L8)". Operators (and the cockpit ⌘K palette) can
+now persist a label + query + scope + filter combo and re-run it
+with one POST.
+
+1. **`backend/core/chat/models.py`**
+   - New `SavedSearchScope = Literal["all","chunks","messages","traces"]`.
+   - `SavedSearch` frozen dataclass + `to_dict` for the wire shape.
+   - `SavedSearch.fresh(label, query, scope, filters, pinned)` clamps
+     blank labels to `"untitled"`, copies filters into a fresh dict,
+     and stamps `created_at == updated_at == time.time()`.
+   - `new_saved_search_id()` mints `sv_<urlsafe-token>`.
+
+2. **`backend/core/chat/store.py`**
+   - Schema: `saved_searches (id PK, label, query, scope, filters_json,
+     pinned, created_at, updated_at, last_run_at)` + composite index
+     `(pinned DESC, updated_at DESC)`. Lives in the same chat WAL DB.
+   - CRUD helpers: `insert_saved_search`, `get_saved_search`,
+     `list_saved_searches(limit≤500)`, `update_saved_search`
+     (per-field, refuses invalid scope, refreshes `updated_at`),
+     `delete_saved_search` (returns bool), `stamp_saved_search_run`.
+   - `_row_to_saved_search` rejects unknown scope values gracefully
+     (collapses to `"all"`).
+
+3. **`web_extras/routers/search.py`**
+   - `GET    /api/search/saved` — pinned first, then recent, capped 500.
+   - `POST   /api/search/saved` — validates label/query non-blank,
+     scope ∈ allowed set, filters must be object.
+   - `GET    /api/search/saved/{id}` — 404 when missing.
+   - `PATCH  /api/search/saved/{id}` — partial update; rejects blank
+     strings; invalid scope falls through `_parse_scope`.
+   - `DELETE /api/search/saved/{id}` — 404 when missing.
+   - `POST   /api/search/saved/{id}/run` — executes via the existing
+     `search` / `search_chunks` / `search_messages` / `search_traces`
+     paths, threading scope-specific filters
+     (`thread_id` / `role` / `kind` / `trace_id`); body
+     `{top_k?}` capped at 50; stamps `last_run_at` and returns the
+     refreshed item alongside `{count, hits}`.
+   - Module docstring lists the new endpoints; `__init__` exports
+     `SavedSearch` + `SavedSearchScope` + `new_saved_search_id`.
+
+4. **Tests** — `tests/test_saved_searches.py` (new, 16 cases)
+   - store: round-trip insert/get, blank-label fallback, list ordering
+     (pinned → recent), update label/query/scope/filters/pinned,
+     reject invalid scope, missing returns None, delete missing
+     returns False, stamp_run fills `last_run_at`, list cap.
+   - HTTP: full create→list→get→patch→delete walk, validation of
+     required fields, validation of blank patches, 404 on missing
+     patch, run with `messages` scope honours filters and stamps,
+     run with `all` scope returns hits, run on missing returns 404.
+
+**Verification**
+
+`pytest tests/ -q --ignore=tests/test_phase8_recovery.py
+       --deselect tests/test_pairing_contract.py::test_pair_attempted_event_emitted`
+→ **785 passed**, 1 deselected (pre-existing flake on `main`).
+Lints clean.
+
+**Files**
+
+- backend/core/chat/models.py
+- backend/core/chat/store.py
+- backend/core/chat/__init__.py
+- web_extras/routers/search.py
+- tests/test_saved_searches.py (new)
+- docs/CHANGELOG_AGENTS.md
+- docs/AGENT_HANDOFF.md
+- docs/IDEAS.md
+
+---
+
 ## 2026-05-01 — Cursor [A] · Periodic message-embed background loop
 
 **Summary**
