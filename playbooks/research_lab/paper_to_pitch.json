@@ -1,0 +1,27 @@
+{
+  "id": "research_lab.paper_to_pitch",
+  "name": "Paper to pitch",
+  "description": "Composite playbook crossing science + business in one trace. Pull arXiv hits + KPI snapshot in parallel, then compose the daily brief so the operator opens the morning with a paper-aware summary.",
+  "tags": ["composite", "research_lab", "morning", "read-only"],
+  "on_block": "continue",
+  "steps": [
+    {
+      "id": "papers",
+      "action": "research_lab.awareness.science__local_papers.snapshot",
+      "args": {},
+      "store_as": "papers"
+    },
+    {
+      "id": "kpi",
+      "action": "research_lab.business__kpi_snapshot",
+      "args": {},
+      "store_as": "kpi",
+      "parallel": true
+    },
+    {
+      "id": "brief",
+      "action": "research_lab.business__daily_brief",
+      "args": {}
+    }
+  ]
+}

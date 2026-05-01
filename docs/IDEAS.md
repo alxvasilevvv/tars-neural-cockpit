@@ -283,9 +283,17 @@ Open ideas for the next layer:
     Doubles as the cold-start recovery story.
 23. **Docs site.** Build `docs/` into a static site under `dist-docs/` using
     one of the existing scripts (no new deps).
-31. **Composite playbooks.** Composite domain packs are live but the
-    playbook runner still scopes to a single pack. Extend so a playbook
-    in `playbooks/research_lab/...` can call `business__log_deal` etc.
+31. **Composite playbooks.** ✅ shipped — runner already resolved the
+    slug from `step.action` (not the playbook directory), so composite
+    packs work end-to-end. This batch added the canonical samples
+    `playbooks/research_lab/paper_to_pitch.json` and
+    `playbooks/ops_room/morning_standup.json`, plus 8 pytest cases in
+    `tests/test_composite_playbooks.py` pinning loader, awareness
+    parsing for namespaced source ids, sequential + parallel composite
+    execution, destructive-flag propagation through the policy gate,
+    and cross-sub-pack templating. `docs/DOMAIN_PACKS.md` got a new
+    "Composite playbooks" section. Open work: cockpit playbook palette
+    grouped by composite-vs-atomic.
 32. **OAuth / JMAP outbound.** SMTP outbound shipped (Phase K6); next
     step is OAuth-based (Gmail / Office365) and JMAP for richer
     providers — same vault interface, different transport.

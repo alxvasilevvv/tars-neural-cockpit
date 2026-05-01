@@ -1,0 +1,29 @@
+{
+  "id": "ops_room.morning_standup",
+  "name": "Ops Room morning standup",
+  "description": "Composite playbook crossing traders + mlm. Pulls a market summary and the downline snapshot in parallel so a solo operator opens the cockpit with both books in one trace.",
+  "tags": ["composite", "ops_room", "morning", "read-only"],
+  "on_block": "continue",
+  "steps": [
+    {
+      "id": "market",
+      "action": "ops_room.traders__summarize_market",
+      "args": { "basket": ["BTC", "ETH"] },
+      "store_as": "market"
+    },
+    {
+      "id": "downline",
+      "action": "ops_room.mlm__downline_snapshot",
+      "args": {},
+      "store_as": "downline",
+      "parallel": true
+    },
+    {
+      "id": "news",
+      "action": "ops_room.awareness.traders__news_feed.snapshot",
+      "args": {},
+      "store_as": "news",
+      "parallel": true
+    }
+  ]
+}
