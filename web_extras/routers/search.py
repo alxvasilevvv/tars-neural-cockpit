@@ -33,6 +33,7 @@ Headers honoured (consistent with the rest of the cockpit):
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any, Optional
 
 from fastapi import APIRouter, Body, HTTPException, Query
@@ -40,6 +41,7 @@ from fastapi import APIRouter, Body, HTTPException, Query
 from backend.core.chat import SavedSearch
 from backend.core.chat.embeddings import embed_pending_messages
 from backend.core.chat.store import get_chat_store
+from backend.core.meeet import get_store as get_meeet_store
 from backend.core.search import (
     SearchScope,
     get_thread_timeline,
@@ -47,6 +49,8 @@ from backend.core.search import (
     search_chunks,
     search_messages,
     search_traces,
+    verify_and_repair_chat_fts,
+    verify_and_repair_events_fts,
 )
 
 
@@ -126,6 +130,60 @@ async def messages_search(
         "count": len(hits),
         "hits": [h.to_dict() for h in hits],
     }
+
+
+@router.post("/fts-repair")
+async def fts_repair_endpoint(
+    payload: dict[str, Any] | None = Body(default=None),
+) -> dict[str, Any]:
+    """Detect FTS / source-table drift and rebuild on demand.
+
+    Body:
+    - ``force`` (bool, default False) — drop + rebuild every index
+      regardless of drift.
+    - ``scopes`` (list[str], default ``["chat", "events"]``) — pick
+      which DBs to verify (``chat`` covers both ``chunks_fts`` and
+      ``messages_fts``).
+
+    Returns the per-scope diff:
+    ``{ok, scopes: [{name, fts, source, rebuilt, inserted}],
+       rebuilt: [...]}``. Equivalent to
+    ``POST /api/meeet/traces/refresh`` for the trace materialised
+    view — operator-triggered safety net for backup restores or
+    schema bumps.
+    """
+
+    body = payload or {}
+    force = bool(body.get("force") or False)
+    scopes = body.get("scopes")
+    if not scopes:
+        scopes = ["chat", "events"]
+    if not isinstance(scopes, list):
+        raise HTTPException(status_code=400, detail="scopes_must_be_list")
+    out: dict[str, Any] = {"ok": True, "rebuilt": []}
+    if "chat" in scopes:
+        chat_out = await asyncio.to_thread(
+            verify_and_repair_chat_fts,
+            chat=get_chat_store(),
+            force=force,
+        )
+        out["chat"] = chat_out
+        if chat_out.get("ok"):
+            out["rebuilt"].extend(chat_out.get("rebuilt") or [])
+    if "events" in scopes:
+        store = get_meeet_store()
+        if store and getattr(store, "enabled", False) and store.db_path:
+            events_out = await asyncio.to_thread(
+                verify_and_repair_events_fts,
+                store.db_path,
+                force=force,
+            )
+        else:
+            events_out = {"ok": False, "reason": "meeet_store_disabled"}
+        out["events"] = events_out
+        if events_out.get("ok"):
+            out["rebuilt"].extend(events_out.get("rebuilt") or [])
+    return out
 
 
 @router.post("/embed-messages")

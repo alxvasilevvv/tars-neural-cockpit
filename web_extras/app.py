@@ -238,9 +238,64 @@ async def _message_embed_loop() -> None:
             log.warning("message-embed loop tick failed: %s", exc)
 
 
+def _fts_verify_on_boot() -> bool:
+    """Opt-in via ``TARS_FTS_VERIFY_ON_BOOT=1``.
+
+    Default off — running on every cold-start would scan large
+    chat / events DBs unnecessarily. Ops that restore from backup or
+    bump the FTS schema should flip this on for one boot, then turn
+    it off again (or hit
+    ``POST /api/search/fts-repair`` instead).
+    """
+
+    raw = (os.getenv("TARS_FTS_VERIFY_ON_BOOT") or "").strip().lower()
+    return raw in {"1", "true", "yes", "on"}
+
+
+async def _verify_fts_on_boot() -> None:
+    """Best-effort drift-check + auto-rebuild for the chat + events
+    FTS indexes. Never raises."""
+
+    if not _fts_verify_on_boot():
+        return
+    try:
+        from backend.core.chat.store import get_chat_store
+        from backend.core.search.fts import (
+            verify_and_repair_chat_fts,
+            verify_and_repair_events_fts,
+        )
+
+        chat_out = await asyncio.to_thread(
+            verify_and_repair_chat_fts,
+            chat=get_chat_store(),
+            force=False,
+        )
+        if chat_out.get("rebuilt"):
+            log.info(
+                "fts boot-repair: chat rebuilt %s",
+                chat_out.get("rebuilt"),
+            )
+        store = get_meeet_store()
+        if store and getattr(store, "enabled", False) and store.db_path:
+            events_out = await asyncio.to_thread(
+                verify_and_repair_events_fts,
+                store.db_path,
+                force=False,
+            )
+            if events_out.get("rebuilt"):
+                log.info(
+                    "fts boot-repair: events rebuilt %s",
+                    events_out.get("rebuilt"),
+                )
+    except Exception as exc:  # never crash the host
+        log.warning("fts boot-repair failed: %s", exc)
+
+
 @contextlib.asynccontextmanager
 async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     from backend.core.agents.autopilot import autopilot_loop
+
+    await _verify_fts_on_boot()
 
     replay = asyncio.create_task(_replay_loop(), name="meeet-replay-loop")
     autopilot = asyncio.create_task(autopilot_loop(), name="agents-autopilot-loop")
