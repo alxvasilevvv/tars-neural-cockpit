@@ -34,10 +34,17 @@ def _isolated_meeet_store(tmp_path, monkeypatch):
 @pytest.fixture(autouse=True)
 def _isolated_challenge_store():
     from backend.core.crypto.seed_challenge import reset_challenge_store
+    from web_extras.rate_limit import reset_rate_limiter
 
     reset_challenge_store()
+    # Recovery challenge endpoints are now rate-limited per source IP
+    # (PR — challenge rate-limit). The bucket singleton would
+    # otherwise leak state between tests and start dropping requests
+    # mid-suite.
+    reset_rate_limiter()
     yield
     reset_challenge_store()
+    reset_rate_limiter()
 
 
 @pytest.fixture
