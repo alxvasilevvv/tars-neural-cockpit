@@ -4,6 +4,64 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · `business.list_deals` read-only side door
+
+**Summary**
+
+Mirrors `traders.list_alerts` for the business pack. To list deals
+operators previously had to call `daily_brief`, which spins up the
+council and returns a heavyweight payload. The new `list_deals`
+action gives a clean read-only side door on the local store with
+filters and pre-computed rollups, keeping the cockpit's deals view
+fast and the council out of the path.
+
+1. **Store helper** (`backend/core/domains/packs/business/local_deals.py`)
+   - New `read_local_deals(path, *, active_only=False, stage=None,
+     owner=None, limit=None)`.
+   - `active_only` excludes terminal stages (`won` / `lost`).
+   - `stage` filter is normalised through `_coerce_stage` so
+     unknown values fall back to `discovery` (matches `log_deal`'s
+     own coercion). Case-insensitive.
+   - `owner` filter is case-insensitive and skips rows with no
+     `owner` field.
+   - `limit` slices the most recent N rows (chronological tail).
+
+2. **Action** (`backend/core/domains/packs/business/actions.py`)
+   - New `list_deals` handler. Read-only; non-destructive; no policy
+     gate. Returns `{ok, count, deals, store, store_path, filters,
+     summary}` — `summary` carries `by_stage` (count by stage) and
+     `total_amount` (sum of `amount` rounded to 2dp), so the cockpit
+     can render a sidecar without a second pass.
+   - `limit` is clamped to `[1, 1000]`; garbage falls back to
+     `None` (return everything).
+   - Path override via `store_path` or `path`.
+   - `OSError` mapped to `local_store_unreadable`.
+
+3. **Tests** (+18 new cases in `tests/test_business_list_deals.py`)
+   - `read_local_deals`: active-only filtering, stage / owner
+     filters with case-normalisation, limit tail, missing store
+     returns empty, owner filter skips unset rows, unknown stage
+     falls back to discovery (mirrors `log_deal`).
+   - `list_deals` action: full envelope + summary correctness,
+     active-only, stage normalisation, owner filter, limit clamp /
+     garbage fallback / tail-slice, path override, missing store
+     envelope, garbage `amount` doesn't crash the rollup.
+   - Spec wiring: `destructive=False`, no required fields, full
+     stage enum, `limit` bounds.
+
+**Test suite**: 1703 passed (was 1685). Lints clean.
+
+**Files**
+
+- `backend/core/domains/packs/business/local_deals.py`
+- `backend/core/domains/packs/business/actions.py`
+- `tests/test_business_list_deals.py` (new)
+- `docs/CHANGELOG_AGENTS.md`
+- `docs/AGENT_HANDOFF.md`
+- `docs/IDEAS.md`
+
+---
+
 ## 2026-05-01 — Cursor [A] · `business.update_deal` closes the deal lifecycle
 
 **Summary**
