@@ -10,20 +10,35 @@ Vault keys (any of):
 - ``TARS_SMTP_PORT`` / ``SMTP_PORT`` (env: ``SMTP_PORT``, default 587)
 - ``TARS_SMTP_USER`` / ``SMTP_USER`` (env: ``SMTP_USER``)
 - ``TARS_SMTP_PASSWORD`` / ``SMTP_PASSWORD`` (env: ``SMTP_PASSWORD``)
+- ``TARS_SMTP_OAUTH_TOKEN`` / ``SMTP_OAUTH_TOKEN``
+  (env: ``SMTP_OAUTH_TOKEN``) — bearer token for SASL XOAUTH2. When
+  set, takes precedence over ``SMTP_PASSWORD`` so Gmail / Office365
+  OAuth2 can be plugged in without changing call sites.
 - ``TARS_SMTP_FROM`` / ``SMTP_FROM`` (env: ``SMTP_FROM``, default user)
+- ``TARS_SMTP_PROVIDER`` / ``SMTP_PROVIDER``
+  (env: ``SMTP_PROVIDER``) — provider shorthand (``gmail``,
+  ``office365`` / ``outlook``, ``fastmail``, ``yahoo``, ``zoho``).
+  When set, the provider's known host/port/TLS defaults fill in any
+  field the operator hasn't set explicitly. Explicit ``SMTP_HOST``
+  always wins.
 
 Behaviour:
 
 - ``starttls`` is enabled by default on port 587, off on port 465 (which
   uses implicit TLS), and off on port 25 (no encryption — only for
   local/test relays).
+- ``oauth_token`` set + ``user`` set → SASL XOAUTH2.
+- ``oauth_token`` unset + ``user`` + ``password`` set → SMTP ``LOGIN``.
 - Config-missing → returns ``unavailable`` so the action degrades to
   draft-only mode without crashing.
-- SMTP errors → returned as structured ``send_failed`` so the cockpit
-  surfaces them; the policy gate already blocked unconfirmed sends.
+- SMTP / auth errors → returned as structured ``send_failed`` so the
+  cockpit surfaces them; the policy gate already blocked unconfirmed
+  sends.
 
-We deliberately DON'T support OAuth / JMAP here — operators wanting
-those plug in higher-level providers via the same vault interface.
+Provider shorthand maps host + default port + TLS posture only. The
+operator still owns auth: pick a password (App Password) or an OAuth2
+bearer token in the vault. Refresh / consent flows are out of scope
+for this module — provide an externally-refreshed token.
 """
 
 from __future__ import annotations
@@ -41,6 +56,32 @@ from backend.core.vault import get_secret
 
 
 @dataclass(frozen=True)
+class SmtpProvider:
+    slug: str
+    host: str
+    port: int
+
+
+_PROVIDERS: dict[str, SmtpProvider] = {
+    "gmail": SmtpProvider("gmail", "smtp.gmail.com", 465),
+    "googlemail": SmtpProvider("gmail", "smtp.gmail.com", 465),
+    "google": SmtpProvider("gmail", "smtp.gmail.com", 465),
+    "office365": SmtpProvider("office365", "smtp.office365.com", 587),
+    "o365": SmtpProvider("office365", "smtp.office365.com", 587),
+    "outlook": SmtpProvider("office365", "smtp.office365.com", 587),
+    "fastmail": SmtpProvider("fastmail", "smtp.fastmail.com", 465),
+    "yahoo": SmtpProvider("yahoo", "smtp.mail.yahoo.com", 465),
+    "zoho": SmtpProvider("zoho", "smtp.zoho.com", 465),
+}
+
+
+def _lookup_provider(name: str | None) -> SmtpProvider | None:
+    if not name:
+        return None
+    return _PROVIDERS.get(name.strip().lower()) or None
+
+
+@dataclass(frozen=True)
 class SmtpConfig:
     host: str
     port: int
@@ -49,13 +90,29 @@ class SmtpConfig:
     from_addr: str
     starttls: bool
     implicit_tls: bool
+    oauth_token: str | None = None
+    provider: str | None = None
+
+    @property
+    def auth_method(self) -> str:
+        if self.user and self.oauth_token:
+            return "xoauth2"
+        if self.user and self.password:
+            return "password"
+        return "none"
 
     @classmethod
     def load(cls) -> "SmtpConfig | None":
+        provider = _lookup_provider(
+            get_secret("TARS_SMTP_PROVIDER")
+            or get_secret("SMTP_PROVIDER")
+            or os.getenv("SMTP_PROVIDER")
+        )
         host = (
             get_secret("TARS_SMTP_HOST")
             or get_secret("SMTP_HOST")
             or os.getenv("SMTP_HOST")
+            or (provider.host if provider else None)
         )
         if not host:
             return None
@@ -63,12 +120,14 @@ class SmtpConfig:
             get_secret("TARS_SMTP_PORT")
             or get_secret("SMTP_PORT")
             or os.getenv("SMTP_PORT")
-            or "587"
         )
-        try:
-            port = int(port_raw)
-        except (TypeError, ValueError):
-            port = 587
+        if port_raw is None and provider is not None:
+            port = provider.port
+        else:
+            try:
+                port = int(port_raw or "587")
+            except (TypeError, ValueError):
+                port = 587
         user = (
             get_secret("TARS_SMTP_USER")
             or get_secret("SMTP_USER")
@@ -78,6 +137,11 @@ class SmtpConfig:
             get_secret("TARS_SMTP_PASSWORD")
             or get_secret("SMTP_PASSWORD")
             or os.getenv("SMTP_PASSWORD")
+        )
+        oauth_token = (
+            get_secret("TARS_SMTP_OAUTH_TOKEN")
+            or get_secret("SMTP_OAUTH_TOKEN")
+            or os.getenv("SMTP_OAUTH_TOKEN")
         )
         from_addr = (
             get_secret("TARS_SMTP_FROM")
@@ -98,6 +162,10 @@ class SmtpConfig:
             from_addr=str(from_addr).strip(),
             starttls=starttls,
             implicit_tls=implicit_tls,
+            oauth_token=(
+                oauth_token.strip() if isinstance(oauth_token, str) else None
+            ),
+            provider=provider.slug if provider else None,
         )
 
 
@@ -110,6 +178,7 @@ class SmtpResult:
     to_addr: str
     response_code: int | None
     elapsed_ms: float
+    auth_method: str = "none"
     error: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
@@ -121,6 +190,7 @@ class SmtpResult:
             "to": self.to_addr,
             "response_code": self.response_code,
             "elapsed_ms": round(self.elapsed_ms, 3),
+            "auth_method": self.auth_method,
             "error": self.error,
         }
 
@@ -143,6 +213,42 @@ def _build_message(
     return msg
 
 
+def _xoauth2_authobj(user: str, token: str):
+    """Return an smtplib auth callable for SASL XOAUTH2.
+
+    The wire string is ``user=<user>\\x01auth=Bearer <token>\\x01\\x01``;
+    smtplib base64-encodes it and sends as the ``AUTH XOAUTH2`` initial
+    response.
+    """
+
+    payload = f"user={user}\x01auth=Bearer {token}\x01\x01"
+
+    def authobj(challenge: bytes | None = None) -> str:
+        return payload
+
+    return authobj
+
+
+def _authenticate(server: smtplib.SMTP, config: "SmtpConfig") -> str:
+    """Perform SMTP AUTH using XOAUTH2 if a token is set, else LOGIN.
+
+    Returns the chosen ``auth_method`` (``"xoauth2"`` / ``"password"`` /
+    ``"none"``). Auth failures bubble up as ``smtplib.SMTPException``.
+    """
+
+    if config.user and config.oauth_token:
+        server.auth(
+            "XOAUTH2",
+            _xoauth2_authobj(config.user, config.oauth_token),
+            initial_response_ok=True,
+        )
+        return "xoauth2"
+    if config.user and config.password:
+        server.login(config.user, config.password)
+        return "password"
+    return "none"
+
+
 def _send_sync(
     config: SmtpConfig,
     msg: EmailMessage,
@@ -152,6 +258,7 @@ def _send_sync(
     started = time.perf_counter()
     via = "smtp"
     response_code: int | None = None
+    auth_method = "none"
     try:
         if config.implicit_tls:
             via = "smtp_ssl"
@@ -159,8 +266,7 @@ def _send_sync(
             with smtplib.SMTP_SSL(
                 config.host, config.port, timeout=timeout_s, context=ctx
             ) as server:
-                if config.user and config.password:
-                    server.login(config.user, config.password)
+                auth_method = _authenticate(server, config)
                 server.send_message(msg)
                 response_code = 250
         else:
@@ -172,8 +278,7 @@ def _send_sync(
                     ctx = ssl.create_default_context()
                     server.starttls(context=ctx)
                     server.ehlo()
-                if config.user and config.password:
-                    server.login(config.user, config.password)
+                auth_method = _authenticate(server, config)
                 server.send_message(msg)
                 response_code = 250
     except (smtplib.SMTPException, OSError, ssl.SSLError) as exc:
@@ -185,6 +290,7 @@ def _send_sync(
             to_addr=str(msg.get("To") or ""),
             response_code=None,
             elapsed_ms=(time.perf_counter() - started) * 1000.0,
+            auth_method=auth_method,
             error=str(exc),
         )
     return SmtpResult(
@@ -195,6 +301,7 @@ def _send_sync(
         to_addr=str(msg.get("To") or ""),
         response_code=response_code,
         elapsed_ms=(time.perf_counter() - started) * 1000.0,
+        auth_method=auth_method,
         error=None,
     )
 
@@ -222,8 +329,11 @@ async def send_email(
             "unavailable": True,
             "reason": "smtp_not_configured",
             "hint": (
-                "set SMTP_HOST + SMTP_USER/SMTP_PASSWORD (or vault keys "
-                "TARS_SMTP_HOST etc.) to enable real outbound mail."
+                "set SMTP_HOST + SMTP_USER/SMTP_PASSWORD or "
+                "SMTP_OAUTH_TOKEN (or vault keys TARS_SMTP_HOST etc.) to "
+                "enable real outbound mail. Use SMTP_PROVIDER=gmail / "
+                "office365 / fastmail / yahoo / zoho for one-line provider "
+                "defaults."
             ),
         }
     msg = _build_message(
