@@ -4,6 +4,57 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · Domains health endpoint
+
+**Summary**
+
+Operator dashboard for "what's actually wired up on this machine".
+`GET /api/domains/health` walks every registered domain pack,
+resolves its declared `auth_vault_keys` against env + macOS Keychain
+via `backend.core.vault.status_for_keys`, and surfaces a per-pack
+readiness row. Surfaces the same data the cockpit needs to render
+"this pack will work" / "this pack is missing creds X, Y" without
+exposing any secret values.
+
+1. **`web_extras/routers/domains.py`**
+   - Returns `{ok, count, packs: [{slug, name, ready, key_count,
+     available_count, missing, keys: [{key, source, available}]}]}`.
+   - Probes both unprefixed (`HUBSPOT_API_KEY`) and `TARS_`-prefixed
+     forms so operators who set either form are honoured.
+   - `ready=true` when at least one declared key resolves; packs
+     with zero declared keys still surface `ready=true`.
+   - Never returns the secret value — only `available` + `source`
+     (`env` / `keychain` / `missing`).
+
+2. **Tests** — `tests/test_domains_health.py` (new, 10 cases)
+   - Shape: ok flag, packs array, all expected fields per row.
+   - No-key pack stays ready (via a synthetic bare pack patched in).
+   - Unprefixed env var resolves the key.
+   - `TARS_`-prefixed env var resolves the key.
+   - Missing array includes unset declared keys.
+   - `keys` always present and a list.
+   - Secret value is never echoed in the response.
+   - `ready=true` when any key resolves.
+   - `count` matches `len(packs)`.
+   - Endpoint is idempotent across two consecutive GETs.
+
+**Verification**
+
+`pytest -q --ignore=tests/test_phase8_recovery.py
+       --deselect tests/test_pairing_contract.py::test_pair_attempted_event_emitted`
+→ **929 passed**, 1 deselected (pre-existing flake on `main`).
+Lints clean.
+
+**Files**
+
+- web_extras/routers/domains.py
+- tests/test_domains_health.py (new)
+- docs/CHANGELOG_AGENTS.md
+- docs/AGENT_HANDOFF.md
+- docs/IDEAS.md
+
+---
+
 ## 2026-05-01 — Cursor [A] · Saved-search auto-poll background loop
 
 **Summary**
