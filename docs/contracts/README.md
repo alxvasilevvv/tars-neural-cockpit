@@ -23,6 +23,11 @@ the matching phase declares green.
 | `CORE_BRIDGE.md` | SHIPPED | meeet core ↔ TARS bridge: `/health`, `/token-stats`, `/relay-event` on the old Supabase project (`zujrmifaabkletgnpoyw`). |
 | `relay_event.schema.json` | SHIPPED | JSON Schema (Draft 2020-12) for `POST /functions/v1/core-bridge/relay-event`. |
 | `L5_PAIRING_DRAFT.md` | DRAFT | Device pairing handshake, encrypted sync envelope (`meeet` contract 1.1.0). |
+| `RECEIPT_LEDGER.md` | DRAFT | Tier matrix + `tars-receipts` / `tars-tier` Edge Functions on meeet.world. Consumer (`useTier()`) ships as a stub. |
+| `UNIFIED_TELEMETRY.md` | DRAFT | `unified_funnel` cross-domain telemetry view between `tars_event_ingest` and `meeet_events`. |
+| `TARS_SUBDOMAIN.md` | SHIPPED | `tars.meeet.world` subdomain integration — readiness gates, cookie, headers, redirects. |
+| `WAITLIST.md` | DRAFT / SHIPPED | Waitlist signup contract used by Landing CTA. |
+| `ANALYTICS.md` | SHIPPED | Frontend analytics emit shape (`tars.<page&#124;api&#124;click>.<action>`). |
 
 ## Conventions
 
