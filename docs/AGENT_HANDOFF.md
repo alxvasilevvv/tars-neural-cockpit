@@ -193,6 +193,18 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-01 — `science.extract_dataset` real adapter (Cursor [A]):**
+  Promotes the science pack's `extract_dataset` action from a typed
+  stub to a deterministic detector. Surfaces dataset references in
+  a paper (arXiv ref) or operator text via two complementary
+  detectors: a curated `KnownDataset` registry (~25 entries —
+  ImageNet, COCO, GLUE, SQuAD, MMLU, LibriSpeech, UK Biobank, …)
+  with case-insensitive whole-word matching, and a `RepoPattern`
+  library covering Zenodo / Figshare / HuggingFace / Kaggle /
+  OpenML / OSF / Dryad. Output dedupes per `(canonical_id, source)`
+  and ships an `evidence` snippet so operators can verify the
+  call. Pinned by 27 new tests; full suite: 1426 green.
+
 - **2026-05-01 — Recovery challenge rate-limit (Cursor [A]):**
   Closes the open follow-up from PR #74 by extending the per-IP
   token-bucket pattern to the `/api/recovery/challenge/{start,

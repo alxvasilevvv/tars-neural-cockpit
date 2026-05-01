@@ -390,6 +390,18 @@ Open ideas for the next layer:
      against the public Atom API.
    - `science.summarize_paper` ✅ shipped — Atom by id, returns
      title/authors/tldr/abstract.
+   - `science.extract_dataset` ✅ shipped (2026-05-01) —
+     `backend/core/domains/packs/science/datasets.py` lands two
+     detectors: a curated `KnownDataset` registry (~25 entries
+     across vision / NLP / speech / RL / biotech) matched
+     case-insensitively at word boundaries, and a `RepoPattern`
+     URL library (Zenodo, Figshare, HuggingFace, Kaggle,
+     OpenML, OSF, Dryad) that reconstructs a canonical URL from
+     each match. Action accepts `ref` (arxiv id) or `text`
+     (raw); `text` overrides so operator excerpts skip the
+     network. Each `DatasetMention` carries an `evidence`
+     snippet so the cockpit can render audit-friendly chips.
+     Tests: `tests/test_science_extract_datasets.py` (27 cases).
    - `traders.fetch_quote` ✅ shipped — DexScreener public search.
    - `traders.summarize_market` ✅ shipped — basket aggregation +
      bias + dispersion contradictions.

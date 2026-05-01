@@ -119,6 +119,73 @@ fresh `recovery.challenge.passed` event for the same fingerprint.
   `docs/CHANGELOG_AGENTS.md`, `docs/AGENT_HANDOFF.md`,
   `docs/IDEAS.md`
 
+## 2026-05-01 — Cursor [A] · `science.extract_dataset` real adapter
+
+**Summary**
+
+Promotes the `science.extract_dataset` action handler from a typed
+stub (`{datasets: []}`) to a deterministic real adapter that
+surfaces dataset references in a paper or operator-provided text.
+Two complementary detectors share the same output shape; LLMs are
+intentionally out of the loop so the result is reproducible and
+audit-friendly.
+
+1. **`backend/core/domains/packs/science/datasets.py`** — new module:
+   - `KnownDataset` registry (~25 entries across vision / NLP /
+     speech / RL / biotech) with canonical id, aliases, optional
+     homepage, and domain tag. Built once into a single
+     case-insensitive whole-word regex (`(?<![A-Za-z0-9])…(?![A-Za-z0-9])`)
+     so longer aliases shadow shorter ones (e.g. `ImageNet-1K`
+     wins over `ImageNet`).
+   - `RepoPattern` URL library: Zenodo records + DOIs, Figshare,
+     HuggingFace Datasets, Kaggle, OpenML, OSF, Dryad. Each
+     entry carries a regex + canonical-URL template + short
+     human label.
+   - `DatasetMention` dataclass (`canonical_id, name, source,
+     evidence, url?, domain?, extra`) with a `to_dict()` that
+     drops `None`/empty fields so the wire payload stays clean.
+   - `extract_datasets_from_text(text)` runs both detectors,
+     dedupes by `(canonical_id, source)`, and returns mentions
+     ordered by detector pass (named first, URL second). Includes
+     a small `_evidence_snippet` helper that returns ±60 chars
+     of context around each match with `…` ellipsis when trimmed.
+
+2. **`backend/core/domains/packs/science/actions.py`** —
+   `extract_dataset(args)` now accepts `ref` (arxiv id / DOI /
+   URL — fetched via the existing arXiv Atom path) or `text` (raw
+   input). When both are provided, `text` overrides so an
+   operator can probe an excerpt without re-fetching. Returns
+   `{ok, datasets[], count, sources[], arxiv_id?, ref?, title?}`
+   following the same `ok=False, error=…` shape as
+   `summarize_paper` for uniform pack policy. Action schema
+   updated to advertise both fields.
+
+3. **`tests/test_science_extract_datasets.py`** — 27 tests:
+   - registry sanity (unique aliases / canonical ids / URL
+     templates have a `{0}` placeholder),
+   - text extractor: empty input, named match (ImageNet),
+     multi-mention, case-insensitive, word-boundary anti-FP,
+     dedup per canonical id, alias collapsing,
+   - URL patterns: Zenodo record / Zenodo DOI / HuggingFace /
+     Kaggle / Dryad, with canonical URL reconstruction,
+   - cross-detector co-fire (ImageNet + Zenodo ID for an
+     ImageNet subset),
+   - `to_dict()` drops/keeps optional fields,
+   - action handler: text-only path, no-input error, bad-ref
+     error, text-overrides-ref short-circuit (no network),
+     arxiv-ref happy path (mocked Atom), arxiv network error,
+     upstream 5xx, empty-feed not-found, and registry wiring.
+
+**Files**
+`backend/core/domains/packs/science/datasets.py` (new),
+`backend/core/domains/packs/science/actions.py`,
+`tests/test_science_extract_datasets.py` (new),
+`docs/CHANGELOG_AGENTS.md`,
+`docs/AGENT_HANDOFF.md`,
+`docs/IDEAS.md`.
+
+**Tests** — `pytest tests/` ⇒ 1426 passed (full suite).
+
 ## 2026-05-01 — Cursor [A] · Per-IP rate limit on /api/recovery/challenge/{start,verify}
 
 **Summary**
