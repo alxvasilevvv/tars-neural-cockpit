@@ -259,7 +259,15 @@ Open ideas for the next layer:
 ## Domain pack improvements
 
 6. **Real adapters, behind feature flags.**
-   - `traders.binance_pull_klines` (read-only).
+   - ~~`traders.binance_pull_klines`~~ ✅ **Shipped 2026-05-01** —
+     `backend/core/domains/packs/traders/binance.py` `pull_klines`
+     handler against `api.binance.com/api/v3/klines` (no key).
+     Symbol normalisation (`BTC/USDT` → `BTCUSDT`), interval
+     enum, limit `1..1000`, defensive row parsing, derived
+     `close_first/last` + `change_pct`. Emits
+     `integration.binance.klines` events (request / completed /
+     error). Tests: `tests/test_traders_binance_klines.py` (21
+     cases).
    - `business.hubspot_pull_pipeline` (read-only).
    - `mlm.tg_outreach_draft` (returns markdown, no auto-send).
    - `science.arxiv_search` ✅ shipped — `science.search_literature`
