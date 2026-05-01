@@ -193,6 +193,17 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-01 — Rotate-identity epoch bump (Cursor [A]):**
+  Closes the open follow-up on the rotate-identity endpoint. The
+  rotate now snapshots paired devices, calls `store.revoke()` on
+  each (because their pinned public keys reference the old host
+  identity), and emits `pair.epoch_bumped` with the cleared list
+  so the cockpit gold-pill audit lane can render a distinct epoch
+  bump row. `pair.host_rotated` gains a `cleared_device_count`
+  field for replay correlation. Zero-device rotates intentionally
+  omit `pair.epoch_bumped` to keep the timeline clean. 4 new
+  tests; full suite: 1380 green.
+
 - **2026-05-01 — Rotate-identity gated by 3-of-24 challenge (Cursor [A]):**
   Wires the first real consumer for the seed-challenge primitive
   shipped in PR #73. New `consume_passed_challenge` helper
