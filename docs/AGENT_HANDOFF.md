@@ -1201,6 +1201,31 @@ Smaller functional items still pending in parallel:
     `{q?, query?, limit?, kinds?}` — clamped to 100 hits, unknown
     kinds dropped silently. `tests/test_jump_picker.py` (23 cases).
     Cockpit ⌘J palette UI is the Claude-lane follow-up.
+17. ~~**Per-pack memory partitions (foundations).**~~ **shipped**
+    (2026-05-01) — every domain pack now has its own SQLite-backed
+    key-value store for facts/notes/preferences with optional TTL.
+    `backend/core/memory/{models,store}.py` ship `MemoryEntry` +
+    `MemoryStore` (DB at `~/.tars/memory.sqlite`, override
+    `TARS_MEMORY_DB_PATH`, disable with `MEMORY_STORE=disabled`).
+    `pack_memory` table has `UNIQUE(pack_slug, key)` so re-upserts
+    update in place; four indexes cover slug, slug+kind, ttl, recency.
+    HTTP surface in `web_extras/routers/memory.py`:
+    `GET/POST /api/packs/{slug}/memory`,
+    `GET/DELETE /api/packs/{slug}/memory/{key:path}`,
+    `POST /api/packs/{slug}/memory/_purge_expired`,
+    `GET  /api/packs/{slug}/memory/_stats`,
+    `GET  /api/memory/stats`,
+    `POST /api/memory/_purge_expired`. Upsert body accepts either
+    `ttl_seconds` (relative) or `ttl_until` (POSIX). Expired rows are
+    hidden by default and purgeable scoped or globally.
+    `tests/test_memory_store.py` (28 cases) pins partitioning, TTL,
+    stats, and full HTTP round-trip. **Next slices:** `pack.memory.*`
+    action family on every pack so the agent loop and playbooks can
+    use it through the standard interface, periodic purge loop, and a
+    cockpit "facts" view. Same PR also deflakes
+    `tests/test_pairing_contract.py` (was overflowing
+    `list_events(limit=500)` once the suite grew); full backend
+    suite is now 973 passed without `--deselect`.
 16. ~~**Saved-search snooze.**~~ **shipped** (2026-05-01) —
     Completes the saved-search alert lifecycle. Snooze is "mute the
     alarm, keep the watcher" — `poll_saved_search` keeps the
