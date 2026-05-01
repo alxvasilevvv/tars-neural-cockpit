@@ -4,6 +4,28 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor · `unified_funnel` cross-domain telemetry spec for Lovable
+
+**Summary**
+
+New contract `docs/contracts/UNIFIED_TELEMETRY.md` (TARS#8 task 3a):
+drop-in spec Lovable can implement directly to stand up the
+`/admin/telemetry` dashboard. Covers source tables, the
+`unified_funnel` materialised view DDL, three reference SQL queries
+(7-day funnel / drop-off / single operator journey), the
+`/api/admin/telemetry/summary` JSON contract pinned to
+`contract_version: "1.0.0"`, and a minimal React page sketch.
+
+The TARS half (`tars_event_ingest`) is already in production —
+`_middleware.ts` emits `tars.page.viewed` with `trace_id` +
+`session_id` (cookie scoped to `.meeet.world`), and the cookie domain
+makes `meeet_session.user_id` joinable via the existing
+`POST meeet-app/api/sessions/link` flow. So Lovable's only work is on
+their meeet ingest side + the dashboard page.
+
+Files:
+- `docs/contracts/UNIFIED_TELEMETRY.md` (new)
+
 ## 2026-05-01 — Cursor · CSP frame-ancestors + CORS allowlist on `/api/product/*`
 
 **Summary**
