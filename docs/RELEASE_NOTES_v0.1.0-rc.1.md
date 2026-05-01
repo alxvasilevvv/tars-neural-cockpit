@@ -87,10 +87,13 @@ fires on `v*` tag push. Before tagging, confirm:
       - `APPLE_TEAM_ID`
       - `WINDOWS_CERTIFICATE` (optional, Windows authenticode)
       - `WINDOWS_CERTIFICATE_PASSWORD` (optional)
-- [ ] `desktop/src-tauri/tauri.conf.json` `version` matches the tag
-      (currently `0.1.0-alpha.2`; bump to `0.1.0-rc.1` before tagging).
-- [ ] CHANGELOG_AGENTS.md has an entry for this release.
-- [ ] `make qa-agent` is green or has only documented warnings.
+- [x] `desktop/src-tauri/tauri.conf.json` `version` already `0.1.0-rc.1`
+      (triad sync 2026-05-01).
+- [x] `desktop/src-tauri/Cargo.toml` `version` already `0.1.0-rc.1`.
+- [x] `desktop/package.json` `version` already `0.1.0-rc.1`.
+- [x] CHANGELOG_AGENTS.md has an entry for this release.
+- [x] `make qa-agent` is green or has only documented warnings
+      (yellow is OK when `BRIDGE_SHARED_SECRET` is not yet on Pages).
 
 If any cert is missing the macOS build will publish an unsigned
 artefact, which Gatekeeper rejects on first launch. We can ship

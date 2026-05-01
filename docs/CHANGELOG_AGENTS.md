@@ -4,6 +4,56 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor · Pages SPA HTTP 200 (`_redirects`, not `404.html`)
+
+**Summary**
+
+Removed the CI step that copied `dist/index.html` → `dist/404.html`.
+When `404.html` exists, Cloudflare Pages serves it for unknown paths
+with **real HTTP 404** while the body is still the SPA shell —
+client-side routes look fine in-browser but probes, bots, and
+`scripts/qa_agent` `http.route/*` asserts fail (`/install`, `/cockpit`,
+…). SPA deep links rely on `public/_redirects` trailing rule
+`/* /index.html 200` only.
+
+Also: `pull_request` path filter now includes this workflow YAML;
+post-deploy smoke polls `GET https://tars.meeet.world/install` until HTTP
+200 (same credential gate as manifest smoke).
+
+Sanitized operator doc: removed accidentally pasted Cloudflare credential
+values from `TARS_MEEET_OPS_TODO.md` — use dashboard / GitHub Secrets
+only. **Rotate the `tars-admin` Pages token** if commits containing the
+literal ever reached a remote.
+
+Files:
+- `.github/workflows/tars-meeet-cloudflare-pages.yml`
+- `docs/TARS_MEEET_OPS_TODO.md` (CURRENT STATE + SPA `404.html` pitfall)
+
+## 2026-05-01 — Cursor · desktop `0.1.0-rc.1` version triad + CI lint
+
+**Summary**
+
+Aligned `package.json`, `Cargo.toml`, and `tauri.conf.json` to a single
+semver for the Tauri 2 shell release candidate: `0.1.0-rc.1` (was
+`0.1.0-alpha.2` in two files and `0.1.0` in Cargo).
+
+Added `.github/workflows/desktop-version-lint.yml` — a tiny push/PR
+workflow that fails if the three version strings ever diverge again.
+
+Updated `docs/RELEASE_NOTES_v0.1.0-rc.1.md` preflight checkboxes to
+match the new triad state and to document that `make qa-agent` may stay
+yellow until the operator pastes `BRIDGE_SHARED_SECRET` on Pages.
+
+Files:
+- `desktop/package.json`
+- `desktop/src-tauri/Cargo.toml`
+- `desktop/src-tauri/tauri.conf.json`
+- `.github/workflows/desktop-version-lint.yml` (new)
+- `docs/RELEASE_NOTES_v0.1.0-rc.1.md`
+- `docs/SYNC.md` (last-updated stamp)
+
+Branch: `cursor/desktop-rc1-triad` (same PR batch as Pages SPA fix above).
+
 ## 2026-05-01 — Cursor · CI Pages-Functions regression fix + QA agent v1.1
 
 **Summary**
