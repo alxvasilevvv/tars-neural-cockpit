@@ -350,9 +350,18 @@ Open ideas for the next layer:
     and cross-sub-pack templating. `docs/DOMAIN_PACKS.md` got a new
     "Composite playbooks" section. Open work: cockpit playbook palette
     grouped by composite-vs-atomic.
-32. **OAuth / JMAP outbound.** SMTP outbound shipped (Phase K6); next
-    step is OAuth-based (Gmail / Office365) and JMAP for richer
-    providers — same vault interface, different transport.
+32. ~~**OAuth / JMAP outbound.**~~ **OAuth shipped (XOAUTH2 + refresh
+    flow, 2026-05-01):** PR #40 added SASL XOAUTH2 to `smtplib`;
+    follow-up PR adds stdlib-only `OAuth2 grant_type=refresh_token`
+    exchange in `backend/core/domains/packs/business/oauth.py` with
+    in-memory cache + 5-minute refresh lead. Provider shorthand
+    `gmail` / `office365` / `outlook` resolves the token URL
+    automatically. `tests/test_business_smtp_oauth_refresh.py`
+    (18 cases) pin parser + cache + refresh + degradation paths.
+    **Still pending:** initial consent / authorization-code flow
+    (operator-side once-per-account) and JMAP (Fastmail-native
+    protocol) — both require operator-side infrastructure (consent
+    UI, persistent token store).
 
 ## Branding
 
