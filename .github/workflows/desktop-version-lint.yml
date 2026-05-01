@@ -1,0 +1,65 @@
+name: desktop · version lint
+
+# Guards against the easy-to-miss drift where the Tauri desktop
+# version is bumped in one place (say `tauri.conf.json`) but not
+# the others. The release pipeline reads the version out of
+# `tauri.conf.json`, but `Cargo.toml` is what cargo uses for the
+# binary name and `package.json` is what `pnpm` reports. All three
+# MUST agree, otherwise the auto-updater feed and the bundle name
+# diverge in unpredictable ways.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "desktop/package.json"
+      - "desktop/src-tauri/Cargo.toml"
+      - "desktop/src-tauri/tauri.conf.json"
+      - ".github/workflows/desktop-version-lint.yml"
+  pull_request:
+    paths:
+      - "desktop/package.json"
+      - "desktop/src-tauri/Cargo.toml"
+      - "desktop/src-tauri/tauri.conf.json"
+      - ".github/workflows/desktop-version-lint.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: versions match
+    runs-on: ubuntu-22.04
+    timeout-minutes: 2
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compare versions
+        run: |
+          set -eu
+
+          tauri_v=$(python3 -c "
+          import json, sys
+          d = json.load(open('desktop/src-tauri/tauri.conf.json'))
+          print(d['version'])
+          ")
+          pkg_v=$(python3 -c "
+          import json
+          d = json.load(open('desktop/package.json'))
+          print(d['version'])
+          ")
+          # Cargo.toml: a top-level `version = \"x.y.z\"` line in [package].
+          cargo_v=$(awk '/^\[package\]/{f=1; next} /^\[/{f=0} f && /^version[[:space:]]*=/{gsub(/[",]/, "", $3); print $3; exit}' desktop/src-tauri/Cargo.toml)
+
+          echo "tauri.conf.json   : $tauri_v"
+          echo "package.json      : $pkg_v"
+          echo "Cargo.toml        : $cargo_v"
+
+          if [[ "$tauri_v" == "$pkg_v" && "$pkg_v" == "$cargo_v" ]]; then
+            echo "OK: all three versions agree."
+          else
+            echo "::error::desktop versions diverged. All three of"
+            echo "::error::desktop/{package.json, src-tauri/Cargo.toml, src-tauri/tauri.conf.json}"
+            echo "::error::must report the same version string."
+            exit 1
+          fi
