@@ -4,6 +4,91 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · Per-thread voice persona pinning
+
+**Summary**
+
+Closes the "per-thread persona pinning" idea from `docs/IDEAS.md`
+(Voice section). Threads now carry a ``voice_persona_id`` so
+coming back to a thread keeps the same TARS voice (Jarvis,
+Stark, TARS, GLaDOS, HAL 9000, Operator). The voice/speak
+endpoint honours the pin automatically when the caller passes
+``thread_id`` without an explicit ``persona``.
+
+1. **Schema** (`backend/core/chat/store.py`)
+   - New migration `ALTER TABLE threads ADD COLUMN
+     voice_persona_id TEXT`.
+   - `_insert_thread_sync` writes the column on create.
+   - `_patch_thread_sync` whitelists `voice_persona_id` so PATCH
+     can set or clear the pin.
+   - `_row_to_thread` defends against pre-migration rows by
+     falling back to ``None`` if the column hasn't been added
+     (older fixtures).
+
+2. **Dataclass** (`backend/core/chat/models.py`)
+   - `Thread.voice_persona_id: str | None = None` field.
+   - `Thread.fresh(voice_persona_id=…)` accepts the pin at
+     construction.
+   - `Thread.to_dict()` mirrors the field on every response so
+     the cockpit can render a "current voice" badge.
+
+3. **HTTP** (`web_extras/routers/chat.py`)
+   - `_validate_voice_persona_id` helper: accepts ``None`` and
+     blank strings (both clear the pin), accepts any registered
+     persona id (cross-checked against
+     `iter_personas()`), 400s with `voice_persona_id_unknown`
+     for unknown ids and `voice_persona_id_invalid` for
+     non-string types.
+   - `POST /api/chat/threads` accepts the optional
+     `voice_persona_id` body field with the same validation.
+   - `PATCH /api/chat/threads/{id}` accepts
+     `voice_persona_id` (set / clear) alongside the existing
+     fields. Patch payloads that omit the field leave the pin
+     untouched (the prior tests for title / pack still pass).
+
+4. **Voice routing** (`web_extras/routers/voice.py`)
+   - `POST /api/voice/speak` now accepts an optional
+     `thread_id` body field. When the caller didn't supply an
+     explicit `persona`, the endpoint resolves the thread and
+     uses its `voice_persona_id` as a fallback.
+   - Response carries an `x-tars-voice-persona-source` header
+     (`request` for explicit caller, `thread` for the pin
+     fallback) so the cockpit can show "voice from this
+     thread" UI without guessing.
+
+5. **Tests** (`tests/test_thread_persona_pinning.py`, 26
+   cases)
+   - **Dataclass + store (4):** default is `None`,
+     `Thread.fresh` accepts the pin, store round-trip
+     persists the value, patch sets and clears the pin.
+   - **POST /threads (5):** accept happy path, reject
+     unknown persona (400 `voice_persona_id_unknown`), reject
+     non-string (400 `voice_persona_id_invalid`), omitted
+     field stays `None`, blank string normalises to `None`.
+   - **PATCH /threads (8):** pin a persona, clear with
+     `None`, clear with blank string, reject unknown,
+     reject non-string, parametrise over every known
+     persona id (5 ids → 5 cases collapsed into one), patch
+     of unrelated field leaves persona intact.
+   - **Voice routing (5):** thread pin used when no
+     explicit persona, explicit persona overrides the pin
+     and stamps `persona-source=request`, no pin → no
+     `persona-source` header, unknown thread doesn't crash
+     and doesn't set the source header, explicit-only
+     persona stamps `persona-source=request`.
+   - 26/26 green; full chat / voice / thread bucket 102/102
+     green; full backend suite 1201/1201 green.
+
+**Files**
+
+- edited: `backend/core/chat/models.py`,
+  `backend/core/chat/store.py`,
+  `web_extras/routers/chat.py`,
+  `web_extras/routers/voice.py`
+- new: `tests/test_thread_persona_pinning.py`
+- edited: `docs/CHANGELOG_AGENTS.md`, `docs/AGENT_HANDOFF.md`,
+  `docs/IDEAS.md`
+
 ## 2026-05-01 — Cursor [A] · Attachment chunk-neighbours endpoint
 
 **Summary**
