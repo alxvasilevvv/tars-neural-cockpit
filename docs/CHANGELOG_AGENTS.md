@@ -4,6 +4,61 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · `traders.local_alerts` awareness source
+
+**Summary**
+
+Closes the cockpit-side loop on the new local-first alerts store: the
+existing awareness ticker can now subscribe to `traders.local_alerts`
+and surface a structured snapshot of currently-active price alerts
+without the operator having to wire anything custom.
+
+1. **Awareness fetcher** (`backend/core/domains/packs/traders/awareness.py`)
+   - New `_fetch_local_alerts(args)` reads the local store via
+     `read_local_alerts` (defaults to `active_only=True`, `limit=50`,
+     clamped to `[1, 200]`).
+   - Always returns a structurally-stable envelope so the cockpit can
+     bind unconditionally: `as_of`, `path`, `exists`, `count`,
+     `by_direction`, `by_ticker`, `filters`, `alerts`.
+   - Tolerates missing store (returns `count=0`, `exists=False`); maps
+     `OSError` to `local_alerts_unreadable` for telemetry.
+   - Filters: `ticker` (case-insensitive, normalised), `active_only`
+     (defaults to `True`), `limit` (clamped, garbage falls back to
+     50), `path` override.
+
+2. **`AwarenessSource` registration** in the same module
+   - New entry `local_alerts` (kind `local`) advertises
+     `path=~/.tars/traders_alerts.json`, `active_only=true`,
+     `limit=50` so the cockpit form can render sensible defaults.
+
+3. **Tests** (+12 new cases in `tests/test_traders_alerts_awareness.py`,
+   1 update in `tests/test_awareness_fetchers.py`)
+   - Defaults: snapshot is active-only, returns the right envelope
+     keys, exposes the resolved store path.
+   - Inactive inclusion: `active_only=False` surfaces cancelled rows.
+   - Missing store: structurally-stable empty envelope, never raises.
+   - Path override: explicit `path` arg beats env.
+   - Aggregations: `by_direction` + `by_ticker` rollups respect filters.
+   - Ticker filter normalisation (`btc → BTC`).
+   - Limit clamps to 200, garbage falls back to 50, tail-takes most
+     recent.
+   - Pack wiring: `find_awareness("local_alerts")` returns a live
+     fetcher, `to_dict()` marks it `live=True` and `kind="local"`.
+   - Existing live-fetcher membership pin extended with the new id.
+
+**Test suite**: 1656 passed (was 1644). Lints clean.
+
+**Files**
+
+- `backend/core/domains/packs/traders/awareness.py`
+- `tests/test_traders_alerts_awareness.py` (new)
+- `tests/test_awareness_fetchers.py`
+- `docs/CHANGELOG_AGENTS.md`
+- `docs/AGENT_HANDOFF.md`
+- `docs/IDEAS.md`
+
+---
+
 ## 2026-05-01 — Cursor [A] · `traders.cancel_alert` closes the alerts lifecycle
 
 **Summary**
