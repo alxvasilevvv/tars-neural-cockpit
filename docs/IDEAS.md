@@ -424,8 +424,15 @@ Open ideas for the next layer:
      the destructive-action gate now confirms a real persisted
      receipt instead of the old `stub-0001` echo. Sibling
      **`traders.list_alerts`** (non-destructive) reads the queue
-     back with `ticker / active_only / limit` filters. Pinned by
-     `tests/test_traders_local_alerts.py` (69 cases).
+     back with `ticker / active_only / limit` filters, and
+     **`traders.cancel_alert`** (destructive) closes an alert by
+     id with idempotent semantics — second cancel is a no-op,
+     emits no duplicate event, preserves the original
+     `cancel_reason`. Cancellation stamps `cancelled_at` /
+     `cancel_reason` on the row so the audit trail keeps the why
+     and when. Pinned by `tests/test_traders_local_alerts.py`
+     (83 cases) plus a destructive-spec membership pin update in
+     `tests/test_policy.py`.
    - `business.kpi_snapshot`, `business.daily_brief` ✅ shipped —
      local JSON-backed. `daily_brief` (2026-05-01 follow-up)
      now also unions the local `log_deal` store at

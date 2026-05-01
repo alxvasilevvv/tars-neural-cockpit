@@ -193,6 +193,20 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-01 — `traders.cancel_alert` closes the alerts lifecycle (Cursor [A]):**
+  Natural follow-up to the `place_alert` real adapter. Adds a new
+  `cancel_local_alert` helper to
+  `backend/core/domains/packs/traders/local_alerts.py` plus a
+  `cancel_alert` action handler. Marks the row `active=False`, stamps
+  `cancelled_at` (UTC ISO Z) + optional `cancel_reason`, leaves all
+  other fields untouched for the audit trail. Idempotent: a second
+  cancel of the same id returns `already_inactive=True` and emits no
+  duplicate meeet event. Policy gate now routes `traders.cancel_alert`
+  through confirmation alongside `place_alert`. Action surfaces
+  stable error codes (`alert_id_required`, `alert_not_found`,
+  `local_store_unwritable`). Pinned by 14 new tests + 1 update to the
+  destructive-spec membership pin; full suite: **1644 green**.
+
 - **2026-05-01 — `traders.place_alert` real local-first store + `list_alerts` (Cursor [A]):**
   Promotes the last hardcoded stub in the traders pack
   (`return {"alert_id": "stub-0001"}`) into a real local-first

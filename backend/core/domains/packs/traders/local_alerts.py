@@ -266,6 +266,70 @@ async def append_local_alert(
     return record
 
 
+async def cancel_local_alert(
+    alert_id: str,
+    *,
+    reason: str | None = None,
+    path: str | os.PathLike[str] | None = None,
+    now: str | None = None,
+) -> dict[str, Any]:
+    """Mark a previously-placed local alert inactive.
+
+    Returns the updated row as a dict on success, or raises
+    :class:`KeyError` (``alert_not_found``) when no row matches the
+    given ``alert_id``. Idempotent: cancelling an already-inactive
+    alert returns the same row with ``already_inactive=True`` and
+    does **not** emit a second meeet event.
+
+    Stores a ``cancelled_at`` timestamp + optional ``cancel_reason``
+    on the row so the audit trail keeps the why and when. Other
+    fields are preserved untouched.
+    """
+
+    if not isinstance(alert_id, str) or not alert_id.strip():
+        raise ValueError("alert_id_required")
+    aid = alert_id.strip()
+    rsn = reason.strip() if isinstance(reason, str) and reason.strip() else None
+    when = now or _utc_now_iso()
+
+    target = resolve_local_alerts_path(path)
+
+    with _lock:
+        rows = _read_existing(target)
+        idx: int | None = None
+        for i, row in enumerate(rows):
+            if str(row.get("id") or "") == aid:
+                idx = i
+                break
+        if idx is None:
+            raise KeyError("alert_not_found")
+        current = dict(rows[idx])
+        already_inactive = current.get("active") is False
+        if not already_inactive:
+            current["active"] = False
+            current["cancelled_at"] = when
+            if rsn is not None:
+                current["cancel_reason"] = rsn
+            rows[idx] = current
+            _atomic_write(target, rows)
+
+    if not already_inactive:
+        client = get_client()
+        await client.emit(
+            "traders.alert_cancelled",
+            {
+                "id": aid,
+                "ticker": current.get("ticker"),
+                "reason": rsn,
+                "store_path": str(target),
+            },
+        )
+
+    out = dict(current)
+    out["already_inactive"] = already_inactive
+    return out
+
+
 def read_local_alerts(
     path: str | os.PathLike[str] | None = None,
     *,
@@ -303,6 +367,7 @@ __all__ = [
     "VALID_SOURCES",
     "LocalAlertRecord",
     "append_local_alert",
+    "cancel_local_alert",
     "read_local_alerts",
     "resolve_local_alerts_path",
 ]
