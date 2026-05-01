@@ -45,6 +45,7 @@ from web_extras.routers import memory as memory_router
 from web_extras.routers import search as search_router
 from web_extras.routers import usage as usage_router
 from web_extras.routers import vault as vault_router
+from web_extras.routers import speech as speech_router
 from web_extras.routers import voice as voice_router
 from web_extras.routers import wallet as wallet_router
 
@@ -515,6 +516,7 @@ app.include_router(vault_router.router)
 app.include_router(usage_router.router)
 app.include_router(chat_router.router)
 app.include_router(voice_router.router)
+app.include_router(speech_router.router)
 app.include_router(search_router.router)
 app.include_router(search_router.timeline_router)
 app.include_router(memory_router.router)

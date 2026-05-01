@@ -149,7 +149,17 @@ def test_make_recovery_seed_returns_words_and_fingerprint() -> None:
 
 
 @pytest.fixture
-def client():
+def client(tmp_path, monkeypatch):
+    # Isolate the meeet event store per test so the durable buffer's
+    # 500-event read cap doesn't mask freshly emitted events when the
+    # global ~/.tars/meeet.sqlite has accumulated history. Same
+    # pattern used by the pairing contract suite.
+    monkeypatch.setenv("MEEET_STORE_PATH", str(tmp_path / "meeet.sqlite"))
+    import backend.core.meeet.client as _meeet_client
+    import backend.core.meeet.store as _meeet_store
+
+    monkeypatch.setattr(_meeet_store, "_SINGLETON", None, raising=False)
+    monkeypatch.setattr(_meeet_client, "_SINGLETON", None, raising=False)
     return TestClient(app)
 
 
