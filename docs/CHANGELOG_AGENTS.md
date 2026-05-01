@@ -4,6 +4,84 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · `traders.place_alert` real local-first store + new `list_alerts`
+
+**Summary**
+
+Promotes `traders.place_alert` from the hardcoded `stub-0001` echo
+into a real local-first adapter, mirroring the recent
+`business.log_deal` upgrade. The destructive-action gate now has a
+durable receipt on the other side of the confirmation step, and a
+sibling `list_alerts` action lets operators (and playbooks) read the
+queue back without touching the JSON file directly.
+
+1. **New module** (`backend/core/domains/packs/traders/local_alerts.py`)
+   - `LocalAlertRecord` dataclass, `append_local_alert`, `read_local_alerts`,
+     `resolve_local_alerts_path`. Persists rows to
+     `~/.tars/traders_alerts.json` (override via `TARS_LOCAL_ALERTS_PATH`
+     env var or `path` kwarg).
+   - `_next_local_id` mints monotonic `local-alert-NNNN` ids; foreign /
+     malformed ids are ignored so future relay-issued alerts won't
+     collide.
+   - Strict input validation with stable error codes
+     (`ticker_required`, `price_invalid`, `direction_invalid`).
+     Allowed directions: `above / below / cross_above / cross_below`.
+     Allowed sources: `manual / playbook / external`.
+   - Atomic tmp+rename writes + process-local lock keep concurrent
+     readers (`list_alerts`, future awareness sources) safe.
+   - Emits `traders.alert_placed` meeet event on every successful
+     append (id, ticker, price, direction, source, store_path).
+
+2. **Action handlers** (`backend/core/domains/packs/traders/actions.py`)
+   - `place_alert` now persists into the local store, returns
+     `{ok, alert_id, store, store_path, created_at, active, hint, …}`,
+     and maps validation / `OSError` failures into stable error
+     envelopes (`local_store_unwritable`).
+   - `place_alert` schema picks up `note`, `source`, `path`, an
+     `exclusiveMinimum: 0` on `price`, the full direction enum, and a
+     longer description naming the env var and meeet event.
+   - **New** `list_alerts` action (read-only, non-destructive) with
+     `ticker / active_only / limit / path` filters; returns the
+     filter envelope so callers can confirm what was applied.
+
+3. **Tests** (`tests/test_traders_local_alerts.py`, +69 cases)
+   - Path resolution (default / env / override / tilde expansion).
+   - `_read_existing` tolerates missing / empty / corrupt / wrong-type
+     stores and filters non-dict rows.
+   - `_atomic_write` creates parent dirs, terminates with newline, and
+     replaces existing files in place.
+   - `_next_local_id` ignores foreign ids and garbage suffixes.
+   - Coercion helpers reject blank / negative / NaN / non-string
+     inputs with the right codes; source falls back to `manual`.
+   - `append_local_alert` happy path: emits the meeet event with
+     `store_path`, mints `local-alert-0001`, stores blank notes as
+     `None`, accepts an injected `now`, and recovers cleanly when
+     the existing file is corrupt.
+   - `read_local_alerts` filters by ticker / active flag and slices
+     the tail with `limit`.
+   - `place_alert` action: invalid direction / price / blank ticker
+     surfacing, missing-arg envelope, path override, OSError mapped
+     to `local_store_unwritable`, sets `store="local"`.
+   - `list_alerts` action: envelope shape, ticker normalisation,
+     limit tail behaviour, garbage limit ignored, active_only
+     filter, missing store returns empty list.
+   - Spec wiring: `place_alert` stays `destructive=True` and lists
+     all four directions / three sources; `list_alerts` is
+     non-destructive and exposes the documented filters.
+
+**Test suite**: 1630 passed (was 1561). Lints clean.
+
+**Files**
+
+- `backend/core/domains/packs/traders/local_alerts.py` (new)
+- `backend/core/domains/packs/traders/actions.py`
+- `tests/test_traders_local_alerts.py` (new)
+- `docs/CHANGELOG_AGENTS.md`
+- `docs/AGENT_HANDOFF.md`
+- `docs/IDEAS.md`
+
+---
+
 ## 2026-05-01 — Cursor [A] · entrepreneur pack schema parity for `generate_content`
 
 **Summary**
