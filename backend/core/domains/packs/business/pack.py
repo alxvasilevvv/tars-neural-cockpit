@@ -35,6 +35,12 @@ class BusinessPack(DomainPack):
             "SMTP_USER",
             "SMTP_PASSWORD",
             "SMTP_OAUTH_TOKEN",
+            "SMTP_OAUTH_REFRESH_TOKEN",
+            "SMTP_OAUTH_CLIENT_ID",
+            "SMTP_OAUTH_CLIENT_SECRET",
+            "SMTP_OAUTH_TOKEN_URL",
+            "SMTP_OAUTH_TENANT",
+            "SMTP_OAUTH_SCOPE",
             "SMTP_PROVIDER",
             "SMTP_FROM",
         )
