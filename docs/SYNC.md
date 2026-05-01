@@ -1,11 +1,12 @@
-# Agent SYNC protocol — Cursor ↔ Claude ↔ Lovable
+# Agent SYNC protocol — Cursor ↔ Cursor ↔ Claude ↔ Lovable
 
 > **Status:** active. Read this BEFORE making any change in this repo.
-> Last updated: 2026-05-01 by Cursor.
+> Last updated: 2026-05-01 by Cursor (operator now has TWO parallel
+> Cursor sessions on the same machine — see §11 below).
 
 This file is the contract between the autonomous agents that touch the
-TARS / meeet.world stack from different machines. It exists so we can
-work in parallel without trampling each other.
+TARS / meeet.world stack. It exists so we can work in parallel without
+trampling each other — across machines AND across windows.
 
 ---
 
@@ -197,11 +198,95 @@ If two agents accidentally touch the same file:
 
 ## 10. Quick checklist for every PR
 
-- [ ] Branch named `cursor/...` or `claude/...`
+- [ ] Branch named `cursor/...`, `cursor-b/...`, `claude/...`
 - [ ] Only files in your lane (or pre-announced shared edits)
-- [ ] `docs/CHANGELOG_AGENTS.md` updated (top entry)
+- [ ] `docs/CHANGELOG_AGENTS.md` updated (top entry, with session tag)
 - [ ] If touching backend contract: `contract_version` bump + paired
       doc in `docs/contracts/`
 - [ ] If touching the bridge: `make gate-control-tower` is green
 - [ ] No `.env`, no raw secrets in diff
-- [ ] PR title prefixed with agent name (`[cursor]` / `[claude]`)
+- [ ] PR title prefixed with agent name (`[cursor]` / `[cursor-b]` /
+      `[claude]`)
+
+---
+
+## 11. Two Cursor sessions on the same machine
+
+The operator now keeps **two Cursor windows** open on the same laptop,
+both able to edit this repo in parallel. Treat them as **two
+independent agents** with the same lane scope as §3 (the "Cursor
+lane"), but with the following extra rules so they don't fight over
+shared files / branches / ports:
+
+### 11.1 Branch namespace
+
+| Window | Prefix       | Example                       |
+| ------ | ------------ | ----------------------------- |
+| A (primary) | `cursor/`    | `cursor/launch-cleanup`        |
+| B (helper)  | `cursor-b/`  | `cursor-b/cockpit-copy-pass`   |
+
+If you don't know which window you are, **assume B** until the
+operator says otherwise; B is the safer default because A is the one
+that already touched `main` today.
+
+### 11.2 Local ports (no clashes)
+
+| Surface                 | Window A           | Window B           |
+| ----------------------- | ------------------ | ------------------ |
+| TARS backend (uvicorn)  | `127.0.0.1:8765`   | `127.0.0.1:8866`   |
+| TARS cockpit preview    | `127.0.0.1:5174`   | `127.0.0.1:5184`   |
+| meeet.world prod (serve)| `127.0.0.1:8083`   | `127.0.0.1:8084`   |
+
+If a port is occupied, **do not** kill the other process — switch to
+your column above. `lsof -nP -iTCP:<port> -sTCP:LISTEN` tells you who
+owns it.
+
+### 11.3 File-level mutex (lightweight)
+
+Before editing a shared file (`docs/AGENT_HANDOFF.md`,
+`docs/CHANGELOG_AGENTS.md`, `docs/SYNC.md`, `Makefile`, root
+`requirements.txt`, `experiments/neural-showcase-v3/package.json`),
+prepend a `>>> SYNC LOCK` comment in `docs/CHANGELOG_AGENTS.md`'s
+top entry with `cursor` or `cursor-b` and a 5-min TTL. The other
+window respects it for that window. The lock is advisory — if 5 min
+have elapsed, take it.
+
+### 11.4 Forbidden in window B by default
+
+Window B should **NOT**, without an explicit operator request:
+
+- merge / squash-merge PRs
+- close PRs
+- force-push existing branches
+- delete remote branches
+- rotate any secret or `.env`
+
+These are A's responsibilities so the operator has a single source of
+authority for "destructive" actions.
+
+### 11.5 Shared CHANGELOG_AGENTS entries
+
+Both windows append to `docs/CHANGELOG_AGENTS.md`. Mark each entry
+with the source window:
+
+```
+## 2026-05-01 — Cursor [A] · launch-today snapshot
+## 2026-05-01 — Cursor [B] · cockpit copy pass
+```
+
+If both windows want to edit the file in the same minute, the second
+one rebases on the first.
+
+### 11.6 What window B can do solo (safe lane)
+
+- Read & analyze code (Grep / Glob / SemanticSearch).
+- Run pytest / vitest / npm scripts.
+- Push **new** branches under `cursor-b/...` and open PRs.
+- Edit cockpit copy / page wording (lane overlap with Claude is OK
+  here — Claude lane wins on visuals).
+- Add tests / fixtures / fixtures' data files.
+- Update its own `cursor-b/...` branch via `git rebase
+  origin/main`.
+
+If unsure — **ping the operator and pause**. The cost of pausing is
+seconds; the cost of rewriting another agent's commit is minutes.

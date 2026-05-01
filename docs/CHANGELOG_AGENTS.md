@@ -4,6 +4,59 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · parallel-cursor SYNC §11 + meeet.world chores
+
+**Summary**
+
+Operator opened a second parallel Cursor window on the same machine.
+Adapted the cross-agent contract so the two Cursor sessions don't
+fight, and cleaned up two small papercuts that surfaced during the
+launch-readiness pass:
+
+1. **`docs/SYNC.md` §11 (new):** explicit protocol for two parallel
+   Cursor sessions on the same machine — branch prefixes
+   (`cursor/` for window A, `cursor-b/` for window B), per-window
+   local port table (TARS API 8765/8866, cockpit preview
+   5174/5184, meeet.world prod serve 8083/8084), file-level
+   advisory mutex via `>>> SYNC LOCK` in the top changelog entry,
+   list of destructive actions (merge / force-push / close-PR /
+   secret rotation) reserved for window A by default.
+2. **`docs/AGENT_HANDOFF.md` top banner:** first pointer now goes
+   to `docs/LAUNCH_TODAY_2026-05-01.md`, with an explicit note
+   sending parallel Cursor (B) to `docs/SYNC.md` §11 first.
+3. **`docs/LAUNCH_TODAY_2026-05-01.md`:** appended a follow-up
+   section so the launch snapshot reflects today's chores plus the
+   parallel-cursor delta.
+4. **meeet.world chores (sister repo,
+   `meeet-solana-state-941a6045`):**
+   - `package.json`: `preview` script changed from
+     `bunx vite preview` → `vite preview` so machines without bun
+     don't fail on `npm run preview`.
+   - `.gitignore`: added `deno.lock` (artefact of `deno check`
+     Supabase Edge Functions; not the source of truth, was
+     showing up untracked in `git status`).
+
+Verification:
+
+- `cd Jarvis/jarvis && pytest -q` → **686 passed in 15.76s**.
+- `cd meeet-solana-state-941a6045 && npm test` → **336 passed | 5
+  skipped**.
+- `npx serve dist -l 8084` smoke → **200**, confirming `npm run
+  preview` is no longer the only preview path.
+
+Files:
+
+- `Jarvis/jarvis/docs/SYNC.md` (§1 header + §10 PR checklist + §11
+  new section)
+- `Jarvis/jarvis/docs/AGENT_HANDOFF.md` (top banner)
+- `Jarvis/jarvis/docs/LAUNCH_TODAY_2026-05-01.md` (follow-up)
+- `Jarvis/jarvis/docs/CHANGELOG_AGENTS.md` (this entry)
+- `meeet-solana-state-941a6045/package.json`
+- `meeet-solana-state-941a6045/.gitignore`
+
+No backend / cockpit / wallet code touched. Bridge contract version
+unchanged (1.0.0).
+
 ## 2026-05-01 — Cursor · LAUNCH-TODAY snapshot + cross-repo gate
 
 **Summary**
