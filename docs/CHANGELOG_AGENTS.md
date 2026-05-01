@@ -4,6 +4,54 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · Memory purge background loop
+
+**Summary**
+
+Closes the per-pack memory series. With this slot, TTL'd entries
+do not accumulate even when no operator opens the cockpit — the
+lifespan loop sweeps them on a tunable cadence. Default is **off**
+(operators opt in once they have TTL'd entries in the wild) so
+distros that don't use the memory layer don't pay the SQLite hit.
+
+1. **Loop** (`web_extras/app.py`)
+   - `_memory_purge_interval_s()` — reads
+     `TARS_MEMORY_PURGE_INTERVAL_S` (default `0.0` = off, clamps
+     negatives + garbage to zero).
+   - `_memory_purge_loop()` — ticks every interval seconds, calls
+     `MemoryStore.purge_expired()` (global, no `pack_slug` arg).
+     Logs INFO when a tick deletes rows; otherwise silent.
+     Catches everything except `CancelledError` so a flapping
+     SQLite cannot crash the host.
+   - Lifespan registers it alongside replay / autopilot / trace
+     summary / message embed / saved-search poll. Cancelled +
+     awaited at shutdown like the rest.
+
+2. **Tests** (`tests/test_memory_purge_loop.py`, 9 cases)
+   - Env var helper: default is off, parses positive int / float,
+     clamps negatives, garbage → zero.
+   - Loop short-circuits: returns immediately when the interval
+     is `0`; returns immediately when the store is disabled
+     (`MEMORY_STORE=disabled`).
+   - Single tick: a TTL'd row is purged after one tick (we
+     monkeypatch `asyncio.sleep` to fire after the inner purge
+     and assert the live row survives).
+   - Resilience: a raising `purge_expired` triggers a WARN log
+     and the loop keeps ticking.
+   - Lifespan: `_lifespan` spawns a task named `memory-purge-loop`
+     alongside the existing background tasks.
+
+**Files**
+
+- `web_extras/app.py` (added `_memory_purge_interval_s`,
+  `_memory_purge_loop`, lifespan wiring)
+- `tests/test_memory_purge_loop.py` (new, 9 cases)
+
+**Memory series complete.** Open follow-ups in the cockpit lane:
+"facts" view that consumes `pack.memory.list` /
+`pack.memory.stats`, optional per-pack purge schedules in the
+operator UI.
+
 ## 2026-05-01 — Cursor [A] · `pack.memory.*` action family (system-wide)
 
 **Summary**
@@ -39,51 +87,21 @@ into business or science memory without a separate pack lookup.
    `DomainPack` gains `all_actions()` which yields the pack's own
    `actions()` *plus* `memory_actions(slug)`. `find_action` and
    `to_dict` now both walk `all_actions()`. Existing `actions()`
-   stays abstract / pack-owned — packs don't have to know about
-   the system layer.
+   stays abstract / pack-owned.
 
 3. **Composite hop** (`backend/core/domains/composite.py`) —
    `CompositePack.actions()` now delegates to `sub.all_actions()`
-   so namespaced sub-pack memory actions
-   (`business__pack.memory.set`, `science__pack.memory.list`, …)
-   surface alongside the composite's own partition. The composite
-   inherits its own `pack.memory.*` family from
-   `DomainPack.all_actions` automatically.
+   so namespaced sub-pack memory actions surface alongside the
+   composite's own partition.
 
 4. **HTTP / manifest** (`web_extras/routers/domains.py`) — manifest
-   action counts (`action_count`, `destructive_action_count`) now
-   walk `all_actions()` so the cockpit / installer manifests see
-   the full surface. The `/api/domains/{slug}` describe endpoint
-   already runs through `to_dict()` and gets the new actions for
-   free. Invocation endpoint
-   (`POST /api/domains/{slug}/actions/{action_id}`) finds memory
-   actions through `find_action()` — no router changes needed.
+   action counts walk `all_actions()` so the cockpit / installer
+   manifests see the full surface.
 
-5. **Tests** (`tests/test_memory_actions.py`, 27 cases)
-   - Factory: returns 6 actions, only delete is destructive,
-     schema fields populated.
-   - Injection invariants: every registered pack has the family;
-     `pack.actions()` stays clean; `find_action()` resolves the
-     injected ones.
-   - Handlers: set/get round-trip, missing get returns
-     `found=False`, validation errors (`key`, `value`,
-     `metadata`), TTL via `ttl_seconds` (positive only) and
-     `ttl_until`, mutual-exclusion, `include_expired` flag.
-   - Partitioning: list returns only the bound pack; sibling
-     pack writes don't bleed.
-   - Filtering: `kind` and `key_prefix` honoured; delete returns
-     a flag and twice-delete is False the second time;
-     `purge_expired` only drops past-TTL rows; stats break down
-     by kind.
-   - Composites: namespaced sub-pack actions present, hop writes
-     into the *sub-pack's* partition, `pack_slug` override
-     redirects.
-   - HTTP: describe endpoint surfaces injected actions;
-     `/api/domains/manifest` action_count matches; round-trip
-     via `POST /api/domains/business/actions/pack.memory.set`
-     into `pack.memory.get`; destructive delete in `confirm` mode
-     hits the policy gate (token issued, `allowed=False`); in
-     `autopilot` mode it runs immediately.
+5. **Tests** (`tests/test_memory_actions.py`, 27 cases) pin
+   factory shape, injection invariants, handlers, partitioning,
+   composites, HTTP describe / manifest, and the policy gate
+   confirm-vs-autopilot path for destructive delete.
 
 **Files**
 
@@ -95,16 +113,6 @@ into business or science memory without a separate pack lookup.
 - `web_extras/routers/domains.py` (manifest counts via
   `all_actions()`)
 - `tests/test_memory_actions.py` (new, 27 cases)
-
-**Verification:** full backend suite **1000 passed**, lints
-clean. Builds on top of PR #56 (`cursor/pack-memory-foundations`).
-
-**Next slices** (separate PRs)
-
-- `_memory_purge_loop` background task in `app.py` so expired
-  rows don't accumulate without operator intervention.
-- Cockpit "facts" view that consumes
-  `pack.memory.list` and `pack.memory.stats` per pack.
 
 ## 2026-05-01 — Cursor [A] · Per-pack memory partitions (foundations)
 
