@@ -136,6 +136,7 @@ _MIGRATIONS: tuple[str, ...] = (
     "ALTER TABLE saved_searches ADD COLUMN seen_hits_json TEXT NOT NULL DEFAULT '[]'",
     "ALTER TABLE saved_searches ADD COLUMN last_alert_at REAL",
     "ALTER TABLE saved_searches ADD COLUMN snoozed_until REAL",
+    "ALTER TABLE threads ADD COLUMN voice_persona_id TEXT",
 )
 
 
@@ -206,8 +207,9 @@ class ChatStore:
                 """
                 INSERT INTO threads (
                     id, title, pack_slug, project_id, created_at,
-                    updated_at, last_session_id, archived
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    updated_at, last_session_id, archived,
+                    voice_persona_id
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     thread.id,
@@ -218,6 +220,7 @@ class ChatStore:
                     thread.updated_at,
                     thread.last_session_id,
                     1 if thread.archived else 0,
+                    thread.voice_persona_id,
                 ),
             )
         finally:
@@ -245,6 +248,7 @@ class ChatStore:
                 "last_session_id",
                 "archived",
                 "updated_at",
+                "voice_persona_id",
             }:
                 continue
             cols.append(f"{k}=?")
@@ -340,6 +344,12 @@ class ChatStore:
 
     @staticmethod
     def _row_to_thread(row: sqlite3.Row) -> Thread:
+        # ``voice_persona_id`` is added in a migration; fall back to
+        # ``None`` if the column isn't present yet (older fixtures).
+        try:
+            persona_value = row["voice_persona_id"]
+        except (IndexError, KeyError):
+            persona_value = None
         return Thread(
             id=row["id"],
             title=row["title"],
@@ -349,6 +359,7 @@ class ChatStore:
             updated_at=row["updated_at"],
             last_session_id=row["last_session_id"],
             archived=bool(row["archived"]),
+            voice_persona_id=persona_value,
         )
 
     # -- messages --------------------------------------------------------
