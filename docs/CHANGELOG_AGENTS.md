@@ -4,6 +4,62 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · Periodic message-embed background loop
+
+**Summary**
+
+Follow-up to PR #42 (vector + BM25 blend for chat messages). The
+embed path was operator-triggered only; this adds the matching
+`_lifespan` task so freshly written messages get embedded without an
+operator nudge.
+
+1. **`web_extras/app.py`**
+   - `_message_embed_interval_s()` — env `TARS_MESSAGE_EMBED_INTERVAL_S`,
+     default `0.0` (off, opt-in until cost/latency profile validated).
+     Negative + garbage clamp to 0; same shape as the trace-summary
+     loop helper.
+   - `_message_embed_batch_limit()` — env `TARS_MESSAGE_EMBED_LIMIT`,
+     default 100, clamped to `[1, 1000]`. Lets operators tune the
+     pending-row scan window per tick.
+   - `_message_embed_loop()` — never propagates, never crashes the
+     host. Disabled when interval is 0 OR chat store disabled. On
+     embedder unavailable: `log.debug` and keep ticking so the loop
+     self-heals when the upstream comes back. Logs at INFO when
+     anything is embedded or fails so operators can see backfill
+     progress.
+   - `_lifespan` now spawns the new task alongside replay /
+     autopilot / trace_summary; collected in a tuple so cancel +
+     await loop stays single-source.
+
+2. **Tests** — `tests/test_message_embed_loop.py` (new, 8 cases)
+   - default interval is 0,
+   - parses float values,
+   - clamps negative + garbage,
+   - batch-limit clamps `[1, 1000]` and falls back on garbage,
+   - loop short-circuits cleanly when disabled (must not hang),
+   - one tick drains pending rows via `HashEmbedder` at 0.05 s
+     interval and cancellation works,
+   - lifespan starts + cancels the new task without crashing the host.
+
+**Verification**
+
+`pytest tests/test_message_embed_loop.py
+       tests/test_chat_message_embeddings.py
+       tests/test_meeet_health_and_replay_loop.py
+       tests/test_meeet_trace_summary.py
+       tests/test_search_engine.py tests/test_search_router.py -q`
+→ `52 passed`. Lints clean.
+
+**Files**
+
+- web_extras/app.py
+- tests/test_message_embed_loop.py (new)
+- docs/CHANGELOG_AGENTS.md
+- docs/AGENT_HANDOFF.md
+- docs/IDEAS.md
+
+---
+
 ## 2026-05-01 — Cursor [A] · Vector + BM25 blend for chat messages
 
 **Summary**

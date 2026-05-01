@@ -1135,9 +1135,14 @@ Smaller functional items still pending in parallel:
    with cosine the same way chunk search does. Both `rank_keyword`
    and `rank_semantic` surface on every hit.
    `tests/test_chat_message_embeddings.py` (13 cases) pins the path.
-   Follow-up: spawn a periodic loop in `_lifespan` so freshly written
-   messages get embedded without an operator nudge — env var
-   `TARS_MESSAGE_EMBED_INTERVAL_S` (default 0 = off until that lands).
+   Periodic backfill via `_message_embed_loop` in `_lifespan` shipped
+   in the same day (PR #43) — opt-in via
+   `TARS_MESSAGE_EMBED_INTERVAL_S` (default 0 = off; clamps negatives
+   and garbage); `TARS_MESSAGE_EMBED_LIMIT` (default 100, capped at
+   1000) tunes the pending-scan window. Loop is "self-healing":
+   logs `debug` on embedder-unavailable and keeps ticking until the
+   upstream comes back. `tests/test_message_embed_loop.py` (8 cases)
+   pins the wiring.
 
 ## Conventions to keep
 

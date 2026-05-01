@@ -97,6 +97,34 @@ def _trace_summary_interval_s() -> float:
         return 300.0
 
 
+def _message_embed_interval_s() -> float:
+    """How often the message-embed background loop ticks.
+
+    Default ``0`` (off) — the loop is opt-in until operators
+    confirm the embedder cost / latency profile they want to run
+    with. The `POST /api/search/embed-messages` endpoint covers the
+    on-demand path.
+    """
+
+    raw = os.getenv("TARS_MESSAGE_EMBED_INTERVAL_S")
+    if raw is None:
+        return 0.0
+    try:
+        return max(0.0, float(raw))
+    except ValueError:
+        return 0.0
+
+
+def _message_embed_batch_limit() -> int:
+    raw = os.getenv("TARS_MESSAGE_EMBED_LIMIT")
+    if raw is None:
+        return 100
+    try:
+        return max(1, min(int(raw), 1000))
+    except ValueError:
+        return 100
+
+
 async def _replay_loop() -> None:
     """Best-effort periodic replay.
 
@@ -158,6 +186,58 @@ async def _trace_summary_loop() -> None:
             log.warning("trace-summary loop tick failed: %s", exc)
 
 
+async def _message_embed_loop() -> None:
+    """Periodic backfill of message embeddings.
+
+    Walks rows whose ``embedding_blob`` is null and pushes them through
+    whatever :class:`Embedder` is reachable so hybrid search has fresh
+    vectors. Same safety contract as the other loops:
+
+    - Disabled when ``TARS_MESSAGE_EMBED_INTERVAL_S=0`` (default off
+      until operators opt in).
+    - Disabled when the chat store is disabled.
+    - Never propagates exceptions.
+    """
+
+    interval = _message_embed_interval_s()
+    if interval <= 0:
+        return
+    from backend.core.chat.embeddings import embed_pending_messages
+    from backend.core.chat.store import get_chat_store
+
+    chat = get_chat_store()
+    if not chat.enabled:
+        return
+    limit = _message_embed_batch_limit()
+    log.info(
+        "message-embed loop active: interval_s=%.1f limit=%s",
+        interval, limit,
+    )
+    while True:
+        try:
+            await asyncio.sleep(interval)
+            out = await embed_pending_messages(chat=chat, limit=limit)
+            if not out.get("ok"):
+                # Embedder unavailable / store disabled — log once per
+                # tick and keep ticking so the loop self-heals when the
+                # upstream comes back.
+                log.debug(
+                    "message-embed skip: %s", out.get("reason") or "unknown",
+                )
+                continue
+            if out.get("embedded") or out.get("failed"):
+                log.info(
+                    "message-embed tick: embedded=%s failed=%s remaining=%s",
+                    out.get("embedded"),
+                    out.get("failed"),
+                    out.get("remaining"),
+                )
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # never crash the host
+            log.warning("message-embed loop tick failed: %s", exc)
+
+
 @contextlib.asynccontextmanager
 async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     from backend.core.agents.autopilot import autopilot_loop
@@ -167,12 +247,16 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     trace_summary = asyncio.create_task(
         _trace_summary_loop(), name="meeet-trace-summary-loop"
     )
+    message_embed = asyncio.create_task(
+        _message_embed_loop(), name="chat-message-embed-loop"
+    )
+    tasks = (replay, autopilot, trace_summary, message_embed)
     try:
         yield
     finally:
-        for task in (replay, autopilot, trace_summary):
+        for task in tasks:
             task.cancel()
-        for task in (replay, autopilot, trace_summary):
+        for task in tasks:
             with contextlib.suppress(asyncio.CancelledError, Exception):
                 await task
 
