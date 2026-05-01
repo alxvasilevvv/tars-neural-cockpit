@@ -4,6 +4,17 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor · release-desktop contract tests → `release-desktop-tagged.yml`
+
+**Summary**
+
+Pinned `tests/test_release_desktop_workflow.py` to the file that exists
+(`release-desktop-tagged.yml`) and to the current manual-dispatch trigger
+(tags were retired upstream). Keeps `make test-all` / CI pytest green.
+
+Files:
+- `tests/test_release_desktop_workflow.py`
+
 ## 2026-05-01 — Cursor · Pages SPA HTTP 200 (`_redirects`, not `404.html`)
 
 **Summary**
