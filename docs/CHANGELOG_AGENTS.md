@@ -4,6 +4,75 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · Real adapter: traders.pull_klines (Binance)
+
+**Summary**
+
+Closes the `traders.binance_pull_klines` slot from IDEAS' real-
+adapters list. Binance's public klines endpoint is read-only and
+needs no API key, so this drops in cleanly: an action handler
+that fetches OHLCV time series for any spot symbol, normalises
+the response, and feeds back into the cost ledger via a
+dedicated `integration.binance.klines` event.
+
+1. **Adapter** (`backend/core/domains/packs/traders/binance.py`, new)
+   - `pull_klines(args)` — handler-shaped function returning a
+     plain dict (`ok`, `symbol`, `interval`, `count`, `candles`,
+     plus derived `close_first` / `close_last` / `change_pct`
+     when at least one candle resolved).
+   - `Kline` + `KlinesResult` frozen dataclasses model the
+     response.
+   - **Symbol normalisation:** strips common separators
+     (`/`, `-`, `_`, `:`, space) and uppercases so operators can
+     pass `BTC/USDT`, `eth-usdt`, etc.
+   - **Validation:** `ALLOWED_INTERVALS` (16 values from `1s` to
+     `1M`), default `1h`. `limit` is int-coerced and clamped to
+     `1..1000` (Binance's hard cap).
+   - **Defensive parsing:** `_parse_kline_row` accepts string
+     numbers (some upstream caches stringify), drops corrupt
+     rows, and surfaces empty payloads as `ok=True, count=0`.
+   - **Error surfaces:** `symbol_required` /
+     `invalid_interval` / `invalid_limit` (validation),
+     `network_error` (transport),
+     `upstream_status` + `upstream_payload_invalid` (Binance
+     responded but the payload wasn't a JSON array).
+   - **Telemetry:** emits three event phases through the meeet
+     bridge — `request`, `completed`, `error` — each tagged
+     `integration.binance.klines` so the cost ledger /
+     observability layer sees real-adapter calls.
+
+2. **Wiring** (`backend/core/domains/packs/traders/actions.py`)
+   - New `ActionSpec(id="pull_klines", …, destructive=False)`
+     in the traders `ACTIONS` tuple with a JSON schema that
+     enumerates the valid intervals so the cockpit can render
+     a dropdown.
+
+3. **Tests** (`tests/test_traders_binance_klines.py`, 21 cases)
+   - **Unit (4):** symbol normalisation matrix, non-string /
+     empty input, kline row parser (string/int types,
+     malformed).
+   - **Validation (5):** missing symbol, invalid interval,
+     default interval is `1h`, invalid `limit` (string + out
+     of range).
+   - **Happy / error paths (7):** normalised candles + outgoing
+     params, `change_pct=0` on zero first close, empty payload,
+     upstream invalid-symbol 400 with `msg` passthrough,
+     non-array payload, `NetworkError` surfaces as
+     `network_error`, corrupt rows skipped.
+   - **Wiring (2):** action registered on the traders pack,
+     spec schema enumerates intervals + `destructive=False`.
+   - **Meeet events (3):** request + completed pair, error
+     phase on upstream 5xx, error phase on `NetworkError`.
+
+**Files touched**
+
+- `backend/core/domains/packs/traders/binance.py` (new) — adapter.
+- `backend/core/domains/packs/traders/actions.py` — register
+  `pull_klines` in `ACTIONS`.
+- `tests/test_traders_binance_klines.py` (new) — 21 cases.
+
+Backend suite: **1137 passed in 28 s** (no skips, no flakes).
+
 ## 2026-05-01 — Cursor [A] · Playbook schema validator (CI gate)
 
 **Summary**

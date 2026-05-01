@@ -1201,6 +1201,32 @@ Smaller functional items still pending in parallel:
     `{q?, query?, limit?, kinds?}` — clamped to 100 hits, unknown
     kinds dropped silently. `tests/test_jump_picker.py` (23 cases).
     Cockpit ⌘J palette UI is the Claude-lane follow-up.
+24. ~~**Real adapter: traders.pull_klines (Binance).**~~ **shipped**
+    (2026-05-01) — closes the `traders.binance_pull_klines` slot
+    from IDEAS' real-adapters list.
+    `backend/core/domains/packs/traders/binance.py` ships
+    `pull_klines(args)` against Binance's public REST endpoint
+    (no API key required). Symbol normalisation strips common
+    separators (`BTC/USDT` → `BTCUSDT`), interval enum
+    (`1s..1M`, default `1h`), limit clamped `1..1000`. Defensive
+    row parsing tolerates string-typed numbers and drops corrupt
+    rows. Derived `close_first` / `close_last` / `change_pct`
+    fields land on the response when at least one candle
+    resolved. Errors surface as
+    `symbol_required` / `invalid_interval` / `invalid_limit`
+    (validation), `network_error` (transport),
+    `upstream_status` + `upstream_payload_invalid` (Binance
+    responded but the payload wasn't a JSON array). Telemetry:
+    three meeet event phases — `request`, `completed`,
+    `error` — under `integration.binance.klines` so the cost
+    ledger sees real-adapter calls. New `ActionSpec` registered
+    on the traders pack with `destructive=False` and a JSON
+    schema that enumerates valid intervals for the cockpit
+    dropdown. `tests/test_traders_binance_klines.py` (21 cases)
+    pin the parser, validation, happy / error paths, action
+    wiring, and meeet event emission. Backend suite:
+    **1137 passed**.
+
 23. ~~**Playbook schema validator (CI gate).**~~ **shipped** (2026-05-01)
     — closes the "open work: schema validator" follow-up under the
     Phase K4 playbooks slot. The loader is permissive (`str()` /
