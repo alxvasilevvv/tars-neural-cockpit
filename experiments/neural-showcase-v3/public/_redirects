@@ -12,12 +12,12 @@
 # placeholder with the actual canonical URL and bump from 302 to 301.
 /install.sh        https://meeet.world/install.sh   302
 
-# ----- Downloads manifest (proxy to meeet-app, per spec §4) -----
-# Until meeet-app exposes /api/tars/downloads, point at the Supabase
-# tars-downloads function directly. The Edge Function already enforces
-# CORS allowlist for tars.meeet.world (see TARS_INTEGRATION_RUNBOOK.md).
-/api/product/downloads  https://hhpaukjobskcwkxbgecl.supabase.co/functions/v1/tars-downloads  200
-/api/product/version    https://hhpaukjobskcwkxbgecl.supabase.co/functions/v1/tars-downloads  200
+# ----- Downloads manifest -----
+# `/api/product/downloads` and `/api/product/version` are served by
+# Pages Functions (`functions/api/product/{downloads,version}.ts`) so
+# they live on the same origin as the SPA. Cloudflare Pages does not
+# allow `_redirects` rewrites (status 200) to external origins, which
+# is why the external proxy lives in code rather than here.
 
 # ----- SPA fallback — must be last -----
 # All other paths render index.html so client router takes over.

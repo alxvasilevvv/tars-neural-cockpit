@@ -4,6 +4,64 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor · `tars.meeet.world` cutover complete
+
+**Summary**
+
+End-to-end execution of the subdomain cutover with no operator hand-off
+needed for the parts Cursor can do programmatically. After the
+operator misconfigured `tars.meeet.world` inside Lovable's domain UI,
+Cursor switched the architecture back to the planned Cloudflare Pages
+shape and pulled every required step itself.
+
+What landed:
+
+- New Cloudflare API token `tars-admin` with
+  `Account:Cloudflare Pages:Edit` + `Zone:DNS:Edit` for `meeet.world`,
+  no expiry. Used for all subsequent steps.
+- Cloudflare Pages project `tars-meeet` provisioned via API (account
+  `b746402b3b5d40781f78c1787d71a96b`, project id
+  `06afaf19-c78e-4cb2-9873-79b894fe1b25`).
+- TARS cockpit `dist/` deployed via wrangler 4.87. Two production
+  deploys: `a4e491a3` (initial) and `359b4246` (post Pages-Functions
+  fix). Both green.
+- DNS record `tars.meeet.world` flipped from
+  `A 185.158.133.1` (Lovable) → `CNAME tars-meeet.pages.dev` (proxied).
+- Pages custom domain `tars.meeet.world` registered; Google CA
+  http-01 challenge succeeded; status `active`.
+- Pages production env: `CORE_BRIDGE_URL` patched in via API.
+- Pages Functions added for `/api/product/downloads` and
+  `/api/product/version` because Cloudflare Pages' static `_redirects`
+  rewrite (status 200) cannot point at external origins. The previous
+  Supabase-side `tars-downloads` function used
+  `https://tars.meeet.world/api/product/downloads` as its upstream,
+  which becomes a fetch loop the moment the subdomain is live; the
+  Pages Functions now own the manifest source-of-truth in code.
+
+QA Agent (post-cutover, no auth):
+`24 PASS / 0 FAIL / 1 WARN / 3 SKIP`. The single warning is
+`schema.sitemap`: `meeet.world/sitemap.xml` does not yet list
+`tars.meeet.world/*` — that is a Lovable-side change tracked by the
+`meeet#5` prompt batch (Claude lane). The 3 skips are intentional —
+they require `BRIDGE_SHARED_SECRET` which is held by Lovable's
+`core-bridge` function and never enters this repo.
+
+Files:
+- `experiments/neural-showcase-v3/functions/api/product/downloads.ts`
+  (new — embedded canonical manifest, optional override URL).
+- `experiments/neural-showcase-v3/functions/api/product/version.ts`
+  (new — same source of truth, reduced shape).
+- `experiments/neural-showcase-v3/public/_redirects` (deleted the
+  external 200-rewrite, replaced by inline note pointing at the
+  Functions).
+- `docs/TARS_MEEET_OPS_TODO.md` (rewrote `CURRENT STATE` block from
+  pre-cutover diagnostic to post-cutover state + the three remaining
+  operator-only items: `BRIDGE_SHARED_SECRET` env on Pages,
+  `CLOUDFLARE_API_TOKEN`/`CLOUDFLARE_ACCOUNT_ID` GH secrets,
+  decommissioning the Supabase `tars-downloads` function).
+
+Branch: `cursor/tars-pages-cutover` (will become PR #20).
+
 ## 2026-05-01 — Cursor · TARS QA Agent (autonomous E2E prober)
 
 **Summary**
