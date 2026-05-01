@@ -3,6 +3,14 @@
 Pick this up if you are continuing the work in a fresh chat. Read this file
 plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 
+> **2026-05-01 chat-handoff:** before the rest of this doc, read
+> `docs/CHAT_PICKUP_2026-05-01.md` — it's a one-shot pickup written
+> when the operator switched to the multi-root `tars-meeet.code-workspace`
+> and the previous Cursor chat could not migrate cleanly. Contains
+> the live QA Agent state, the active git remote setup (just cleaned
+> up), the four PRs that landed today, and the pending lane split
+> with Claude/Lovable.
+
 > Naming: product = **TARS**. Older copy may say "Jarvis" — replace in copy
 > when editing. Folder name `Jarvis/jarvis` stays for path stability.
 
