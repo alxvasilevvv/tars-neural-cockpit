@@ -4,6 +4,98 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · Per-pack memory partitions (foundations)
+
+**Summary**
+
+Foundation slice for **per-pack memory partitions** — every domain
+pack now has its own isolated SQLite-backed key-value store with
+optional TTL eviction. This is the substrate the `pack.memory.*`
+action family will sit on (next slice). Today's slice ships the
+storage core + HTTP CRUD only — no pack actions yet, no auto-purge
+loop yet.
+
+1. **Module layout** (`backend/core/memory/`, new package)
+   - `models.py` — `MemoryEntry` dataclass: `id`, `pack_slug`, `key`,
+     `value` (JSON), `kind`, `ttl_until` (POSIX seconds, `None` =
+     no TTL), `created_at`, `updated_at`, `source`, `metadata`
+     (JSON). `is_expired(*, now=None)` predicate.
+   - `store.py` — `MemoryStore` class: SQLite WAL DB at
+     `~/.tars/memory.sqlite` (override `TARS_MEMORY_DB_PATH`,
+     disable with `MEMORY_STORE=disabled`). `pack_memory` table
+     with `UNIQUE(pack_slug, key)` and four indexes (slug,
+     slug+kind, ttl_until, updated_at). Async API: `upsert`, `get`,
+     `list`, `delete`, `purge_expired`, `stats`. All sync work
+     dispatched via `asyncio.to_thread`.
+   - `__init__.py` — exports `MemoryEntry`, `MemoryStore`,
+     `get_memory_store`, `reset_memory_store`.
+
+2. **HTTP** (`web_extras/routers/memory.py`, new)
+   - Pack-scoped:
+     - `GET    /api/packs/{slug}/memory` — list (filters: `kind`,
+       `key_prefix`, `limit`, `include_expired`).
+     - `POST   /api/packs/{slug}/memory` — upsert (body: `key`,
+       `value`, `kind`, `source`, `metadata`, optional
+       `ttl_seconds` *or* `ttl_until`).
+     - `GET    /api/packs/{slug}/memory/{key:path}` — fetch one.
+     - `DELETE /api/packs/{slug}/memory/{key:path}` — drop one.
+     - `POST   /api/packs/{slug}/memory/_purge_expired` — purge
+       expired rows scoped to that pack.
+     - `GET    /api/packs/{slug}/memory/_stats` — totals + kind
+       breakdown.
+   - Global:
+     - `GET    /api/memory/stats` — totals + kind breakdown across
+       *all* packs.
+     - `POST   /api/memory/_purge_expired` — global purge.
+
+3. **App wiring** (`web_extras/app.py`)
+   - Imported `memory_router` and added it to the FastAPI app
+     alongside the existing routers. No background loop yet — TTL
+     purge is operator-triggered for now.
+
+4. **Tests** (`tests/test_memory_store.py`, 28 cases)
+   - Store basics: enabled/disabled, upsert insert+update, missing
+     get, list ordering by recency, kind filter, key_prefix
+     filter, delete.
+   - Partitioning invariants: `(pack_slug, key)` uniqueness,
+     packs isolated.
+   - TTL: expired rows hidden by default, surfaced with
+     `include_expired`, scoped + global `purge_expired`.
+   - Stats: total/live/expired and `kinds` breakdown.
+   - HTTP: upsert/get round-trip, validation, TTL upserts, 404
+     paths, list (live + include_expired), delete, purge, pack
+     stats, global stats, partition isolation.
+
+**Pre-existing flake fixed in same PR**
+`tests/test_pairing_contract.py` previously left
+`~/.tars/meeet.sqlite` accumulated across the suite, which made
+`test_pair_attempted_event_emitted` and
+`test_pair_linked_event_emitted_on_accept` flake once the suite
+grew past ~500 events (the assertions use
+`list_events(limit=500)`). The fixture now pins
+`MEEET_STORE_PATH` to a tmp file and resets the meeet store +
+client singletons. Both tests now pass without deselect — the
+full backend suite is **973 passed**, no `--deselect` flags.
+
+**Files**
+
+- `backend/core/memory/__init__.py` (new)
+- `backend/core/memory/models.py` (new)
+- `backend/core/memory/store.py` (new)
+- `web_extras/routers/memory.py` (new)
+- `web_extras/app.py` (wired router)
+- `tests/test_memory_store.py` (new, 28 cases)
+- `tests/test_pairing_contract.py` (deflake fixture)
+
+**Next slices** (separate PRs)
+
+- `pack.memory.*` action family on every pack so playbooks and the
+  agent loop can read/write memory through the standard action
+  interface (with a `destructive=False` write semantics, but
+  policy-aware deletes).
+- Periodic `_memory_purge_loop` background task in `app.py`.
+- A pack-scoped "facts" view in the cockpit.
+
 ## 2026-05-01 — Cursor [A] · Saved-search snooze
 
 **Summary**
