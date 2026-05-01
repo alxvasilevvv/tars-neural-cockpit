@@ -73,10 +73,13 @@ desktop shell), and the meeet.world bridge integration.
 
 ---
 
-## Operator checklist before tagging
+## Operator checklist before release
 
 The release workflow (`.github/workflows/release-desktop-tagged.yml`)
-fires on `v*` tag push. Before tagging, confirm:
+runs on `workflow_dispatch` only — tag-push triggers were retired
+upstream because GitHub fires phantom 0-second validation runs on every
+branch push that no `branches-ignore`/`if:` guard could silence. Before
+dispatching, confirm:
 
 - [ ] GitHub repo secrets present:
       - `APPLE_CERTIFICATE` (base64 of .p12)
@@ -104,20 +107,24 @@ unsigned for internal testing only.
 ## How to release once green
 
 ```bash
-# from a clean main
-git checkout main && git pull
-# bump version in tauri.conf.json + Cargo.toml
-git add desktop/src-tauri/tauri.conf.json desktop/src-tauri/Cargo.toml
-git commit -m "release: v0.1.0-rc.1"
-git tag -a v0.1.0-rc.1 -m "TARS desktop v0.1.0-rc.1"
-git push integration main
-git push integration v0.1.0-rc.1
+# Triggered manually — no tag push required.
+gh workflow run release-desktop-tagged.yml \
+  --repo alxvasilevvv/tars-neural-cockpit \
+  --ref main \
+  -f version=0.1.0-rc.1
 ```
 
-The workflow runs ~15 min on each platform. Artefacts publish to a
-GitHub Release draft; Operator promotes to "published" after
-manual smoke (open the .dmg, confirm launch, confirm meeet.world
+The workflow runs ~15 min on each of the four matrix targets
+(`aarch64-apple-darwin`, `x86_64-apple-darwin`, `x86_64-pc-windows-msvc`,
+`x86_64-unknown-linux-gnu`). Artefacts upload to the GitHub Release
+named `desktop-v0.1.0-rc.1`; Operator promotes to "published" after
+manual smoke (open the `.dmg`, confirm launch, confirm meeet.world
 event flows).
+
+After the workflow finishes, the version-lint guardrail
+(`.github/workflows/desktop-version-lint.yml`) keeps the
+`package.json` / `Cargo.toml` / `tauri.conf.json` triad in sync on
+every subsequent commit.
 
 ---
 
