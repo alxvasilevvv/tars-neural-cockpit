@@ -4,6 +4,46 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · stale-PR sweep (#22 close, #31 close, #32+#33 merge)
+
+**Summary**
+
+Operator opened a parallel Cursor on the same machine, asked for a
+hard cleanup of any leftover work. Cursor [A] swept the four open
+non-draft PRs in `tars-neural-cockpit`:
+
+| PR  | Outcome  | Why                                                                 |
+| --- | -------- | ------------------------------------------------------------------- |
+| #22 | closed   | Superseded by main: HEAD `docs/TARS_MEEET_OPS_TODO.md` already covered the diff. |
+| #31 | closed   | Subset of #32 (same two commits `bcd7f9c` + `dcd16ba`).              |
+| #32 | **merged** (squash) | `docs/ROADMAP_TO_RELEASE.md` + `RELEASE_RUNBOOK_2026-05-01.md` on main. |
+| #33 | **merged** (squash) | `/api/qa/health` router + `scripts/gate_release.sh` + `make gate-release` + showcase v3 EN copy. |
+| #11 | left as DRAFT | DNS / canonical-flip — waits on operator wiring. |
+
+Conflict resolution during rebases (all docs):
+- `docs/CHANGELOG_AGENTS.md`: kept both the latest `[A]` entry and
+  the older Control-Tower / default-EN cross-repo entries inline,
+  hierarchically by date.
+- `docs/TARS_MEEET_OPS_TODO.md`: kept HEAD (newer, includes
+  `MEEET_INGEST_URL` step + SPA-status note).
+- `Makefile`: merged both branch additions — kept `qa-loop` /
+  `qa-loop-once` AND added `gate-release`.
+
+Verification on `cursor/release-gate-and-qa-health` rebase (=now main):
+- `pytest -q` → **693 passed in 14.83s** (was 686; +7 from
+  `tests/test_qa_router.py`).
+- `curl http://127.0.0.1:8866/api/qa/health` → 200 with the
+  `qa-report/1.0.0`-shaped JSON envelope (`ok=true, status=absent,
+  summary={pass,warn,fail,skip}, failing_probes=[]`). Verified on a
+  fresh uvicorn (window-B port 8866); the long-running 8765 process
+  remains untouched per SYNC §11.4.
+
+After the sweep `gh pr list --state open` for TARS shows only PR
+#11 (DRAFT, DNS-blocked). meeet-solana-state-941a6045 is empty.
+
+Files (this entry only):
+- `docs/CHANGELOG_AGENTS.md` (this entry)
+
 ## 2026-05-01 — Cursor [A] · parallel-cursor SYNC §11 + meeet.world chores
 
 **Summary**
