@@ -154,6 +154,7 @@ def test_action_specs_marked_destructive() -> None:
         ("traders", "cancel_alert"),
         ("business", "draft_email"),
         ("business", "log_deal"),
+        ("business", "update_deal"),
         ("mlm", "generate_post"),
         ("mlm", "add_member"),
         ("mlm", "log_activity"),

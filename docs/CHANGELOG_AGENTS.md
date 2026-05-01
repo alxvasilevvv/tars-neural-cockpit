@@ -4,6 +4,82 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · `business.update_deal` closes the deal lifecycle
+
+**Summary**
+
+Mirrors today's `traders.cancel_alert` work for the business pack:
+`log_deal` already wrote and `daily_brief` already read, but operators
+had no in-loop way to mark a deal `won` / `lost` or update the next
+step. They had to edit `~/.tars/business_deals.json` by hand, which
+broke the audit trail. This batch adds an idempotent, audit-friendly
+`update_deal` action so the deal lifecycle is finally complete:
+**log → brief → update → brief**.
+
+1. **Store helper** (`backend/core/domains/packs/business/local_deals.py`)
+   - New `update_local_deal(deal_id, *, updates, path=None, now=None)`.
+   - Allowed fields: `name / amount / stage / owner / next_step /
+     due / notes` (any extra keys are silently ignored — the cockpit
+     must use the action contract).
+   - Patch semantics for optional strings: passing `""` clears the
+     field, passing `None` (or omitting the key) leaves it untouched.
+     `name` / `stage` / `amount` go through the same coercion as
+     `append_local_deal`.
+   - Stamps `updated_at` (UTC ISO Z) on every change.
+   - Idempotent: a no-op patch returns `unchanged=True`,
+     `changed_fields=[]` and emits **no** meeet event.
+   - Errors: `ValueError("deal_id_required")`, `ValueError("no_updates")`,
+     `ValueError("name_required")`; `KeyError("deal_not_found")`
+     for unknown ids.
+   - Emits `business.deal_updated` (id, name, stage, changed_fields,
+     store_path) on the first transition.
+
+2. **Action** (`backend/core/domains/packs/business/actions.py`)
+   - New `update_deal` handler with stable error envelopes
+     (`deal_id_required`, `no_updates`, `name_required`,
+     `deal_not_found`, `local_store_unwritable`).
+   - Returns `{ok, deal_id, deal, unchanged, changed_fields, store,
+     store_path}`. The nested `deal` strips the bookkeeping
+     `unchanged` / `changed_fields` flags so the UI can render the
+     row as-is.
+   - `ActionSpec` registered as `destructive=True` (policy gate routes
+     it through confirmation), required `deal_id`, supports the same
+     stage enum as `log_deal`.
+
+3. **Tests** (+30 new cases in `tests/test_business_update_deal.py`,
+   1 update in `tests/test_policy.py`)
+   - `_coerce_update_value`: name strip / blank rejection, amount
+     clamping, stage fallback, optional-string clear-vs-skip semantics.
+   - `update_local_deal`: stage transition emits the right event,
+     idempotent re-call emits nothing, blank optional string clears
+     a field, `None` skips the field, unknown / blank id, no_updates,
+     name_required, ignores fields outside the schema.
+   - `update_deal` action: happy path with multi-field patch, missing
+     id, blank id, no updates, unknown id, idempotent re-call (no
+     duplicate event), validation errors emit no event, path
+     override, `OSError → local_store_unwritable`, clearing optional
+     strings.
+   - End-to-end: `log_deal × 2 → update_deal stage=won → daily_brief`
+     reflects the won deal correctly (`deals_active` drops, won deal
+     is excluded from `actions`).
+   - `test_action_specs_marked_destructive` extended to expect
+     `("business", "update_deal")` so future stub upgrades can't
+     forget the policy gate.
+
+**Test suite**: 1685 passed (was 1656). Lints clean.
+
+**Files**
+
+- `backend/core/domains/packs/business/local_deals.py`
+- `backend/core/domains/packs/business/actions.py`
+- `tests/test_business_update_deal.py` (new)
+- `tests/test_policy.py`
+- `docs/CHANGELOG_AGENTS.md`
+- `docs/AGENT_HANDOFF.md`
+- `docs/IDEAS.md`
+
+---
+
 ## 2026-05-01 — Cursor [A] · `traders.local_alerts` awareness source
 
 **Summary**
