@@ -21,10 +21,13 @@ from typing import Any, Iterable, Mapping, Optional, Sequence
 from .models import (
     Attachment,
     Message,
+    SavedSearch,
+    SavedSearchScope,
     Thread,
     ToolCall,
     new_attachment_id,
     new_message_id,
+    new_saved_search_id,
     new_tool_call_id,
 )
 
@@ -92,6 +95,18 @@ CREATE TABLE IF NOT EXISTS attachments (
     created_at REAL NOT NULL,
     FOREIGN KEY (thread_id) REFERENCES threads (id)
 );
+
+CREATE TABLE IF NOT EXISTS saved_searches (
+    id TEXT PRIMARY KEY,
+    label TEXT NOT NULL,
+    query TEXT NOT NULL,
+    scope TEXT NOT NULL DEFAULT 'all',
+    filters_json TEXT NOT NULL DEFAULT '{}',
+    pinned INTEGER NOT NULL DEFAULT 0,
+    created_at REAL NOT NULL,
+    updated_at REAL NOT NULL,
+    last_run_at REAL
+);
 """
 
 _SCHEMA_INDICES = """
@@ -107,6 +122,8 @@ CREATE INDEX IF NOT EXISTS idx_attachments_thread
     ON attachments (thread_id);
 CREATE INDEX IF NOT EXISTS idx_threads_updated
     ON threads (updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_saved_searches_order
+    ON saved_searches (pinned DESC, updated_at DESC);
 """
 
 # Forward-compat: ``ALTER TABLE`` lines run between table + index
@@ -762,6 +779,219 @@ class ChatStore:
             ]
 
         return await asyncio.to_thread(_run)
+
+    # -- saved searches (cockpit ⌘K palette) ---------------------------
+
+    @staticmethod
+    def _row_to_saved_search(row: sqlite3.Row) -> SavedSearch:
+        try:
+            filters = json.loads(row["filters_json"] or "{}")
+        except (json.JSONDecodeError, TypeError):
+            filters = {}
+        if not isinstance(filters, dict):
+            filters = {}
+        scope = (row["scope"] or "all").strip().lower()
+        if scope not in ("all", "chunks", "messages", "traces"):
+            scope = "all"
+        return SavedSearch(
+            id=row["id"],
+            label=row["label"],
+            query=row["query"],
+            scope=scope,  # type: ignore[arg-type]
+            filters=filters,
+            pinned=bool(row["pinned"]),
+            created_at=row["created_at"],
+            updated_at=row["updated_at"],
+            last_run_at=row["last_run_at"],
+        )
+
+    def _insert_saved_search_sync(self, saved: SavedSearch) -> None:
+        conn = self._connect()
+        try:
+            conn.execute(
+                """
+                INSERT INTO saved_searches (
+                    id, label, query, scope, filters_json, pinned,
+                    created_at, updated_at, last_run_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    saved.id,
+                    saved.label,
+                    saved.query,
+                    saved.scope,
+                    json.dumps(dict(saved.filters), separators=(",", ":")),
+                    1 if saved.pinned else 0,
+                    saved.created_at,
+                    saved.updated_at,
+                    saved.last_run_at,
+                ),
+            )
+        finally:
+            conn.close()
+
+    async def insert_saved_search(self, saved: SavedSearch) -> None:
+        if not self.enabled:
+            return
+        await asyncio.to_thread(self._insert_saved_search_sync, saved)
+
+    def _get_saved_search_sync(self, search_id: str) -> SavedSearch | None:
+        conn = self._connect()
+        try:
+            row = conn.execute(
+                "SELECT * FROM saved_searches WHERE id = ?",
+                (search_id,),
+            ).fetchone()
+        finally:
+            conn.close()
+        return self._row_to_saved_search(row) if row else None
+
+    async def get_saved_search(self, search_id: str) -> SavedSearch | None:
+        if not self.enabled:
+            return None
+        return await asyncio.to_thread(
+            self._get_saved_search_sync, search_id
+        )
+
+    def _list_saved_searches_sync(self, *, limit: int) -> list[SavedSearch]:
+        conn = self._connect()
+        try:
+            rows = conn.execute(
+                """
+                SELECT * FROM saved_searches
+                ORDER BY pinned DESC, updated_at DESC
+                LIMIT ?
+                """,
+                (int(limit),),
+            ).fetchall()
+        finally:
+            conn.close()
+        return [self._row_to_saved_search(r) for r in rows]
+
+    async def list_saved_searches(
+        self, *, limit: int = 100
+    ) -> list[SavedSearch]:
+        if not self.enabled:
+            return []
+        return await asyncio.to_thread(
+            self._list_saved_searches_sync,
+            limit=max(1, min(int(limit), 500)),
+        )
+
+    def _update_saved_search_sync(
+        self,
+        search_id: str,
+        *,
+        fields: Mapping[str, Any],
+    ) -> SavedSearch | None:
+        if not fields:
+            return self._get_saved_search_sync(search_id)
+        clauses: list[str] = []
+        params: list[Any] = []
+        for key, value in fields.items():
+            clauses.append(f"{key} = ?")
+            params.append(value)
+        clauses.append("updated_at = ?")
+        params.append(_now())
+        params.append(search_id)
+        conn = self._connect()
+        try:
+            cur = conn.execute(
+                f"UPDATE saved_searches SET {', '.join(clauses)} WHERE id = ?",
+                params,
+            )
+            if cur.rowcount == 0:
+                return None
+            row = conn.execute(
+                "SELECT * FROM saved_searches WHERE id = ?",
+                (search_id,),
+            ).fetchone()
+        finally:
+            conn.close()
+        return self._row_to_saved_search(row) if row else None
+
+    async def update_saved_search(
+        self,
+        search_id: str,
+        *,
+        label: str | None = None,
+        query: str | None = None,
+        scope: SavedSearchScope | None = None,
+        filters: Mapping[str, Any] | None = None,
+        pinned: bool | None = None,
+    ) -> SavedSearch | None:
+        if not self.enabled:
+            return None
+        fields: dict[str, Any] = {}
+        if label is not None:
+            cleaned = label.strip() or "untitled"
+            fields["label"] = cleaned
+        if query is not None:
+            fields["query"] = query
+        if scope is not None:
+            if scope not in ("all", "chunks", "messages", "traces"):
+                raise ValueError(f"invalid_scope: {scope}")
+            fields["scope"] = scope
+        if filters is not None:
+            fields["filters_json"] = json.dumps(
+                dict(filters), separators=(",", ":")
+            )
+        if pinned is not None:
+            fields["pinned"] = 1 if pinned else 0
+        return await asyncio.to_thread(
+            self._update_saved_search_sync,
+            search_id,
+            fields=fields,
+        )
+
+    def _delete_saved_search_sync(self, search_id: str) -> bool:
+        conn = self._connect()
+        try:
+            cur = conn.execute(
+                "DELETE FROM saved_searches WHERE id = ?",
+                (search_id,),
+            )
+            return cur.rowcount > 0
+        finally:
+            conn.close()
+
+    async def delete_saved_search(self, search_id: str) -> bool:
+        if not self.enabled:
+            return False
+        return await asyncio.to_thread(
+            self._delete_saved_search_sync, search_id
+        )
+
+    def _stamp_saved_search_run_sync(
+        self, search_id: str, *, ts: float
+    ) -> SavedSearch | None:
+        conn = self._connect()
+        try:
+            cur = conn.execute(
+                "UPDATE saved_searches SET last_run_at = ? WHERE id = ?",
+                (ts, search_id),
+            )
+            if cur.rowcount == 0:
+                return None
+            row = conn.execute(
+                "SELECT * FROM saved_searches WHERE id = ?",
+                (search_id,),
+            ).fetchone()
+        finally:
+            conn.close()
+        return self._row_to_saved_search(row) if row else None
+
+    async def stamp_saved_search_run(
+        self, search_id: str
+    ) -> SavedSearch | None:
+        if not self.enabled:
+            return None
+        return await asyncio.to_thread(
+            self._stamp_saved_search_run_sync,
+            search_id,
+            ts=_now(),
+        )
 
 
 def _now() -> float:
