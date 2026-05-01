@@ -16,6 +16,8 @@ Endpoints:
 - ``GET  /api/chat/attachments/{id}`` — describe one record + chunks.
 - ``GET  /api/chat/attachments/{id}/download`` — original bytes.
 - ``GET  /api/chat/attachments/{id}/extracted`` — extracted text.
+- ``GET  /api/chat/attachments/{id}/chunks/{chunk_id}/neighbours`` —
+  return the chunk plus its ord-adjacent neighbours (hover preview).
 - ``DELETE /api/chat/attachments/{id}`` — delete row + bytes + chunks.
 - ``POST /api/chat/threads/{id}/retrieve`` — manually run hybrid
   retrieval (top-K) for a query against the thread.
@@ -342,6 +344,92 @@ async def extracted_attachment(attachment_id: str):
             "x-tars-attachment-mime": record.mime,
             "x-tars-attachment-status": record.status,
         },
+    )
+
+
+def _chunk_to_payload(chunk: Any, *, full_text: bool) -> dict[str, Any]:
+    text = chunk.text or ""
+    body: dict[str, Any] = {
+        "id": chunk.id,
+        "ord": chunk.ord,
+        "char_start": chunk.char_start,
+        "char_end": chunk.char_end,
+        "heading": chunk.heading,
+        "page": chunk.page,
+        "preview": text[:240],
+    }
+    if full_text:
+        body["text"] = text
+    return body
+
+
+@router.get("/attachments/{attachment_id}/chunks/{chunk_id}/neighbours")
+async def chunk_neighbours(
+    attachment_id: str,
+    chunk_id: str,
+    before: int = Query(default=1, ge=0, le=10),
+    after: int = Query(default=1, ge=0, le=10),
+    full_text: bool = Query(default=True),
+) -> dict[str, Any]:
+    """Return the chunk plus its ord-adjacent neighbours.
+
+    Powers the per-attachment hover preview from IDEAS — the
+    cockpit highlights one chunk hit and renders ±N around it
+    without paying for the whole document.
+    """
+
+    store = get_attachment_store()
+    record = await store.get_attachment(attachment_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="attachment_not_found")
+    bundle = await store.get_chunk_neighbours(
+        chunk_id, before=before, after=after
+    )
+    if bundle is None:
+        raise HTTPException(status_code=404, detail="chunk_not_found")
+    target, before_chunks, after_chunks = bundle
+    if target.attachment_id != attachment_id:
+        # Defend against operator-typo'd ids: a chunk that
+        # happens to live under a different attachment must not
+        # leak through this endpoint.
+        raise HTTPException(status_code=404, detail="chunk_not_found")
+    return {
+        "ok": True,
+        "attachment": {
+            "id": record.id,
+            "filename": record.filename,
+            "mime": record.mime,
+            "thread_id": record.thread_id,
+        },
+        "chunk": _chunk_to_payload(target, full_text=full_text),
+        "before": [
+            _chunk_to_payload(c, full_text=full_text) for c in before_chunks
+        ],
+        "after": [
+            _chunk_to_payload(c, full_text=full_text) for c in after_chunks
+        ],
+        "window": {"before": before, "after": after},
+    }
+
+
+@router.get("/attachments/{attachment_id}/chunks/{chunk_id}/neighbors")
+async def chunk_neighbors_alias(
+    attachment_id: str,
+    chunk_id: str,
+    before: int = Query(default=1, ge=0, le=10),
+    after: int = Query(default=1, ge=0, le=10),
+    full_text: bool = Query(default=True),
+) -> dict[str, Any]:
+    """US-spelling alias of :func:`chunk_neighbours` — the
+    cockpit can use either spelling without surprises.
+    """
+
+    return await chunk_neighbours(
+        attachment_id,
+        chunk_id,
+        before=before,
+        after=after,
+        full_text=full_text,
     )
 
 

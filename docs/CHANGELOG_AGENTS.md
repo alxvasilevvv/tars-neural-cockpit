@@ -4,6 +4,83 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · Attachment chunk-neighbours endpoint
+
+**Summary**
+
+Backs the "per-attachment hover preview" surface from IDEAS:
+when the cockpit highlights one chunk hit, the operator wants to
+see the surrounding ±N chunks in a floating card without paying
+to load the whole document. New backend bridge that returns the
+chunk plus its ord-adjacent neighbours, ready to drive the hover
+preview UI in the Claude lane.
+
+1. **Store** (`backend/core/attachments/index.py`)
+   - `AttachmentStore.get_chunk(chunk_id)` — single-chunk
+     fetcher (joins `attachments` for the filename / mime
+     metadata so the response can label the hover card).
+   - `AttachmentStore.get_chunk_neighbours(chunk_id, *, before,
+     after)` — returns `(target, before_chunks, after_chunks)`
+     by `ord` adjacency on the same `attachment_id`. The
+     chunker doesn't emit dense `ord` values (overlap windows
+     leave gaps), so "neighbours" means the closest chunks by
+     `ord`, not by `ord ± 1`. Lists are sorted ord-ascending so
+     `before[-1]` is always immediately before the target and
+     `after[0]` is immediately after.
+   - Window args clamp to `[0, 10]` — large windows defeat the
+     purpose of a hover preview and would force the cockpit to
+     load too much text at once.
+   - Returns `None` when the chunk doesn't exist (so the HTTP
+     layer can map to a 404).
+
+2. **HTTP** (`web_extras/routers/chat.py`)
+   - `GET /api/chat/attachments/{attachment_id}/chunks/{chunk_id}/neighbours`
+     and a US-spelling alias `/neighbors` so cockpit code works
+     either way.
+   - Query params: `before` (default 1, range 0-10), `after`
+     (default 1, range 0-10), `full_text` (default `true`).
+     With `full_text=false` the response only carries the 240-
+     char `preview` per chunk so the cockpit can run a "many
+     hits" mode cheaply.
+   - Response shape:
+     `{ok, attachment:{id,filename,mime,thread_id},
+     chunk:{...}, before:[...], after:[...],
+     window:{before,after}}`.
+   - Two 404 paths: `attachment_not_found` (unknown attachment
+     id) and `chunk_not_found` (chunk doesn't exist OR belongs
+     to a different attachment — the path-id mismatch is
+     defended explicitly so a typo can't leak chunks across
+     attachments).
+   - 422 on negative or oversized window (`Query(ge=0, le=10)`).
+
+3. **Tests** (`tests/test_attachments_chunk_neighbours.py`,
+   19 cases)
+   - **Store unit (5):** missing chunk returns `None`; happy
+     path fetches by id; missing neighbours bundle returns
+     `None`; window in middle returns `len==N` either side
+     and ord-ascending; window clamps at start (no before) and
+     at end (no after); zero window returns `[]` either side.
+   - **Window semantics (3):** clamps to 10 even when caller
+     asks for 999; `full_text=false` strips `text` but keeps
+     `preview`; `full_text=true` (default) includes both.
+   - **HTTP happy path (3):** payload shape, `window` echo,
+     UK / US alias produce identical responses.
+   - **HTTP 404s (3):** unknown attachment, unknown chunk,
+     chunk that belongs to a different attachment.
+   - **HTTP 422s (2):** `before=-1` and `after=11` reject.
+   - **Ordering (1):** when both windows return chunks they
+     are ord-ascending and strictly before / after the target.
+   - 19/19 green; full attachment bucket 64/64 green; full
+     backend suite 1175/1175 green.
+
+**Files**
+
+- edited: `backend/core/attachments/index.py`,
+  `web_extras/routers/chat.py`
+- new: `tests/test_attachments_chunk_neighbours.py`
+- edited: `docs/CHANGELOG_AGENTS.md`, `docs/AGENT_HANDOFF.md`,
+  `docs/IDEAS.md`
+
 ## 2026-05-01 — Cursor [A] · mlm.tg_outreach_draft (deterministic Telegram drafter)
 
 **Summary**
