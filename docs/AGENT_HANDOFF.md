@@ -193,6 +193,19 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-01 — `traders.local_alerts` awareness source (Cursor [A]):**
+  Closes the cockpit-side loop on the new local-first alerts store.
+  New `_fetch_local_alerts` returns a structurally-stable envelope
+  (`count` / `by_direction` / `by_ticker` / `alerts` / `filters`)
+  defaulting to `active_only=True`, `limit=50` (clamped to 200).
+  Registered as `traders.local_alerts` (`kind="local"`) advertising
+  the default store path so the cockpit form can render sensible
+  defaults. 12 new tests cover defaults, inactive inclusion, missing
+  store, path override, aggregations, ticker normalisation, limit
+  clamping, and pack wiring; the live-fetcher membership pin in
+  `tests/test_awareness_fetchers.py` is extended to include the
+  new source. Full suite: **1656 green**.
+
 - **2026-05-01 — `traders.cancel_alert` closes the alerts lifecycle (Cursor [A]):**
   Natural follow-up to the `place_alert` real adapter. Adds a new
   `cancel_local_alert` helper to

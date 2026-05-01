@@ -21,6 +21,11 @@ from xml.etree import ElementTree as ET
 from ...base import AwarenessSource
 from ..._http import NetworkError, get_text
 from .actions import fetch_quote
+from .local_alerts import (
+    DEFAULT_LOCAL_ALERTS_PATH,
+    read_local_alerts,
+    resolve_local_alerts_path,
+)
 
 _REPO_ROOT = Path(__file__).resolve().parents[5]
 _NEWS_PATH = _REPO_ROOT / "data" / "traders_news.json"
@@ -267,6 +272,77 @@ async def _fetch_portfolio(args: Mapping[str, Any]) -> Mapping[str, Any]:
     }
 
 
+async def _fetch_local_alerts(args: Mapping[str, Any]) -> Mapping[str, Any]:
+    """Snapshot the local-first traders alerts store.
+
+    Defaults to ``active_only=True`` so the awareness ticker only
+    surfaces live triggers; pass ``active_only=False`` to inspect
+    cancelled rows. ``ticker`` filters case-insensitively. ``limit``
+    is clamped to the conservative range ``[1, 200]``; the awareness
+    snapshot is meant for the cockpit ticker, not bulk export.
+
+    Always returns a structurally-stable envelope so the cockpit can
+    bind unconditionally.
+    """
+
+    path_arg = str(args.get("path") or "").strip() or None
+    target = resolve_local_alerts_path(path_arg)
+
+    active_only_raw = args.get("active_only")
+    active_only = True if active_only_raw is None else bool(active_only_raw)
+
+    ticker_arg = args.get("ticker")
+    ticker = ticker_arg if isinstance(ticker_arg, str) and ticker_arg.strip() else None
+
+    limit_arg = args.get("limit")
+    if isinstance(limit_arg, bool):
+        limit: int | None = None
+    elif isinstance(limit_arg, int) and limit_arg > 0:
+        limit = min(limit_arg, 200)
+    else:
+        limit = 50
+
+    try:
+        rows = read_local_alerts(
+            path=target,
+            active_only=active_only,
+            ticker=ticker,
+            limit=limit,
+        )
+    except OSError:
+        return {
+            "ok": False,
+            "error": "local_alerts_unreadable",
+            "path": str(target),
+        }
+
+    by_direction: dict[str, int] = {}
+    by_ticker: dict[str, int] = {}
+    for row in rows:
+        d = str(row.get("direction") or "")
+        if d:
+            by_direction[d] = by_direction.get(d, 0) + 1
+        t = str(row.get("ticker") or "")
+        if t:
+            by_ticker[t] = by_ticker.get(t, 0) + 1
+
+    return {
+        "ok": True,
+        "as_of": datetime.now(timezone.utc).isoformat(),
+        "path": str(target),
+        "exists": target.exists(),
+        "count": len(rows),
+        "by_direction": by_direction,
+        "by_ticker": by_ticker,
+        "filters": {
+            "ticker": ticker.upper() if ticker else None,
+            "active_only": active_only,
+            "limit": limit,
+        },
+        "alerts": rows,
+    }
+
+
 SOURCES: tuple[AwarenessSource, ...] = (
     AwarenessSource(
         id="binance_ws",
@@ -304,5 +380,21 @@ SOURCES: tuple[AwarenessSource, ...] = (
         kind="local",
         config={"path": "~/.tars/portfolio.json"},
         fetcher=_fetch_portfolio,
+    ),
+    AwarenessSource(
+        id="local_alerts",
+        name="Local price alerts",
+        description=(
+            "Snapshot the local-first traders alerts store. Defaults to "
+            "active_only=True so the cockpit ticker only shows live "
+            "triggers."
+        ),
+        kind="local",
+        config={
+            "path": DEFAULT_LOCAL_ALERTS_PATH,
+            "active_only": True,
+            "limit": 50,
+        },
+        fetcher=_fetch_local_alerts,
     ),
 )
