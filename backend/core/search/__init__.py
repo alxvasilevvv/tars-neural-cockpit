@@ -33,18 +33,23 @@ from .engine import (
     search_messages,
     search_traces,
 )
+from .filters import ParsedQuery, merge_filters, parse_query_filters
 from .fts import (
     backfill_chunk_fts,
     backfill_message_fts,
     drop_fts_tables,
+    ensure_events_fts,
     ensure_fts_indexes,
     fts_match_chunks,
     fts_match_events,
     fts_match_messages,
+    verify_and_repair_chat_fts,
+    verify_and_repair_events_fts,
 )
 from .timeline import ThreadTimelineEntry, get_thread_timeline
 
 __all__ = [
+    "ParsedQuery",
     "SearchHit",
     "SearchResult",
     "SearchScope",
@@ -52,13 +57,18 @@ __all__ = [
     "backfill_chunk_fts",
     "backfill_message_fts",
     "drop_fts_tables",
+    "ensure_events_fts",
     "ensure_fts_indexes",
     "fts_match_chunks",
     "fts_match_events",
     "fts_match_messages",
     "get_thread_timeline",
+    "merge_filters",
+    "parse_query_filters",
     "search",
     "search_chunks",
     "search_messages",
     "search_traces",
+    "verify_and_repair_chat_fts",
+    "verify_and_repair_events_fts",
 ]

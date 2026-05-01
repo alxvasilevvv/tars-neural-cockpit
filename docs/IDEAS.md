@@ -173,9 +173,17 @@ Open ideas for the next layer:
 - **Cross-thread Cmd+J jump.** ⌘K is a search; ⌘J should be a
   fuzzy thread / attachment / pack picker (lighter weight, no
   scope chips, just deep-link nav).
-- **FTS5 backfill on schema bump.** When the chat DB is migrated
+- ~~**FTS5 backfill on schema bump.** When the chat DB is migrated
   from a backup, run `backfill_chunk_fts` / `backfill_message_fts`
-  on first boot if the index is empty but the source tables aren't.
+  on first boot if the index is empty but the source tables aren't.~~
+  — Shipped 2026-05-01: `verify_and_repair_chat_fts` +
+  `verify_and_repair_events_fts` compare FTS row counts to source
+  counts and rebuild on drift (not just on empty FTS, so partial
+  drift is also caught). `POST /api/search/fts-repair` for the
+  manual path (body `{force?, scopes?}`); opt-in boot-time hook via
+  `TARS_FTS_VERIFY_ON_BOOT=1` runs the same drift check on lifespan
+  enter, never crashes the host. `tests/test_fts_auto_backfill.py`
+  (15 cases) pin the path.
 
 ## Cross-cutting (meeet × TARS)
 

@@ -28,7 +28,7 @@ from __future__ import annotations
 import logging
 import re
 import sqlite3
-from typing import Iterable
+from typing import Any, Iterable
 
 from backend.core.chat.store import ChatStore, get_chat_store
 
@@ -131,6 +131,110 @@ def drop_fts_tables(*, chat: ChatStore | None = None) -> None:
         conn.commit()
     finally:
         conn.close()
+
+
+# ---------------------------------------------------------------------
+# Drift detection + auto-repair (Phase L8 follow-up)
+# ---------------------------------------------------------------------
+#
+# ``ensure_fts_indexes`` only backfills when the FTS table is empty.
+# That covers the "fresh install" case but not the "restored from
+# backup" / "schema bump dropped the FTS" cases where the source
+# tables carry rows the FTS doesn't know about. The helpers below
+# compare FTS row counts to source-table row counts and rebuild on
+# drift; the chat lifespan + a manual
+# ``POST /api/search/fts-repair`` endpoint both flow through them.
+
+
+def _count(conn: sqlite3.Connection, table: str) -> int:
+    if not _table_exists(conn, table):
+        return 0
+    row = conn.execute(f"SELECT COUNT(*) AS c FROM {table}").fetchone()
+    return int(row[0] if row else 0)
+
+
+def verify_and_repair_chat_fts(
+    *,
+    chat: ChatStore | None = None,
+    force: bool = False,
+) -> dict[str, Any]:
+    """Compare FTS counts to source-table counts and rebuild on drift.
+
+    Idempotent. Returns
+    ``{ok, scopes: [{name, fts, source, rebuilt, inserted}], rebuilt}``.
+    The ``force`` flag drops + rebuilds both indexes regardless of
+    drift (operator-triggered: backup restore, schema bump, etc.).
+    """
+
+    chat = chat or get_chat_store()
+    if not chat.enabled:
+        return {"ok": False, "reason": "chat_store_disabled"}
+    conn = chat._connect()
+    scopes: list[dict[str, Any]] = []
+    rebuilt: list[str] = []
+    try:
+        conn.executescript(_DDL_CHUNKS)
+        conn.executescript(_DDL_MESSAGES)
+        for fts_name, src_name, backfill in (
+            ("chunks_fts", "attachment_chunks", _backfill_chunks),
+            ("messages_fts", "messages", _backfill_messages),
+        ):
+            src_count = _count(conn, src_name)
+            fts_count = _count(conn, fts_name)
+            stat: dict[str, Any] = {
+                "name": fts_name,
+                "fts": fts_count,
+                "source": src_count,
+                "rebuilt": False,
+                "inserted": 0,
+            }
+            if force or (src_count != fts_count):
+                conn.execute(f"DELETE FROM {fts_name}")
+                inserted = backfill(conn)
+                stat["rebuilt"] = True
+                stat["inserted"] = inserted
+                rebuilt.append(fts_name)
+            scopes.append(stat)
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True, "scopes": scopes, "rebuilt": rebuilt}
+
+
+def verify_and_repair_events_fts(
+    meeet_db_path: str,
+    *,
+    force: bool = False,
+) -> dict[str, Any]:
+    """Same drift-detect pattern for the meeet ``events_fts`` index."""
+
+    if not meeet_db_path:
+        return {"ok": False, "reason": "meeet_store_disabled"}
+    conn = sqlite3.connect(meeet_db_path)
+    conn.row_factory = sqlite3.Row
+    try:
+        conn.execute("PRAGMA journal_mode = WAL")
+        conn.executescript(_DDL_EVENTS)
+        src_count = _count(conn, "events")
+        fts_count = _count(conn, "events_fts")
+        stat: dict[str, Any] = {
+            "name": "events_fts",
+            "fts": fts_count,
+            "source": src_count,
+            "rebuilt": False,
+            "inserted": 0,
+        }
+        rebuilt: list[str] = []
+        if force or (src_count != fts_count):
+            conn.execute("DELETE FROM events_fts")
+            inserted = _backfill_events(conn)
+            stat["rebuilt"] = True
+            stat["inserted"] = inserted
+            rebuilt.append("events_fts")
+        conn.commit()
+    finally:
+        conn.close()
+    return {"ok": True, "scopes": [stat], "rebuilt": rebuilt}
 
 
 # ---------------------------------------------------------------------
