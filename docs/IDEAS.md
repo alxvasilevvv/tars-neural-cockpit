@@ -48,9 +48,16 @@ Ideas for the next sprints. Triage by impact × cost and pull into
   can render a live "indexing 12 chunks…" pill on the chip.
 - **Per-attachment hover preview.** Replace the chip's tooltip with a
   floating card that previews the first chunk + heading list.
-- **Re-embed on demand.** Endpoint that re-embeds all chunks for an
-  attachment with a different model (e.g. promote from hash to OpenAI
-  once a key is set).
+- **Re-embed on demand.** ✅ shipped (2026-05-01) —
+  `backend/core/attachments/reembed.py` +
+  `POST /api/chat/attachments/{id}/reembed` +
+  `POST /api/chat/attachments/reembed-by-model`. The "I just
+  configured `OPENAI_API_KEY`, promote everything still on the
+  hash embedder" workflow. Storage gets two new primitives
+  (`update_chunk_embedding`, `list_chunks_by_model`); the
+  orchestrator skips blank / same-model rows unless `force=True`
+  and isolates per-batch failures into a `failed` count.
+  `tests/test_attachment_reembed.py` (18 cases).
 - **Citation rendering in markdown.** Today the assistant says
   "as `[chunk_2]` shows…". Render `[chunk_N]` as a clickable pill in
   `<MessageBubble />` that scrolls to the matching source row.
