@@ -1201,6 +1201,29 @@ Smaller functional items still pending in parallel:
     `{q?, query?, limit?, kinds?}` — clamped to 100 hits, unknown
     kinds dropped silently. `tests/test_jump_picker.py` (23 cases).
     Cockpit ⌘J palette UI is the Claude-lane follow-up.
+27. ~~**Per-thread voice persona pinning.**~~ **shipped**
+    (2026-05-01) — closes the "per-thread persona pinning"
+    idea from IDEAS' Voice section. Threads now carry an
+    optional `voice_persona_id` (additive migration on
+    `threads`), exposed on the dataclass + every API
+    response. `POST /api/chat/threads` and
+    `PATCH /api/chat/threads/{id}` accept the field with
+    validation: `None` / blank string clear the pin, unknown
+    ids 400 with `voice_persona_id_unknown`, non-string types
+    400 with `voice_persona_id_invalid`. The validator
+    cross-checks against `iter_personas()` so any persona
+    registered at runtime (built-in or domain-pack) is
+    accepted automatically. Voice routing follow-up:
+    `POST /api/voice/speak` now accepts an optional
+    `thread_id` body field — when the caller didn't pass an
+    explicit `persona`, the endpoint resolves the thread and
+    uses its pinned id as a fallback. Response carries an
+    `x-tars-voice-persona-source` header
+    (`request` / `thread`) so the cockpit can render a
+    "voice from this thread" badge. Pinned by
+    `tests/test_thread_persona_pinning.py` (26 cases).
+    Cockpit voice picker UI is the Claude-lane follow-up.
+
 26. ~~**Attachment chunk-neighbours endpoint.**~~ **shipped**
     (2026-05-01) — backs the "per-attachment hover preview"
     surface from IDEAS. New
