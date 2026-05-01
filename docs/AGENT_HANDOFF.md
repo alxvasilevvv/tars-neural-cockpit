@@ -1201,6 +1201,33 @@ Smaller functional items still pending in parallel:
     `{q?, query?, limit?, kinds?}` — clamped to 100 hits, unknown
     kinds dropped silently. `tests/test_jump_picker.py` (23 cases).
     Cockpit ⌘J palette UI is the Claude-lane follow-up.
+23. ~~**Playbook schema validator (CI gate).**~~ **shipped** (2026-05-01)
+    — closes the "open work: schema validator" follow-up under the
+    Phase K4 playbooks slot. The loader is permissive (`str()` /
+    `bool()` casts) which is fine for bundled playbooks but lets
+    operator typos through silently — `on_error: stoip` ran the
+    default `stop`, forward `${steps.next.value}` resolved to
+    `None`, unknown step keys never surfaced. The new validator
+    (`backend/core/playbooks/validator.py`) produces a structured
+    `ValidationResult(ok, issues)` with `Issue(severity, code,
+    path, message)` so an operator can fix every problem in one
+    pass. Errors block (`ok=False`) and warnings are surfaced
+    verbatim. Strict checks: top-level + step key whitelists,
+    duplicate step ids, action grammar
+    (`<slug>.<action_id>` and `<slug>.awareness.<source>.snapshot`,
+    dotted action ids like `pack.memory.set` are first-class),
+    `${steps.<id>...}` references for unknown / forward ids,
+    `args` type, `when` / `on_error` / `parallel` shapes,
+    leading-`parallel` no-op. HTTP:
+    `POST /api/playbooks/_validate` (literal payload or `id`,
+    mutually exclusive) and `GET /api/playbooks/_validate_all`
+    (every playbook on disk; wire to CI). Routing fix:
+    `_reload` / `_validate` / `_validate_all` now register
+    **before** the dynamic `/{playbook_id}` route so FastAPI
+    doesn't shadow them. Smoke test pins every bundled playbook
+    against the validator. `tests/test_playbook_validator.py`
+    (40 cases). Backend suite: **1116 passed**.
+
 22. ~~**Live updater channel HTTP (Tauri lock-step).**~~ **shipped**
     (2026-05-01) — closes the desktop distribution loop. The
     publish CLI has been writing `<target>/<version>.json` files
