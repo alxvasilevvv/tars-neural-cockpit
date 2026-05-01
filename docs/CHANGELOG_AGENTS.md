@@ -119,6 +119,58 @@ fresh `recovery.challenge.passed` event for the same fingerprint.
   `docs/CHANGELOG_AGENTS.md`, `docs/AGENT_HANDOFF.md`,
   `docs/IDEAS.md`
 
+## 2026-05-01 — Cursor [A] · Rotate-identity epoch bump (clear paired devices)
+
+**Summary**
+
+Closes the loose follow-up from yesterday's rotate-identity PR.
+`PairingStore.rotate_host_identity()` already documented that
+"existing paired devices are invalidated by design (they pinned
+the old public key) — the caller is expected to walk
+`list_devices()` and emit a `pair.epoch_bumped` event before
+clearing them." The HTTP endpoint shipped without that step, so a
+rotate left the device list lying about which devices the host
+still trusted. This PR closes that loop.
+
+1. **`web_extras/routers/pairing.py`** — `POST /api/pairing/rotate-identity`
+   - Snapshots paired devices via `list_devices()` **before** the
+     keypair rotates (the post-rotate read would still return them,
+     but the snapshot also gives us the pre-rotate kind labels for
+     the audit event).
+   - Calls `store.rotate_host_identity(...)` (unchanged).
+   - For each pre-rotate device, calls `store.revoke(device_id=…)`
+     and records `{device_id, kind, removed}` for the audit event.
+   - Emits `pair.host_rotated` with the additional
+     `cleared_device_count` field so a single replay frame tells
+     the cockpit how many devices got nuked.
+   - When at least one device was cleared, also emits a separate
+     `pair.epoch_bumped` event with the full `cleared_devices`
+     list (id + kind + removal status) so the cockpit's gold-pill
+     audit timeline can render a distinct "epoch X+1" row.
+     Rotates with zero paired devices intentionally skip the
+     epoch-bumped event so the timeline stays free of nuisance
+     zero-count rows (verified in the test suite).
+   - The response gains `cleared_devices` + `cleared_device_count`
+     so callers don't need a follow-up `GET /api/pairing/devices`
+     to know what got revoked.
+
+2. **`tests/test_pairing_rotate_identity.py`** — adds 4 cases:
+   `test_rotate_identity_with_no_paired_devices_omits_epoch_bump`,
+   `test_rotate_identity_clears_paired_devices`,
+   `test_rotate_identity_emits_pair_epoch_bumped_event`,
+   `test_rotate_identity_does_not_emit_epoch_bump_when_no_devices`.
+   New `_link_device(client, kind=…)` helper runs the begin →
+   accept handshake to land a paired device for the assertions.
+
+**Files**
+`web_extras/routers/pairing.py`,
+`tests/test_pairing_rotate_identity.py`,
+`docs/CHANGELOG_AGENTS.md`,
+`docs/AGENT_HANDOFF.md`,
+`docs/IDEAS.md`.
+
+**Tests** — `pytest tests/` ⇒ 1380 passed (full suite).
+
 ## 2026-05-01 — Cursor [A] · Rotate-identity gated by 3-of-24 challenge
 
 **Summary**

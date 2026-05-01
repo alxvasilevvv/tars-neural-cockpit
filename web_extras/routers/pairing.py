@@ -452,10 +452,34 @@ async def rotate_identity(
         else current_fingerprint
     )
 
+    # Snapshot paired devices BEFORE the rotate. Their pinned public
+    # keys reference the old host identity, so they must be revoked
+    # as part of the same epoch bump — leaving them in the device
+    # list would let a paired device think it's still trusted while
+    # any encrypted message it sends to the host would now be
+    # unreadable. The pre-rotate snapshot is what we report in the
+    # ``pair.epoch_bumped`` event so an audit replay can reconstruct
+    # which devices got nuked.
+    pre_rotate_devices = await store.list_devices()
+    cleared_devices: list[dict[str, Any]] = []
+
     old_public_key = store.host_public_key_b64
     new_identity = store.rotate_host_identity(
         recovery_fingerprint=target_fingerprint,
     )
+
+    for dev in pre_rotate_devices:
+        try:
+            removed = await store.revoke(device_id=dev.device_id)
+        except Exception:  # noqa: BLE001
+            removed = False
+        cleared_devices.append(
+            {
+                "device_id": dev.device_id,
+                "kind": dev.kind,
+                "removed": bool(removed),
+            }
+        )
 
     client = get_client()
     with trace_scope(parent=x_meeet_trace_id) as trace_id:
@@ -468,8 +492,21 @@ async def rotate_identity(
                 "challenge_id": body.challenge_id,
                 "recovery_fingerprint": store.recovery_fingerprint,
                 "challenge_fingerprint": current_fingerprint,
+                "cleared_device_count": len(cleared_devices),
             },
         )
+        if cleared_devices:
+            await client.emit(
+                "pair.epoch_bumped",
+                {
+                    "host_id": store.host_id,
+                    "old_host_public_key": old_public_key,
+                    "new_host_public_key": new_identity.public_b64,
+                    "challenge_id": body.challenge_id,
+                    "cleared_devices": cleared_devices,
+                    "cleared_count": len(cleared_devices),
+                },
+            )
         return {
             "ok": True,
             "trace_id": trace_id,
@@ -481,4 +518,6 @@ async def rotate_identity(
             "recovery_fingerprint": store.recovery_fingerprint,
             "challenge_id": body.challenge_id,
             "previous_host_public_key": old_public_key,
+            "cleared_devices": cleared_devices,
+            "cleared_device_count": len(cleared_devices),
         }
