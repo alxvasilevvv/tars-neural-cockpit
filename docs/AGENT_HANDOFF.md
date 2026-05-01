@@ -1201,6 +1201,17 @@ Smaller functional items still pending in parallel:
     `{q?, query?, limit?, kinds?}` — clamped to 100 hits, unknown
     kinds dropped silently. `tests/test_jump_picker.py` (23 cases).
     Cockpit ⌘J palette UI is the Claude-lane follow-up.
+15. ~~**Domains health endpoint.**~~ **shipped** (2026-05-01) —
+    `GET /api/domains/health` walks every registered pack, resolves
+    its declared `auth_vault_keys` against env + macOS Keychain, and
+    returns per-pack `{slug, name, ready, key_count, available_count,
+    missing, keys: [{key, source, available}]}`. Probes both
+    unprefixed and `TARS_`-prefixed forms; never echoes the secret
+    value (only `source` ∈ `env` / `keychain` / `missing`).
+    `tests/test_domains_health.py` (10 cases) pin shape, env vs
+    keychain wins, missing-array completeness, and the
+    no-secret-leak invariant. Operator dashboard for "what packs
+    actually work on this machine".
 14. ~~**Saved-search auto-poll loop.**~~ **shipped** (2026-05-01) —
     Lifespan loop in `web_extras/app.py` (default off,
     opt-in via `TARS_SAVED_SEARCH_POLL_INTERVAL_S=120` etc.) that

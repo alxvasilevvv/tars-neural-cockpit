@@ -75,6 +75,98 @@ async def manifest() -> dict[str, Any]:
     }
 
 
+@router.get("/health")
+async def domains_health() -> dict[str, Any]:
+    """Per-pack vault-key readiness — operator dashboard for "what's
+    actually wired up on this machine".
+
+    For every registered pack we resolve its declared
+    ``auth_vault_keys`` against env + macOS Keychain via
+    :func:`backend.core.vault.status_for_keys` and return a compact
+    status row:
+
+    .. code-block:: json
+
+        {
+          "ok": true,
+          "count": 4,
+          "packs": [
+            {
+              "slug": "business",
+              "name": "Business / CRM",
+              "ready": true,
+              "key_count": 9,
+              "available_count": 4,
+              "missing": ["HUBSPOT_API_KEY", "..."],
+              "keys": [
+                {"key": "SMTP_HOST", "source": "env",
+                 "available": true},
+                ...
+              ]
+            }
+          ]
+        }
+
+    ``ready`` is true when at least one declared key resolves; the
+    cockpit can use it as a quick "this pack will probably work"
+    signal. Packs with no declared vault keys surface as
+    ``ready=true`` with ``key_count=0`` so they don't show up red.
+
+    Probes both unprefixed (``HUBSPOT_API_KEY``) and ``TARS_``-
+    prefixed (``TARS_HUBSPOT_API_KEY``) forms so operators who set
+    either form are honoured. Never returns the secret value — only
+    availability + source (``env`` / ``keychain`` / ``missing``).
+    """
+
+    from backend.core.vault import status_for_keys
+
+    items: list[dict[str, Any]] = []
+    for pack in all_packs():
+        m = pack.manifest
+        keys = tuple(getattr(pack, "auth_vault_keys", lambda: ())())
+        if not keys:
+            items.append(
+                {
+                    "slug": m.slug,
+                    "name": m.name,
+                    "ready": True,
+                    "key_count": 0,
+                    "available_count": 0,
+                    "missing": [],
+                    "keys": [],
+                }
+            )
+            continue
+        prefixed = [f"TARS_{k}" for k in keys]
+        all_keys = list(keys) + prefixed
+        statuses = status_for_keys(all_keys)
+        per_key: dict[str, dict[str, Any]] = {}
+        for s in statuses:
+            base = s.key[5:] if s.key.startswith("TARS_") else s.key
+            entry = per_key.setdefault(
+                base,
+                {"key": base, "source": "missing", "available": False},
+            )
+            if s.available and not entry["available"]:
+                entry["source"] = s.source
+                entry["available"] = True
+        rows = [per_key[k] for k in keys if k in per_key]
+        available = sum(1 for r in rows if r["available"])
+        missing = [r["key"] for r in rows if not r["available"]]
+        items.append(
+            {
+                "slug": m.slug,
+                "name": m.name,
+                "ready": available > 0,
+                "key_count": len(rows),
+                "available_count": available,
+                "missing": missing,
+                "keys": rows,
+            }
+        )
+    return {"ok": True, "count": len(items), "packs": items}
+
+
 @router.get("/{slug}")
 async def describe_domain(slug: str) -> dict[str, Any]:
     pack = get_pack(slug)
