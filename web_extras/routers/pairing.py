@@ -9,6 +9,8 @@ Endpoints (pinned by ``docs/contracts/L5_PAIRING_DRAFT.md``):
 - ``POST /api/pairing/revoke``          → drop a paired device.
 - ``GET  /api/pairing/devices``         → list paired devices.
 - ``GET  /api/pairing/identity``        → host identity / vault fingerprints.
+- ``GET  /api/pairing/audit``           → operator-facing audit feed
+  (pair.* + recovery.* events, newest first).
 - ``POST /api/pairing/rotate-identity`` → mint fresh host keypair (gated
   behind a passed 3-of-24 recovery challenge for the current seed).
 
@@ -30,7 +32,7 @@ from backend.core.crypto.seed_challenge import (
     consume_passed_challenge,
     get_challenge_store,
 )
-from backend.core.meeet import get_client, trace_scope
+from backend.core.meeet import get_client, get_store, trace_scope
 from backend.core.pairing import PairingNotFound, get_pairing_store
 from web_extras.errors import TARSAPIError
 from web_extras.rate_limit import RateLimitOutcome, get_rate_limiter
@@ -360,6 +362,71 @@ async def identity() -> dict[str, Any]:
             "freshly_minted": store.identity_was_freshly_minted,
         },
         "recovery_fingerprint": store.recovery_fingerprint,
+    }
+
+
+PAIR_AUDIT_PREFIXES: tuple[str, ...] = ("pair.", "recovery.")
+
+
+@router.get("/audit")
+async def audit(
+    limit: int = Query(default=100, ge=1, le=500),
+    since: float | None = Query(default=None),
+) -> dict[str, Any]:
+    """Operator-facing audit feed for the pairing lane.
+
+    Folds two prefix queries against the meeet event store —
+    ``pair.*`` and ``recovery.*`` — into a single newest-first
+    list so the cockpit timeline can render them as one gold-pill
+    audit lane (closes the "audit log of pairing events" idea
+    from ``docs/IDEAS.md``).
+
+    Each event is trimmed to the public-safe shape: ``id``, ``ts``,
+    ``trace_id``, ``kind``, and ``payload``. We don't echo the raw
+    SQLite row to keep the surface stable across schema bumps and
+    to avoid surfacing the ``last_error`` field, which is meant for
+    the meeet bridge / replay flow, not the operator audit timeline.
+
+    The combined set is capped at ``2 * limit`` events while we
+    interleave; callers that want strictly more than ``limit``
+    events should re-poll with ``since=last_ts``.
+    """
+
+    store = get_store()
+    fetched: list[Any] = []
+    seen: set[int] = set()
+    cap = max(1, int(limit))
+    for prefix in PAIR_AUDIT_PREFIXES:
+        bucket = await store.list_events(
+            limit=cap,
+            since=since,
+            kind_prefix=prefix,
+        )
+        for ev in bucket:
+            ev_id = getattr(ev, "id", None)
+            if ev_id is not None and ev_id in seen:
+                continue
+            if ev_id is not None:
+                seen.add(ev_id)
+            fetched.append(ev)
+
+    fetched.sort(key=lambda e: (e.ts, getattr(e, "id", 0) or 0), reverse=True)
+    fetched = fetched[:cap]
+
+    return {
+        "ok": True,
+        "count": len(fetched),
+        "prefixes": list(PAIR_AUDIT_PREFIXES),
+        "events": [
+            {
+                "id": e.id,
+                "ts": e.ts,
+                "trace_id": e.trace_id,
+                "kind": e.kind,
+                "payload": e.payload,
+            }
+            for e in fetched
+        ],
     }
 
 

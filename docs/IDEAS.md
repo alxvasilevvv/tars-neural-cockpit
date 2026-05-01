@@ -159,6 +159,12 @@ Open ideas for the next layer:
   / `recovery.{shown,verified}` on the cockpit timeline as a distinct
   gold-pill lane so an operator can see device topology + recovery
   events alongside chat activity.
+  *Done (read-side) 2026-05-01:* `MeeetStore.list_events()` gains a
+  `kind_prefix` filter (defensive LIKE escape); `GET /api/meeet/events`
+  exposes it; new `GET /api/pairing/audit` folds `pair.*` +
+  `recovery.*` into one newest-first deduped feed with the
+  public-safe `{id, ts, trace_id, kind, payload}` shape. Cockpit
+  rendering still pending (Claude lane).
 - **Pairing relay rate-limit.** `meeet.world/pair/<id>` should expire
   after 120 s and rate-limit per source IP — the host re-mints on
   failure rather than retrying the same `pair_id`.

@@ -239,6 +239,7 @@ class MeeetStore:
         since: float | None,
         trace_id: str | None,
         kind: str | None,
+        kind_prefix: str | None,
         session_id: str | None,
         only_unpushed: bool,
     ) -> list[StoredEvent]:
@@ -253,6 +254,19 @@ class MeeetStore:
         if kind:
             clauses.append("kind = ?")
             params.append(kind)
+        if kind_prefix:
+            # Defensive escape: SQLite ``LIKE`` treats ``%`` and ``_``
+            # (and the explicit escape char) as wildcards. The cockpit
+            # passes literal prefixes like ``pair.`` / ``recovery.``
+            # so escaping is belt-and-braces, but keeps the contract
+            # honest if a future caller uses a stranger prefix.
+            escaped = (
+                kind_prefix.replace("\\", "\\\\")
+                .replace("%", "\\%")
+                .replace("_", "\\_")
+            )
+            clauses.append("kind LIKE ? ESCAPE '\\'")
+            params.append(escaped + "%")
         if session_id:
             clauses.append("session_id = ?")
             params.append(session_id)
@@ -310,6 +324,7 @@ class MeeetStore:
         since: float | None = None,
         trace_id: str | None = None,
         kind: str | None = None,
+        kind_prefix: str | None = None,
         session_id: str | None = None,
         only_unpushed: bool = False,
     ) -> list[StoredEvent]:
@@ -322,6 +337,7 @@ class MeeetStore:
             since=since,
             trace_id=trace_id,
             kind=kind,
+            kind_prefix=kind_prefix,
             session_id=session_id,
             only_unpushed=only_unpushed,
         )
