@@ -1201,6 +1201,33 @@ Smaller functional items still pending in parallel:
     `{q?, query?, limit?, kinds?}` — clamped to 100 hits, unknown
     kinds dropped silently. `tests/test_jump_picker.py` (23 cases).
     Cockpit ⌘J palette UI is the Claude-lane follow-up.
+20. ~~**`application/zip` walker.**~~ **shipped** (2026-05-01) —
+    Zip uploads previously fell through the binary path so the
+    operator got nothing useful. With this slot, dragging a zip
+    onto the cockpit fans the archive out: every safe member is
+    fully ingested (extract → chunk → embed → FTS) and linked back
+    to the parent zip via `meta.parent_attachment_id`. Parent stays
+    opaque (no chunks) and carries a `zip_walk` summary on its meta
+    so the cockpit can render per-member outcome.
+    `backend/core/attachments/zip_walker.py` exposes
+    `walk_zip(parent_record, blob, …)` with `ZipEntryResult` /
+    `ZipWalkSummary` dataclasses and three env knobs:
+    `TARS_ZIP_MAX_ENTRIES` (default 200, cap 5 000),
+    `TARS_ZIP_MAX_ENTRY_BYTES` (default 25 MB, floor 1 KB),
+    `TARS_ZIP_MAX_DEPTH` (default 2, cap 5). Safety: rejects
+    absolute paths, traversal segments, `__MACOSX/*`, directory
+    entries, oversize members, and corrupt archives never crash
+    the parent ingest. `pipeline.ingest()` grew
+    `parent_attachment_id` + `walk_archives` parameters; auto-walks
+    on detection, emits `attachment.zip_walked` with counts +
+    truncated flag. `tests/test_zip_walker.py` (14 cases): MIME /
+    magic / suffix detection, unsafe-name predicate, env clamps,
+    fan-out + parent linkage, directory + traversal skipping,
+    entries cap (`truncated=True`), oversize skip, corrupt archive
+    handled, `walk_archives=False` opt-out, depth-limited nested
+    walks, dedup across same-thread duplicates. Backend suite:
+    **1010 passed**.
+
 19. ~~**Memory purge background loop.**~~ **shipped** (2026-05-01) —
     Closes the per-pack memory series. `_memory_purge_loop` in
     `web_extras/app.py` ticks every

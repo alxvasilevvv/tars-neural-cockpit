@@ -39,9 +39,12 @@ Ideas for the next sprints. Triage by impact × cost and pull into
   (Anthropic Claude / OpenAI gpt-4o), pack image bytes into the
   request payload alongside the system prompt. Today images are
   stored but the assistant never sees them.
-- **`application/zip` walker.** Expand archives recursively (max 200
-  entries), ingest each member as its own attachment, link via a
-  parent attachment record.
+- ~~**`application/zip` walker.**~~ ✅ **Shipped 2026-05-01** —
+  `backend/core/attachments/zip_walker.py` walks zip uploads, ingests
+  each safe member as a child attachment linked via
+  `meta.parent_attachment_id`, surfaces a `zip_walk` summary on the
+  parent. Tunable via `TARS_ZIP_MAX_ENTRIES` / `TARS_ZIP_MAX_ENTRY_BYTES`
+  / `TARS_ZIP_MAX_DEPTH`. Tests: `tests/test_zip_walker.py`.
 - **Streaming ingestion progress.** Yield SSE events
   (`attachment.extracting`, `attachment.embedding`,
   `attachment.indexed`) over the upload connection so the cockpit
