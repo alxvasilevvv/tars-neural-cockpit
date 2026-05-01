@@ -1,4 +1,4 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 
 /**
@@ -25,10 +25,35 @@ import * as THREE from "three";
  */
 export function ShaderAnimation() {
   const containerRef = useRef<HTMLDivElement>(null);
+  // When WebGL init fails (no GPU, blocked context, headless browser, CSP
+  // sandbox), we fall back to a flat brand-tinted gradient so the hero is
+  // never a void-black canvas. Tracked here so render() can swap layers
+  // without holding the broken canvas in the DOM.
+  const [glFailed, setGlFailed] = useState(false);
 
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
+
+    // Probe WebGL availability before allocating Three resources.
+    // `WebGLRenderer` constructor can throw or silently produce a broken
+    // renderer on machines without GPU access — guard up-front.
+    const probe = (): boolean => {
+      try {
+        const c = document.createElement("canvas");
+        const gl =
+          c.getContext("webgl2") ||
+          c.getContext("webgl") ||
+          c.getContext("experimental-webgl");
+        return Boolean(gl);
+      } catch {
+        return false;
+      }
+    };
+    if (!probe()) {
+      setGlFailed(true);
+      return;
+    }
 
     const reducedMotion =
       typeof window !== "undefined" &&
@@ -104,11 +129,26 @@ export function ShaderAnimation() {
     const mesh = new THREE.Mesh(geometry, material);
     scene.add(mesh);
 
-    const renderer = new THREE.WebGLRenderer({
-      antialias: false,
-      alpha: true,
-      powerPreference: "high-performance",
-    });
+    let renderer: THREE.WebGLRenderer;
+    try {
+      renderer = new THREE.WebGLRenderer({
+        antialias: false,
+        alpha: true,
+        powerPreference: "high-performance",
+      });
+    } catch (err) {
+      // Some browsers (older Safari, headless, CSP sandboxes) throw on
+      // WebGL context creation. Bail out into the fallback gradient
+      // instead of a broken / fully-black canvas.
+      console.warn("[ShaderAnimation] WebGL renderer init failed:", err);
+      setGlFailed(true);
+      return;
+    }
+    // Make the canvas transparent so a failed shader never paints solid
+    // black underneath the hero copy. Combined with `alpha: true` above
+    // and the radial-gradient veil in Hero.tsx, this keeps the hero
+    // legible even if the shader can't compile on this GPU.
+    renderer.setClearColor(0x000000, 0);
     renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.5));
     container.appendChild(renderer.domElement);
     renderer.domElement.style.width = "100%";
@@ -160,6 +200,16 @@ export function ShaderAnimation() {
       ref={containerRef}
       className="absolute inset-0 h-full w-full"
       aria-hidden
+      style={
+        glFailed
+          ? {
+              // Brand-triad fallback gradient — keeps the hero on-brand
+              // even when WebGL is unavailable (rather than void-black).
+              background:
+                "radial-gradient(ellipse 60% 50% at 50% 35%, rgba(99,102,241,0.18) 0%, rgba(139,92,246,0.10) 38%, rgba(6,182,212,0.04) 70%, transparent 100%)",
+            }
+          : undefined
+      }
     />
   );
 }

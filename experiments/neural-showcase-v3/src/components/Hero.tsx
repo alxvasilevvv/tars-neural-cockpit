@@ -111,7 +111,25 @@ export function Hero() {
         className="pointer-events-none absolute inset-0 z-0"
         style={{ contain: "strict" }}
       >
-        <Suspense fallback={null}>
+        {/*
+          Suspense fallback shows a brand-triad gradient while the lazy
+          chunk fetches (or if it fails entirely). Without this fallback
+          the veil overlay below paints ~78% black on top of nothing →
+          looks like the entire viewport is dead. Keeping the fallback
+          on-brand also means a busted shader chunk never strands the
+          hero in pure black.
+        */}
+        <Suspense
+          fallback={
+            <div
+              className="absolute inset-0"
+              style={{
+                background:
+                  "radial-gradient(ellipse 60% 50% at 50% 35%, rgba(99,102,241,0.18) 0%, rgba(139,92,246,0.10) 38%, rgba(6,182,212,0.04) 70%, transparent 100%)",
+              }}
+            />
+          }
+        >
           <ShaderAnimation />
         </Suspense>
         {/* Centre veil — pulls foreground contrast back without
