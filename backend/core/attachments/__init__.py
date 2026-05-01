@@ -40,7 +40,13 @@ from .embeddings import (
     detect_embedder,
 )
 from .index import AttachmentRecord, AttachmentStore, Chunk, get_attachment_store
-from .pipeline import IngestError, IngestResult, ingest
+from .pipeline import (
+    IngestError,
+    IngestResult,
+    ReembedResult,
+    ingest,
+    reembed_attachment,
+)
 from .retrieval import RetrievedChunk, retrieve
 
 __all__ = [
@@ -53,9 +59,11 @@ __all__ = [
     "IngestError",
     "IngestResult",
     "OpenAIEmbedder",
+    "ReembedResult",
     "RetrievedChunk",
     "detect_embedder",
     "get_attachment_store",
     "ingest",
+    "reembed_attachment",
     "retrieve",
 ]

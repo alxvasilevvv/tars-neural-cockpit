@@ -4,6 +4,94 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · Re-embed attachment chunks on demand
+
+**Summary**
+
+Closes the "re-embed on demand" idea from `docs/IDEAS.md`
+(Attachments + RAG section). New endpoint that re-embeds every
+chunk for an attachment with a fresh (or explicitly named)
+embedder — operators can promote an offline-indexed corpus to
+OpenAI once they paste a key into the vault, swap from
+`-3-small` to `-3-large` for higher recall, or refresh costs
+under updated pricing tables, all without re-uploading the
+original bytes.
+
+1. **Pipeline** (`backend/core/attachments/pipeline.py`)
+   - New frozen `ReembedResult` dataclass mirroring the
+     `IngestResult` shape with extra `previous_model` /
+     `embedding_dim` / `tokens_used` / `cost_usd` slots so the
+     cockpit can render a "promoted from `<old>` to `<new>`"
+     status pill.
+   - `reembed_attachment(attachment_id, *, embedder=None,
+     embedder_name=None, store=None, session_id=None)` — looks
+     up the row, loads its chunks, runs the embedder, replaces
+     chunk vectors **while keeping the chunk ids and ord
+     intact** (so the cockpit's frontend permalinks survive),
+     stamps the new model on the attachment row, and emits
+     `attachment.reembedded` + `usage.tokens` events.
+   - `_resolve_embedder_by_name(name)` helper maps short
+     aliases (`hash`, `openai`) and specific OpenAI model ids
+     (e.g. `text-embedding-3-large`) to the right embedder
+     class. Unknown / blank names fall back to
+     `detect_embedder()` so an operator typo doesn't crash the
+     reroll.
+   - Defensive shape: returns structured errors
+     (`attachment_not_found`, `no_chunks`,
+     `embedder_args_conflict`, `embedder_failed`) without ever
+     raising on bad operator input. Failed embed leaves the
+     existing chunks in place — only a successful embed flips
+     the attachment row's model id.
+   - Trace scope wraps the whole flow with
+     `route="edge"`, bumped to `cloud` when the resolved
+     embedder is `OpenAIEmbedder`.
+
+2. **Public surface** (`backend/core/attachments/__init__.py`)
+   - `ReembedResult` and `reembed_attachment` re-exported on
+     the package.
+
+3. **HTTP** (`web_extras/routers/chat.py`)
+   - `POST /api/chat/attachments/{id}/reembed` accepts an
+     optional body `{"model": "openai" | "hash" |
+     "text-embedding-3-large"}` and the
+     `x-tars-session-id` header (forwarded into the trace).
+   - Maps `attachment_not_found` to 404; every other error
+     surfaces as 200 + `ok=false` so the cockpit can show the
+     detail next to a "retry" button without UX churn.
+   - Module docstring updated to list the new route.
+
+4. **Tests** (`tests/test_attachments_reembed.py`, 21 cases)
+   - **Embedder resolution (6):** `hash` → HashEmbedder,
+     `openai` → OpenAIEmbedder, specific OpenAI model id
+     routes to OpenAIEmbedder with that model, unknown / blank
+     fall back to detect, case-insensitive.
+   - **Function-level (7):** missing attachment surfaces
+     `attachment_not_found`, empty attachment surfaces
+     `no_chunks`, swap-model preserves chunk ids + ords and
+     stamps the new model on every chunk + on the row,
+     embedder failure surfaces `embedder_failed` with the
+     upstream message and never flips the row, both
+     `embedder` + `embedder_name` returns
+     `embedder_args_conflict`, `attachment.reembedded` event
+     emitted with the full payload shape.
+   - **HTTP (8):** 404 for unknown id, `no_chunks` returns
+     200 + `ok=false`, happy path with explicit `model=hash`,
+     default empty body resolves via `detect_embedder()`,
+     blank `model=" "` falls back to default, unknown model
+     falls back gracefully, chunk ids preserved across calls,
+     `x-tars-session-id` header threads into the trace_id on
+     the emitted event.
+   - 21/21 green; full backend suite 1245/1245 green.
+
+**Files**
+
+- edited: `backend/core/attachments/pipeline.py`,
+  `backend/core/attachments/__init__.py`,
+  `web_extras/routers/chat.py`
+- new: `tests/test_attachments_reembed.py`
+- edited: `docs/CHANGELOG_AGENTS.md`, `docs/AGENT_HANDOFF.md`,
+  `docs/IDEAS.md`
+
 ## 2026-05-01 — Cursor [A] · Per-persona system-prompt overlay
 
 **Summary**

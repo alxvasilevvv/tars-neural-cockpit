@@ -1201,6 +1201,33 @@ Smaller functional items still pending in parallel:
     `{q?, query?, limit?, kinds?}` — clamped to 100 hits, unknown
     kinds dropped silently. `tests/test_jump_picker.py` (23 cases).
     Cockpit ⌘J palette UI is the Claude-lane follow-up.
+29. ~~**Re-embed attachment chunks on demand.**~~ **shipped**
+    (2026-05-01) — closes the "re-embed on demand" idea from
+    IDEAS' attachments section. New
+    `reembed_attachment(attachment_id, *, embedder=None,
+    embedder_name=None, store=None, session_id=None)` in
+    `backend.core.attachments.pipeline` re-vectorises every
+    chunk of an existing attachment with a fresh embedder
+    while preserving chunk ids and ords (so any cockpit
+    permalinks survive the rebuild). `_resolve_embedder_by_name`
+    accepts the short aliases `hash` / `openai` and any
+    OpenAI model id (e.g. `text-embedding-3-large`); unknown
+    or blank names fall back to `detect_embedder()`. The
+    function emits `attachment.reembedded` and
+    `usage.tokens` with full pre/post model + cost payloads,
+    and refuses bad inputs structurally
+    (`attachment_not_found`, `no_chunks`,
+    `embedder_args_conflict`, `embedder_failed`) without
+    raising. New HTTP route
+    `POST /api/chat/attachments/{id}/reembed` accepts an
+    optional body `{model: "openai" | "hash" |
+    "text-embedding-3-large"}` and `x-tars-session-id`
+    forwards into the trace; 404 only on unknown id, every
+    other failure surfaces 200 + `ok=false`. Pinned by
+    `tests/test_attachments_reembed.py` (21 cases). Cockpit
+    "promote to OpenAI" / "swap embedder" UI is the
+    Claude-lane follow-up.
+
 28. ~~**Per-persona system-prompt overlay.**~~ **shipped**
     (2026-05-01) — closes the "per-persona system-prompt
     overlay" idea from IDEAS' Voice section. Persona dataclass
