@@ -193,6 +193,17 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-01 — `mlm.update_member` + `mlm.list_members` close downline lifecycle (Cursor [A]):**
+  Closes the MLM downline lifecycle: `add_member` writes,
+  `downline_snapshot` / `retention_alert` summarise, but operators
+  had no patch-style update path and no read-only "show me everyone
+  in this branch" side door. New `update_member` (destructive, patch
+  semantics, idempotent, emits `mlm.member_updated` listing
+  `changed_fields`) and `list_members` (non-destructive, filter by
+  sponsor / rank / `recent_days` / `limit`, returns `summary.by_rank`
+  + `summary.total_volume_usd` rollups). Pinned by 33 new tests +
+  destructive-spec membership pin update; full suite: **1750 green**.
+
 - **2026-05-01 — `business.local_deals` awareness source (Cursor [A]):**
   Mirrors `traders.local_alerts` for the business pack. New
   `_fetch_local_deals` returns a structurally-stable envelope
