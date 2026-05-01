@@ -65,6 +65,12 @@ class SavedSearch:
     # was no prior baseline to compare against).
     seen_hits: tuple[str, ...] = ()
     last_alert_at: float | None = None
+    # When set, ``poll_saved_search`` updates the fingerprint snapshot
+    # and records new hits but suppresses the meeet
+    # ``saved_search.new_hits`` emit until ``time.time() >=
+    # snoozed_until``. Snooze is a "mute the alarm, not the watcher"
+    # signal — useful when a saved search is temporarily noisy.
+    snoozed_until: float | None = None
 
     @staticmethod
     def fresh(
@@ -101,7 +107,14 @@ class SavedSearch:
             "last_run_at": self.last_run_at,
             "seen_hit_count": len(self.seen_hits),
             "last_alert_at": self.last_alert_at,
+            "snoozed_until": self.snoozed_until,
         }
+
+    def is_snoozed(self, *, now: float | None = None) -> bool:
+        if self.snoozed_until is None:
+            return False
+        import time
+        return float(self.snoozed_until) > (now or time.time())
 
 
 MessageRole = Literal["operator", "tars", "tool", "system"]

@@ -172,7 +172,8 @@ async def poll_saved_search(
                     break
 
     alerted = False
-    if new_hits and not first_poll:
+    snoozed = saved.is_snoozed()
+    if new_hits and not first_poll and not snoozed:
         try:
             payload = {
                 "search_id": saved.id,
@@ -209,6 +210,8 @@ async def poll_saved_search(
         "new_hits": new_hits,
         "alerted": alerted,
         "first_poll": first_poll,
+        "snoozed": snoozed,
+        "snoozed_until": saved.snoozed_until,
     }
 
 
