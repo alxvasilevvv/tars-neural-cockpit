@@ -168,10 +168,20 @@ Open ideas for the next layer:
   X25519 ECDH with a stored static-pubkey + per-event ephemeral and
   derive each wrapped key via HKDF — keep this on the back burner
   until fleet sizes justify the complexity.
-- **Recovery seed verification policy.** Require the operator to
-  confirm 3 random words out of 24 (not the full phrase) on
-  subsequent rotations to balance friction vs. correctness; gate
-  the "rotate identity" action behind this check.
+- ~~**Recovery seed verification policy.**~~ **primitives shipped
+  2026-05-01** — `backend/core/crypto/seed_challenge.py` lands the
+  pure-stdlib state machine: `mint_challenge` picks N (default 3)
+  random positions out of 24, `verify_challenge` does case +
+  whitespace insensitive 1:1 matching with attempts decrement /
+  TTL expiry. `SeedChallengeStore` is a thread-safe in-memory
+  dict with expiry-aware reads. New HTTP routes
+  `POST /api/recovery/challenge/{start,verify}` and
+  `GET /api/recovery/challenge/{id}` emit
+  `recovery.challenge.{started,passed,failed,expired,exhausted}`
+  events on the existing audit lane. Pinned by
+  `tests/test_seed_challenge.py` (30 cases). Follow-up:
+  gate the destructive rotate-identity flow on a fresh
+  `recovery.challenge.passed` event for the same fingerprint.
 
 ## Search & observability (post-L8)
 
