@@ -4,6 +4,49 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · canonical flip live + acceptance-script lighthouse skip-on-empty
+
+**Summary**
+
+Closed out the last two non-DRAFT-able items left over from the
+launch sweep:
+
+1. **`scripts/acceptance_tars_meeet.sh` — Lighthouse SKIP-on-empty
+   scores.** The audit ran headless `npx lighthouse` with default 0
+   in case `grep` returned an empty score, then multiplied by 100 →
+   produced `perf=0 / a11y=0` and a hard FAIL on any sandbox where
+   Chrome can't actually run end-to-end. Now empty scores demote to
+   SKIP, only enforce when both scores parse cleanly. Matches the
+   spirit of every other gate (prereq missing → SKIP, not FAIL).
+   Verified: `bash scripts/acceptance_tars_meeet.sh` against
+   `https://tars.meeet.world` → **ACCEPTANCE GREEN** (5 PASS, 3
+   SKIP — bridge x2 + lighthouse). Landed via PR #35 (squash-merged).
+2. **PR #11 — canonical flip → `tars.meeet.world`** taken out of
+   DRAFT. DNS is live (`HTTP/2 200`, `tars_session_id` cookie scoped
+   to `.meeet.world`); rebased on top of the latest main; pytest
+   + cockpit vitest still green (693 + 63). Squash-merged. The
+   on-page `<link rel=canonical>`, OG/Twitter URLs, every
+   `public/sitemap.xml` entry, and `public/robots.txt` Sitemap line
+   now all point at `tars.meeet.world`.
+
+After this batch:
+- TARS Layer-1 QA agent → 32 total · **26 PASS / 0 FAIL / 3 WARN /
+  3 SKIP**. WARN `schema.sitemap` will clear automatically once
+  Cloudflare Pages redeploys with the flipped sitemap (~2 min).
+- `gh pr list --state open` for `tars-neural-cockpit` and
+  `meeet-solana-state-941a6045` are **both empty**.
+- Local smoke matrix unchanged: TARS-old(:8765)/api/domains,
+  TARS-new(:8866)/api/qa/health, TARS-new(:8866)/api/domains,
+  cockpit(:5174)/, meeet(:8083)/ all 200.
+- `make gate-release` (with `GATE_SKIP_BRIDGE=1`) → **GREEN**
+  (pytest 693 + cockpit-tsc + cockpit-test 63 + qa-agent layer-1).
+
+Files (this entry only):
+- `docs/CHANGELOG_AGENTS.md` (this entry)
+
+Coordination: PR #35 + PR #11 are both Cursor-lane (TARS subdomain
+SEO + acceptance script). Claude lane unaffected.
+
 ## 2026-05-01 — Cursor [A] · stale-PR sweep (#22 close, #31 close, #32+#33 merge)
 
 **Summary**
