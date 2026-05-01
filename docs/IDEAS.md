@@ -437,8 +437,21 @@ Open ideas for the next layer:
      deals up the next morning. Pinned by
      `tests/test_business_local_deals.py` (43 cases).
    - `mlm.downline_snapshot`, `mlm.retention_alert` ✅ shipped —
-     local CSV-backed; `generate_post` upgraded to a deterministic
-     stub.
+     local CSV-backed.
+   - `mlm.generate_post` ✅ shipped (2026-05-01) — real
+     multi-channel drafter.
+     `backend/core/domains/packs/mlm/post_drafter.py` lands a
+     4 × 4 × 3 template registry (channel × tone × language)
+     plus per-format overlays (story / reel / dm),
+     language-aware CTAs, and ASCII-safe hashtag generation
+     for ig + linkedin. Channels: ig / tg / wa / linkedin;
+     tones: warm / professional / urgent / celebratory;
+     languages: en / ru / es. Surfaces `draft` / `cta` /
+     `hashtags` / `char_count` / `word_count` for cockpit
+     platform-budget UX. Emits `mlm.post_drafted` per the
+     cross-cutting adapter rule. Backward compat preserved for
+     `playbooks/mlm/retention_round.json`. Pinned by
+     `tests/test_mlm_generate_post.py` (33 cases).
    - `mlm.score_recruit` ✅ shipped (2026-05-01) — real scorer
      over the local downline DB.
      `backend/core/domains/packs/mlm/scoring.py` derives recency
