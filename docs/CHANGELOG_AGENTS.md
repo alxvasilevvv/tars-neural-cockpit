@@ -4,6 +4,65 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · `business.local_deals` awareness source
+
+**Summary**
+
+Mirrors `traders.local_alerts` for the business pack: the existing
+awareness machinery can now subscribe to `business.local_deals` and
+surface a structured snapshot of currently-active local deals via
+`/api/domains/business/awareness/local_deals/snapshot` — no custom
+plumbing required.
+
+1. **Awareness fetcher** (`backend/core/domains/packs/business/awareness.py`)
+   - New `_fetch_local_deals(args)` reads via `read_local_deals`.
+   - Defaults: `active_only=True`, `limit=50` (clamped to `[1, 200]`).
+   - Optional `stage` and `owner` filters with case-insensitive
+     normalisation surfaced in the response `filters` block.
+   - Always returns a structurally-stable envelope so the cockpit
+     can bind unconditionally: `as_of`, `path`, `exists`, `count`,
+     `pipeline_usd`, `by_stage`, `by_owner`, `filters`, `deals`.
+   - `pipeline_usd` excludes terminal stages (`won` / `lost`) so
+     the ticker shows only money still in motion.
+   - `OSError` mapped to `local_deals_unreadable` for telemetry;
+     missing store still returns `ok=True` with `count=0` and
+     `exists=False`.
+
+2. **`AwarenessSource` registration** (same file)
+   - New entry `local_deals` (kind `local`) advertises
+     `path=~/.tars/business_deals.json`, `active_only=true`,
+     `limit=50` so the cockpit form renders sensible defaults.
+
+3. **Tests** (+13 new cases in `tests/test_business_deals_awareness.py`,
+   1 update in `tests/test_awareness_fetchers.py`)
+   - Defaults: snapshot is active-only, returns the right envelope
+     keys, exposes the resolved store path.
+   - Terminal inclusion: `active_only=False` surfaces won / lost
+     rows and `pipeline_usd` correctly excludes terminal amounts.
+   - Missing store: structurally-stable empty envelope, never raises.
+   - Path override: explicit `path` arg beats env.
+   - Aggregations: `by_stage` + `by_owner` rollups, `pipeline_usd`
+     respects terminal-stage exclusion.
+   - Owner / stage filter normalisation.
+   - Limit clamps to 200, garbage falls back to 50, tail-takes most
+     recent.
+   - Pack wiring: `find_awareness("local_deals")` returns a live
+     fetcher, `to_dict()` marks it `live=True kind="local"`.
+   - Existing live-fetcher membership pin extended.
+
+**Test suite**: 1717 passed (was 1703). Lints clean.
+
+**Files**
+
+- `backend/core/domains/packs/business/awareness.py`
+- `tests/test_business_deals_awareness.py` (new)
+- `tests/test_awareness_fetchers.py`
+- `docs/CHANGELOG_AGENTS.md`
+- `docs/AGENT_HANDOFF.md`
+- `docs/IDEAS.md`
+
+---
+
 ## 2026-05-01 — Cursor [A] · `business.list_deals` read-only side door
 
 **Summary**
