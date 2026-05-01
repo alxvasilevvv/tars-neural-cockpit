@@ -141,8 +141,9 @@ Open ideas for the next layer:
   2026-05-01: `embedding_model/dim/blob` columns on `messages`,
   `embed_pending_messages` helper + `POST /api/search/embed-messages`,
   `search_messages` now RRF-fuses BM25 with cosine just like chunk
-  search. Follow-up: spawn a periodic loop in `_lifespan` so freshly
-  written messages get embedded without an operator nudge.
+  search. Periodic backfill via `_message_embed_loop` in `_lifespan`
+  followed in the same day (PR #43) — opt-in via
+  `TARS_MESSAGE_EMBED_INTERVAL_S` (default 0).
 - **Scoped operator filters.** Let the ⌘K palette accept
   `pack:business`, `role:tars`, `since:7d`, `mime:pdf`, etc.,
   parsing them out of the query before sanitising.
