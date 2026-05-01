@@ -4,6 +4,80 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · Cross-thread Cmd+J jump picker
+
+**Summary**
+
+Pulled "Cross-thread Cmd+J jump" from `IDEAS.md` (post-L8). The
+cockpit's content-search palette (⌘K) is BM25 + vector retrieval over
+chunks/messages/events; the navigation palette (⌘J) is a different
+beast — operators want to *jump* to a thread, attachment, saved
+search, or pack with one keystroke and zero context. This slice
+adds the backend that powers ⌘J; the UI is the Claude lane
+follow-up.
+
+1. **`backend/core/search/jump.py`** (new, stdlib-only)
+   - `JumpHit` dataclass — `kind` ∈ `thread | attachment |
+     saved_search | pack | playbook`, plus `id` / `label` /
+     `sublabel` / `score` / `ref`.
+   - `fuzzy_score(query, text)` — cheap matcher (0..1):
+     - Exact match → 1.0.
+     - Prefix → 0.9.
+     - Substring at token boundary → 0.75.
+     - Substring mid-text → 0.7.
+     - Token-prefix (e.g. `mar` over `Marketing brief`) →
+       0.6 + 0.05 per matched token (capped).
+     - Subsequence (every char of `q` appears in order) → 0.3 +
+       0.3 × coverage − gap penalty (min floor 0.1).
+     - No match → 0.
+     Case-insensitive, whitespace-stripped.
+   - `rank(query, candidates, *, limit)` — score + sort + cap.
+     Empty query returns the candidates as-is (recency-first cap).
+   - `jump(query, *, limit, kinds, chat, attachments)` — fan-out:
+     pulls from `all_packs()`, optional `all_playbooks()`, and the
+     chat store (threads, attachments via recent threads, saved
+     searches). `kinds=` lets callers narrow to a subset.
+
+2. **`web_extras/routers/search.py`**
+   - `POST /api/search/jump`. Body
+     `{q?: str, query?: str, limit?: int, kinds?: list[str]}`.
+     - 400 when `q`/`query` isn't a string or `kinds` isn't a list.
+     - Unknown kinds in the list are silently dropped.
+     - `limit` clamped to `[1, 100]`.
+     - Empty `q` returns "recent first" candidates so the palette
+       opens with something useful before typing.
+
+3. **Tests** — `tests/test_jump_picker.py` (new, 23 cases)
+   - `fuzzy_score` ranges (parametrized): exact, token-prefix,
+     mid-text substring, no-match, subsequence; empty inputs;
+     case-insensitivity.
+   - `rank`: blank query → recency pool, drops zero scores,
+     descending sort, cap at limit.
+   - `jump` engine: token-prefix finds thread, empty query returns
+     non-empty pool, empty store returns `count=0`, kinds filter
+     restricts to saved searches, attachment lookup walks recent
+     threads, `q` and `query` body keys are equivalent.
+   - HTTP: ok flow, non-string `q` → 400, non-list `kinds` → 400,
+     unknown kinds silently dropped, `limit` clamp.
+
+**Verification**
+
+`pytest -q --ignore=tests/test_phase8_recovery.py
+       --deselect tests/test_pairing_contract.py::test_pair_attempted_event_emitted`
+→ **907 passed**, 1 deselected (pre-existing flake on `main`).
+Lints clean.
+
+**Files**
+
+- backend/core/search/jump.py (new)
+- web_extras/routers/search.py
+- tests/test_jump_picker.py (new)
+- docs/CHANGELOG_AGENTS.md
+- docs/AGENT_HANDOFF.md
+- docs/IDEAS.md
+
+---
+
 ## 2026-05-01 — Cursor [A] · SMTP OAuth refresh-token flow
 
 **Summary**

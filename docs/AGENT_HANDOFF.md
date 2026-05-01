@@ -1190,6 +1190,17 @@ Smaller functional items still pending in parallel:
     can show what matched and what was stripped.
     `tests/test_search_filters.py` (29 cases) pin parser + engine +
     HTTP wiring. Saved-search bodies inherit the DSL automatically.
+13. ~~**Cross-thread Cmd+J jump.**~~ **backend shipped** (2026-05-01) —
+    `backend/core/search/jump.py` is a navigation-focused fuzzy
+    picker (distinct from the content-search ⌘K palette). Sources:
+    threads, attachments, saved searches, packs, playbooks. Scoring
+    is intentionally cheap (`fuzzy_score`: exact / prefix / substring
+    / token-prefix / subsequence with a coverage-based subseq score).
+    Empty query returns "recent first" candidates so the palette is
+    useful before typing. `POST /api/search/jump` body
+    `{q?, query?, limit?, kinds?}` — clamped to 100 hits, unknown
+    kinds dropped silently. `tests/test_jump_picker.py` (23 cases).
+    Cockpit ⌘J palette UI is the Claude-lane follow-up.
 12. ~~**Saved-search alerts.**~~ **shipped** (2026-05-01) —
     `backend/core/search/alerts.py` adds passive watchers on top of
     the saved-search store. `poll_saved_search` runs the query via
