@@ -1128,6 +1128,16 @@ Smaller functional items still pending in parallel:
    playbook runner still scopes to a single pack — extend so a
    playbook in `playbooks/research_lab/...` can call
    `business__log_deal` etc. directly.
+8. ~~**Vector + BM25 blend for messages.**~~ **shipped** (2026-05-01)
+   — `messages` carries `embedding_model/dim/blob`,
+   `embed_pending_messages` + `POST /api/search/embed-messages`
+   batch-embed pending rows, and `search_messages` now RRF-fuses BM25
+   with cosine the same way chunk search does. Both `rank_keyword`
+   and `rank_semantic` surface on every hit.
+   `tests/test_chat_message_embeddings.py` (13 cases) pins the path.
+   Follow-up: spawn a periodic loop in `_lifespan` so freshly written
+   messages get embedded without an operator nudge — env var
+   `TARS_MESSAGE_EMBED_INTERVAL_S` (default 0 = off until that lands).
 
 ## Conventions to keep
 

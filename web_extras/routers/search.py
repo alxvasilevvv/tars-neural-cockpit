@@ -6,7 +6,13 @@ Endpoints:
   messages + traces; ``scope`` lets the caller restrict to one source.
 - ``POST /api/search/chunks`` — cross-thread (or single-thread) chunk
   search; same FTS5 + vector engine the in-thread retrieval uses.
-- ``POST /api/search/messages`` — keyword search over chat messages.
+- ``POST /api/search/messages`` — hybrid (BM25 + vector) search over
+  chat messages. Falls back to keyword-only when no embedder is
+  reachable or no message has an embedding yet.
+- ``POST /api/search/embed-messages`` — embed pending messages so
+  vector fusion has something to blend; returns counts. Equivalent
+  to ``POST /api/meeet/traces/refresh`` for the trace materialised
+  view (operator-triggered until a periodic loop lands).
 - ``POST /api/search/traces`` — free-text search over the meeet event
   durable buffer.
 - ``GET  /api/chat/threads/{id}/timeline`` — structured per-thread
@@ -22,6 +28,8 @@ from typing import Any, Optional
 
 from fastapi import APIRouter, Body, HTTPException, Query
 
+from backend.core.chat.embeddings import embed_pending_messages
+from backend.core.chat.store import get_chat_store
 from backend.core.search import (
     SearchScope,
     get_thread_timeline,
@@ -108,6 +116,32 @@ async def messages_search(
         "count": len(hits),
         "hits": [h.to_dict() for h in hits],
     }
+
+
+@router.post("/embed-messages")
+async def embed_messages_endpoint(
+    payload: dict[str, Any] | None = Body(default=None),
+) -> dict[str, Any]:
+    """Embed pending chat messages for hybrid search.
+
+    Body:
+    - ``limit`` (int, default 200, max 1000) — pending rows scanned.
+    - ``batch_size`` (int, default 32, max 256) — embedder batch size.
+
+    Returns the same stats shape as
+    :func:`backend.core.chat.embeddings.embed_pending_messages`.
+    """
+
+    body = payload or {}
+    limit = max(1, min(int(body.get("limit") or 200), 1000))
+    batch_size = max(1, min(int(body.get("batch_size") or 32), 256))
+    chat = get_chat_store()
+    pending = await chat.count_messages_pending_embedding()
+    out = await embed_pending_messages(
+        chat=chat, limit=limit, batch_size=batch_size
+    )
+    out.setdefault("pending_at_start", pending)
+    return out
 
 
 @router.post("/traces")

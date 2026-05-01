@@ -135,9 +135,14 @@ Open ideas for the next layer:
 - **Multi-mark BM25 highlights.** The backend already wraps matches
   in `<mark>`; the cockpit currently strips them. Render them as
   gold-on-bg pulses with hover-card chunk previews.
-- **Vector + BM25 blend for messages.** Currently messages are
+- ~~**Vector + BM25 blend for messages.** Currently messages are
   keyword-only; embedding them on insert (and reusing the L2
-  embedder) would surface paraphrased question recall.
+  embedder) would surface paraphrased question recall.~~ — Shipped
+  2026-05-01: `embedding_model/dim/blob` columns on `messages`,
+  `embed_pending_messages` helper + `POST /api/search/embed-messages`,
+  `search_messages` now RRF-fuses BM25 with cosine just like chunk
+  search. Follow-up: spawn a periodic loop in `_lifespan` so freshly
+  written messages get embedded without an operator nudge.
 - **Scoped operator filters.** Let the ⌘K palette accept
   `pack:business`, `role:tars`, `since:7d`, `mime:pdf`, etc.,
   parsing them out of the query before sanitising.
