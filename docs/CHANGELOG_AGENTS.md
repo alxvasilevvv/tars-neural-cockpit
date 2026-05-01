@@ -4,6 +4,73 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · `science.extract_dataset` reads chat attachments
+
+**Summary**
+
+Closes the natural follow-up to PR #79 (the
+`science.extract_dataset` real adapter). Until now the action
+accepted only `text` (raw passage) or `ref` (arXiv id / DOI / URL).
+Operators who'd already uploaded a paper into a chat thread had to
+either paste the abstract by hand or give the action an arXiv id,
+duplicating ingestion work TARS had already done.
+
+This batch teaches the same handler to read the extracted text of
+an ingested attachment.
+
+1. **Action** (`backend/core/domains/packs/science/actions.py`)
+   - New `attachment_id` argument on `extract_dataset`. The
+     handler now resolves three inputs in priority order:
+     `text` → `attachment_id` → `ref`.
+   - `attachment_id` path lazily imports
+     `backend.core.attachments.get_attachment_store`, calls
+     `await store.get_attachment(id)`, and feeds
+     `record.extracted_text` straight into the deterministic
+     dataset detector. The same code path the chunker / FTS
+     index already trusts.
+   - Returns `{ok=False, error="attachment_not_found"}` when the
+     id is unknown and `{ok=False, error="attachment_empty"}`
+     (with a `hint`) when the attachment has no extracted text
+     (e.g. ingest still in flight or a mime the extractor can't
+     read).
+   - On success the response surfaces `attachment_id`,
+     `filename`, `mime`, `thread_id` so the cockpit can label
+     the result row with the source paper without an extra
+     round-trip.
+   - `ActionSpec.schema` + description updated to document the
+     new property and the priority order.
+   - Lazy import keeps `backend.core.domains.packs.science`
+     importable in tests / offline envs that don't bring up the
+     attachment stack.
+
+2. **Tests** (`tests/test_science_extract_datasets.py`)
+   - Renamed expected error code in the existing
+     "no input" test (`ref_or_text_required` →
+     `ref_or_text_or_attachment_required`).
+   - New `_FakeAttachmentRecord` / `_FakeAttachmentStore` and a
+     `patch_attachment_store` fixture that monkeypatches
+     `backend.core.attachments.get_attachment_store`. Lets us
+     exercise the handler without touching SQLite.
+   - 7 new tests:
+     - happy path (returns datasets + attachment metadata),
+     - `attachment_not_found`,
+     - `attachment_empty` for blank-only `extracted_text`,
+     - `attachment_empty` for `None` `extracted_text`,
+     - `text` overrides `attachment_id` (store never consulted),
+     - `attachment_id` overrides `ref` (arXiv never hit),
+     - blank `attachment_id` falls through to the `ref` path.
+   - Schema test extended to assert `attachment_id` is exposed.
+
+3. **Suite**: 1433 tests green.
+
+**Files touched**
+
+- `backend/core/domains/packs/science/actions.py`
+- `tests/test_science_extract_datasets.py`
+- `docs/CHANGELOG_AGENTS.md`
+- `docs/AGENT_HANDOFF.md`
+- `docs/IDEAS.md`
+
 ## 2026-05-01 — Cursor [A] · Recovery seed verification challenge (3-of-24)
 
 **Summary**

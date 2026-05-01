@@ -397,11 +397,16 @@ Open ideas for the next layer:
      case-insensitively at word boundaries, and a `RepoPattern`
      URL library (Zenodo, Figshare, HuggingFace, Kaggle,
      OpenML, OSF, Dryad) that reconstructs a canonical URL from
-     each match. Action accepts `ref` (arxiv id) or `text`
-     (raw); `text` overrides so operator excerpts skip the
-     network. Each `DatasetMention` carries an `evidence`
-     snippet so the cockpit can render audit-friendly chips.
-     Tests: `tests/test_science_extract_datasets.py` (27 cases).
+     each match. Action accepts `text` (raw passage), an
+     `attachment_id` (reads `extracted_text` from the chat
+     attachment store), or `ref` (arxiv id / DOI / URL) — in
+     that priority order so operator excerpts skip the network.
+     The `attachment_id` shape lets the cockpit ask "what
+     datasets does this paper cite?" against an already-ingested
+     PDF without re-fetching arXiv. Each `DatasetMention`
+     carries an `evidence` snippet so the cockpit can render
+     audit-friendly chips.
+     Tests: `tests/test_science_extract_datasets.py` (34 cases).
    - `traders.fetch_quote` ✅ shipped — DexScreener public search.
    - `traders.summarize_market` ✅ shipped — basket aggregation +
      bias + dispersion contradictions.
