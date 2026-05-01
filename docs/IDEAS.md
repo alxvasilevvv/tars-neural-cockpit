@@ -430,9 +430,17 @@ Open ideas for the next layer:
      emits no duplicate event, preserves the original
      `cancel_reason`. Cancellation stamps `cancelled_at` /
      `cancel_reason` on the row so the audit trail keeps the why
-     and when. Pinned by `tests/test_traders_local_alerts.py`
-     (83 cases) plus a destructive-spec membership pin update in
-     `tests/test_policy.py`.
+     and when. The store is also exposed through a new
+     **`traders.local_alerts`** awareness source (`kind="local"`,
+     defaults to `active_only=True`, `limit=50` clamped to 200) so
+     the cockpit ticker can render live triggers via the existing
+     `/api/domains/traders/awareness/local_alerts/snapshot`
+     endpoint without touching the JSON file directly. Pinned by
+     `tests/test_traders_local_alerts.py` (83 cases),
+     `tests/test_traders_alerts_awareness.py` (12 cases), plus a
+     destructive-spec membership pin update in
+     `tests/test_policy.py` and a live-fetcher membership pin
+     update in `tests/test_awareness_fetchers.py`.
    - `business.kpi_snapshot`, `business.daily_brief` ✅ shipped —
      local JSON-backed. `daily_brief` (2026-05-01 follow-up)
      now also unions the local `log_deal` store at
