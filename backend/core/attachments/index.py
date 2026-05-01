@@ -414,6 +414,117 @@ class AttachmentStore:
             conn.close()
         return [_row_to_chunk(r) for r in rows]
 
+    async def update_chunk_embedding(
+        self,
+        *,
+        chunk_id: str,
+        model: str,
+        dim: int,
+        vector: Sequence[float],
+    ) -> bool:
+        """Rewrite a single chunk's vector in place.
+
+        Used by the re-embed pipeline (operator promotes from
+        the offline ``HashEmbedder`` to OpenAI once a key is set).
+        Returns ``True`` when the row was found and updated.
+        """
+
+        if not self.chat.enabled:
+            return False
+        return await asyncio.to_thread(
+            self._update_chunk_embedding_sync,
+            chunk_id=chunk_id,
+            model=model,
+            dim=int(dim),
+            blob=pack_vector(vector),
+        )
+
+    def _update_chunk_embedding_sync(
+        self,
+        *,
+        chunk_id: str,
+        model: str,
+        dim: int,
+        blob: bytes,
+    ) -> bool:
+        conn = self._connect()
+        try:
+            cur = conn.execute(
+                """
+                UPDATE attachment_chunks
+                SET embedding_model = ?,
+                    embedding_dim = ?,
+                    embedding_blob = ?
+                WHERE id = ?
+                """,
+                (model, dim, blob, chunk_id),
+            )
+            return cur.rowcount > 0
+        finally:
+            conn.close()
+
+    async def list_chunks_by_model(
+        self,
+        *,
+        embedding_model: str | None,
+        thread_id: str | None = None,
+        limit: int = 500,
+    ) -> list[Chunk]:
+        """List chunks whose current ``embedding_model`` matches.
+
+        ``embedding_model=None`` matches rows that have never been
+        embedded (useful for backfill paths). The optional
+        ``thread_id`` narrows the scope.
+        """
+
+        if not self.chat.enabled:
+            return []
+        return await asyncio.to_thread(
+            self._list_chunks_by_model_sync,
+            embedding_model=embedding_model,
+            thread_id=thread_id,
+            limit=int(limit),
+        )
+
+    def _list_chunks_by_model_sync(
+        self,
+        *,
+        embedding_model: str | None,
+        thread_id: str | None,
+        limit: int,
+    ) -> list[Chunk]:
+        conn = self._connect()
+        try:
+            clauses: list[str] = []
+            params: list[Any] = []
+            if embedding_model is None:
+                clauses.append("c.embedding_model IS NULL")
+            else:
+                clauses.append("c.embedding_model = ?")
+                params.append(embedding_model)
+            if thread_id is not None:
+                clauses.append("c.thread_id = ?")
+                params.append(thread_id)
+            params.append(int(limit))
+            where = " AND ".join(clauses)
+            rows = conn.execute(
+                f"""
+                SELECT
+                    c.*,
+                    a.filename AS att_filename,
+                    a.mime AS att_mime
+                FROM attachment_chunks c
+                LEFT JOIN attachments a ON a.id = c.attachment_id
+                WHERE {where}
+                ORDER BY c.created_at ASC
+                LIMIT ?
+                """,
+                params,
+            ).fetchall()
+        finally:
+            conn.close()
+        return [_row_to_chunk(r) for r in rows]
+
     async def chunk_count(self, thread_id: str) -> int:
         if not self.chat.enabled:
             return 0
