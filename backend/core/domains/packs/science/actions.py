@@ -13,6 +13,7 @@ from xml.etree import ElementTree as ET
 from ...base import ActionSpec
 from ..._http import NetworkError, get_text
 from .crossref import enrich_via_crossref
+from .datasets import extract_datasets_from_text
 from .openalex import enrich_arxiv
 
 ARXIV_URL = "http://export.arxiv.org/api/query"
@@ -251,11 +252,97 @@ async def summarize_paper(args: Mapping[str, Any]) -> Mapping[str, Any]:
 
 
 async def extract_dataset(args: Mapping[str, Any]) -> Mapping[str, Any]:
-    return {
-        "ok": True,
-        "datasets": [],
-        "as_of": None,
-    }
+    """Surface dataset references in a paper abstract or raw text.
+
+    Two input shapes are supported:
+
+    - ``ref`` (preferred): an arXiv id / DOI / arxiv URL — the
+      handler fetches the title + abstract via the same arXiv
+      Atom path that backs ``summarize_paper`` and runs the
+      detector against ``title + ". " + summary``.
+    - ``text``: any operator-provided string. Useful for the
+      cockpit's "paste a paper passage" affordance and to keep
+      the detector unit-testable without network.
+
+    If both are provided, ``text`` overrides — the operator may
+    legitimately want to probe an excerpt without re-fetching.
+
+    Returns ``{ok, datasets[], count, sources[]}`` where each
+    dataset row is ``{canonical_id, name, source, evidence,
+    url?, domain?}``. ``sources`` lists the high-level providers
+    that contributed (``known_dataset``, ``zenodo``, etc.) so
+    the cockpit can render lane chips.
+
+    Errors flow through the same ``ok=False, error=…`` shape as
+    ``summarize_paper`` so domain pack policy stays uniform.
+    """
+
+    text = str(args.get("text") or "").strip()
+    ref = str(args.get("ref") or "").strip()
+
+    if not text and not ref:
+        return {"ok": False, "error": "ref_or_text_required"}
+
+    payload: dict[str, Any] = {"ok": True}
+
+    if not text:
+        arxiv_id = _normalize_arxiv_ref(ref)
+        if not arxiv_id:
+            return {
+                "ok": False,
+                "error": "ref_unrecognised",
+                "hint": "expected arxiv id like 2305.13245 or full arxiv url",
+                "ref": ref,
+            }
+        try:
+            status, body = await get_text(
+                ARXIV_URL,
+                params={"id_list": arxiv_id, "max_results": 1},
+                timeout=8.0,
+            )
+        except NetworkError as e:
+            return {
+                "ok": False,
+                "error": "network_error",
+                "hint": "arxiv unreachable",
+                "detail": str(e),
+                "arxiv_id": arxiv_id,
+            }
+        if status != 200 or not body:
+            return {
+                "ok": False,
+                "error": "upstream_status",
+                "status": status,
+                "arxiv_id": arxiv_id,
+            }
+        try:
+            results = _parse_arxiv(body)
+        except ET.ParseError as e:
+            return {
+                "ok": False,
+                "error": "parse_error",
+                "detail": str(e),
+                "arxiv_id": arxiv_id,
+            }
+        if not results:
+            return {
+                "ok": False,
+                "error": "not_found",
+                "arxiv_id": arxiv_id,
+            }
+        paper = results[0]
+        title = (paper.get("title") or "").strip()
+        summary = (paper.get("summary") or "").strip()
+        text = (title + ". " + summary).strip(". ").strip()
+        payload["arxiv_id"] = arxiv_id
+        payload["ref"] = ref
+        payload["title"] = paper.get("title")
+
+    mentions = extract_datasets_from_text(text)
+    payload["datasets"] = [m.to_dict() for m in mentions]
+    payload["count"] = len(mentions)
+    payload["sources"] = sorted({m.source for m in mentions})
+    return payload
 
 
 async def hypothesis_tree(args: Mapping[str, Any]) -> Mapping[str, Any]:
@@ -298,9 +385,29 @@ ACTIONS: tuple[ActionSpec, ...] = (
     ActionSpec(
         id="extract_dataset",
         name="Extract dataset",
-        description="Extract dataset references and pinned versions.",
+        description=(
+            "Surface dataset references in a paper (arXiv ref) or "
+            "operator-provided text. Detects ~25 named datasets "
+            "(ImageNet, COCO, GLUE, SQuAD, …) plus repository URL "
+            "patterns (Zenodo, Figshare, HuggingFace, Kaggle, …)."
+        ),
         handler=extract_dataset,
-        schema={"type": "object", "properties": {}},
+        schema={
+            "type": "object",
+            "properties": {
+                "ref": {
+                    "type": "string",
+                    "description": "arXiv id / DOI / arxiv URL.",
+                },
+                "text": {
+                    "type": "string",
+                    "description": (
+                        "Raw text to scan; overrides 'ref' when both "
+                        "are provided. Useful for excerpts."
+                    ),
+                },
+            },
+        },
     ),
     ActionSpec(
         id="hypothesis_tree",
