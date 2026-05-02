@@ -9,18 +9,30 @@ approved by the operator. Plans live in their own SQLite store
 process restarts and the cockpit can render an "approval inbox" of
 pending plans alongside policy confirmations.
 
-This v1 ships the **synthesis + persistence** legs:
+This module ships:
 
 - ``Plan`` / ``PlanStep`` / ``PlanStatus`` types.
 - ``PlannerStore`` (SQLite) with CRUD + status transitions.
-- ``Planner.synthesize(goal, *, available_playbooks, …)`` — a
-  deterministic mapper from a free-form operator goal onto either an
-  existing registered playbook or a single-action fallback. Cloud LLM
-  planning is reserved for a follow-up PR.
-
-The runner / event-emitting ``PlannerLoop`` lands in a follow-up PR.
+- ``synthesize_plan(...)`` — deterministic mapper from a free-form
+  operator goal onto either an existing registered playbook or a
+  single-action fallback. Cloud LLM planning is reserved for a
+  follow-up PR.
+- ``PlanRunner`` / ``run_plan`` — drives an approved Plan through
+  the policy gate and emits ``plan.run.started`` /
+  ``plan.step.{requested,allowed,completed}`` / ``plan.completed``
+  / ``plan.aborted`` events keyed by ``plan_id``.
+- ``PlanRunRegistry`` — tracks in-flight runs so the HTTP layer
+  can request a cooperative abort.
 """
 
+from .runner import (
+    PlanRunError,
+    PlanRunner,
+    PlanRunRegistry,
+    get_run_registry,
+    reset_run_registry,
+    run_plan,
+)
 from .store import PlannerStore, get_planner_store, reset_planner_store
 from .synthesizer import (
     PlannerError,
@@ -31,12 +43,18 @@ from .types import Plan, PlanStatus, PlanStep
 
 __all__ = [
     "Plan",
+    "PlanRunError",
+    "PlanRunRegistry",
+    "PlanRunner",
     "PlanStatus",
     "PlanStep",
     "PlannerError",
     "PlannerStore",
     "PlannerSynthesisRequest",
     "get_planner_store",
+    "get_run_registry",
     "reset_planner_store",
+    "reset_run_registry",
+    "run_plan",
     "synthesize_plan",
 ]
