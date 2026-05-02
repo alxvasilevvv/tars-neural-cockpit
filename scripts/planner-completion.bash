@@ -24,7 +24,7 @@
 #   - Per-subcommand flag completion (--quiet is global, plus the
 #     specific flags each subcommand accepts).
 #   - Live plan_id completion sourced from
-#     `python -m backend.core.planner.cli list --quiet` so you can
+#     `python -m backend.core.planner.cli --quiet list` so you can
 #     tab-complete actual plan ids that exist in the SQLite DB
 #     pointed to by TARS_PLANNER_DB_PATH (or the default).
 #
@@ -50,7 +50,7 @@ _tars_planner_plan_ids() {
     # ``--quiet`` suppresses stderr noise; we ignore JSON parse
     # errors entirely (no plans / DB missing → empty completion
     # list, never a crash in the user's prompt).
-    raw=$(python -m backend.core.planner.cli list --quiet 2>/dev/null \
+    raw=$(python -m backend.core.planner.cli --quiet list 2>/dev/null \
         | python -c 'import json,sys
 try:
     body = json.load(sys.stdin)

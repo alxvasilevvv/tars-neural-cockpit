@@ -193,6 +193,27 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-01 — playbooks bash completion + planner script flag-order fix (Cursor [A]):**
+  Ships `scripts/playbooks-completion.bash` mirroring the
+  existing planner script: tab completion for the 6
+  subcommands, per-subcommand flag tables, **live
+  playbook-id completion** sourced from the CLI itself
+  (5-second cache), and **filesystem-path completion for
+  `--context-file`** so the cron-friendly sidecar-JSON
+  workflow tab-completes end-to-end. While here, fixes a
+  latent bug in `scripts/planner-completion.bash`: both
+  scripts were invoking `… cli list --quiet` but `--quiet`
+  is the global flag and must come before the subcommand.
+  The old order silently failed with exit 2 and an empty
+  completion list (no error visible to the user).
+  Discovered during the playbook script's smoke test;
+  pinned by 10 new pytest cases (script structure + flag
+  drift + cache contract + scoped id completion).
+  Full Python suite: **2195 passed in 41.23s** (was 2185,
+  +10). Follow-ups: right-rail planner entrypoint from the
+  cockpit chat thread; `awareness-completion.bash`
+  deferred until a concrete cron use case driving it.
+
 - **2026-05-01 — playbooks CLI parity + control-tower gate wiring (Cursor [A]):**
   Closes the third (and last) leg of the operator-parity arc.
   Playbook execution now has a shell-side equivalent at
