@@ -38,6 +38,14 @@ Events emitted, all inside ``trace_scope`` + ``thread_id_scope``:
 - ``plan.step.allowed``   — per step, after policy check (carries
   ``allowed`` boolean and gate ``reason``).
 - ``plan.step.completed`` — per step, after dispatch.
+- ``plan.run.usage``      — once per run, immediately before the
+  terminal event. Carries ``plan_id``, ``status`` (the upcoming
+  terminal status), ``parent_trace_id`` (plan's birth trace) and
+  the same ``usage`` block (calls / tokens / cost / latency) that
+  travels on the terminal event. Lets billing dashboards do a
+  cheap ``WHERE kind='plan.run.usage'`` SELECT instead of
+  having to parse the heavier ``plan.completed`` /
+  ``plan.aborted`` payloads.
 - ``plan.completed``      — terminal happy path.
 - ``plan.aborted``        — terminal sad path (with ``reason``).
 
@@ -565,6 +573,25 @@ class PlanRunner:
             )
 
             usage = await _compute_run_usage(trace_id=trace_id)
+
+            # Emit a dedicated rollup event so dashboards can do
+            # ``SELECT * FROM events WHERE kind='plan.run.usage'``
+            # without parsing the heavier terminal payload. This
+            # event is intentionally a *parallel* signal, not a
+            # replacement: ``plan.completed`` / ``plan.aborted``
+            # still carry the same ``usage`` block so existing
+            # consumers do not break. Always fires (even when no
+            # priced model ran) so downstream "plan ran but emitted
+            # nothing" cases are still observable.
+            await client.emit(
+                "plan.run.usage",
+                {
+                    "plan_id": plan.id,
+                    "status": final_status.value,
+                    "parent_trace_id": plan.trace_id,
+                    "usage": usage,
+                },
+            )
 
             if final_status == PlanStatus.COMPLETED:
                 await client.emit(

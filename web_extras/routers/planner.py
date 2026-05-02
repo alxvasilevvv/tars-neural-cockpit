@@ -570,6 +570,7 @@ _PLAN_EVENT_KINDS: tuple[str, ...] = (
     "plan.step.requested",
     "plan.step.allowed",
     "plan.step.completed",
+    "plan.run.usage",
     "plan.completed",
     "plan.aborted",
     "plan.abort.requested",

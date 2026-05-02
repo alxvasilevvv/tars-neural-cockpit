@@ -264,6 +264,7 @@ async def test_run_happy_path_completes_and_emits_events(
         "plan.step.requested",
         "plan.step.allowed",
         "plan.step.completed",
+        "plan.run.usage",
         "plan.completed",
     ]
     for ev in plan_events:
