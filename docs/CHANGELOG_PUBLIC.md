@@ -4,6 +4,94 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-03 — Cursor [A] · session closeout audit
+
+**Summary**
+
+Wrote `docs/SYSTEM_AUDIT_2026-05-03.md` — the closeout audit for
+the multi-PR operator-surface batch (PR #136 → PR #144). All 9
+critical bugs from `SYSTEM_AUDIT_2026-05-02.md` are closed; the
+backend test suite is fully green for the first time since PR #60
+broke `attachments/index.py` (2315 passed). Cockpit vitest at
+328 passed across 22 files. Five new operator surfaces shipped
+(`/cockpit/{traces,policy,council,awareness}` + `⌘.` palette),
+multimodal image routing reaches Claude / gpt-4o natively, and
+the `/changelog` chunk is 63% smaller. Three remaining items are
+explicitly out of autonomous scope (live cloud creds, code
+signing, live Stripe) and documented with the exact missing
+inputs.
+
+`docs/AGENT_HANDOFF.md` updated with the same batch summary in
+the "Done (running list, latest first)" section so the next agent
+can pick up cleanly.
+
+**Files**
+
+- `docs/SYSTEM_AUDIT_2026-05-03.md` (new, 168 lines)
+- `docs/AGENT_HANDOFF.md` (added 2026-05-02/03 closeout block at
+  the top of the running list)
+
+## 2026-05-03 — Cursor [B] · `/changelog` chunk -63% (PR #144)
+
+**Summary**
+
+The `/changelog` page bundled the entire `CHANGELOG_AGENTS.md`
+(551 KB, 172 entries) as a raw import — the resulting Changelog
+chunk was 560 KB raw / 188 KB gzip, larger than the entire
+cockpit shell. Worse, this grows every time any agent appends to
+the per-edit log.
+
+`scripts/generate_public_changelog.py` splits the source on
+`## ` headers and writes `docs/CHANGELOG_PUBLIC.md` with the
+most recent 60 entries plus a "view full history on GitHub"
+footer. The cockpit imports the public file instead. Wired into
+the cockpit lifecycle as `predev` / `prebuild` npm hooks (so
+both dev runs and production builds always see fresh content),
+with a `changelog:check` script (and a CLI `--check` flag) for
+optional CI guard against forgotten regenerations.
+
+**Build delta**
+
+- `Changelog-*.js` raw: 560 KB → 216 KB (-62%)
+- `Changelog-*.js` gzip: 188 KB → 69 KB (-63%)
+- All other chunks unchanged
+- Vitest: 328 passed (no regressions)
+
+**Files**
+
+- `scripts/generate_public_changelog.py` (new, 117 lines)
+- `docs/CHANGELOG_PUBLIC.md` (new, generated, 210 KB)
+- `experiments/neural-showcase-v3/package.json` (predev /
+  prebuild hooks + `changelog:check` script)
+- `experiments/neural-showcase-v3/src/pages/Changelog.tsx`
+  (import switched to `CHANGELOG_PUBLIC.md`)
+
+## 2026-05-03 — Cursor [B] · Unified duplicate `reembed` route (PR #143)
+
+**Summary**
+
+`POST /api/chat/attachments/{id}/reembed` had two FastAPI route
+registrations in `web_extras/routers/chat.py` — the first
+("promote-style", from `pipeline.reembed_attachment`) shadowed
+the second ("force/batch-style", from `reembed.reembed_attachment`)
+because FastAPI dispatches by registration order. This had been
+silently breaking `tests/test_attachment_reembed.py::test_http_reembed_attachment_round_trip`
+ever since the second endpoint was added — the test was written
+for the shadowed contract that was never actually live.
+
+Unified the two endpoints into a single dispatcher route that
+inspects the request body: `force` or `target_model` → batch
+impl; otherwise → promote impl. The response shape is widened to
+satisfy both original test contracts. After this PR, the entire
+backend test suite is fully green (2315 passed, 1 skipped, 2
+xfailed).
+
+**Files**
+
+- `web_extras/routers/chat.py` (collapsed two routes into one,
+  -47 lines net)
+- `docs/CHANGELOG_AGENTS.md` (this entry)
+
 ## 2026-05-02 — Cursor [B] · Image vision routing (multimodal voices)
 
 **Summary**
@@ -4489,261 +4577,6 @@ for `playbooks/mlm/retention_round.json`):
 - `docs/AGENT_HANDOFF.md`
 - `docs/IDEAS.md`
 
-## 2026-05-01 — Cursor [A] · `daily_brief` unions locally-logged deals
-
-**Summary**
-
-Closes the loop with the `business.log_deal` adapter that landed
-earlier today. Until now the brief only saw deals from the bundled
-snapshot (`data/business_deals.json`); deals logged via
-`log_deal` without a CRM key vanished from the morning brief
-because the action wrote to `~/.tars/business_deals.json` and the
-brief never read it.
-
-This batch teaches `daily_brief` to union the bundled snapshot with
-the local-store path on disk. Local rows whose id collides with a
-bundled row replace the bundled payload (operator's most recent
-action wins); brand-new local ids append.
-
-1. **Action** (`backend/core/domains/packs/business/actions.py`)
-   - `daily_brief` now accepts two new args:
-     `local_deals_path` (defaults to
-     `resolve_local_deals_path(...)` — same env / default chain
-     as `log_deal`) and `include_local_deals: bool` (default
-     `True`, set `False` to opt out per-call).
-   - Reads the local store defensively: missing file →
-     skipped silently, corrupted JSON → skipped silently,
-     non-dict rows → filtered.
-   - Refuses to double-load when `local_deals_path` resolves
-     to the same file as `deals_path`.
-   - Union strategy: `id`-keyed dict, local entries replace
-     bundled ones, anonymous rows (no id) get a synthetic
-     `__anon_<n>` key so they never collide.
-   - Response gains `deals_local_logged` (count of rows whose
-     id starts with `local-`), `local_deals_path` (resolved
-     path), and adds `"local-store"` to `sources` whenever
-     locally-logged rows are visible.
-   - `ActionSpec` description + schema updated; `council` /
-     `council_mode` / `calendar_path` are now declared in the
-     schema (they were always supported but weren't documented).
-
-2. **Tests**
-   - **New** `tests/test_business_daily_brief_local_union.py`
-     (10 cases): both stores present, local-only path, missing
-     local file, id collision (local wins), corrupt local
-     file (defensive), `include_local_deals=False`,
-     env-var fallback (`TARS_LOCAL_DEALS_PATH`), same-path
-     dedupe, schema wiring, **end-to-end closed loop** (call
-     `log_deal` then `daily_brief` and confirm the new row
-     shows up in `actions[]`).
-   - **Updated** `tests/test_real_adapters.py::test_daily_brief_handles_missing_files`
-     to also point `local_deals_path` at a missing file so the
-     test stays isolated even on a developer machine that has
-     real `~/.tars/business_deals.json` data.
-
-3. **Suite**: 1526 tests green (was 1516).
-
-**Files touched**
-
-- `backend/core/domains/packs/business/actions.py`
-- `tests/test_business_daily_brief_local_union.py` (new)
-- `tests/test_real_adapters.py`
-- `docs/CHANGELOG_AGENTS.md`
-- `docs/AGENT_HANDOFF.md`
-- `docs/IDEAS.md`
-
-## 2026-05-01 — Cursor [A] · `mlm.score_recruit` over real downline signals
-
-**Summary**
-
-Promotes `score_recruit` from a one-line `hash()` heuristic — which
-was non-deterministic across machines because Python's built-in
-`hash()` is randomised by `PYTHONHASHSEED` — to a real
-local-first scorer over the downline DB. Two wins:
-
-1. **Determinism.** The unknown-handle fallback uses a SHA-256
-   prefix instead of `hash()`, so `@nora` scores the same on every
-   machine and across process restarts.
-2. **Real signals.** When the handle is found in the local
-   downline DB, the score is a weighted composition of recency
-   (40%), volume (30%), rank (20%), and tenure (10%). Operators
-   see an explanatory `signals{}` block plus `fit_signals` /
-   `risk_signals` strings derived from the components.
-
-1. **Module** (`backend/core/domains/packs/mlm/scoring.py`)
-   - `RecruitSignals` frozen dataclass: per-component scores plus
-     interpretable extras (`days_silent`, `volume_usd`,
-     `rank_label`, `tenure_days`, `fit`, `risk` tuples).
-   - `_recency_score(last_active_at, now)` — saturates at 1.0 for
-     ≤7 days, drops linearly to 0.0 by day 90; missing field →
-     neutral 0.5.
-   - `_volume_score(volume_usd)` — linear up to a $5000
-     saturation; negatives clamp to 0.
-   - `_rank_score(rank)` — ordinal over a curated 7-step ladder
-     (`junior → founder`); unknown ranks return the midpoint so
-     the cockpit can't accidentally reward exotic strings.
-   - `_tenure_score(joined_at, now)` — 0 below 30d, saturates at
-     365d; missing field → neutral.
-   - `_fit_and_risk(signals, days_silent)` — composes the
-     operator-facing strings.
-   - `signals_for_member(member, *, now=None)` — pure function
-     so tests can pin the math without going through the action.
-   - `compose_score(signals)` — weighted average, clamped to
-     `[0, 1]`, rounded to 2dp.
-   - `stable_handle_score(handle)` — `int.from_bytes(sha256(...)[:4])`
-     mapped onto `[0.40, 0.95]`. Stable across machines and
-     restarts; lowercase + whitespace insensitive.
-   - `score_for_unknown_handle(handle)` — neutral signal record
-     with the SHA-256 score on every component so the
-     composition stays defensive.
-   - Knobs (`RECENCY_FLOOR_DAYS`, `VOLUME_SATURATION_USD`, …) and
-     `WEIGHTS` are module-level constants — easy to monkey-patch
-     in tests / promote to env vars later.
-
-2. **Action** (`backend/core/domains/packs/mlm/actions.py`)
-   - `score_recruit` now consults the downline DB
-     (`get_downline_db().get(handle)`), feeds the member through
-     `signals_for_member` + `compose_score`, and surfaces
-     `signals{}`, `rank`, `volume_usd`, `days_silent`, plus
-     `model="downline-v1"`, `source="downline_db"`.
-   - Unknown handles drop into the `score_for_unknown_handle`
-     branch with `model="heuristic-v1"` and an explicit hint
-     pointing at `mlm.add_member`.
-   - DB lookup failures (`Exception`) fall through to the
-     unknown-handle branch instead of crashing the action — so
-     the cockpit gets a value even when the SQLite file is
-     temporarily locked.
-   - Module docstring no longer calls `score_recruit` a stub.
-
-3. **Tests** (`tests/test_mlm_score_recruit.py`, 40 cases)
-   - Sanity: weights sum to 1, rank ladder is unique + lowercase.
-   - Stable hash: range `[0.40, 0.95]`, deterministic across
-     calls, case-insensitive, distinguishes handles.
-   - Unknown-handle signals carry the "not in downline" risk
-     string and uniform components.
-   - Recency: saturated active / silent / interpolation /
-     missing / Z-suffix / garbage parsing.
-   - Volume: zero / saturation / linear midpoint / negative.
-   - Rank: unknown string / blank / lowest=0 + highest=1 /
-     case-insensitivity.
-   - Tenure: floor / saturation / missing.
-   - Composite: full path member, silent member emits risk,
-     strong member emits fit; `compose_score` weighted average
-     and clamping; `to_dict` rounding.
-   - Action handler: `handle_required` validation, unknown
-     handle path emits `heuristic-v1`, known handle emits
-     `downline-v1` with > 0.5 score on a senior+active+volume
-     row, inactive member emits a "silent / zero" risk line,
-     determinism across calls, schema unchanged at top level,
-     DB exceptions fall through cleanly.
-
-4. **Suite**: 1516 tests green (was 1476).
-
-**Files touched**
-
-- `backend/core/domains/packs/mlm/scoring.py` (new)
-- `backend/core/domains/packs/mlm/actions.py`
-- `tests/test_mlm_score_recruit.py` (new)
-- `docs/CHANGELOG_AGENTS.md`
-- `docs/AGENT_HANDOFF.md`
-- `docs/IDEAS.md`
-
-## 2026-05-01 — Cursor [A] · `business.log_deal` real local-first adapter
-
-**Summary**
-
-Promotes the last open stub in the business pack from
-"hardcoded `stub-deal-0001` + a hint" to a real local-first
-adapter. Closes the docstring caveat that called the action a
-"structured stub" and keeps a stable surface for the existing
-HubSpot / Pipedrive routes.
-
-When neither `HUBSPOT_API_KEY` nor `PIPEDRIVE_API_KEY` is in the
-vault, deals are appended to a local JSON store at
-`~/.tars/business_deals.json` (override via `TARS_LOCAL_DEALS_PATH`
-env or `store_path` arg). The format is wire-compatible with the
-file `business.daily_brief` already reads, so logged deals show
-up the next morning.
-
-1. **Module** (`backend/core/domains/packs/business/local_deals.py`)
-   - `LocalDealRecord` frozen dataclass mirroring the existing
-     deal row shape (`id`, `name`, `amount`, `stage`, optional
-     `owner` / `next_step` / `due` / `notes`). `to_dict()` drops
-     `None` so we don't pollute the file with empty fields.
-   - `resolve_local_deals_path(override=None)` picks
-     `override > TARS_LOCAL_DEALS_PATH > ~/.tars/business_deals.json`
-     and always expands `~`.
-   - `_read_existing(path)` is defensive: missing file → `[]`,
-     corrupted JSON → `[]` (logged), non-list shape → `[]`,
-     list with non-dict rows → filtered. Existing CRM rows
-     (`d-7012`, `deal-77`, …) are preserved unchanged.
-   - `_atomic_write(path, rows)` writes via `tmp + os.replace`
-     so a simultaneous `daily_brief` reader sees either the old
-     file or the new one, never a torn state. `path.parent` is
-     auto-created.
-   - `_next_local_id(rows)` mints monotonic `local-NNNN` ids
-     (zero-padded to 4 digits, grows naturally beyond 9999).
-     Only rows whose id matches `local-<digits>` participate;
-     unrelated CRM ids are ignored.
-   - `_coerce_amount` clamps negatives to 0 and tolerates
-     `"123"` / `None` / garbage. `_coerce_stage` falls back to
-     `discovery` for unknown values; the stage enum is
-     `discovery / qualification / proposal / negotiation / won /
-     lost`.
-   - `append_local_deal(...)` is the public async helper.
-     Validates name; emits `business.deal_logged` (id, name,
-     amount, stage, store_path, `crm_pushed=False`) via the
-     meeet client per the cross-cutting adapter rule.
-   - Process-local `threading.Lock` serialises read+mutate+write
-     so two coroutines on the same loop never lose a row.
-
-2. **Action** (`backend/core/domains/packs/business/actions.py`)
-   - `log_deal` now resolves CRM credentials in the same priority
-     order, but the no-CRM branch calls `append_local_deal`
-     instead of returning a hardcoded id. Response shape:
-     `{ok=True, crm="local", crm_pushed=False, deal_id=local-NNNN,
-     store_path, deal{...}, hint}`.
-   - `OSError` from the file write surfaces as
-     `{ok=False, error="local_store_unwritable", detail, store_path}`
-     so the operator sees what failed instead of a 500.
-   - `amount` parse failure (`float()` on garbage) now coerces
-     to 0 instead of crashing the action.
-   - `ActionSpec` schema gains `owner`, `next_step`, `due`,
-     `notes`, `store_path` properties; `stage` is now an enum
-     so the cockpit can render a dropdown.
-   - Module docstring no longer calls `log_deal` a stub.
-
-3. **Tests**
-   - **New** `tests/test_business_local_deals.py` (43 cases):
-     path resolution, `_read_existing` defenses, id minting
-     (empty / continuation / mixed-id rows), coercion helpers,
-     `append_local_deal` happy path + corrupt-store recovery
-     + parent-dir creation + blank-name rejection + meeet
-     event side effect, action-handler local fallback +
-     persistence + monotonic ids across calls + explicit
-     `store_path` override + HubSpot/Pipedrive short-circuit
-     (local store untouched), schema enum.
-   - **Updated** `tests/test_batch2_adapters.py` — the
-     `test_log_deal_stub_without_crm_keys` regression now
-     asserts the new local-`local-NNNN` shape and points
-     `TARS_LOCAL_DEALS_PATH` at a tmp file so the test never
-     touches the operator's `~/.tars/`.
-   - **Idea** entry under "Domain pack improvements" in
-     `docs/IDEAS.md` flipped from "stay structured stubs" to
-     "shipped 2026-05-01".
-
-4. **Suite**: 1476 tests green (was 1433).
-
-**Files touched**
-
-- `backend/core/domains/packs/business/local_deals.py` (new)
-- `backend/core/domains/packs/business/actions.py`
-- `tests/test_business_local_deals.py` (new)
-- `tests/test_batch2_adapters.py`
-- `docs/CHANGELOG_AGENTS.md`
-- `docs/AGENT_HANDOFF.md`
-- `docs/IDEAS.md`
-
 ---
 
-_Showing the most recent 60 of 172 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 175 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._

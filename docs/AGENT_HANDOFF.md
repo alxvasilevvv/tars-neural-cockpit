@@ -193,6 +193,80 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-02 / 03 — operator-surface batch + critical bug pass (Cursor [A]):**
+  Closeout session that landed seven PRs in a row, finished the
+  cockpit operator surfaces, and unblocked the silent test gate:
+  - **#136** `/cockpit/traces` — local trace viewer over
+    `/api/meeet/traces` + `/api/meeet/events` (route filter, fuzzy
+    search, two-column drill-down, copy-to-clipboard trace_id,
+    polling).
+  - **#137** `/cockpit/policy` — pending confirmations inbox over
+    `/api/policy/{pending,recent,confirm,cancel}` with grouped
+    queue + recent log + token cards.
+  - **#138** `/cockpit/council` — debug page over
+    `/api/council/deliberate` (manual prompts, voice toggles,
+    contradiction surfacing, agreement / cost / latency badges).
+  - **#139** Operator command palette (`⌘.` / `Ctrl+.`) — fuzzy
+    index over packs / actions / playbooks / awareness sources /
+    recent traces; routes destructive actions through the policy
+    gate; deep-link nav.
+  - **#140** `/cockpit/awareness` — three-column awareness
+    explorer: pack rail with live-source badge, source rail with
+    kind chip + filter, snapshot pane with config preview + live
+    data + took / fetched / trace badges. URL state for deep-link.
+  - **#141** **CRITICAL FIX** — restored
+    `backend/core/attachments/index.py` from a Python 3.12 syntax
+    error (mangled f-string from PR #60 swallowed methods from
+    PR #67). The bug had been silently hiding 40 backend test
+    modules from the suite. After: 2266 tests run instead of
+    collection-erroring.
+  - **#142** Image vision routing — Anthropic Claude / OpenAI
+    gpt-4o voices now receive image bytes natively (not just the
+    OCR text-block fallback). New
+    `backend/core/chat/multimodal.py` (budget-aware: 6 imgs/turn,
+    5 MiB/img, 18 MiB total). Orchestrator only forwards
+    `image_refs` when voice declares `supports_multimodal=True`
+    AND vision attachments exist, so legacy mocks keep working.
+  - **#143** Unified duplicate `POST /api/chat/attachments/{id}/reembed`
+    route (two endpoints fought over the same path — the older
+    promote-style shadowed the newer batch-style). Now dispatches
+    by body shape (`force` / `target_model` → batch impl;
+    otherwise → promote impl). Last failing test now green.
+  - **#144** `/changelog` page bundle: 560 → 216 KB raw / -63%
+    gzip. New `scripts/generate_public_changelog.py` truncates
+    `CHANGELOG_AGENTS.md` to top-60 entries → `CHANGELOG_PUBLIC.md`.
+    Wired into `predev` / `prebuild` npm hooks. `changelog:check`
+    script for CI guard.
+
+  **Test deltas at end of session:**
+  - Backend: **2315 passed**, 1 skipped, 2 xfailed (full sweep
+    runs end-to-end for the first time; was 0 before #141).
+  - Cockpit vitest: **328 passed**, 22 files (+162 from
+    operator-surface batch).
+  - `gate-control-tower` local subset: cockpit-tsc ✓,
+    cockpit-test ✓, planner-smoke ✓, playbooks-validate-all ✓
+    (every shipped playbook validated, 0 errors / warnings).
+  - `smoke-core-bridge` requires `BRIDGE_SHARED_SECRET` (cloud
+    creds) — out of scope for autonomous runs; documented.
+
+  **Background loops sanity check** — all 7 lifespan loops in
+  `web_extras/app.py` confirmed wired (no IDEAS regressions):
+  `_replay_loop` (meeet replay), `autopilot_loop` (agents),
+  `_trace_summary_loop`, `_message_embed_loop`,
+  `_saved_search_poll_loop`, `_memory_purge_loop`,
+  `_policy_expire_loop`. Each opt-in via env interval (`0` =
+  off); never crashes the host.
+
+  **Known carry-over** for next session:
+  - Live API tests against Anthropic / OpenAI / DexScreener /
+    arXiv / meeet ingest — need keys / cloud creds.
+  - Desktop installer signing (Apple Developer ID + Windows
+    Authenticode certs) — workflow exists at
+    `.github/workflows/release-desktop-tagged.yml` but needs
+    `TAURI_SIGNING_PRIVATE_KEY` secret to actually sign.
+  - Live Stripe billing / consumption-limit end-to-end —
+    needs operator with test card.
+
 - **2026-05-02 — cron-shipped morning bundle wrapper (Cursor [A]):**
   Ships `scripts/playbooks_morning_cron.sh` + `make morning-bundle`
   / `make morning-bundle-dry` targets. **Single command** for
