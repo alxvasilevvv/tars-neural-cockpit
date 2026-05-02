@@ -57,6 +57,7 @@ _RELEVANT_EVENT_KINDS = (
     "plan.proposed",
     "planner.approved",
     "planner.rejected",
+    "planner.cloned",
     "plan.run.started",
     "plan.step.requested",
     "plan.step.allowed",
@@ -377,6 +378,17 @@ def _summarise_event(kind: str, payload: dict[str, Any]) -> str:
         return (
             f"plan={payload.get('plan_id') or '?'} · {verb} · "
             f"steps={payload.get('step_count') or 0}"
+        )
+    if kind == "planner.cloned":
+        rebind = (
+            " · thread-rebind" if payload.get("thread_id_rebind") else ""
+        )
+        override = " · goal-override" if payload.get("goal_overridden") else ""
+        return (
+            f"plan={payload.get('plan_id') or '?'} · "
+            f"from={payload.get('source_plan_id') or '?'} · "
+            f"steps={payload.get('step_count') or 0}"
+            f"{rebind}{override}"
         )
     if kind == "plan.run.started":
         return (

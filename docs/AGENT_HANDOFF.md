@@ -193,6 +193,23 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-01 — planner: clone — rerun a plan without history mutation (Cursor [A]):**
+  Lets the operator "rerun" a finished plan without mutating its
+  terminal status. The original keeps its `completed`/`aborted`
+  row; the clone enters the inbox at `proposed` so the operator
+  can approve it again. Three matching surfaces:
+  `PlannerStore.clone(plan_id, *, thread_id, trace_id, goal_override)`,
+  `POST /api/planner/{plan_id}/clone`, and a CLI subcommand
+  (`python -m … clone <id> [--thread-id <t>] [--goal "..."]`).
+  Emits `planner.cloned` with `plan_id` (clone) +
+  `source_plan_id` (original) + `thread_id_rebind` /
+  `goal_overridden` flags; the timeline allow-list and
+  summariser pick it up so the cockpit audit lane renders the
+  parent → child link. Pinned by `tests/test_planner_clone.py`
+  (13 cases). Full suite: **2022 passing**. Follow-ups: cockpit
+  "Rerun" button (clone → approve → run); optional
+  `clone --approve` CLI flag for one-shot rerun.
+
 - **2026-05-01 — planner: shell CLI (Cursor [A]):**
   Operator-facing scripting tool at
   `python -m backend.core.planner.cli` mirroring `replay_cli`.
