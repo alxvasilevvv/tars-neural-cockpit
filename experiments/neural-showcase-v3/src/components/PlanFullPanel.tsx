@@ -31,7 +31,7 @@
  * formatting without a DOM.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, Play, RefreshCw, X } from "lucide-react";
 
 import {
@@ -50,6 +50,16 @@ import {
   type PolicyMode,
   type PlannerEvent,
 } from "@/lib/planner";
+import {
+  EMPTY_SNAPSHOT,
+  applyEvent as applyStepEvent,
+  pendingSnapshot,
+  snapshotInFlight,
+  stepStatusLabel,
+  type StepLiveSnapshot,
+  type StepLiveState,
+  type StepLiveStatus,
+} from "@/lib/plannerSteps";
 
 // ---------------------------------------------------------------------------
 // Pure helpers (exported for Vitest)
@@ -180,7 +190,27 @@ export function PlanFullPanel(props: PlanFullPanelProps) {
   const [error, setError] = useState<string | null>(null);
   const [rerunning, setRerunning] = useState(false);
   const [aborting, setAborting] = useState(false);
+  const [stepSnapshot, setStepSnapshot] =
+    useState<StepLiveSnapshot>(EMPTY_SNAPSHOT);
   const lastEventIdRef = useRef<number | null>(null);
+
+  const stepIds = useMemo(
+    () => (data?.plan.steps ?? []).map((s) => s.id),
+    [data?.plan.steps],
+  );
+
+  // Whenever the plan envelope arrives (or its step list changes), seed
+  // the live snapshot to "all pending" so the rows render immediately
+  // instead of waiting for the first SSE frame.
+  useEffect(() => {
+    if (!stepIds.length) {
+      setStepSnapshot(EMPTY_SNAPSHOT);
+      return;
+    }
+    setStepSnapshot((prev) =>
+      prev.trace_id === null ? pendingSnapshot(stepIds) : prev,
+    );
+  }, [stepIds]);
 
   const refetch = useCallback(async () => {
     if (!planId) return;
@@ -211,7 +241,9 @@ export function PlanFullPanel(props: PlanFullPanelProps) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [planId, refetch]);
 
-  // Live updates — refetch on any planner event we care about.
+  // Live updates — refetch on lifecycle events, and feed every
+  // step.* event through the per-step reducer so the rows tick
+  // without an extra round-trip.
   useEffect(() => {
     if (!planId || disableLive) return;
     const cleanup = subscribePlannerEvents(
@@ -221,6 +253,15 @@ export function PlanFullPanel(props: PlanFullPanelProps) {
           if (shouldAdvanceCursor(lastEventIdRef.current, e.id)) {
             lastEventIdRef.current = e.id;
           }
+          // Step-state reducer first — pure, cheap, no fetch.
+          if (
+            e.kind === "plan.run.started" ||
+            e.kind === "plan.step.requested" ||
+            e.kind === "plan.step.allowed" ||
+            e.kind === "plan.step.completed"
+          ) {
+            setStepSnapshot((prev) => applyStepEvent(prev, e, stepIds));
+          }
           if (REFETCH_KINDS.has(e.kind)) {
             void refetch();
           }
@@ -228,7 +269,7 @@ export function PlanFullPanel(props: PlanFullPanelProps) {
       },
     );
     return cleanup;
-  }, [planId, disableLive, refetch]);
+  }, [planId, disableLive, refetch, stepIds]);
 
   const onRerun = useCallback(async () => {
     if (!planId) return;
@@ -308,7 +349,7 @@ export function PlanFullPanel(props: PlanFullPanelProps) {
         </div>
       )}
 
-      {data && <PlanBody data={data} />}
+      {data && <PlanBody data={data} stepSnapshot={stepSnapshot} />}
 
       {data && (
         <footer className="flex flex-wrap items-center gap-2 border-t border-line pt-4">
@@ -358,12 +399,23 @@ export function PlanFullPanel(props: PlanFullPanelProps) {
 // Sub-renderers (no state, no fetch)
 // ---------------------------------------------------------------------------
 
-function PlanBody({ data }: { data: PlanFullResponse }) {
+function PlanBody({
+  data,
+  stepSnapshot,
+}: {
+  data: PlanFullResponse;
+  stepSnapshot: StepLiveSnapshot;
+}) {
   const { plan, runs, usage_lifetime } = data;
+  const inFlight = snapshotInFlight(stepSnapshot);
   return (
     <div className="grid gap-5">
       <PlanMetaRow plan={plan} />
-      <Steps steps={plan.steps} />
+      <Steps
+        steps={plan.steps}
+        snapshot={stepSnapshot}
+        inFlight={inFlight}
+      />
       <Runs runs={runs.items} inFlight={runs.in_flight} />
       <Lifetime usage={usage_lifetime} />
     </div>
@@ -389,20 +441,69 @@ function PlanMetaRow({ plan }: { plan: Plan }) {
   );
 }
 
-function Steps({ steps }: { steps: PlanStep[] }) {
+/** Pure helper: classes for the per-step status badge. */
+const STEP_STATUS_CLASS: Record<StepLiveStatus, string> = {
+  pending: "border-line text-ink-3",
+  requested:
+    "border-line-strong text-[color:var(--brand-amber,#FBBF24)] animate-pulse",
+  blocked: "border-alert/60 text-alert",
+  ok: "border-line-strong text-[color:var(--color-success)]",
+  failed: "border-alert/60 text-alert",
+  skipped: "border-line text-ink-3 opacity-60",
+};
+
+function StepBadge({ state }: { state: StepLiveState }) {
+  return (
+    <span
+      title={state.reason ?? state.error ?? undefined}
+      className={`inline-flex shrink-0 items-center rounded-md border px-1.5 py-0.5 font-mono-tech text-[9px] uppercase tracking-[1.6px] ${
+        STEP_STATUS_CLASS[state.status]
+      }`}
+    >
+      {stepStatusLabel(state.status)}
+    </span>
+  );
+}
+
+function Steps({
+  steps,
+  snapshot,
+  inFlight,
+}: {
+  steps: PlanStep[];
+  snapshot: StepLiveSnapshot;
+  inFlight: boolean;
+}) {
   return (
     <section>
-      <div className="mb-1.5 font-mono-tech text-[9.5px] uppercase tracking-[2.6px] text-ink-2">
-        steps · {steps.length}
+      <div className="mb-1.5 flex items-center justify-between font-mono-tech text-[9.5px] uppercase tracking-[2.6px] text-ink-2">
+        <span>steps · {steps.length}</span>
+        {inFlight && (
+          <span className="text-[color:var(--brand-amber,#FBBF24)]">
+            live · run in flight
+          </span>
+        )}
       </div>
       <ol className="grid gap-1 font-mono-tech text-[11px] tracking-[0.6px] text-ink-2">
         {steps.length === 0 && <li className="text-ink-3">no steps</li>}
-        {steps.map((s) => (
-          <li key={s.id} className="grid grid-cols-[80px_1fr] items-start gap-2">
-            <span className="text-ink-3">{s.id}</span>
-            <span className="truncate text-ink">{summariseStep(s)}</span>
-          </li>
-        ))}
+        {steps.map((s) => {
+          const state = snapshot.steps[s.id] ?? { status: "pending" as const };
+          return (
+            <li
+              key={s.id}
+              className="grid grid-cols-[auto_60px_1fr_auto] items-center gap-2"
+            >
+              <StepBadge state={state} />
+              <span className="truncate text-ink-3">{s.id}</span>
+              <span className="truncate text-ink">{summariseStep(s)}</span>
+              {typeof state.took_ms === "number" && (
+                <span className="text-ink-3 tabular-nums">
+                  {formatLatencyMs(state.took_ms)}
+                </span>
+              )}
+            </li>
+          );
+        })}
       </ol>
     </section>
   );

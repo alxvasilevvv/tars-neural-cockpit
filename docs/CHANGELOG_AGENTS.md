@@ -4,6 +4,95 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · cockpit: per-step live ticking in PlanFullPanel
+
+**Summary**
+
+Top-priority follow-up from PR #118. The plan panel's step list
+now ticks live during a run: every `plan.step.requested` /
+`plan.step.allowed` / `plan.step.completed` SSE frame flips the
+matching row's status badge in place — no extra round-trip, no
+flash, no out-of-order rendering.
+
+The step-state reducer is its own module (`lib/plannerSteps.ts`)
+and pure / DOM-free, so the contract with the backend's step
+event payloads can be pinned without a React tree. The reducer
+honours three subtle rules:
+
+1. **Trace scoping** — only events whose `trace_id` matches the
+   most recent `plan.run.started` we've seen are applied. Stray
+   events from older reruns whose terminals are still flushing
+   are dropped on the floor; the panel always shows the freshest
+   run's progress.
+2. **Resume idempotency** — re-delivery of the same start frame
+   (same `trace_id`) after a `Last-Event-ID` reconnect does not
+   reset mid-run progress. Test pins this with referential equality.
+3. **Skipped > blocked > failed** — terminal states fall through a
+   precedence ladder so a step that is `{skipped:true, ok:false,
+   blocked:true}` (which the runner can emit when a previous step
+   aborts the run) renders as "skipped", not "blocked" or
+   "failed".
+
+The panel seeds an "all pending" snapshot the moment the plan
+envelope arrives, so the rows render immediately instead of
+waiting for the first SSE frame; once `plan.run.started` lands
+the snapshot is keyed to that trace.
+
+Status badges use the same tone palette as the rest of the
+cockpit (amber for in-flight via `pulse`, success for ok, alert
+for blocked / failed, muted for pending / skipped). Latency on
+completed steps renders next to the action via `formatLatencyMs`.
+
+**Changes**
+
+1. `experiments/neural-showcase-v3/src/lib/plannerSteps.ts`
+   (new) — pure reducer, snapshot type, helpers
+   (`pendingSnapshot`, `applyEvent`, `snapshotInFlight`,
+   `stepStatusLabel`).
+2. `experiments/neural-showcase-v3/src/lib/plannerSteps.test.ts`
+   (new, 20 cases) — every transition pinned:
+   - `pendingSnapshot` seeds + empty case.
+   - `plan.run.started`: trace-lock, redelivery no-op
+     (referential equality), fresh-trace mid-flight reset.
+   - Scoping: drops events from a foreign trace, drops
+     payloads with no `step_id`, drops cosmetic kinds.
+   - `plan.step.requested`: status flip + parallel flag.
+   - `plan.step.allowed`: blocked-eager (`allowed=false`) and
+     allowed-tooltip (`allowed=true`) paths.
+   - `plan.step.completed`: ok / failed (with error) /
+     blocked-wins-over-failed / skipped-wins-over-everything /
+     non-numeric `took_ms` falls back to undefined.
+   - `snapshotInFlight`: true while requested, false on
+     completion, false on fresh pending.
+   - `stepStatusLabel`: short label for every status.
+3. `experiments/neural-showcase-v3/src/components/PlanFullPanel.tsx`
+   - `useState<StepLiveSnapshot>` seeded from the plan envelope.
+   - SSE callback now feeds step-event kinds through the
+     reducer in addition to the existing `REFETCH_KINDS`
+     refresh trigger.
+   - `Steps` sub-renderer rewritten to take the snapshot and
+     render per-step badges + live latency. Header carries an
+     amber "live · run in flight" lozenge while
+     `snapshotInFlight(snapshot)` is true.
+
+**Tests**
+
+- `pnpm vitest run` — **140 passed (12 files)**, incl. 20 new
+  step-reducer cases.
+- `pnpm tsc --noEmit` — clean.
+- `pnpm vite build` — clean.
+- `pytest -q` — **2080 passed in 40s** (no Python deltas).
+
+**Cockpit follow-ups**
+
+- URL-state sync for the `<Planner />` filter strip
+  (`?status=running&q=…`) so operators can deep-link to a
+  view; mirror the selected `plan_id` in the path so a refresh
+  stays put.
+- Right-rail entrypoint from the cockpit chat thread (open the
+  panel inline when the agent proposes a plan) — the next
+  obvious operator workflow.
+
 ## 2026-05-01 — Cursor [A] · cockpit: PlanFullPanel + /cockpit/planner page
 
 **Summary**
