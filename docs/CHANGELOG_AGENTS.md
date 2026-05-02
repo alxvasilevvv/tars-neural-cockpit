@@ -4,6 +4,188 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · awareness CLI parity (`python -m backend.core.domains.awareness_cli` + `awareness-*` Make targets)
+
+**Summary**
+
+Closes the operator-parity gap left by the planner CLI: the
+**awareness layer** (the cockpit's `GET /api/domains` /
+`GET /api/domains/<slug>/awareness` /
+`GET /api/domains/<slug>/awareness/<source_id>/snapshot` route)
+now has a shell-side equivalent. An operator running on a
+machine without the FastAPI process up — fleet rollout,
+cron-driven cold-start brief, on-call recovery during an
+ingest outage — can now list and materialise awareness sources
+without going through HTTP, and the meeet event surface is
+**bit-for-bit identical** so cockpit dashboards count CLI hits
+the same as HTTP hits.
+
+The CLI ships three subcommands plus a global `--quiet` flag:
+
+- `list` — catalogue every pack (no slug) or one pack's
+  awareness rows. Each row carries a `live` flag so the
+  operator instantly sees which sources are config-only
+  (webhook receivers, etc.).
+- `snapshot <slug> <source_id>` — materialise one source.
+  Mirrors the HTTP route's `awareness.snapshot.requested /
+  completed / failed` event sequence inside a `trace_scope`,
+  surfaces `trace_id` + `took_ms` in the envelope.
+- `snapshot-all <slug>` — materialise every fetcher-bearing
+  source on a pack. Splits results into `fetched` (real
+  fetcher invocations) and `skipped` (config-only sources)
+  so the operator can tell "no fetcher implemented yet"
+  apart from a real fetch failure. Overall `ok` flips to
+  `false` on any fetched-source failure.
+
+**Why now?** Three concrete drivers:
+
+1. **Cron-driven cold-start briefs** — the `traders.morning_check`
+   playbook needs `binance_ws.snapshot` materialised before the
+   summarise step runs. Today that's done by hitting HTTP from a
+   curl-in-cron. The CLI variant skips the HTTP hop, runs in the
+   same process, and pipes cleanly into `jq`.
+2. **Cold-start recovery** — when the FastAPI app is wedged (rare
+   but seen in production), HTTP-only operator paths leave you
+   with no way to inspect awareness wiring. The CLI is the only
+   path that doesn't depend on the web layer.
+3. **Fleet orchestration** — higher-level orchestrators (Ansible,
+   Kubernetes Jobs) prefer to shell out and parse JSON over
+   maintaining a per-orchestrator HTTP client. The CLI gives
+   them a stable, shell-friendly surface.
+
+**Changes**
+
+1. `backend/core/domains/awareness_cli.py` (new module):
+   - `_cmd_list` — single-pack or catalogue listing.
+     Each row exposes `id` / `name` / `description` / `kind` /
+     `config` / `live` (mirror of the HTTP route's per-row
+     shape). Catalogue mode adds `count` / `live_count` per
+     pack so the operator can spot a pack with zero live
+     sources at a glance.
+   - `_cmd_snapshot` — single-source materialisation.
+     Wraps the fetcher in `trace_scope(parent=<flag>,
+     route="cli")` so cockpit-side trace search threads the
+     CLI invocation through the same UI as HTTP. Fetcher
+     exceptions return an error envelope (no traceback to
+     stdout) and emit `awareness.snapshot.failed`. Config-only
+     sources return `error: fetcher_unavailable` with a
+     human-readable hint instead of raising.
+   - `_cmd_snapshot_all` — pack-scoped bulk materialisation.
+     Iterates `pack.awareness()`, materialising fetcher-backed
+     sources and accumulating skipped (config-only) ones into
+     a separate array. Overall `ok` is the AND of every
+     fetched-source `ok` (skipped sources do *not* fail the
+     envelope — they're not actionable failures, just
+     not-implemented-yet).
+   - `--thread-id` / `--trace-id` flags on the snapshot
+     subcommands so an operator chaining CLI calls inside a
+     larger orchestration can keep the trace tree intact.
+   - `_emit` helper standardises JSON output (indent=2 by
+     default; `--quiet` for compact one-line) and exit-code
+     mapping (`0` on `ok=true`, `1` on `ok=false`).
+   - `main(argv)` returns the exit code so cron / Make targets
+     can chain reliably.
+
+2. `Makefile`:
+   - New `AWARENESS ?= $(PY) -m backend.core.domains.awareness_cli`
+     macro so a future cli relocation is a one-line change.
+   - Four new targets, all on the `.PHONY` line:
+     - `awareness` — raw passthrough
+       (`make awareness ARGS="snapshot traders binance_ws"`).
+     - `awareness-list` — `[ARGS=<slug>]` (no slug ⇒ catalogue).
+     - `awareness-snapshot ARGS="<slug> <source_id>"` — guards
+       against empty `ARGS` (`exit 2`), then re-guards both
+       positionals via `set -- $(ARGS)` so the operator gets a
+       usage line instead of an argparse traceback when only
+       one positional is supplied.
+     - `awareness-snapshot-all ARGS=<slug>` — single-positional,
+       forwards `$(ARGS)` directly. Same `[ -z "$(ARGS)" ] ; exit 2`
+       guard pattern as the rest of the planner-* family.
+   - Each target carries a `## help` comment so it shows up in
+     `make help`.
+
+3. `tests/test_awareness_cli.py` (new): 16 contract tests
+   covering every subcommand × every fetcher branch.
+   - `probe_pack` fixture registers a fully-controlled domain
+     pack with three sources (success / raise / no-fetcher),
+     so tests don't depend on the real built-in packs (which
+     hit live URLs).
+   - `list` no-slug returns every pack with the expected row
+     shape; with-slug filters correctly; unknown slug emits
+     `domain_not_found` and `rc=1`.
+   - `snapshot` happy path returns `ok=true` + `data` +
+     `trace_id` + `took_ms`; raising fetcher returns
+     `ok=false` with the exception text + still emits the
+     trace_id (so the operator can grep meeet for the
+     matching `awareness.snapshot.failed`); config-only source
+     returns `fetcher_unavailable` with a human hint;
+     unknown slug / unknown source return distinct
+     `domain_not_found` / `awareness_not_found` envelopes.
+   - `snapshot-all` splits fetched vs skipped, flips overall
+     `ok` only when a fetched source fails (skipped doesn't
+     count); unknown slug returns `domain_not_found`.
+   - Argparse plumbing: missing subcommand / missing
+     positionals raise `SystemExit(2)`; `--quiet` produces
+     single-line JSON (asserted by counting newlines);
+     `main([...])` end-to-end smoke through `asyncio.run`.
+
+4. `tests/test_makefile_awareness_targets.py` (new): 10
+   contract tests pinning the Make wiring without shelling
+   into `make` (which requires a full venv on PATH and
+   couples the test runtime to the CI host).
+   - All four target names appear on the `.PHONY` line.
+   - Every target has a `## help` comment ≥5 chars.
+   - `awareness-snapshot` and `awareness-snapshot-all` have
+     the standard `[ -z "$(ARGS)" ] ; exit 2` guard so
+     missing `ARGS` doesn't burrow into argparse with a
+     confusing error.
+   - `AWARENESS` macro must point at
+     `backend.core.domains.awareness_cli` so a future
+     module move surfaces here, not in production.
+   - `awareness-snapshot` recipe uses
+     `set -- $(ARGS)` for safe positional split, and
+     re-guards both positionals via the inner
+     `[ -z "$$slug" ] || [ -z "$$source_id" ]` check. Pin
+     this so a future "simplification" doesn't reintroduce
+     the "missing source_id ⇒ confusing argparse error"
+     foot-gun.
+   - `awareness-snapshot-all` recipe forwards `$(ARGS)`
+     directly (single positional, no `set --` needed) — pin
+     this as the canonical pattern for single-positional
+     targets.
+
+**Tests**
+
+- `tests/test_awareness_cli.py` — 16 new tests, all green.
+- `tests/test_makefile_awareness_targets.py` — 10 new tests,
+  all green.
+- Full Python suite: **2144 passed in 48.90s** (was 2118, +26
+  net new tests = 16 + 10).
+- Smoke: `make awareness-list ARGS=traders` returns 5
+  sources (4 live), `make awareness-snapshot
+  ARGS="traders binance_ws"` returns the live ticker
+  envelope with `trace_id` + `took_ms`, missing-`ARGS`
+  guards exit 2.
+
+**Files**
+
+- `backend/core/domains/awareness_cli.py` (new, 392 lines).
+- `Makefile` — new `AWARENESS` macro + four new targets +
+  `.PHONY` extension.
+- `tests/test_awareness_cli.py` (new, 437 lines, 16 tests).
+- `tests/test_makefile_awareness_targets.py` (new, 142 lines,
+  10 tests).
+- `docs/CHANGELOG_AGENTS.md`, `docs/AGENT_HANDOFF.md`.
+
+**Follow-ups**
+
+- Right-rail cockpit entrypoint when the agent proposes a plan
+  (still pending; tracked in `AGENT_HANDOFF.md`).
+- Awareness pre-warm subcommand
+  (`awareness-snapshot-all --pack=*`) once a packwide ARGS
+  pattern emerges; deferred until there's a concrete cron use
+  case driving it.
+
 ## 2026-05-01 — Cursor [A] · meeet replay CLI: `--repush-trace` + `planner-repush-run` Make target
 
 **Summary**
