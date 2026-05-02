@@ -193,6 +193,37 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-01 — awareness CLI bash completion (operator-CLI arc symmetry closed) (Cursor [A]):**
+  Ships `scripts/awareness-completion.bash` mirroring the
+  existing planner / playbooks completion scripts. **Closes
+  the operator-CLI arc symmetry**: every cockpit-facing TARS
+  surface (planner / awareness / playbook) now has HTTP route
+  + `python -m …` CLI + `make …-*` targets + bash completion.
+  The awareness script handles a wrinkle the other two don't:
+  **two-level live positional completion** for the `snapshot`
+  subcommand. Positional 0 is a pack slug (live query against
+  `awareness_cli list`); positional 1 is a source id, **scoped
+  to the chosen slug** (live query against `awareness_cli list
+  <slug>`, with the cache keyed by slug name so completing
+  slug A then slug B doesn't pollute B's cache with A's
+  source ids — explicitly pinned). Avoids the `--quiet`
+  flag-order bug from PR #130 by construction (both query
+  helpers invoke the CLI with `--quiet` BEFORE the subcommand,
+  pinned). Pinned by 9 new pytest cases covering script
+  structure, no-drift between cli._DISPATCH and the script,
+  per-subcommand flag tables, the two-cache invariant, the
+  two-level positional walker, and the flag-VALUES skip
+  (so `--thread-id thr_42 traders` correctly identifies
+  `traders` as positional 0). Full Python suite: **2204
+  passed in 40.97s** (was 2195, +9). Smoke (sourced into
+  bash): tab returns 3 subcommands, then 8 live pack slugs,
+  then 5 source ids scoped to the chosen pack. The arc as it
+  now stands: planner / awareness / playbook each have HTTP
+  + CLI + Make + completion, all sharing the same trace +
+  event surface. Follow-ups: right-rail planner entrypoint
+  (cancelled — needs ChatPane plan-aware protocol first);
+  cron-shipped morning-bundle wrapper script.
+
 - **2026-05-01 — playbooks bash completion + planner script flag-order fix (Cursor [A]):**
   Ships `scripts/playbooks-completion.bash` mirroring the
   existing planner script: tab completion for the 6
