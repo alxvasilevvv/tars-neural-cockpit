@@ -51,6 +51,15 @@ Endpoints:
   ``thread_id`` (rebind to a different chat) and
   ``goal_override``. Emits ``planner.cloned`` so the cockpit
   audit lane sees the relationship.
+- ``POST /api/planner/{plan_id}/rerun`` — one-shot rerun:
+  clone → approve → run, all in a single round-trip and inside
+  one trace scope so the events stitch together. Body /
+  header support mirrors ``/clone`` plus optional ``mode``
+  (or ``x-tars-policy-mode`` header) to override the policy
+  gate for the run portion. Returns the new plan, the run
+  result envelope, and a ``source_plan_id`` pointer back to
+  the original. ``planner.cloned`` is emitted with
+  ``auto_approved=true`` and ``auto_run=true``.
 
 Every state-changing endpoint emits a ``planner.*`` meeet event so
 the cockpit gold-pill audit lane sees the plan lifecycle.
@@ -529,6 +538,124 @@ async def clone_plan(
             },
         )
     return {"ok": True, "plan": clone.to_dict(), "source_plan_id": original.id}
+
+
+@router.post("/{plan_id}/rerun")
+async def rerun_plan(
+    plan_id: str,
+    payload: dict[str, Any] = Body(default_factory=dict),
+    x_meeet_trace_id: str | None = Header(default=None),
+    x_tars_thread_id: str | None = Header(default=None),
+    x_tars_policy_mode: str | None = Header(default=None),
+) -> dict[str, Any]:
+    """One-shot rerun: clone ``plan_id`` → approve → run.
+
+    Convenience endpoint over ``POST /{plan_id}/clone`` for the
+    cockpit's "Rerun" button. Equivalent to calling clone, then
+    flipping the new plan to ``approved``, then ``POST /run`` —
+    but in a single network round-trip and inside one trace
+    scope so all of the resulting events stitch together.
+
+    Body / header support mirrors ``/clone``:
+
+    - ``thread_id`` (body) or ``x-tars-thread-id`` header rebinds
+      the clone to a different chat thread.
+    - ``goal_override`` (body) replaces the goal copy on the
+      clone (steps stay verbatim).
+    - ``mode`` (body) or ``x-tars-policy-mode`` header overrides
+      the policy gate for the run portion.
+
+    The response carries the new plan, the run result envelope
+    (status, steps, usage rollup), and a ``source_plan_id``
+    pointer back to the original. ``planner.cloned`` is emitted
+    with ``auto_approved=true`` and ``auto_run=true`` so the
+    timeline can label the relationship as a one-shot rerun.
+    """
+
+    store = get_planner_store()
+    original = await store.get(plan_id)
+    if original is None:
+        raise HTTPException(status_code=404, detail="plan_not_found")
+
+    body_thread = payload.get("thread_id")
+    rebound_thread = (
+        str(body_thread).strip() if body_thread is not None else None
+    ) or (x_tars_thread_id or "").strip() or None
+    goal_override = payload.get("goal_override")
+    goal_str = (
+        str(goal_override).strip() if goal_override is not None else None
+    ) or None
+
+    body_mode = payload.get("mode")
+    mode_override = (
+        str(body_mode).strip() if body_mode is not None else None
+    ) or None
+    # ``resolve_mode`` is permissive — unknown strings silently
+    # fall through to the env / fallback chain so a stale cockpit
+    # dropdown value can't lock the operator out of a rerun.
+    policy_mode: PolicyMode = resolve_mode(
+        header=x_tars_policy_mode,
+        request_arg=mode_override,
+    )
+
+    with thread_id_scope(rebound_thread or original.thread_id), trace_scope(
+        parent=x_meeet_trace_id
+    ) as new_trace_id:
+        clone = await store.clone(
+            plan_id,
+            thread_id=rebound_thread or original.thread_id,
+            trace_id=new_trace_id,
+            goal_override=goal_str,
+        )
+        if clone is None:  # race: original deleted between get + clone
+            raise HTTPException(status_code=404, detail="plan_not_found")
+        await get_client().emit(
+            "planner.cloned",
+            {
+                "plan_id": clone.id,
+                "source_plan_id": original.id,
+                "source_status": original.status.value,
+                "model": clone.model,
+                "pack_slug": clone.pack_slug,
+                "playbook_id": clone.playbook_id,
+                "step_count": len(clone.steps),
+                "thread_id_rebind": (
+                    rebound_thread != original.thread_id
+                    if rebound_thread is not None
+                    else False
+                ),
+                "goal_overridden": goal_str is not None,
+                "auto_approved": True,
+                "auto_run": True,
+            },
+        )
+
+        await store.set_status(clone.id, PlanStatus.APPROVED)
+        clone = await store.get(clone.id) or clone
+
+        try:
+            run_result = await PlanRunner().run(clone.id, mode=policy_mode)
+        except PlanRunError as exc:
+            raise HTTPException(
+                status_code=409,
+                detail={
+                    "reason": exc.reason,
+                    "message": exc.message,
+                    "plan_id": clone.id,
+                    "source_plan_id": original.id,
+                },
+            ) from exc
+
+        clone = await store.get(clone.id) or clone
+
+    return {
+        "ok": True,
+        "plan": clone.to_dict(),
+        "source_plan_id": original.id,
+        "auto_approved": True,
+        "auto_run": True,
+        "run_result": run_result,
+    }
 
 
 @router.delete("/{plan_id}")
