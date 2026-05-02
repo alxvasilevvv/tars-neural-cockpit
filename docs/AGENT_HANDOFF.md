@@ -193,6 +193,25 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-01 — Makefile: `planner-rerun` target for cron / fleet (Cursor [A]):**
+  Adds `make planner-rerun ARGS=<plan_id> [MODE=autopilot|confirm|dry_run]`
+  so cron jobs and fleet operators can reproduce the cockpit's
+  one-click Rerun button from a single Make invocation. Recipe
+  shells into `clone $(ARGS) --approve --run` (plus optional
+  `--mode "$(MODE)"`), inheriting the same trace scope, policy gate,
+  and meeet payloads as the cockpit path. Optional `MODE=` lever
+  lets the operator pin policy mode at the Make boundary — useful
+  for nightly `MODE=autopilot` runs regardless of host
+  `TARS_POLICY_MODE`. Added to `.PHONY`, gated by the standard
+  `ARGS=` guard. Pinned by 3 new pytest cases in
+  `test_makefile_planner_targets.py` (`.PHONY` membership, ARGS
+  guard, recipe wires `clone --approve --run` and forwards `--mode`).
+  Manual smoke: end-to-end `synthesize → make planner-rerun`
+  produced a populated `usage_lifetime` envelope. Full suite:
+  **2097 passing** (was 2094, +3). Follow-ups: right-rail planner
+  entrypoint from the cockpit chat thread; `make planner-replay-run`
+  for backfilling billing rollups after a meeet ingest outage.
+
 - **2026-05-01 — planner: `full` CLI subcommand + extracted helper (Cursor [A]):**
   Brings the planner CLI to parity with the HTTP `/full` endpoint
   shipped in PR #116, so an operator without a cockpit window can
