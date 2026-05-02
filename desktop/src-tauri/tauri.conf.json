@@ -65,8 +65,7 @@
     "updater": {
       "active": true,
       "endpoints": [
-        "https://meeet.world/updates/{{target}}/{{current_version}}.json",
-        "https://updates.meeet.world/tars/{{target}}/{{current_version}}.json"
+        "https://github.com/alxvasilevvv/tars-neural-cockpit/releases/latest/download/latest.json"
       ],
       "dialog": false,
       "pubkey": "TODO_PUBLIC_KEY"

@@ -106,6 +106,7 @@ from backend.core.planner import (
 )
 from backend.core.playbooks import list_playbooks
 from backend.core.policy import PolicyMode, resolve_mode
+from web_extras.entitlements_gate import require_cloud_budget
 
 
 router = APIRouter(prefix="/api/planner", tags=["planner"])
@@ -493,6 +494,13 @@ async def run_plan_endpoint(
     plan = await store.get(plan_id)
     if plan is None:
         raise HTTPException(status_code=404, detail="plan_not_found")
+
+    # Bug #2 fix — a plan can fan out to N cloud-LLM actions; gate at
+    # the HTTP edge so a FREE-tier operator gets a clean 402 before
+    # the runner pays for the first step. The gate checks the cloud
+    # bucket; pure-edge plans (e.g. only memory.* or vault.* steps)
+    # can opt out via ``TARS_CAP_ENFORCEMENT=off``.
+    await require_cloud_budget(kind="cloud", surface="planner.run")
 
     mode = resolve_mode(
         header=x_tars_policy_mode,

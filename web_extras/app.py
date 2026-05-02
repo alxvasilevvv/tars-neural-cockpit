@@ -580,6 +580,14 @@ app.add_middleware(
     ],
 )
 
+# Bug #4 fix from docs/SYSTEM_AUDIT_2026-05-02.md — per-IP token-
+# bucket throttle on the four expensive cloud-touching endpoints
+# (chat / planner / voice / council). Returns HTTP 429 +
+# Retry-After before the entitlements gate decides on cap_hit.
+from web_extras.middleware import install_expensive_routes_rate_limit  # noqa: E402
+
+install_expensive_routes_rate_limit(app)
+
 app.include_router(domains_router.router)
 app.include_router(awareness_router.router)
 app.include_router(meeet_router.router)

@@ -10,25 +10,19 @@ This file is the legacy-format snapshot of `CLAUDE.md` and
 ## What this project is
 
 - TARS is the local-first "Neural Cockpit" agent. Released under the
-  `meeet.world` brand with cross-cutting trace logging via the meeet bridge.
+ `meeet.world` brand with cross-cutting trace logging via the meeet bridge.
 - Backend: Python, FastAPI-style routers under `web_extras/routers/`. Domain
-  subsystems in `backend/core/*`. Agent and MCP entry points in
-  `backend/agents/` and `backend/mcp/`.
-- Frontend canon: vanilla HTML/CSS/JS in `frontend/` — no React, no Tailwind,
-  no bundler.
-- Premium marketing surfaces:
-  - `experiments/neural-showcase-v2/` — Vite + Three.js + GSAP + Lenis +
-    postprocessing. WebGL + custom GLSL. Port 5173.
-  - `experiments/neural-showcase-v3/` — React + Vite + Tailwind v4 +
-    framer-motion + shadcn-style `components.json` ready for 21st.dev
-    drops. Port 5174.
-  These are the only places where heavier frontend deps live; do not
-  bleed them into `frontend/`.
-
-## Awareness layer
-
-`backend/core/awareness/` is load-bearing (calendar / memory / code_index /
-mac_actions). Do not refactor without explicit scope.
+ subsystems in `backend/core/*`. Agent entry points in `backend/agents/`.
+- Frontend canon: **`experiments/neural-showcase-v3/`** — React 18 + TS +
+ Vite + Tailwind v4 + framer-motion. shadcn-style `components.json` ready
+ for 21st.dev drops. Cockpit (`/cockpit`), marketing, and pricing all live
+ here. Port 5174.
+- Premium showcase surface:
+ - `experiments/neural-showcase-v2/` — Vite + Three.js + GSAP + Lenis +
+ postprocessing. WebGL + custom GLSL. Port 5173.
+- ⚠ **Note**: legacy `frontend/` (vanilla HTML/CSS/JS) was retired. Anything
+ referenced as "vanilla cockpit" lives in `experiments/neural-showcase-v3/`
+ today.
 
 ## Domain packs (Phase 9)
 
@@ -60,14 +54,16 @@ user input, never auto-execute destructive ops.
 
 ## Frontend conventions
 
-- Vanilla in `frontend/`. Use existing CSS tokens (`--indigo`, `--violet`,
-  `--cyan`, `--white`, `--dim`, `--faint`, `--border`, `--shadow`, `--rad-md`,
-  `--rad-lg`, `--font-body`, `--font-mono`).
+- React 18 + TS + Tailwind v4 in `experiments/neural-showcase-v3/`. Tokens
+ live in `src/index.css` (shadcn CSS variables). Components in
+ `src/components/`, pages in `src/pages/`.
 - Aesthetic: minimalism + futurism. No rainbow gradients, no neon flooding.
-- Cockpit/operator pages keep the dark HUD aesthetic.
-- Marketing/landing pages evolve toward premium AI-product feel.
+- Cockpit/operator pages (`/cockpit`, `/cockpit/*`) keep the dark HUD aesthetic.
+- Marketing/landing pages (`/`, `/pricing`, `/about`) evolve toward premium
+ AI-product feel.
 - Always implement empty / loading / error / success states for async surfaces.
-- Animations via CSS transitions/keyframes; avoid heavy JS animation libs.
+- Use framer-motion for purposeful motion; CSS transitions for hover / focus
+ micro-interactions.
 - Accessibility: semantic structure, focus rings, `aria-live` for async.
 
 ## Showcase v2 conventions

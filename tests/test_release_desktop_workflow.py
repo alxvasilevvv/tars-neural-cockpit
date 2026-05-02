@@ -186,18 +186,31 @@ def test_workflow_uses_dispatch_with_version_input(workflow: str) -> None:
     assert "Semver to publish" in workflow
 
 
-@pytest.mark.xfail(
-    reason=(
-        "post-2026-05-02 workflow leaves updater channel JSON unpublished; "
-        "Tauri auto-update will not flow until this is restored. See "
-        "Bug #9 in docs/SYSTEM_AUDIT_2026-05-02.md."
-    ),
-    strict=False,
-)
 def test_workflow_publishes_updater_channel(workflow: str) -> None:
-    assert "python -m backend.core.product.publish" in workflow
-    assert "--updater-out" in workflow
-    assert "--updater-alias latest" in workflow
+    """**Bug #9 closed (2026-05-02 audit cleanup).** The workflow MUST
+    pass ``includeUpdaterJson: true`` to ``tauri-apps/tauri-action@v0``
+    so that ``latest.json`` (Tauri updater channel manifest) is
+    published as a release asset. Without it,
+    ``tauri-plugin-updater`` polling
+    ``releases/latest/download/latest.json`` returns 404 and
+    auto-update silently fails.
+
+    Also pin ``updaterJsonPreferNsis: false`` so the published JSON
+    advertises the MSI on Windows (Tauri default is NSIS, but our
+    bundle ships both — operators on locked-down corporate boxes
+    need the MSI path so InTune can pre-stage the installer).
+    """
+
+    assert "includeUpdaterJson: true" in workflow, (
+        "release workflow must publish latest.json (Tauri updater "
+        "channel manifest) so auto-update flows. See Bug #9 in "
+        "docs/SYSTEM_AUDIT_2026-05-02.md for context."
+    )
+    assert "updaterJsonPreferNsis: false" in workflow, (
+        "Windows preference must point to MSI for corporate IT "
+        "compatibility; flip to true only if the operator confirms "
+        "InTune / SCCM picked up NSIS support."
+    )
 
 
 @pytest.mark.xfail(

@@ -11,19 +11,14 @@ alwaysApply: true
 ## Stack
 
 - Backend: Python, FastAPI-style. Routers in `web_extras/routers/`. Domain
-  subsystems in `backend/core/*`. Agent/MCP entry points in `backend/agents/`
-  and `backend/mcp/`.
-- Frontend canon: dependency-free vanilla HTML/CSS/JS in `frontend/`.
-- Premium showcases (only places heavier frontend deps live):
-  - `experiments/neural-showcase-v2/` — Vite + Three.js + GSAP + Lenis +
-    postprocessing. Custom GLSL. Port 5173.
-  - `experiments/neural-showcase-v3/` — React + Vite + Tailwind v4 +
-    framer-motion + shadcn-ready for 21st.dev. Port 5174.
-
-## Awareness layer
-
-`backend/core/awareness/` is load-bearing (calendar / memory / code_index /
-mac_actions). Do not refactor without explicit scope.
+ subsystems in `backend/core/*`. Agent entry points in `backend/agents/`.
+- Frontend canon: **`experiments/neural-showcase-v3/`** — React 18 + TS +
+ Vite + Tailwind v4 + framer-motion + shadcn-ready for 21st.dev. Cockpit
+ (`/cockpit`), marketing, pricing all live here. Port 5174.
+- Premium showcase: `experiments/neural-showcase-v2/` — Vite + Three.js +
+ GSAP + Lenis + postprocessing. Custom GLSL. Port 5173.
+- ⚠ Legacy `frontend/` (vanilla HTML/CSS/JS) was retired during the
+ 2026-05-02 system audit; v3 is the only live frontend.
 
 ## Domain packs (Phase 9)
 

@@ -73,6 +73,7 @@ from backend.core.chat import (
 from backend.core.chat.orchestrator import ChatOrchestrator
 from backend.core.policy import PolicyMode, resolve_mode
 from backend.core.voice.personas import iter_personas
+from web_extras.entitlements_gate import require_cloud_budget
 
 
 def _validate_voice_persona_id(value: Any) -> str | None:
@@ -251,6 +252,15 @@ async def post_message(
         header=x_tars_policy_mode,
         request_arg=str(mode_arg) if mode_arg else None,
     )
+
+    # Bug #2 fix — chat assistant turns frequently spend cloud-LLM
+    # tokens; gate at the HTTP edge so a FREE-tier operator gets a
+    # clean 402 *before* the SSE stream opens. Local-only voices
+    # (LocalChatVoice) can opt out via ``TARS_CAP_ENFORCEMENT=off``.
+    # We deliberately raise BEFORE constructing the StreamingResponse
+    # so the cap-hit envelope flies as a normal JSON error rather
+    # than a half-open SSE pipe.
+    await require_cloud_budget(kind="cloud", surface="chat.post_message")
 
     orchestrator = ChatOrchestrator()
 
