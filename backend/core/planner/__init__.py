@@ -25,6 +25,12 @@ This module ships:
   can request a cooperative abort.
 """
 
+from .history import (
+    PlanRun,
+    RunStep,
+    reconstruct_runs,
+    reconstruct_runs_async,
+)
 from .runner import (
     PlanRunError,
     PlanRunner,
@@ -43,6 +49,7 @@ from .types import Plan, PlanStatus, PlanStep
 
 __all__ = [
     "Plan",
+    "PlanRun",
     "PlanRunError",
     "PlanRunRegistry",
     "PlanRunner",
@@ -51,8 +58,11 @@ __all__ = [
     "PlannerError",
     "PlannerStore",
     "PlannerSynthesisRequest",
+    "RunStep",
     "get_planner_store",
     "get_run_registry",
+    "reconstruct_runs",
+    "reconstruct_runs_async",
     "reset_planner_store",
     "reset_run_registry",
     "run_plan",
