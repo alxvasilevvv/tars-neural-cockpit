@@ -116,6 +116,12 @@ class PlanRun:
     started_at: float
     started_event_id: int
     trace_id: Optional[str] = None
+    # The plan's birth trace, propagated from the
+    # ``plan.run.started`` payload as ``parent_trace_id``. Lets the
+    # cockpit pivot from any single run back to the synthesis trace
+    # that birthed the plan, and group sibling runs under one
+    # collapsible "all runs of plan X" node.
+    parent_trace_id: Optional[str] = None
     mode: Optional[str] = None
     step_count: Optional[int] = None
     completed_at: Optional[float] = None
@@ -148,6 +154,7 @@ class PlanRun:
             "completed_at": self.completed_at,
             "status": self.status,
             "trace_id": self.trace_id,
+            "parent_trace_id": self.parent_trace_id,
             "mode": self.mode,
             "step_count": self.step_count,
             "steps_run": self.steps_run,
@@ -358,6 +365,11 @@ def reconstruct_runs(
                 started_at=ev.ts,
                 started_event_id=ev.id,
                 trace_id=ev.trace_id,
+                parent_trace_id=(
+                    str(payload["parent_trace_id"])
+                    if payload.get("parent_trace_id") is not None
+                    else None
+                ),
                 mode=(
                     str(payload["mode"]) if payload.get("mode") is not None
                     else None
@@ -486,6 +498,11 @@ def _reduce_rows(rows: list[StoredEvent], plan_id: str) -> list[PlanRun]:
                 started_at=ev.ts,
                 started_event_id=ev.id,
                 trace_id=ev.trace_id,
+                parent_trace_id=(
+                    str(payload["parent_trace_id"])
+                    if payload.get("parent_trace_id") is not None
+                    else None
+                ),
                 mode=(
                     str(payload["mode"]) if payload.get("mode") is not None
                     else None
