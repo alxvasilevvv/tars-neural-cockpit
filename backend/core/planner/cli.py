@@ -11,7 +11,7 @@ Usage::
     python -m backend.core.planner.cli reject  <plan_id>
     python -m backend.core.planner.cli run     <plan_id> [--mode autopilot|confirm|dry_run]
     python -m backend.core.planner.cli abort   <plan_id>
-    python -m backend.core.planner.cli clone   <plan_id> [--thread-id <id>] [--goal <override>]
+    python -m backend.core.planner.cli clone   <plan_id> [--thread-id <id>] [--goal <override>] [--approve] [--run [--mode autopilot|confirm|dry_run]]
     python -m backend.core.planner.cli delete  <plan_id> [--yes]
 
 Reads the same env vars the host uses (``TARS_PLANNER_DB_PATH``,
@@ -278,7 +278,14 @@ async def _cmd_abort(args: argparse.Namespace) -> int:
 
 
 async def _cmd_clone(args: argparse.Namespace) -> int:
-    """Snapshot ``plan_id`` as a fresh ``proposed`` plan."""
+    """Snapshot ``plan_id`` as a fresh ``proposed`` plan.
+
+    With ``--approve`` the clone is also flipped to ``approved``
+    in the same call. With ``--run`` (which implies ``--approve``)
+    the clone is then dispatched through :class:`PlanRunner` so
+    operators can do a one-shot rerun without juggling three
+    subcommands.
+    """
 
     from backend.core.meeet import get_client
 
@@ -288,6 +295,8 @@ async def _cmd_clone(args: argparse.Namespace) -> int:
         return _emit(args, _err("plan_not_found", plan_id=args.plan_id))
     rebound_thread = (args.thread_id or "").strip() or None
     goal_override = (args.goal or "").strip() or None
+    do_approve = bool(getattr(args, "approve", False) or getattr(args, "run", False))
+    do_run = bool(getattr(args, "run", False))
 
     with thread_id_scope(
         rebound_thread or original.thread_id
@@ -316,14 +325,52 @@ async def _cmd_clone(args: argparse.Namespace) -> int:
                     else False
                 ),
                 "goal_overridden": goal_override is not None,
+                "auto_approved": do_approve,
+                "auto_run": do_run,
             },
         )
+
+        if do_approve:
+            await store.set_status(clone.id, PlanStatus.APPROVED)
+            clone = await store.get(clone.id) or clone
+
+        run_result: dict[str, Any] | None = None
+        if do_run:
+            mode_override = getattr(args, "mode", None)
+            # argparse already restricts ``--mode`` to the three
+            # known choices, so resolve_mode just promotes the
+            # string to the typed enum (or falls back to the env /
+            # default if argparse let ``None`` through, e.g. when
+            # ``--mode`` is omitted).
+            policy_mode = resolve_mode(request_arg=mode_override)
+            try:
+                run_result = await PlanRunner().run(
+                    clone.id, mode=policy_mode
+                )
+            except PlanRunError as exc:
+                # Surface the failure but still report the clone
+                # was created so the operator can investigate.
+                return _emit(
+                    args,
+                    _err(
+                        "plan_run_failed",
+                        message=exc.message,
+                        reason=exc.reason,
+                        plan_id=clone.id,
+                        source_plan_id=original.id,
+                    ),
+                )
+            clone = await store.get(clone.id) or clone
+
     return _emit(
         args,
         {
             "ok": True,
             "plan": clone.to_dict(),
             "source_plan_id": original.id,
+            "auto_approved": do_approve,
+            "auto_run": do_run,
+            "run_result": run_result,
         },
     )
 
@@ -435,6 +482,28 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         "--goal",
         default=None,
         help="Override the goal copy on the clone (steps stay verbatim).",
+    )
+    p_clone.add_argument(
+        "--approve",
+        action="store_true",
+        help="After cloning, immediately flip the new plan to 'approved'.",
+    )
+    p_clone.add_argument(
+        "--run",
+        action="store_true",
+        help=(
+            "After cloning, approve and run the clone (one-shot rerun). "
+            "Implies --approve."
+        ),
+    )
+    p_clone.add_argument(
+        "--mode",
+        choices=("autopilot", "confirm", "dry_run"),
+        default=None,
+        help=(
+            "Policy mode override for --run (defaults to TARS_POLICY_MODE "
+            "env / 'confirm')."
+        ),
     )
 
     p_delete = sub.add_parser("delete", help="Delete a plan (irreversible).")
