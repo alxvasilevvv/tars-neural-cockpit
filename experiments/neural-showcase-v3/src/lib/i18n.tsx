@@ -268,24 +268,71 @@ const STRINGS_EN = {
   "locale.label":                  "Language",
   "locale.en":                     "English",
   "locale.ru":                     "Russian",
+
+  // Trace viewer (/cockpit/traces) — IDEAS #15 + audit follow-up.
+  "traces.title":                  "Local trace viewer",
+  "traces.eyebrow":                "operator // traces",
+  "traces.subtitle":               "Every action TARS performs flows through the local meeet bridge. Each row is one trace_id rolled up — kind / route / cost / duration / contradictions.",
+  "traces.refresh":                "Refresh",
+  "traces.rebuild":                "Rebuild rollup",
+  "traces.rebuilding":             "Rebuilding…",
+  "traces.refreshing":             "Refreshing…",
+  "traces.empty.title":            "No traces yet.",
+  "traces.empty.body":             "Run a playbook, fire an action, or hit any cloud-touching endpoint — the trace will land here.",
+  "traces.error.title":            "Trace viewer offline",
+  "traces.error.hint":             "Check that the TARS daemon is up at",
+  "traces.filter.route":           "route",
+  "traces.filter.route.all":       "all",
+  "traces.filter.route.edge":      "edge",
+  "traces.filter.route.cloud":     "cloud",
+  "traces.filter.route.fallback":  "fallback",
+  "traces.filter.route.mixed":     "mixed",
+  "traces.filter.search":          "filter by trace_id / kind / session",
+  "traces.col.trace":              "trace_id",
+  "traces.col.kinds":              "kinds",
+  "traces.col.route":              "route",
+  "traces.col.cost":               "cost",
+  "traces.col.tokens":             "tokens",
+  "traces.col.duration":           "duration",
+  "traces.col.errors":             "errors",
+  "traces.col.started":            "started",
+  "traces.detail.eyebrow":         "trace detail",
+  "traces.detail.events":          "events ({n})",
+  "traces.detail.copy":            "Copy trace_id",
+  "traces.detail.copied":          "Copied",
+  "traces.detail.session":         "session_id",
+  "traces.detail.contradictions":  "contradictions",
+  "traces.detail.empty":           "Pick a trace from the rail to drill into the events.",
+  "traces.unit.ms":                "ms",
+  "traces.unit.s":                 "s",
+  "traces.unit.usd":               "USD",
+
+  // Cockpit nav additions (links to operator pages)
+  "cockpit.nav.traces":            "traces",
 } as const;
 
 /** Pre-typed key namespace export so consumers get autocomplete. */
 export type TKey = keyof typeof STRINGS_EN;
 
 /**
- * Russian translations. Coverage is currently limited to the
- * highest-visibility marketing strings (Hero, Pricing, Nav,
- * Footer, Locale switcher). Untranslated keys fall back to
- * English at render time so adding strings to ``STRINGS_EN``
- * never breaks the RU build — but expanding coverage is the
- * recommended follow-up after this PR.
+ * Russian translations. **Full key parity** with ``STRINGS_EN``
+ * — every English key has a Russian counterpart so untranslated
+ * strings never leak through the marketing surface. The audit
+ * Bug #5 follow-up (2026-05-02) closed the partial-coverage
+ * gap; the parity guard in ``src/lib/i18n.test.ts`` keeps it
+ * that way.
  *
  * Style guide:
  * - Polite "вы" (not the formal "Вы" — feels stiff in product copy).
- * - Latin product names stay Latin: TARS, $MEEET, Pro, Business.
+ * - Latin product names stay Latin: TARS, $MEEET, Pro, Business,
+ *   $MEEET, Solana, Stripe, arXiv, GitHub, Phantom, Backpack,
+ *   Cursor, Claude.
  * - "сloud" → "облако"; "cap"/"cap_hit" → "лимит" (cockpit-side
  *   banking copy already uses "лимит" for spend caps).
+ * - "council" → "совет"; "playbook" → "плейбук";
+ *   "trace" → "трейс"; "thread" → "поток" / "тред" (chat = "тред",
+ *   trace flow = "поток"); "policy" → "политика";
+ *   "destructive" → "деструктивные действия".
  */
 const STRINGS_RU: Partial<Record<TKey, string>> = {
   // Hero — three-beat sovereignty headline.
@@ -358,11 +405,200 @@ const STRINGS_RU: Partial<Record<TKey, string>> = {
   "pricing.lifetime.comingSoon":   "Lifetime-чекаут откроется при запуске",
   "pricing.footnote":              "Оплата USD картой · или $MEEET / SOL · отмена в любой момент · возврат 14 дней",
 
+  // FAQ
+  "faq.tag":                       "FAQ",
+  "faq.title":                     "Что спрашивают на самом деле.",
+  "faq.description":               "Реальные вопросы из early-access когорты. Чего-то не хватает — напишите, добавим прямо сюда, не в knowledge base, который никто не читает.",
+  "faq.summary":                   "14 из 38 вопросов на этой странице. Полный документ покрывает приватность, $MEEET, безопасность, аудит, роли, roadmap.",
+  "faq.link.full":                 "полный faq",
+  "faq.link.discord":              "присоединиться в discord",
+
+  // Compare
+  "compare.tag":                   "VS",
+  "compare.title":                 "Как TARS сравнивается.",
+  "compare.description":           "Cursor владеет IDE. Claude Desktop — чатом. TARS — единственный, кто управляет вашей машиной, голосует между моделями и платит вам в $MEEET.",
+  "compare.col.header":            "функция",
+  "compare.col.tars.note":         "это приложение",
+  "compare.col.cursor.note":       "IDE",
+  "compare.col.claude.note":       "чат-клиент",
+  "compare.footer.disclaimer":     "Сравнение отражает публично документированные функции на апрель 2026. Cursor и Claude Desktop — товарные знаки соответствующих владельцев.",
+  "compare.footer.source":         "Источник: документация · страницы цен · changelog",
+
+  // TrustStrip
+  "trust.local.label":             "Локально-первый",
+  "trust.local.detail":            "Ваши данные остаются на вашем Mac",
+  "trust.signed.label":            "Подписанные receipts",
+  "trust.signed.detail":           "Каждое действие — SHA-256 + Solana memo",
+  "trust.opensource.label":        "Open-source",
+  "trust.opensource.detail":       "MIT · github.com/meeet-world/tars",
+  "trust.sandboxed.label":         "Sandbox",
+  "trust.sandboxed.detail":        "macOS sandbox-exec для кода",
+  "trust.auditable.label":         "Аудитируемо",
+  "trust.auditable.detail":        "trace_id end-to-end",
+  "trust.edge.label":              "Edge LLM",
+  "trust.edge.detail":             "Ollama / LM Studio как первый класс",
+
+  // MeetTars
+  "meetTars.eyebrow":              "Знакомьтесь, TARS",
+  "meetTars.title.lead":           "Два голоса.",
+  "meetTars.title.tail":           "Один вердикт",
+  "meetTars.body":                 "TARS — это персона для вашего локального кокпита. Совет из двух голосов решает действие, политика-гейт защищает деструктивные, каждое выполнение оставляет подписанный receipt, привязанный к Solana memo.",
+  "meetTars.draftedIn":            "написано за {ms}",
+  "meetTars.live.label":           "TARS · ВЖИВУЮ на этой машине",
+  "meetTars.live.demo":            "TARS · режим демо",
+  "meetTars.live.cta":             "Демон обнаружен на localhost — попробуйте реальный запрос",
+  "meetTars.live.openCockpit":     "открыть кокпит",
+
+  // DomainsCards
+  "domains.traders.name":          "Трейдеры",
+  "domains.traders.teaser":        "Рынки и сигналы со скоростью мысли.",
+  "domains.business.name":         "Бизнес",
+  "domains.business.teaser":       "Второй мозг для вашего операционного ритма.",
+  "domains.entrepreneur.name":     "Предприниматель",
+  "domains.entrepreneur.teaser":   "Воронка, лиды, outreach — в одном ритме.",
+  "domains.science.name":          "Наука",
+  "domains.science.teaser":        "От стопки статей до совета с цитатами.",
+
+  // Onboarding stepper
+  "onboarding.step.signin":        "вход",
+  "onboarding.step.role":          "выбор роли",
+  "onboarding.step.brief":         "первый бриф",
+
+  // Onboarding step 0
+  "onboarding.s0.title.lead":      "Войдите или",
+  "onboarding.s0.title.tail":      "оставайтесь локально",
+  "onboarding.s0.body":            "Вход открывает T2T, AI Clone, голосование совета и заработок $MEEET. Можно пропустить и остаться 100% локально — TARS всё равно запустит всё на устройстве.",
+  "onboarding.s0.wallet.title":    "Solana-кошелёк",
+  "onboarding.s0.wallet.detail":   "Phantom · Backpack · Solflare",
+  "onboarding.s0.email.title":     "Email magic-link",
+  "onboarding.s0.email.detail":    "Отправляем одноразовую ссылку — пароля нет.",
+  "onboarding.s0.skip":            "Пропустить — остаться 100% локально",
+
+  // Onboarding step 1
+  "onboarding.s1.title.lead":      "Выберите свою",
+  "onboarding.s1.title.tail":      "роль",
+  "onboarding.s1.body":            "Тот же нейроядро, шесть профессий плюс ваша. Можно сменить позже из кокпита в любой момент — данные останутся при вас.",
+  "onboarding.role.founder.name":     "Фаундер / CEO",
+  "onboarding.role.founder.desc":     "Дневной бриф из KPI + сделок + календаря. Совет на каждое исходящее.",
+  "onboarding.role.trader.name":      "Трейдер",
+  "onboarding.role.trader.desc":      "Рынки, сигналы, риск. Вживую по биржам.",
+  "onboarding.role.researcher.name":  "Исследователь",
+  "onboarding.role.researcher.desc":  "arXiv-aware. Граф цитирований по вашим проектам.",
+  "onboarding.role.marketer.name":    "Маркетолог",
+  "onboarding.role.marketer.desc":    "Outreach в вашем тоне. Сигналы вовлечённости по каналам.",
+  "onboarding.role.engineer.name":    "Инженер",
+  "onboarding.role.engineer.desc":    "Репозитории индексированы. Очередь PR-ревью. Code RAG по стеку.",
+  "onboarding.role.operator.name":    "Оператор",
+  "onboarding.role.operator.desc":    "Универсал — полный кокпит, все паки. По умолчанию, если пропустить выбор.",
+  "onboarding.s1.custom.name":        "Custom — опишите свою работу",
+  "onboarding.s1.custom.badge":       "· AI Clone обучается на вас",
+  "onboarding.s1.custom.desc":        "Назовите роль, дайте 1-3 предложения описания, и TARS соберёт system prompt overlay. AI Clone учится на первых 50 взаимодействиях.",
+  "onboarding.s1.custom.continue":    "Продолжить с custom-ролью",
+
+  // Onboarding custom role modal
+  "onboarding.modal.eyebrow":          "07 / custom-роль",
+  "onboarding.modal.title":            "Опишите работу — TARS сделает остальное.",
+  "onboarding.modal.body":             "Соберём system prompt overlay для совета и затравочный датасет для AI Clone. Хранится локально; редактировать можно позже.",
+  "onboarding.modal.name.label":       "Название роли",
+  "onboarding.modal.name.placeholder": "Sales Director",
+  "onboarding.modal.desc.label":       "Чем вы реально занимаетесь",
+  "onboarding.modal.desc.help":        "минимум 24 символа · примеры задач помогут",
+  "onboarding.modal.cancel":           "Отмена",
+  "onboarding.modal.save":             "Сохранить роль",
+
+  // Onboarding step 2
+  "onboarding.s2.role":            "Роль:",
+  "onboarding.s2.status":          "ПОДКЛЮЧАЕМ ИСТОЧНИКИ",
+  "onboarding.s2.title.lead":      "Готовим ваш первый",
+  "onboarding.s2.title.tail":      "брифинг",
+  "onboarding.s2.body":            "TARS читает подключённые источники. Совет калибрует тон. ~60 секунд. Вкладку можно закрыть — демон продолжит работать.",
+  "onboarding.s2.cta":             "Открыть кокпит",
+
+  // Press kit
+  "press.eyebrow":                       "press kit",
+  "press.title.lead":                    "Для журналистов, партнёров",
+  "press.title.tail":                    "и тех, кто пишет о TARS.",
+  "press.body":                          "Используйте всё с этой страницы в статьях, презентациях, листингах продукта. Лицензия: CC-BY для boilerplate, all-rights-reserved для товарных знаков (не модифицируйте знаки).",
+  "press.section.boilerplate.tag":       "boilerplate",
+  "press.section.boilerplate.title":     "Готовые описания",
+  "press.section.brand.tag":             "brand",
+  "press.section.brand.title":           "Цветовая палитра",
+  "press.section.brand.body":            "Триада — индиго / фиолет / brand cyan — на OLED-чёрном. Максимум два акцентных цвета в одной композиции. Индиго доминирует, фиолет и cyan — акценты.",
+  "press.section.assets.tag":            "assets",
+  "press.section.assets.title":          "Лого + социальная карточка",
+  "press.section.facts.tag":             "factы",
+  "press.section.facts.title":           "Краткие факты",
+  "press.section.contact.tag":           "контакты",
+  "press.section.contact.title":         "Press-контакты",
+
+  // Build-with badge generator
+  "buildWith.eyebrow":             "build with TARS",
+  "buildWith.title.lead":          "Прицепите бейдж.",
+  "buildWith.title.tail":          "Получите ссылку",
+  "buildWith.body":                "Запустили что-то поверх TARS? Вставьте бейдж в README, блог, сайт проекта. Self-contained SVG — никаких внешних запросов и трекинга. Бесплатно для любого проекта, MIT или проприетарного.",
+  "buildWith.size.label":          "Размер",
+  "buildWith.size.full":           "Full · 120px",
+  "buildWith.size.compact":        "Compact · 80px",
+  "buildWith.theme.label":         "Тема",
+  "buildWith.theme.dark":          "Dark · OLED",
+  "buildWith.theme.light":         "Light · paper",
+  "buildWith.link.label":          "Своя ссылка (опционально — по умолчанию meeet.world)",
+  "buildWith.preview":             "Превью",
+  "buildWith.usage.title":         "Как использовать",
+  "buildWith.examples.title":      "Куда повесить",
+  "buildWith.footer":              "Тэгните репо",
+  "buildWith.footer.tail":         "и мы вынесем его в marketplace.",
+
+  // Common chrome
   "common.back":                   "назад на главную",
+
+  // Cockpit chat
+  "chat.composer.placeholder":     "сообщение TARS — ⌘↵ отправить · перетащите файлы для grounding",
+  "chat.threads.empty":            "пока нет тредов — начните разговор, чтобы появились в списке",
 
   "locale.label":                  "Язык",
   "locale.en":                     "Английский",
   "locale.ru":                     "Русский",
+
+  // Trace viewer
+  "traces.title":                  "Локальный просмотр трейсов",
+  "traces.eyebrow":                "оператор // трейсы",
+  "traces.subtitle":               "Каждое действие TARS проходит через локальный meeet-мост. Каждая строка — один trace_id со свёрткой kind / route / стоимость / длительность / противоречия.",
+  "traces.refresh":                "Обновить",
+  "traces.rebuild":                "Пересобрать свёртку",
+  "traces.rebuilding":             "Пересобираем…",
+  "traces.refreshing":             "Обновляем…",
+  "traces.empty.title":            "Трейсов пока нет.",
+  "traces.empty.body":             "Запустите плейбук, выполните action или коснитесь любого облачного endpoint — трейс появится здесь.",
+  "traces.error.title":            "Просмотр трейсов недоступен",
+  "traces.error.hint":             "Проверьте, что TARS-демон запущен на",
+  "traces.filter.route":           "маршрут",
+  "traces.filter.route.all":       "все",
+  "traces.filter.route.edge":      "edge",
+  "traces.filter.route.cloud":     "облако",
+  "traces.filter.route.fallback":  "fallback",
+  "traces.filter.route.mixed":     "смешанный",
+  "traces.filter.search":          "фильтр по trace_id / kind / session",
+  "traces.col.trace":              "trace_id",
+  "traces.col.kinds":              "события",
+  "traces.col.route":              "маршрут",
+  "traces.col.cost":               "стоимость",
+  "traces.col.tokens":             "токены",
+  "traces.col.duration":           "длительность",
+  "traces.col.errors":             "ошибки",
+  "traces.col.started":            "начат",
+  "traces.detail.eyebrow":         "детали трейса",
+  "traces.detail.events":          "события ({n})",
+  "traces.detail.copy":            "Скопировать trace_id",
+  "traces.detail.copied":          "Скопировано",
+  "traces.detail.session":         "session_id",
+  "traces.detail.contradictions":  "противоречия",
+  "traces.detail.empty":           "Выберите трейс на боковой панели, чтобы раскрыть события.",
+  "traces.unit.ms":                "мс",
+  "traces.unit.s":                 "с",
+  "traces.unit.usd":               "USD",
+
+  "cockpit.nav.traces":            "трейсы",
 };
 
 const STRINGS_BY_LOCALE = {
@@ -528,3 +764,14 @@ export function t(key: TKey, vars?: Record<string, string | number>): string {
 export function _setLocaleForTests(next: Locale): void {
   _CURRENT_LOCALE = next;
 }
+
+/**
+ * Test-only accessor exposing the underlying string tables. Used
+ * by ``src/lib/i18n.test.ts`` to assert orphan-key parity and
+ * coverage thresholds. Production code MUST NOT depend on this —
+ * use ``useT()`` / ``t()`` instead.
+ */
+export const __testTables = {
+  en: STRINGS_EN as Record<string, string>,
+  ru: STRINGS_RU as Record<string, string>,
+};
