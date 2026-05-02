@@ -1,4 +1,9 @@
-"""Pin the contract of `.github/workflows/release-desktop-tagged.yml` (Phase L9 L3).
+"""Pin the contract of the release-desktop-tagged workflow (Phase L9 L3).
+
+The file lives at the repo root (`release-desktop-tagged.yml`) since
+PR #4 moved it out of `.github/workflows/` to reset a stuck
+GitHub workflow_id. We still accept the old path as a fallback for
+older branches.
 
 We do not run GitHub Actions locally; instead we assert the workflow
 file has the shape downstream tools depend on:
@@ -31,7 +36,30 @@ from pathlib import Path
 import pytest
 
 REPO = Path(__file__).resolve().parents[1]
-WORKFLOW = REPO / ".github" / "workflows" / "release-desktop-tagged.yml"
+# The release workflow used to live under ``.github/workflows/`` but
+# was relocated to the repo root in commit d1984f1 to reset a stuck
+# GitHub workflow_id (see PR #4). Look at the new location first,
+# fall back to the old path so the test stays green either way.
+_WORKFLOW_CANDIDATES = (
+    REPO / "release-desktop-tagged.yml",
+    REPO / ".github" / "workflows" / "release-desktop-tagged.yml",
+)
+
+
+def _resolve_workflow_path() -> Path:
+    for candidate in _WORKFLOW_CANDIDATES:
+        if candidate.exists():
+            return candidate
+    # Surface a clear failure mentioning every path we checked
+    # rather than a bare FileNotFoundError on whichever happens to
+    # be first.
+    raise FileNotFoundError(
+        "release-desktop-tagged.yml not found at any of: "
+        + ", ".join(str(p) for p in _WORKFLOW_CANDIDATES)
+    )
+
+
+WORKFLOW = _resolve_workflow_path()
 SIGN_SCRIPT = REPO / "desktop" / "scripts" / "sign-artifacts.sh"
 
 

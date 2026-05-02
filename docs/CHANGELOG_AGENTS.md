@@ -4,6 +4,37 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · tests: unbreak test_release_desktop_workflow after workflow file relocation
+
+**Summary**
+
+PR #4 (`d1984f1`) intentionally moved the release workflow out
+of `.github/workflows/release-desktop-tagged.yml` to the repo
+root (`release-desktop-tagged.yml`) to reset a stuck GitHub
+`workflow_id`. The contract test still hard-coded the old path,
+which dragged the full pytest suite from 2030 green down to
+2024 passed + 5 errors. This patch teaches the test to look at
+the new location first and fall back to the legacy path so old
+branches keep working too.
+
+**Changes**
+
+- `tests/test_release_desktop_workflow.py` — added a
+  `_resolve_workflow_path()` helper that walks
+  `(REPO/release-desktop-tagged.yml,
+    REPO/.github/workflows/release-desktop-tagged.yml)` in
+  order and raises a clear "checked these N paths" error if
+  neither exists. Module docstring updated to explain the
+  relocation.
+
+**Tests**
+
+- `tests/test_release_desktop_workflow.py` — 9 passed.
+- Full `pytest -q` — **2030 passed in 38s** (was 2024 + 5
+  errors before this patch).
+
+---
+
 ## 2026-05-01 — Cursor [A] · planner: surface trace_id + parent_trace_id on PlanRun history
 
 **Summary**
