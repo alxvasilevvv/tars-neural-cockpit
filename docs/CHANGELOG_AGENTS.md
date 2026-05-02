@@ -4,6 +4,62 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-02 — Cursor [A] · Policy Inbox page (`/cockpit/policy`)
+
+**Summary**
+
+Closes IDEAS #29 — backend `/api/policy/{pending,recent,confirm,
+cancel,expire}` shipped Phase K-D, `<OperatorStrip />` had a barebones
+list, but a dedicated full-page operator surface for the destructive-
+action queue had been waiting on a design pass. This PR ships it.
+
+**Anatomy**
+
+- Sticky header: back to cockpit, refresh, expire-stale (admin).
+- Tab strip: pending / recent (each tab carries its own count).
+- Filter strip: free-text search box (matches token / slug /
+  action / requested_by / trace_id substrings, case-insensitive).
+- Two-column workspace:
+  - 380 px left rail with status pill, slug.action, age, time-to-
+    expire (pending only), requested_by, token.
+  - Right pane drill-down: copy-to-clipboard token, six-stat dl
+    grid (token / created / expires / requested_by / trace / status),
+    full args / result JSON dumps, confirm + cancel affordances.
+- **Confirm modal**: an `alertdialog` with focus trap + ESC close +
+  click-outside dismiss so the operator can never one-click a
+  destructive action by mistake. Message interpolates the action
+  slug + trace_id so the consequences are visible at the point of
+  decision.
+- Polling: pending @ 4 s, recent @ 8 s. Optimistic re-fetch after
+  every confirm/cancel/expire so the rail catches up within one
+  tick.
+- URL state via `?tab=…&selected=…&q=…` (deep-linkable).
+- New cockpit nav link (`cockpit · planner · traces · policy`).
+
+**Files**
+
+- `experiments/neural-showcase-v3/src/pages/Policy.tsx` (new, ~590 lines).
+- `experiments/neural-showcase-v3/src/lib/policyFmt.ts` (new, ~140
+  lines — pure helpers: `statusTone`, `fmtAge`, `fmtTimeLeft`,
+  `compareConfirmationsNewestFirst`, `matchesQuery`, `ALL_STATUSES`).
+- `experiments/neural-showcase-v3/src/lib/policy.ts` (+
+  `useRecentConfirmations` hook).
+- `experiments/neural-showcase-v3/src/lib/i18n.tsx` (+39 EN keys
+  + 39 RU translations for the policy surface).
+- `experiments/neural-showcase-v3/src/App.tsx` (lazy import + route).
+- `experiments/neural-showcase-v3/src/pages/Cockpit.tsx` (nav link).
+- New tests: `policyFmt.test.ts` (16 cases — status tone / age
+  / time-left / sort / match), `policy.test.ts` (10 cases — list /
+  confirm / cancel / expire wire shape + error envelopes).
+
+**Test deltas**
+
+- Cockpit: `pnpm vitest run` → **247 passed** (was 221; +16
+  policyFmt, +10 policy).
+- Cockpit: `pnpm tsc -b && pnpm build` → green.
+- Backend: `pytest tests/` → **2249 passed, 1 skipped, 2 xfailed**
+  (no regressions; pure cockpit-surface PR).
+
 ## 2026-05-01 — Cursor [A] · Re-embed attachments on demand
 
 **Summary**
@@ -73,6 +129,7 @@ this only catches up the back-catalog.
 
 **Verification:** full backend suite **1027 passed**, lints
 clean.
+
 ## 2026-05-02 — Cursor [A] · audit follow-ups: full RU pass + Local Trace Viewer
 
 **Summary**
