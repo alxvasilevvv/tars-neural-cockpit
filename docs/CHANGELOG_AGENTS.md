@@ -4,6 +4,124 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · awareness CLI bash completion (operator-CLI arc symmetry closed)
+
+**Summary**
+
+Ships `scripts/awareness-completion.bash` mirroring the
+existing planner / playbooks completion scripts. **Closes the
+operator-CLI arc symmetry**: every cockpit-facing TARS surface
+(planner / awareness / playbook) now has HTTP route + `python -m
+…` CLI + `make …-*` targets + bash completion script.
+
+The awareness script handles a wrinkle the other two don't:
+**two-level live positional completion** for the `snapshot`
+subcommand. Positional 0 is a pack slug (live query against
+`awareness_cli list`); positional 1 is a source id, scoped to
+the chosen slug (live query against `awareness_cli list
+<slug>`). The cache is keyed by slug name so completing slug A
+then slug B doesn't pollute B's cache with A's source ids.
+
+Avoids the `--quiet` flag-order bug from PR #130 by construction
+(both query helpers invoke the CLI with `--quiet` BEFORE the
+subcommand, pinned by test).
+
+**The arc as it now stands**:
+
+| Layer        | HTTP route                       | CLI module                              | Make targets         | Bash completion                          |
+| ------------ | -------------------------------- | --------------------------------------- | -------------------- | ---------------------------------------- |
+| Planner      | `web_extras/routers/planner.py`  | `backend.core.planner.cli`              | `make planner-*`     | `scripts/planner-completion.bash`        |
+| Awareness    | `web_extras/routers/domains.py`  | `backend.core.domains.awareness_cli`    | `make awareness-*`   | `scripts/awareness-completion.bash` (NEW) |
+| Playbook     | `web_extras/routers/playbooks.py`| `backend.core.playbooks.cli`            | `make playbooks-*`   | `scripts/playbooks-completion.bash`      |
+
+Every surface now has the same operator-facing affordances:
+inspect from cron, execute from cron, observe from cockpit (same
+events emitted), tab-complete from any shell.
+
+**Why ship awareness completion when the script is small?** Two
+reasons:
+
+1. **Two-level positional completion is the killer feature** —
+   awareness sources live under `<slug>.<source_id>` namespacing
+   so the operator can't reasonably memorize the source id for
+   every pack. The script exposes them via tab.
+2. **Cron-friendly slug discovery** — when wiring a pre-warm
+   snapshot into cron (`make awareness-snapshot ARGS="<slug>
+   <source_id>"`), tab-complete walks the operator through the
+   full namespace without `--help` reads.
+
+**Changes**
+
+1. `scripts/awareness-completion.bash` (new, 240 lines):
+   - Subcommand completion (`list`, `snapshot`, `snapshot-all`).
+   - Per-snapshot flag table (`--thread-id`, `--trace-id`)
+     grouped under one `snapshot|snapshot-all)` case (DRY).
+   - **Live pack-slug completion** with a 5-second per-shell
+     cache (mirrors the planner / playbooks scripts).
+   - **Live per-pack source-id completion** with a separate
+     5-second cache keyed by slug name (so completing slug A
+     then slug B doesn't reuse A's data — explicitly pinned).
+   - **Two-level positional walker**: counts non-flag words
+     after the subcommand to decide which positional we're at;
+     skips flag VALUES (`--thread-id thr_42`) so they don't
+     get miscounted as positionals (also pinned).
+   - `--quiet` invoked BEFORE the subcommand in both query
+     helpers (avoids the bug fixed in PR #130, and explicitly
+     asserted).
+
+2. `tests/test_awareness_completion_script.py` (new, 9 tests):
+   - Script exists + executable + shebang.
+   - `bash -n` parses cleanly.
+   - `_TARS_AWARENESS_CMDS` matches `cli._DISPATCH` keys (no
+     drift).
+   - Combined `snapshot|snapshot-all)` flag table includes
+     `--thread-id` + `--trace-id`.
+   - `list` case branch is intentionally empty (catch a
+     future "add --pack to list" parser change as a test
+     failure).
+   - **Two caches**: `_TARS_AWARENESS_SLUGS_*` for the
+     catalogue and `_TARS_AWARENESS_SOURCES_KEY/VAL/EXP` for
+     the per-pack source list (pin the key-by-slug invariant).
+   - `--quiet` invoked **before** the subcommand in both
+     query helpers; the buggy `list --quiet` order is
+     explicitly NOT in the script.
+   - Two-level positional completion: snapshot's case branch
+     checks `positional_idx == 0` (slug) and
+     `positional_idx == 1` (source_id, scoped via
+     `_tars_awareness_sources` with the typed slug).
+   - Positional counter skips `--thread-id` / `--trace-id`
+     VALUES (advances loop counter inside the inner case).
+
+**Tests**
+
+- `tests/test_awareness_completion_script.py` — 9 new tests,
+  all green.
+- Full suite: **2204 passed in 40.97s** (was 2195, +9).
+- Smoke (sourced into bash):
+  - `tars-awareness <TAB>` → `list snapshot snapshot-all`
+  - `tars-awareness snapshot <TAB>` → 8 live pack slugs
+    (business, mlm, entrepreneur, science, traders, wallet,
+    research_lab, ops_room)
+  - `tars-awareness snapshot traders <TAB>` → 5 live source
+    ids for the traders pack (binance_ws, tradingview_alerts,
+    news_feed, portfolio_local, local_alerts).
+
+**Files**
+
+- `scripts/awareness-completion.bash` (new, 240 lines).
+- `tests/test_awareness_completion_script.py` (new, 9 tests).
+- `docs/CHANGELOG_AGENTS.md`, `docs/AGENT_HANDOFF.md`.
+
+**Follow-ups**
+
+- Right-rail planner entrypoint from the cockpit chat thread
+  (cancelled — ChatPane has no plan-aware protocol yet; needs
+  product direction before we can wire the inline panel).
+- Cron-shipped morning-bundle wrapper script
+  (`scripts/playbooks_morning_cron.sh`) bundling traders /
+  business / mlm morning playbooks + meeet replay flush;
+  deferred until a concrete production schedule lands.
+
 ## 2026-05-01 — Cursor [A] · playbooks CLI: bash completion + planner script flag-order fix
 
 **Summary**
