@@ -30,6 +30,7 @@ router = APIRouter(prefix="/api/council", tags=["council"])
 async def deliberate(
     payload: dict[str, Any] = Body(default_factory=dict),
     x_meeet_trace_id: str | None = Header(default=None),
+    x_tars_thread_id: str | None = Header(default=None),
 ) -> dict[str, Any]:
     prompt = str(payload.get("prompt") or "")
     context = payload.get("context") or {}
@@ -40,7 +41,12 @@ async def deliberate(
 
     try:
         with trace_scope(parent=x_meeet_trace_id):
-            out = await get_council().deliberate(prompt, context, mode=mode)
+            out = await get_council().deliberate(
+                prompt,
+                context,
+                mode=mode,
+                thread_id=x_tars_thread_id,
+            )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 

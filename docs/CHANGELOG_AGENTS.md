@@ -4,6 +4,40 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · Council/sampler events: thread chat thread_id end-to-end
+
+**Summary**
+
+After the policy-event linkage (PR #97), the next gap in the
+per-thread audit lane was the council layer. The timeline already
+accepts `council.deliberation.{started,completed}` and
+`sampler.decision`, but none of those events carried a `thread_id`,
+so the cockpit never showed the council voices that participated in
+answering a chat turn.
+
+**Changes**
+
+1. `backend/core/council/orchestrator.py`
+   - `CouncilOrchestrator.deliberate(...)` now accepts an optional
+     `thread_id: str | None = None` kwarg.
+   - Every event the orchestrator emits — `council.deliberation.started`,
+     each per-voice `usage.tokens`, `sampler.decision`,
+     `council.deliberation.completed` — surfaces `thread_id` only when
+     present (exact-match downstream, no stray nulls).
+2. `web_extras/routers/council.py`
+   - `POST /api/council/deliberate` reads `x-tars-thread-id` from the
+     request headers and forwards it.
+3. `tests/test_council_thread_linkage.py` (new, 10 cases) covers
+   started / completed / sampler / per-voice usage.tokens emission +
+   the no-thread-id and empty-string defaults + the HTTP surface.
+
+**Tests**
+
+- `tests/test_council_thread_linkage.py` — 10 cases.
+- `tests/test_council.py` — 8 cases (regression).
+- `tests/test_council_parallel.py` — 17 cases (regression).
+- Full `pytest` — **1855 cases passed**.
+
 ## 2026-05-01 — Cursor [A] · Policy gate: thread chat thread_id end-to-end through every policy.* event
 
 **Summary**
