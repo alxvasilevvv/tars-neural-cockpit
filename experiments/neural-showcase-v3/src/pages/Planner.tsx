@@ -24,7 +24,7 @@
  * operator never sees a frozen panel.
  */
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Loader2, Plug, Search } from "lucide-react";
 
@@ -36,6 +36,7 @@ import {
   plannerStateEquals,
   type PlannerUrlState,
 } from "@/lib/plannerUrl";
+import { shouldScrollTo } from "@/lib/plannerScroll";
 import { BrandHairline } from "@/components/BrandHairline";
 import { PlanFullPanel, statusTone } from "@/components/PlanFullPanel";
 
@@ -163,6 +164,14 @@ export function Planner() {
     );
   }, [plans, search]);
 
+  // Per-row DOM refs so we can scroll the selected plan into view
+  // when an operator deep-links via `?selected=<id>` (the default
+  // overflow-scroll list otherwise leaves the selected row hidden
+  // below the fold). The scroll itself is gated by `shouldScrollTo`
+  // so SSE refreshes that don't change `selected` won't fire it.
+  const rowRefs = useRef(new Map<string, HTMLLIElement | null>());
+  useScrollSelectedIntoView(selected, filteredPlans, rowRefs);
+
   return (
     <section className="relative z-20 mx-auto min-h-screen max-w-[1480px] px-6 pb-24 pt-6 md:px-12">
       <div className="relative mb-8 overflow-hidden rounded-[14px] border border-line bg-bg-1/60 px-4 py-3 backdrop-blur-md md:px-6">
@@ -237,6 +246,7 @@ export function Planner() {
           onSelect={setSelected}
           loading={loading && !plans}
           unfilteredCount={plans?.length ?? 0}
+          rowRefs={rowRefs}
         />
         <div className="min-h-[200px]">
           {selected ? (
@@ -256,6 +266,36 @@ export function Planner() {
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
+
+/**
+ * Imperative scroll-into-view side-effect bound to a row-ref map.
+ *
+ * The decision of *whether* to scroll lives in `shouldScrollTo`
+ * (lib/plannerScroll.ts) so it stays unit-testable; this hook is
+ * the thin DOM wrapper that calls `el.scrollIntoView()` and
+ * remembers what we last scrolled to so an SSE refresh that
+ * doesn't change the selection won't fire it again.
+ *
+ * `block: "nearest"` makes the call a no-op when the row is
+ * already visible — so user clicks (which always click on visible
+ * rows) don't jolt the page even though we still call through.
+ */
+function useScrollSelectedIntoView(
+  selected: string | null,
+  plansListed: ReadonlyArray<{ id: string }> | null,
+  rowRefs: React.MutableRefObject<Map<string, HTMLLIElement | null>>,
+) {
+  const lastScrolledRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (!shouldScrollTo(selected, plansListed, lastScrolledRef.current)) {
+      return;
+    }
+    const el = rowRefs.current.get(selected as string);
+    if (!el || typeof el.scrollIntoView !== "function") return;
+    el.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    lastScrolledRef.current = selected;
+  }, [selected, plansListed, rowRefs]);
+}
 
 function FilterStrip({
   status,
@@ -309,12 +349,14 @@ function PlanList({
   onSelect,
   loading,
   unfilteredCount,
+  rowRefs,
 }: {
   plans: Plan[];
   selected: string | null;
   onSelect: (id: string) => void;
   loading: boolean;
   unfilteredCount: number;
+  rowRefs: React.MutableRefObject<Map<string, HTMLLIElement | null>>;
 }) {
   return (
     <aside className="grid gap-1 self-start rounded-[14px] border border-line bg-bg-1 p-3">
@@ -340,7 +382,16 @@ function PlanList({
           const tone = statusTone(p.status);
           const active = p.id === selected;
           return (
-            <li key={p.id}>
+            <li
+              key={p.id}
+              ref={(node) => {
+                if (node) {
+                  rowRefs.current.set(p.id, node);
+                } else {
+                  rowRefs.current.delete(p.id);
+                }
+              }}
+            >
               <button
                 type="button"
                 onClick={() => onSelect(p.id)}

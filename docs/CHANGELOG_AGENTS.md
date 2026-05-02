@@ -4,6 +4,96 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · cockpit: scroll-to-selected on /cockpit/planner deep links
+
+**Summary**
+
+Closes the long-standing planner-page polish item: when an
+operator pastes a deep link like
+`/cockpit/planner?selected=pln_xyz`, the rail's `<li>` for that
+plan was hidden below the fold of the overflow-scroll list and
+the operator had no visual confirmation of which plan they were
+inspecting. Now the page imperatively scrolls the matching row
+into view on first paint (and on browser-back to a different
+selection) without disrupting routine clicks.
+
+**The "should I scroll?" decision**
+
+`shouldScrollTo(selected, plansListed, lastScrolled)` is a pure
+boolean helper extracted to `lib/plannerScroll.ts`. It returns
+`true` only when:
+
+- `selected` is non-null,
+- the plans list has loaded (`plansListed !== null`),
+- the row is in the visible (post-filter) list, and
+- `selected !== lastScrolled` (no re-scroll on SSE refresh of an
+  unchanged selection).
+
+Returns `false` for the four no-scroll cases (nothing selected,
+list still loading, deep-link points at a filtered-out plan,
+SSE refresh that doesn't change selection).
+
+The actual `scrollIntoView({ block: "nearest", behavior: "smooth" })`
+lives in a `useScrollSelectedIntoView` hook on the Planner page
+that gates on the helper. `block: "nearest"` is load-bearing:
+when the row is already visible (e.g. user just clicked it),
+the call is a no-op, so we don't have to special-case "user
+click vs URL change" — both go through the same path and only
+the URL-change case actually scrolls.
+
+**Changes**
+
+1. `experiments/neural-showcase-v3/src/lib/plannerScroll.ts`
+   (new): `shouldScrollTo` plus a docstring laying out the four
+   no-scroll cases and a `PlanLike` interface accepting any
+   shape with an `id: string`.
+2. `experiments/neural-showcase-v3/src/lib/plannerScroll.test.ts`
+   (new): 9 Vitest cases pinning every branch (no selection,
+   loading list, deep-link to filtered-out plan, already-scrolled
+   short-circuit, first-paint deep link, browser-back selection
+   change, top-row scroll, empty plans array, purity contract).
+3. `experiments/neural-showcase-v3/src/pages/Planner.tsx`:
+   - `useRef<Map<string, HTMLLIElement | null>>` — per-row DOM
+     refs keyed by plan id.
+   - `useScrollSelectedIntoView` hook — wraps the helper +
+     `scrollIntoView` call + `lastScrolledRef`.
+   - `PlanList` accepts `rowRefs` prop and attaches the ref
+     callback to each `<li>`.
+
+**Tests**
+
+- `pnpm --dir experiments/neural-showcase-v3 test -- --run` —
+  **167 passed (14 files)** (was 158, +9 from
+  `plannerScroll.test.ts`).
+- `tsc --noEmit` — clean.
+- `vite build` — clean (2.74s).
+- `pytest -q` — **2106 passed** (unchanged, no Python touched).
+- Manual smoke is best done against a populated planner, so
+  this PR ships behind the existing Vitest gate; the cockpit
+  test on a real local backend will be exercised when the
+  next planner page session opens with `?selected=` in the URL.
+
+**Files touched**
+
+- `experiments/neural-showcase-v3/src/lib/plannerScroll.ts`
+- `experiments/neural-showcase-v3/src/lib/plannerScroll.test.ts`
+- `experiments/neural-showcase-v3/src/pages/Planner.tsx`
+- `docs/CHANGELOG_AGENTS.md` (this entry)
+- `docs/AGENT_HANDOFF.md` (Done bullet)
+
+**Follow-ups**
+
+- `aria-live` announcement when a run completes / fails so
+  screen-reader operators know the run finished without
+  watching the panel.
+- Right-rail planner entrypoint from the cockpit chat thread
+  (open the planner panel inline when the agent proposes a
+  plan).
+- `--force-repush --trace-id` flag pair on `replay_cli` for
+  fleet ops re-emit-to-upstream workflows.
+
+---
+
 ## 2026-05-01 — Cursor [A] · meeet replay CLI: `--trace-id` filter + `planner-replay-run` Make target
 
 **Summary**
