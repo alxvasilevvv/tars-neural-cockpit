@@ -193,6 +193,29 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-01 — Makefile: `planner-clone` target for plan forking (Cursor [A]):**
+  Adds `make planner-clone ARGS="<plan_id> [target_thread]"` so a
+  fleet operator can fork a known-good plan into a fresh `proposed`
+  row from the shell — without immediately approving or running it
+  (that's what `planner-rerun` is for). Recipe parses ARGS
+  positionally via `set --` so the second word, when present,
+  becomes `--thread-id <target_thread>`; bare `ARGS=<plan_id>`
+  invokes a vanilla clone that inherits the source's thread. Two
+  guards: outer `ARGS=` empty check (exit 2 with usage) plus an
+  inner `[ -z "$plan_id" ]` re-guard catching whitespace-only
+  expansions. Use cases this unlocks (that `planner-rerun` doesn't):
+  per-tenant golden-plan fork for manual approval (audit trail /
+  four-eyes), overnight staging of many clones for morning curation,
+  rollback snapshots before mutating a source plan. Pinned by 3
+  new pytest cases (`.PHONY` membership, `ARGS=` guard,
+  `test_planner_clone_target_supports_optional_target_thread`
+  asserting the positional split + both branches). Manual smoke:
+  bare clone, thread-rebound clone, no-ARGS error path all behave
+  as expected. Full suite: **2100 passing** (was 2097, +3).
+  Follow-ups: right-rail planner entrypoint from the cockpit chat
+  thread; `make planner-replay-run` for backfilling billing rollups
+  after a meeet ingest outage.
+
 - **2026-05-01 — Makefile: `planner-rerun` target for cron / fleet (Cursor [A]):**
   Adds `make planner-rerun ARGS=<plan_id> [MODE=autopilot|confirm|dry_run]`
   so cron jobs and fleet operators can reproduce the cockpit's

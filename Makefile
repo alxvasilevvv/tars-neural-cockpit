@@ -17,7 +17,7 @@ DESKTOP   ?= desktop
         gate-release backend backend-dev desktop-dev desktop-build \
         smoke-core-bridge gate-control-tower ops-bridge-secret clean \
         planner planner-stats planner-list planner-runs planner-show \
-        planner-full planner-rerun planner-smoke
+        planner-full planner-clone planner-rerun planner-smoke
 
 help:                ## list targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -117,6 +117,19 @@ planner-show:        ## inspect one plan: make planner-show ARGS=<plan_id>
 planner-full:        ## plan + runs + lifetime usage: make planner-full ARGS=<plan_id>
 	@if [ -z "$(ARGS)" ]; then echo "usage: make planner-full ARGS=<plan_id>"; exit 2; fi
 	PYTHONPATH=. $(PLANNER) full $(ARGS)
+
+planner-clone:       ## fork plan w/o running: make planner-clone ARGS="<plan_id> [target_thread]"
+	@if [ -z "$(ARGS)" ]; then echo 'usage: make planner-clone ARGS="<plan_id> [target_thread]"'; exit 2; fi
+	@bash -c 'set -e; \
+	    set -- $(ARGS); \
+	    plan_id=$$1; \
+	    target_thread=$${2:-}; \
+	    if [ -z "$$plan_id" ]; then echo "usage: make planner-clone ARGS=\"<plan_id> [target_thread]\""; exit 2; fi; \
+	    if [ -n "$$target_thread" ]; then \
+	        PYTHONPATH=. $(PLANNER) clone "$$plan_id" --thread-id "$$target_thread"; \
+	    else \
+	        PYTHONPATH=. $(PLANNER) clone "$$plan_id"; \
+	    fi'
 
 planner-rerun:       ## clone+approve+run in one: make planner-rerun ARGS=<plan_id> [MODE=autopilot|confirm|dry_run]
 	@if [ -z "$(ARGS)" ]; then echo "usage: make planner-rerun ARGS=<plan_id> [MODE=autopilot|confirm|dry_run]"; exit 2; fi
