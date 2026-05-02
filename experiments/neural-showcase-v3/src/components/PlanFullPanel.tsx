@@ -122,6 +122,83 @@ export function summariseStep(step: PlanStep): string {
   return `${step.id} · ${step.action} · ${args}`;
 }
 
+// ---------------------------------------------------------------------------
+// Screen-reader announcements (aria-live region)
+// ---------------------------------------------------------------------------
+
+/**
+ * Build a human-readable announcement for a single terminal run.
+ *
+ * Three lifecycle outcomes are surfaced:
+ *
+ * - **Clean completion** — `completed` with no failed steps and no
+ *   exception. Includes latency + cost so an operator who isn't
+ *   looking at the panel knows the budget hit.
+ * - **Soft failure** — `completed` with at least one
+ *   `plan.step.completed{ok:false}` (the run finished but a step
+ *   errored mid-flight). Surfaced because dashboards otherwise
+ *   tally these as green.
+ * - **Hard failure / abort** — `aborted` (operator-initiated or
+ *   exception-driven). Includes the abort reason / exception.
+ *
+ * Running runs return `null` so the announcer can defer until the
+ * run terminates. The `aborted` branch uses the abort reason
+ * (typed by the runner) when present and falls back to the
+ * exception message — mirrors the panel's footer rendering.
+ */
+export function formatRunAnnouncement(run: PlanRun): string | null {
+  if (run.status === "running") return null;
+  const took = formatLatencyMs(run.took_ms);
+  const cost = formatCostUSD(run.usage.cost_usd);
+  if (run.status === "aborted") {
+    const reason = run.abort_reason ?? run.exception ?? "no reason given";
+    return `Run aborted after ${took}: ${reason}.`;
+  }
+  // status === "completed"
+  if (run.steps_failed > 0) {
+    return `Run completed with ${run.steps_failed} failed step${
+      run.steps_failed === 1 ? "" : "s"
+    } in ${took} · ${cost}.`;
+  }
+  return `Run completed in ${took} · ${cost}.`;
+}
+
+/**
+ * Find the announcement we owe the screen-reader, if any.
+ *
+ * Walks the newest-first runs list, picks the **first terminal
+ * run** (skipping in-flight ones), and returns an announcement
+ * payload only when its `trace_id` differs from the one we last
+ * announced. Returning `null` is the "nothing new to say" case
+ * — the caller (a `useEffect` in `PlanFullPanel`) just no-ops.
+ *
+ * Why "newest terminal" rather than "newest run"? An in-flight
+ * run sitting at index 0 shouldn't suppress the announcement of
+ * the previous completion the screen-reader hasn't heard yet.
+ * If runs are `[running, completed, completed]`, we still want
+ * to announce the first `completed` once.
+ *
+ * Why trace_id and not array index? The runs list is rebuilt on
+ * every refetch; using trace_id makes the dedupe robust against
+ * list reorderings (e.g. SSE delivers a new `plan.run.started`
+ * event that pushes everything down).
+ */
+export function pickRunAnnouncement(
+  runs: ReadonlyArray<PlanRun>,
+  lastAnnouncedTraceId: string | null,
+): { traceId: string; message: string } | null {
+  for (const run of runs) {
+    const message = formatRunAnnouncement(run);
+    if (!message) continue; // skip running
+    const traceId = run.trace_id ?? "";
+    if (!traceId || traceId === lastAnnouncedTraceId) {
+      return null; // already announced this terminal run
+    }
+    return { traceId, message };
+  }
+  return null;
+}
+
 /** SSE event kinds that should trigger a `/full` refetch. */
 export const REFETCH_KINDS = new Set([
   "plan.run.started",
@@ -192,7 +269,13 @@ export function PlanFullPanel(props: PlanFullPanelProps) {
   const [aborting, setAborting] = useState(false);
   const [stepSnapshot, setStepSnapshot] =
     useState<StepLiveSnapshot>(EMPTY_SNAPSHOT);
+  const [announcement, setAnnouncement] = useState<string | null>(null);
   const lastEventIdRef = useRef<number | null>(null);
+  // Per-panel-mount: trace_id of the last terminal run we surfaced
+  // through the aria-live region. Reset to null when planId changes
+  // so deep-linking to a different plan re-announces its newest
+  // terminal run.
+  const lastAnnouncedTraceIdRef = useRef<string | null>(null);
 
   const stepIds = useMemo(
     () => (data?.plan.steps ?? []).map((s) => s.id),
@@ -240,6 +323,31 @@ export function PlanFullPanel(props: PlanFullPanelProps) {
     // We intentionally exclude `initialData` from deps — it's a one-shot seed.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [planId, refetch]);
+
+  // Reset the aria-live dedupe state when the operator switches
+  // between plans. Without this, navigating from plan A (terminal
+  // run X already announced) to plan B (terminal run Y) would
+  // skip Y if X and Y happened to share a trace_id (collisions
+  // are rare but the reset is cheap).
+  useEffect(() => {
+    lastAnnouncedTraceIdRef.current = null;
+    setAnnouncement(null);
+  }, [planId]);
+
+  // Watch for new terminal runs and surface them through the
+  // aria-live region. The pure helper does the dedupe; we just
+  // wire it to the data envelope.
+  useEffect(() => {
+    if (!data) return;
+    const pick = pickRunAnnouncement(
+      data.runs.items,
+      lastAnnouncedTraceIdRef.current,
+    );
+    if (pick) {
+      lastAnnouncedTraceIdRef.current = pick.traceId;
+      setAnnouncement(pick.message);
+    }
+  }, [data]);
 
   // Live updates — refetch on lifecycle events, and feed every
   // step.* event through the per-step reducer so the rows tick
@@ -303,6 +411,28 @@ export function PlanFullPanel(props: PlanFullPanelProps) {
 
   return (
     <aside className="relative grid gap-5 overflow-hidden rounded-[14px] border border-line bg-bg-1 p-5 md:p-6">
+      {/*
+        Visually-hidden screen-reader announcement region.
+        - aria-live="polite" so it doesn't interrupt the operator's
+          current focus (run completions are not emergencies).
+        - role="status" reinforces the live-region semantics for
+          AT that don't honour aria-live alone.
+        - sr-only is Tailwind's standard "visually hidden but
+          AT-readable" utility. Always rendered (not conditional)
+          so AT engines see a consistent live region across mounts
+          — gating with `{message && ...}` skips the initial
+          announcement on some screen readers.
+      */}
+      <div
+        role="status"
+        aria-live="polite"
+        aria-atomic="true"
+        className="sr-only"
+        data-testid="plan-aria-live"
+      >
+        {announcement ?? ""}
+      </div>
+
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="mb-1 font-mono-tech text-[9.5px] uppercase tracking-[2.6px] text-ink-2">

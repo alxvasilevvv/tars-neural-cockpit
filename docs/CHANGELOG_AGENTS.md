@@ -4,6 +4,115 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · cockpit: aria-live announcement on plan run completion / abort
+
+**Summary**
+
+Plan-detail panel now surfaces every terminal run through a
+visually-hidden `aria-live="polite"` region so screen-reader
+operators learn that a run finished without watching the panel.
+Three lifecycle outcomes get distinct phrasing:
+
+- **Clean completion** — `"Run completed in 1.23s · $0.0050."`
+- **Soft failure** — `"Run completed with N failed step(s) in
+  Xms · $cost."` (run finished but a step errored — surfaced
+  because dashboards otherwise tally these as green).
+- **Abort / hard failure** — `"Run aborted after Xms: <reason>."`
+  (uses `abort_reason`, falls back to `exception`, finally a
+  placeholder).
+
+Running runs return null so the announcer stays quiet until a
+run terminates.
+
+**Decision split (pure helpers + thin React glue)**
+
+Two pure exports in `PlanFullPanel.tsx`:
+
+- `formatRunAnnouncement(run): string | null` — renders the
+  message string for a single terminal run; returns `null` for
+  in-flight runs.
+- `pickRunAnnouncement(runs, lastAnnouncedTraceId): { traceId,
+  message } | null` — walks the newest-first runs list, picks
+  the first **terminal** run (skipping in-flight heads), and
+  returns an announcement payload only when its `trace_id`
+  differs from the one we last announced.
+
+The "skip in-flight head" rule is load-bearing: when a rerun
+fires, the new `plan.run.started` event pushes the previously
+completed run to index 1. We still want to announce that
+completion once, even though index 0 is now `running`.
+
+The "trace_id dedupe, not array index" rule means SSE refreshes
+that re-emit the same envelope (e.g. on reconnect) won't
+re-announce the same run.
+
+**Wiring**
+
+`PlanFullPanel` now keeps `useRef<lastAnnouncedTraceIdRef>` +
+`useState<announcement>` and runs the helper inside a
+`useEffect([data])`. A separate `useEffect([planId])` resets
+both when the operator switches plans (so deep-linking from
+plan A to plan B re-announces plan B's newest terminal run
+even if A and B happened to share a trace_id — collisions are
+rare but the reset is cheap).
+
+The aria-live region itself is always rendered (not gated by
+`{message && ...}`) because some screen-reader engines skip
+the initial announcement when the live region appears
+mid-page-life. `role="status"` reinforces the live-region
+semantics for AT that don't honour `aria-live` alone;
+`aria-atomic="true"` makes the announcement re-read in full
+each time it changes.
+
+**Changes**
+
+1. `experiments/neural-showcase-v3/src/components/PlanFullPanel.tsx`:
+   - New pure helpers `formatRunAnnouncement` and
+     `pickRunAnnouncement` (exported for Vitest).
+   - New state slot `announcement` + ref
+     `lastAnnouncedTraceIdRef`.
+   - New `useEffect([data])` watcher that calls the helper and
+     surfaces the message; new `useEffect([planId])` that
+     resets the dedupe state on plan switch.
+   - New `<div role="status" aria-live="polite" aria-atomic="true"
+     className="sr-only">` rendered at the top of the panel.
+2. `experiments/neural-showcase-v3/src/components/PlanFullPanel.test.ts`:
+   - 14 new Vitest cases pinning every branch of both
+     helpers: in-flight ⇒ null, clean completion, soft
+     failure (singular + plural), aborted with reason /
+     exception fallback / placeholder; plus
+     `pickRunAnnouncement`'s dedupe contract (empty list,
+     all-in-flight, first hydration, dedupe against last
+     announced, fresh terminal after ack, null trace_id
+     stays silent, in-flight head is skipped).
+
+**Tests**
+
+- `pnpm --dir experiments/neural-showcase-v3 test -- --run` —
+  **181 passed (14 files)** (was 167, +14).
+- `tsc --noEmit` — clean.
+- `vite build` — clean (2.82s).
+- `pytest -q` — **2106 passed** (unchanged, no Python touched).
+
+**Files touched**
+
+- `experiments/neural-showcase-v3/src/components/PlanFullPanel.tsx`
+- `experiments/neural-showcase-v3/src/components/PlanFullPanel.test.ts`
+- `docs/CHANGELOG_AGENTS.md` (this entry)
+- `docs/AGENT_HANDOFF.md` (Done bullet)
+
+**Follow-ups**
+
+- Right-rail planner entrypoint from the cockpit chat thread
+  (open the planner panel inline when the agent proposes a
+  plan).
+- `--force-repush --trace-id` flag pair on `replay_cli` for
+  fleet ops re-emit-to-upstream workflows.
+- Awareness CLI parity (`python -m backend.core.awareness.cli`)
+  so operator scripting reaches awareness sources too.
+
+---
+
 ## 2026-05-01 — Cursor [A] · cockpit: scroll-to-selected on /cockpit/planner deep links
 
 **Summary**
