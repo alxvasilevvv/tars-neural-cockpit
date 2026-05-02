@@ -12,9 +12,16 @@ follow-up PR):
   ``status`` and / or ``thread_id`` query params.
 - ``GET  /api/planner/_stats`` — totals + by_status counts.
 - ``POST /api/planner/{plan_id}/status`` — manually transition the
-  Plan's status (``approved`` / ``rejected``); the runner will own
-  the ``running``/``completed``/``aborted`` transitions in the
-  follow-up PR.
+  Plan's status (``approved`` / ``rejected``); ``running`` /
+  ``completed`` / ``aborted`` are runner-owned and refused here.
+- ``POST /api/planner/{plan_id}/run`` — execute an *approved* plan
+  through the policy gate. Body may include ``mode`` (one of
+  ``autopilot`` / ``confirm`` / ``dry_run``); also resolved from
+  the ``x-tars-policy-mode`` header. Returns the per-step result
+  envelope, identical in shape to the playbook runner output.
+- ``POST /api/planner/{plan_id}/abort`` — cooperative abort of a
+  currently running plan. Sets the per-plan abort flag; the runner
+  stops between groups and persists ``status=aborted``.
 - ``DELETE /api/planner/{plan_id}`` — drop a plan (operator can
   prune a no-longer-relevant proposal).
 
@@ -35,12 +42,16 @@ from backend.core.planner import (
     Plan,
     PlannerError,
     PlannerSynthesisRequest,
+    PlanRunError,
+    PlanRunner,
     PlanStatus,
     PlanStep,
     get_planner_store,
+    get_run_registry,
     synthesize_plan,
 )
 from backend.core.playbooks import list_playbooks
+from backend.core.policy import PolicyMode, resolve_mode
 
 
 router = APIRouter(prefix="/api/planner", tags=["planner"])
@@ -137,20 +148,21 @@ async def create_plan(
             estimated_cost_usd=plan.estimated_cost_usd,
         )
         stored = await get_planner_store().insert(plan)
-        await get_client().emit(
-            "planner.synthesis.completed",
-            {
-                "plan_id": stored.id,
-                "goal": stored.goal,
-                "model": stored.model,
-                "pack_slug": stored.pack_slug,
-                "playbook_id": stored.playbook_id,
-                "step_count": len(stored.steps),
-                "destructive_step_count": sum(
-                    1 for s in stored.steps if s.destructive
-                ),
-            },
-        )
+        synth_payload = {
+            "plan_id": stored.id,
+            "goal": stored.goal,
+            "model": stored.model,
+            "pack_slug": stored.pack_slug,
+            "playbook_id": stored.playbook_id,
+            "step_count": len(stored.steps),
+            "destructive_step_count": sum(
+                1 for s in stored.steps if s.destructive
+            ),
+        }
+        await get_client().emit("planner.synthesis.completed", synth_payload)
+        # Spec event name from L6.2 — keeps cockpit subscribers
+        # decoupled from the synthesizer's internal naming.
+        await get_client().emit("plan.proposed", synth_payload)
         return {"ok": True, "plan": stored.to_dict()}
 
 
@@ -240,6 +252,68 @@ async def set_plan_status(
             },
         )
     return {"ok": True, "plan": updated.to_dict()}
+
+
+@router.post("/{plan_id}/run")
+async def run_plan_endpoint(
+    plan_id: str,
+    payload: dict[str, Any] = Body(default_factory=dict),
+    x_meeet_trace_id: str | None = Header(default=None),
+    x_tars_thread_id: str | None = Header(default=None),
+    x_tars_policy_mode: str | None = Header(default=None),
+) -> dict[str, Any]:
+    store = get_planner_store()
+    plan = await store.get(plan_id)
+    if plan is None:
+        raise HTTPException(status_code=404, detail="plan_not_found")
+
+    mode = resolve_mode(
+        header=x_tars_policy_mode,
+        request_arg=str(payload.get("mode") or "") or None,
+    )
+
+    # Prefer the request-supplied thread id, fall back to the plan's
+    # persisted thread id so events stay correlated to the original
+    # chat. Same for trace id.
+    effective_thread_id = (
+        (x_tars_thread_id or "").strip() or plan.thread_id or None
+    )
+
+    with thread_id_scope(effective_thread_id), trace_scope(
+        parent=x_meeet_trace_id or plan.trace_id
+    ):
+        try:
+            result = await PlanRunner().run(
+                plan_id,
+                mode=mode,
+                context=payload.get("context") or None,
+            )
+        except PlanRunError as exc:
+            raise HTTPException(
+                status_code=409 if exc.reason != "plan_not_found" else 404,
+                detail={"reason": exc.reason, "message": str(exc)},
+            ) from exc
+    return {"ok": result["ok"], "run": result}
+
+
+@router.post("/{plan_id}/abort")
+async def abort_plan_endpoint(
+    plan_id: str,
+    x_meeet_trace_id: str | None = Header(default=None),
+) -> dict[str, Any]:
+    registry = get_run_registry()
+    if not registry.is_running(plan_id):
+        raise HTTPException(status_code=404, detail="plan_not_running")
+    flipped = registry.abort(plan_id)
+    plan = await get_planner_store().get(plan_id)
+    with thread_id_scope(plan.thread_id if plan else None), trace_scope(
+        parent=x_meeet_trace_id or (plan.trace_id if plan else None)
+    ):
+        await get_client().emit(
+            "plan.abort.requested",
+            {"plan_id": plan_id, "ok": flipped},
+        )
+    return {"ok": flipped, "plan_id": plan_id}
 
 
 @router.delete("/{plan_id}")
