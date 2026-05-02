@@ -13,7 +13,7 @@ COCKPIT   ?= experiments/neural-showcase-v3
 DESKTOP   ?= desktop
 
 .PHONY: help test test-product lint cockpit cockpit-build cockpit-tsc \
-        acceptance-tars-meeet qa-agent qa-agent-json qa-loop qa-loop-once \
+        cockpit-changelog-check acceptance-tars-meeet qa-agent qa-agent-json qa-loop qa-loop-once \
         gate-release backend backend-dev desktop-dev desktop-build \
         smoke-core-bridge gate-control-tower ops-bridge-secret clean \
         planner planner-stats planner-list planner-runs planner-show \
@@ -57,11 +57,15 @@ cockpit-build:       ## production build (output: dist/)
 cockpit-tsc:         ## type-check only
 	pnpm --dir $(COCKPIT) exec tsc --noEmit
 
+cockpit-changelog-check:  ## committed CHANGELOG_PUBLIC matches generator (same as Cloudflare CI)
+	$(PY) scripts/generate_public_changelog.py --check
+
 cockpit-test:        ## run the cockpit Vitest suite (jsdom + lib/downloads.ts)
 	pnpm --dir $(COCKPIT) test
 
 test-all:            ## pytest + vitest in one go (CI default)
 	$(MAKE) test
+	$(MAKE) cockpit-changelog-check
 	$(MAKE) cockpit-test
 
 # ---------------------------------------------------------------------
@@ -82,6 +86,7 @@ smoke-core-bridge:   ## end-to-end smoke: old core-bridge -> new tars-ingest
 	bash scripts/smoke_core_bridge_e2e.sh
 
 gate-control-tower:  ## cockpit checks + core-bridge e2e smoke + planner / playbooks gates
+	$(MAKE) cockpit-changelog-check
 	$(MAKE) cockpit-tsc
 	$(MAKE) cockpit-test
 	$(MAKE) smoke-core-bridge

@@ -133,9 +133,13 @@ Ideas for the next sprints. Triage by impact × cost and pull into
   `attachment.reembedded` + `usage.tokens`. Pinned by
   `tests/test_attachments_reembed.py` (21 cases). Cockpit
   "promote/swap embedder" UI is the Claude-lane follow-up.
-- **Citation rendering in markdown.** Today the assistant says
-  "as `[chunk_2]` shows…". Render `[chunk_N]` as a clickable pill in
-  `<MessageBubble />` that scrolls to the matching source row.
+- ~~**Citation rendering in markdown.**~~ ✅ **shipped 2026-05-03** —
+  Assistant / system bubbles parse bracket tokens against known
+  `citation_id` values from persisted `extra.sources` plus live
+  retrieval; matches render as inline pills that open the sources
+  `<details>` and `scrollIntoView` the matching row (`id=tars-source-*`).
+  Unknown `[tokens]` stay literal. Pure helper + Vitest:
+  `src/lib/chunkCitations.ts`.
 - **Vector quantisation.** When corpora grow beyond ~5k chunks per
   thread, swap raw float32 blobs for int8 quantised vectors; gives
   4× space + ~2× speed for negligible accuracy loss.

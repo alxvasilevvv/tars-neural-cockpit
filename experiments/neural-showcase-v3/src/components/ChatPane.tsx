@@ -42,6 +42,7 @@ import {
   type ChatToolCall,
   type RetrievedChunkRef,
 } from "@/lib/chat";
+import { splitChunkCitations } from "@/lib/chunkCitations";
 import {
   useMicTranscription,
   usePersonas,
@@ -787,6 +788,47 @@ function AttachmentChip({
   );
 }
 
+function scrollToCitationAnchor(citationId: string) {
+  const el = document.getElementById(`tars-source-${citationId}`);
+  if (!el) return;
+  const details = el.closest("details");
+  if (details && !details.open) details.open = true;
+  el.scrollIntoView({ behavior: "smooth", block: "nearest" });
+}
+
+function MessageBodyWithCitations({
+  content,
+  citationIds,
+}: {
+  content: string;
+  citationIds: Set<string>;
+}) {
+  const parts = useMemo(
+    () => splitChunkCitations(content, citationIds),
+    [content, citationIds],
+  );
+  if (parts.length === 0) return null;
+  return (
+    <>
+      {parts.map((p, i) =>
+        p.kind === "text" ? (
+          <span key={i}>{p.text}</span>
+        ) : (
+          <button
+            key={i}
+            type="button"
+            onClick={() => scrollToCitationAnchor(p.id)}
+            className="mx-px inline align-baseline rounded border border-accent/50 bg-accent/10 px-1 py-px font-mono-tech text-[11px] leading-[inherit] text-accent transition-colors hover:border-accent hover:bg-accent/20"
+            title={`Jump to source ${p.id}`}
+          >
+            [{p.id}]
+          </button>
+        ),
+      )}
+    </>
+  );
+}
+
 function MessageBubble({
   message,
   onSpeak,
@@ -809,6 +851,12 @@ function MessageBubble({
     );
   }, [message.extra]);
   const showLive = liveRetrieval.length > 0 && persistedSources.length === 0;
+  const citationIdSet = useMemo(() => {
+    const s = new Set<string>();
+    for (const x of persistedSources) s.add(x.citation_id);
+    for (const r of liveRetrieval) s.add(r.citation_id);
+    return s;
+  }, [persistedSources, liveRetrieval]);
 
   return (
     <article
@@ -848,7 +896,14 @@ function MessageBubble({
         </span>
       </header>
       <div className="font-display text-[13.5px] leading-[1.55] text-ink whitespace-pre-wrap">
-        {message.content}
+        {isOperator || isTool ? (
+          message.content
+        ) : (
+          <MessageBodyWithCitations
+            content={message.content}
+            citationIds={citationIdSet}
+          />
+        )}
       </div>
       {persistedSources.length > 0 ? (
         <SourcesFooter sources={persistedSources} />
@@ -887,7 +942,7 @@ function SourcesFooter({
       </summary>
       <ul className="mt-2 flex flex-col gap-1 font-mono-tech text-[10px] text-ink-2">
         {sources.map((s) => (
-          <li key={s.chunk_id}>
+          <li key={s.chunk_id} id={`tars-source-${s.citation_id}`}>
             <span className="text-accent">[{s.citation_id}]</span>{" "}
             <span className="text-ink">{s.filename ?? s.attachment_id}</span>
             {s.heading ? <span className="text-ink-3"> · {s.heading}</span> : null}
