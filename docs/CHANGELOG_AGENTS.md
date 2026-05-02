@@ -4,6 +4,82 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · planner: SSE event stream + meeet.list_events(after_id)
+
+**Summary**
+
+The cockpit needs a live feed of `plan.*` events to render the
+"approval inbox" + per-step run progress. This PR adds a polling
+SSE endpoint at `GET /api/planner/events` plus the missing
+`after_id` cursor on the meeet store that powers it. Mirrors the
+existing `/api/awareness/stream` shape: `hello` / event frames /
+`bye` on `max_duration_reached` or client disconnect.
+
+**Changes**
+
+1. `backend/core/meeet/store.py` — `MeeetStore.list_events` /
+   `_list_sync` gain an `after_id: int | None` param. SQLite
+   `id` is `INTEGER PRIMARY KEY AUTOINCREMENT` so it's a
+   monotonic cursor; passing the highest id you've already
+   seen returns only strictly-newer events. Combines cleanly
+   with existing `kind` / `kind_prefix` / `since` / `trace_id`
+   / `session_id` / `only_unpushed` filters.
+2. `web_extras/routers/planner.py`:
+   - New `_PLAN_EVENT_KINDS` tuple — every kind the SSE may
+     surface (kept in sync with the timeline allow-list:
+     `plan.proposed` / `planner.synthesis.{completed,failed}` /
+     `planner.{approved,rejected,deleted}` / `plan.run.started` /
+     `plan.step.{requested,allowed,completed}` /
+     `plan.completed` / `plan.aborted` /
+     `plan.abort.requested`).
+   - `_planner_sse_producer(...)` — async generator that emits
+     a `hello` frame (carries the active `after_id` + filter
+     metadata), then polls the meeet store every
+     `poll_interval_s` for new matching events, emits one frame
+     per event in id-ascending order, advances the cursor (even
+     for filter-rejected rows so they aren't re-read forever),
+     and closes with `bye{reason}` when `max_duration_s` is
+     reached. `asyncio.CancelledError` (client disconnect)
+     emits a `bye{reason='client_disconnect'}` frame.
+   - `_sse_frame(...)` helper renders the SSE wire format
+     (`id: <N>\n` + `data: <json>\n\n`).
+   - `_payload_matches(...)` — applies `plan_id` / `thread_id`
+     filters against the event payload.
+   - `GET /api/planner/events` route mounted **before**
+     `/{plan_id}` so Starlette doesn't capture `events` as a
+     plan id. Query params: `plan_id?` / `thread_id?` /
+     `after_id` (default 0) / `poll_interval_s` (0–10s,
+     default 1.0) / `max_duration_s` (0–900s, default 120).
+3. `tests/test_planner_sse.py` (new, 9 cases) cover:
+   - `MeeetStore.list_events(after_id=N)` returns only rows
+     with `id > N`; combines with `kind_prefix` filter.
+   - SSE producer emits `hello` first, plan events in
+     id-ascending order, and `bye{max_duration_reached}`.
+   - `after_id` skips already-seen events on resume.
+   - `plan_id` and `thread_id` filters drop non-matching
+     rows but still advance the cursor.
+   - `hello` frame carries the active `after_id` + filter
+     metadata.
+   - HTTP endpoint mounts at `/api/planner/events` and does
+     NOT collide with `/{plan_id}` (the latter still 404s
+     for unknown plan ids).
+
+**Tests**
+
+`pytest -q` → **1959 passing**. `ReadLints` clean.
+
+**Follow-ups**
+
+- Optional `Last-Event-ID` header parsing on the SSE endpoint
+  for native EventSource resumption (currently the cockpit
+  passes `after_id` as a query param).
+- Reverse — SSE push to the meeet bridge so a single TARS
+  process can fan plan events out across multiple cockpit
+  tabs without each one polling.
+- Cockpit: a live "Plan inbox" panel under the cockpit
+  that subscribes to `/api/planner/events?thread_id=…` for
+  the active chat thread.
+
 ## 2026-05-01 — Cursor [A] · timeline: plan.* events visible in per-thread feed
 
 **Summary**
