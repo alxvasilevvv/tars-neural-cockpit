@@ -193,6 +193,26 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-01 — planner: SSE event stream + meeet.list_events(after_id) (Cursor [A]):**
+  Live feed for the cockpit "approval inbox". New
+  `GET /api/planner/events` SSE endpoint mirrors `/api/awareness/stream`:
+  emits `hello` (with active filter + cursor), then per-event frames in
+  id-ascending order, then `bye` on `max_duration_reached` /
+  `client_disconnect`. Optional query params `plan_id` / `thread_id`
+  filter on payload; `after_id` is the resume cursor; `poll_interval_s`
+  / `max_duration_s` tune the loop. Powered by a new
+  `MeeetStore.list_events(after_id=N)` filter (SQLite `id` is
+  monotonic). Surfaces every kind in the L6.2 family
+  (`plan.proposed` / `planner.synthesis.{completed,failed}` /
+  `planner.{approved,rejected,deleted}` / `plan.run.started` /
+  `plan.step.{requested,allowed,completed}` / `plan.completed` /
+  `plan.aborted` / `plan.abort.requested`). Pinned by
+  `tests/test_planner_sse.py` (9 cases incl. cursor advance,
+  filter rejection still advancing cursor, no-collision with
+  `/{plan_id}`). Full suite: **1959 passing**. Follow-ups: native
+  `Last-Event-ID` header parsing, reverse push from a single
+  TARS process, cockpit "Plan inbox" panel.
+
 - **2026-05-01 — timeline: plan.* events visible in per-thread feed (Cursor [A]):**
   Phase L6.2 shipped the planner runner + a full `plan.*` event family
   but the per-thread timeline (`backend/core/search/timeline.py`) had
