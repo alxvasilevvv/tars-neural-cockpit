@@ -242,12 +242,16 @@ class MeeetStore:
         kind_prefix: str | None,
         session_id: str | None,
         only_unpushed: bool,
+        after_id: int | None = None,
     ) -> list[StoredEvent]:
         clauses: list[str] = []
         params: list[Any] = []
         if since is not None:
             clauses.append("ts >= ?")
             params.append(float(since))
+        if after_id is not None:
+            clauses.append("id > ?")
+            params.append(int(after_id))
         if trace_id:
             clauses.append("trace_id = ?")
             params.append(trace_id)
@@ -327,7 +331,19 @@ class MeeetStore:
         kind_prefix: str | None = None,
         session_id: str | None = None,
         only_unpushed: bool = False,
+        after_id: int | None = None,
     ) -> list[StoredEvent]:
+        """List events, newest-first.
+
+        ``after_id`` is the row-id cursor used by the SSE
+        consumers — pass the highest ``id`` you've already seen to
+        get only events written *strictly after* it. The store
+        ``id`` is monotonic (SQLite ``INTEGER PRIMARY KEY
+        AUTOINCREMENT``), so this is a reliable cursor across
+        process restarts as long as no row was deleted between
+        the last poll and the next one.
+        """
+
         if not self.enabled:
             return []
         limit = max(1, min(int(limit), 1000))
@@ -340,6 +356,7 @@ class MeeetStore:
             kind_prefix=kind_prefix,
             session_id=session_id,
             only_unpushed=only_unpushed,
+            after_id=after_id,
         )
 
     async def stats(self) -> dict[str, Any]:
