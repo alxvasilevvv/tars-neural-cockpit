@@ -37,7 +37,7 @@ jobs:
             label: Windows-x64
 
     runs-on: ${{ matrix.platform }}
-    name: Build – ${{ matrix.label }}
+    name: Build - ${{ matrix.label }}
 
     steps:
       - uses: actions/checkout@v4
@@ -50,7 +50,7 @@ jobs:
       - name: Rust cache
         uses: swatinem/rust-cache@v2
         with:
-          workspaces: src-tauri -> target
+          workspaces: desktop/src-tauri -> target
 
       - uses: pnpm/action-setup@v4
         with:
@@ -61,6 +61,7 @@ jobs:
           node-version: "20"
 
       - name: Install frontend deps
+        working-directory: desktop
         run: pnpm install
 
       - name: Install Python ${{ env.PYTHON_VERSION }}
@@ -78,8 +79,9 @@ jobs:
           pyinstaller --onefile --name tars-sidecar-aarch64-apple-darwin \
             --hidden-import=tiktoken_ext.openai_public \
             --hidden-import=tiktoken_ext \
-            sidecar/main.py
-          cp dist/tars-sidecar-aarch64-apple-darwin src-tauri/binaries/
+            serve.py
+          mkdir -p desktop/src-tauri/binaries
+          cp dist/tars-sidecar-aarch64-apple-darwin desktop/src-tauri/binaries/
 
       - name: Build Python sidecar (macOS x64)
         if: matrix.target == 'x86_64-apple-darwin'
@@ -88,8 +90,9 @@ jobs:
           pyinstaller --onefile --name tars-sidecar-x86_64-apple-darwin \
             --hidden-import=tiktoken_ext.openai_public \
             --hidden-import=tiktoken_ext \
-            sidecar/main.py
-          cp dist/tars-sidecar-x86_64-apple-darwin src-tauri/binaries/
+            serve.py
+          mkdir -p desktop/src-tauri/binaries
+          cp dist/tars-sidecar-x86_64-apple-darwin desktop/src-tauri/binaries/
 
       - name: Build Python sidecar (Linux)
         if: matrix.target == 'x86_64-unknown-linux-gnu'
@@ -98,8 +101,9 @@ jobs:
           pyinstaller --onefile --name tars-sidecar-x86_64-unknown-linux-gnu \
             --hidden-import=tiktoken_ext.openai_public \
             --hidden-import=tiktoken_ext \
-            sidecar/main.py
-          cp dist/tars-sidecar-x86_64-unknown-linux-gnu src-tauri/binaries/
+            serve.py
+          mkdir -p desktop/src-tauri/binaries
+          cp dist/tars-sidecar-x86_64-unknown-linux-gnu desktop/src-tauri/binaries/
 
       - name: Build Python sidecar (Windows)
         if: matrix.target == 'x86_64-pc-windows-msvc'
@@ -108,8 +112,9 @@ jobs:
           pyinstaller --onefile --name tars-sidecar-x86_64-pc-windows-msvc `
             --hidden-import=tiktoken_ext.openai_public `
             --hidden-import=tiktoken_ext `
-            sidecar/main.py
-          Copy-Item dist\tars-sidecar-x86_64-pc-windows-msvc.exe src-tauri\binaries\
+            serve.py
+          New-Item -ItemType Directory -Force -Path desktop\src-tauri\binaries
+          Copy-Item dist\tars-sidecar-x86_64-pc-windows-msvc.exe desktop\src-tauri\binaries\
 
       - name: Linux system deps
         if: runner.os == 'Linux'
@@ -126,6 +131,7 @@ jobs:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
+          projectPath: desktop
           tagName: ${{ github.ref_name }}
           releaseName: "TARS ${{ github.ref_name }}"
           releaseBody: |
@@ -165,6 +171,6 @@ jobs:
           echo "Release tag: ${TAG}"
           echo "Download links:"
           echo "  macOS arm64: https://github.com/${REPO}/releases/download/${TAG}/TARS_${TAG#v}_aarch64.dmg"
-          echo "  macOS x64:   https://github.com/${REPO}/releases/download/${TAG}/TARS_${TAG#v}_x64.dmg"
-          echo "  Linux x64:   https://github.com/${REPO}/releases/download/${TAG}/TARS_${TAG#v}_amd64.deb"
+          echo "  macOS x64: https://github.com/${REPO}/releases/download/${TAG}/TARS_${TAG#v}_x64.dmg"
+          echo "  Linux x64: https://github.com/${REPO}/releases/download/${TAG}/TARS_${TAG#v}_amd64.deb"
           echo "  Windows x64: https://github.com/${REPO}/releases/download/${TAG}/TARS_${TAG#v}_x64-setup.exe"
