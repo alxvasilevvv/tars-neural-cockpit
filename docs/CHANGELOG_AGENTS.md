@@ -4,6 +4,67 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · planner: bash completion script + drift-guard tests
+
+**Summary**
+
+Operator quality-of-life follow-up to the planner CLI. Adds
+`scripts/planner-completion.bash` so `tab` after a planner
+subcommand fills in flags, mode/status enum values, and (for
+the subcommands that take a positional `plan_id`) live plan
+ids fetched from `python -m backend.core.planner.cli list`.
+A small Python contract test guarantees the script never
+drifts out of sync with the actual CLI's `_DISPATCH` map and
+flag declarations.
+
+**Changes**
+
+1. `scripts/planner-completion.bash` (new, executable):
+   - Provides a `_tars_planner` completion function and
+     registers it on the `tars-planner` alias (set up by the
+     operator).
+   - Handles all 11 subcommands (`list`, `show`, `runs`,
+     `stats`, `synthesize`, `approve`, `reject`, `run`,
+     `abort`, `clone`, `delete`).
+   - Per-subcommand flag tables (`--approve`, `--run`,
+     `--mode`, `--thread-id`, etc.); value completion for
+     enum-typed flags (`--mode → autopilot|confirm|dry_run`,
+     `--status → proposed|approved|…`).
+   - Live `plan_id` completion sourced from
+     `cli list --quiet`, JSON-parsed in a tiny inline Python
+     snippet; cached for 5s inside the same shell session so
+     back-to-back tabs do not re-shell.
+   - Documented install paths in the header (Linux / macOS
+     `bash-completion@2`).
+2. `tests/test_planner_completion_script.py` (new, 10 cases):
+   - Script exists, is executable, has a shebang.
+   - `bash -n` parse-only check passes.
+   - Every key in `_DISPATCH` is advertised in
+     `_TARS_PLANNER_CMDS` (and vice versa — no extras).
+   - Per-subcommand flag tables cover the flags actually
+     declared in `_build_arg_parser` (parametrised over
+     `list`, `synthesize`, `run`, `clone`, `delete`).
+   - `--mode` completion lists exactly
+     `autopilot|confirm|dry_run`.
+   - `--status` completion lists exactly the values of
+     `PlanStatus` (so a future enum add prompts an update).
+
+**Tests**
+
+- `tests/test_planner_completion_script.py` — 10 passed.
+- Full `pytest -q` — **2061 passed in 42s**.
+
+**Operator note**
+
+```
+alias tars-planner='python -m backend.core.planner.cli'
+source scripts/planner-completion.bash
+tars-planner clone --<TAB>   # → --approve --goal --help --mode --quiet --run --thread-id
+tars-planner show <TAB>      # → live plan_id list
+```
+
+---
+
 ## 2026-05-01 — Cursor [A] · planner: one-shot rerun (CLI clone --approve/--run + POST /rerun)
 
 **Summary**

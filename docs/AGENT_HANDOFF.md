@@ -193,6 +193,19 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-01 — planner: bash completion script + drift-guard tests (Cursor [A]):**
+  Operator quality-of-life follow-up: `scripts/planner-completion.bash`
+  provides tab-completion for every planner subcommand and
+  flag, plus enum value completion for `--mode` /
+  `--status`, plus live `plan_id` completion sourced from
+  `cli list --quiet` (cached 5s inside the same shell). A
+  10-case Python contract test
+  (`tests/test_planner_completion_script.py`) guarantees the
+  script never drifts out of sync with `_DISPATCH` or
+  `_build_arg_parser`. Install paths and the `tars-planner`
+  alias documented in the script header. Full suite:
+  **2061 passing**.
+
 - **2026-05-01 — planner: one-shot rerun (CLI + HTTP) (Cursor [A]):**
   Closed the loop on the rerun-via-clone flow shipped in PR
   #108. CLI: `clone --approve [--run [--mode ...]]` composes
