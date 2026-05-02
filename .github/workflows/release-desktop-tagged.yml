@@ -148,6 +148,14 @@ jobs:
             See CHANGELOG.md for details.
           releaseDraft: false
           prerelease: false
+          # Bug #9 fix from docs/SYSTEM_AUDIT_2026-05-02.md —
+          # publish ``latest.json`` (Tauri updater channel JSON) as
+          # a release asset so the in-app updater can poll
+          # ``releases/latest/download/latest.json``. Requires
+          # TAURI_SIGNING_PRIVATE_KEY to be set; falls back to
+          # publishing only the artefacts when missing.
+          includeUpdaterJson: true
+          updaterJsonPreferNsis: false
           args: --target ${{ matrix.target }}
 
   notify:
