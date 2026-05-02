@@ -193,6 +193,20 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-01 — planner: GET /{plan_id}/full aggregate (Cursor [A]):**
+  One-shot aggregate endpoint for the cockpit's plan-detail
+  drawer. Returns plan envelope + reconstructed runs
+  (newest-first) + a `usage_lifetime` block summing every
+  run's per-run rollup. The lifetime `cost_usd` stays
+  `null` (cockpit renders "n/a") unless at least one run
+  had `has_priced_models=true`; mixed runs sum *only* the
+  priced runs' costs so "$0.00" never gets confused with
+  "no priced model fired". Pinned by
+  `tests/test_planner_full_endpoint.py` (7 cases). Full
+  suite: **2080 passing**. Follow-ups: cockpit drawer can
+  collapse three fetches into one; `runs_aggregated` makes
+  "across N runs" label trivial.
+
 - **2026-05-01 — planner: Makefile targets + control-tower gate (Cursor [A]):**
   Wires the planner CLI into the operator-facing Makefile so
   the control tower covers planner end-to-end. Six new
