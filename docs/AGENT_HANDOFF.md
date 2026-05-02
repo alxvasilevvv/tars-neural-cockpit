@@ -193,6 +193,27 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-01 — cockpit: per-step live ticking in PlanFullPanel (Cursor [A]):**
+  Top-priority follow-up from PR #118. The plan panel's step list
+  now ticks live during a run: every `plan.step.requested` /
+  `plan.step.allowed` / `plan.step.completed` SSE frame flips the
+  matching row's status badge in place — no extra round-trip, no
+  flash, no out-of-order rendering. Reducer lives in
+  `experiments/neural-showcase-v3/src/lib/plannerSteps.ts`
+  (pure, DOM-free) and honours trace scoping (events from a foreign
+  trace are dropped), `Last-Event-ID` re-delivery (same start frame
+  is a referential no-op), and a `skipped > blocked > failed`
+  precedence ladder for terminal states. Pinned by 20 Vitest cases
+  in `plannerSteps.test.ts`. Panel seeds an "all pending" snapshot
+  on envelope arrival so rows render immediately; a "live · run in
+  flight" amber lozenge in the section header signals an active
+  run; per-step latency renders next to the action via
+  `formatLatencyMs`. Cockpit suite: **140 passed (12 files)**;
+  `tsc --noEmit` clean; `vite build` clean; Python unchanged
+  (2080 green). Follow-ups: URL-state sync for the planner
+  filter strip + deep-link plan_id; right-rail entrypoint from the
+  chat thread when the agent proposes a plan.
+
 - **2026-05-01 — cockpit: PlanFullPanel + /cockpit/planner page (Cursor [A]):**
   Operator-facing payoff for the planner backend work shipped in
   PRs #109–#117. New page at `/cockpit/planner` lets the operator
