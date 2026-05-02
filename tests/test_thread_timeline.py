@@ -95,6 +95,27 @@ def test_relevant_event_kinds_covers_council_deliberation_events() -> None:
     assert must_have.issubset(set(_RELEVANT_EVENT_KINDS))
 
 
+def test_relevant_event_kinds_covers_planner_events() -> None:
+    """Phase L6.2 added the ``plan.*`` event family. The cockpit
+    needs them in the per-thread timeline so plan synthesis,
+    approval, and run progress show up alongside chat and tool
+    calls."""
+
+    must_have = {
+        "plan.proposed",
+        "planner.approved",
+        "planner.rejected",
+        "plan.run.started",
+        "plan.step.requested",
+        "plan.step.allowed",
+        "plan.step.completed",
+        "plan.completed",
+        "plan.aborted",
+        "plan.abort.requested",
+    }
+    assert must_have.issubset(set(_RELEVANT_EVENT_KINDS))
+
+
 # ---------------------------------------------------------------------------
 # _summarise_event — per-kind shapes
 # ---------------------------------------------------------------------------
@@ -336,6 +357,180 @@ def test_summary_playbook_completed_renders_run_blocked_failed_counts() -> None:
 
 
 # ---------------------------------------------------------------------------
+# Plan summaries — Phase L6.2
+# ---------------------------------------------------------------------------
+
+
+def test_summary_plan_proposed_renders_id_goal_steps() -> None:
+    out = _summarise_event(
+        "plan.proposed",
+        {
+            "plan_id": "pln_abc",
+            "goal": "run traders.summarize_market",
+            "step_count": 2,
+            "destructive_step_count": 1,
+        },
+    )
+    assert "plan=pln_abc" in out
+    assert "run traders.summarize_market" in out
+    assert "steps=2" in out
+    assert "destructive=1" in out
+
+
+def test_summary_plan_proposed_truncates_long_goals() -> None:
+    long_goal = "x" * 300
+    out = _summarise_event(
+        "plan.proposed",
+        {"plan_id": "pln_x", "goal": long_goal, "step_count": 1},
+    )
+    # Cap is 60 chars on the goal slice.
+    assert "x" * 60 in out
+    assert long_goal not in out
+
+
+def test_summary_plan_proposed_omits_destructive_when_zero() -> None:
+    out = _summarise_event(
+        "plan.proposed",
+        {"plan_id": "p", "goal": "g", "step_count": 1, "destructive_step_count": 0},
+    )
+    assert "destructive" not in out
+
+
+def test_summary_planner_approved_and_rejected() -> None:
+    approved = _summarise_event(
+        "planner.approved",
+        {"plan_id": "p1", "step_count": 3},
+    )
+    rejected = _summarise_event(
+        "planner.rejected",
+        {"plan_id": "p2", "step_count": 5},
+    )
+    assert "approved" in approved
+    assert "plan=p1" in approved
+    assert "steps=3" in approved
+    assert "rejected" in rejected
+    assert "steps=5" in rejected
+
+
+def test_summary_plan_run_started_includes_mode() -> None:
+    out = _summarise_event(
+        "plan.run.started",
+        {"plan_id": "p", "step_count": 4, "mode": "autopilot"},
+    )
+    assert "plan=p" in out
+    assert "steps=4" in out
+    assert "mode=autopilot" in out
+
+
+def test_summary_plan_step_requested_renders_action_and_parallel_tag() -> None:
+    serial = _summarise_event(
+        "plan.step.requested",
+        {
+            "plan_id": "p",
+            "step_id": "s1",
+            "action": "traders.summarize_market",
+            "parallel": False,
+        },
+    )
+    assert "step=s1" in serial
+    assert "traders.summarize_market" in serial
+    assert "parallel" not in serial
+
+    par = _summarise_event(
+        "plan.step.requested",
+        {
+            "plan_id": "p",
+            "step_id": "s2",
+            "action": "x.y",
+            "parallel": True,
+        },
+    )
+    assert "parallel" in par
+
+
+def test_summary_plan_step_allowed_renders_decision() -> None:
+    allowed = _summarise_event(
+        "plan.step.allowed",
+        {"plan_id": "p", "step_id": "s1", "allowed": True, "reason": "executed"},
+    )
+    blocked = _summarise_event(
+        "plan.step.allowed",
+        {
+            "plan_id": "p",
+            "step_id": "s2",
+            "allowed": False,
+            "reason": "blocked_by_policy",
+        },
+    )
+    assert "allowed" in allowed
+    assert "reason=executed" in allowed
+    assert "blocked" in blocked
+    assert "reason=blocked_by_policy" in blocked
+
+
+def test_summary_plan_step_completed_marks_skipped_blocked_failed_ok() -> None:
+    skipped = _summarise_event(
+        "plan.step.completed",
+        {"plan_id": "p", "step_id": "s1", "skipped": True, "took_ms": 0.0},
+    )
+    blocked = _summarise_event(
+        "plan.step.completed",
+        {"plan_id": "p", "step_id": "s2", "blocked": True, "took_ms": 1.0},
+    )
+    failed = _summarise_event(
+        "plan.step.completed",
+        {"plan_id": "p", "step_id": "s3", "ok": False, "took_ms": 2.0},
+    )
+    ok = _summarise_event(
+        "plan.step.completed",
+        {"plan_id": "p", "step_id": "s4", "ok": True, "took_ms": 12.345},
+    )
+    assert "skipped" in skipped
+    assert "blocked" in blocked
+    assert "failed" in failed
+    assert "ok" in ok
+    assert "12.3ms" in ok
+
+
+def test_summary_plan_completed_renders_run_blocked_failed_counts() -> None:
+    out = _summarise_event(
+        "plan.completed",
+        {"plan_id": "p", "steps_run": 3, "steps_blocked": 0, "steps_failed": 0},
+    )
+    assert "plan=p" in out
+    assert "ok" in out
+    assert "run=3" in out
+
+
+def test_summary_plan_aborted_renders_reason() -> None:
+    out = _summarise_event(
+        "plan.aborted",
+        {
+            "plan_id": "p",
+            "reason": "operator_abort",
+            "steps_run": 1,
+            "steps_blocked": 0,
+            "steps_failed": 0,
+        },
+    )
+    assert "reason=operator_abort" in out
+    assert "run=1" in out
+
+
+def test_summary_plan_abort_requested_renders_flipped_state() -> None:
+    yes = _summarise_event(
+        "plan.abort.requested",
+        {"plan_id": "p", "ok": True},
+    )
+    no = _summarise_event(
+        "plan.abort.requested",
+        {"plan_id": "p", "ok": False},
+    )
+    assert "flipped=yes" in yes
+    assert "flipped=no" in no
+
+
+# ---------------------------------------------------------------------------
 # End-to-end: get_thread_timeline merges every source in chronological order
 # ---------------------------------------------------------------------------
 
@@ -447,3 +642,51 @@ async def test_get_thread_timeline_returns_empty_for_unknown_thread(fresh_chat_a
 async def test_get_thread_timeline_returns_empty_when_thread_id_blank(fresh_chat_and_meeet) -> None:
     entries = await get_thread_timeline("")
     assert entries == []
+
+
+@pytest.mark.asyncio
+async def test_get_thread_timeline_picks_up_plan_events(fresh_chat_and_meeet) -> None:
+    """Phase L6.2: planner events tagged with ``payload.thread_id``
+    must surface in the per-thread timeline alongside chat
+    messages, so the cockpit can render the plan lifecycle."""
+
+    from backend.core.chat.models import Thread
+    from backend.core.chat.store import get_chat_store
+    from backend.core.meeet import get_client
+
+    chat = get_chat_store()
+    if not chat.enabled:
+        pytest.skip("chat store disabled in this env")
+
+    thread = Thread.fresh(title="planner-thread")
+    await chat.insert_thread(thread)
+
+    client = get_client()
+    await client.emit(
+        "plan.proposed",
+        {
+            "plan_id": "pln_e2e_001",
+            "goal": "run traders.summarize_market",
+            "step_count": 1,
+            "thread_id": thread.id,
+        },
+    )
+    await client.emit(
+        "plan.completed",
+        {
+            "plan_id": "pln_e2e_001",
+            "steps_run": 1,
+            "steps_blocked": 0,
+            "steps_failed": 0,
+            "thread_id": thread.id,
+        },
+    )
+
+    entries = await get_thread_timeline(thread.id, limit_per_source=50)
+    kinds = [e.kind for e in entries]
+    assert "plan.proposed" in kinds
+    assert "plan.completed" in kinds
+
+    proposed = next(e for e in entries if e.kind == "plan.proposed")
+    assert "plan=pln_e2e_001" in proposed.summary
+    assert "run traders.summarize_market" in proposed.summary

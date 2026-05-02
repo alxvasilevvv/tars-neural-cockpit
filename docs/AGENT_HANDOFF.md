@@ -193,6 +193,21 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-01 — timeline: plan.* events visible in per-thread feed (Cursor [A]):**
+  Phase L6.2 shipped the planner runner + a full `plan.*` event family
+  but the per-thread timeline (`backend/core/search/timeline.py`) had
+  not been taught about it. Cockpit threads where the operator ran a
+  plan rendered gaps. This PR adds every new event kind
+  (`plan.proposed`, `planner.{approved,rejected}`,
+  `plan.run.started`, `plan.step.{requested,allowed,completed}`,
+  `plan.completed`, `plan.aborted`, `plan.abort.requested`) to
+  `_RELEVANT_EVENT_KINDS` and adds matching `_summarise_event` branches
+  with a consistent `plan=<id> · …` shape. The
+  `plan.step.completed` summariser ranks `skipped` > `blocked` >
+  `failed` > `ok`. `plan.proposed` truncates the goal at 60 chars.
+  Pinned by `tests/test_thread_timeline.py` (12 new cases incl.
+  end-to-end flow). Full suite: **1950 passing**.
+
 - **2026-05-01 — Phase L6.2: planner runner (PlanRunner + abort + plan.* events) (Cursor [A]):**
   Second slice of Phase L6. New `backend/core/planner/runner.py` ships
   the `PlanRunner` that takes an `approved` `Plan`, drives every step
