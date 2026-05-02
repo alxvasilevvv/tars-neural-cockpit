@@ -47,6 +47,7 @@ _PLANNER_TARGETS = (
     "planner-runs",
     "planner-show",
     "planner-full",
+    "planner-rerun",
     "planner-smoke",
 )
 
@@ -106,15 +107,16 @@ def test_gate_control_tower_includes_planner_smoke(makefile: str):
 
 
 @pytest.mark.parametrize(
-    "target", ["planner-runs", "planner-show", "planner-full"],
+    "target",
+    ["planner-runs", "planner-show", "planner-full", "planner-rerun"],
 )
 def test_args_required_targets_guard_against_empty_args(
     makefile: str, target: str
 ):
-    """``planner-runs`` / ``planner-show`` / ``planner-full`` are
-    useless without a plan_id; the recipe must short-circuit with
-    an error message instead of letting the CLI emit a confusing
-    argparse failure.
+    """``planner-runs`` / ``planner-show`` / ``planner-full`` /
+    ``planner-rerun`` are useless without a plan_id; the recipe
+    must short-circuit with an error message instead of letting
+    the CLI emit a confusing argparse failure.
     """
 
     pattern = re.compile(
@@ -149,6 +151,35 @@ def test_planner_macro_points_at_canonical_cli_module(makefile: str):
     assert m, "PLANNER macro not declared in Makefile"
     assert "backend.core.planner.cli" in m.group(1), (
         "PLANNER macro must point at backend.core.planner.cli"
+    )
+
+
+def test_planner_rerun_target_wires_clone_with_approve_and_run(
+    makefile: str,
+):
+    """``planner-rerun`` must shell into ``clone <id> --approve --run``
+    so a single Make invocation reproduces the cockpit's one-click
+    Rerun button (cron / fleet workflows depend on this parity).
+    The optional ``MODE=`` variable, when present, must reach the
+    CLI as ``--mode <value>`` so the operator can pin policy mode.
+    """
+
+    pattern = re.compile(
+        r"^planner-rerun:[^\n]*\n((?:\t[^\n]*\n)+)",
+        re.MULTILINE,
+    )
+    m = pattern.search(makefile)
+    assert m, "planner-rerun recipe not found"
+    recipe = m.group(1)
+    # Default branch (no MODE) must call clone with --approve --run.
+    assert "clone $(ARGS) --approve --run" in recipe, (
+        "planner-rerun must invoke `clone $(ARGS) --approve --run` "
+        "to mirror the cockpit's one-click Rerun behaviour"
+    )
+    # Optional MODE branch must forward --mode "$(MODE)".
+    assert '--mode "$(MODE)"' in recipe, (
+        "planner-rerun must forward the optional MODE= variable as "
+        "`--mode \"$(MODE)\"` so operators can pin policy mode"
     )
 
 
