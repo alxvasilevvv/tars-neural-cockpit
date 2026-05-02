@@ -193,6 +193,19 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-01 — planner: surface trace_id + parent_trace_id on PlanRun (Cursor [A]):**
+  Cockpit-facing follow-up to PR #109. `PlanRun.to_dict()` and
+  the `GET /api/planner/{plan_id}/runs` envelope now expose
+  both the per-run `trace_id` (from `plan.run.started.trace_id`)
+  and the plan's birth `parent_trace_id` (copied from the same
+  event's payload). Lets the cockpit deep-link from a single
+  run row to its trace lane, and group sibling runs of the
+  same plan under one collapsible "all runs of plan X" node
+  without an extra API call. Pinned by
+  `tests/test_planner_history_traces.py` (4 cases). Full suite
+  (excluding pre-existing `test_release_desktop_workflow`
+  errors): **2021 passing**.
+
 - **2026-05-01 — planner: per-run trace_id (Cursor [A]):**
   Made every plan run independently observable. `PlanRunner.run`
   now mints a fresh `trace_id` per invocation (was: reused the
