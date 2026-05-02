@@ -36,7 +36,24 @@ def _to_dict(c) -> dict[str, Any]:
         "expires_at": c.expires_at,
         "requested_by": c.requested_by,
         "trace_id": c.trace_id,
+        "thread_id": c.thread_id,
     }
+
+
+def _attach_thread_id(payload: dict[str, Any], confirmation) -> dict[str, Any]:
+    """Surface the originating thread on the policy event payload.
+
+    The cockpit's per-thread timeline filters meeet events by
+    ``payload.thread_id``; without this hop ``policy.confirm`` /
+    ``policy.cancelled`` would never appear in the conversation
+    feed even though the originating action was triggered from a
+    chat thread.
+    """
+
+    tid = getattr(confirmation, "thread_id", None)
+    if tid:
+        payload["thread_id"] = tid
+    return payload
 
 
 @router.get("/pending")
@@ -84,11 +101,14 @@ async def confirm(
     with trace_scope(parent=x_meeet_trace_id) as trace_id:
         await client.emit(
             "policy.confirm",
-            {
-                "slug": confirmation.slug,
-                "action": confirmation.action_id,
-                "token": token,
-            },
+            _attach_thread_id(
+                {
+                    "slug": confirmation.slug,
+                    "action": confirmation.action_id,
+                    "token": token,
+                },
+                confirmation,
+            ),
         )
         try:
             result = await spec.handler(confirmation.args)
@@ -139,11 +159,14 @@ async def cancel(token: str) -> dict[str, Any]:
     resolved = await store.resolve(token, status="cancelled")
     await get_client().emit(
         "policy.cancelled",
-        {
-            "slug": confirmation.slug,
-            "action": confirmation.action_id,
-            "token": token,
-        },
+        _attach_thread_id(
+            {
+                "slug": confirmation.slug,
+                "action": confirmation.action_id,
+                "token": token,
+            },
+            confirmation,
+        ),
     )
     return {"ok": True, "confirmation": _to_dict(resolved) if resolved else None}
 
@@ -155,13 +178,16 @@ async def expire_stale() -> dict[str, Any]:
     for c in expired:
         await client.emit(
             "policy.expired",
-            {
-                "token": c.token,
-                "slug": c.slug,
-                "action": c.action_id,
-                "expired_at": c.resolved_at,
-                "trace_id": c.trace_id,
-            },
+            _attach_thread_id(
+                {
+                    "token": c.token,
+                    "slug": c.slug,
+                    "action": c.action_id,
+                    "expired_at": c.resolved_at,
+                    "trace_id": c.trace_id,
+                },
+                c,
+            ),
         )
     return {
         "ok": True,
