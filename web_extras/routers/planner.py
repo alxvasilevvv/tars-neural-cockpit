@@ -1,7 +1,6 @@
 """HTTP surface for the planner.
 
-Endpoints (v1 — synthesis + persistence only; the runner ships in a
-follow-up PR):
+Endpoints:
 
 - ``POST /api/planner/plan`` — synthesize a Plan from a goal + persist
   it. Body: ``{goal, pinned_pack?, thread_id?}``. Auto-discovers
@@ -24,6 +23,16 @@ follow-up PR):
   stops between groups and persists ``status=aborted``.
 - ``DELETE /api/planner/{plan_id}`` — drop a plan (operator can
   prune a no-longer-relevant proposal).
+- ``GET  /api/planner/events`` — Server-Sent Events stream of the
+  ``plan.*`` event family (and ``planner.{approved,rejected}`` /
+  ``planner.synthesis.{completed,failed}``). Optional query
+  params: ``plan_id`` and ``thread_id`` (filter by exact match
+  on the event payload), ``after_id`` (cursor; the stream only
+  emits events with a row id strictly greater than this — pass
+  the last id you saw to resume), ``poll_interval_s`` (default
+  ``1.0``), ``max_duration_s`` (default ``120``). Each frame is
+  JSON-encoded and includes the meeet store's row ``id`` so the
+  cockpit can persist the cursor across reconnects.
 
 Every state-changing endpoint emits a ``planner.*`` meeet event so
 the cockpit gold-pill audit lane sees the plan lifecycle.
@@ -31,13 +40,22 @@ the cockpit gold-pill audit lane sees the plan lifecycle.
 
 from __future__ import annotations
 
-from typing import Any
+import asyncio
+import json
+import time
+from typing import Any, AsyncIterator
 
 from fastapi import APIRouter, Body, Header, HTTPException, Query
+from fastapi.responses import StreamingResponse
 
 from backend.core.domains import packs as _packs  # noqa: F401  (registers)
 from backend.core.domains.registry import all_packs
-from backend.core.meeet import get_client, thread_id_scope, trace_scope
+from backend.core.meeet import (
+    get_client,
+    get_store as get_meeet_store,
+    thread_id_scope,
+    trace_scope,
+)
 from backend.core.planner import (
     Plan,
     PlannerError,
@@ -195,6 +213,50 @@ async def list_plans(
     }
 
 
+@router.get("/events")
+async def planner_events_stream(
+    plan_id: str | None = Query(default=None),
+    thread_id: str | None = Query(default=None),
+    after_id: int = Query(default=0, ge=0),
+    poll_interval_s: float = Query(default=1.0, gt=0.0, le=10.0),
+    max_duration_s: float = Query(default=120.0, gt=0.0, le=900.0),
+) -> StreamingResponse:
+    """SSE feed of the ``plan.*`` event family.
+
+    Declared before ``/{plan_id}`` so Starlette doesn't try to
+    parse ``events`` as a plan id. See the module docstring for
+    the contract.
+    """
+
+    async def gen() -> AsyncIterator[str]:
+        with trace_scope():
+            try:
+                async for frame in _planner_sse_producer(
+                    plan_id=plan_id,
+                    thread_id=thread_id,
+                    after_id=after_id,
+                    poll_interval_s=poll_interval_s,
+                    max_duration_s=max_duration_s,
+                ):
+                    yield frame
+            except asyncio.CancelledError:
+                yield _sse_frame(
+                    "bye",
+                    {"reason": "client_disconnect"},
+                )
+                raise
+
+    return StreamingResponse(
+        gen(),
+        media_type="text/event-stream",
+        headers={
+            "cache-control": "no-cache, no-transform",
+            "x-accel-buffering": "no",
+            "connection": "keep-alive",
+        },
+    )
+
+
 @router.get("/{plan_id}")
 async def get_plan(plan_id: str) -> dict[str, Any]:
     plan = await get_planner_store().get(plan_id)
@@ -334,3 +396,141 @@ async def delete_plan(plan_id: str) -> dict[str, Any]:
             },
         )
     return {"ok": deleted, "plan_id": plan_id}
+
+
+# ---------------------------------------------------------------------------
+# Server-Sent Events: live plan.* feed
+# ---------------------------------------------------------------------------
+
+
+# All event kinds the SSE stream may emit. Pulled from the SQLite
+# meeet store; kept in sync with the timeline allow-list.
+_PLAN_EVENT_KINDS: tuple[str, ...] = (
+    "plan.proposed",
+    "planner.synthesis.completed",
+    "planner.synthesis.failed",
+    "planner.approved",
+    "planner.rejected",
+    "planner.deleted",
+    "plan.run.started",
+    "plan.step.requested",
+    "plan.step.allowed",
+    "plan.step.completed",
+    "plan.completed",
+    "plan.aborted",
+    "plan.abort.requested",
+)
+
+
+def _sse_frame(kind: str, payload: dict[str, Any], *, event_id: int | None = None) -> str:
+    """Render one SSE frame.
+
+    ``event_id`` becomes the ``id:`` line so the cockpit can persist
+    the cursor in ``Last-Event-ID`` / pass it back as ``after_id`` on
+    reconnect.
+    """
+
+    body = {"kind": kind, **payload}
+    out = ""
+    if event_id is not None:
+        out += f"id: {event_id}\n"
+    out += f"data: {json.dumps(body, separators=(',', ':'))}\n\n"
+    return out
+
+
+def _payload_matches(
+    payload: dict[str, Any],
+    *,
+    plan_id: str | None,
+    thread_id: str | None,
+) -> bool:
+    if plan_id and str(payload.get("plan_id") or "") != plan_id:
+        return False
+    if thread_id and str(payload.get("thread_id") or "") != thread_id:
+        return False
+    return True
+
+
+async def _planner_sse_producer(
+    *,
+    plan_id: str | None,
+    thread_id: str | None,
+    after_id: int,
+    poll_interval_s: float,
+    max_duration_s: float,
+) -> AsyncIterator[str]:
+    """Yield SSE frames for the plan.* event family.
+
+    The producer is polling-based: every ``poll_interval_s`` it asks
+    the meeet store for events with ``id > cursor`` matching one of
+    the ``_PLAN_EVENT_KINDS``. Filters on ``plan_id`` / ``thread_id``
+    are applied in Python (the values live in the JSON payload).
+    Closes after ``max_duration_s`` of wall-clock time.
+    """
+
+    started = time.time()
+    cursor = max(0, int(after_id))
+    yield _sse_frame(
+        "hello",
+        {
+            "service": "tars-planner-events",
+            "after_id": cursor,
+            "poll_interval_s": poll_interval_s,
+            "max_duration_s": max_duration_s,
+            "filter": {
+                "plan_id": plan_id,
+                "thread_id": thread_id,
+            },
+        },
+    )
+
+    store = get_meeet_store()
+
+    while True:
+        elapsed = time.time() - started
+        if elapsed >= max_duration_s:
+            yield _sse_frame(
+                "bye",
+                {"reason": "max_duration_reached", "after_id": cursor},
+            )
+            return
+
+        # Pull every plan.* kind. Each call is bounded by `limit`
+        # so no single tick can stall the loop.
+        new_events: list[Any] = []
+        for kind in _PLAN_EVENT_KINDS:
+            try:
+                rows = await store.list_events(
+                    kind=kind,
+                    after_id=cursor,
+                    limit=200,
+                )
+            except Exception:
+                continue
+            new_events.extend(rows)
+
+        # The store returns newest-first inside each kind bucket, so
+        # sort by id ascending before emitting.
+        new_events.sort(key=lambda ev: ev.id)
+
+        for ev in new_events:
+            payload = ev.payload if isinstance(ev.payload, dict) else {}
+            if not _payload_matches(
+                payload, plan_id=plan_id, thread_id=thread_id
+            ):
+                cursor = max(cursor, ev.id)
+                continue
+            cursor = max(cursor, ev.id)
+            yield _sse_frame(
+                ev.kind,
+                {
+                    "id": ev.id,
+                    "ts": ev.ts,
+                    "trace_id": ev.trace_id,
+                    "session_id": ev.session_id,
+                    "payload": payload,
+                },
+                event_id=ev.id,
+            )
+
+        await asyncio.sleep(max(0.05, poll_interval_s))
