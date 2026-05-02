@@ -4,6 +4,78 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · cockpit: URL-state sync for /cockpit/planner
+
+**Summary**
+
+Operators can now deep-link to any planner view. The page mirrors
+three pieces of UI state in the URL via `useSearchParams`:
+
+  - `?status=<status>` — one of the seven filter states or "all".
+  - `?q=<text>` — free-text filter (id / goal / pack_slug).
+  - `?selected=<id>` — currently selected plan id.
+
+Defaults are elided (no `?status=all`, no empty `?q=`, no
+`?selected=`) so the URL stays short for the common case. Parse is
+permissive: unknown statuses fall back to "all", whitespace-only
+q / selected become empty / null, malformed values never throw.
+
+The wiring uses `replace` mode so URL updates don't pollute the
+browser back-stack with every keystroke / click. Selection promotion
+(when nothing is selected, pick the newest plan) writes through the
+same updater so the URL reflects the auto-selection too.
+
+Pure helpers (`parsePlannerSearchParams`,
+`buildPlannerSearchParams`, `plannerStateEquals`) live in
+`lib/plannerUrl.ts` and are pinned by 18 Vitest cases — round-trip
+identity, default elision, URL-encoding (spaces / `&` / unicode),
+permissive fallback for invalid input.
+
+**Changes**
+
+1. `experiments/neural-showcase-v3/src/lib/plannerUrl.ts` (new) —
+   parse / build / equals + `DEFAULT_STATE`.
+2. `experiments/neural-showcase-v3/src/lib/plannerUrl.test.ts`
+   (new, 18 cases):
+   - `parsePlannerSearchParams`: empty URL → defaults; every
+     valid status accepted; unknown / empty / whitespace status →
+     "all"; q trimmed; whitespace-only q → ""; missing / empty
+     / whitespace selected → null; non-empty selected preserved.
+   - `buildPlannerSearchParams`: empty for default state; status
+     omitted at "all"; q omitted at ""; URL-encoding for spaces,
+     `&`, unicode (`☃`); selected omitted at null; stable ordering
+     `status / q / selected`.
+   - Round-trip identity for default state, fully-filled state,
+     status alone, q alone (with spaces).
+   - `plannerStateEquals`: true on identical content; false on
+     any single field difference.
+3. `experiments/neural-showcase-v3/src/pages/Planner.tsx` —
+   replaces local `useState` for filter / search / selection
+   with `useSearchParams`-backed `urlState`. `updateUrlState`
+   writes through `setSearchParams(..., { replace: true })`.
+   Selection auto-promotion now flows through the same updater
+   so the URL reflects auto-selection. Refetch effect dep-list
+   updated to fire only on `statusFilter` (selection changes
+   don't refetch the list).
+
+**Tests**
+
+- `pnpm vitest run` — **158 passed (13 files)**, incl. 18 new
+  url-helper cases.
+- `pnpm tsc --noEmit` — clean.
+- `pnpm vite build` — clean.
+- `pytest -q` — **2080 passed in 40s** (no Python deltas).
+
+**Cockpit follow-ups**
+
+- Right-rail entrypoint from the cockpit chat thread (open the
+  panel inline when the agent proposes a plan) — last item on
+  the planner-cockpit roadmap before declaring the operator
+  workflow complete.
+- Scroll-to-selected on first paint: when `?selected=` is set on
+  load, scroll the selected row into view in the left rail so the
+  deep-linked plan is immediately visible (small QoL fix).
+
 ## 2026-05-01 — Cursor [A] · cockpit: per-step live ticking in PlanFullPanel
 
 **Summary**
