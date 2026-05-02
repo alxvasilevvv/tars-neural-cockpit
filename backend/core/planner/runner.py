@@ -37,7 +37,12 @@ import time
 from dataclasses import dataclass, field
 from typing import Any, Mapping, Optional
 
-from backend.core.meeet import get_client, thread_id_scope, trace_scope
+from backend.core.meeet import (
+    get_client,
+    get_store as get_meeet_store,
+    thread_id_scope,
+    trace_scope,
+)
 from backend.core.playbooks.runner import (
     PlaybookRunner,
     StepResult,
@@ -154,6 +159,92 @@ def _plan_step_to_adapter(step: PlanStep) -> _AdaptedStep:
 
 
 # ---------------------------------------------------------------------------
+# Per-run usage rollup
+# ---------------------------------------------------------------------------
+
+
+async def _compute_run_usage(
+    *,
+    trace_id: str | None,
+    started_at: float,
+    finished_at: float,
+) -> dict[str, Any]:
+    """Roll up ``usage.tokens`` events that fired during this run.
+
+    The runner currently inherits the plan's birth ``trace_id`` (so
+    the synthesis events and every run share it). Filtering by
+    ``trace_id`` alone would mix runs of the same plan together, so
+    we *also* clamp by the run's wall-clock window — the
+    ``usage.tokens`` event is emitted with the trace context active
+    at the moment of the LLM call, so its ``ts`` falls inside the
+    ``started_at..finished_at`` window iff it belongs to this run.
+
+    Returns a dict with ``calls`` / ``tokens_in`` / ``tokens_out``
+    / ``cost_usd`` / ``latency_ms_total`` / ``has_priced_models``.
+    The ``cost_usd`` value is ``None`` (rather than ``0.0``) when no
+    matching event was found *and* no priced models could be
+    summed — the cockpit renders "n/a" in that case so we don't
+    falsely advertise a free run for a paid model whose price is
+    missing from the table.
+    """
+
+    if not trace_id:
+        return {
+            "calls": 0,
+            "tokens_in": 0,
+            "tokens_out": 0,
+            "cost_usd": None,
+            "latency_ms_total": 0.0,
+            "has_priced_models": False,
+        }
+
+    try:
+        events = await get_meeet_store().list_events(
+            kind="usage.tokens",
+            trace_id=trace_id,
+            since=started_at,
+            limit=1000,
+        )
+    except Exception:
+        events = []
+
+    calls = 0
+    tokens_in = 0
+    tokens_out = 0
+    cost_total = 0.0
+    latency_total = 0.0
+    priced = False
+    # Add a tiny grace margin for clock skew between the runner
+    # finishing the loop and the terminal emit landing on disk.
+    finished_clamp = max(finished_at, started_at) + 1.0
+
+    for ev in events:
+        if ev.ts > finished_clamp:
+            continue
+        payload = ev.payload if isinstance(ev.payload, dict) else {}
+        calls += 1
+        tokens_in += int(payload.get("tokens_in") or 0)
+        tokens_out += int(payload.get("tokens_out") or 0)
+        latency_total += float(payload.get("latency_ms") or 0.0)
+        cost = payload.get("cost_usd")
+        if cost is not None:
+            try:
+                cost_total += float(cost)
+                priced = True
+            except (TypeError, ValueError):
+                pass
+
+    return {
+        "calls": calls,
+        "tokens_in": tokens_in,
+        "tokens_out": tokens_out,
+        "cost_usd": round(cost_total, 6) if priced else None,
+        "latency_ms_total": round(latency_total, 3),
+        "has_priced_models": priced,
+    }
+
+
+# ---------------------------------------------------------------------------
 # PlanRunner
 # ---------------------------------------------------------------------------
 
@@ -235,6 +326,8 @@ class PlanRunner:
         ok = True
         abort_reason: str | None = None
         adapted_steps = tuple(_plan_step_to_adapter(s) for s in plan.steps)
+
+        run_started_at = time.time()
 
         with thread_id_scope(plan.thread_id), trace_scope(
             parent=plan.trace_id
@@ -464,6 +557,13 @@ class PlanRunner:
                 plan.id, final_status, error=error_msg
             )
 
+            run_finished_at = time.time()
+            usage = await _compute_run_usage(
+                trace_id=trace_id,
+                started_at=run_started_at,
+                finished_at=run_finished_at,
+            )
+
             if final_status == PlanStatus.COMPLETED:
                 await client.emit(
                     "plan.completed",
@@ -473,6 +573,7 @@ class PlanRunner:
                         "steps_run": steps_run,
                         "steps_blocked": steps_blocked,
                         "steps_failed": steps_failed,
+                        "usage": usage,
                     },
                 )
             else:
@@ -484,6 +585,7 @@ class PlanRunner:
                         "steps_run": steps_run,
                         "steps_blocked": steps_blocked,
                         "steps_failed": steps_failed,
+                        "usage": usage,
                     },
                 )
 
@@ -502,6 +604,7 @@ class PlanRunner:
                 "steps": [r.to_dict() for r in ordered],
                 "context": ctx,
                 "abort_reason": error_msg,
+                "usage": usage,
             }
 
 
