@@ -4,6 +4,121 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · playbooks CLI: bash completion + planner script flag-order fix
+
+**Summary**
+
+Ships `scripts/playbooks-completion.bash` mirroring the
+existing `scripts/planner-completion.bash` pattern: tab
+completion for the six subcommands (`list`, `show`, `run`,
+`validate`, `validate-all`, `reload`), per-subcommand flag
+completion, **live playbook-id completion** sourced from the
+CLI itself (5-second cache), and **filesystem-path
+completion for `--context-file`** so the cron-friendly
+sidecar-JSON workflow tab-completes the same as a plain
+`vim path/to/file`.
+
+While here, fixes a latent bug in the planner completion
+script discovered during the smoke test: both scripts were
+invoking `python -m backend.core.{planner,playbooks}.cli list
+--quiet`, but `--quiet` is the **global** flag and must come
+**before** the subcommand. The old order silently failed with
+exit 2 and an empty completion list (the user got no
+suggestions but also no error, so this never surfaced
+through the test suite). Pin both fixes.
+
+**Why ship a completion script when the playbook ID set is
+small (6 today)?** Two reasons:
+
+1. **Discoverability** — operators who don't know the
+   playbook ID format (`<pack>.<name>`) get a live menu of
+   what actually exists on disk. The same tab they'd use to
+   complete a path now completes a playbook id.
+2. **Cron template authoring** — `--context-file <TAB>` to
+   pick the JSON sidecar, `--mode <TAB>` to pick from
+   `autopilot|confirm|dry_run`, `<id> <TAB>` to verify the
+   playbook still exists. The whole cron command now
+   tab-completes end-to-end.
+
+**Changes**
+
+1. `scripts/playbooks-completion.bash` (new, 145 lines):
+   - Subcommand completion + per-subcommand flag tables
+     identical in shape to the planner script.
+   - **Live playbook-id query** with a 5-second per-shell
+     cache (mirrors the planner script's TTL exactly so
+     the operator's mental model is uniform).
+   - **`--context-file` ⇒ filesystem path completion** via
+     a dedicated `compgen -f` branch. Pin: a future
+     "simplify" must not collapse this into the free-form
+     fallback (the cron-baked sidecar workflow depends on
+     it).
+   - **`--mode` ⇒ value completion** with the three
+     `PolicyMode` values (`autopilot`, `confirm`, `dry_run`).
+   - **id completion scoped to id-taking subcommands only**
+     (`show|run|validate`) so a future "complete IDs
+     everywhere" change doesn't silently shell out to
+     Python on every tab inside `validate-all` /
+     `reload` / `list`.
+
+2. `scripts/planner-completion.bash`:
+   - Fixed `python -m … cli list --quiet` →
+     `python -m … cli --quiet list` (latent bug — argparse
+     was rejecting `--quiet` as a positional after `list`,
+     completion was returning an empty list).
+
+3. `tests/test_playbooks_completion_script.py` (new, 10
+   tests): contract pinning the script structure without
+   sourcing it into a real subshell.
+   - Script exists + executable + shebang.
+   - `bash -n` parses cleanly (catches typos before the
+     script lands on disk).
+   - `_TARS_PLAYBOOKS_CMDS` lists every subcommand the
+     CLI's `_DISPATCH` map declares (no drift between
+     script and code).
+   - Per-subcommand flag tables (parametrised over `list`
+     / `show` / `run`) match the parser's flag declarations.
+   - `--mode` value completion lists `autopilot confirm
+     dry_run`.
+   - `--context-file` triggers `compgen -f` (file-path
+     completion).
+   - Cache contract: `_TARS_PLAYBOOKS_CACHE_VAL`,
+     `_TARS_PLAYBOOKS_CACHE_EXP`, 5-second TTL.
+   - Live id completion scoped to `show|run|validate`
+     only (the gating regex is pinned).
+
+**Tests**
+
+- `tests/test_playbooks_completion_script.py` — 10 new,
+  all green.
+- `tests/test_planner_completion_script.py` — 12, still all
+  green after the flag-order fix (the existing tests didn't
+  cover the runtime bug because they only assert structural
+  properties).
+- Full suite: **2195 passed in 41.23s** (was 2185, +10).
+- Smoke (sourced into bash): subcommand tab returns
+  `list show run validate validate-all reload`; `run <TAB>`
+  returns the 6 live playbook ids from disk;
+  `--context-file <TAB>` returns local files; `--mode <TAB>`
+  returns the three policy modes.
+
+**Files**
+
+- `scripts/playbooks-completion.bash` (new, 145 lines).
+- `scripts/planner-completion.bash` — flag-order fix.
+- `tests/test_playbooks_completion_script.py` (new, 10
+  tests).
+- `docs/CHANGELOG_AGENTS.md`, `docs/AGENT_HANDOFF.md`.
+
+**Follow-ups**
+
+- Right-rail planner entrypoint from the cockpit chat thread
+  (still pending).
+- `awareness-completion.bash` for the awareness CLI (would
+  give the same operator UX but the awareness ID set is
+  pack-scoped so the live-id query is more involved;
+  deferred until a concrete cron use case lands).
+
 ## 2026-05-01 — Cursor [A] · playbooks CLI parity (`python -m backend.core.playbooks.cli` + `playbooks-*` Make targets + `gate-control-tower` wiring)
 
 **Summary**
