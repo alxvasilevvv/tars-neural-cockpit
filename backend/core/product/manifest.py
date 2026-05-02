@@ -64,6 +64,15 @@ DEFAULT_RELEASES_PATH = "~/.tars/releases.json"
 ENV_RELEASES_PATH = "TARS_RELEASES_PATH"
 ENV_DOWNLOAD_BASE = "TARS_DOWNLOAD_BASE_URL"
 
+# Bug #9 fix from docs/SYSTEM_AUDIT_2026-05-02.md — the legacy
+# default base ``https://meeet.world/downloads/tars`` 404s because
+# the marketing CDN never hosted the artefacts; CI publishes them
+# straight to GitHub Releases instead. Override via
+# ``TARS_DOWNLOAD_BASE_URL`` if you self-host.
+GITHUB_RELEASES_BASE = (
+    "https://github.com/alxvasilevvv/tars-neural-cockpit/releases/download"
+)
+
 VALID_OS = {"macos", "windows", "linux", "ios", "android"}
 VALID_ARCH = {"arm64", "x64", "x86", "universal", "any"}
 VALID_KIND = {"dmg", "pkg", "app", "exe", "msi", "appimage", "deb", "ipa", "apk", "aab"}
@@ -150,8 +159,25 @@ class DownloadManifest:
 
 
 def _placeholder_url(version: str, filename: str) -> str:
-    base = (os.getenv(ENV_DOWNLOAD_BASE) or "https://meeet.world/downloads/tars").rstrip("/")
-    return f"{base}/{version}/{filename}"
+    """Build a download URL for the manifest defaults.
+
+    Resolution order:
+
+    1. ``TARS_DOWNLOAD_BASE_URL`` env override → ``{base}/{version}/{filename}``
+       (preserves backward compatibility for self-hosted CDNs).
+    2. Otherwise fall through to the canonical GitHub Releases URL
+       pattern: ``{GITHUB_RELEASES_BASE}/v{version}/{filename}``. GitHub
+       hosts the artefacts forever as long as the release isn't deleted,
+       and the URL never 404s the way ``meeet.world/downloads`` did
+       before Bug #9 was fixed.
+    """
+
+    override = (os.getenv(ENV_DOWNLOAD_BASE) or "").strip().rstrip("/")
+    if override:
+        return f"{override}/{version}/{filename}"
+    # GitHub Releases tag is conventionally ``v<version>`` (CI uses
+    # ``${{ github.ref_name }}`` directly).
+    return f"{GITHUB_RELEASES_BASE}/v{version}/{filename}"
 
 
 _DEFAULT_VERSION = "0.1.0-alpha.2"

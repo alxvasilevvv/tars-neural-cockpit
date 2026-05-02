@@ -3,6 +3,7 @@ import ReactDOM from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import App from "@/App";
 import { installClientErrorReporter } from "@/lib/clientError";
+import { LocaleProvider } from "@/lib/i18n";
 import "@/index.css";
 
 // React Router v6 → v7 forward-compat opt-in. Silences the runtime
@@ -22,7 +23,13 @@ installClientErrorReporter();
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
     <BrowserRouter basename={import.meta.env.BASE_URL} future={ROUTER_FUTURE}>
-      <App />
+      {/* Bug #5 from docs/SYSTEM_AUDIT_2026-05-02.md — multi-locale
+          provider. Detects browser language on first visit, persists
+          the operator's choice in localStorage. Components read via
+          ``useT()`` / ``useLocale()``. */}
+      <LocaleProvider>
+        <App />
+      </LocaleProvider>
     </BrowserRouter>
   </React.StrictMode>,
 );
