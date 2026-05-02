@@ -31,6 +31,7 @@ from typing import Any, Iterable, Mapping, Optional
 
 from backend.core.meeet import (
     current_route,
+    current_thread_id,
     get_client,
     new_trace_id,
     set_route,
@@ -227,6 +228,9 @@ class CouncilOrchestrator:
     ) -> Deliberation:
         if mode not in {"single", "dual_vote", "n_vote"}:
             raise ValueError(f"unknown council mode: {mode}")
+
+        if not thread_id:
+            thread_id = current_thread_id()
 
         if mode == "single":
             chosen_voices = self.voices[:1]

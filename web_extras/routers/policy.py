@@ -17,7 +17,7 @@ from typing import Any
 from fastapi import APIRouter, Header, HTTPException, Query
 
 from backend.core.domains.registry import get_pack
-from backend.core.meeet import get_client, trace_scope
+from backend.core.meeet import get_client, thread_id_scope, trace_scope
 from backend.core.policy import get_policy_store
 
 router = APIRouter(prefix="/api/policy", tags=["policy"])
@@ -98,7 +98,7 @@ async def confirm(
         raise HTTPException(status_code=404, detail="action_not_found")
 
     client = get_client()
-    with trace_scope(parent=x_meeet_trace_id) as trace_id:
+    with thread_id_scope(confirmation.thread_id), trace_scope(parent=x_meeet_trace_id) as trace_id:
         await client.emit(
             "policy.confirm",
             _attach_thread_id(
