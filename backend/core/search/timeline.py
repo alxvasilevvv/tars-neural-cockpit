@@ -54,6 +54,16 @@ _RELEVANT_EVENT_KINDS = (
     "playbook.started",
     "playbook.step.completed",
     "playbook.completed",
+    "plan.proposed",
+    "planner.approved",
+    "planner.rejected",
+    "plan.run.started",
+    "plan.step.requested",
+    "plan.step.allowed",
+    "plan.step.completed",
+    "plan.completed",
+    "plan.aborted",
+    "plan.abort.requested",
 )
 
 
@@ -350,5 +360,80 @@ def _summarise_event(kind: str, payload: dict[str, Any]) -> str:
             f"{suffix} · run={payload.get('steps_run') or 0} · "
             f"blocked={payload.get('steps_blocked') or 0} · "
             f"failed={payload.get('steps_failed') or 0}"
+        )
+    if kind == "plan.proposed":
+        return (
+            f"plan={payload.get('plan_id') or '?'} · "
+            f"goal={(payload.get('goal') or '?')[:60]} · "
+            f"steps={payload.get('step_count') or 0}"
+            + (
+                f" · destructive={payload['destructive_step_count']}"
+                if payload.get("destructive_step_count")
+                else ""
+            )
+        )
+    if kind in ("planner.approved", "planner.rejected"):
+        verb = "approved" if kind.endswith("approved") else "rejected"
+        return (
+            f"plan={payload.get('plan_id') or '?'} · {verb} · "
+            f"steps={payload.get('step_count') or 0}"
+        )
+    if kind == "plan.run.started":
+        return (
+            f"plan={payload.get('plan_id') or '?'} · "
+            f"steps={payload.get('step_count') or 0} · "
+            f"mode={payload.get('mode') or '?'}"
+        )
+    if kind == "plan.step.requested":
+        parallel_tag = " · parallel" if payload.get("parallel") else ""
+        return (
+            f"plan={payload.get('plan_id') or '?'} · "
+            f"step={payload.get('step_id') or '?'} · "
+            f"{payload.get('action') or '?'}"
+            f"{parallel_tag}"
+        )
+    if kind == "plan.step.allowed":
+        return (
+            f"plan={payload.get('plan_id') or '?'} · "
+            f"step={payload.get('step_id') or '?'} · "
+            f"{'allowed' if payload.get('allowed') else 'blocked'} · "
+            f"reason={payload.get('reason') or '?'}"
+        )
+    if kind == "plan.step.completed":
+        if payload.get("skipped"):
+            suffix = "skipped"
+        elif payload.get("blocked"):
+            suffix = "blocked"
+        elif payload.get("ok"):
+            suffix = "ok"
+        else:
+            suffix = "failed"
+        parallel_tag = " · parallel" if payload.get("parallel") else ""
+        return (
+            f"plan={payload.get('plan_id') or '?'} · "
+            f"step={payload.get('step_id') or '?'} · "
+            f"{suffix} · "
+            f"{round(float(payload.get('took_ms') or 0), 1)}ms"
+            f"{parallel_tag}"
+        )
+    if kind == "plan.completed":
+        return (
+            f"plan={payload.get('plan_id') or '?'} · ok · "
+            f"run={payload.get('steps_run') or 0} · "
+            f"blocked={payload.get('steps_blocked') or 0} · "
+            f"failed={payload.get('steps_failed') or 0}"
+        )
+    if kind == "plan.aborted":
+        return (
+            f"plan={payload.get('plan_id') or '?'} · "
+            f"reason={payload.get('reason') or '?'} · "
+            f"run={payload.get('steps_run') or 0} · "
+            f"blocked={payload.get('steps_blocked') or 0} · "
+            f"failed={payload.get('steps_failed') or 0}"
+        )
+    if kind == "plan.abort.requested":
+        return (
+            f"plan={payload.get('plan_id') or '?'} · "
+            f"flipped={'yes' if payload.get('ok') else 'no'}"
         )
     return ""
