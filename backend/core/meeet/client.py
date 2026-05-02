@@ -23,7 +23,7 @@ import time
 from .config import MeeetConfig, load_config
 from .events import TARSEvent
 from .store import MeeetStore, get_store
-from .tracing import current_route, current_session, current_trace, new_trace_id
+from .tracing import current_route, current_session, current_thread_id, current_trace, new_trace_id
 
 
 class MeeetClient:
@@ -57,10 +57,21 @@ class MeeetClient:
         envelope: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
         trace_id = current_trace() or new_trace_id()
+        # Auto-inject the active chat thread id when the contextvar is set
+        # (typically inside an HTTP entry that opened
+        # ``thread_id_scope(x_tars_thread_id)``). Call-sites that already
+        # placed ``thread_id`` in the payload always win — the contextvar
+        # is only a fallback so existing per-event explicit values
+        # (e.g. policy router re-attaching from the persisted row) keep
+        # the same behaviour.
+        merged_payload = dict(payload or {})
+        ctx_thread = current_thread_id()
+        if ctx_thread and "thread_id" not in merged_payload:
+            merged_payload["thread_id"] = ctx_thread
         event = TARSEvent(
             trace_id=trace_id,
             kind=kind,
-            payload=dict(payload or {}),
+            payload=merged_payload,
             source=self.config.source,
             contract_version=self.config.contract_version,
             session_id=session_id or current_session(),
