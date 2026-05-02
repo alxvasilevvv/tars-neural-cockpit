@@ -302,8 +302,9 @@ function Hints() {
   return (
     <div className="px-4 py-6 font-mono-tech text-[10.5px] leading-[1.6] uppercase tracking-[1.6px] text-ink-3">
       <p className="text-ink-2">⌘K · search across the cockpit</p>
+      <p className="mt-1.5 text-ink-2">⌘J · jump — threads, files, packs, playbooks</p>
       <ul className="mt-2 flex flex-col gap-1">
-        <li>· files — every PDF / md / csv you've ingested</li>
+        <li>· files — every PDF / md / csv you&apos;ve ingested</li>
         <li>· messages — operator + TARS turns across all threads</li>
         <li>· traces — meeet event payloads for debugging</li>
       </ul>

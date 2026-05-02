@@ -4,6 +4,32 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-03 — Cursor [F] · Cockpit ⌘J jump palette (JumpPalette)
+
+**Summary**
+
+Ships the cockpit **⌘J / Ctrl+J** navigation palette backed by
+`POST /api/search/jump`: fuzzy list over threads, attachments,
+saved searches, packs, playbooks. Activation: threads + attachments
+→ `tars:open-thread`; packs → `/cockpit?pack=`; playbooks + saved
+searches → `tars:operator-palette-prefill` (opens ⌘. with query
+pre-filled). New `JumpPalette.tsx`, `fetchJump` + types in
+`lib/search.ts`, Vitest `jump.test.ts`. `OperatorPalette` listens
+for `tars:operator-palette-prefill`. ⌘K empty-state hints mention
+⌘J. IDEAS: Cmd+J + BM25 highlight rows updated.
+
+**Files**
+
+- `experiments/neural-showcase-v3/src/components/JumpPalette.tsx`
+- `experiments/neural-showcase-v3/src/lib/search.ts`
+- `experiments/neural-showcase-v3/src/lib/jump.test.ts`
+- `experiments/neural-showcase-v3/src/components/OperatorPalette.tsx`
+- `experiments/neural-showcase-v3/src/components/CommandPalette.tsx`
+- `experiments/neural-showcase-v3/src/pages/Cockpit.tsx`
+- `docs/IDEAS.md`
+- `docs/CHANGELOG_AGENTS.md` (this entry)
+- `docs/CHANGELOG_PUBLIC.md` (regenerated)
+
 ## 2026-05-03 — Cursor [E] · Release gate + downloads footer + voice doc
 
 **Summary**
