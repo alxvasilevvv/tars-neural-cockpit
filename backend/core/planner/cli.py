@@ -5,6 +5,7 @@ Usage::
     python -m backend.core.planner.cli list [--status proposed] [--limit 20]
     python -m backend.core.planner.cli show <plan_id>
     python -m backend.core.planner.cli runs <plan_id>
+    python -m backend.core.planner.cli full <plan_id>   # plan + runs + lifetime
     python -m backend.core.planner.cli stats
     python -m backend.core.planner.cli synthesize <goal> [--pinned-pack <slug>] [--thread-id <id>]
     python -m backend.core.planner.cli approve <plan_id>
@@ -48,7 +49,7 @@ from backend.core.meeet import thread_id_scope, trace_scope
 from backend.core.playbooks import list_playbooks
 from backend.core.policy import PolicyMode, resolve_mode
 
-from .history import reconstruct_runs_async
+from .history import aggregate_usage_lifetime, reconstruct_runs_async
 from .runner import PlanRunError, PlanRunner, get_run_registry
 from .store import get_planner_store
 from .synthesizer import (
@@ -168,6 +169,40 @@ async def _cmd_runs(args: argparse.Namespace) -> int:
             "count": len(runs),
             "in_flight": in_flight,
             "runs": [r.to_dict() for r in runs],
+        },
+    )
+
+
+async def _cmd_full(args: argparse.Namespace) -> int:
+    """CLI mirror of ``GET /api/planner/{plan_id}/full``.
+
+    Operator-friendly one-shot: pulls the plan envelope, reconstructs
+    every run from the meeet store, computes the lifetime usage rollup
+    (cost / tokens / calls / latency, ``cost_usd=null`` when no run
+    fired a priced model), and prints the same JSON envelope the
+    cockpit's plan-detail drawer hydrates from. Bringing the CLI to
+    parity with the HTTP endpoint means an operator without a
+    cockpit window can still inspect a plan in one command and pipe
+    the JSON straight into ``jq``.
+    """
+
+    plan = await get_planner_store().get(args.plan_id)
+    if plan is None:
+        return _emit(args, _err("plan_not_found", plan_id=args.plan_id))
+    runs = await reconstruct_runs_async(args.plan_id, limit=args.limit)
+    in_flight = sum(1 for r in runs if r.status == "running")
+    return _emit(
+        args,
+        {
+            "ok": True,
+            "plan_id": args.plan_id,
+            "plan": plan.to_dict(),
+            "runs": {
+                "count": len(runs),
+                "in_flight": in_flight,
+                "items": [r.to_dict() for r in runs],
+            },
+            "usage_lifetime": aggregate_usage_lifetime(runs),
         },
     )
 
@@ -441,6 +476,21 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         help="Per-event-kind cap for the meeet store query.",
     )
 
+    p_full = sub.add_parser(
+        "full",
+        help=(
+            "One-shot: plan + reconstructed runs + lifetime usage rollup. "
+            "CLI mirror of GET /api/planner/{plan_id}/full."
+        ),
+    )
+    p_full.add_argument("plan_id")
+    p_full.add_argument(
+        "--limit",
+        type=int,
+        default=1000,
+        help="Per-event-kind cap for the meeet store query.",
+    )
+
     sub.add_parser("stats", help="Plan totals + by_status counts.")
 
     p_synth = sub.add_parser(
@@ -521,6 +571,7 @@ _DISPATCH = {
     "list": _cmd_list,
     "show": _cmd_show,
     "runs": _cmd_runs,
+    "full": _cmd_full,
     "stats": _cmd_stats,
     "synthesize": _cmd_synthesize,
     "approve": _cmd_approve,

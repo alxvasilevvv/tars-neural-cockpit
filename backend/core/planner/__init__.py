@@ -28,6 +28,7 @@ This module ships:
 from .history import (
     PlanRun,
     RunStep,
+    aggregate_usage_lifetime,
     reconstruct_runs,
     reconstruct_runs_async,
 )
@@ -59,6 +60,7 @@ __all__ = [
     "PlannerStore",
     "PlannerSynthesisRequest",
     "RunStep",
+    "aggregate_usage_lifetime",
     "get_planner_store",
     "get_run_registry",
     "reconstruct_runs",
