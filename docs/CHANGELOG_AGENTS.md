@@ -4,6 +4,65 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-02 — Cursor [A] · Awareness explorer (`/cockpit/awareness`)
+
+**Summary**
+
+Closes IDEAS #30 — backend
+`GET /api/domains/<slug>/awareness/<id>/snapshot` shipped Phase
+K-A; this PR is the design-side surface that finally lets the
+operator browse every awareness source per pack and snapshot
+live feeds on demand. Caps the operator-surface batch alongside
+Trace Viewer (#136), Policy Inbox (#137), Council Debug (#138),
+Operator Palette (#139).
+
+**Anatomy**
+
+- Three-column workspace: pack rail (with awareness-count + live
+  badge) → source rail (search + kind chip + last-fetched stamp)
+  → snapshot pane (config preview + live data + took / fetched /
+  trace badges).
+- URL state: `?slug=`, `?source=`, `?q=` for deep-linkable
+  navigation (so the operator palette can route operators here
+  with a single click).
+- Snapshot button is disabled for config-only sources (no live
+  fetcher) and surfaces the daemon's `fetcher_unavailable`
+  envelope inline. 500s render their `state.error` in the same
+  red banner so the operator can grep daemon logs by `trace_id`.
+- Per-source render state held by an in-page dictionary keyed on
+  `(slug, source_id)` — every snapshot is independent and the
+  page never refetches on selection.
+- Pure helpers in `lib/awarenessFmt.ts` (kind tone, fmtTookMs,
+  fmtAgo, prettyJson, filterAwareness, pickSlug, totalSourceCount,
+  liveSourceCount, snapshotKey/emptySnapshotState) are
+  side-effect-free and unit-tested in isolation (29 vitest cases).
+- EN + RU strings shipped at parity (40 keys per locale).
+
+**Files**
+
+- `experiments/neural-showcase-v3/src/pages/Awareness.tsx` (new,
+  ~520 lines).
+- `experiments/neural-showcase-v3/src/lib/awarenessFmt.ts` (new,
+  ~140 lines).
+- `experiments/neural-showcase-v3/src/lib/i18n.tsx` (+40 EN keys
+  + 40 RU translations).
+- `experiments/neural-showcase-v3/src/App.tsx` (lazy import +
+  `/cockpit/awareness` route).
+- `experiments/neural-showcase-v3/src/pages/Cockpit.tsx` (nav
+  link).
+- New tests: `awarenessFmt.test.ts` (29 cases — kind routing,
+  duration / age formatters, snapshot envelope state, slug
+  picker, source filter, count helpers, JSON tolerance).
+
+**Test deltas**
+
+- Cockpit: `pnpm vitest run` → **328 passed** (was 299; +29
+  awarenessFmt).
+- Cockpit: `pnpm tsc -b && pnpm build` → green; cockpit chunk
+  unchanged (197 KB) since Awareness lazy-loads into its own
+  chunk.
+- i18n parity guard kept at 100% RU coverage.
+
 ## 2026-05-02 — Cursor [A] · Operator command palette (⌘. / Ctrl+.)
 
 **Summary**

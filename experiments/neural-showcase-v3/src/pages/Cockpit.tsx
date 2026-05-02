@@ -329,6 +329,13 @@ export function Cockpit() {
             >
               council
             </Link>
+            <span aria-hidden className="text-line-strong">·</span>
+            <Link
+              to="/cockpit/awareness"
+              className="transition-colors hover:text-ink"
+            >
+              awareness
+            </Link>
           </nav>
 
           <div className="flex items-center gap-2">

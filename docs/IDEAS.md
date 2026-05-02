@@ -655,10 +655,19 @@ Open ideas for the next layer:
     `/api/policy/pending` returns staged tokens with args/preview.
     Owner: design — a left-rail "approval inbox" with one-click
     confirm / cancel and an audit row.
-30. **Awareness explorer.** Backend shipped —
-    `/api/domains/<slug>/awareness/<id>/snapshot`. Owner: design —
-    per-source live preview cards (calendar list, deals pipeline,
-    arXiv abstracts).
+30. ~~**Awareness explorer.**~~ ✅ **shipped 2026-05-02** — new
+    `/cockpit/awareness` page
+    (`experiments/neural-showcase-v3/src/pages/Awareness.tsx`)
+    renders a three-column workspace: pack rail with awareness-count
+    + live-source badge, source rail with kind chip + free-text
+    filter + last-fetched stamp, snapshot pane with config preview +
+    live data + took / fetched / trace badges. URL state
+    (`?slug=`, `?source=`, `?q=`) makes every state deep-linkable
+    so the operator palette can land directly on a snapshot. 500s
+    + the `fetcher_unavailable` envelope render inline so the
+    operator can grep daemon logs by trace_id. Pure helpers in
+    `src/lib/awarenessFmt.ts` (29 vitest cases) keep the page a
+    thin shell. EN + RU strings shipped at parity.
 
 ## Engineering
 
