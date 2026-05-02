@@ -87,6 +87,16 @@ Ideas for the next sprints. Triage by impact × cost and pull into
   follow-up.
 - **Per-attachment hover preview.** Replace the chip's tooltip with a
   floating card that previews the first chunk + heading list.
+- **Re-embed on demand.** ✅ shipped (2026-05-01) —
+  `backend/core/attachments/reembed.py` +
+  `POST /api/chat/attachments/{id}/reembed` +
+  `POST /api/chat/attachments/reembed-by-model`. The "I just
+  configured `OPENAI_API_KEY`, promote everything still on the
+  hash embedder" workflow. Storage gets two new primitives
+  (`update_chunk_embedding`, `list_chunks_by_model`); the
+  orchestrator skips blank / same-model rows unless `force=True`
+  and isolates per-batch failures into a `failed` count.
+  `tests/test_attachment_reembed.py` (18 cases).
   Backend bridge ✅ shipped (2026-05-01) —
   `GET /api/chat/attachments/{id}/chunks/{chunk_id}/neighbours`
   (plus `/neighbors` US alias) returns the chunk plus its
