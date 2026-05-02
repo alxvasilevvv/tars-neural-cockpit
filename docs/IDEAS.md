@@ -632,8 +632,17 @@ Open ideas for the next layer:
     `POST /api/playbooks/_validate` + `GET /api/playbooks/_validate_all`,
     `tests/test_playbook_validator.py` (40 cases) including a CI
     smoke that pins every bundled playbook.
-20. **Hotkey palette.** ⌘K opens a fuzzy palette over packs, awareness
-    sources, playbooks, recent traces.
+20. ~~**Hotkey palette.**~~ ✅ **shipped 2026-05-02** —
+    `experiments/neural-showcase-v3/src/components/OperatorPalette.tsx`
+    is a second cockpit-only palette (⌘. / Ctrl+.) that complements
+    the existing ⌘K search palette. Indexes packs / actions /
+    playbooks / awareness sources / recent traces with a pure-helper
+    scorer in `src/lib/operatorPalette.ts` (32 vitest cases).
+    Pack + trace rows deep-link via `useNavigate`; action / awareness
+    / playbook rows invoke via the existing API clients and route
+    destructive blocks through the policy gate (amber "approve via
+    inbox" toast). Per-group error banner so a half-loaded index is
+    still navigable. EN + RU strings shipped at parity.
 26. **Awareness ticker.** ✅ shipped — `<AwarenessTicker/>` consumes
     `/api/awareness/stream` SSE in the Cockpit page. Open work:
     sparkline chart variant, replay-from-trace mode.
