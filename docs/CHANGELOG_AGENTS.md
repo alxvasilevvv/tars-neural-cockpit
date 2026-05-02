@@ -4,6 +4,73 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · planner: clone — rerun a plan without history mutation
+
+**Summary**
+
+A clone-and-relaunch primitive that lets the operator "rerun"
+a finished plan without mutating its terminal status. The
+original keeps its `completed` / `aborted` row, the clone
+enters the inbox at `proposed` so the operator can approve it
+again. Exposes both an HTTP endpoint and a CLI subcommand,
+plumbed into the timeline + SSE allow-lists so the cockpit
+audit lane can render the parent → child relationship.
+
+**Changes**
+
+1. `backend/core/planner/store.py` — new
+   `PlannerStore.clone(plan_id, *, thread_id=None,
+   trace_id=None, goal_override=None)`. Returns a fresh
+   `Plan` with a brand new `id`, `status="proposed"`, fresh
+   timestamps; deep-copies steps via `PlanStep.from_dict(s.to_dict())`
+   so mutating either tuple later doesn't bleed. `goal_override`
+   is `.strip()`-ed to mirror the synthesizer's normalisation.
+   Returns `None` when the source id is unknown.
+2. `web_extras/routers/planner.py` — new
+   `POST /api/planner/{plan_id}/clone`. Body may include
+   `thread_id` (rebind to a different chat) and `goal_override`.
+   Wraps the call in `thread_id_scope` + `trace_scope` so the
+   clone gets a fresh `trace_id` for downstream correlation.
+   Emits `planner.cloned` with `plan_id` (clone), `source_plan_id`
+   (original), `source_status`, `model`, `pack_slug`,
+   `playbook_id`, `step_count`, `thread_id_rebind`,
+   `goal_overridden`. 404s on unknown source ids. Adds the
+   new event kind to `_PLAN_EVENT_KINDS` so the SSE feed
+   picks it up.
+3. `backend/core/planner/cli.py` — new `clone` subcommand:
+   `python -m … clone <plan_id> [--thread-id <id>] [--goal "..."]`.
+   Mirrors the HTTP wiring exactly (same trace scope, same
+   event payload). Added to the global `_DISPATCH` table and
+   the docstring usage block.
+4. `backend/core/search/timeline.py` —
+   `_RELEVANT_EVENT_KINDS` now includes `planner.cloned`;
+   `_summarise_event` formats it as
+   `plan=<new_id> · from=<src_id> · steps=N` with optional
+   ` · thread-rebind` / ` · goal-override` suffixes.
+5. `tests/test_planner_clone.py` (new, 13 cases): store-level
+   clone returns fresh proposed plan with new id and deep-copied
+   steps (original untouched); thread_id override applied;
+   goal_override stripped; unknown plan returns `None`; HTTP
+   happy path returns the new plan + `source_plan_id` and emits
+   `planner.cloned`; HTTP body `thread_id` flips
+   `thread_id_rebind=true`; HTTP body `goal_override` flips
+   `goal_overridden=true`; HTTP 404 envelope; CLI happy path
+   + overrides + 404; timeline summariser produces the
+   expected string with / without override flags.
+
+**Tests**
+
+`pytest -q` → 2022 passed in 44.51s (was 2009; +13 new).
+
+**Follow-ups**
+
+- Cockpit "Rerun" button on the plan card calls
+  `POST /api/planner/{id}/clone` then immediately approves +
+  runs the returned plan id (two-call flow; `clone` itself
+  stays read-mostly so destructive intent is explicit).
+- Optional `clone --approve` CLI flag that chains the new
+  plan into the approved status without an extra subcommand.
+
 ## 2026-05-01 — Cursor [A] · planner: shell CLI (synthesize/run/list/abort/…)
 
 **Summary**
