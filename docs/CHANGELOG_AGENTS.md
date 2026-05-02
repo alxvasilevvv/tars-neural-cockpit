@@ -4,6 +4,88 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · cockpit: PlanFullPanel + /cockpit/planner page
+
+**Summary**
+
+Operator-facing payoff for the planner backend work shipped in
+PRs #109–#117. New page at `/cockpit/planner` lets the operator
+inspect any plan's full envelope (plan + steps + reconstructed
+runs + lifetime usage), one-click rerun it, and watch the
+lifetime rollup update in place via the planner SSE stream.
+
+Two pieces:
+
+1. `<PlanFullPanel />` — self-contained panel that hydrates
+   from `fetchFullPlan(planId)`, subscribes to
+   `subscribePlannerEvents({ planId })`, and refetches on
+   `plan.run.usage` / `plan.completed` / `plan.aborted` /
+   `plan.run.started` / `plan.abort.requested` /
+   `planner.cloned`. Has Rerun, Abort, and Refresh buttons.
+   Honours `cost_usd === null` → "n/a" everywhere.
+2. `<Planner />` page — wraps the panel with a list of plans
+   (`listPlans`) on the left, status pills + free-text filter
+   on top, and a global SSE subscription that refreshes the
+   list when new plans land.
+
+Pure helpers extracted from the panel (`statusTone`,
+`formatLatencyMs`, `formatStartedAt`, `formatRunSummary`,
+`formatLifetimeSummary`, `summariseStep`, `REFETCH_KINDS`,
+`shouldAdvanceCursor`) are exported and pinned by 17 Vitest
+cases — the formatting that the cockpit will read most often
+is locked in without touching the DOM.
+
+The new route is registered in `App.tsx` (lazy-loaded chunk
+`Planner-*.js`, 17.6 kB / 4.96 kB gzipped) and a "planner"
+anchor was added to the cockpit's top nav so the operator
+can jump in with one click.
+
+**Changes**
+
+1. `experiments/neural-showcase-v3/src/components/PlanFullPanel.tsx`
+   (new) — drawer panel + pure helpers. ~330 LoC including
+   sub-renderers (`PlanMetaRow`, `Steps`, `Runs`, `Lifetime`).
+2. `experiments/neural-showcase-v3/src/components/PlanFullPanel.test.ts`
+   (new, 17 cases) — pinning every helper:
+   - `statusTone` mapping for all 6 statuses + defensive default.
+   - `formatLatencyMs`: nullish/NaN/negative → "n/a"; sub-second
+     ms with one decimal; ≥1s in seconds with two decimals.
+   - `formatStartedAt`: nullish → "—"; UTC string format.
+   - `formatRunSummary`: cost honoured (priced + null).
+   - `formatLifetimeSummary`: singular/plural "run(s)".
+   - `summariseStep`: empty args → "{}", with-args → JSON.
+   - `REFETCH_KINDS`: positive (must refetch) and negative
+     (cosmetic-only) sets.
+   - `shouldAdvanceCursor`: null → always advance, otherwise
+     strict-greater.
+3. `experiments/neural-showcase-v3/src/pages/Planner.tsx`
+   (new) — `/cockpit/planner` page hosting the panel + list.
+4. `experiments/neural-showcase-v3/src/App.tsx` — register
+   `/cockpit/planner` route, lazy-loaded.
+5. `experiments/neural-showcase-v3/src/pages/Cockpit.tsx` —
+   add "planner" anchor to the top-bar nav so the operator
+   can jump from the main cockpit to the planner page.
+
+**Tests**
+
+- `pnpm vitest run` — **120 passed (11 files)**, including
+  17 new cases.
+- `pnpm tsc --noEmit` — clean.
+- `pnpm vite build` — clean. Planner chunk 17.6 kB / 4.96 kB
+  gzipped.
+- `pytest -q` — **2080 passed in 40s** (no Python deltas).
+
+**Cockpit follow-ups**
+
+- Step-level live updates: stream `plan.step.completed` into
+  the panel and render a per-step status row that ticks live
+  during a run.
+- URL-state sync for the filter strip
+  (`?status=running&q=…`) so the operator can deep-link to a
+  filter view.
+- Right-rail entrypoint from the main cockpit chat thread
+  (open the panel inline when the agent proposes a plan).
+
 ## 2026-05-01 — Cursor [A] · cockpit: typed planner client + Vitest contract
 
 **Summary**
