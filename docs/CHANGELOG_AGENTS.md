@@ -4,6 +4,75 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · Re-embed attachments on demand
+
+**Summary**
+
+Operator workflow: install TARS, leave it on the offline
+`HashEmbedder`, ingest a few months of attachments, *then*
+configure `OPENAI_API_KEY` for the upgrade. Until now those
+historical chunks stayed on the cheap embedder and silently
+under-performed semantic recall. This slot is the **promote-on-
+demand** path: hit one endpoint and the affected chunks re-embed
+in place. New attachments already pick the better embedder, so
+this only catches up the back-catalog.
+
+1. **Storage primitives** (`backend/core/attachments/index.py`)
+   - `AttachmentStore.update_chunk_embedding(chunk_id, model, dim,
+     vector)` — single-row in-place rewrite. Returns `True` only
+     when the row exists. Same `pack_vector(...)` discipline as
+     the ingest path.
+   - `AttachmentStore.list_chunks_by_model(embedding_model,
+     thread_id?, limit)` — find chunks at a given model
+     (`None` matches "never embedded"). Optional `thread_id`
+     scope, `limit` defaults to 500. Used both by the orchestrator
+     and the future cockpit "stuck on hash" badge.
+
+2. **Orchestrator** (`backend/core/attachments/reembed.py`, new)
+   - `reembed_chunks(chunks, *, embedder, force, target_model)`
+     — base helper. Skips blank text (counted as
+     `skipped_blank`), skips chunks already at the target model
+     (counted as `skipped_same`) unless `force=True`. Per-batch
+     upstream failures bump `failed`; nothing raises.
+   - `reembed_attachment(attachment_id, ...)` — fetch every chunk
+     for one attachment and call the base helper. 404 surfaces as
+     `{ok: False, reason: "attachment_not_found"}`.
+   - `reembed_by_model(old_model, *, thread_id?, limit, ...)` —
+     list-by-model + reembed in one call. The "promote
+     hash → openai" workflow: pass
+     `old_model="tars-hash-bigram-v1-d384"` and the active
+     embedder runs over every legacy row.
+
+3. **HTTP** (`web_extras/routers/chat.py`)
+   - `POST /api/chat/attachments/{attachment_id}/reembed` — body
+     `{force?, target_model?}`. 404 when the id is missing;
+     otherwise the orchestrator stats dict.
+   - `POST /api/chat/attachments/reembed-by-model` — body
+     `{old_model (required), thread_id?, limit?, force?,
+     target_model?}`. 400 on missing `old_model`; garbage
+     `limit` falls back to 500. Designed for the
+     "I just configured `OPENAI_API_KEY`" promotion.
+
+4. **Tests** (`tests/test_attachment_reembed.py`, 18 cases)
+   - Storage helpers: in-place update writes, returns False for
+     missing id, list-by-model filters and scopes to thread.
+   - Orchestrator: blank-text skip, "same model" skip without
+     force, force rewrite, embedder-unavailable → ok=False,
+     batch failure isolation, attachment 404, `reembed_by_model`
+     promotes only the matching rows and respects `thread_id`.
+   - HTTP: per-attachment round-trip + 404, `old_model` required,
+     promotion writes through, garbage `limit` clamped.
+
+**Files**
+
+- `backend/core/attachments/reembed.py` (new)
+- `backend/core/attachments/index.py` (added
+  `update_chunk_embedding`, `list_chunks_by_model`)
+- `web_extras/routers/chat.py` (two new endpoints)
+- `tests/test_attachment_reembed.py` (new, 18 cases)
+
+**Verification:** full backend suite **1027 passed**, lints
+clean.
 ## 2026-05-02 — Cursor [A] · audit follow-ups: full RU pass + Local Trace Viewer
 
 **Summary**

@@ -2282,6 +2282,25 @@ Smaller functional items still pending in parallel:
     `{q?, query?, limit?, kinds?}` — clamped to 100 hits, unknown
     kinds dropped silently. `tests/test_jump_picker.py` (23 cases).
     Cockpit ⌘J palette UI is the Claude-lane follow-up.
+20. ~~**Re-embed attachments on demand.**~~ **shipped** (2026-05-01) —
+    `backend/core/attachments/reembed.py` is the promote-on-demand
+    path for chunks stuck on a legacy embedder. Storage primitives
+    landed on `AttachmentStore`: `update_chunk_embedding` (single-
+    row in-place rewrite) and `list_chunks_by_model` (find by
+    current model, optional thread scope). Three orchestrators:
+    `reembed_chunks` (base helper, skips blank text and
+    same-model rows unless `force=True`, isolates per-batch
+    failures), `reembed_attachment` (per-id), `reembed_by_model`
+    (promote hash → openai workflow, optional `thread_id` /
+    `limit`). HTTP: `POST /api/chat/attachments/{id}/reembed` and
+    `POST /api/chat/attachments/reembed-by-model`. Both return
+    structured stats with `ok` / `embedded` / `skipped_blank` /
+    `skipped_same` / `failed` / `batches` / `model` / `dim`.
+    `tests/test_attachment_reembed.py` (18 cases) pin storage,
+    orchestrator, and HTTP. Designed for the operator who installs
+    TARS offline, ingests months of files on the hash embedder,
+    then configures `OPENAI_API_KEY` and wants the back-catalog
+    to catch up.
 32. ~~**Recovery seed verification challenge (3-of-24).**~~ **shipped**
     (2026-05-01) — closes the "Recovery seed verification
     policy" idea from IDEAS' Pairing & sync section. New

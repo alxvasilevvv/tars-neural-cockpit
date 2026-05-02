@@ -641,6 +641,96 @@ async def delete_attachment(attachment_id: str) -> dict[str, Any]:
     return {"ok": True, "deleted": True, "attachment_id": attachment_id}
 
 
+@router.post("/attachments/{attachment_id}/reembed")
+async def reembed_attachment_endpoint(
+    attachment_id: str,
+    payload: dict[str, Any] | None = Body(default=None),
+) -> dict[str, Any]:
+    """Re-embed every chunk for one attachment with the active embedder.
+
+    Body (all optional)::
+
+        {
+          "force": false,           # rewrite even if model already matches
+          "target_model": null      # override the embedder's reported model
+                                    # (mostly for tests; defaults to embedder.model)
+        }
+
+    The active embedder is whatever :func:`detect_embedder` resolves
+    on the host — typically the OpenAI embedder once the operator
+    has set ``OPENAI_API_KEY``, the offline ``HashEmbedder``
+    otherwise. When the chosen embedder is unavailable the response
+    is ``{ok: False, reason: "embedder_unavailable", embedder: …}``;
+    nothing is written.
+    """
+
+    from backend.core.attachments.reembed import reembed_attachment
+
+    body = payload or {}
+    force = bool(body.get("force"))
+    target_model = body.get("target_model")
+    target_model = (
+        str(target_model).strip() if target_model else None
+    )
+    res = await reembed_attachment(
+        attachment_id, force=force, target_model=target_model,
+    )
+    if res.get("ok") is False and res.get("reason") == "attachment_not_found":
+        raise HTTPException(
+            status_code=404, detail="attachment_not_found"
+        )
+    return res
+
+
+@router.post("/attachments/reembed-by-model")
+async def reembed_by_model_endpoint(
+    payload: dict[str, Any] | None = Body(default=None),
+) -> dict[str, Any]:
+    """Promote chunks whose current embedding_model matches.
+
+    Body::
+
+        {
+          "old_model": "tars-hash-bigram-v1-d384",  # required
+          "thread_id": "thr_xxx",                   # optional scope
+          "limit": 500,                             # 1..5000, default 500
+          "force": false,
+          "target_model": null
+        }
+
+    Designed for the "I just configured ``OPENAI_API_KEY`` — promote
+    everything that's still on the offline hash embedder" workflow.
+    Returns the same stats dict as the per-attachment endpoint plus
+    ``old_model`` / ``thread_id`` echoes for confirmation.
+    """
+
+    from backend.core.attachments.reembed import reembed_by_model
+
+    body = payload or {}
+    old_model = str(body.get("old_model") or "").strip()
+    if not old_model:
+        raise HTTPException(
+            status_code=400, detail="old_model_required"
+        )
+    thread_id = body.get("thread_id")
+    if thread_id is not None:
+        thread_id = str(thread_id).strip() or None
+    try:
+        limit = int(body.get("limit", 500))
+    except (TypeError, ValueError):
+        limit = 500
+    force = bool(body.get("force"))
+    target_model = body.get("target_model")
+    target_model = str(target_model).strip() if target_model else None
+    return await reembed_by_model(
+        old_model,
+        thread_id=thread_id,
+        limit=limit,
+        force=force,
+        target_model=target_model,
+    )
+
+
 @router.post("/threads/{thread_id}/retrieve")
 async def retrieve_for_thread(
     thread_id: str,
