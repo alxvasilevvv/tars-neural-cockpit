@@ -17,7 +17,8 @@ DESKTOP   ?= desktop
         gate-release backend backend-dev desktop-dev desktop-build \
         smoke-core-bridge gate-control-tower ops-bridge-secret clean \
         planner planner-stats planner-list planner-runs planner-show \
-        planner-full planner-clone planner-rerun planner-smoke
+        planner-full planner-clone planner-rerun planner-replay-run \
+        planner-smoke
 
 help:                ## list targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -138,6 +139,31 @@ planner-rerun:       ## clone+approve+run in one: make planner-rerun ARGS=<plan_
 	else \
 	    PYTHONPATH=. $(PLANNER) clone $(ARGS) --approve --run; \
 	fi
+
+# Dumps one run's events to JSONL for backfill / audit. The plan_id
+# is informational (used in the default filename) so cron jobs can
+# tail .meeet-replays/<plan_id>-<run_trace>.jsonl after a meeet
+# ingest outage. OUT= overrides the path; MEEET_REPLAY_DIR overrides
+# the default directory.
+MEEET_REPLAY_DIR ?= .meeet-replays
+planner-replay-run:  ## dump one run to JSONL: make planner-replay-run ARGS="<plan_id> <run_trace>" [OUT=<path>]
+	@if [ -z "$(ARGS)" ]; then echo 'usage: make planner-replay-run ARGS="<plan_id> <run_trace>" [OUT=<path>]'; exit 2; fi
+	@bash -c 'set -e; \
+	    set -- $(ARGS); \
+	    plan_id=$$1; \
+	    run_trace=$${2:-}; \
+	    if [ -z "$$plan_id" ] || [ -z "$$run_trace" ]; then \
+	        echo "usage: make planner-replay-run ARGS=\"<plan_id> <run_trace>\" [OUT=<path>]"; \
+	        exit 2; \
+	    fi; \
+	    out_path="$(OUT)"; \
+	    if [ -z "$$out_path" ]; then \
+	        mkdir -p "$(MEEET_REPLAY_DIR)"; \
+	        out_path="$(MEEET_REPLAY_DIR)/$$plan_id-$$run_trace.jsonl"; \
+	    fi; \
+	    PYTHONPATH=. $(PY) -m backend.core.meeet.replay_cli \
+	        --export "$$out_path" --trace-id "$$run_trace" --limit 1000; \
+	    echo "planner-replay-run wrote $$out_path"'
 
 planner-smoke:       ## end-to-end synthesize→stats sanity for the control tower
 	@bash -c 'set -e; \
