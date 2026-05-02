@@ -193,6 +193,29 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-01 — Phase L6.2: planner runner (PlanRunner + abort + plan.* events) (Cursor [A]):**
+  Second slice of Phase L6. New `backend/core/planner/runner.py` ships
+  the `PlanRunner` that takes an `approved` `Plan`, drives every step
+  through the same policy gate the playbook runner uses, and emits the
+  `plan.*` lifecycle events spec'd in L6.2 (`plan.run.started` /
+  `plan.step.{requested,allowed,completed}` / `plan.completed` /
+  `plan.aborted`, plus `plan.proposed` at synthesis time). The runner
+  reuses `PlaybookRunner._dispatch` via a thin `_AdaptedStep` adapter so
+  the dispatcher logic (awareness snapshots, policy gate, error mapping)
+  stays single-sourced. Status transitions `approved → running →
+  completed/aborted` are runner-owned and persisted to the planner
+  store. Cooperative abort: `PlanRunRegistry.abort(plan_id)` flips an
+  `asyncio.Event` that the runner observes between groups (never
+  mid-step). New HTTP: `POST /api/planner/{plan_id}/run` (resolves
+  policy mode from body / `x-tars-policy-mode` header / env, wraps in
+  `thread_id_scope` so events inherit the persisted thread id) and
+  `POST /api/planner/{plan_id}/abort` (404s when not in flight,
+  otherwise emits `plan.abort.requested`). Pinned by
+  `tests/test_planner_runner.py` (21 cases). Full suite:
+  **1937 passing**. Follow-ups: real cloud-LLM voices in the
+  synthesizer, cockpit "approval inbox" UI driven by `plan.*` events,
+  optional `mode=async` for fire-and-forget runs.
+
 - **2026-05-01 — Phase L6 v1: planner foundations (synthesis + persistence) (Cursor [A]):**
   Phase L6 (Planner / Agent loop) starts here. New module
   `backend/core/planner/` ships the foundations: `Plan` /
