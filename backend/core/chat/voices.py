@@ -37,6 +37,10 @@ from typing import Any, AsyncIterator, Iterable, Literal, Mapping, Sequence
 from backend.core.vault import get_secret
 
 from .models import AttachmentRef, Message, Thread
+from .multimodal import (
+    pack_anthropic_image_blocks,
+    pack_openai_image_blocks,
+)
 
 ChunkKind = Literal["text", "tool_call", "usage", "done", "error"]
 
@@ -103,6 +107,7 @@ class ChatVoice(ABC):
         attachments: Sequence[AttachmentRef] = (),
         *,
         system_prompt: str | None = None,
+        image_refs: Sequence[Mapping[str, Any]] = (),
     ) -> AsyncIterator[ChatChunk]:  # pragma: no cover - abstract
         ...
 
@@ -131,7 +136,12 @@ class LocalChatVoice(ChatVoice):
         attachments: Sequence[AttachmentRef] = (),
         *,
         system_prompt: str | None = None,
+        image_refs: Sequence[Mapping[str, Any]] = (),
     ) -> AsyncIterator[ChatChunk]:
+        # LocalChatVoice is text-only by design; image_refs are
+        # accepted to keep the abstract signature uniform but never
+        # injected into the templated reply.
+        del image_refs
         started = time.perf_counter()
         text = self._compose(thread, history, operator_text, attachments)
         # Stream sentence-by-sentence so the cockpit feels alive even
@@ -251,6 +261,7 @@ class AnthropicChatVoice(ChatVoice):
         attachments: Sequence[AttachmentRef] = (),
         *,
         system_prompt: str | None = None,
+        image_refs: Sequence[Mapping[str, Any]] = (),
     ) -> AsyncIterator[ChatChunk]:
         key = get_secret("TARS_ANTHROPIC_API_KEY") or get_secret(
             "ANTHROPIC_API_KEY"
@@ -263,12 +274,19 @@ class AnthropicChatVoice(ChatVoice):
             return
 
         sys_text = _build_system(thread, system_prompt, attachments)
+        # IDEAS line 63 — pack image bytes from the vision agent into
+        # native Anthropic image blocks so the model actually sees the
+        # attachment instead of just the OCR text fallback. Pure
+        # helper, budget-aware, silent on failure.
+        image_blocks = pack_anthropic_image_blocks(image_refs)
         body = {
             "model": self.anthropic_model,
             "max_tokens": self.max_tokens,
             "system": sys_text,
             "stream": True,
-            "messages": _to_anthropic_messages(history, operator_text),
+            "messages": _to_anthropic_messages(
+                history, operator_text, image_blocks=image_blocks
+            ),
         }
         headers = {
             "content-type": "application/json",
@@ -415,6 +433,7 @@ class OpenAIChatVoice(ChatVoice):
         attachments: Sequence[AttachmentRef] = (),
         *,
         system_prompt: str | None = None,
+        image_refs: Sequence[Mapping[str, Any]] = (),
     ) -> AsyncIterator[ChatChunk]:
         key = get_secret("TARS_OPENAI_API_KEY") or get_secret("OPENAI_API_KEY")
         if not key:
@@ -422,13 +441,19 @@ class OpenAIChatVoice(ChatVoice):
             return
 
         sys_text = _build_system(thread, system_prompt, attachments)
+        # IDEAS line 63 — pack image bytes into native OpenAI
+        # image_url content blocks (data: URLs). Same budget rules
+        # as the Anthropic path.
+        image_blocks = pack_openai_image_blocks(image_refs)
         body = {
             "model": self.openai_model,
             "max_tokens": self.max_tokens,
             "stream": True,
             "stream_options": {"include_usage": True},
             "messages": [{"role": "system", "content": sys_text}]
-            + _to_openai_messages(history, operator_text),
+            + _to_openai_messages(
+                history, operator_text, image_blocks=image_blocks
+            ),
         }
         headers = {
             "content-type": "application/json",
@@ -565,7 +590,10 @@ def _build_system(
 
 
 def _to_anthropic_messages(
-    history: Sequence[Message], operator_text: str
+    history: Sequence[Message],
+    operator_text: str,
+    *,
+    image_blocks: Sequence[Mapping[str, Any]] = (),
 ) -> list[dict[str, Any]]:
     msgs: list[dict[str, Any]] = []
     for m in history:
@@ -575,12 +603,29 @@ def _to_anthropic_messages(
             msgs.append({"role": "assistant", "content": m.content})
         elif m.role == "tool":
             msgs.append({"role": "user", "content": f"[tool result] {m.content}"})
-    msgs.append({"role": "user", "content": operator_text})
+    # Anthropic accepts either a plain string or a list of content
+    # blocks for ``content``. We only switch to the block form when
+    # we actually have image bytes — text-only turns stay simple.
+    if image_blocks:
+        msgs.append(
+            {
+                "role": "user",
+                "content": [
+                    *image_blocks,
+                    {"type": "text", "text": operator_text},
+                ],
+            }
+        )
+    else:
+        msgs.append({"role": "user", "content": operator_text})
     return msgs
 
 
 def _to_openai_messages(
-    history: Sequence[Message], operator_text: str
+    history: Sequence[Message],
+    operator_text: str,
+    *,
+    image_blocks: Sequence[Mapping[str, Any]] = (),
 ) -> list[dict[str, Any]]:
     msgs: list[dict[str, Any]] = []
     for m in history:
@@ -590,7 +635,20 @@ def _to_openai_messages(
             msgs.append({"role": "assistant", "content": m.content})
         elif m.role == "tool":
             msgs.append({"role": "tool", "content": m.content, "tool_call_id": m.id})
-    msgs.append({"role": "user", "content": operator_text})
+    # Mirror Anthropic — only widen the last user turn into the
+    # content-block shape when image_blocks are present.
+    if image_blocks:
+        msgs.append(
+            {
+                "role": "user",
+                "content": [
+                    {"type": "text", "text": operator_text},
+                    *image_blocks,
+                ],
+            }
+        )
+    else:
+        msgs.append({"role": "user", "content": operator_text})
     return msgs
 
 

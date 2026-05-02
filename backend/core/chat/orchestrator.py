@@ -219,15 +219,37 @@ class ChatOrchestrator:
                     },
                 )
 
+            # IDEAS line 63 — if the chosen voice declares it can
+            # natively consume images, hand the vision agent's
+            # storage_path-bearing image_refs through. The voice's
+            # multimodal helper then loads bytes, base64-encodes, and
+            # injects content-blocks into the request payload. For
+            # text-only voices we skip the wiring (the OCR text-block
+            # fallback already covers them).
+            voice_kwargs: dict[str, Any] = {
+                "system_prompt": self._compose_system_prompt(
+                    thread, retrieved, vision_payload=vision_payload
+                ),
+            }
+            if (
+                getattr(self.voice, "supports_multimodal", False)
+                and vision_payload.has_images
+            ):
+                # Only forward image_refs when we actually have
+                # images to send — keeps test mocks and third-party
+                # voice subclasses that don't yet know about the
+                # kwarg working as-is.
+                voice_kwargs["image_refs"] = tuple(
+                    vision_payload.image_refs
+                )
+
             try:
                 async for chunk in self.voice.stream(
                     thread,
                     history,
                     operator_text,
                     attachments,
-                    system_prompt=self._compose_system_prompt(
-                        thread, retrieved, vision_payload=vision_payload
-                    ),
+                    **voice_kwargs,
                 ):
                     if chunk.kind == "text" and chunk.text:
                         buffered_text += chunk.text
