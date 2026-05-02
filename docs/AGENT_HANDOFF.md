@@ -193,6 +193,36 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-01 — playbooks CLI parity + control-tower gate wiring (Cursor [A]):**
+  Closes the third (and last) leg of the operator-parity arc.
+  Playbook execution now has a shell-side equivalent at
+  `python -m backend.core.playbooks.cli` plus seven Make
+  targets (`playbooks`, `playbooks-list`, `playbooks-show`,
+  `playbooks-run`, `playbooks-validate`,
+  `playbooks-validate-all`, `playbooks-reload`). Same playbooks
+  the cockpit's `POST /api/playbooks/<id>/run` route executes
+  can now run from cron without the FastAPI process — emitted
+  `playbook.*` events still land in the local meeet buffer the
+  cockpit reads from. Cron-friendly pattern reads:
+  `make playbooks-run ARGS=traders.morning_check MODE=autopilot
+  CONTEXT='{"basket":["BTC","ETH"]}'`. **Load-bearing CI gate
+  wiring**: `make gate-control-tower` now runs
+  `playbooks-validate-all` after planner-smoke, so a malformed
+  playbook fails the gate the moment it lands instead of
+  waiting for a 5am cron to discover the typo. `--context-file`
+  wins over `--context` when both are supplied (cron-baked
+  sidecar JSON ⇆ ad-hoc operator override); `resolve_mode` is
+  permissive (typo in cron command line falls back to default
+  rather than crashing) — both pinned. Pinned by 41 new pytest
+  cases (25 CLI, 16 Makefile contract). Full Python suite:
+  **2185 passed in 42.09s** (was 2144, +41). The arc as it now
+  stands: planner / awareness / playbook each have HTTP route +
+  `python -m …` CLI + `make …-*` targets, all sharing the same
+  trace + event surface. Follow-ups: right-rail planner
+  entrypoint from the cockpit chat thread; cron-shipped
+  morning-bundle wrapper script; `scripts/playbooks-completion.bash`
+  bash completion.
+
 - **2026-05-01 — awareness CLI parity (Cursor [A]):** Closes the
   operator-parity gap left by the planner CLI batch. The
   awareness layer (the cockpit's `GET /api/domains` /
