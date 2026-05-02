@@ -15,4 +15,6 @@ dist/
 build/
 *.local
 .qa-runs/
+.morning-runs/
+.meeet-replays/
 

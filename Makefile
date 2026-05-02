@@ -21,7 +21,8 @@ DESKTOP   ?= desktop
         planner-repush-run planner-smoke \
         awareness awareness-list awareness-snapshot awareness-snapshot-all \
         playbooks playbooks-list playbooks-show playbooks-run \
-        playbooks-validate playbooks-validate-all playbooks-reload
+        playbooks-validate playbooks-validate-all playbooks-reload \
+        morning-bundle morning-bundle-dry
 
 help:                ## list targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -275,6 +276,35 @@ playbooks-validate-all:  ## strict-validate every playbook on disk (CI gate)
 
 playbooks-reload:    ## reset loader cache + re-scan playbooks dir
 	PYTHONPATH=. $(PLAYBOOKS) reload
+
+# ---------------------------------------------------------------------
+# Morning bundle (cron-shipped multi-playbook wrapper)
+# ---------------------------------------------------------------------
+#
+# Wraps every playbook tagged ``morning`` (or the override list in
+# ``MORNING_PLAYBOOKS``) into one cron-friendly invocation that:
+#   - runs each playbook sequentially in MORNING_MODE
+#     (default ``confirm``; cron should set ``autopilot``);
+#   - flushes the meeet replay buffer at the end so events from
+#     this morning's runs reach upstream;
+#   - writes an aggregate evidence JSON to MORNING_OUTPUT_DIR
+#     (default ``.morning-runs``);
+#   - exits 1 on any playbook failure, 2 on operator error
+#     (no playbooks discovered, missing dep), 0 on full green.
+#
+# See ``scripts/playbooks_morning_cron.sh`` for the full env knob
+# matrix; the Make targets are thin wrappers that surface the
+# common cron pattern (``morning-bundle MODE=autopilot``) and a
+# DRY-mode variant (``morning-bundle-dry``) that runs in
+# ``dry_run`` policy mode for safe local rehearsal.
+
+morning-bundle:      ## run every morning-tagged playbook + flush meeet [MODE=<mode>] [PLAYBOOKS=<csv>]
+	@MORNING_MODE=$${MODE:-$(MODE)} \
+	  MORNING_PLAYBOOKS=$${PLAYBOOKS:-$(PLAYBOOKS_OVERRIDE)} \
+	  bash scripts/playbooks_morning_cron.sh
+
+morning-bundle-dry:  ## same as morning-bundle but forced dry_run mode (safe rehearsal)
+	@MORNING_MODE=dry_run bash scripts/playbooks_morning_cron.sh
 
 acceptance-tars-meeet:  ## production acceptance for tars.meeet.world (post-DNS)
 	bash scripts/acceptance_tars_meeet.sh
