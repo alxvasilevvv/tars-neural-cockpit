@@ -45,6 +45,13 @@ Endpoints:
   error) and aggregate counters. Newest run first. Optional
   ``limit`` query param caps the per-event-kind fetch (default
   ``1000``).
+- ``GET  /api/planner/{plan_id}/full`` — one-shot aggregate
+  endpoint for the cockpit's plan-detail drawer. Returns the
+  plan envelope + reconstructed runs (newest-first, with
+  in_flight count) + a ``usage_lifetime`` block summing every
+  run's per-run rollup. ``cost_usd`` is ``null`` when no run
+  had a priced model so the cockpit can render "n/a" instead
+  of misleading "$0.00". Same ``limit`` semantics as ``/runs``.
 - ``POST /api/planner/{plan_id}/clone`` — snapshot the plan as
   a fresh ``proposed`` plan. Useful for "rerun" without
   mutating the original's terminal status. Body may include
@@ -357,6 +364,100 @@ async def list_plan_runs(
         "count": len(runs),
         "in_flight": in_flight,
         "runs": [r.to_dict() for r in runs],
+    }
+
+
+@router.get("/{plan_id}/full")
+async def get_plan_full(
+    plan_id: str,
+    limit: int = Query(default=1000, ge=1, le=5000),
+) -> dict[str, Any]:
+    """One-shot aggregate: plan + reconstructed runs + lifetime usage.
+
+    Single round-trip the cockpit's plan-detail drawer can hit on
+    open instead of fanning out across ``GET /{plan_id}``,
+    ``GET /{plan_id}/runs``, and a separate usage rollup query.
+
+    Envelope:
+
+    .. code-block:: json
+
+       {
+         "ok": true,
+         "plan_id": "pln_…",
+         "plan": {…},                # same shape as GET /{plan_id}
+         "runs": {
+           "count": N,
+           "in_flight": M,
+           "items": [PlanRun.to_dict(), …]   # newest-first
+         },
+         "usage_lifetime": {
+           "calls": …,
+           "tokens_in": …,
+           "tokens_out": …,
+           "cost_usd": float|null,    # null when no priced run fired
+           "latency_ms_total": …,
+           "has_priced_models": bool, # any run had a priced model
+           "runs_aggregated": K       # how many runs contributed
+         }
+       }
+
+    The lifetime block sums every reconstructed run's per-run
+    rollup so the drawer can show "$X across N runs" without a
+    second SQL query. ``cost_usd`` is ``null`` (rendered as
+    "n/a" by the cockpit) when *no* run had ``has_priced_models``;
+    otherwise it is the sum of the priced runs' costs.
+    """
+
+    store = get_planner_store()
+    plan = await store.get(plan_id)
+    if plan is None:
+        raise HTTPException(status_code=404, detail="plan_not_found")
+
+    runs = await reconstruct_runs_async(plan_id, limit=limit)
+    in_flight = sum(1 for r in runs if r.status == "running")
+
+    # Aggregate the per-run usage blocks. We are intentionally
+    # generous about the ``cost_usd`` rule: the lifetime cost is
+    # null only when *no* run reported a priced model, which lets
+    # the cockpit distinguish "ran but free" ($0.0000) from "ran
+    # but no priced model" (n/a).
+    calls_total = 0
+    tokens_in_total = 0
+    tokens_out_total = 0
+    latency_total = 0.0
+    cost_total = 0.0
+    any_priced = False
+    for run in runs:
+        calls_total += run.usage_calls
+        tokens_in_total += run.usage_tokens_in
+        tokens_out_total += run.usage_tokens_out
+        latency_total += run.usage_latency_ms_total
+        if run.usage_has_priced_models:
+            any_priced = True
+            if run.usage_cost_usd is not None:
+                cost_total += run.usage_cost_usd
+
+    usage_lifetime = {
+        "calls": calls_total,
+        "tokens_in": tokens_in_total,
+        "tokens_out": tokens_out_total,
+        "cost_usd": (cost_total if any_priced else None),
+        "latency_ms_total": latency_total,
+        "has_priced_models": any_priced,
+        "runs_aggregated": len(runs),
+    }
+
+    return {
+        "ok": True,
+        "plan_id": plan_id,
+        "plan": plan.to_dict(),
+        "runs": {
+            "count": len(runs),
+            "in_flight": in_flight,
+            "items": [r.to_dict() for r in runs],
+        },
+        "usage_lifetime": usage_lifetime,
     }
 
 
