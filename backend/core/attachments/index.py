@@ -509,6 +509,22 @@ class AttachmentStore:
             where = " AND ".join(clauses)
             rows = conn.execute(
                 f"""
+                SELECT
+                    c.*,
+                    a.filename AS att_filename,
+                    a.mime AS att_mime
+                FROM attachment_chunks c
+                LEFT JOIN attachments a ON a.id = c.attachment_id
+                WHERE {where}
+                ORDER BY c.created_at ASC
+                LIMIT ?
+                """,
+                params,
+            ).fetchall()
+        finally:
+            conn.close()
+        return [_row_to_chunk(r) for r in rows]
+
     async def get_chunk(self, chunk_id: str) -> Chunk | None:
         """Fetch a single chunk by id, or ``None`` if missing."""
 
@@ -545,7 +561,7 @@ class AttachmentStore:
     ) -> tuple[Chunk, list[Chunk], list[Chunk]] | None:
         """Return (chunk, before, after) by ``ord`` adjacency.
 
-        ``before`` / ``after`` clamp to ``[0, 10]`` — large windows
+        ``before`` / ``after`` clamp to ``[0, 10]`` -- large windows
         defeat the purpose of a hover preview and would also force
         the cockpit to load too much text. The lists are sorted in
         ord-ascending order, so ``before[-1]`` is the chunk
@@ -582,15 +598,6 @@ class AttachmentStore:
                     a.mime AS att_mime
                 FROM attachment_chunks c
                 LEFT JOIN attachments a ON a.id = c.attachment_id
-                WHERE {where}
-                ORDER BY c.created_at ASC
-                LIMIT ?
-                """,
-                params,
-            ).fetchall()
-        finally:
-            conn.close()
-        return [_row_to_chunk(r) for r in rows]
                 WHERE c.id = ?
                 LIMIT 1
                 """,
