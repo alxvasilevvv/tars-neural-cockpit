@@ -4,6 +4,69 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · planner: surface trace_id + parent_trace_id on PlanRun history
+
+**Summary**
+
+Cockpit-facing follow-up to PR #109 (per-run trace_id). The
+reconstructor now exposes the per-run `trace_id` *and* the
+plan's birth `parent_trace_id` on every `PlanRun.to_dict()` and
+on the JSON envelope returned by
+`GET /api/planner/{plan_id}/runs`. The cockpit can now:
+
+- deep-link from one run row straight to its trace lane
+  (`trace_id`),
+- group all runs of the same plan under one collapsible node
+  (`parent_trace_id`),
+- pivot from "rerun via clone" output back to the original
+  synthesis trace without an extra API call.
+
+**Changes**
+
+1. `backend/core/planner/history.py` —
+   - `PlanRun` gains a `parent_trace_id: Optional[str]` field
+     (defaults to `None` for legacy events that pre-date PR
+     #109).
+   - `to_dict()` exposes both `trace_id` (per-run, stamped on
+     `plan.run.started`) and `parent_trace_id` (plan's birth
+     trace, copied verbatim from the event payload).
+   - Both `reconstruct_runs` and `reconstruct_runs_async` /
+     `_reduce_rows` now read `parent_trace_id` from the
+     `plan.run.started` payload when constructing a new
+     `PlanRun`.
+2. `tests/test_planner_history_traces.py` (new, 4 cases):
+   - `to_dict()` exposes `trace_id` + `parent_trace_id`.
+   - Legacy `plan.run.started` (no `parent_trace_id` key) →
+     `parent_trace_id=None`, no crash.
+   - Two sibling runs share the same `parent_trace_id` and
+     have distinct per-run `trace_id`s.
+   - HTTP `GET /{plan_id}/runs` envelope surfaces both fields
+     verbatim.
+   - Tests use a `_emit_in_fresh_trace` helper that wraps
+     each emit in its own `trace_scope` so they do not depend
+     on whatever `current_trace()` ContextVar a prior test
+     happens to have left in place.
+
+**Tests**
+
+- `tests/test_planner_history_traces.py` — 4 passed.
+- Full `pytest -q --ignore=tests/test_release_desktop_workflow.py`
+  — **2021 passed in 45s**.
+- `tests/test_release_desktop_workflow.py` is pre-existing red
+  (5 errors) caused by a previous merge that renamed
+  `.github/workflows/release-desktop-tagged.yml`; out of scope
+  for this PR.
+
+**Cockpit follow-ups**
+
+- Render `trace_id` as an inline pill on each run row that
+  links to `/cockpit/trace/<id>` (existing trace viewer).
+- Group consecutive run rows by `parent_trace_id` so the
+  inbox can collapse "all runs of plan X" behind a single
+  expander.
+
+---
+
 ## 2026-05-01 — Cursor [A] · planner: per-run trace_id (each run gets its own trace, plan trace becomes the parent)
 
 **Summary**
