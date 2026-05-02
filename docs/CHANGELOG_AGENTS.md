@@ -4,6 +4,65 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-02 — Cursor [A] · Council Debug page (`/cockpit/council`)
+
+**Summary**
+
+Closes IDEAS #18 — backend `/api/council/deliberate` shipped Phase
+K-C, every deliberation already drops a `sampler.decision` event
+into the meeet trail, but a dedicated full-page operator surface
+that exposes the dual-voice diff (confidence bars, agreement %,
+contradictions, latency) had been waiting on a design pass. This
+PR ships it.
+
+**Anatomy**
+
+- Sticky header: back to cockpit, refresh history.
+- Two-column workspace:
+  - Left rail: stage form (prompt + context JSON + mode), live
+    JSON-validity badge that swaps in `{}` on parse fail (so the
+    operator never silently sends an invalid object), and a
+    newest-first history of `sampler.decision` events
+    (winner / agreement / mode / time + stance pill).
+  - Right pane: rendered deliberation. Six-stat header (chosen /
+    agreement / mode / total tokens / total latency / voice count)
+    + per-voice card grid with stance pill, **confidence bar**,
+    summary, recommended actions, rationale, latency, tokens.
+    Highest-confidence voice marked with a "★ winner" pill +
+    accent border. Unavailable voices render an explicit
+    explainer instead of the bar (matches orchestrator's
+    `stance="unavailable"` filter).
+  - Contradictions list rendered below; explicit "no contradictions
+    surfaced" copy when empty.
+- Polling: history @ 6 s (matches existing OperatorStrip cadence).
+- New cockpit nav link (`cockpit · planner · traces · policy ·
+  council`).
+
+**Files**
+
+- `experiments/neural-showcase-v3/src/pages/Council.tsx` (new,
+  ~480 lines).
+- `experiments/neural-showcase-v3/src/lib/councilFmt.ts` (new,
+  ~110 lines — pure helpers: `stanceTone`, `fmtConfidencePct`,
+  `confidenceWidth`, `pickWinningVoice`, `rollupVoices`,
+  `fmtLatencyMs`, `normaliseStance`).
+- `experiments/neural-showcase-v3/src/lib/i18n.tsx` (+38 EN keys
+  + 38 RU translations for the council surface).
+- `experiments/neural-showcase-v3/src/App.tsx` (lazy import + route).
+- `experiments/neural-showcase-v3/src/pages/Cockpit.tsx` (nav link).
+- New tests: `councilFmt.test.ts` (20 cases — stance routing,
+  confidence clamp, winner pick, rollup tolerance to NaN,
+  latency formatter).
+
+**Test deltas**
+
+- Cockpit: `pnpm vitest run` → **267 passed** (was 247; +20
+  councilFmt).
+- Cockpit: `pnpm tsc -b && pnpm build` → green.
+- Backend: `pytest tests/test_council.py tests/test_meeet.py
+  tests/test_meeet_contract.py` → **22 passed** (touched
+  surfaces; no regressions).
+
 ## 2026-05-02 — Cursor [A] · Policy Inbox page (`/cockpit/policy`)
 
 **Summary**
