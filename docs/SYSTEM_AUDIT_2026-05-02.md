@@ -430,3 +430,63 @@ plumbing, broken DMG link) are all in the "we have the
 machinery, we forgot to plug it in" category — fixable in a
 focused 1-week sprint, not a re-architecture.
 
+---
+
+## Resolution log (2026-05-02 closeout pass)
+
+PR #135 closes **all 8 audit findings** in two commits.
+Recap (status `2026-05-02 23:50`):
+
+| Bug | What landed | Test deltas |
+|-----|-------------|-------------|
+| #2 | `web_extras/entitlements_gate.py::require_cloud_budget` wired into chat / planner / voice / council; HTTP 402 + `payment_required` + structured `cap_hit` envelope; `entitlements.cap_hit` event with `surface` label | +7 contract tests (`tests/test_entitlements_gate.py`) |
+| #3 | `TARS_PAYMENT_MODE` env (off/mock/stripe); upgrade emits `entitlements.upgraded.mock` (audit-trail honest); Pricing UI shows `COMING SOON` lozenge + waitlist CTAs | +5 contract tests (`tests/test_entitlements.py`) |
+| #4 | `web_extras/middleware/expensive_routes_rate_limit.py` Starlette middleware; per-IP token bucket on chat/planner/voice/council; HTTP 429 + Retry-After; XFF support | +6 contract tests (`tests/test_rate_limit_expensive_routes.py`) |
+| #5 | `src/lib/i18n.tsx` LocaleProvider + RU translations for hero/waitlist/cookie/footer/pricing/locale.*; `<LocaleSwitcher/>` mounted in Footer; `localStorage["tars.locale"]` persistence | +9 contract tests (`src/lib/i18n.test.ts`) |
+| #6 | Removed 30 orphan `__pycache__` directories (i18n, economy, awareness, brain, knowledge_graph, …); regression guard | +1 regression test (`tests/test_no_orphan_pycache.py`) |
+| #7 | `SplineScene.tsx` IntersectionObserver guard — defers the 4 MB lazy chunks until the host element is within 600 px of viewport | covered by existing `vitest run` |
+| #8 | `.cursorrules` / `.cursor/rules/tars-architecture.mdc` / `CLAUDE.md` — rewrote to point at `experiments/neural-showcase-v3/`; marked `frontend/` and `backend/core/awareness/` as retired | n/a (docs) |
+| #9 | `desktop/src-tauri/tauri.conf.json` updater endpoint switched to GitHub Releases; `release-desktop-tagged.yml` includes `includeUpdaterJson: true`; `DEFAULT_MANIFEST` placeholder URLs moved to GitHub Releases pattern | +4 contract tests (`tests/test_product_default_manifest_urls.py`); converted 1 xfail to passing |
+
+### Final test stats
+
+- **Backend**: `pytest tests/` → **2249 passed, 1 skipped, 2 xfailed**
+  (was 2225/1/3 — added 22 new tests, closed 1 xfail, no
+  regressions).
+- **Frontend**: `pnpm vitest run` → **190 passed** (was 181 — added
+  9 i18n tests).
+- **Build**: `pnpm build` → green; bundle sizes unchanged but
+  Spline now lazy-loaded behind viewport.
+
+### Migration notes (env defaults flipped)
+
+- `TARS_PAYMENT_MODE` — **defaults `off`** (paid upgrades return
+  503). Set to `mock` in dev shells; will switch to `stripe` once
+  the integration ships.
+- `TARS_CAP_ENFORCEMENT` — **defaults `on`** in production (FREE
+  tier cloud calls return 402). Test suite flips to `off` via
+  `tests/conftest.py`. Operators on FREE tier dev shells: set
+  `off` or upgrade with `TARS_PAYMENT_MODE=mock`.
+- `TARS_RATE_LIMIT_EXPENSIVE` — **defaults `on`** (per-IP throttle
+  active on chat/planner/voice/council). Set `off` for
+  single-operator self-hosted boxes.
+
+### What's NOT in PR #135 (deliberate scope cuts)
+
+- **Real Stripe integration** — Bug #3 closes the *pretend-it-works*
+  path; the actual checkout is a separate product decision (Stripe
+  vs. `$MEEET` wallet vs. both). The skeleton is in place
+  (`TARS_PAYMENT_MODE=stripe` returns 503 `not_implemented`); next
+  PR drops in the webhook handler.
+- **Full RU translation pass** — Bug #5 ships the foundation +
+  the 7 highest-visibility surfaces. Other strings fall back to
+  English silently. Follow-up translation passes can land
+  incrementally without breaking the build.
+- **Tauri updater pubkey** — `tauri.conf.json` still has
+  `pubkey: "TODO_PUBLIC_KEY"`. Operator must run
+  `desktop/scripts/generate-release-keys.sh` once and commit the
+  public key + add the secret to GitHub Secrets. Until then the
+  workflow publishes `latest.json` but auto-update silently
+  no-ops on the client (the right behaviour — better silent
+  no-update than a forged update).
+
