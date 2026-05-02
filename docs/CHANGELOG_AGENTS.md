@@ -4,6 +4,51 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-02 — Cursor [A] · Operator command palette (⌘. / Ctrl+.)
+
+**Summary**
+
+Closes IDEAS #20 — the cockpit's existing ⌘K palette is a search
+surface (chunks / messages / traces); this PR ships the
+*action* counterpart: a fuzzy index over **packs**, **pack
+actions**, **playbooks**, **awareness sources**, and the most
+**recent traces**. Bound to ⌘. (period) so it never collides
+with ⌘K.
+
+**Anatomy**
+
+- `lib/operatorPalette.ts` — pure helpers (no React, no DOM):
+  `OperatorEntry` / `OperatorIndex` types, shapers per resource
+  (`shapePack` / `shapeAction` / `shapeAwareness` / `shapePlaybook`
+  / `shapeTrace`), `loadOperatorIndex` (parallel-safe loader with
+  per-group error capture), `fuzzyScore` + `rankEntries` (subsequence
+  scorer with title-prefix + pack bonuses), `filterByGroup` /
+  `groupCounts` / `totalCount`, `loadRecentIds` / `pushRecent` /
+  `pickRecent` (localStorage-backed top-5), and `entryHref` for
+  pack / trace deep-links.
+- `components/OperatorPalette.tsx` — modal overlay with focus trap,
+  group filter chips with live counts, partial-failure banner,
+  result strip, and per-row activation badge that routes by kind:
+  pack / trace navigate; action / awareness / playbook invoke
+  through the existing API clients (`invokeAction`,
+  `snapshotAwareness`, `runPlaybook`). Destructive actions surface
+  the policy gate's "blocked, approve via inbox" path with an
+  amber toast.
+- `pages/Cockpit.tsx` — mounts `<OperatorPalette/>` next to
+  the existing `<CommandPalette/>`; activations route through
+  `toast.success` / `toast.warn` / `toast.error`.
+- `lib/i18n.tsx` — 38 EN keys + 38 RU translations for every
+  surface (placeholder / chips / kind labels / activation outcomes
+  / refresh / footer hints).
+
+**Test deltas**
+
+- Cockpit: `pnpm vitest run` → **299 passed** (was 267; +32
+  operatorPalette).
+- Cockpit: `pnpm tsc -b && pnpm build` → green; cockpit chunk
+  grew 182KB → 197KB.
+- i18n parity guard kept at 100% RU coverage.
+
 ## 2026-05-02 — Cursor [A] · Council Debug page (`/cockpit/council`)
 
 **Summary**
