@@ -4,6 +4,236 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · playbooks CLI parity (`python -m backend.core.playbooks.cli` + `playbooks-*` Make targets + `gate-control-tower` wiring)
+
+**Summary**
+
+Closes the third (and last) leg of the operator-parity arc:
+**playbook execution** now has a shell-side equivalent at
+`python -m backend.core.playbooks.cli` plus seven new Make
+targets (`playbooks`, `playbooks-list`, `playbooks-show`,
+`playbooks-run`, `playbooks-validate`, `playbooks-validate-all`,
+`playbooks-reload`). The same playbooks the cockpit's
+`POST /api/playbooks/<id>/run` route executes can now run from
+`cron` without spinning the FastAPI process — emitted
+`playbook.*` events still land in the local meeet buffer the
+cockpit reads from, so dashboards count CLI runs the same as
+HTTP runs.
+
+The CI gate (`make gate-control-tower`) now runs
+`playbooks-validate-all`, so a malformed playbook fails the
+gate the moment it lands instead of waiting for a 5am cron
+job to discover the typo. **This is the operator-facing
+contract** that we couldn't ship before the CLI existed.
+
+The arc as it now stands:
+
+| Layer        | HTTP route                       | CLI module                              | Make targets         |
+| ------------ | -------------------------------- | --------------------------------------- | -------------------- |
+| Planner      | `web_extras/routers/planner.py`  | `backend.core.planner.cli`              | `make planner-*`     |
+| Awareness    | `web_extras/routers/domains.py`  | `backend.core.domains.awareness_cli`    | `make awareness-*`   |
+| **Playbook** | `web_extras/routers/playbooks.py`| `backend.core.playbooks.cli`            | `make playbooks-*`   |
+
+Every cockpit-facing TARS surface that mutates state is now
+reachable from cron + a venv, and emits the same meeet event
+stream the HTTP route emits.
+
+**Why now? Three concrete drivers:**
+
+1. **Cron-driven brief execution** — `traders.morning_check`
+   bakes the basket / news / portfolio snapshot triple into
+   one playbook. Today wiring it into cron means a curl-in-cron
+   loop with a hard-coded payload. The CLI variant skips the
+   HTTP hop, surfaces a stable JSON envelope (with `trace_id`
+   and `took_ms`), and the cron pattern reads cleanly:
+
+       make playbooks-run ARGS=traders.morning_check \
+                          MODE=autopilot \
+                          CONTEXT='{"basket":["BTC","ETH"]}'
+
+2. **Authoring loop** — `validate` / `validate-all` give a
+   fast feedback signal when hand-editing
+   `playbooks/<pack>/<name>.json`. The strict validator
+   surfaces every issue in one pass instead of bouncing on
+   each `run` attempt.
+3. **Cold-start recovery** — when FastAPI is wedged, the CLI
+   is the only path to materialise a multi-step action chain.
+
+**Why wire `validate-all` into the gate (and not just expose
+it)?** The validator already exists; the gap was an automatic
+trigger. Without the gate hook, a malformed playbook would
+sit on disk silent until a cron job hits the runner. With it,
+the moment the bad file lands, `make gate-control-tower`
+fails, and the operator sees the error in CI before the
+playbook can fire in production.
+
+**Changes**
+
+1. `backend/core/playbooks/cli.py` (new module, 388 lines):
+   - `_cmd_list` — list every playbook (or filter to one
+     pack via `--pack <pack>`). Returns the loader's
+     `to_dict()` shape for each row so cockpit dashboards
+     can ingest CLI output 1:1 with HTTP output.
+   - `_cmd_show` — single-playbook lookup with `--refresh`
+     to dodge stale-cache surprises after just-edited
+     files. Returns the same `{"playbook": ...}` envelope
+     the HTTP `GET /api/playbooks/<id>` route returns.
+   - `_cmd_run` — execute one playbook. Wraps
+     `run_playbook` inside a `trace_scope(parent=<flag>,
+     route="cli")` and `thread_id_scope(<flag>)` identical
+     to the HTTP route, so cockpit-side trace search threads
+     the CLI invocation through the same UI as HTTP. Layers
+     a CLI-specific `took_ms` field on top of the runner's
+     authoritative envelope. Two context input paths:
+     `--context '<json>'` for ad-hoc tweaks and
+     `--context-file <path>` for cron-baked sidecar JSON.
+     File wins over inline if both are supplied — pinned by
+     a dedicated test so a future reorder doesn't silently
+     flip cron behaviour. Bad context (non-JSON, non-object,
+     unreadable file) returns a clean `invalid_context`
+     envelope with a human message instead of leaking a
+     traceback to stdout. `--mode` is permissive
+     (`resolve_mode` falls back to env / hard-coded default
+     on unknown values) so a typo in a cron command line
+     doesn't crash the run — pinned.
+   - `_cmd_validate` — strict-validate one playbook by id
+     (re-reads disk via `refresh=True`). Mirrors the HTTP
+     `POST /api/playbooks/_validate` `{"id": ...}` body
+     shape so cockpit + CLI consume the same envelope.
+   - `_cmd_validate_all` — strict-validate every playbook
+     on disk. Same shape as
+     `GET /api/playbooks/_validate_all` so the CLI is
+     drop-in for cockpit dashboards / CI pipes.
+   - `_cmd_reload` — reset the loader cache and re-scan
+     the playbooks dir (mirrors `POST /api/playbooks/_reload`).
+     Surfaces `count` + `ids` so the cron job knows which
+     playbooks landed.
+   - `_emit` standardises JSON output (indent=2 default,
+     `--quiet` for compact one-line) and exit-code mapping
+     (`0` on `ok=true`, `1` else). Includes `default=str`
+     so dataclass / Path values that leak through the
+     runner don't crash the JSON encoder.
+   - `main(argv)` returns the exit code so cron / Make
+     targets can chain reliably.
+
+2. `Makefile`:
+   - New `PLAYBOOKS ?= $(PY) -m backend.core.playbooks.cli`
+     macro (a future cli relocation is a one-line change).
+   - Seven new targets, all on the `.PHONY` line:
+     - `playbooks` — raw passthrough.
+     - `playbooks-list` — optional `ARGS=--pack=<pack>`
+       (forwarded directly, no guard — no-pack listing is
+       the default lane).
+     - `playbooks-show ARGS=<id>` — `[ -z "$(ARGS)" ]`
+       guard with `exit 2`.
+     - `playbooks-run ARGS=<id> [MODE=<mode>]
+       [CONTEXT='<json>']` — surfaces `MODE=` /
+       `CONTEXT=` as standalone vars (cron-friendly) on
+       top of the standard `ARGS=` guard. Inner forward
+       through `--mode` / `--context` flags.
+     - `playbooks-validate ARGS=<id>` — `ARGS` guard.
+     - `playbooks-validate-all` — parameter-free by design
+       (the whole point is "walk every file"); pinned that
+       it doesn't accept `ARGS=` so a typo doesn't get
+       mistaken for a playbook id.
+     - `playbooks-reload` — parameter-free.
+   - `gate-control-tower` extended with
+     `$(MAKE) playbooks-validate-all`. Now reads:
+     `cockpit-tsc` → `cockpit-test` → `smoke-core-bridge`
+     → `planner-smoke` → `playbooks-validate-all`.
+
+3. `tests/test_playbooks_cli.py` (new, 25 tests):
+   - `playbooks_root` fixture lays down a temp
+     `playbooks/probe/` dir with one valid playbook
+     (`probe.read_only` wrapping `business.kpi_snapshot`,
+     non-destructive + deterministic) and points
+     `TARS_PLAYBOOKS_DIR` at it. Decoupled from the
+     shipped repo playbooks (which would couple test
+     outcomes to whatever business / traders / mlm
+     layouts happen to be on disk that day).
+   - `list` no-filter / pack-filter (match + miss).
+   - `show` happy path / unknown-id.
+   - `run` happy path (envelope shape + `trace_id` +
+     `mode` + `took_ms` + steps); unknown id; bad inline
+     context; non-object context (list/scalar rejected);
+     `--context-file` happy path; **file wins over inline
+     when both supplied**; unreadable file; `--mode`
+     forwarded to runner; **invalid mode falls back to
+     default** (cron typo doesn't crash).
+   - `validate` happy path + unknown-id; `validate-all`
+     all-green envelope + **flips overall ok=false on any
+     bad playbook** (the CI gate semantics).
+   - `reload` picks up a freshly-added playbook (vs `list`
+     which returns the cached set).
+   - Argparse plumbing: missing subcommand /
+     missing positional ⇒ `SystemExit(2)`; `--quiet` ⇒
+     one-line JSON; `main([...])` ⇒ end-to-end smoke
+     through `asyncio.run`.
+
+4. `tests/test_makefile_playbooks_targets.py` (new, 16
+   tests): contract pinning the Make wiring without
+   shelling into `make`.
+   - All seven targets on the `.PHONY` line; each has a
+     `## help` ≥5 chars.
+   - `playbooks-show` / `playbooks-run` /
+     `playbooks-validate` have the standard
+     `[ -z "$(ARGS)" ] ; exit 2` guard.
+   - `PLAYBOOKS` macro must point at
+     `backend.core.playbooks.cli`.
+   - `gate-control-tower` must invoke
+     `playbooks-validate-all` (the load-bearing CI gate
+     wiring; pin so a future "tighten the gate" refactor
+     doesn't quietly drop it).
+   - `playbooks-run` recipe must surface `$(MODE)` and
+     `$(CONTEXT)` as standalone vars (not require them
+     wedged inside `ARGS=`); pin so a future
+     "simplification" doesn't silently drop the cron
+     contract.
+   - `playbooks-list` must NOT guard against empty `ARGS`
+     (no-pack listing is the default lane); pin the
+     canonical pattern for "no positional, ARGS optional"
+     targets.
+   - `playbooks-validate-all` must NOT pass `$(ARGS)` so
+     a typo doesn't get mistaken for a playbook id.
+
+**Tests**
+
+- `tests/test_playbooks_cli.py` — 25 new, all green.
+- `tests/test_makefile_playbooks_targets.py` — 16 new, all
+  green.
+- Full Python suite: **2185 passed in 42.09s** (was 2144,
+  +41 net new tests = 25 + 16).
+- Smoke: `make playbooks-list` → 6 playbooks;
+  `make playbooks-validate-all` → all green;
+  `make playbooks-show ARGS=traders.morning_check` →
+  full envelope; `make playbooks-run
+  ARGS=traders.morning_check MODE=autopilot` →
+  trace_id + 3 steps;
+  `make playbooks-show` (no ARGS) → exits 2 with usage.
+
+**Files**
+
+- `backend/core/playbooks/cli.py` (new, 388 lines).
+- `Makefile` — new `PLAYBOOKS` macro + 7 targets +
+  `.PHONY` extension + `gate-control-tower` wiring.
+- `tests/test_playbooks_cli.py` (new, 416 lines, 25 tests).
+- `tests/test_makefile_playbooks_targets.py` (new, 197
+  lines, 16 tests).
+- `docs/CHANGELOG_AGENTS.md`, `docs/AGENT_HANDOFF.md`.
+
+**Follow-ups**
+
+- Right-rail planner entrypoint from the cockpit chat thread.
+- Cron-shipped wrapper script
+  (`scripts/playbooks_morning_cron.sh`) that bundles the
+  three "morning" playbooks + meeet replay flush in one
+  invocation; deferred until a concrete production
+  schedule lands.
+- bash completion script (`scripts/playbooks-completion.bash`)
+  mirroring `scripts/planner-completion.bash`; deferred
+  until the playbooks ID set is large enough that tab
+  completion saves real time.
+
 ## 2026-05-01 — Cursor [A] · awareness CLI parity (`python -m backend.core.domains.awareness_cli` + `awareness-*` Make targets)
 
 **Summary**
