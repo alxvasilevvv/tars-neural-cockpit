@@ -4,6 +4,79 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · planner: shell CLI (synthesize/run/list/abort/…)
+
+**Summary**
+
+Operator-facing scripting tool that mirrors `replay_cli`'s shape.
+Exposes every planner CRUD + lifecycle operation as a subcommand
+that prints one machine-friendly JSON object per call (so it
+pipes cleanly into `jq`) and uses POSIX exit codes (0 on `ok`,
+1 otherwise) so cron / Make targets can branch on success.
+Reads the same env vars the host uses (`TARS_PLANNER_DB_PATH`,
+`MEEET_STORE_PATH`, `TARS_POLICY_MODE`) and shares the SQLite
+WAL DBs with the running cockpit — safe to run side-by-side
+with the FastAPI surface.
+
+Three jobs the CLI unblocks:
+
+- **Operator scripting** — chain
+  `synthesize | jq -r .plan.id | xargs -I{} python -m … approve {}`
+  in cron jobs.
+- **Cold-start recovery** — when the HTTP layer is down the CLI
+  is the only path to inspect / reset planner state.
+- **Fleet rollouts** — shell out to TARS from a higher-level
+  orchestrator without going through the FastAPI surface.
+
+**Subcommands**
+
+`stats`, `list`, `show`, `runs`, `synthesize`, `approve`,
+`reject`, `run`, `abort`, `delete`. Global `--quiet` strips the
+JSON indentation so log shippers see one line per call.
+`delete` requires `--yes` (otherwise returns
+`confirmation_required` so a sleepy operator can't `rm -rf` a
+planned op by mistake). `run` honours `--mode` to override
+`TARS_POLICY_MODE` per invocation.
+
+**Changes**
+
+1. `backend/core/planner/cli.py` (new) —
+   `argparse`-based dispatcher → 10 subcommand handlers
+   (`_cmd_list / _cmd_show / _cmd_runs / _cmd_stats /
+   _cmd_synthesize / _cmd_approve / _cmd_reject / _cmd_run /
+   _cmd_abort / _cmd_delete`). Each handler returns a `dict`
+   with `ok` plus per-call payload; the shared `_emit(...)`
+   helper renders JSON and maps to exit codes. `_err(...)`
+   builds the error envelope with a stable `reason` key. The
+   synthesize handler reuses the HTTP route's pack / playbook
+   enumeration so the deterministic mapper sees the exact same
+   inputs as the API.
+2. `tests/test_planner_cli.py` (new, 23 cases): `stats`
+   on a fresh DB, `synthesize` happy / empty-goal / no-match,
+   `show` 404 / 200, `list` returns count + plans, `list
+   --status` filter, unknown status envelope, `--quiet` strips
+   indent (single line), `approve` / `reject` flips, `approve`
+   404, `approve` on terminal plan refused, `run` 404, `run`
+   on un-approved plan refused with `plan_not_runnable`,
+   `abort` when not running, `runs` 404 / empty / OK, `delete`
+   without `--yes` is a dry-run, `delete --yes` actually drops,
+   `delete` 404, full lifecycle round trip
+   (synthesize → approve → list → delete → stats).
+
+**Tests**
+
+`pytest -q` → 2009 passed in 44.83s (was 1986; +23 new).
+
+**Follow-ups**
+
+- Tab-completion file (`scripts/planner-completion.bash`) for
+  shell users.
+- Optional `clone` subcommand that snapshots a finished plan as
+  a fresh `proposed` plan (operator-side "rerun" without the
+  history mutation).
+- Wire the CLI into a `make planner-*` target group so the
+  control tower runs it end-to-end as part of the gate.
+
 ## 2026-05-01 — Cursor [A] · planner: per-run cost / token rollup on terminal event
 
 **Summary**
