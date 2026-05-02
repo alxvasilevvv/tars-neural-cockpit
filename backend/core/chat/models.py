@@ -126,8 +126,10 @@ class Thread:
     """A conversation root.
 
     Threads carry an optional ``pack_slug`` pin (so the assistant uses
-    that pack's system prompt + actions by default) and an optional
-    ``project_id`` grouping hint for the cockpit.
+    that pack's system prompt + actions by default), an optional
+    ``project_id`` grouping hint for the cockpit, and an optional
+    ``voice_persona_id`` pin so coming back to a thread keeps the
+    same TARS voice (Jarvis / Stark / TARS / GLaDOS / …).
     """
 
     id: str
@@ -138,6 +140,7 @@ class Thread:
     updated_at: float
     last_session_id: str | None = None
     archived: bool = False
+    voice_persona_id: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -149,6 +152,7 @@ class Thread:
             "updated_at": self.updated_at,
             "last_session_id": self.last_session_id,
             "archived": self.archived,
+            "voice_persona_id": self.voice_persona_id,
         }
 
     @classmethod
@@ -158,6 +162,7 @@ class Thread:
         title: str | None = None,
         pack_slug: str | None = None,
         project_id: str | None = None,
+        voice_persona_id: str | None = None,
         now: float | None = None,
     ) -> "Thread":
         ts = now if now is not None else time.time()
@@ -168,6 +173,7 @@ class Thread:
             project_id=project_id,
             created_at=ts,
             updated_at=ts,
+            voice_persona_id=voice_persona_id,
         )
 
 

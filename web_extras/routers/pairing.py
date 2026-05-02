@@ -7,8 +7,12 @@ Endpoints (pinned by ``docs/contracts/L5_PAIRING_DRAFT.md``):
 - ``POST /api/pairing/reject/{token}``  → operator-declined.
 - ``GET  /api/pairing/status``          → poll a pending pair_id.
 - ``POST /api/pairing/revoke``          → drop a paired device.
-- ``GET  /api/pairing/devices``        → list paired devices.
-- ``GET  /api/pairing/identity``       → host identity / vault fingerprints.
+- ``GET  /api/pairing/devices``         → list paired devices.
+- ``GET  /api/pairing/identity``        → host identity / vault fingerprints.
+- ``GET  /api/pairing/audit``           → operator-facing audit feed
+  (pair.* + recovery.* events, newest first).
+- ``POST /api/pairing/rotate-identity`` → mint fresh host keypair (gated
+  behind a passed 3-of-24 recovery challenge for the current seed).
 
 Every state transition emits a ``pair.<state>`` event into the meeet
 event store so replay on a paired device gives the same audit trail
@@ -17,20 +21,77 @@ that already exists for tool calls and policy actions.
 
 from __future__ import annotations
 
+import os
 import time
 from typing import Any, Optional
 
-from fastapi import APIRouter, Body, Header, HTTPException, Query
+from fastapi import APIRouter, Body, Header, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
-from backend.core.meeet import get_client, trace_scope
+from backend.core.crypto.seed_challenge import (
+    consume_passed_challenge,
+    get_challenge_store,
+)
+from backend.core.meeet import get_client, get_store, trace_scope
 from backend.core.pairing import PairingNotFound, get_pairing_store
+from web_extras.errors import TARSAPIError
+from web_extras.rate_limit import RateLimitOutcome, get_rate_limiter
 
 
 router = APIRouter(prefix="/api/pairing", tags=["pairing"])
 
 
 VALID_KINDS = {"desktop_macos", "desktop_windows", "mobile_ios", "mobile_android"}
+
+
+# Rate-limit defaults: 5 begin attempts per IP, refilling at 1 token / 30s
+# (so a steady spammer gets one fresh begin every 30 seconds, while a
+# normal operator's quick retries on a single QR scan never trip the
+# bucket). All three knobs are env-overridable so a stress-test or a
+# kiosk deployment can dial them up.
+PAIR_BEGIN_BUCKET = "pairing.begin"
+
+
+def _f(env: str, default: float) -> float:
+    raw = os.getenv(env)
+    if raw is None or not raw.strip():
+        return default
+    try:
+        return max(0.0, float(raw))
+    except ValueError:
+        return default
+
+
+def _configure_pairing_rate_limit_once() -> None:
+    limiter = get_rate_limiter()
+    if limiter.is_configured(PAIR_BEGIN_BUCKET):
+        return
+    capacity = _f("TARS_PAIRING_RATE_BURST", 5.0)
+    rate = _f("TARS_PAIRING_RATE_PER_S", 1.0 / 30.0)
+    if capacity <= 0:
+        capacity = 1.0
+    limiter.configure(PAIR_BEGIN_BUCKET, capacity=capacity, rate=rate)
+
+
+def _client_ip(request: Request) -> str:
+    """Resolve the client IP for rate-limiting.
+
+    Prefers ``X-Forwarded-For`` when the host runs behind a trusted
+    proxy (controlled by ``TARS_TRUST_FORWARDED_FOR=1``). Otherwise
+    falls back to ``request.client.host``. An empty string is
+    coerced to ``__anonymous__`` by the limiter so a misbehaving
+    proxy can't disable the bucket entirely.
+    """
+
+    if os.getenv("TARS_TRUST_FORWARDED_FOR", "0") in ("1", "true", "yes"):
+        fwd = request.headers.get("x-forwarded-for")
+        if fwd:
+            # First entry is the original client per the standard
+            # ``X-Forwarded-For: client, proxy1, proxy2`` shape.
+            return fwd.split(",")[0].strip()
+    if request.client is not None and request.client.host:
+        return request.client.host
+    return ""
 
 
 # --- request / response models ---------------------------------------
@@ -46,6 +107,35 @@ class RevokeRequest(BaseModel):
     device_id: str = Field(..., min_length=4, max_length=64)
 
 
+class RotateIdentityRequest(BaseModel):
+    """Body for ``POST /api/pairing/rotate-identity``.
+
+    Closes the "Recovery seed verification policy" item from
+    ``docs/IDEAS.md``: the operator must mint and pass a 3-of-24
+    challenge against the seed bound to the host's current identity
+    before the rotate goes through.
+    """
+
+    challenge_id: str = Field(
+        ...,
+        min_length=4,
+        max_length=64,
+        description=(
+            "ID of a 3-of-24 challenge that already returned "
+            "``status: passed`` from /api/recovery/challenge/verify."
+        ),
+    )
+    new_recovery_fingerprint: str | None = Field(
+        default=None,
+        description=(
+            "Optional fingerprint to bind to the rotated identity. "
+            "Defaults to the existing recovery_fingerprint so a "
+            "rotate-only op (refresh device key) does not require "
+            "a fresh seed."
+        ),
+    )
+
+
 # --- helpers ---------------------------------------------------------
 
 
@@ -59,11 +149,58 @@ def _record_to_dict(rec: Any) -> dict[str, Any]:
 
 @router.post("/begin")
 async def begin(
+    request: Request,
     body: BeginRequest = Body(...),
     x_meeet_trace_id: str | None = Header(default=None),
 ) -> dict[str, Any]:
     if body.kind not in VALID_KINDS:
         raise HTTPException(status_code=400, detail="invalid_kind")
+
+    _configure_pairing_rate_limit_once()
+    subject = _client_ip(request)
+    outcome: RateLimitOutcome = get_rate_limiter().acquire(
+        bucket_id=PAIR_BEGIN_BUCKET,
+        subject=subject,
+    )
+    if not outcome.allowed:
+        # ``retry_after`` is +inf for pure-quota buckets (rate <= 0); cap
+        # it at 1 day so JSON serialisation stays clean and the client
+        # never sees a literal "Infinity".
+        retry_payload = (
+            86400.0
+            if outcome.retry_after == float("inf") or outcome.retry_after > 86400
+            else float(outcome.retry_after)
+        )
+        retry_seconds = max(1, int(retry_payload) + 1)
+        client = get_client()
+        await client.emit(
+            "pair.rate_limited",
+            {
+                "subject": outcome.subject,
+                "bucket_id": outcome.bucket_id,
+                "retry_after": retry_payload,
+                "remaining": outcome.remaining,
+                "kind": body.kind,
+            },
+        )
+        raise TARSAPIError(
+            status_code=429,
+            error_code="pair_rate_limited",
+            message=(
+                f"pair_rate_limited: retry in {retry_seconds}s "
+                f"(remaining={outcome.remaining:.2f})"
+            ),
+            hint=(
+                "Slow down pairing attempts from this IP, or wait until "
+                "the rate limit resets."
+            ),
+            headers={
+                "Retry-After": str(retry_seconds),
+                "X-RateLimit-Remaining": f"{outcome.remaining:.4f}",
+                "X-RateLimit-Bucket": outcome.bucket_id,
+                "X-RateLimit-Reset": f"{outcome.reset_at:.4f}",
+            },
+        )
 
     store = get_pairing_store()
     try:
@@ -85,6 +222,7 @@ async def begin(
                 "host_id": rec.host_id,
                 "host_fingerprint": rec.host_fingerprint,
                 "expires_at": rec.expires_at,
+                "rate_limit_remaining": outcome.remaining,
             },
         )
         return {
@@ -96,6 +234,11 @@ async def begin(
             "host_fingerprint": rec.host_fingerprint,
             "host_public_key": rec.host_public_key,
             "expires_at": rec.expires_at,
+            "rate_limit": {
+                "remaining": outcome.remaining,
+                "reset_at": outcome.reset_at,
+                "capacity": outcome.capacity,
+            },
         }
 
 
@@ -220,3 +363,228 @@ async def identity() -> dict[str, Any]:
         },
         "recovery_fingerprint": store.recovery_fingerprint,
     }
+
+
+PAIR_AUDIT_PREFIXES: tuple[str, ...] = ("pair.", "recovery.")
+
+
+@router.get("/audit")
+async def audit(
+    limit: int = Query(default=100, ge=1, le=500),
+    since: float | None = Query(default=None),
+) -> dict[str, Any]:
+    """Operator-facing audit feed for the pairing lane.
+
+    Folds two prefix queries against the meeet event store —
+    ``pair.*`` and ``recovery.*`` — into a single newest-first
+    list so the cockpit timeline can render them as one gold-pill
+    audit lane (closes the "audit log of pairing events" idea
+    from ``docs/IDEAS.md``).
+
+    Each event is trimmed to the public-safe shape: ``id``, ``ts``,
+    ``trace_id``, ``kind``, and ``payload``. We don't echo the raw
+    SQLite row to keep the surface stable across schema bumps and
+    to avoid surfacing the ``last_error`` field, which is meant for
+    the meeet bridge / replay flow, not the operator audit timeline.
+
+    The combined set is capped at ``2 * limit`` events while we
+    interleave; callers that want strictly more than ``limit``
+    events should re-poll with ``since=last_ts``.
+    """
+
+    store = get_store()
+    fetched: list[Any] = []
+    seen: set[int] = set()
+    cap = max(1, int(limit))
+    for prefix in PAIR_AUDIT_PREFIXES:
+        bucket = await store.list_events(
+            limit=cap,
+            since=since,
+            kind_prefix=prefix,
+        )
+        for ev in bucket:
+            ev_id = getattr(ev, "id", None)
+            if ev_id is not None and ev_id in seen:
+                continue
+            if ev_id is not None:
+                seen.add(ev_id)
+            fetched.append(ev)
+
+    fetched.sort(key=lambda e: (e.ts, getattr(e, "id", 0) or 0), reverse=True)
+    fetched = fetched[:cap]
+
+    return {
+        "ok": True,
+        "count": len(fetched),
+        "prefixes": list(PAIR_AUDIT_PREFIXES),
+        "events": [
+            {
+                "id": e.id,
+                "ts": e.ts,
+                "trace_id": e.trace_id,
+                "kind": e.kind,
+                "payload": e.payload,
+            }
+            for e in fetched
+        ],
+    }
+
+
+_ROTATE_ERROR_HTTP: dict[str, int] = {
+    "challenge_not_found": 404,
+    "challenge_not_passed": 409,
+    "fingerprint_mismatch": 409,
+    "recovery_not_bound": 409,
+}
+
+
+@router.post("/rotate-identity")
+async def rotate_identity(
+    body: RotateIdentityRequest = Body(...),
+    x_meeet_trace_id: str | None = Header(default=None),
+) -> dict[str, Any]:
+    """Rotate the host's long-term keypair after a 3-of-24 proof.
+
+    Flow (cockpit):
+
+    1. ``POST /api/recovery/challenge/start`` against the seed bound
+       to the current identity (``store.recovery_fingerprint``).
+    2. Operator answers; ``POST /api/recovery/challenge/verify``
+       returns ``status: passed``.
+    3. ``POST /api/pairing/rotate-identity`` with the
+       ``challenge_id`` from step 1. The proof is consumed
+       atomically (single-use) and the host mints a fresh keypair.
+
+    Errors return the unified :class:`TARSAPIError` envelope:
+
+    - 409 ``recovery_not_bound`` → host has no recovery_fingerprint
+      yet (first-install, before any seed was generated). The
+      operator should call ``/api/recovery/generate`` first.
+    - 404 ``challenge_not_found`` → unknown / evicted challenge id.
+    - 409 ``fingerprint_mismatch`` → challenge was minted against
+      a different seed than the one bound to the current identity.
+    - 409 ``challenge_not_passed`` → status is anything other than
+      ``passed`` (pending, failed, expired, exhausted, or already
+      consumed by an earlier rotate).
+
+    On success emits ``pair.host_rotated`` (with
+    ``old_host_public_key``, ``new_host_public_key``,
+    ``challenge_id``, ``recovery_fingerprint``) and returns the new
+    host identity payload — the cockpit should mirror this into
+    ``/api/pairing/identity`` immediately after.
+    """
+
+    store = get_pairing_store()
+    current_fingerprint = store.recovery_fingerprint
+    if current_fingerprint is None:
+        raise TARSAPIError(
+            status_code=409,
+            error_code="recovery_not_bound",
+            message=(
+                "host has no recovery_fingerprint bound — generate "
+                "or import a recovery seed first"
+            ),
+            hint=(
+                "Call POST /api/recovery/generate to mint a fresh "
+                "24-word seed; the host identity will then be "
+                "bound to that seed's fingerprint."
+            ),
+        )
+
+    outcome = consume_passed_challenge(
+        get_challenge_store(),
+        body.challenge_id,
+        expected_fingerprint=current_fingerprint,
+    )
+    if not outcome.ok:
+        status_code = _ROTATE_ERROR_HTTP.get(outcome.error or "", 409)
+        raise TARSAPIError(
+            status_code=status_code,
+            error_code=outcome.error or "rotate_blocked",
+            message=outcome.detail
+            or (
+                "rotate-identity blocked: " + (outcome.error or "unknown_reason")
+            ),
+            hint=(
+                "Mint a fresh 3-of-24 challenge for the current "
+                "host fingerprint via "
+                "POST /api/recovery/challenge/start, then pass it "
+                "via /verify before calling rotate-identity."
+            ),
+        )
+
+    target_fingerprint = (
+        body.new_recovery_fingerprint
+        if body.new_recovery_fingerprint is not None
+        else current_fingerprint
+    )
+
+    # Snapshot paired devices BEFORE the rotate. Their pinned public
+    # keys reference the old host identity, so they must be revoked
+    # as part of the same epoch bump — leaving them in the device
+    # list would let a paired device think it's still trusted while
+    # any encrypted message it sends to the host would now be
+    # unreadable. The pre-rotate snapshot is what we report in the
+    # ``pair.epoch_bumped`` event so an audit replay can reconstruct
+    # which devices got nuked.
+    pre_rotate_devices = await store.list_devices()
+    cleared_devices: list[dict[str, Any]] = []
+
+    old_public_key = store.host_public_key_b64
+    new_identity = store.rotate_host_identity(
+        recovery_fingerprint=target_fingerprint,
+    )
+
+    for dev in pre_rotate_devices:
+        try:
+            removed = await store.revoke(device_id=dev.device_id)
+        except Exception:  # noqa: BLE001
+            removed = False
+        cleared_devices.append(
+            {
+                "device_id": dev.device_id,
+                "kind": dev.kind,
+                "removed": bool(removed),
+            }
+        )
+
+    client = get_client()
+    with trace_scope(parent=x_meeet_trace_id) as trace_id:
+        await client.emit(
+            "pair.host_rotated",
+            {
+                "host_id": store.host_id,
+                "old_host_public_key": old_public_key,
+                "new_host_public_key": new_identity.public_b64,
+                "challenge_id": body.challenge_id,
+                "recovery_fingerprint": store.recovery_fingerprint,
+                "challenge_fingerprint": current_fingerprint,
+                "cleared_device_count": len(cleared_devices),
+            },
+        )
+        if cleared_devices:
+            await client.emit(
+                "pair.epoch_bumped",
+                {
+                    "host_id": store.host_id,
+                    "old_host_public_key": old_public_key,
+                    "new_host_public_key": new_identity.public_b64,
+                    "challenge_id": body.challenge_id,
+                    "cleared_devices": cleared_devices,
+                    "cleared_count": len(cleared_devices),
+                },
+            )
+        return {
+            "ok": True,
+            "trace_id": trace_id,
+            "host_id": store.host_id,
+            "host_public_key": new_identity.public_b64,
+            "host_fingerprint": store.fingerprint(
+                host_id=store.host_id, pair_id=store.host_id
+            ),
+            "recovery_fingerprint": store.recovery_fingerprint,
+            "challenge_id": body.challenge_id,
+            "previous_host_public_key": old_public_key,
+            "cleared_devices": cleared_devices,
+            "cleared_device_count": len(cleared_devices),
+        }

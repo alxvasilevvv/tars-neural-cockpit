@@ -30,12 +30,23 @@ CREATE TABLE IF NOT EXISTS confirmations (
     result TEXT,
     expires_at REAL,
     requested_by TEXT,
-    trace_id TEXT
+    trace_id TEXT,
+    thread_id TEXT
 );
 
 CREATE INDEX IF NOT EXISTS idx_confirmations_status_ts
     ON confirmations (status, created_at);
 """
+
+# Columns that may need to be backfilled when an older DB is opened.
+# Pre-PR DBs were missing ``thread_id``; SQLite ``ALTER TABLE`` is the
+# only safe path (CREATE TABLE IF NOT EXISTS is a no-op once the
+# table exists). New columns must be additive (NULLable, no default
+# expression involving non-constant values) so the migration is
+# instant.
+_ADDITIVE_COLUMNS: tuple[tuple[str, str], ...] = (
+    ("thread_id", "TEXT"),
+)
 
 
 DEFAULT_TTL_S = 300.0  # 5 minutes
@@ -58,6 +69,11 @@ class PendingConfirmation:
     expires_at: float | None
     requested_by: str | None
     trace_id: str | None
+    # Optional thread linkage so the cockpit's per-thread timeline
+    # can surface the matching policy.* event.  Stored at confirmation
+    # creation time when the originating action call carried an
+    # ``x-tars-thread-id`` header.
+    thread_id: str | None = None
 
 
 class PolicyStore:
@@ -82,6 +98,27 @@ class PolicyStore:
         conn = self._connect()
         try:
             conn.executescript(SCHEMA)
+            # Best-effort additive migrations for older DBs created
+            # before each new column landed. Each ALTER TABLE is
+            # wrapped in its own try/except so a column that already
+            # exists doesn't crash the boot.
+            existing_cols = {
+                row["name"]
+                for row in conn.execute(
+                    "PRAGMA table_info(confirmations)"
+                ).fetchall()
+            }
+            for col_name, col_type in _ADDITIVE_COLUMNS:
+                if col_name in existing_cols:
+                    continue
+                try:
+                    conn.execute(
+                        f"ALTER TABLE confirmations ADD COLUMN {col_name} {col_type}"
+                    )
+                except sqlite3.OperationalError:
+                    # Race with another process running the same
+                    # migration → harmless.
+                    continue
         finally:
             conn.close()
 
@@ -97,6 +134,13 @@ class PolicyStore:
                 result = json.loads(row["result"])
             except (json.JSONDecodeError, TypeError):
                 result = None
+        # ``thread_id`` is the youngest column → defensively fall
+        # back via ``dict(row).get`` so a row populated from an
+        # older schema (mid-migration test) doesn't blow up.
+        try:
+            thread_id = row["thread_id"]
+        except (IndexError, KeyError):
+            thread_id = None
         return PendingConfirmation(
             token=row["token"],
             created_at=row["created_at"],
@@ -109,6 +153,7 @@ class PolicyStore:
             expires_at=row["expires_at"],
             requested_by=row["requested_by"],
             trace_id=row["trace_id"],
+            thread_id=thread_id,
         )
 
     # -- sync helpers -----------------------------------------------------
@@ -122,6 +167,7 @@ class PolicyStore:
         ttl_s: float,
         requested_by: str | None,
         trace_id: str | None,
+        thread_id: str | None,
     ) -> str:
         token = _new_token()
         now = time.time()
@@ -130,8 +176,8 @@ class PolicyStore:
             conn.execute(
                 """
                 INSERT INTO confirmations
-                    (token, created_at, slug, action_id, args, status, expires_at, requested_by, trace_id)
-                VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, ?)
+                    (token, created_at, slug, action_id, args, status, expires_at, requested_by, trace_id, thread_id)
+                VALUES (?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?)
                 """,
                 (
                     token,
@@ -142,6 +188,7 @@ class PolicyStore:
                     now + ttl_s,
                     requested_by,
                     trace_id,
+                    thread_id,
                 ),
             )
         finally:
@@ -204,18 +251,50 @@ class PolicyStore:
             conn.close()
         return [self._row(r) for r in rows]
 
-    def _expire_sync(self, before_ts: float) -> int:
+    def _expire_sync(self, before_ts: float) -> list[PendingConfirmation]:
+        """Atomically expire any ``pending`` rows whose TTL has elapsed.
+
+        Two-step inside one connection so a concurrent confirm/cancel
+        cannot win the race: first ``SELECT`` the candidates (so we can
+        emit per-token ``policy.expired`` events upstream), then
+        ``UPDATE`` them by primary key. The previous one-step UPDATE
+        returned only a count and left the cockpit timeline silent
+        about which tokens just expired.
+        """
+
         conn = self._connect()
         try:
             cur = conn.execute(
                 """
+                SELECT * FROM confirmations
+                WHERE status='pending' AND expires_at IS NOT NULL AND expires_at < ?
+                ORDER BY expires_at ASC
+                """,
+                (before_ts,),
+            )
+            rows = cur.fetchall()
+            if not rows:
+                return []
+            now = time.time()
+            tokens = [r["token"] for r in rows]
+            placeholders = ",".join("?" for _ in tokens)
+            conn.execute(
+                f"""
                 UPDATE confirmations
                 SET status='expired', resolved_at=?
-                WHERE status='pending' AND expires_at < ?
+                WHERE status='pending' AND token IN ({placeholders})
                 """,
-                (time.time(), before_ts),
+                (now, *tokens),
             )
-            return cur.rowcount or 0
+            # Re-fetch the freshly updated rows so the caller's
+            # PendingConfirmation views carry status='expired' /
+            # resolved_at=now (not the pre-update snapshot).
+            cur2 = conn.execute(
+                f"SELECT * FROM confirmations WHERE token IN ({placeholders}) "
+                "ORDER BY resolved_at ASC",
+                tokens,
+            )
+            return [self._row(r) for r in cur2.fetchall()]
         finally:
             conn.close()
 
@@ -230,6 +309,7 @@ class PolicyStore:
         ttl_s: float = DEFAULT_TTL_S,
         requested_by: str | None = None,
         trace_id: str | None = None,
+        thread_id: str | None = None,
     ) -> str:
         return await asyncio.to_thread(
             self._create_sync,
@@ -239,6 +319,7 @@ class PolicyStore:
             ttl_s=ttl_s,
             requested_by=requested_by,
             trace_id=trace_id,
+            thread_id=thread_id,
         )
 
     async def get(self, token: str) -> Optional[PendingConfirmation]:
@@ -261,7 +342,13 @@ class PolicyStore:
     async def list_recent(self, limit: int = 50) -> list[PendingConfirmation]:
         return await asyncio.to_thread(self._list_sync, None, max(1, min(limit, 1000)))
 
-    async def expire_stale(self) -> int:
+    async def expire_stale(self) -> list[PendingConfirmation]:
+        """Expire any pending confirmation whose TTL has elapsed.
+
+        Returns the list of newly-expired rows. Callers that only care
+        about the count should use ``len(await store.expire_stale())``.
+        """
+
         return await asyncio.to_thread(self._expire_sync, time.time())
 
 

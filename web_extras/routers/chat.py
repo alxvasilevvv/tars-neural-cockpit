@@ -5,17 +5,27 @@ Endpoints:
 - ``POST /api/chat/threads`` — create a thread.
 - ``GET /api/chat/threads`` — list threads (filter by archived/pack).
 - ``GET /api/chat/threads/{id}`` — describe one thread + recent messages.
-- ``PATCH /api/chat/threads/{id}`` — rename / archive / pin a pack.
+- ``PATCH /api/chat/threads/{id}`` — rename / archive / pin a pack /
+  pin a voice persona.
 - ``DELETE /api/chat/threads/{id}`` — soft delete = archive.
 - ``GET /api/chat/threads/{id}/messages`` — paginated history.
 - ``POST /api/chat/threads/{id}/messages`` — start an assistant turn,
   stream the response back as SSE.
 - ``POST /api/chat/threads/{id}/attachments`` — multipart upload, runs
   the L2 ingest pipeline (extract → chunk → embed → index).
+- ``POST /api/chat/threads/{id}/attachments/stream`` — same upload as
+  above but yields per-phase SSE frames (``started`` / ``extracted``
+  / ``chunked`` / ``embedding`` / ``embedded`` / ``indexed`` /
+  ``completed`` / ``error``) so the cockpit can render a live
+  "indexing 12 chunks…" pill on the chip.
 - ``GET  /api/chat/threads/{id}/attachments`` — list ingested files.
 - ``GET  /api/chat/attachments/{id}`` — describe one record + chunks.
 - ``GET  /api/chat/attachments/{id}/download`` — original bytes.
 - ``GET  /api/chat/attachments/{id}/extracted`` — extracted text.
+- ``GET  /api/chat/attachments/{id}/chunks/{chunk_id}/neighbours`` —
+  return the chunk plus its ord-adjacent neighbours (hover preview).
+- ``POST /api/chat/attachments/{id}/reembed`` — re-embed every chunk
+  with a fresh (or explicitly named) embedder.
 - ``DELETE /api/chat/attachments/{id}`` — delete row + bytes + chunks.
 - ``POST /api/chat/threads/{id}/retrieve`` — manually run hybrid
   retrieval (top-K) for a query against the thread.
@@ -51,7 +61,10 @@ from backend.core.attachments import (
     ingest as run_ingest,
     retrieve as run_retrieve,
 )
-from backend.core.attachments.pipeline import delete_attachment as run_delete_attachment
+from backend.core.attachments.pipeline import (
+    delete_attachment as run_delete_attachment,
+    reembed_attachment as run_reembed_attachment,
+)
 from backend.core.chat import (
     AttachmentRef,
     Thread,
@@ -59,6 +72,34 @@ from backend.core.chat import (
 )
 from backend.core.chat.orchestrator import ChatOrchestrator
 from backend.core.policy import PolicyMode, resolve_mode
+from backend.core.voice.personas import iter_personas
+from web_extras.entitlements_gate import require_cloud_budget
+
+
+def _validate_voice_persona_id(value: Any) -> str | None:
+    """Coerce / validate a ``voice_persona_id`` payload value.
+
+    Accepts ``None`` and the empty string (both clear the pin) plus
+    any registered persona id. Raises ``HTTPException(400)`` on an
+    unknown id so the cockpit gets a clear error rather than a
+    silent no-op.
+    """
+
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        raise HTTPException(
+            status_code=400, detail="voice_persona_id_invalid"
+        )
+    cleaned = value.strip()
+    if not cleaned:
+        return None
+    known = {persona.id for persona in iter_personas()}
+    if cleaned not in known:
+        raise HTTPException(
+            status_code=400, detail="voice_persona_id_unknown"
+        )
+    return cleaned
 
 router = APIRouter(prefix="/api/chat", tags=["chat"])
 
@@ -76,10 +117,16 @@ async def create_thread(
     title = body.get("title")
     pack_slug = body.get("pack_slug")
     project_id = body.get("project_id")
+    voice_persona_id = (
+        _validate_voice_persona_id(body.get("voice_persona_id"))
+        if "voice_persona_id" in body
+        else None
+    )
     thread = Thread.fresh(
         title=str(title).strip() if title else None,
         pack_slug=str(pack_slug).strip() if pack_slug else None,
         project_id=str(project_id).strip() if project_id else None,
+        voice_persona_id=voice_persona_id,
     )
     await get_chat_store().insert_thread(thread)
     return {"ok": True, "thread": thread.to_dict()}
@@ -133,6 +180,10 @@ async def patch_thread(
     for k in ("title", "pack_slug", "project_id", "archived"):
         if k in payload:
             updates[k] = payload[k]
+    if "voice_persona_id" in payload:
+        updates["voice_persona_id"] = _validate_voice_persona_id(
+            payload["voice_persona_id"]
+        )
     thread = await get_chat_store().patch_thread(thread_id, updates)
     if thread is None:
         raise HTTPException(status_code=404, detail="thread_not_found")
@@ -201,6 +252,15 @@ async def post_message(
         header=x_tars_policy_mode,
         request_arg=str(mode_arg) if mode_arg else None,
     )
+
+    # Bug #2 fix — chat assistant turns frequently spend cloud-LLM
+    # tokens; gate at the HTTP edge so a FREE-tier operator gets a
+    # clean 402 *before* the SSE stream opens. Local-only voices
+    # (LocalChatVoice) can opt out via ``TARS_CAP_ENFORCEMENT=off``.
+    # We deliberately raise BEFORE constructing the StreamingResponse
+    # so the cap-hit envelope flies as a normal JSON error rather
+    # than a half-open SSE pipe.
+    await require_cloud_budget(kind="cloud", surface="chat.post_message")
 
     orchestrator = ChatOrchestrator()
 
@@ -274,6 +334,111 @@ async def upload_attachment(
     }
 
 
+@router.post("/threads/{thread_id}/attachments/stream")
+async def upload_attachment_stream(
+    thread_id: str,
+    file: UploadFile = File(...),
+    message_id: Optional[str] = Form(default=None),
+    x_tars_session_id: str | None = Header(default=None),
+):
+    """Multipart upload that returns a Server-Sent Events stream.
+
+    Each phase of the ingest pipeline (``started`` → ``extracted`` →
+    ``chunked`` → ``embedding`` → ``embedded`` → ``indexed`` →
+    ``completed``) yields one SSE frame so the cockpit can render
+    a live "indexing 12 chunks…" pill on the file chip without
+    polling. The terminal frame is always one of ``completed``,
+    ``dedup_hit``, ``zip_walked``, or ``error``.
+
+    SSE wire format: lines like ``event: <phase>`` followed by
+    ``data: <json>`` and a blank line. Frames stay under 2 KB so
+    every reasonable proxy will pass them through unchanged.
+    """
+
+    import asyncio
+    import time
+
+    chat_store = get_chat_store()
+    thread = await chat_store.get_thread(thread_id)
+    if thread is None:
+        raise HTTPException(status_code=404, detail="thread_not_found")
+
+    blob = await file.read()
+    if not blob:
+        raise HTTPException(status_code=400, detail="empty_file")
+
+    queue: asyncio.Queue[tuple[str, dict[str, Any]] | None] = asyncio.Queue()
+
+    async def progress(phase: str, payload: Any) -> None:
+        # Cast to a plain dict so SSE serialisation is deterministic.
+        await queue.put((phase, dict(payload)))
+
+    async def runner() -> None:
+        try:
+            result = await run_ingest(
+                thread_id=thread_id,
+                blob=blob,
+                filename=file.filename,
+                mime=file.content_type or None,
+                message_id=message_id,
+                session_id=x_tars_session_id,
+                progress=progress,
+            )
+            # ``completed`` / ``dedup_hit`` / ``zip_walked`` already
+            # arrived through ``progress``. Pipe a final ``result``
+            # frame with the canonical envelope so the consumer can
+            # update the chip without an extra GET.
+            await queue.put(
+                (
+                    "result",
+                    {
+                        "ok": True,
+                        "duplicate": result.duplicate,
+                        "chunk_count": result.chunk_count,
+                        "embedding_model": result.embedding_model,
+                        "attachment": result.record.to_dict(),
+                    },
+                )
+            )
+        except IngestError as exc:
+            await queue.put(("error", {"ok": False, "detail": str(exc)}))
+        except Exception as exc:
+            await queue.put(
+                ("error", {"ok": False, "detail": f"unexpected: {exc}"})
+            )
+        finally:
+            await queue.put(None)
+
+    task = asyncio.create_task(runner())
+
+    async def event_stream():
+        # Send a comment line so proxies (nginx) flush headers
+        # immediately and the consumer sees the connection open.
+        yield ": stream-open\n\n"
+        try:
+            while True:
+                item = await queue.get()
+                if item is None:
+                    break
+                phase, payload = item
+                payload = {**payload, "ts": time.time()}
+                data = json.dumps(payload, separators=(",", ":"))
+                yield f"event: {phase}\ndata: {data}\n\n"
+        finally:
+            # Wait for the runner to finish before tearing down so we
+            # never leak the ingest task even if the consumer hangs up.
+            await task
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
 @router.get("/threads/{thread_id}/attachments")
 async def list_attachments(thread_id: str) -> dict[str, Any]:
     chat_store = get_chat_store()
@@ -343,6 +508,129 @@ async def extracted_attachment(attachment_id: str):
             "x-tars-attachment-status": record.status,
         },
     )
+
+
+def _chunk_to_payload(chunk: Any, *, full_text: bool) -> dict[str, Any]:
+    text = chunk.text or ""
+    body: dict[str, Any] = {
+        "id": chunk.id,
+        "ord": chunk.ord,
+        "char_start": chunk.char_start,
+        "char_end": chunk.char_end,
+        "heading": chunk.heading,
+        "page": chunk.page,
+        "preview": text[:240],
+    }
+    if full_text:
+        body["text"] = text
+    return body
+
+
+@router.get("/attachments/{attachment_id}/chunks/{chunk_id}/neighbours")
+async def chunk_neighbours(
+    attachment_id: str,
+    chunk_id: str,
+    before: int = Query(default=1, ge=0, le=10),
+    after: int = Query(default=1, ge=0, le=10),
+    full_text: bool = Query(default=True),
+) -> dict[str, Any]:
+    """Return the chunk plus its ord-adjacent neighbours.
+
+    Powers the per-attachment hover preview from IDEAS — the
+    cockpit highlights one chunk hit and renders ±N around it
+    without paying for the whole document.
+    """
+
+    store = get_attachment_store()
+    record = await store.get_attachment(attachment_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="attachment_not_found")
+    bundle = await store.get_chunk_neighbours(
+        chunk_id, before=before, after=after
+    )
+    if bundle is None:
+        raise HTTPException(status_code=404, detail="chunk_not_found")
+    target, before_chunks, after_chunks = bundle
+    if target.attachment_id != attachment_id:
+        # Defend against operator-typo'd ids: a chunk that
+        # happens to live under a different attachment must not
+        # leak through this endpoint.
+        raise HTTPException(status_code=404, detail="chunk_not_found")
+    return {
+        "ok": True,
+        "attachment": {
+            "id": record.id,
+            "filename": record.filename,
+            "mime": record.mime,
+            "thread_id": record.thread_id,
+        },
+        "chunk": _chunk_to_payload(target, full_text=full_text),
+        "before": [
+            _chunk_to_payload(c, full_text=full_text) for c in before_chunks
+        ],
+        "after": [
+            _chunk_to_payload(c, full_text=full_text) for c in after_chunks
+        ],
+        "window": {"before": before, "after": after},
+    }
+
+
+@router.get("/attachments/{attachment_id}/chunks/{chunk_id}/neighbors")
+async def chunk_neighbors_alias(
+    attachment_id: str,
+    chunk_id: str,
+    before: int = Query(default=1, ge=0, le=10),
+    after: int = Query(default=1, ge=0, le=10),
+    full_text: bool = Query(default=True),
+) -> dict[str, Any]:
+    """US-spelling alias of :func:`chunk_neighbours` — the
+    cockpit can use either spelling without surprises.
+    """
+
+    return await chunk_neighbours(
+        attachment_id,
+        chunk_id,
+        before=before,
+        after=after,
+        full_text=full_text,
+    )
+
+
+@router.post("/attachments/{attachment_id}/reembed")
+async def reembed_attachment_route(
+    attachment_id: str,
+    payload: dict[str, Any] | None = Body(default=None),
+    x_tars_session_id: str | None = Header(default=None),
+) -> dict[str, Any]:
+    """Re-embed every chunk for ``attachment_id``.
+
+    Body (all optional):
+        ``{"model": "openai" | "hash" | "text-embedding-3-large"}``
+
+    Returns the structured :class:`ReembedResult` body. Maps the
+    ``attachment_not_found`` error to HTTP 404; everything else
+    (no chunks, embedder failure) returns HTTP 200 with
+    ``ok=False`` so the cockpit can surface the detail to the
+    operator.
+    """
+
+    body = payload or {}
+    model_arg = body.get("model")
+    embedder_name = (
+        str(model_arg).strip()
+        if isinstance(model_arg, str) and model_arg.strip()
+        else None
+    )
+    result = await run_reembed_attachment(
+        attachment_id,
+        embedder_name=embedder_name,
+        session_id=x_tars_session_id,
+    )
+    if result.error == "attachment_not_found":
+        raise HTTPException(
+            status_code=404, detail="attachment_not_found"
+        )
+    return result.to_dict()
 
 
 @router.delete("/attachments/{attachment_id}")

@@ -509,6 +509,73 @@ class AttachmentStore:
             where = " AND ".join(clauses)
             rows = conn.execute(
                 f"""
+    async def get_chunk(self, chunk_id: str) -> Chunk | None:
+        """Fetch a single chunk by id, or ``None`` if missing."""
+
+        if not self.chat.enabled:
+            return None
+        return await asyncio.to_thread(self._get_chunk_sync, chunk_id)
+
+    def _get_chunk_sync(self, chunk_id: str) -> Chunk | None:
+        conn = self._connect()
+        try:
+            row = conn.execute(
+                """
+                SELECT
+                    c.*,
+                    a.filename AS att_filename,
+                    a.mime AS att_mime
+                FROM attachment_chunks c
+                LEFT JOIN attachments a ON a.id = c.attachment_id
+                WHERE c.id = ?
+                LIMIT 1
+                """,
+                (chunk_id,),
+            ).fetchone()
+        finally:
+            conn.close()
+        return _row_to_chunk(row) if row else None
+
+    async def get_chunk_neighbours(
+        self,
+        chunk_id: str,
+        *,
+        before: int = 1,
+        after: int = 1,
+    ) -> tuple[Chunk, list[Chunk], list[Chunk]] | None:
+        """Return (chunk, before, after) by ``ord`` adjacency.
+
+        ``before`` / ``after`` clamp to ``[0, 10]`` — large windows
+        defeat the purpose of a hover preview and would also force
+        the cockpit to load too much text. The lists are sorted in
+        ord-ascending order, so ``before[-1]`` is the chunk
+        immediately preceding the queried one and ``after[0]`` is
+        the one immediately following it. Returns ``None`` when
+        the chunk is not found (so the HTTP layer can map it to a
+        404).
+        """
+
+        if not self.chat.enabled:
+            return None
+        before_n = max(0, min(int(before), 10))
+        after_n = max(0, min(int(after), 10))
+        return await asyncio.to_thread(
+            self._get_chunk_neighbours_sync,
+            chunk_id,
+            before_n,
+            after_n,
+        )
+
+    def _get_chunk_neighbours_sync(
+        self,
+        chunk_id: str,
+        before: int,
+        after: int,
+    ) -> tuple[Chunk, list[Chunk], list[Chunk]] | None:
+        conn = self._connect()
+        try:
+            target_row = conn.execute(
+                """
                 SELECT
                     c.*,
                     a.filename AS att_filename,
@@ -524,6 +591,59 @@ class AttachmentStore:
         finally:
             conn.close()
         return [_row_to_chunk(r) for r in rows]
+                WHERE c.id = ?
+                LIMIT 1
+                """,
+                (chunk_id,),
+            ).fetchone()
+            if target_row is None:
+                return None
+            target = _row_to_chunk(target_row)
+
+            before_rows: list[sqlite3.Row] = []
+            if before > 0:
+                before_rows = list(
+                    conn.execute(
+                        """
+                        SELECT
+                            c.*,
+                            a.filename AS att_filename,
+                            a.mime AS att_mime
+                        FROM attachment_chunks c
+                        LEFT JOIN attachments a ON a.id = c.attachment_id
+                        WHERE c.attachment_id = ? AND c.ord < ?
+                        ORDER BY c.ord DESC
+                        LIMIT ?
+                        """,
+                        (target.attachment_id, target.ord, before),
+                    ).fetchall()
+                )
+
+            after_rows: list[sqlite3.Row] = []
+            if after > 0:
+                after_rows = list(
+                    conn.execute(
+                        """
+                        SELECT
+                            c.*,
+                            a.filename AS att_filename,
+                            a.mime AS att_mime
+                        FROM attachment_chunks c
+                        LEFT JOIN attachments a ON a.id = c.attachment_id
+                        WHERE c.attachment_id = ? AND c.ord > ?
+                        ORDER BY c.ord ASC
+                        LIMIT ?
+                        """,
+                        (target.attachment_id, target.ord, after),
+                    ).fetchall()
+                )
+        finally:
+            conn.close()
+
+        before_chunks = [_row_to_chunk(r) for r in before_rows]
+        before_chunks.reverse()  # ord ascending for the caller.
+        after_chunks = [_row_to_chunk(r) for r in after_rows]
+        return target, before_chunks, after_chunks
 
     async def chunk_count(self, thread_id: str) -> int:
         if not self.chat.enabled:

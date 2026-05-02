@@ -17,7 +17,7 @@ from typing import Any
 from fastapi import APIRouter, Header, HTTPException, Query
 
 from backend.core.domains.registry import get_pack
-from backend.core.meeet import get_client, trace_scope
+from backend.core.meeet import get_client, thread_id_scope, trace_scope
 from backend.core.policy import get_policy_store
 
 router = APIRouter(prefix="/api/policy", tags=["policy"])
@@ -36,7 +36,24 @@ def _to_dict(c) -> dict[str, Any]:
         "expires_at": c.expires_at,
         "requested_by": c.requested_by,
         "trace_id": c.trace_id,
+        "thread_id": c.thread_id,
     }
+
+
+def _attach_thread_id(payload: dict[str, Any], confirmation) -> dict[str, Any]:
+    """Surface the originating thread on the policy event payload.
+
+    The cockpit's per-thread timeline filters meeet events by
+    ``payload.thread_id``; without this hop ``policy.confirm`` /
+    ``policy.cancelled`` would never appear in the conversation
+    feed even though the originating action was triggered from a
+    chat thread.
+    """
+
+    tid = getattr(confirmation, "thread_id", None)
+    if tid:
+        payload["thread_id"] = tid
+    return payload
 
 
 @router.get("/pending")
@@ -81,14 +98,17 @@ async def confirm(
         raise HTTPException(status_code=404, detail="action_not_found")
 
     client = get_client()
-    with trace_scope(parent=x_meeet_trace_id) as trace_id:
+    with thread_id_scope(confirmation.thread_id), trace_scope(parent=x_meeet_trace_id) as trace_id:
         await client.emit(
             "policy.confirm",
-            {
-                "slug": confirmation.slug,
-                "action": confirmation.action_id,
-                "token": token,
-            },
+            _attach_thread_id(
+                {
+                    "slug": confirmation.slug,
+                    "action": confirmation.action_id,
+                    "token": token,
+                },
+                confirmation,
+            ),
         )
         try:
             result = await spec.handler(confirmation.args)
@@ -139,16 +159,38 @@ async def cancel(token: str) -> dict[str, Any]:
     resolved = await store.resolve(token, status="cancelled")
     await get_client().emit(
         "policy.cancelled",
-        {
-            "slug": confirmation.slug,
-            "action": confirmation.action_id,
-            "token": token,
-        },
+        _attach_thread_id(
+            {
+                "slug": confirmation.slug,
+                "action": confirmation.action_id,
+                "token": token,
+            },
+            confirmation,
+        ),
     )
     return {"ok": True, "confirmation": _to_dict(resolved) if resolved else None}
 
 
 @router.post("/expire")
 async def expire_stale() -> dict[str, Any]:
-    n = await get_policy_store().expire_stale()
-    return {"ok": True, "expired": n}
+    expired = await get_policy_store().expire_stale()
+    client = get_client()
+    for c in expired:
+        await client.emit(
+            "policy.expired",
+            _attach_thread_id(
+                {
+                    "token": c.token,
+                    "slug": c.slug,
+                    "action": c.action_id,
+                    "expired_at": c.resolved_at,
+                    "trace_id": c.trace_id,
+                },
+                c,
+            ),
+        )
+    return {
+        "ok": True,
+        "expired": len(expired),
+        "tokens": [c.token for c in expired],
+    }

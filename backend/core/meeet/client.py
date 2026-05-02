@@ -23,7 +23,7 @@ import time
 from .config import MeeetConfig, load_config
 from .events import TARSEvent
 from .store import MeeetStore, get_store
-from .tracing import current_route, current_session, current_trace, new_trace_id
+from .tracing import current_route, current_session, current_thread_id, current_trace, new_trace_id
 
 
 class MeeetClient:
@@ -57,10 +57,21 @@ class MeeetClient:
         envelope: Mapping[str, Any] | None = None,
     ) -> dict[str, Any]:
         trace_id = current_trace() or new_trace_id()
+        # Auto-inject the active chat thread id when the contextvar is set
+        # (typically inside an HTTP entry that opened
+        # ``thread_id_scope(x_tars_thread_id)``). Call-sites that already
+        # placed ``thread_id`` in the payload always win — the contextvar
+        # is only a fallback so existing per-event explicit values
+        # (e.g. policy router re-attaching from the persisted row) keep
+        # the same behaviour.
+        merged_payload = dict(payload or {})
+        ctx_thread = current_thread_id()
+        if ctx_thread and "thread_id" not in merged_payload:
+            merged_payload["thread_id"] = ctx_thread
         event = TARSEvent(
             trace_id=trace_id,
             kind=kind,
-            payload=dict(payload or {}),
+            payload=merged_payload,
             source=self.config.source,
             contract_version=self.config.contract_version,
             session_id=session_id or current_session(),
@@ -128,21 +139,66 @@ class MeeetClient:
             self.last_replay = dict(out)
             return out
 
-        async def _push(body: dict[str, Any]) -> None:
-            await asyncio.to_thread(
-                _post_json,
-                self.config.ingest_url,
-                body,
-                self.config.api_key,
-                self.config.contract_version,
-                self.timeout_s,
-            )
-
-        result = await self.store.replay_unpushed(_push, limit=limit)
+        result = await self.store.replay_unpushed(self._push, limit=limit)
         result["enabled"] = True
         result["ran_at"] = ts
         self.last_replay = dict(result)
         return result
+
+    async def repush_trace(
+        self, trace_id: str, *, limit: int = 1000
+    ) -> dict[str, Any]:
+        """Force-push every event for one trace, regardless of ``pushed``.
+
+        The fleet-ops follow-up to ``planner-replay-run``: after a
+        meeet ingest outage / contract bump, the operator needs to
+        re-emit one specific run's events upstream for billing
+        backfill or audit. ``replay_unpushed`` only handles
+        ``pushed=0`` rows; this method scopes by ``trace_id`` and
+        bypasses the flag (the rows still get ``pushed_at`` bumped
+        on success so the audit trail reflects the latest push).
+
+        No-op when the ingest is unset (returns ``enabled=False``
+        envelope, identical to ``replay_unpushed``). Stamps
+        ``last_replay`` so ``/api/meeet/health`` reflects the
+        repush as the most recent push activity.
+        """
+
+        ts = time.time()
+        if not self.config.enabled or not self.config.ingest_url:
+            out: dict[str, Any] = {
+                "enabled": False,
+                "trace_id": trace_id,
+                "pushed": 0,
+                "failed": 0,
+                "remaining": 0,
+                "ran_at": ts,
+            }
+            self.last_replay = dict(out)
+            return out
+
+        result = await self.store.repush_trace(
+            self._push, trace_id=trace_id, limit=limit
+        )
+        result["enabled"] = True
+        result["ran_at"] = ts
+        self.last_replay = dict(result)
+        return result
+
+    async def _push(self, body: dict[str, Any]) -> None:
+        """Internal push primitive shared by ``replay_unpushed`` and
+        ``repush_trace``. Raises on transport failure so the caller
+        records ``last_error`` and leaves ``pushed`` unchanged.
+        """
+
+        await asyncio.to_thread(
+            _post_json,
+            self.config.ingest_url,
+            body,
+            self.config.api_key,
+            self.config.contract_version,
+            self.timeout_s,
+        )
 
     async def health(self) -> dict[str, Any]:
         """Snapshot of the durable-buffer + ingest bridge.

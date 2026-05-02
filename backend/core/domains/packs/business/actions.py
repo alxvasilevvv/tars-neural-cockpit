@@ -9,9 +9,18 @@ Real adapters land here progressively. Two are implemented now:
   output until the council orchestrator lands; the council can drop in
   here without changing the surface contract.
 
-``draft_email`` and ``log_deal`` stay structured stubs — they need a
-mail provider / CRM integration to be useful and are out of scope for
-the local-first cut.
+``log_deal`` is a real adapter:
+
+- HubSpot ``HUBSPOT_API_KEY`` (vault) wins the routing.
+- Pipedrive ``PIPEDRIVE_API_KEY`` (vault) is the second choice.
+- When neither is configured the deal is appended to a local JSON
+  store at ``~/.tars/business_deals.json`` (override via
+  ``TARS_LOCAL_DEALS_PATH`` or the ``store_path`` arg). The brief
+  reader (``daily_brief``) can union this store with the bundled
+  sample so logged deals show up the next morning.
+
+``draft_email`` is also a real adapter via SMTP outbound (XOAUTH2 +
+refresh flow when configured), with policy gating for actual sends.
 """
 
 from __future__ import annotations
@@ -27,6 +36,14 @@ from ...base import ActionSpec
 from ..._http import post_json
 from backend.core.vault import get_secret
 from ....council import get_council
+from .hubspot import pull_pipeline as hubspot_pull_pipeline
+from .local_deals import (
+    LOCAL_ID_PREFIX,
+    append_local_deal,
+    read_local_deals,
+    resolve_local_deals_path,
+    update_local_deal,
+)
 from .smtp import SmtpConfig, send_email
 
 _REPO_ROOT = Path(__file__).resolve().parents[5]
@@ -106,6 +123,11 @@ async def daily_brief(args: Mapping[str, Any]) -> Mapping[str, Any]:
         "BUSINESS_DEALS_PATH",
         _DEFAULT_DEALS_PATH,
     )
+    local_deals_arg = args.get("local_deals_path")
+    local_deals_path = resolve_local_deals_path(
+        str(local_deals_arg) if local_deals_arg else None
+    )
+    include_local = bool(args.get("include_local_deals", True))
     cal_path = _resolve(
         str(args.get("calendar_path") or "") or None,
         "CALENDAR_PATH",
@@ -126,6 +148,30 @@ async def daily_brief(args: Mapping[str, Any]) -> Mapping[str, Any]:
             deals = [d for d in raw if isinstance(d, dict)]
         except json.JSONDecodeError:
             deals = []
+
+    # Union with the local store written by ``log_deal``.
+    # Local rows whose id collides with a bundled row replace the
+    # bundled one; brand-new local ids append. This keeps the brief
+    # in sync with whatever the operator logged after the bundled
+    # snapshot was taken.
+    local_deals: list[dict[str, Any]] = []
+    if include_local and local_deals_path.exists() and local_deals_path != deals_path:
+        try:
+            raw_local = _read_json(local_deals_path)
+            local_deals = [d for d in raw_local if isinstance(d, dict)]
+        except json.JSONDecodeError:
+            local_deals = []
+    if local_deals:
+        by_id: dict[str, dict[str, Any]] = {}
+        order: list[str] = []
+        for row in deals + local_deals:
+            rid = str(row.get("id") or "").strip()
+            if not rid:
+                rid = f"__anon_{len(order)}"
+            if rid not in by_id:
+                order.append(rid)
+            by_id[rid] = row
+        deals = [by_id[rid] for rid in order]
 
     calendar_events: list[dict[str, Any]] = []
     if cal_path.exists():
@@ -219,6 +265,18 @@ async def daily_brief(args: Mapping[str, Any]) -> Mapping[str, Any]:
         )
         headline_summary = deliberation.summary
 
+    locally_logged_count = sum(
+        1
+        for d in deals
+        if str(d.get("id") or "").startswith(LOCAL_ID_PREFIX)
+    )
+
+    sources = ["local-json", "calendar-local"]
+    if locally_logged_count > 0:
+        sources.append("local-store")
+    if deliberation:
+        sources.append("council")
+
     return {
         "ok": True,
         "date": date,
@@ -227,9 +285,10 @@ async def daily_brief(args: Mapping[str, Any]) -> Mapping[str, Any]:
         "actions": next_steps,
         "deals_total": len(deals),
         "deals_active": len(deals_active),
+        "deals_local_logged": locally_logged_count,
+        "local_deals_path": str(local_deals_path),
         "calendar_today": cal_today_payload,
-        "sources": ["local-json", "calendar-local"]
-        + (["council"] if deliberation else []),
+        "sources": sources,
         "council": deliberation.to_dict() if deliberation else None,
     }
 
@@ -367,7 +426,10 @@ async def log_deal(args: Mapping[str, Any]) -> Mapping[str, Any]:
     name = str(args.get("name", "")).strip()
     if not name:
         return {"ok": False, "error": "name_required"}
-    amount_f = float(args.get("amount", 0) or 0)
+    try:
+        amount_f = float(args.get("amount", 0) or 0)
+    except (TypeError, ValueError):
+        amount_f = 0.0
     stage = str(args.get("stage", "discovery"))
 
     pushed = await _push_hubspot_deal(name, amount_f)
@@ -389,17 +451,209 @@ async def log_deal(args: Mapping[str, Any]) -> Mapping[str, Any]:
             **pushed,
         }
 
+    store_path_arg = args.get("store_path") or args.get("path")
+    target = resolve_local_deals_path(
+        str(store_path_arg) if store_path_arg else None
+    )
+    try:
+        record = await append_local_deal(
+            name=name,
+            amount=amount_f,
+            stage=stage,
+            owner=str(args.get("owner") or "") or None,
+            next_step=str(args.get("next_step") or "") or None,
+            due=str(args.get("due") or "") or None,
+            notes=str(args.get("notes") or "") or None,
+            path=str(store_path_arg) if store_path_arg else None,
+        )
+    except OSError as exc:
+        return {
+            "ok": False,
+            "error": "local_store_unwritable",
+            "detail": str(exc),
+            "store_path": str(target),
+        }
+
     return {
         "ok": True,
-        "deal_id": "stub-deal-0001",
-        "name": name,
-        "amount": amount_f,
-        "stage": stage,
+        "deal_id": record.id,
+        "name": record.name,
+        "amount": record.amount,
+        "stage": record.stage,
+        "crm": "local",
         "crm_pushed": False,
+        "store_path": str(target),
+        "deal": record.to_dict(),
         "hint": (
-            "set HUBSPOT_API_KEY or PIPEDRIVE_API_KEY — otherwise deal "
-            "stays stub-local until a CRM vault entry is present."
+            "deal saved to local JSON store; set HUBSPOT_API_KEY or "
+            "PIPEDRIVE_API_KEY to push to a real CRM next time."
         ),
+    }
+
+
+async def list_deals(args: Mapping[str, Any]) -> Mapping[str, Any]:
+    """Read deals from the local store with optional filters.
+
+    Args:
+      ``active_only``: optional bool, default ``False``. Excludes
+        won / lost rows when true.
+      ``stage``: optional single stage value (case-insensitive,
+        coerced via the standard stage normaliser).
+      ``owner``: optional case-insensitive owner filter.
+      ``limit``: optional positive int (most recent N entries),
+        capped at 1000.
+      ``store_path`` / ``path``: optional override for the local
+        store path.
+
+    Returns ``{ok, count, deals, store, store_path, filters,
+    summary}``. ``summary`` carries pre-computed rollups
+    (`total_amount`, `by_stage`) so the cockpit can render a
+    sidecar without a second pass.
+    """
+
+    path_arg = args.get("store_path") or args.get("path")
+    target = resolve_local_deals_path(
+        str(path_arg) if path_arg else None
+    )
+
+    active_only = bool(args.get("active_only", False))
+    stage_arg = args.get("stage")
+    stage = stage_arg.strip() if isinstance(stage_arg, str) and stage_arg.strip() else None
+    owner_arg = args.get("owner")
+    owner = owner_arg.strip() if isinstance(owner_arg, str) and owner_arg.strip() else None
+
+    limit_arg = args.get("limit")
+    if isinstance(limit_arg, bool):
+        limit: int | None = None
+    elif isinstance(limit_arg, int) and limit_arg > 0:
+        limit = min(limit_arg, 1000)
+    else:
+        limit = None
+
+    try:
+        rows = read_local_deals(
+            path=target,
+            active_only=active_only,
+            stage=stage,
+            owner=owner,
+            limit=limit,
+        )
+    except OSError as exc:
+        return {
+            "ok": False,
+            "error": "local_store_unreadable",
+            "detail": str(exc),
+            "store_path": str(target),
+        }
+
+    by_stage: dict[str, int] = {}
+    total_amount = 0.0
+    for row in rows:
+        st = str(row.get("stage") or "")
+        if st:
+            by_stage[st] = by_stage.get(st, 0) + 1
+        try:
+            amt = float(row.get("amount") or 0)
+        except (TypeError, ValueError):
+            amt = 0.0
+        total_amount += amt
+
+    return {
+        "ok": True,
+        "count": len(rows),
+        "deals": rows,
+        "store": "local",
+        "store_path": str(target),
+        "filters": {
+            "active_only": active_only,
+            "stage": stage.lower() if stage else None,
+            "owner": owner.lower() if owner else None,
+            "limit": limit,
+        },
+        "summary": {
+            "by_stage": by_stage,
+            "total_amount": round(total_amount, 2),
+        },
+    }
+
+
+_UPDATABLE_DEAL_FIELDS: tuple[str, ...] = (
+    "name",
+    "amount",
+    "stage",
+    "owner",
+    "next_step",
+    "due",
+    "notes",
+)
+
+
+async def update_deal(args: Mapping[str, Any]) -> Mapping[str, Any]:
+    """Patch an existing local deal in-place.
+
+    Args:
+      ``deal_id``: required, the ``local-NNNN`` id from ``log_deal``.
+      Any of ``name`` / ``amount`` / ``stage`` / ``owner`` / ``next_step``
+      / ``due`` / ``notes``: passed through after coercion. Pass ``""``
+      for an optional string field to clear it; omit a field to leave
+      it untouched.
+      ``store_path`` / ``path``: optional override for the local store.
+
+    Returns ``{ok: True, deal_id, deal, unchanged, changed_fields,
+    store_path}`` on success, or ``{ok: False, error}`` with one of:
+    ``deal_id_required``, ``no_updates``, ``name_required``,
+    ``deal_not_found``, ``local_store_unwritable``.
+    """
+
+    deal_id = args.get("deal_id")
+    if not isinstance(deal_id, str) or not deal_id.strip():
+        return {"ok": False, "error": "deal_id_required"}
+
+    updates: dict[str, Any] = {}
+    for f in _UPDATABLE_DEAL_FIELDS:
+        if f in args:
+            updates[f] = args[f]
+    if not updates:
+        return {"ok": False, "error": "no_updates"}
+
+    store_path_arg = args.get("store_path") or args.get("path")
+    target = resolve_local_deals_path(
+        str(store_path_arg) if store_path_arg else None
+    )
+
+    try:
+        row = await update_local_deal(
+            deal_id,
+            updates=updates,
+            path=str(store_path_arg) if store_path_arg else None,
+        )
+    except KeyError as exc:
+        return {
+            "ok": False,
+            "error": str(exc.args[0]) if exc.args else "deal_not_found",
+            "deal_id": deal_id.strip(),
+        }
+    except ValueError as exc:
+        return {"ok": False, "error": str(exc)}
+    except OSError as exc:
+        return {
+            "ok": False,
+            "error": "local_store_unwritable",
+            "detail": str(exc),
+            "store_path": str(target),
+        }
+
+    deal_payload = {
+        k: v for k, v in row.items() if k not in {"unchanged", "changed_fields"}
+    }
+    return {
+        "ok": True,
+        "deal_id": deal_id.strip(),
+        "deal": deal_payload,
+        "unchanged": bool(row.get("unchanged")),
+        "changed_fields": list(row.get("changed_fields") or []),
+        "store": "local",
+        "store_path": str(target),
     }
 
 
@@ -407,7 +661,15 @@ ACTIONS: tuple[ActionSpec, ...] = (
     ActionSpec(
         id="daily_brief",
         name="Compose daily brief",
-        description="Compose the morning brief from local KPI + deals snapshots.",
+        description=(
+            "Compose the morning brief from local KPI + deals + "
+            "calendar snapshots, optionally unioned with the local "
+            "log_deal store at ~/.tars/business_deals.json (override "
+            "via TARS_LOCAL_DEALS_PATH or local_deals_path arg). "
+            "Local rows whose id starts with 'local-' are surfaced "
+            "in 'deals_local_logged' so the cockpit can highlight "
+            "operator-logged deals separately."
+        ),
         handler=daily_brief,
         schema={
             "type": "object",
@@ -415,6 +677,28 @@ ACTIONS: tuple[ActionSpec, ...] = (
                 "date": {"type": "string", "format": "date"},
                 "kpi_path": {"type": "string"},
                 "deals_path": {"type": "string"},
+                "local_deals_path": {
+                    "type": "string",
+                    "description": (
+                        "Override for the local log_deal store. "
+                        "Defaults to ~/.tars/business_deals.json or "
+                        "TARS_LOCAL_DEALS_PATH."
+                    ),
+                },
+                "include_local_deals": {
+                    "type": "boolean",
+                    "description": (
+                        "Set false to skip the local-store union; "
+                        "useful in playbooks that want to look at "
+                        "the bundled snapshot alone."
+                    ),
+                },
+                "calendar_path": {"type": "string"},
+                "council": {"type": "boolean"},
+                "council_mode": {
+                    "type": "string",
+                    "enum": ["single", "dual_vote", "n_vote"],
+                },
             },
         },
     ),
@@ -461,19 +745,173 @@ ACTIONS: tuple[ActionSpec, ...] = (
         },
     ),
     ActionSpec(
+        id="list_deals",
+        name="List deals",
+        description=(
+            "Read the local-first business deals store with optional "
+            "filters (active_only / stage / owner / limit). Returns "
+            "structured rollups (by_stage, total_amount) so the cockpit "
+            "can render a sidecar without a second pass. Read-only; no "
+            "policy gate required."
+        ),
+        handler=list_deals,
+        schema={
+            "type": "object",
+            "properties": {
+                "active_only": {"type": "boolean", "default": False},
+                "stage": {
+                    "type": "string",
+                    "enum": [
+                        "discovery",
+                        "qualification",
+                        "proposal",
+                        "negotiation",
+                        "won",
+                        "lost",
+                    ],
+                },
+                "owner": {"type": "string"},
+                "limit": {"type": "integer", "minimum": 1, "maximum": 1000},
+                "store_path": {"type": "string"},
+            },
+        },
+    ),
+    ActionSpec(
         id="log_deal",
         name="Log deal",
-        description="Stage a new deal locally before pushing to CRM.",
+        description=(
+            "Log a deal. Routes to HubSpot if HUBSPOT_API_KEY is set, "
+            "Pipedrive if PIPEDRIVE_API_KEY is set, otherwise appends "
+            "to the local JSON store at ~/.tars/business_deals.json "
+            "(override via TARS_LOCAL_DEALS_PATH or store_path arg). "
+            "Emits 'business.deal_logged' on the local-store path so "
+            "the cost ledger and audit timeline see the row."
+        ),
         handler=log_deal,
         schema={
             "type": "object",
             "properties": {
                 "name": {"type": "string"},
                 "amount": {"type": "number"},
-                "stage": {"type": "string"},
+                "stage": {
+                    "type": "string",
+                    "enum": [
+                        "discovery",
+                        "qualification",
+                        "proposal",
+                        "negotiation",
+                        "won",
+                        "lost",
+                    ],
+                },
+                "owner": {"type": "string"},
+                "next_step": {"type": "string"},
+                "due": {"type": "string"},
+                "notes": {"type": "string"},
+                "store_path": {
+                    "type": "string",
+                    "description": (
+                        "Optional override for the local JSON store. "
+                        "Useful for tests / multi-workspace setups."
+                    ),
+                },
             },
             "required": ["name"],
         },
         destructive=True,
+    ),
+    ActionSpec(
+        id="update_deal",
+        name="Update deal",
+        description=(
+            "Patch a previously-logged local deal by its local-NNNN id. "
+            "Pass any subset of name / amount / stage / owner / next_step "
+            "/ due / notes; omitted fields are untouched. Pass an empty "
+            "string for a string field to clear it. Idempotent: a no-op "
+            "patch returns unchanged=True and emits no event. Stamps "
+            "updated_at on every change. Emits a business.deal_updated "
+            "meeet event listing changed_fields. Marked destructive so "
+            "the policy gate routes the call through confirmation."
+        ),
+        handler=update_deal,
+        schema={
+            "type": "object",
+            "properties": {
+                "deal_id": {
+                    "type": "string",
+                    "description": (
+                        "The local-NNNN id returned by log_deal."
+                    ),
+                },
+                "name": {"type": "string"},
+                "amount": {"type": "number"},
+                "stage": {
+                    "type": "string",
+                    "enum": [
+                        "discovery",
+                        "qualification",
+                        "proposal",
+                        "negotiation",
+                        "won",
+                        "lost",
+                    ],
+                },
+                "owner": {"type": "string"},
+                "next_step": {"type": "string"},
+                "due": {"type": "string"},
+                "notes": {"type": "string"},
+                "store_path": {"type": "string"},
+            },
+            "required": ["deal_id"],
+        },
+        destructive=True,
+    ),
+    ActionSpec(
+        id="hubspot_pull_pipeline",
+        name="Pull HubSpot pipeline",
+        description=(
+            "Read-only fetch of deals from HubSpot CRM "
+            "(GET /crm/v3/objects/deals). Requires HUBSPOT_API_KEY "
+            "in the vault. Supports pagination via 'after' cursor."
+        ),
+        handler=hubspot_pull_pipeline,
+        schema={
+            "type": "object",
+            "properties": {
+                "limit": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 100,
+                    "description": "Page size (1..100, default 25).",
+                },
+                "after": {
+                    "type": "string",
+                    "description": "Opaque cursor from a previous response.",
+                },
+                "properties": {
+                    "type": ["array", "string"],
+                    "description": (
+                        "Property keys to request. Pass a list or a "
+                        "comma-separated string. Defaults to a sane "
+                        "set of HubSpot built-ins."
+                    ),
+                },
+                "pipeline": {
+                    "type": "string",
+                    "description": (
+                        "Optional pipeline id filter (applied "
+                        "client-side; the public deals endpoint does "
+                        "not accept a server-side pipeline filter)."
+                    ),
+                },
+                "include_raw": {
+                    "type": "boolean",
+                    "description": (
+                        "Attach each deal's raw HubSpot row under "
+                        "'raw' for debugging."
+                    ),
+                },
+            },
+        },
     ),
 )

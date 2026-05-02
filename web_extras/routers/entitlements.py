@@ -15,6 +15,7 @@ upgrade history.
 
 from __future__ import annotations
 
+import os
 import time
 from typing import Any, Literal
 
@@ -33,6 +34,27 @@ from web_extras.errors import TARSAPIError
 
 
 router = APIRouter(prefix="/api/entitlements", tags=["entitlements"])
+
+
+# Bug #3 fix from docs/SYSTEM_AUDIT_2026-05-02.md — the upgrade
+# endpoint historically accepted any non-empty ``payment_token``.
+# Until real Stripe / wallet integration lands, the endpoint is
+# now ``opt-in`` via env so a misconfigured production deploy
+# can't accidentally hand out paid tiers for free.
+#
+# Modes:
+#   * ``off`` (default in production)  → 503 ``feature_disabled``
+#   * ``mock`` (dev / staging only)    → accepts the legacy
+#     ``payment_token`` mock and emits ``entitlements.upgraded.mock``
+#   * ``stripe`` (when integration is live)
+#                                      → real verification path
+#                                        (TBD; rejects with 503 +
+#                                        ``not_implemented`` until then)
+_PAYMENT_MODE_ENV = "TARS_PAYMENT_MODE"
+
+
+def _payment_mode() -> str:
+    return (os.getenv(_PAYMENT_MODE_ENV) or "off").strip().lower()
 
 
 class UpgradeRequest(BaseModel):
@@ -90,19 +112,86 @@ async def upgrade(
     x_meeet_trace_id: str | None = Header(default=None),
 ) -> dict[str, Any]:
     target = Tier(body.tier)
-    if target is not Tier.FREE and not body.payment_token:
+    mode = _payment_mode()
+
+    # Downgrade to FREE is always allowed (no payment hop needed).
+    if target is Tier.FREE:
+        previous = get_store().load()
+        record = get_store().set_tier(target)
+        client = get_client()
+        with trace_scope(parent=x_meeet_trace_id) as trace_id:
+            await client.emit(
+                "entitlements.downgraded",
+                {
+                    "from": previous.value,
+                    "to": target.value,
+                    "at": record.get("upgraded_at", time.time()),
+                },
+            )
+            return {
+                "ok": True,
+                "trace_id": trace_id,
+                "tier": target.value,
+                "previous": previous.value,
+                "byo_enabled": bool(record.get("byo_enabled", False)),
+                "caps": format_caps(target),
+            }
+
+    # Paid tier path. The pre-2026-05-02 audit gate accepted any
+    # non-empty ``payment_token`` — see Bug #3. Now the env decides:
+    if mode == "off":
+        raise TARSAPIError(
+            status_code=503,
+            error_code="feature_disabled",
+            message=(
+                "paid tier upgrades are disabled in this deployment "
+                f"(set {_PAYMENT_MODE_ENV}=mock for dev or wait for the "
+                "Stripe / $MEEET wallet integration to land)"
+            ),
+            hint=(
+                f"export {_PAYMENT_MODE_ENV}=mock for dev shells, or "
+                "follow the upgrade flow on meeet.world once payments "
+                "are wired"
+            ),
+            context={
+                "payment_mode": mode,
+                "tier_requested": target.value,
+            },
+        )
+
+    if mode == "stripe":
+        # Real integration not implemented yet; return 503 with a
+        # clear "not_implemented" code so cockpit / mobile clients
+        # can render a "coming soon" panel instead of pretending.
+        raise TARSAPIError(
+            status_code=503,
+            error_code="not_implemented",
+            message=(
+                "Stripe payment verification is not implemented yet; "
+                "fall back to TARS_PAYMENT_MODE=mock for dev or wait "
+                "for the next release"
+            ),
+            hint="watch docs/AGENT_HANDOFF.md for the Stripe rollout",
+            context={"payment_mode": mode},
+        )
+
+    # mode == "mock": accept any non-empty payment_token (legacy path).
+    if not body.payment_token:
         raise TARSAPIError(
             status_code=402,
             error_code="payment_required",
             message="payment_token required for paid tiers",
-            hint="pass {tier:'pro', payment_token:<...>} once the wallet integration mints one",
+            hint="pass {tier:'pro', payment_token:<...>} (mock mode accepts any non-empty value)",
         )
     previous = get_store().load()
     record = get_store().set_tier(target)
     client = get_client()
     with trace_scope(parent=x_meeet_trace_id) as trace_id:
+        # Emit a *mock* event kind so the audit trail shows the
+        # operator wasn't charged for real. When Stripe lands the
+        # event becomes ``entitlements.upgraded`` with a charge id.
         await client.emit(
-            "entitlements.upgraded",
+            "entitlements.upgraded.mock",
             {
                 "from": previous.value,
                 "to": target.value,
@@ -111,6 +200,7 @@ async def upgrade(
                 # network would see it bounce through CloudFront — keep
                 # it out of the audit trail.
                 "payment_token_present": bool(body.payment_token),
+                "payment_mode": mode,
             },
         )
         return {
@@ -120,6 +210,7 @@ async def upgrade(
             "previous": previous.value,
             "byo_enabled": bool(record.get("byo_enabled", False)),
             "caps": format_caps(target),
+            "payment_mode": mode,
         }
 
 

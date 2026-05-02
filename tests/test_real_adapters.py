@@ -64,12 +64,14 @@ def test_daily_brief_handles_missing_files(tmp_path: Path) -> None:
             {
                 "kpi_path": str(tmp_path / "missing-kpi.json"),
                 "deals_path": str(tmp_path / "missing-deals.json"),
+                "local_deals_path": str(tmp_path / "missing-local-deals.json"),
             }
         )
     )
     assert result["ok"] is True
     assert result["deltas"] == []
     assert result["actions"] == []
+    assert result["deals_local_logged"] == 0
 
 
 def test_downline_snapshot_reads_csv() -> None:

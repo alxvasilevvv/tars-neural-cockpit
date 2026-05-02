@@ -5,7 +5,12 @@ Real-ish adapters backed by an SQLite downline DB
 ``data/mlm_network.csv`` on first run. Override the DB path with
 ``MLM_DB_PATH``; override the seed CSV with ``MLM_NETWORK_PATH``.
 
-``score_recruit`` and ``generate_post`` stay as structured stubs.
+``score_recruit`` is a deterministic scorer over the local downline
+DB (see ``scoring.py``); falls back to a stable SHA-256-derived
+score for unknown handles. ``generate_post`` is a deterministic
+multi-channel / multi-language drafter (see ``post_drafter.py``).
+``tg_outreach_draft`` is a deterministic Telegram drafter (see
+``tg_outreach.py``).
 """
 
 from __future__ import annotations
@@ -18,7 +23,26 @@ from pathlib import Path
 from typing import Any, Mapping
 
 from ...base import ActionSpec
+from ....meeet import get_client
 from .db import get_downline_db
+from .post_drafter import (
+    KNOWN_CHANNELS as POST_CHANNELS,
+    KNOWN_FORMATS as POST_FORMATS,
+    KNOWN_LANGUAGES as POST_LANGUAGES,
+    KNOWN_TONES as POST_TONES,
+    draft_post,
+)
+from .scoring import (
+    compose_score,
+    score_for_unknown_handle,
+    signals_for_member,
+)
+from .tg_outreach import (
+    KNOWN_INTENTS as TG_OUTREACH_INTENTS,
+    KNOWN_LANGUAGES as TG_OUTREACH_LANGUAGES,
+    KNOWN_TONES as TG_OUTREACH_TONES,
+    tg_outreach_draft,
+)
 
 _REPO_ROOT = Path(__file__).resolve().parents[5]
 _DEFAULT_NETWORK_PATH = _REPO_ROOT / "data" / "mlm_network.csv"
@@ -209,6 +233,175 @@ async def downline_snapshot(args: Mapping[str, Any]) -> Mapping[str, Any]:
     }
 
 
+_UPDATABLE_MEMBER_FIELDS: tuple[str, ...] = (
+    "sponsor",
+    "rank",
+    "joined_at",
+    "last_active_at",
+    "volume_usd",
+    "notes",
+)
+
+
+async def update_member(args: Mapping[str, Any]) -> Mapping[str, Any]:
+    """Patch an existing member by handle.
+
+    Args:
+      ``handle``: required.
+      Any of ``sponsor / rank / joined_at / last_active_at / volume_usd
+      / notes``: passed through after coercion. Pass ``""`` for an
+      optional string to clear it; omit a field to leave it untouched.
+      ``handle`` itself cannot be patched.
+
+    Returns ``{ok: True, handle, member, unchanged, changed_fields,
+    db_path}`` on success, or ``{ok: False, error}`` with one of:
+    ``handle_required``, ``no_updates``, ``volume_invalid``,
+    ``member_not_found``, ``invalid_ts``.
+    """
+
+    handle = args.get("handle")
+    if not isinstance(handle, str) or not handle.strip():
+        return {"ok": False, "error": "handle_required"}
+
+    updates: dict[str, Any] = {}
+    for f in _UPDATABLE_MEMBER_FIELDS:
+        if f in args:
+            updates[f] = args[f]
+    if not updates:
+        return {"ok": False, "error": "no_updates"}
+
+    for ts_field in ("joined_at", "last_active_at"):
+        if ts_field in updates:
+            value = updates[ts_field]
+            if isinstance(value, str) and value.strip():
+                if _parse_date(value) is None:
+                    return {
+                        "ok": False,
+                        "error": "invalid_ts",
+                        "field": ts_field,
+                        "ts": value,
+                    }
+
+    db = get_downline_db()
+    await db.ensure_seeded()
+    try:
+        member, changed = await db.update_member(handle, updates)
+    except ValueError as exc:
+        return {"ok": False, "error": str(exc)}
+
+    if member is None:
+        return {
+            "ok": False,
+            "error": "member_not_found",
+            "handle": handle.strip(),
+        }
+
+    if changed:
+        client = get_client()
+        await client.emit(
+            "mlm.member_updated",
+            {
+                "handle": member.handle,
+                "changed_fields": list(changed),
+                "rank": member.rank,
+                "db_path": db.db_path,
+            },
+        )
+
+    return {
+        "ok": True,
+        "handle": handle.strip(),
+        "member": member.to_dict(),
+        "unchanged": not changed,
+        "changed_fields": list(changed),
+        "db_path": db.db_path,
+    }
+
+
+async def list_members(args: Mapping[str, Any]) -> Mapping[str, Any]:
+    """Read members from the downline DB with optional filters.
+
+    Args:
+      ``sponsor``: optional case-insensitive equality filter.
+      ``rank``: optional case-insensitive equality filter.
+      ``recent_days``: optional positive int. Keeps only members
+        with ``last_active_at`` within this many days of "now".
+      ``limit``: optional positive int (cap at 1000).
+
+    Returns ``{ok, count, members, db_path, filters, summary}``.
+    The ``summary`` block carries `by_rank` and `total_volume_usd`
+    rollups so the cockpit can render a sidecar without a second
+    pass.
+    """
+
+    db = get_downline_db()
+    await db.ensure_seeded()
+
+    sponsor_arg = args.get("sponsor")
+    sponsor = (
+        sponsor_arg.strip()
+        if isinstance(sponsor_arg, str) and sponsor_arg.strip()
+        else None
+    )
+    rank_arg = args.get("rank")
+    rank = (
+        rank_arg.strip()
+        if isinstance(rank_arg, str) and rank_arg.strip()
+        else None
+    )
+
+    recent_arg = args.get("recent_days")
+    if isinstance(recent_arg, bool):
+        recent_days: int | None = None
+    elif isinstance(recent_arg, int) and recent_arg > 0:
+        recent_days = recent_arg
+    else:
+        recent_days = None
+
+    limit_arg = args.get("limit")
+    if isinstance(limit_arg, bool):
+        limit: int | None = None
+    elif isinstance(limit_arg, int) and limit_arg > 0:
+        limit = min(limit_arg, 1000)
+    else:
+        limit = None
+
+    members = await db.list_members(
+        sponsor=sponsor,
+        rank=rank,
+        recent_days=recent_days,
+        limit=limit,
+    )
+
+    by_rank: dict[str, int] = {}
+    total_volume = 0.0
+    for m in members:
+        rk = (m.rank or "").lower()
+        if rk:
+            by_rank[rk] = by_rank.get(rk, 0) + 1
+        try:
+            total_volume += float(m.volume_usd or 0.0)
+        except (TypeError, ValueError):
+            pass
+
+    return {
+        "ok": True,
+        "count": len(members),
+        "members": [m.to_dict() for m in members],
+        "db_path": db.db_path,
+        "filters": {
+            "sponsor": sponsor.lower() if sponsor else None,
+            "rank": rank.lower() if rank else None,
+            "recent_days": recent_days,
+            "limit": limit,
+        },
+        "summary": {
+            "by_rank": by_rank,
+            "total_volume_usd": round(total_volume, 2),
+        },
+    }
+
+
 async def add_member(args: Mapping[str, Any]) -> Mapping[str, Any]:
     handle = str(args.get("handle") or "").strip()
     if not handle:
@@ -287,50 +480,124 @@ async def log_activity(args: Mapping[str, Any]) -> Mapping[str, Any]:
 
 
 async def score_recruit(args: Mapping[str, Any]) -> Mapping[str, Any]:
+    """Score a candidate against the local downline.
+
+    When ``handle`` exists in the downline DB the score is the
+    weighted composition of recency / volume / rank / tenure
+    signals (``model="downline-v1"``). When the handle is unknown
+    we fall back to a stable SHA-256 hash mapped onto ``[0.40,
+    0.95]`` (``model="heuristic-v1"``) so the cockpit gets a
+    deterministic number across machines and process restarts.
+
+    See :mod:`backend.core.domains.packs.mlm.scoring` for the
+    arithmetic. The action surface stays stable: ``score`` is the
+    composite, ``fit_signals`` / ``risk_signals`` are short
+    operator-facing strings derived from the components.
+    """
+
     handle = str(args.get("handle", "")).strip()
     if not handle:
         return {"ok": False, "error": "handle_required"}
 
-    # Lightweight deterministic heuristic until we plug in a real public
-    # profile signal stack: hash the handle into a stable score and
-    # surface a couple of placeholder signals.
-    h = abs(hash(handle.lower())) % 100
-    score = round(0.4 + (h / 100.0) * 0.55, 2)
-    fit = ["consistent posting cadence"] if score > 0.7 else []
-    risk = ["low engagement on last 5 posts"] if score < 0.55 else []
+    db = get_downline_db()
+    try:
+        await db.ensure_seeded()
+    except Exception:
+        # Seed failures shouldn't break scoring — we'll just take
+        # the unknown-handle branch.
+        pass
+
+    member = None
+    try:
+        member = await db.get(handle)
+    except Exception:
+        member = None
+
+    if member is not None:
+        signals = signals_for_member(member)
+        score = compose_score(signals)
+        return {
+            "ok": True,
+            "handle": handle,
+            "score": score,
+            "fit_signals": list(signals.fit),
+            "risk_signals": list(signals.risk),
+            "signals": signals.to_dict(),
+            "model": "downline-v1",
+            "source": "downline_db",
+            "rank": signals.rank_label,
+            "volume_usd": signals.volume_usd,
+            "days_silent": signals.days_silent,
+        }
+
+    signals = score_for_unknown_handle(handle)
+    score = compose_score(signals)
     return {
         "ok": True,
         "handle": handle,
         "score": score,
-        "fit_signals": fit,
-        "risk_signals": risk,
-        "model": "heuristic-v0",
-        "hint": "stub heuristic; will be replaced by a real signal stack",
+        "fit_signals": list(signals.fit),
+        "risk_signals": list(signals.risk),
+        "signals": signals.to_dict(),
+        "model": "heuristic-v1",
+        "source": "stable_hash",
+        "hint": (
+            "handle not found in local downline — score is a stable "
+            "SHA-256-derived placeholder. Add the member via "
+            "mlm.add_member to get real signals."
+        ),
     }
 
 
 async def generate_post(args: Mapping[str, Any]) -> Mapping[str, Any]:
-    channel = str(args.get("channel", "ig")).lower()
-    if channel not in {"ig", "tg", "wa"}:
-        return {"ok": False, "error": "unsupported_channel", "channel": channel}
-    fmt = str(args.get("format", "post"))
-    topic = str(args.get("topic", "")).strip() or "team momentum"
-    drafts = {
-        "ig": f"Three things this week: traction, learning, and {topic}. Tag a teammate who's pushing the same direction.",
-        "tg": f"Quick update — {topic}. Reply with one win and one block. Will sync at 18:00.",
-        "wa": f"Hi! Sharing today's note on {topic}. Read in 60s; reply ✅ if useful.",
-    }
-    return {
+    """Draft a channel-appropriate piece of content for the operator.
+
+    Backed by :mod:`backend.core.domains.packs.mlm.post_drafter`.
+    All knobs are optional (channel / format / tone / language /
+    topic / cta) and unknown enum values fall back to defaults so
+    existing playbooks ride through unchanged. Output includes
+    ``draft``, ``cta``, ``hashtags``, ``char_count``,
+    ``word_count`` so the cockpit can preview length budgets per
+    platform.
+
+    Validation: explicit but unknown ``channel`` strings still
+    return ``{ok=False, error="unsupported_channel"}`` to keep the
+    pre-existing cockpit safety net (the playbook YAML schema also
+    pins it).
+    """
+
+    channel_arg = args.get("channel")
+    if channel_arg is not None:
+        channel_str = str(channel_arg).strip().lower()
+        if channel_str and channel_str not in POST_CHANNELS:
+            return {
+                "ok": False,
+                "error": "unsupported_channel",
+                "channel": channel_str,
+                "supported": list(POST_CHANNELS),
+            }
+
+    draft = draft_post(args)
+
+    client = get_client()
+    await client.emit(
+        "mlm.post_drafted",
+        {
+            "channel": draft.channel,
+            "format": draft.format,
+            "tone": draft.tone,
+            "language": draft.language,
+            "topic": draft.topic,
+            "char_count": draft.char_count,
+            "word_count": draft.word_count,
+        },
+    )
+
+    payload: dict[str, Any] = {
         "ok": True,
-        "channel": channel,
-        "format": fmt,
-        "topic": topic,
-        "draft": drafts[channel],
-        "hashtags": (
-            ["#momentum", "#team", "#" + topic.split()[0]] if channel == "ig" else []
-        ),
-        "hint": "deterministic draft; council will replace with personal voice",
+        **draft.to_dict(),
     }
+    return payload
 
 
 async def retention_alert(args: Mapping[str, Any]) -> Mapping[str, Any]:
@@ -398,17 +665,41 @@ ACTIONS: tuple[ActionSpec, ...] = (
     ActionSpec(
         id="generate_post",
         name="Generate post",
-        description="Draft a channel-appropriate piece of content.",
+        description=(
+            "Draft a channel-appropriate piece of content. "
+            "Deterministic: same args always render the same draft. "
+            "Supports ig / tg / wa / linkedin × post / story / reel "
+            "/ dm × warm / professional / urgent / celebratory × "
+            "en / ru / es. Emits 'mlm.post_drafted' on every call."
+        ),
         handler=generate_post,
         schema={
             "type": "object",
             "properties": {
-                "channel": {"type": "string", "enum": ["ig", "tg", "wa"]},
+                "channel": {
+                    "type": "string",
+                    "enum": list(POST_CHANNELS),
+                },
                 "format": {
                     "type": "string",
-                    "enum": ["story", "post", "reel", "dm"],
+                    "enum": list(POST_FORMATS),
+                },
+                "tone": {
+                    "type": "string",
+                    "enum": list(POST_TONES),
+                },
+                "language": {
+                    "type": "string",
+                    "enum": list(POST_LANGUAGES),
                 },
                 "topic": {"type": "string"},
+                "cta": {
+                    "type": "string",
+                    "description": (
+                        "Optional explicit call-to-action; falls back "
+                        "to a tone-appropriate default."
+                    ),
+                },
             },
             "required": ["channel"],
         },
@@ -471,5 +762,98 @@ ACTIONS: tuple[ActionSpec, ...] = (
             "required": ["handle"],
         },
         destructive=True,
+    ),
+    ActionSpec(
+        id="update_member",
+        name="Update downline member",
+        description=(
+            "Patch a previously-added member by handle. Pass any subset "
+            "of sponsor / rank / joined_at / last_active_at / volume_usd "
+            "/ notes; omitted fields are untouched. Pass an empty string "
+            "for an optional string field to clear it. handle itself is "
+            "never patchable. Idempotent: a no-op patch returns "
+            "unchanged=True and emits no event. Stamps updated_at on "
+            "every change. Emits an mlm.member_updated meeet event "
+            "listing changed_fields. Marked destructive so the policy "
+            "gate routes the call through confirmation."
+        ),
+        handler=update_member,
+        schema={
+            "type": "object",
+            "properties": {
+                "handle": {"type": "string"},
+                "sponsor": {"type": "string"},
+                "rank": {
+                    "type": "string",
+                    "enum": ["starter", "bronze", "silver", "gold", "platinum"],
+                },
+                "joined_at": {"type": "string"},
+                "last_active_at": {"type": "string"},
+                "volume_usd": {"type": "number", "minimum": 0},
+                "notes": {"type": "string"},
+            },
+            "required": ["handle"],
+        },
+        destructive=True,
+    ),
+    ActionSpec(
+        id="list_members",
+        name="List downline members",
+        description=(
+            "Read members from the SQLite downline DB with optional "
+            "filters (sponsor / rank / recent_days / limit) and "
+            "pre-computed rollups (by_rank, total_volume_usd) so the "
+            "cockpit can render a sidecar without a second pass. "
+            "Read-only; no policy gate required."
+        ),
+        handler=list_members,
+        schema={
+            "type": "object",
+            "properties": {
+                "sponsor": {"type": "string"},
+                "rank": {
+                    "type": "string",
+                    "enum": ["starter", "bronze", "silver", "gold", "platinum"],
+                },
+                "recent_days": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 3650,
+                },
+                "limit": {"type": "integer", "minimum": 1, "maximum": 1000},
+            },
+        },
+    ),
+    ActionSpec(
+        id="tg_outreach_draft",
+        name="Telegram outreach draft",
+        description=(
+            "Deterministic Telegram outreach drafter. Generates a "
+            "markdown + plain-text draft for an intent (welcome, "
+            "checkin, winback, recruit, celebrate, upsell), tone, "
+            "and language. Never auto-sends; preview only."
+        ),
+        handler=tg_outreach_draft,
+        schema={
+            "type": "object",
+            "properties": {
+                "intent": {
+                    "type": "string",
+                    "enum": list(TG_OUTREACH_INTENTS),
+                },
+                "name": {"type": "string"},
+                "tone": {
+                    "type": "string",
+                    "enum": list(TG_OUTREACH_TONES),
+                },
+                "language": {
+                    "type": "string",
+                    "enum": list(TG_OUTREACH_LANGUAGES),
+                },
+                "cta": {"type": "string"},
+                "signature": {"type": "string"},
+            },
+            "required": ["intent"],
+        },
     ),
 )

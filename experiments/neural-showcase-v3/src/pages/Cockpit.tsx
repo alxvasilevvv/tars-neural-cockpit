@@ -300,6 +300,20 @@ export function Cockpit() {
             <a href="#security" className="transition-colors hover:text-ink">security</a>
             <span aria-hidden className="text-line-strong">·</span>
             <a href="#vault-keys" className="transition-colors hover:text-ink">keys</a>
+            <span aria-hidden className="text-line-strong">·</span>
+            <Link
+              to="/cockpit/planner"
+              className="transition-colors hover:text-ink"
+            >
+              planner
+            </Link>
+            <span aria-hidden className="text-line-strong">·</span>
+            <Link
+              to="/cockpit/traces"
+              className="transition-colors hover:text-ink"
+            >
+              traces
+            </Link>
           </nav>
 
           <div className="flex items-center gap-2">

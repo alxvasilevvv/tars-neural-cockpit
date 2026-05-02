@@ -108,3 +108,48 @@ def test_pack_listing_can_filter_deprecated() -> None:
     slugs = {p.manifest.slug for p in canonical}
     assert "entrepreneur" in slugs
     assert "mlm" not in slugs
+
+
+def test_generate_content_schema_exposes_full_drafter_surface() -> None:
+    """The cockpit reads ``ActionSpec.schema`` to render input
+    forms; the entrepreneur pack must expose the new tone /
+    language / cta knobs and the linkedin channel (added when
+    `mlm.generate_post` was upgraded to a real drafter), otherwise
+    operators can't reach those features through the entrepreneur
+    namespace."""
+
+    pack = get_pack("entrepreneur")
+    assert pack is not None
+    by_id = {a.id: a for a in pack.actions()}
+    schema = by_id["generate_content"].schema
+    props = schema["properties"]
+
+    assert "tone" in props
+    assert "language" in props
+    assert "cta" in props
+    assert "linkedin" in props["channel"]["enum"]
+    assert {"warm", "professional", "urgent", "celebratory"} <= set(
+        props["tone"]["enum"]
+    )
+    assert {"en", "ru", "es"} <= set(props["language"]["enum"])
+
+
+def test_generate_content_full_knob_path_runs() -> None:
+    pack = get_pack("entrepreneur")
+    assert pack is not None
+    by_id = {a.id: a for a in pack.actions()}
+    out = asyncio.run(
+        by_id["generate_content"].handler(
+            {
+                "channel": "linkedin",
+                "format": "post",
+                "tone": "professional",
+                "language": "ru",
+                "topic": "квартальный сдвиг",
+            }
+        )
+    )
+    assert out["ok"] is True
+    assert out["channel"] == "linkedin"
+    assert out["language"] == "ru"
+    assert "квартальный сдвиг" in out["draft"]

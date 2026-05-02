@@ -66,6 +66,7 @@ class PolicyGate:
         confirmed: bool = False,
         trace_id: str | None = None,
         requested_by: str | None = None,
+        thread_id: str | None = None,
     ) -> GateDecision:
         if confirmed:
             return GateDecision(
@@ -107,6 +108,7 @@ class PolicyGate:
             args=args,
             requested_by=requested_by,
             trace_id=trace_id,
+            thread_id=thread_id,
         )
         preview = {
             "slug": slug,

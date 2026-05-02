@@ -1,10 +1,10 @@
 {
   "$schema": "https://schema.tauri.app/config/2.0.0",
   "productName": "TARS",
-  "version": "0.1.0-rc.1",
+  "version": "8.4.0",
   "identifier": "world.meeet.tars",
   "build": {
-    "frontendDist": "../web",
+    "frontendDist": "./web",
     "devUrl": "http://localhost:5173",
     "beforeDevCommand": "pnpm --dir ../../experiments/neural-showcase-v3 dev",
     "beforeBuildCommand": "pnpm cockpit:build && pnpm cockpit:package"
@@ -65,8 +65,7 @@
     "updater": {
       "active": true,
       "endpoints": [
-        "https://meeet.world/updates/{{target}}/{{current_version}}.json",
-        "https://updates.meeet.world/tars/{{target}}/{{current_version}}.json"
+        "https://github.com/alxvasilevvv/tars-neural-cockpit/releases/latest/download/latest.json"
       ],
       "dialog": false,
       "pubkey": "TODO_PUBLIC_KEY"

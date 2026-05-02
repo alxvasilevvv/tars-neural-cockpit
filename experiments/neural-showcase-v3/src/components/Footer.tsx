@@ -6,6 +6,7 @@ import { KineticText } from "@/components/KineticText";
 import { SparklesCore } from "@/components/ui/sparkles";
 import { DownloadStrip } from "@/components/DownloadStrip";
 import { MeeetWorldStrip } from "@/components/MeeetWorldStrip";
+import { LocaleSwitcher } from "@/components/LocaleSwitcher";
 import { useT } from "@/lib/i18n";
 
 export function Footer() {
@@ -161,8 +162,8 @@ export function Footer() {
         />
       </div>
 
-      {/* Bottom bar — telemetry + copyright */}
-      <div className="mt-12 grid gap-2 border-t border-line pt-6 text-left font-mono-tech text-[10px] uppercase tracking-[2.4px] text-ink-3 md:grid-cols-3">
+      {/* Bottom bar — telemetry + copyright + locale switcher */}
+      <div className="mt-12 grid gap-2 border-t border-line pt-6 text-left font-mono-tech text-[10px] uppercase tracking-[2.4px] text-ink-3 md:grid-cols-4">
         <span className="flex items-center gap-2">
           <span
             className="h-1 w-1 rounded-full"
@@ -175,7 +176,10 @@ export function Footer() {
           {t("footer.systems")}
         </span>
         <span className="md:text-center">{t("footer.trace")}</span>
-        <span className="md:text-right">{t("footer.legal")}</span>
+        <span className="md:text-center">{t("footer.legal")}</span>
+        <span className="md:text-right md:justify-self-end">
+          <LocaleSwitcher />
+        </span>
       </div>
     </footer>
   );

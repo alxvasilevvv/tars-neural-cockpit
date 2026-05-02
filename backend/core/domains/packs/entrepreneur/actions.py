@@ -25,6 +25,12 @@ from ..mlm.actions import (
     retention_alert,
     score_recruit,
 )
+from ..mlm.post_drafter import (
+    KNOWN_CHANNELS as POST_CHANNELS,
+    KNOWN_FORMATS as POST_FORMATS,
+    KNOWN_LANGUAGES as POST_LANGUAGES,
+    KNOWN_TONES as POST_TONES,
+)
 
 
 ACTIONS: tuple[ActionSpec, ...] = (
@@ -58,17 +64,41 @@ ACTIONS: tuple[ActionSpec, ...] = (
     ActionSpec(
         id="generate_content",
         name="Generate content",
-        description="Draft a channel-appropriate piece of content (post / dm / story / thread).",
+        description=(
+            "Draft a channel-appropriate piece of content. "
+            "Deterministic: same args always render the same draft. "
+            "Supports ig / tg / wa / linkedin × post / story / reel "
+            "/ dm × warm / professional / urgent / celebratory × "
+            "en / ru / es. Emits 'mlm.post_drafted' on every call."
+        ),
         handler=generate_post,
         schema={
             "type": "object",
             "properties": {
-                "channel": {"type": "string", "enum": ["ig", "tg", "wa"]},
+                "channel": {
+                    "type": "string",
+                    "enum": list(POST_CHANNELS),
+                },
                 "format": {
                     "type": "string",
-                    "enum": ["story", "post", "reel", "dm"],
+                    "enum": list(POST_FORMATS),
+                },
+                "tone": {
+                    "type": "string",
+                    "enum": list(POST_TONES),
+                },
+                "language": {
+                    "type": "string",
+                    "enum": list(POST_LANGUAGES),
                 },
                 "topic": {"type": "string"},
+                "cta": {
+                    "type": "string",
+                    "description": (
+                        "Optional explicit call-to-action; falls back "
+                        "to a tone-appropriate default."
+                    ),
+                },
             },
             "required": ["channel"],
         },

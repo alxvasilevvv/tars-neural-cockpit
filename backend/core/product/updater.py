@@ -40,7 +40,10 @@ import datetime as _dt
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Iterable, Mapping
+from typing import TYPE_CHECKING, Iterable, Mapping
+
+if TYPE_CHECKING:
+    from .manifest import ReleaseEntry  # noqa: F401
 
 
 # Mapping (os, arch, kind) -> Tauri target slug. ``kind`` matters only
@@ -56,6 +59,27 @@ _TARGET_BY_OS_ARCH: dict[tuple[str, str], str] = {
     ("linux", "x64"): "linux-x86_64",
     ("linux", "arm64"): "linux-aarch64",
 }
+
+# Reverse mapping for the HTTP surface (live endpoint takes a Tauri
+# slug as a path parameter and needs to filter ``ReleaseEntry``
+# artifacts by ``(os, arch)``).
+_OS_ARCH_BY_TARGET: dict[str, tuple[str, str]] = {
+    v: k for k, v in _TARGET_BY_OS_ARCH.items()
+}
+
+
+def known_targets() -> tuple[str, ...]:
+    """All Tauri target slugs the manifests are willing to publish."""
+
+    return tuple(sorted(_TARGET_BY_OS_ARCH.values()))
+
+
+def target_to_os_arch(target: str) -> tuple[str, str] | None:
+    """Reverse the slug → ``(os, arch)`` lookup, returning ``None``
+    for unknown targets so the caller can decide on a 404 vs 400.
+    """
+
+    return _OS_ARCH_BY_TARGET.get(target)
 
 # When an artifact's kind isn't one the Tauri updater can install
 # in-place, drop it from the channel manifest. The first-install
@@ -173,6 +197,58 @@ def build_channel(
         notes=notes or "",
         pub_date=pub_date or _now_isoformat(),
         platforms=tuple(platforms[k] for k in sorted(platforms)),
+    )
+
+
+def build_channel_from_release(
+    entry: "ReleaseEntry",
+    *,
+    target: str | None = None,
+    artifacts_dir: Path | None = None,
+) -> TauriChannel:
+    """Bridge a manifest :class:`ReleaseEntry` (the source of truth
+    for ``/api/product/downloads``) to a :class:`TauriChannel`.
+
+    When ``target`` is provided, the channel is filtered to only
+    include the matching platform — this is how the live HTTP
+    endpoint serves a single ``<target>.json`` without leaking
+    sibling targets. ``target=None`` produces the full multi-
+    platform channel (matching the CLI behaviour).
+
+    Keeping the bridge in the same module guarantees the CLI and
+    the live endpoint stay in lock-step: any future tweak to the
+    target / kind matrix flows through both surfaces.
+    """
+
+    artifact_dicts: list[dict[str, str]] = []
+    for art in entry.artifacts:
+        artifact_dicts.append(
+            {
+                "os": art.os,
+                "arch": art.arch,
+                "kind": art.kind,
+                "filename": art.filename,
+                "url": art.url,
+            }
+        )
+
+    channel = build_channel(
+        artifact_dicts,
+        version=entry.version,
+        notes=entry.notes,
+        pub_date=entry.released_at or _now_isoformat(),
+        artifacts_dir=artifacts_dir,
+    )
+
+    if target is None:
+        return channel
+
+    filtered = tuple(p for p in channel.platforms if p.target == target)
+    return TauriChannel(
+        version=channel.version,
+        notes=channel.notes,
+        pub_date=channel.pub_date,
+        platforms=filtered,
     )
 
 

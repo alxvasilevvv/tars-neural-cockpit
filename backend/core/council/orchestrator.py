@@ -9,16 +9,29 @@ Modes:
 
 Every deliberation emits a ``sampler.decision`` event so meeet can
 build per-model leaderboards across products.
+
+Voices are queried **in parallel** via ``asyncio.gather``. With three
+LLM voices configured (each capped at the LLM client's 12s timeout),
+serial deliberation could take up to ~36s; gather collapses that to
+``max(latency_per_voice)`` so a slow cloud voice never starves the
+local voice's contribution. Individual voice failures are isolated:
+they materialise as ``unavailable`` proposals (``stance='unavailable'``,
+``confidence=0.0``) and the orchestrator continues. ``usage.tokens``
+events are still emitted serially after the gather in input order so
+the cost ledger remains deterministic.
 """
 
 from __future__ import annotations
 
+import asyncio
+import time
 from collections import Counter
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any, Iterable, Mapping, Optional
 
 from backend.core.meeet import (
-    current_trace,
+    current_route,
+    current_thread_id,
     get_client,
     new_trace_id,
     set_route,
@@ -51,6 +64,55 @@ def _default_voice_panel() -> list[Voice]:
     if llm is not None:
         panel.append(llm)
     return panel
+
+
+def _exception_proposal(model: str, exc: BaseException, latency_ms: float) -> Proposal:
+    """Materialise a per-voice exception as an ``unavailable`` proposal.
+
+    The orchestrator runs voices in parallel via ``asyncio.gather`` with
+    ``return_exceptions=True``; that means a single voice raising can
+    never crash the deliberation. We surface the failure as the same
+    ``unavailable`` shape ``llm.py`` already uses for missing keys /
+    transport errors so downstream code (``_winner`` / ``_agreement``
+    / ``_contradictions``) keeps a single contract.
+    """
+
+    return Proposal(
+        model=model or "unknown",
+        stance="unavailable",
+        summary=f"UNAVAILABLE — {type(exc).__name__}.",
+        actions_recommended=(),
+        confidence=0.0,
+        rationale=f"{type(exc).__name__}: {exc}",
+        latency_ms=latency_ms,
+        tokens_in=0,
+        tokens_out=0,
+    )
+
+
+async def _propose_one(voice: Voice, prompt: str, context: Mapping[str, Any]) -> Proposal:
+    """Run one voice with its own latency stopwatch.
+
+    The timing fallback is here (and not on each voice) so even voices
+    that forget to stamp ``latency_ms`` themselves still get a useful
+    number for the cost ledger / sampler.decision rollup.
+    """
+
+    started = time.perf_counter()
+    p = await voice.propose(prompt, context)
+    if not getattr(p, "latency_ms", 0):
+        p = Proposal(
+            model=p.model,
+            stance=p.stance,
+            summary=p.summary,
+            actions_recommended=p.actions_recommended,
+            confidence=p.confidence,
+            rationale=p.rationale,
+            latency_ms=(time.perf_counter() - started) * 1000.0,
+            tokens_in=p.tokens_in,
+            tokens_out=p.tokens_out,
+        )
+    return p
 
 
 @dataclass(frozen=True)
@@ -162,9 +224,13 @@ class CouncilOrchestrator:
         context: Mapping[str, Any],
         *,
         mode: str = "dual_vote",
+        thread_id: str | None = None,
     ) -> Deliberation:
         if mode not in {"single", "dual_vote", "n_vote"}:
             raise ValueError(f"unknown council mode: {mode}")
+
+        if not thread_id:
+            thread_id = current_thread_id()
 
         if mode == "single":
             chosen_voices = self.voices[:1]
@@ -178,37 +244,54 @@ class CouncilOrchestrator:
 
         client = get_client()
         with trace_scope() as tid:
-            await client.emit(
-                "council.deliberation.started",
-                {
-                    "mode": mode,
-                    "voices": [v.model for v in chosen_voices],
-                    "topic": context.get("topic"),
-                },
+            started_payload: dict[str, Any] = {
+                "mode": mode,
+                "voices": [v.model for v in chosen_voices],
+                "topic": context.get("topic"),
+            }
+            if thread_id:
+                started_payload["thread_id"] = thread_id
+            await client.emit("council.deliberation.started", started_payload)
+
+            # Run every voice concurrently. ``return_exceptions=True``
+            # means one slow / broken voice never starves the others —
+            # the failure becomes an ``unavailable`` proposal so the
+            # arbiter still has a deterministic shape to work with.
+            raw_results = await asyncio.gather(
+                *(_propose_one(voice, prompt, context) for voice in chosen_voices),
+                return_exceptions=True,
             )
 
             proposals: list[Proposal] = []
-            for voice in chosen_voices:
-                p = await voice.propose(prompt, context)
-                proposals.append(p)
-                # Cloud voices crossed the boundary — bump the route on
-                # this scope so every later event in the same trace
-                # carries the right tag.
+            for voice, result in zip(chosen_voices, raw_results):
+                if isinstance(result, BaseException):
+                    proposals.append(_exception_proposal(voice.model, result, latency_ms=0.0))
+                else:
+                    proposals.append(result)
+
+            # Bump the trace route to ``cloud`` if any cloud voice
+            # actually returned. Idempotent on the trace scope, so
+            # multiple cloud voices coexist cleanly.
+            for p in proposals:
                 if _is_cloud_voice(p.model) and p.stance != "unavailable":
                     set_route("cloud")
+
+            # Emit usage.tokens serially after gather so the cost
+            # ledger keeps deterministic ordering (in input order).
+            for p in proposals:
                 cost = _PRICE_TABLE.cost_usd(p.model, p.tokens_in, p.tokens_out)
-                await client.emit(
-                    "usage.tokens",
-                    {
-                        "model": p.model,
-                        "tokens_in": int(p.tokens_in),
-                        "tokens_out": int(p.tokens_out),
-                        "latency_ms": round(float(p.latency_ms), 3),
-                        "cost_usd": cost,
-                        "stance": p.stance,
-                        "topic": context.get("topic"),
-                    },
-                )
+                usage_payload: dict[str, Any] = {
+                    "model": p.model,
+                    "tokens_in": int(p.tokens_in),
+                    "tokens_out": int(p.tokens_out),
+                    "latency_ms": round(float(p.latency_ms), 3),
+                    "cost_usd": cost,
+                    "stance": p.stance,
+                    "topic": context.get("topic"),
+                }
+                if thread_id:
+                    usage_payload["thread_id"] = thread_id
+                await client.emit("usage.tokens", usage_payload)
 
             winner = _winner(proposals)
             agreement = _agreement(proposals)
@@ -221,36 +304,41 @@ class CouncilOrchestrator:
                 if c is not None:
                     total_cost += c
 
-            await client.emit(
-                "sampler.decision",
-                {
-                    "id": sampler_id,
-                    "mode": mode,
-                    "models": [v.model for v in chosen_voices],
-                    "winner": winner.model,
-                    "winning_stance": winner.stance,
-                    "latency_ms": round(
-                        sum(v.latency_ms for v in proposals), 3
-                    ),
-                    "tokens_in": sum(v.tokens_in for v in proposals),
-                    "tokens_out": sum(v.tokens_out for v in proposals),
-                    "cost_usd": round(total_cost, 6),
-                    "agreement": agreement,
-                    "contradictions": contradictions,
-                },
-            )
+            # ``latency_ms`` here is the wall-clock cost of the
+            # deliberation. With voices fanned out via asyncio.gather
+            # the bound is ``max(per-voice latency)``; ``cumulative_ms``
+            # keeps the sum-of-per-voice number for cost accounting
+            # and per-model leaderboards.
+            wall_latency_ms = max((v.latency_ms for v in proposals), default=0.0)
+            cumulative_latency_ms = sum(v.latency_ms for v in proposals)
+            sampler_payload: dict[str, Any] = {
+                "id": sampler_id,
+                "mode": mode,
+                "models": [v.model for v in chosen_voices],
+                "winner": winner.model,
+                "winning_stance": winner.stance,
+                "latency_ms": round(wall_latency_ms, 3),
+                "cumulative_latency_ms": round(cumulative_latency_ms, 3),
+                "tokens_in": sum(v.tokens_in for v in proposals),
+                "tokens_out": sum(v.tokens_out for v in proposals),
+                "cost_usd": round(total_cost, 6),
+                "agreement": agreement,
+                "contradictions": contradictions,
+                "parallel": len(proposals) > 1,
+            }
+            if thread_id:
+                sampler_payload["thread_id"] = thread_id
+            await client.emit("sampler.decision", sampler_payload)
 
-            await client.emit(
-                "council.deliberation.completed",
-                {
-                    "mode": mode,
-                    "chosen": winner.stance,
-                    "winner_model": winner.model,
-                    "agreement": agreement,
-                },
-            )
-
-            from backend.core.meeet import current_route
+            completed_payload: dict[str, Any] = {
+                "mode": mode,
+                "chosen": winner.stance,
+                "winner_model": winner.model,
+                "agreement": agreement,
+            }
+            if thread_id:
+                completed_payload["thread_id"] = thread_id
+            await client.emit("council.deliberation.completed", completed_payload)
 
             return Deliberation(
                 mode=mode,

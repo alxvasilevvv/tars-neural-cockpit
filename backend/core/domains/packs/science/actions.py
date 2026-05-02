@@ -13,6 +13,8 @@ from xml.etree import ElementTree as ET
 from ...base import ActionSpec
 from ..._http import NetworkError, get_text
 from .crossref import enrich_via_crossref
+from .datasets import extract_datasets_from_text
+from .hypothesis import grow_tree
 from .openalex import enrich_arxiv
 
 ARXIV_URL = "http://export.arxiv.org/api/query"
@@ -251,21 +253,186 @@ async def summarize_paper(args: Mapping[str, Any]) -> Mapping[str, Any]:
 
 
 async def extract_dataset(args: Mapping[str, Any]) -> Mapping[str, Any]:
-    return {
-        "ok": True,
-        "datasets": [],
-        "as_of": None,
-    }
+    """Surface dataset references in a paper abstract or raw text.
+
+    Three input shapes are supported (in priority order):
+
+    - ``text``: any operator-provided string. Useful for the
+      cockpit's "paste a paper passage" affordance and to keep
+      the detector unit-testable without network or storage.
+    - ``attachment_id``: id of a chat attachment that's already
+      been ingested. The handler reads ``record.extracted_text``
+      (the same field that backs the chunker / FTS index) and
+      runs the detector over it. Lets an operator point at a
+      PDF they've uploaded and ask "what datasets does this
+      paper cite?" without re-fetching arXiv.
+    - ``ref``: an arXiv id / DOI / arxiv URL. The handler fetches
+      the title + abstract via the same arXiv Atom path that
+      backs ``summarize_paper`` and runs the detector over
+      ``title + ". " + summary``.
+
+    If multiple are provided, the priority above wins. The
+    detector is the same in all three cases — it operates on
+    text, so the input shape only changes the *source* of that
+    text.
+
+    Returns ``{ok, datasets[], count, sources[]}`` where each
+    dataset row is ``{canonical_id, name, source, evidence,
+    url?, domain?}``. ``sources`` lists the high-level providers
+    that contributed (``known_dataset``, ``zenodo``, etc.) so
+    the cockpit can render lane chips.
+
+    Errors flow through the same ``ok=False, error=…`` shape as
+    ``summarize_paper`` so domain pack policy stays uniform.
+    """
+
+    text = str(args.get("text") or "").strip()
+    attachment_id = str(args.get("attachment_id") or "").strip()
+    ref = str(args.get("ref") or "").strip()
+
+    if not text and not attachment_id and not ref:
+        return {"ok": False, "error": "ref_or_text_or_attachment_required"}
+
+    payload: dict[str, Any] = {"ok": True}
+
+    if not text and attachment_id:
+        # Lazy import to keep the science pack importable in test
+        # environments that don't bring up the chat / attachment
+        # stack.
+        from backend.core.attachments import get_attachment_store
+
+        store = get_attachment_store()
+        record = await store.get_attachment(attachment_id)
+        if record is None:
+            return {
+                "ok": False,
+                "error": "attachment_not_found",
+                "attachment_id": attachment_id,
+            }
+        attachment_text = (record.extracted_text or "").strip()
+        if not attachment_text:
+            return {
+                "ok": False,
+                "error": "attachment_empty",
+                "hint": (
+                    "attachment has no extracted text — re-ingest with a "
+                    "supported extractor or run with text=… instead"
+                ),
+                "attachment_id": attachment_id,
+            }
+        text = attachment_text
+        payload["attachment_id"] = attachment_id
+        payload["filename"] = record.filename
+        payload["mime"] = record.mime
+        payload["thread_id"] = record.thread_id
+
+    if not text:
+        arxiv_id = _normalize_arxiv_ref(ref)
+        if not arxiv_id:
+            return {
+                "ok": False,
+                "error": "ref_unrecognised",
+                "hint": "expected arxiv id like 2305.13245 or full arxiv url",
+                "ref": ref,
+            }
+        try:
+            status, body = await get_text(
+                ARXIV_URL,
+                params={"id_list": arxiv_id, "max_results": 1},
+                timeout=8.0,
+            )
+        except NetworkError as e:
+            return {
+                "ok": False,
+                "error": "network_error",
+                "hint": "arxiv unreachable",
+                "detail": str(e),
+                "arxiv_id": arxiv_id,
+            }
+        if status != 200 or not body:
+            return {
+                "ok": False,
+                "error": "upstream_status",
+                "status": status,
+                "arxiv_id": arxiv_id,
+            }
+        try:
+            results = _parse_arxiv(body)
+        except ET.ParseError as e:
+            return {
+                "ok": False,
+                "error": "parse_error",
+                "detail": str(e),
+                "arxiv_id": arxiv_id,
+            }
+        if not results:
+            return {
+                "ok": False,
+                "error": "not_found",
+                "arxiv_id": arxiv_id,
+            }
+        paper = results[0]
+        title = (paper.get("title") or "").strip()
+        summary = (paper.get("summary") or "").strip()
+        text = (title + ". " + summary).strip(". ").strip()
+        payload["arxiv_id"] = arxiv_id
+        payload["ref"] = ref
+        payload["title"] = paper.get("title")
+
+    mentions = extract_datasets_from_text(text)
+    payload["datasets"] = [m.to_dict() for m in mentions]
+    payload["count"] = len(mentions)
+    payload["sources"] = sorted({m.source for m in mentions})
+    return payload
 
 
 async def hypothesis_tree(args: Mapping[str, Any]) -> Mapping[str, Any]:
-    seed = str(args.get("seed", "")).strip()
-    if not seed:
+    """Grow a deterministic hypothesis tree from a seed claim.
+
+    Args:
+      ``seed``: required, the parent claim (e.g. "X causes Y").
+      ``depth``: optional int in ``[0, 3]``; default ``1`` (seed +
+        one child layer along the five canonical dimensions).
+        Garbage / negative values are coerced to ``1``.
+
+    Returns ``{ok: True, seed, depth, tree, model}`` on success or
+    ``{ok: False, error: "seed_required"}`` if the seed is blank.
+
+    The tree carries stable ``h-NNNN`` ids so the cockpit can pin
+    expand state across renders, and a ``kind`` per node
+    (`seed / mechanism / alternatives / confounders / conditions /
+    evidence / step / alternative / confounder / condition / test`)
+    so the renderer can colour-code the layers.
+    """
+
+    seed_raw = str(args.get("seed", "")).strip()
+    if not seed_raw:
         return {"ok": False, "error": "seed_required"}
+
+    depth_arg = args.get("depth", 1)
+    if isinstance(depth_arg, bool):
+        depth = 1
+    elif isinstance(depth_arg, int):
+        depth = depth_arg
+    else:
+        depth = 1
+
+    try:
+        tree = grow_tree(seed_raw, depth=depth)
+    except ValueError as exc:
+        return {"ok": False, "error": str(exc)}
+
+    # The action echoes the *effective* depth so callers can verify
+    # what the tree actually contains. ``grow_tree`` clamps negatives
+    # back to the default (1) and clips above 3.
+    effective_depth = depth if depth >= 0 else 1
+    effective_depth = min(effective_depth, 3)
     return {
         "ok": True,
-        "seed": seed,
-        "tree": {"node": seed, "children": []},
+        "seed": tree.node,
+        "depth": effective_depth,
+        "tree": tree.to_dict(),
+        "model": "heuristic-v1",
     }
 
 
@@ -298,18 +465,63 @@ ACTIONS: tuple[ActionSpec, ...] = (
     ActionSpec(
         id="extract_dataset",
         name="Extract dataset",
-        description="Extract dataset references and pinned versions.",
+        description=(
+            "Surface dataset references in a paper (arXiv ref), an "
+            "uploaded attachment, or operator-provided text. Detects "
+            "~25 named datasets (ImageNet, COCO, GLUE, SQuAD, …) plus "
+            "repository URL patterns (Zenodo, Figshare, HuggingFace, "
+            "Kaggle, …)."
+        ),
         handler=extract_dataset,
-        schema={"type": "object", "properties": {}},
+        schema={
+            "type": "object",
+            "properties": {
+                "ref": {
+                    "type": "string",
+                    "description": "arXiv id / DOI / arxiv URL.",
+                },
+                "text": {
+                    "type": "string",
+                    "description": (
+                        "Raw text to scan; takes priority over "
+                        "'attachment_id' and 'ref' when provided."
+                    ),
+                },
+                "attachment_id": {
+                    "type": "string",
+                    "description": (
+                        "Id of an ingested chat attachment. Reads "
+                        "extracted_text from the attachment store; "
+                        "falls back to 'ref' when both are missing."
+                    ),
+                },
+            },
+        },
     ),
     ActionSpec(
         id="hypothesis_tree",
         name="Hypothesis tree",
-        description="Grow a hypothesis tree from a seed claim.",
+        description=(
+            "Grow a deterministic hypothesis tree from a seed claim. "
+            "Each child probes one of five canonical dimensions a peer "
+            "reviewer would interrogate (mechanism, alternatives, "
+            "confounders, conditions, evidence). Nodes carry stable "
+            "h-NNNN ids and a typed 'kind' so the cockpit can colour-"
+            "code the layers. Set 'depth' to 0 for the seed only, 1 "
+            "for one layer (default), 2 for grandchildren, max 3."
+        ),
         handler=hypothesis_tree,
         schema={
             "type": "object",
-            "properties": {"seed": {"type": "string"}},
+            "properties": {
+                "seed": {"type": "string"},
+                "depth": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 3,
+                    "default": 1,
+                },
+            },
             "required": ["seed"],
         },
     ),

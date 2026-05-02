@@ -64,8 +64,22 @@ ERROR_CODES: Mapping[str, str] = {
     # pairing / vault / recovery
     "pairing_invalid_token": "Pairing token is malformed, unknown, or expired.",
     "pairing_invalid_payload": "Pairing payload failed validation.",
+    "pair_rate_limited": "Per-IP pairing-begin rate limit exceeded; retry after the Retry-After window.",
+    "recovery_rate_limited": "Per-IP recovery-challenge rate limit exceeded; retry after the Retry-After window.",
+    "challenge_not_found": "Recovery challenge id is unknown or has been swept by the in-memory store.",
+    "challenge_not_passed": "Recovery challenge has not been passed yet (or was consumed/expired/exhausted).",
+    "fingerprint_mismatch": "Recovery challenge fingerprint does not match the current host's bound seed.",
+    "recovery_not_bound": "Host identity has no recovery fingerprint bound yet; generate a seed first.",
+    "rotate_blocked": "Rotate-identity is gated behind a passed 3-of-24 recovery challenge.",
     "vault_unavailable": "Encrypted vault is locked or missing.",
     "recovery_invalid_mnemonic": "Mnemonic failed BIP-39 validation.",
+    # entitlements / billing (Bug #2 + Bug #3 from SYSTEM_AUDIT_2026-05-02)
+    "payment_required": (
+        "Daily cloud-LLM budget exhausted for the current tier; "
+        "upgrade or enable BYO before retrying."
+    ),
+    "feature_disabled": "Endpoint is disabled in this deployment.",
+    "not_implemented": "Endpoint is recognised but the implementation is not live yet.",
 }
 
 # Hints map error_code → human-actionable next step. Optional.
@@ -82,6 +96,10 @@ ERROR_HINTS: Mapping[str, str] = {
     "calling secret-bearing routes.",
     "precondition_required": "Mint a confirm token via POST /api/wallet/confirm "
     "and resend with X-TARS-Confirm: <token>.",
+    "payment_required": (
+        "POST /api/entitlements/upgrade {tier:'pro'|'business', payment_token:<...>} "
+        "or POST /api/entitlements/byo {enabled:true} to lift the cap."
+    ),
 }
 
 
@@ -101,6 +119,7 @@ class TARSAPIError(HTTPException):
         message: str,
         hint: str | None = None,
         headers: Mapping[str, str] | None = None,
+        context: Mapping[str, Any] | None = None,
     ) -> None:
         super().__init__(
             status_code=status_code, detail=message, headers=dict(headers or {})
@@ -108,10 +127,21 @@ class TARSAPIError(HTTPException):
         self.error_code = error_code
         self.message = message
         self.hint = hint or ERROR_HINTS.get(error_code)
+        # Optional structured payload surfaced into the JSON envelope
+        # under the ``context`` key. Cockpit / mobile clients use this
+        # to render structured panels (e.g. cap_hit budget snapshot)
+        # without parsing the human-readable ``message``.
+        self.context: dict[str, Any] | None = (
+            dict(context) if context is not None else None
+        )
 
 
 def _envelope(
-    *, error_code: str, message: str, hint: str | None
+    *,
+    error_code: str,
+    message: str,
+    hint: str | None,
+    context: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     body: dict[str, Any] = {
         "ok": False,
@@ -122,6 +152,8 @@ def _envelope(
     }
     if hint:
         body["hint"] = hint
+    if context:
+        body["context"] = dict(context)
     return body
 
 
@@ -164,9 +196,12 @@ def _classify_http(exc: HTTPException) -> tuple[str, str, str | None]:
 
 async def _http_handler(_request: Request, exc: HTTPException) -> JSONResponse:
     code, message, hint = _classify_http(exc)
+    context = getattr(exc, "context", None) if isinstance(exc, TARSAPIError) else None
     return JSONResponse(
         status_code=exc.status_code,
-        content=_envelope(error_code=code, message=message, hint=hint),
+        content=_envelope(
+            error_code=code, message=message, hint=hint, context=context
+        ),
         headers=exc.headers or {},
     )
 

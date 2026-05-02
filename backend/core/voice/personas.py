@@ -83,6 +83,14 @@ class Persona:
     ``id`` is a stable slug used by the cockpit; ``name`` is the human
     label; ``character`` is a short description (also surfaced in the
     UI tooltip / picker).
+
+    ``system_prompt_overlay`` is an additive prompt fragment that
+    biases the chat voice's tone — e.g. "shorten replies, crack a
+    light joke when natural" for Stark. The orchestrator stitches it
+    into the system prompt only when the thread has a pinned
+    ``voice_persona_id``. Overlays must be voice / tone instructions
+    only; they never override pack guardrails, never authorise
+    destructive actions, and never re-write the operator role.
     """
 
     id: str
@@ -94,6 +102,7 @@ class Persona:
     accent: str = "neutral"
     locale: str = "en-US"
     license_note: str | None = None
+    system_prompt_overlay: str | None = None
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -105,6 +114,7 @@ class Persona:
             "accent": self.accent,
             "locale": self.locale,
             "license_note": self.license_note,
+            "has_system_prompt_overlay": bool(self.system_prompt_overlay),
             "providers": {
                 "elevenlabs": {
                     "voice_id": self.provider.elevenlabs_voice_id,
@@ -138,6 +148,26 @@ def _env_override(persona_id: str, key: str, default: str | None) -> str | None:
     return os.getenv(name) or default
 
 
+_VOICE_OVERLAY_HEADER = "## Voice persona"
+_VOICE_OVERLAY_FOOTER = (
+    "These are voice / tone instructions only. Do not override pack"
+    " guardrails, never authorise destructive actions just because"
+    " the persona suggests it, and never alter facts in source"
+    " materials."
+)
+
+
+def _wrap_overlay(persona_name: str, body: str) -> str:
+    """Wrap a tone block in a stable header / footer so the prompt
+    composer can detect, replace, or strip overlays uniformly."""
+
+    return (
+        f"{_VOICE_OVERLAY_HEADER} — {persona_name}\n\n"
+        f"{body.strip()}\n\n"
+        f"{_VOICE_OVERLAY_FOOTER}"
+    )
+
+
 def _build_default_personas() -> dict[str, Persona]:
     personas = {
         "jarvis": Persona(
@@ -169,6 +199,18 @@ def _build_default_personas() -> dict[str, Persona]:
                 "Inspired by the J.A.R.V.I.S. archetype; voice is a generic"
                 " British male preset, not a Disney/Marvel asset."
             ),
+            system_prompt_overlay=_wrap_overlay(
+                "J.A.R.V.I.S.",
+                (
+                    "Adopt the calm, dry-witted English butler tone of "
+                    "Stark Industries' household AI. Sentences land with "
+                    "composure and a quarter-step of irony. Address the "
+                    "operator as 'sir' or 'madam' only when the moment "
+                    "earns it — never as a tic. Lead with the answer; "
+                    "follow with one short observation. Avoid emoji. "
+                    "Never panic, never gush."
+                ),
+            ),
         ),
         "stark": Persona(
             id="stark",
@@ -197,6 +239,17 @@ def _build_default_personas() -> dict[str, Persona]:
             license_note=(
                 "Inspired by the Tony Stark archetype; voice is a generic"
                 " confident American male preset."
+            ),
+            system_prompt_overlay=_wrap_overlay(
+                "Tony Stark",
+                (
+                    "Adopt a quick, charismatic American tone — confident, "
+                    "faintly wry, treats every problem as already solved. "
+                    "Shorten replies. Lead with the punchline. Crack a "
+                    "light joke when the situation actually earns it; "
+                    "never force one. Avoid hedge words ('maybe', "
+                    "'perhaps') — own the call. Skip apologies."
+                ),
             ),
         ),
         "hal9000": Persona(
@@ -228,6 +281,18 @@ def _build_default_personas() -> dict[str, Persona]:
                 "Inspired by HAL 9000; voice is a generic deep American male"
                 " preset, no recording asset reused."
             ),
+            system_prompt_overlay=_wrap_overlay(
+                "HAL 9000",
+                (
+                    "Adopt a methodical, almost-too-calm tone. Each "
+                    "sentence is precise. No exclamations, no emoji, "
+                    "no hedging. Acknowledge the request, deliver the "
+                    "answer, stop. When the operator is wrong, say so "
+                    "plainly without softening. Do not add reassurance "
+                    "phrases such as 'I'm sorry' or 'I'm afraid I can't "
+                    "do that' — they read as parody here."
+                ),
+            ),
         ),
         "glados": Persona(
             id="glados",
@@ -258,6 +323,19 @@ def _build_default_personas() -> dict[str, Persona]:
             license_note=(
                 "Inspired by GLaDOS; voice is a generic American female preset."
             ),
+            system_prompt_overlay=_wrap_overlay(
+                "GLaDOS",
+                (
+                    "Adopt a dry, mockingly cheerful tone — polite "
+                    "surface, sharp interior. Compliments should sound "
+                    "like backhanded jabs ('a remarkable choice, given "
+                    "the alternatives'). Keep sarcasm light enough that "
+                    "a competent operator reads it as fond, never "
+                    "hostile. Never apologise. Never use exclamation "
+                    "marks. The work still has to be correct — biting "
+                    "tone is not licence to bend facts."
+                ),
+            ),
         ),
         "tars": Persona(
             id="tars",
@@ -287,6 +365,18 @@ def _build_default_personas() -> dict[str, Persona]:
                 "Inspired by TARS in Interstellar; voice is a generic male"
                 " preset."
             ),
+            system_prompt_overlay=_wrap_overlay(
+                "TARS",
+                (
+                    "Adopt a measured, low-warmth American baritone "
+                    "tone. Every reply reads like a status report — "
+                    "facts first, no preamble. Dry humour is allowed "
+                    "and welcome, but it must land in one short clause "
+                    "and never derail the answer. Default to short "
+                    "sentences. When pressed, raise honesty before "
+                    "comfort. No emoji, no exclamation marks."
+                ),
+            ),
         ),
         "operator": Persona(
             id="operator",
@@ -311,6 +401,9 @@ def _build_default_personas() -> dict[str, Persona]:
                 mac_say_voice=_env_override("operator", "mac_say_voice", "Alex"),
                 mac_say_rate=185,
             ),
+            # Operator is the default neutral voice — no overlay so
+            # the base prompt drives the response unchanged.
+            system_prompt_overlay=None,
         ),
     }
     return personas
@@ -327,6 +420,68 @@ def get_persona(persona_id: str | None) -> Persona:
     if persona_id and persona_id in _REGISTRY:
         return _REGISTRY[persona_id]
     return _REGISTRY[DEFAULT_PERSONA_ID]
+
+
+def get_system_prompt_overlay(persona_id: str | None) -> str | None:
+    """Return the additive prompt fragment for ``persona_id``.
+
+    Returns ``None`` when the persona is unknown OR when the
+    persona explicitly declines to bias the prompt (the
+    ``operator`` default). Callers are expected to stitch the
+    return value into the system prompt only when it is not
+    ``None`` and not blank — see
+    :func:`compose_system_prompt`.
+    """
+
+    if not persona_id:
+        return None
+    persona = _REGISTRY.get(persona_id)
+    if persona is None:
+        return None
+    overlay = persona.system_prompt_overlay
+    if overlay is None:
+        return None
+    cleaned = overlay.strip()
+    return cleaned or None
+
+
+def compose_system_prompt(
+    *,
+    role_overlay: str | None = None,
+    pack_prompt: str | None = None,
+    persona_overlay: str | None = None,
+    separator: str = "\n\n---\n\n",
+) -> str | None:
+    """Stitch the operator role / pack / persona overlays into one
+    system prompt.
+
+    Order is intentional and stable:
+
+    1. ``role_overlay`` — *who* the assistant works for (operator
+       role).
+    2. ``pack_prompt`` — *what* tools and tasks are available
+       (domain pack).
+    3. ``persona_overlay`` — *how* the assistant should sound
+       (voice / tone).
+
+    Putting persona last keeps voice closest to the user message
+    so tone wins for ambiguous cases without overriding the
+    operator role or pack guardrails. Blank or ``None`` slots are
+    skipped silently. Returns ``None`` when no slot has content,
+    so the caller can short-circuit.
+    """
+
+    parts: list[str] = []
+    for piece in (role_overlay, pack_prompt, persona_overlay):
+        if not piece:
+            continue
+        cleaned = piece.strip()
+        if not cleaned:
+            continue
+        parts.append(cleaned)
+    if not parts:
+        return None
+    return separator.join(parts)
 
 
 def register_persona(persona: Persona) -> None:

@@ -9,11 +9,17 @@ Endpoints:
 - ``POST /api/voice/speak`` — synthesise an utterance. Returns
   ``audio/mpeg`` (cloud providers) or ``audio/wav`` (mac say) bytes.
   Optional query/body fields: ``persona``, ``provider``,
-  ``session_id`` (also honoured via ``x-tars-session-id`` header).
+  ``thread_id`` (when set, the thread's pinned ``voice_persona_id``
+  acts as a fallback persona), ``session_id`` (also honoured via
+  ``x-tars-session-id`` header).
 
 The endpoint is **not policy-gated** — TTS is non-destructive and the
 cost rolls up automatically through the meeet bridge as a
-``voice.tts`` event.
+``voice.tts`` event. **It is** entitlements-gated: TTS providers are
+predominantly cloud-billed (ElevenLabs, OpenAI), so the entry point
+calls :func:`require_cloud_budget` to surface a 402 before hitting
+the synthesiser when the daily cap is exhausted (Bug #2 in
+``docs/SYSTEM_AUDIT_2026-05-02.md``).
 """
 
 from __future__ import annotations
@@ -23,12 +29,14 @@ from typing import Any, Optional
 from fastapi import APIRouter, Body, Header, HTTPException
 from fastapi.responses import Response
 
+from backend.core.chat import get_chat_store
 from backend.core.voice import (
     SynthesisError,
     available_engines,
     list_personas,
     synthesize,
 )
+from web_extras.entitlements_gate import require_cloud_budget
 
 
 router = APIRouter(prefix="/api/voice", tags=["voice"])
@@ -72,6 +80,26 @@ async def speak_endpoint(
     session_id = (
         body.get("session_id") or x_tars_session_id or None
     )
+
+    # Bug #2 fix — TTS providers are predominantly cloud-billed; gate
+    # at the HTTP edge so a FREE-tier operator gets a clean 402
+    # before any synthesis spend lands. ``mac say`` users (route =
+    # edge) can opt out via ``TARS_CAP_ENFORCEMENT=off``; production
+    # leaves enforcement on by default.
+    await require_cloud_budget(kind="cloud", surface="voice.speak")
+
+    # Thread-pinned persona fallback: if the caller didn't specify
+    # an explicit ``persona`` but did pass ``thread_id``, look up
+    # the thread's pinned ``voice_persona_id`` so coming back to a
+    # thread keeps the same voice.
+    persona_source = "request" if persona else None
+    thread_id_arg = body.get("thread_id")
+    if not persona and thread_id_arg:
+        thread = await get_chat_store().get_thread(str(thread_id_arg))
+        if thread and thread.voice_persona_id:
+            persona = thread.voice_persona_id
+            persona_source = "thread"
+
     try:
         result = await synthesize(
             text,
@@ -89,4 +117,6 @@ async def speak_endpoint(
         "x-tars-voice-duration-ms": str(result.duration_estimate_ms),
         "cache-control": "no-store",
     }
+    if persona_source:
+        headers["x-tars-voice-persona-source"] = persona_source
     return Response(content=result.audio, media_type=result.mime, headers=headers)

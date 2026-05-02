@@ -11,11 +11,31 @@ Ideas for the next sprints. Triage by impact × cost and pull into
 
 ## Voice (post-L4.1)
 
-- **Per-persona system-prompt overlay.** When the operator selects
-  Stark/Jarvis/etc., bias the chat voice's tone ("Stark would
-  shorten replies and crack a joke") via an additive prompt fragment.
-- **Per-thread persona pinning.** Persist `voice_persona_id` on
-  threads so coming back to a thread keeps the same voice.
+- **Per-persona system-prompt overlay.** ✅ shipped
+  (2026-05-01) — `Persona.system_prompt_overlay` field +
+  built-in tone blocks for Jarvis / Stark / HAL 9000 / GLaDOS /
+  TARS (operator opts out). New helpers
+  `get_system_prompt_overlay(persona_id)` +
+  `compose_system_prompt(*, role_overlay, pack_prompt,
+  persona_overlay)` re-exported from `backend.core.voice`.
+  Orchestrator stitches role → pack → persona; persona block
+  carries a header (`## Voice persona — <name>`) and a safety
+  footer reminding the model that voice overlays never override
+  pack guardrails. Tests:
+  `tests/test_persona_prompt_overlay.py` (23 cases).
+  `Persona.to_dict()` now exposes
+  `has_system_prompt_overlay`.
+- **Per-thread persona pinning.** ✅ shipped (2026-05-01) —
+  `threads.voice_persona_id` (additive migration), exposed on
+  `Thread.to_dict()` and every API response. Set / clear via
+  `POST /api/chat/threads` body or `PATCH /api/chat/threads/{id}`
+  with validation against `iter_personas()`.
+  `POST /api/voice/speak` accepts an optional `thread_id` field:
+  when no explicit `persona` is supplied, the endpoint resolves
+  the thread and uses its pinned id as a fallback (response header
+  `x-tars-voice-persona-source` is `request` or `thread`). Tests:
+  `tests/test_thread_persona_pinning.py` (26 cases). Cockpit
+  voice picker UI is the Claude-lane follow-up.
 - **Voice cloning kit (offline).** Document the path for an operator
   to capture 3 minutes of audio, mint an ElevenLabs IVC, paste the
   voice id into `TARS_PERSONA_OPERATOR_ELEVENLABS_ID`.
@@ -23,9 +43,14 @@ Ideas for the next sprints. Triage by impact × cost and pull into
   with native `Speech` API where applicable. Android: wire
   `SpeechRecognizer` + `RecognitionService` (or ML Kit on-device ASR when
   L4 exposes a relay) for offline / lower-latency dictation.
-- **`speech.intents` extraction.** Parse the dictated transcript for
-  TARS slash-commands ("/run traders.morning_check") before the LLM
-  sees it.
+- ~~**`speech.intents` extraction.**~~ ✅ **Shipped 2026-05-01** —
+  `backend/core/speech/intents.py` is a deterministic parser for
+  TARS slash + voice commands (`run` / `jump` / `search` /
+  `snooze` / `help`). Wake-word stripping
+  (`TARS, Hey TARS, Computer, Jarvis`), `dot`-keyword
+  normalisation, JSON args, registry-aware playbook arbitration,
+  duration parsing. HTTP: `POST /api/speech/intents`. Tests:
+  `tests/test_speech_intents.py` (35 cases).
 
 ## Attachments + RAG (post-L2)
 
@@ -39,13 +64,27 @@ Ideas for the next sprints. Triage by impact × cost and pull into
   (Anthropic Claude / OpenAI gpt-4o), pack image bytes into the
   request payload alongside the system prompt. Today images are
   stored but the assistant never sees them.
-- **`application/zip` walker.** Expand archives recursively (max 200
-  entries), ingest each member as its own attachment, link via a
-  parent attachment record.
-- **Streaming ingestion progress.** Yield SSE events
-  (`attachment.extracting`, `attachment.embedding`,
-  `attachment.indexed`) over the upload connection so the cockpit
-  can render a live "indexing 12 chunks…" pill on the chip.
+- ~~**`application/zip` walker.**~~ ✅ **Shipped 2026-05-01** —
+  `backend/core/attachments/zip_walker.py` walks zip uploads, ingests
+  each safe member as a child attachment linked via
+  `meta.parent_attachment_id`, surfaces a `zip_walk` summary on the
+  parent. Tunable via `TARS_ZIP_MAX_ENTRIES` / `TARS_ZIP_MAX_ENTRY_BYTES`
+  / `TARS_ZIP_MAX_DEPTH`. Tests: `tests/test_zip_walker.py`.
+- ~~**Streaming ingestion progress.**~~ ✅ **Shipped 2026-05-01** —
+  every ingest call now accepts a
+  `progress: ProgressCallback | None` kwarg that fires once per
+  phase (`started` / `extracted` / `chunked` / `embedding` /
+  `embedded` / `indexed` / `completed` / `dedup_hit` /
+  `zip_walked` / `error`). New HTTP route
+  `POST /api/chat/threads/{id}/attachments/stream` pipes that
+  callback into an SSE `StreamingResponse` (one frame per phase
+  + terminal `result` frame with the canonical upload envelope).
+  Three new meeet events `attachment.extracting` /
+  `attachment.embedding` / `attachment.indexed` for cross-cutting
+  observability. Pinned by
+  `tests/test_attachments_streaming_upload.py` (10 cases).
+  Cockpit "indexing 12 chunks…" pill UI is the Claude-lane
+  follow-up.
 - **Per-attachment hover preview.** Replace the chip's tooltip with a
   floating card that previews the first chunk + heading list.
 - **Re-embed on demand.** ✅ shipped (2026-05-01) —
@@ -58,6 +97,25 @@ Ideas for the next sprints. Triage by impact × cost and pull into
   orchestrator skips blank / same-model rows unless `force=True`
   and isolates per-batch failures into a `failed` count.
   `tests/test_attachment_reembed.py` (18 cases).
+  Backend bridge ✅ shipped (2026-05-01) —
+  `GET /api/chat/attachments/{id}/chunks/{chunk_id}/neighbours`
+  (plus `/neighbors` US alias) returns the chunk plus its
+  ord-adjacent neighbours; `before` / `after` clamp `[0, 10]`,
+  `full_text=false` for preview-only payloads. See
+  `backend/core/attachments/index.py::get_chunk_neighbours` and
+  `tests/test_attachments_chunk_neighbours.py` (19 cases).
+  Cockpit hover-card UI is the Claude-lane follow-up.
+- ~~**Re-embed on demand.**~~ **shipped** (2026-05-01) —
+  `reembed_attachment(attachment_id, *, embedder, embedder_name,
+  session_id)` in `backend/core/attachments/pipeline.py` re-vectorises
+  every chunk under a new embedder while preserving chunk ids and
+  ords (so cockpit permalinks survive). `POST
+  /api/chat/attachments/{id}/reembed` body
+  `{model: "openai" | "hash" | "text-embedding-3-large"}`; defaults to
+  `detect_embedder()` when omitted/blank/unknown. Emits
+  `attachment.reembedded` + `usage.tokens`. Pinned by
+  `tests/test_attachments_reembed.py` (21 cases). Cockpit
+  "promote/swap embedder" UI is the Claude-lane follow-up.
 - **Citation rendering in markdown.** Today the assistant says
   "as `[chunk_2]` shows…". Render `[chunk_N]` as a clickable pill in
   `<MessageBubble />` that scrolls to the matching source row.
@@ -74,10 +132,16 @@ Ideas for the next sprints. Triage by impact × cost and pull into
   path/to/build/dir --version=1.0.0` — copies artifacts into a staging
   folder, computes SHA256, writes `~/.tars/releases.json` and a
   signed copy at `dist/releases.json` for `meeet.world` SSR.
-- **Updater channel manifests.** Generate the per-target JSON
-  `tauri-plugin-updater` consumes (`/updates/<target>/<current>.json`)
-  from the same source as `/api/product/downloads` so the two stay in
-  lock-step.
+- ~~**Updater channel manifests.**~~ ✅ **Shipped 2026-05-01** —
+  `backend/core/product/updater.py` `build_channel_from_release()`
+  bridges `DownloadManifest` → `TauriChannel`; `web_extras/routers/
+  product.py` exposes `GET /updates/{target}/{current}.json` (live
+  Tauri-shaped manifest, lock-step with `/api/product/downloads`)
+  + `GET /api/product/updater/targets`. Tests:
+  `tests/test_updater_channel_http.py` (18 cases) including a
+  lock-step assertion that channel `version` matches
+  `/api/product/downloads/latest`. Publish CLI continues to write
+  static files for static hosting.
 - **Verify-on-download UI.** When `sha256` is present in the manifest,
   surface a "verified ✓" affordance on `<DownloadStrip />` (read the
   hash from `data-sha256`).
@@ -105,19 +169,70 @@ Open ideas for the next layer:
   / `recovery.{shown,verified}` on the cockpit timeline as a distinct
   gold-pill lane so an operator can see device topology + recovery
   events alongside chat activity.
+  *Done (read-side) 2026-05-01:* `MeeetStore.list_events()` gains a
+  `kind_prefix` filter (defensive LIKE escape); `GET /api/meeet/events`
+  exposes it; new `GET /api/pairing/audit` folds `pair.*` +
+  `recovery.*` into one newest-first deduped feed with the
+  public-safe `{id, ts, trace_id, kind, payload}` shape. Cockpit
+  rendering still pending (Claude lane).
 - **Pairing relay rate-limit.** `meeet.world/pair/<id>` should expire
   after 120 s and rate-limit per source IP — the host re-mints on
   failure rather than retrying the same `pair_id`.
+  *Done (rate-limit half) 2026-05-01:* `POST /api/pairing/begin` is
+  now gated by an in-process token-bucket per source IP (10 burst
+  + 30/min by default, env-tunable; `X-Forwarded-For` opt-in via
+  `TARS_TRUST_FORWARDED_FOR=1`). 429 responses carry the
+  `TARSAPIError` envelope, `Retry-After` /
+  `X-RateLimit-{Remaining,Reset,Bucket}` headers, and emit a
+  `pair.rate_limited` meeet event. The `pair_id` TTL piece is
+  still pending — relay backend lives on meeet.world and is not in
+  this repo's lane.
+  *Done (recovery half) 2026-05-01:* the same token-bucket
+  primitive now also gates
+  `POST /api/recovery/challenge/{start,verify}`. Defaults: 5 burst
+  + 1/30s on start (memory-exhaustion DoS), 10 burst + 1/10s on
+  verify (brute-force resistance). Env-tunable via
+  `TARS_RECOVERY_CHALLENGE_{START,VERIFY}_{BURST,RATE_PER_S}`.
+  Emits `recovery.rate_limited` events so the
+  `/api/pairing/audit` feed surfaces brute-force attempts.
 - **Multi-recipient envelope optimisation.** Today every recipient
   gets its own `crypto_box_seal` of the per-event content key. For
   high-fanout events (large fleets) we could move to a one-pass
   X25519 ECDH with a stored static-pubkey + per-event ephemeral and
   derive each wrapped key via HKDF — keep this on the back burner
   until fleet sizes justify the complexity.
-- **Recovery seed verification policy.** Require the operator to
-  confirm 3 random words out of 24 (not the full phrase) on
-  subsequent rotations to balance friction vs. correctness; gate
-  the "rotate identity" action behind this check.
+- ~~**Recovery seed verification policy.**~~ **primitives shipped
+  2026-05-01** — `backend/core/crypto/seed_challenge.py` lands the
+  pure-stdlib state machine: `mint_challenge` picks N (default 3)
+  random positions out of 24, `verify_challenge` does case +
+  whitespace insensitive 1:1 matching with attempts decrement /
+  TTL expiry. `SeedChallengeStore` is a thread-safe in-memory
+  dict with expiry-aware reads. New HTTP routes
+  `POST /api/recovery/challenge/{start,verify}` and
+  `GET /api/recovery/challenge/{id}` emit
+  `recovery.challenge.{started,passed,failed,expired,exhausted}`
+  events on the existing audit lane. Pinned by
+  `tests/test_seed_challenge.py` (30 cases). Follow-up:
+  gate the destructive rotate-identity flow on a fresh
+  `recovery.challenge.passed` event for the same fingerprint.
+  *Done (rotate-gate) 2026-05-01:* new
+  `consume_passed_challenge(store, id, expected_fingerprint=…)`
+  helper transitions a `passed` proof to `consumed` atomically
+  (single-use, fingerprint-bound). New
+  `POST /api/pairing/rotate-identity` consumes that proof and
+  calls `PairingStore.rotate_host_identity(...)`, emitting
+  `pair.host_rotated`. 409 envelopes for `recovery_not_bound`,
+  `challenge_not_passed`, `fingerprint_mismatch`; 404 for
+  `challenge_not_found`. Optional `new_recovery_fingerprint`
+  body knob lets the operator rebind the seed at the same time
+  as the keypair. Pinned by 19 new tests (10 unit + 9 HTTP).
+  *Done (epoch-bump) 2026-05-01:* the rotate endpoint now also
+  snapshots paired devices, revokes each, and emits a separate
+  `pair.epoch_bumped` event with the cleared list (so the
+  cockpit gold-pill audit lane gets a distinct row). Zero-device
+  rotates skip the epoch-bumped event to keep the timeline clean.
+  Closes the loose follow-up from `PairingStore.rotate_host_identity()`'s
+  docstring.
 
 ## Search & observability (post-L8)
 
@@ -252,21 +367,193 @@ Open ideas for the next layer:
 ## Domain pack improvements
 
 6. **Real adapters, behind feature flags.**
-   - `traders.binance_pull_klines` (read-only).
-   - `business.hubspot_pull_pipeline` (read-only).
-   - `mlm.tg_outreach_draft` (returns markdown, no auto-send).
+   - ~~`traders.binance_pull_klines`~~ ✅ **Shipped 2026-05-01** —
+     `backend/core/domains/packs/traders/binance.py` `pull_klines`
+     handler against `api.binance.com/api/v3/klines` (no key).
+     Symbol normalisation (`BTC/USDT` → `BTCUSDT`), interval
+     enum, limit `1..1000`, defensive row parsing, derived
+     `close_first/last` + `change_pct`. Emits
+     `integration.binance.klines` events (request / completed /
+     error). Tests: `tests/test_traders_binance_klines.py` (21
+     cases).
+   - ~~`business.hubspot_pull_pipeline`~~ ✅ **Shipped 2026-05-01**
+     (read-only) — `backend/core/domains/packs/business/hubspot.py`
+     `pull_pipeline` handler against
+     `api.hubapi.com/crm/v3/objects/deals` (vault key
+     `HUBSPOT_API_KEY`). Returns normalised deals with
+     `stage_label` lookup + derived `active_count` /
+     `won_count` / `lost_count` / `pipeline_amount` rollups +
+     opaque `next_cursor` from HubSpot's `paging.next.after`.
+     Defensive structural errors (`auth_missing` /
+     `auth_invalid` / `invalid_limit` / `network_error` /
+     `upstream_status` / `upstream_payload_invalid`). Emits
+     `integration.hubspot.deals_list` events
+     (`request` / `completed` / `error`). Tests:
+     `tests/test_business_hubspot_pipeline.py` (35 cases).
+   - `mlm.tg_outreach_draft` ✅ shipped (2026-05-01) — pure
+     deterministic markdown drafter; six intents × three tones ×
+     three languages (en/ru/es); `send_status="draft"` and
+     `destructive=False` so the action is preview-only. See
+     `backend/core/domains/packs/mlm/tg_outreach.py` and
+     `tests/test_mlm_tg_outreach.py` (34 cases).
    - `science.arxiv_search` ✅ shipped — `science.search_literature`
      against the public Atom API.
    - `science.summarize_paper` ✅ shipped — Atom by id, returns
      title/authors/tldr/abstract.
+   - `science.hypothesis_tree` ✅ shipped (2026-05-01) — real
+     deterministic decomposer. New
+     `backend/core/domains/packs/science/hypothesis.py` lands a
+     `grow_tree(seed, *, depth=1)` builder that fans out along
+     five canonical dimensions any peer reviewer would interrogate
+     (`mechanism / alternatives / confounders / conditions /
+     evidence`) with per-dimension grandchild templates. Stable
+     `h-NNNN` ids and typed `kind` per node so the cockpit can
+     pin expand state across renders and colour-code layers.
+     Depth clamped to `[0, 3]`. Action returns the effective
+     depth + `model="heuristic-v1"` label. Tests:
+     `tests/test_science_hypothesis_tree.py` (24 cases).
+   - `science.extract_dataset` ✅ shipped (2026-05-01) —
+     `backend/core/domains/packs/science/datasets.py` lands two
+     detectors: a curated `KnownDataset` registry (~25 entries
+     across vision / NLP / speech / RL / biotech) matched
+     case-insensitively at word boundaries, and a `RepoPattern`
+     URL library (Zenodo, Figshare, HuggingFace, Kaggle,
+     OpenML, OSF, Dryad) that reconstructs a canonical URL from
+     each match. Action accepts `text` (raw passage), an
+     `attachment_id` (reads `extracted_text` from the chat
+     attachment store), or `ref` (arxiv id / DOI / URL) — in
+     that priority order so operator excerpts skip the network.
+     The `attachment_id` shape lets the cockpit ask "what
+     datasets does this paper cite?" against an already-ingested
+     PDF without re-fetching arXiv. Each `DatasetMention`
+     carries an `evidence` snippet so the cockpit can render
+     audit-friendly chips.
+     Tests: `tests/test_science_extract_datasets.py` (34 cases).
    - `traders.fetch_quote` ✅ shipped — DexScreener public search.
    - `traders.summarize_market` ✅ shipped — basket aggregation +
      bias + dispersion contradictions.
+   - `traders.place_alert` ✅ shipped (2026-05-01) — real
+     local-first adapter. New module
+     `backend/core/domains/packs/traders/local_alerts.py` persists
+     each alert into `~/.tars/traders_alerts.json` (override via
+     `TARS_LOCAL_ALERTS_PATH` env var or `path` kwarg) with
+     atomic tmp+rename writes, monotonic `local-alert-NNNN` ids,
+     strict input validation (stable error codes
+     `ticker_required` / `price_invalid` / `direction_invalid`),
+     and the broadened direction enum
+     `above / below / cross_above / cross_below`. Emits
+     `traders.alert_placed` per the cross-cutting adapter rule so
+     the destructive-action gate now confirms a real persisted
+     receipt instead of the old `stub-0001` echo. Sibling
+     **`traders.list_alerts`** (non-destructive) reads the queue
+     back with `ticker / active_only / limit` filters, and
+     **`traders.cancel_alert`** (destructive) closes an alert by
+     id with idempotent semantics — second cancel is a no-op,
+     emits no duplicate event, preserves the original
+     `cancel_reason`. Cancellation stamps `cancelled_at` /
+     `cancel_reason` on the row so the audit trail keeps the why
+     and when. The store is also exposed through a new
+     **`traders.local_alerts`** awareness source (`kind="local"`,
+     defaults to `active_only=True`, `limit=50` clamped to 200) so
+     the cockpit ticker can render live triggers via the existing
+     `/api/domains/traders/awareness/local_alerts/snapshot`
+     endpoint without touching the JSON file directly. Pinned by
+     `tests/test_traders_local_alerts.py` (83 cases),
+     `tests/test_traders_alerts_awareness.py` (12 cases), plus a
+     destructive-spec membership pin update in
+     `tests/test_policy.py` and a live-fetcher membership pin
+     update in `tests/test_awareness_fetchers.py`.
    - `business.kpi_snapshot`, `business.daily_brief` ✅ shipped —
-     local JSON-backed.
+     local JSON-backed. `daily_brief` (2026-05-01 follow-up)
+     now also unions the local `log_deal` store at
+     `~/.tars/business_deals.json` (override via
+     `TARS_LOCAL_DEALS_PATH` or `local_deals_path` arg),
+     surfacing `deals_local_logged` + `local_deals_path` on
+     the response. Tests:
+     `tests/test_business_daily_brief_local_union.py` (10 cases,
+     incl. an end-to-end `log_deal → daily_brief` closed-loop
+     test).
+   - `business.log_deal` ✅ shipped (2026-05-01) — real
+     local-first adapter. Routes to HubSpot if
+     `HUBSPOT_API_KEY` is set, Pipedrive if `PIPEDRIVE_API_KEY`
+     is set, otherwise appends to a local JSON store at
+     `~/.tars/business_deals.json` (override via
+     `TARS_LOCAL_DEALS_PATH` or `store_path` arg). New module
+     `backend/core/domains/packs/business/local_deals.py`
+     handles atomic tmp+rename writes, monotonically
+     incrementing `local-NNNN` ids that ignore unrelated CRM
+     rows, defensive load (corrupted JSON / non-list /
+     mixed-row shapes all tolerated), and a process-local
+     lock. Emits `business.deal_logged` per the cross-cutting
+     adapter rule. The format is wire-compatible with the file
+     `daily_brief` already reads, so the brief picks logged
+     deals up the next morning. Pinned by
+     `tests/test_business_local_deals.py` (43 cases). Sibling
+     **`business.update_deal`** (2026-05-01 follow-up, destructive)
+     closes the lifecycle: patches any subset of
+     `name / amount / stage / owner / next_step / due / notes` on a
+     previously-logged local row, stamps `updated_at`, and emits
+     `business.deal_updated`. Idempotent (`unchanged=True`, no event
+     on a no-op patch).      **`business.list_deals`** (2026-05-01
+     follow-up, non-destructive) gives a fast read-only side door
+     on the local store with filters (`active_only / stage / owner
+     / limit`) and pre-computed rollups (`by_stage`,
+     `total_amount`), so the cockpit can render a deals view
+     without going through `daily_brief` (which spins up the
+     council). The store is also exposed through a new
+     **`business.local_deals`** awareness source (`kind="local"`,
+     defaults to `active_only=True`, `limit=50` clamped to 200) so
+     the cockpit ticker can render in-flight deals via the existing
+     `/api/domains/business/awareness/local_deals/snapshot`
+     endpoint; the snapshot includes a `pipeline_usd` rollup that
+     excludes terminal stages. Pinned by
+     `tests/test_business_update_deal.py` (30 cases),
+     `tests/test_business_list_deals.py` (18 cases),
+     `tests/test_business_deals_awareness.py` (13 cases), and
+     destructive-spec / live-fetcher membership pin updates in
+     `tests/test_policy.py` and `tests/test_awareness_fetchers.py`.
    - `mlm.downline_snapshot`, `mlm.retention_alert` ✅ shipped —
-     local CSV-backed; `score_recruit`, `generate_post` upgraded to
-     deterministic heuristics.
+     local CSV-backed. The local downline DB also got a
+     **`mlm.update_member`** (2026-05-01 follow-up, destructive,
+     patch semantics — pass `""` to clear an optional string,
+     `None` to leave it untouched, never patches `handle` itself,
+     idempotent on no-op, emits `mlm.member_updated` listing
+     `changed_fields`) and **`mlm.list_members`** (non-destructive,
+     filter by `sponsor / rank / recent_days / limit`, returns
+     pre-computed `summary.by_rank` + `summary.total_volume_usd`)
+     side door so the cockpit can browse + patch members without
+     going through `add_member` upserts. Pinned by
+     `tests/test_mlm_update_and_list_members.py` (33 cases) plus
+     a destructive-spec membership pin update in
+     `tests/test_policy.py`.
+   - `mlm.generate_post` ✅ shipped (2026-05-01) — real
+     multi-channel drafter.
+     `backend/core/domains/packs/mlm/post_drafter.py` lands a
+     4 × 4 × 3 template registry (channel × tone × language)
+     plus per-format overlays (story / reel / dm),
+     language-aware CTAs, and ASCII-safe hashtag generation
+     for ig + linkedin. Channels: ig / tg / wa / linkedin;
+     tones: warm / professional / urgent / celebratory;
+     languages: en / ru / es. Surfaces `draft` / `cta` /
+     `hashtags` / `char_count` / `word_count` for cockpit
+     platform-budget UX. Emits `mlm.post_drafted` per the
+     cross-cutting adapter rule. Backward compat preserved for
+     `playbooks/mlm/retention_round.json`. Pinned by
+     `tests/test_mlm_generate_post.py` (33 cases).
+   - `mlm.score_recruit` ✅ shipped (2026-05-01) — real scorer
+     over the local downline DB.
+     `backend/core/domains/packs/mlm/scoring.py` derives recency
+     (40%) / volume (30%) / rank (20%) / tenure (10%) signals
+     against sane saturation thresholds and a curated 7-step
+     rank ladder; falls back to a stable SHA-256-derived score
+     mapped onto `[0.40, 0.95]` for handles not yet in the
+     downline (so the cockpit number is reproducible across
+     machines and restarts, unlike the old `hash()` heuristic).
+     Action surfaces `signals{}`, `rank`, `volume_usd`,
+     `days_silent`, and labels itself `model="downline-v1"` or
+     `"heuristic-v1"` accordingly. DB lookup failures fall
+     through cleanly. Pinned by
+     `tests/test_mlm_score_recruit.py` (40 cases).
    Each remaining adapter must call
    `meeet.emit("integration.<vendor>.<call>", ...)`.
 7. **Pack composition.** ✅ shipped (Phase K4) — `CompositePack`
@@ -340,7 +627,11 @@ Open ideas for the next layer:
     `playbooks/<pack>/<name>.json`, runner + `/api/playbooks` HTTP
     surface. Sample playbooks: `traders.morning_check`,
     `business.morning_brief`, `mlm.retention_round`. Open work:
-    cockpit palette UI, parallel step blocks, schema validator.
+    cockpit palette UI, parallel step blocks. ✅ **schema validator
+    shipped 2026-05-01** — `backend/core/playbooks/validator.py` +
+    `POST /api/playbooks/_validate` + `GET /api/playbooks/_validate_all`,
+    `tests/test_playbook_validator.py` (40 cases) including a CI
+    smoke that pins every bundled playbook.
 20. **Hotkey palette.** ⌘K opens a fuzzy palette over packs, awareness
     sources, playbooks, recent traces.
 26. **Awareness ticker.** ✅ shipped — `<AwarenessTicker/>` consumes

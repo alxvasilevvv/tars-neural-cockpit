@@ -24,7 +24,12 @@ from fastapi import APIRouter, Header, HTTPException
 
 from backend.core.domains import packs as _packs  # noqa: F401  (registers)
 from backend.core.domains.registry import all_packs, get_pack
-from backend.core.meeet import get_client, set_route, trace_scope
+from backend.core.meeet import (
+    get_client,
+    set_route,
+    thread_id_scope,
+    trace_scope,
+)
 from backend.core.policy import get_gate, resolve_mode
 
 router = APIRouter(prefix="/api/domains", tags=["domains"])
@@ -202,6 +207,7 @@ async def awareness_snapshot(
     source_id: str,
     x_meeet_trace_id: str | None = Header(default=None),
     x_tars_session_id: str | None = Header(default=None),
+    x_tars_thread_id: str | None = Header(default=None),
 ) -> dict[str, Any]:
     pack = get_pack(slug)
     if pack is None:
@@ -224,7 +230,7 @@ async def awareness_snapshot(
 
     client = get_client()
     started_at = time.perf_counter()
-    with trace_scope(
+    with thread_id_scope(x_tars_thread_id), trace_scope(
         parent=x_meeet_trace_id,
         session=x_tars_session_id,
         route="edge",
@@ -287,6 +293,7 @@ async def invoke_action(
     x_meeet_trace_id: str | None = Header(default=None),
     x_tars_policy_mode: str | None = Header(default=None),
     x_tars_session_id: str | None = Header(default=None),
+    x_tars_thread_id: str | None = Header(default=None),
 ) -> dict[str, Any]:
     pack = get_pack(slug)
     if pack is None:
@@ -309,7 +316,7 @@ async def invoke_action(
     # Domain actions default to "edge" — purely local execution. Any
     # voice / adapter that crosses out to a cloud bumps the route via
     # ``set_route("cloud")`` from inside its handler.
-    with trace_scope(
+    with thread_id_scope(x_tars_thread_id), trace_scope(
         parent=x_meeet_trace_id,
         session=x_tars_session_id,
         route="edge",
@@ -334,6 +341,7 @@ async def invoke_action(
             mode=mode,
             confirmed=confirmed_by_token,
             trace_id=trace_id,
+            thread_id=x_tars_thread_id,
         )
 
         if not decision.allowed:
@@ -342,16 +350,16 @@ async def invoke_action(
                 if decision.reason == "dry_run_preview_only"
                 else "policy.queued"
             )
-            await client.emit(
-                event_kind,
-                {
-                    "slug": slug,
-                    "action": action_id,
-                    "mode": decision.mode.value,
-                    "reason": decision.reason,
-                    "token": decision.confirmation_token,
-                },
-            )
+            event_payload: dict[str, Any] = {
+                "slug": slug,
+                "action": action_id,
+                "mode": decision.mode.value,
+                "reason": decision.reason,
+                "token": decision.confirmation_token,
+            }
+            if x_tars_thread_id:
+                event_payload["thread_id"] = x_tars_thread_id
+            await client.emit(event_kind, event_payload)
             took_ms = _ms_since(started_at)
             return {
                 "ok": True,
@@ -376,16 +384,16 @@ async def invoke_action(
                 },
             }
 
-        await client.emit(
-            "policy.allowed",
-            {
-                "slug": slug,
-                "action": action_id,
-                "mode": decision.mode.value,
-                "reason": decision.reason,
-                "destructive": spec.destructive,
-            },
-        )
+        allowed_payload: dict[str, Any] = {
+            "slug": slug,
+            "action": action_id,
+            "mode": decision.mode.value,
+            "reason": decision.reason,
+            "destructive": spec.destructive,
+        }
+        if x_tars_thread_id:
+            allowed_payload["thread_id"] = x_tars_thread_id
+        await client.emit("policy.allowed", allowed_payload)
 
         try:
             result = await spec.handler(args)

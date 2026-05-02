@@ -239,20 +239,38 @@ class MeeetStore:
         since: float | None,
         trace_id: str | None,
         kind: str | None,
+        kind_prefix: str | None,
         session_id: str | None,
         only_unpushed: bool,
+        after_id: int | None = None,
     ) -> list[StoredEvent]:
         clauses: list[str] = []
         params: list[Any] = []
         if since is not None:
             clauses.append("ts >= ?")
             params.append(float(since))
+        if after_id is not None:
+            clauses.append("id > ?")
+            params.append(int(after_id))
         if trace_id:
             clauses.append("trace_id = ?")
             params.append(trace_id)
         if kind:
             clauses.append("kind = ?")
             params.append(kind)
+        if kind_prefix:
+            # Defensive escape: SQLite ``LIKE`` treats ``%`` and ``_``
+            # (and the explicit escape char) as wildcards. The cockpit
+            # passes literal prefixes like ``pair.`` / ``recovery.``
+            # so escaping is belt-and-braces, but keeps the contract
+            # honest if a future caller uses a stranger prefix.
+            escaped = (
+                kind_prefix.replace("\\", "\\\\")
+                .replace("%", "\\%")
+                .replace("_", "\\_")
+            )
+            clauses.append("kind LIKE ? ESCAPE '\\'")
+            params.append(escaped + "%")
         if session_id:
             clauses.append("session_id = ?")
             params.append(session_id)
@@ -310,9 +328,22 @@ class MeeetStore:
         since: float | None = None,
         trace_id: str | None = None,
         kind: str | None = None,
+        kind_prefix: str | None = None,
         session_id: str | None = None,
         only_unpushed: bool = False,
+        after_id: int | None = None,
     ) -> list[StoredEvent]:
+        """List events, newest-first.
+
+        ``after_id`` is the row-id cursor used by the SSE
+        consumers — pass the highest ``id`` you've already seen to
+        get only events written *strictly after* it. The store
+        ``id`` is monotonic (SQLite ``INTEGER PRIMARY KEY
+        AUTOINCREMENT``), so this is a reliable cursor across
+        process restarts as long as no row was deleted between
+        the last poll and the next one.
+        """
+
         if not self.enabled:
             return []
         limit = max(1, min(int(limit), 1000))
@@ -322,8 +353,10 @@ class MeeetStore:
             since=since,
             trace_id=trace_id,
             kind=kind,
+            kind_prefix=kind_prefix,
             session_id=session_id,
             only_unpushed=only_unpushed,
+            after_id=after_id,
         )
 
     async def stats(self) -> dict[str, Any]:
@@ -349,6 +382,78 @@ class MeeetStore:
         if not self.enabled:
             return {"enabled": False, "pushed": 0, "failed": 0, "remaining": 0}
         events = await self.list_events(limit=limit, only_unpushed=True)
+        return await self._push_events(events, push_callable)
+
+    async def repush_trace(
+        self,
+        push_callable,
+        *,
+        trace_id: str,
+        limit: int = 1000,
+    ) -> dict[str, Any]:
+        """Push **every** event for a single trace through ``push_callable``,
+        regardless of the existing ``pushed`` flag.
+
+        Use case: a meeet ingest outage / contract-bump where the
+        operator needs to re-emit one specific run's events upstream
+        for billing backfill / audit. The matching rows are always
+        re-sent (whether they were ``pushed=1`` or ``pushed=0``)
+        and ``pushed_at`` is bumped on success so a later
+        ``planner-replay-run`` export reflects the latest push
+        timestamp.
+
+        Returns the same envelope as :meth:`replay_unpushed` plus a
+        ``trace_id`` echo so the caller can confirm the scope.
+        Note that ``remaining`` is the **global** pending count
+        (not "remaining for this trace"); operators inspecting it
+        after a force-repush should not be surprised that
+        unrelated unpushed events still sit in the buffer.
+
+        ``trace_id`` is required and non-empty — passing ``""`` /
+        ``None`` returns an error envelope without touching the
+        store, since otherwise we'd quietly bulk-push every event
+        whose ``trace_id`` happens to be the empty string (rare,
+        but the explicit guard is cheap).
+        """
+
+        if not self.enabled:
+            return {
+                "enabled": False,
+                "trace_id": trace_id,
+                "pushed": 0,
+                "failed": 0,
+                "remaining": 0,
+            }
+        if not trace_id:
+            return {
+                "enabled": True,
+                "trace_id": trace_id,
+                "pushed": 0,
+                "failed": 0,
+                "remaining": 0,
+                "error": "trace_id_required",
+            }
+        events = await self.list_events(limit=limit, trace_id=trace_id)
+        result = await self._push_events(events, push_callable)
+        result["trace_id"] = trace_id
+        return result
+
+    async def _push_events(
+        self,
+        events: "list[StoredEvent]",
+        push_callable,
+    ) -> dict[str, Any]:
+        """Shared push loop for :meth:`replay_unpushed` and
+        :meth:`repush_trace`.
+
+        Walks ``events`` oldest-first (the list_events contract is
+        newest-first, so we ``reversed()`` here), calls
+        ``push_callable`` per row, and stamps ``pushed=1`` on
+        success. Failures bump ``last_error`` but leave ``pushed``
+        unchanged so a subsequent ``replay_unpushed`` will retry
+        the row naturally.
+        """
+
         pushed = 0
         failed = 0
         for ev in reversed(events):  # oldest first

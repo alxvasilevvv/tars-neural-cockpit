@@ -193,6 +193,1087 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-02 — cron-shipped morning bundle wrapper (Cursor [A]):**
+  Ships `scripts/playbooks_morning_cron.sh` + `make morning-bundle`
+  / `make morning-bundle-dry` targets. **Single command** for
+  cron to run every `morning`-tagged playbook (currently 4:
+  `business.morning_brief`, `ops_room.morning_standup`,
+  `research_lab.paper_to_pitch`, `traders.morning_check`),
+  flush the meeet replay buffer, and write an aggregate
+  evidence JSON to `.morning-runs/<run_id>.json`.
+  **Continue-on-failure** by default (one bad playbook doesn't
+  mask the others) with `MORNING_FAIL_FAST=1` for legacy
+  stop-on-first behaviour. Discovery is **tag-driven**, so as
+  new `morning`-tagged playbooks land in `playbooks/`, they
+  join cron automatically — no script edit. Three exit-code
+  lanes so cron alerts route differently: `0` (all green), `1`
+  (playbook failure), `2` (operator error / no playbooks
+  discovered). The `morning-bundle-dry` target hard-codes
+  `MORNING_MODE=dry_run` so rehearsals are *always* safe even
+  if the operator's env has `MODE=autopilot`. **Closes the
+  Cron-as-First-Class-Operator arc**: PR #129 made
+  cron-driven playbook execution viable; this wrapper makes
+  it ergonomic. Pinned by 23 new pytest cases (11 structural
+  — bash syntax, every documented env knob is read by the
+  script, all three exit codes documented, canonical CLI
+  modules invoked; 5 Makefile — `.PHONY`, help comments,
+  recipe wires script, dry-mode forces dry_run; 7 end-to-end
+  smoke — no-playbooks → rc=2, happy override → rc=0,
+  unknown id → rc=1, mixed continue-on-failure, fail-fast,
+  evidence filename matches printed run_id, skip-replay
+  surfaces in evidence). Full Python suite: **2227 passed in
+  54.04s** (was 2204, +23). Sample cron line:
+  `MORNING_MODE=autopilot /path/to/jarvis/scripts/playbooks_morning_cron.sh`.
+  Files: `scripts/playbooks_morning_cron.sh` (new, 280 lines),
+  `Makefile` (+25), `.gitignore` (+2), `tests/test_morning_bundle.py`
+  (new, 363 lines).
+
+- **2026-05-01 — awareness CLI bash completion (operator-CLI arc symmetry closed) (Cursor [A]):**
+  Ships `scripts/awareness-completion.bash` mirroring the
+  existing planner / playbooks completion scripts. **Closes
+  the operator-CLI arc symmetry**: every cockpit-facing TARS
+  surface (planner / awareness / playbook) now has HTTP route
+  + `python -m …` CLI + `make …-*` targets + bash completion.
+  The awareness script handles a wrinkle the other two don't:
+  **two-level live positional completion** for the `snapshot`
+  subcommand. Positional 0 is a pack slug (live query against
+  `awareness_cli list`); positional 1 is a source id, **scoped
+  to the chosen slug** (live query against `awareness_cli list
+  <slug>`, with the cache keyed by slug name so completing
+  slug A then slug B doesn't pollute B's cache with A's
+  source ids — explicitly pinned). Avoids the `--quiet`
+  flag-order bug from PR #130 by construction (both query
+  helpers invoke the CLI with `--quiet` BEFORE the subcommand,
+  pinned). Pinned by 9 new pytest cases covering script
+  structure, no-drift between cli._DISPATCH and the script,
+  per-subcommand flag tables, the two-cache invariant, the
+  two-level positional walker, and the flag-VALUES skip
+  (so `--thread-id thr_42 traders` correctly identifies
+  `traders` as positional 0). Full Python suite: **2204
+  passed in 40.97s** (was 2195, +9). Smoke (sourced into
+  bash): tab returns 3 subcommands, then 8 live pack slugs,
+  then 5 source ids scoped to the chosen pack. The arc as it
+  now stands: planner / awareness / playbook each have HTTP
+  + CLI + Make + completion, all sharing the same trace +
+  event surface. Follow-ups: right-rail planner entrypoint
+  (cancelled — needs ChatPane plan-aware protocol first);
+  cron-shipped morning-bundle wrapper script.
+
+- **2026-05-01 — playbooks bash completion + planner script flag-order fix (Cursor [A]):**
+  Ships `scripts/playbooks-completion.bash` mirroring the
+  existing planner script: tab completion for the 6
+  subcommands, per-subcommand flag tables, **live
+  playbook-id completion** sourced from the CLI itself
+  (5-second cache), and **filesystem-path completion for
+  `--context-file`** so the cron-friendly sidecar-JSON
+  workflow tab-completes end-to-end. While here, fixes a
+  latent bug in `scripts/planner-completion.bash`: both
+  scripts were invoking `… cli list --quiet` but `--quiet`
+  is the global flag and must come before the subcommand.
+  The old order silently failed with exit 2 and an empty
+  completion list (no error visible to the user).
+  Discovered during the playbook script's smoke test;
+  pinned by 10 new pytest cases (script structure + flag
+  drift + cache contract + scoped id completion).
+  Full Python suite: **2195 passed in 41.23s** (was 2185,
+  +10). Follow-ups: right-rail planner entrypoint from the
+  cockpit chat thread; `awareness-completion.bash`
+  deferred until a concrete cron use case driving it.
+
+- **2026-05-01 — playbooks CLI parity + control-tower gate wiring (Cursor [A]):**
+  Closes the third (and last) leg of the operator-parity arc.
+  Playbook execution now has a shell-side equivalent at
+  `python -m backend.core.playbooks.cli` plus seven Make
+  targets (`playbooks`, `playbooks-list`, `playbooks-show`,
+  `playbooks-run`, `playbooks-validate`,
+  `playbooks-validate-all`, `playbooks-reload`). Same playbooks
+  the cockpit's `POST /api/playbooks/<id>/run` route executes
+  can now run from cron without the FastAPI process — emitted
+  `playbook.*` events still land in the local meeet buffer the
+  cockpit reads from. Cron-friendly pattern reads:
+  `make playbooks-run ARGS=traders.morning_check MODE=autopilot
+  CONTEXT='{"basket":["BTC","ETH"]}'`. **Load-bearing CI gate
+  wiring**: `make gate-control-tower` now runs
+  `playbooks-validate-all` after planner-smoke, so a malformed
+  playbook fails the gate the moment it lands instead of
+  waiting for a 5am cron to discover the typo. `--context-file`
+  wins over `--context` when both are supplied (cron-baked
+  sidecar JSON ⇆ ad-hoc operator override); `resolve_mode` is
+  permissive (typo in cron command line falls back to default
+  rather than crashing) — both pinned. Pinned by 41 new pytest
+  cases (25 CLI, 16 Makefile contract). Full Python suite:
+  **2185 passed in 42.09s** (was 2144, +41). The arc as it now
+  stands: planner / awareness / playbook each have HTTP route +
+  `python -m …` CLI + `make …-*` targets, all sharing the same
+  trace + event surface. Follow-ups: right-rail planner
+  entrypoint from the cockpit chat thread; cron-shipped
+  morning-bundle wrapper script; `scripts/playbooks-completion.bash`
+  bash completion.
+
+- **2026-05-01 — awareness CLI parity (Cursor [A]):** Closes the
+  operator-parity gap left by the planner CLI batch. The
+  awareness layer (the cockpit's `GET /api/domains` /
+  `…/awareness` / `…/awareness/<src>/snapshot` route) now has a
+  shell-side equivalent at
+  `python -m backend.core.domains.awareness_cli` plus four new
+  Make targets (`awareness`, `awareness-list`,
+  `awareness-snapshot`, `awareness-snapshot-all`). An operator
+  on a machine without FastAPI up — fleet rollout, cron-driven
+  cold-start brief, on-call recovery during ingest outage —
+  can now list and materialise awareness sources without HTTP,
+  and the meeet event surface is **bit-for-bit identical**
+  (`awareness.snapshot.requested / completed / failed` inside
+  a `trace_scope`) so cockpit dashboards count CLI hits the
+  same as HTTP hits. Snapshot subcommands accept
+  `--thread-id` / `--trace-id` so chained CLI calls keep the
+  trace tree intact. `snapshot-all` splits results into
+  `fetched` (real fetcher invocations) and `skipped`
+  (config-only sources, e.g. webhook receivers) — overall
+  `ok` flips on fetched-source failures only, so an operator
+  can tell "no fetcher implemented yet" apart from a real
+  fetch error. Pinned by 26 new pytest cases (16 CLI, 10
+  Makefile contract). Full Python suite: **2144 passed in
+  48.90s** (was 2118, +26). Smoke: `make awareness-list
+  ARGS=traders` returns 5 sources (4 live), `make
+  awareness-snapshot ARGS="traders binance_ws"` returns the
+  live ticker envelope with `trace_id` + `took_ms`,
+  missing-`ARGS` guards exit 2 cleanly. Follow-ups: right-rail
+  planner entrypoint from the cockpit chat thread; pre-warm
+  cron driver once a packwide ARGS pattern emerges.
+
+- **2026-05-01 — meeet replay CLI: `--repush-trace` + `planner-repush-run` Make target (Cursor [A]):**
+  Operator follow-up to PR #124 (`planner-replay-run`). Adds
+  the **push-this-trace-upstream-now** flow that PR didn't
+  ship: `replay_cli --repush-trace <trc>` re-emits every event
+  for one trace to ingest regardless of the existing `pushed`
+  flag, so a fleet operator can recover from a meeet ingest
+  contract bump without hand-editing SQLite. The full operator
+  pipeline now reads: dump (`make planner-replay-run`) → audit
+  → repush (`make planner-repush-run ARGS="<run_trace>"
+  [LIMIT=N]`). Load-bearing failure semantics: when an
+  upstream push fails during repush, the row's `pushed` flag
+  is **NOT regressed to 0** (only `last_error` updates) —
+  otherwise a half-failed repush would let those rows leak
+  into the next `replay_unpushed` flush and double-push them
+  once the upstream recovers, exactly the behaviour the
+  contract bump is trying to repair. Push primitive extracted
+  to `MeeetClient._push` so `replay_unpushed` and
+  `repush_trace` share the same `urlopen` call. Pinned by 12
+  new pytest cases (5 store, 4 CLI, 3 makefile). Full suite:
+  **2118 passing** (was 2106, +12). Manual smoke: bare,
+  with-ARGS, with-LIMIT, no-ingest-URL all behave correctly.
+  Follow-ups: right-rail planner entrypoint from the cockpit
+  chat thread; awareness CLI parity (`python -m
+  backend.core.awareness.cli`).
+
+- **2026-05-01 — cockpit: aria-live announcement on plan run completion / abort (Cursor [A]):**
+  Plan-detail panel now surfaces every terminal run through a
+  visually-hidden `aria-live="polite"` region so screen-reader
+  operators learn that a run finished without watching the
+  panel. Three lifecycle outcomes get distinct phrasing —
+  clean completion (with latency + cost), soft failure (`status
+  === "completed"` AND `steps_failed > 0`, otherwise dashboards
+  tally these as green), and abort / hard failure (uses
+  `abort_reason` → `exception` → placeholder). Decision split
+  via two pure helpers (`formatRunAnnouncement`,
+  `pickRunAnnouncement`) so the dedupe logic ("trace_id, not
+  array index" + "skip in-flight head to find newest terminal")
+  is testable without DOM. Region is always rendered (not
+  conditionally mounted) because some screen-reader engines
+  skip the initial announcement when the live region appears
+  mid-page-life. Pinned by 14 new Vitest cases. Cockpit suite:
+  **181 passed (14 files)** (was 167, +14); `tsc --noEmit`
+  clean; `vite build` clean (2.82s); Python unchanged (2106
+  green). Follow-ups: right-rail planner entrypoint from the
+  cockpit chat thread; `--force-repush --trace-id` for fleet
+  ops re-emit-to-upstream; awareness CLI parity.
+
+- **2026-05-01 — cockpit: scroll-to-selected on /cockpit/planner deep links (Cursor [A]):**
+  Closes the long-standing planner-page polish item: when an
+  operator pastes `/cockpit/planner?selected=pln_xyz`, the
+  matching `<li>` was hidden below the fold of the
+  overflow-scroll list. Page now imperatively scrolls the row
+  into view on first paint (and on browser-back to a different
+  selection) without disrupting routine clicks. Decision lives
+  in a pure `shouldScrollTo` helper (`lib/plannerScroll.ts`)
+  that returns `true` only for the deep-link / browser-nav
+  case (skips when nothing selected, list still loading,
+  deep-link points at a filtered-out plan, or SSE refresh
+  didn't change selection); side-effect lives in a
+  `useScrollSelectedIntoView` hook on the Planner page that
+  calls `scrollIntoView({ block: "nearest", behavior: "smooth" })`
+  on the matching ref. `block: "nearest"` is load-bearing —
+  it's a no-op when the row is already visible (e.g. user just
+  clicked it), so we don't need to discriminate "click vs URL
+  change". Pinned by 9 new Vitest cases (every no-scroll branch
+  plus first-paint, browser-back, top-row, empty list, and
+  purity). Full cockpit suite: **167 passed (14 files)**;
+  `tsc --noEmit` clean; `vite build` clean (2.74s); Python
+  unchanged (2106 green). Follow-ups: `aria-live` announcement
+  on run completion / failure for screen-reader operators;
+  right-rail planner entrypoint from the cockpit chat thread.
+
+- **2026-05-01 — meeet replay CLI: `--trace-id` filter + `planner-replay-run` Make target (Cursor [A]):**
+  Adds a per-run scoping knob to the meeet event replay CLI plus
+  the operator wrapper that uses it. CLI gains
+  `--trace-id <run_trace>` (export branch only) and Makefile
+  ships `planner-replay-run ARGS="<plan_id> <run_trace>"
+  [OUT=<path>]` defaulting the export to
+  `$(MEEET_REPLAY_DIR)/$plan_id-$run_trace.jsonl` (default dir
+  `.meeet-replays`, override-friendly via `?=`). Use case:
+  meeet ingest outage backfill or single-run audit — fleet ops
+  dump one specific run's events to JSONL without shoveling the
+  whole local store, then push / inspect / archive however they
+  want. Read-only, diff-able, and doesn't mutate `pushed` flags
+  (a future force-repush flow can layer on if demonstrated).
+  Pinned by 7 new pytest cases: 2 in `test_replay_cli` (trace
+  filter narrows export, unknown trace ⇒ empty file rc=0) and
+  5 in `test_makefile_planner_targets` (`.PHONY` membership,
+  ARGS guard, dedicated recipe contract pinning OUT override
+  + default filename + replay_cli module + `--trace-id` /
+  `--export` invocation, MEEET_REPLAY_DIR macro shape). Manual
+  smoke: end-to-end `synthesize → run → planner-replay-run`
+  produced a 12-line JSONL with every row carrying the run's
+  trace id; `OUT=` override worked; both empty-ARGS branches
+  exit 2 with usage. Full suite: **2106 passing** (was 2100,
+  +6). Follow-ups: `--force-repush --trace-id` flag pair if
+  fleet ops need re-emit-to-upstream rather than the current
+  export-to-JSONL workflow; right-rail planner entrypoint from
+  the cockpit chat thread.
+
+- **2026-05-01 — Makefile: `planner-clone` target for plan forking (Cursor [A]):**
+  Adds `make planner-clone ARGS="<plan_id> [target_thread]"` so a
+  fleet operator can fork a known-good plan into a fresh `proposed`
+  row from the shell — without immediately approving or running it
+  (that's what `planner-rerun` is for). Recipe parses ARGS
+  positionally via `set --` so the second word, when present,
+  becomes `--thread-id <target_thread>`; bare `ARGS=<plan_id>`
+  invokes a vanilla clone that inherits the source's thread. Two
+  guards: outer `ARGS=` empty check (exit 2 with usage) plus an
+  inner `[ -z "$plan_id" ]` re-guard catching whitespace-only
+  expansions. Use cases this unlocks (that `planner-rerun` doesn't):
+  per-tenant golden-plan fork for manual approval (audit trail /
+  four-eyes), overnight staging of many clones for morning curation,
+  rollback snapshots before mutating a source plan. Pinned by 3
+  new pytest cases (`.PHONY` membership, `ARGS=` guard,
+  `test_planner_clone_target_supports_optional_target_thread`
+  asserting the positional split + both branches). Manual smoke:
+  bare clone, thread-rebound clone, no-ARGS error path all behave
+  as expected. Full suite: **2100 passing** (was 2097, +3).
+  Follow-ups: right-rail planner entrypoint from the cockpit chat
+  thread; `make planner-replay-run` for backfilling billing rollups
+  after a meeet ingest outage.
+
+- **2026-05-01 — Makefile: `planner-rerun` target for cron / fleet (Cursor [A]):**
+  Adds `make planner-rerun ARGS=<plan_id> [MODE=autopilot|confirm|dry_run]`
+  so cron jobs and fleet operators can reproduce the cockpit's
+  one-click Rerun button from a single Make invocation. Recipe
+  shells into `clone $(ARGS) --approve --run` (plus optional
+  `--mode "$(MODE)"`), inheriting the same trace scope, policy gate,
+  and meeet payloads as the cockpit path. Optional `MODE=` lever
+  lets the operator pin policy mode at the Make boundary — useful
+  for nightly `MODE=autopilot` runs regardless of host
+  `TARS_POLICY_MODE`. Added to `.PHONY`, gated by the standard
+  `ARGS=` guard. Pinned by 3 new pytest cases in
+  `test_makefile_planner_targets.py` (`.PHONY` membership, ARGS
+  guard, recipe wires `clone --approve --run` and forwards `--mode`).
+  Manual smoke: end-to-end `synthesize → make planner-rerun`
+  produced a populated `usage_lifetime` envelope. Full suite:
+  **2097 passing** (was 2094, +3). Follow-ups: right-rail planner
+  entrypoint from the cockpit chat thread; `make planner-replay-run`
+  for backfilling billing rollups after a meeet ingest outage.
+
+- **2026-05-01 — planner: `full` CLI subcommand + extracted helper (Cursor [A]):**
+  Brings the planner CLI to parity with the HTTP `/full` endpoint
+  shipped in PR #116, so an operator without a cockpit window can
+  inspect a plan in one command and pipe the JSON into `jq`. The
+  lifetime aggregation logic moves into
+  `backend/core/planner/history.py::aggregate_usage_lifetime` —
+  extracted from the FastAPI route so the CLI calls the exact same
+  code path. `cost_usd` rule preserved verbatim (None when no run
+  had a priced model; mixed runs sum priced costs only). Full
+  operator wiring: CLI subcommand
+  (`python -m backend.core.planner.cli full <plan_id> [--limit]`),
+  Makefile target (`make planner-full ARGS=<plan_id>` with `ARGS=`
+  guard), bash completion (`full` advertised + `--limit` flag).
+  Pinned by 10 new cases in `tests/test_planner_full_cli.py`
+  (helper alone: zero runs, all-unpriced, mixed priced-only-cost
+  rule, defensive guards; CLI: 404, happy path with full envelope
+  shape, `--limit` pass-through, `--quiet` placement). Full suite:
+  **2094 passing** (was 2080, +14). Follow-ups: `make planner-clone
+  ARGS="..."` for parity with rerun; right-rail planner entrypoint
+  from the cockpit chat thread.
+
+- **2026-05-01 — cockpit: URL-state sync for /cockpit/planner (Cursor [A]):**
+  Operators can now deep-link to any planner view. Page mirrors three
+  pieces of UI state to the URL via `useSearchParams`:
+  `?status=<state>` (one of the seven filter states or "all"),
+  `?q=<text>` (free-text filter on id / goal / pack), `?selected=<id>`
+  (currently selected plan id). Defaults are elided so the URL stays
+  short for the common case; parse is permissive (unknown statuses
+  fall back to "all", malformed values never throw); writes use
+  `replace` mode so the back-stack stays clean. Pure helpers
+  (`parsePlannerSearchParams`, `buildPlannerSearchParams`,
+  `plannerStateEquals`) in `lib/plannerUrl.ts` pinned by 18 Vitest
+  cases (round-trip identity, default elision, URL-encoding
+  permissive fallback). Cockpit suite: **158 passed (13 files)**;
+  `tsc --noEmit` clean; `vite build` clean; Python unchanged
+  (2080 green). Follow-ups: right-rail entrypoint from the chat
+  thread; scroll-to-selected on first paint when `?selected=` is set.
+
+- **2026-05-01 — cockpit: per-step live ticking in PlanFullPanel (Cursor [A]):**
+  Top-priority follow-up from PR #118. The plan panel's step list
+  now ticks live during a run: every `plan.step.requested` /
+  `plan.step.allowed` / `plan.step.completed` SSE frame flips the
+  matching row's status badge in place — no extra round-trip, no
+  flash, no out-of-order rendering. Reducer lives in
+  `experiments/neural-showcase-v3/src/lib/plannerSteps.ts`
+  (pure, DOM-free) and honours trace scoping (events from a foreign
+  trace are dropped), `Last-Event-ID` re-delivery (same start frame
+  is a referential no-op), and a `skipped > blocked > failed`
+  precedence ladder for terminal states. Pinned by 20 Vitest cases
+  in `plannerSteps.test.ts`. Panel seeds an "all pending" snapshot
+  on envelope arrival so rows render immediately; a "live · run in
+  flight" amber lozenge in the section header signals an active
+  run; per-step latency renders next to the action via
+  `formatLatencyMs`. Cockpit suite: **140 passed (12 files)**;
+  `tsc --noEmit` clean; `vite build` clean; Python unchanged
+  (2080 green). Follow-ups: URL-state sync for the planner
+  filter strip + deep-link plan_id; right-rail entrypoint from the
+  chat thread when the agent proposes a plan.
+
+- **2026-05-01 — cockpit: PlanFullPanel + /cockpit/planner page (Cursor [A]):**
+  Operator-facing payoff for the planner backend work shipped in
+  PRs #109–#117. New page at `/cockpit/planner` lets the operator
+  inspect any plan's full envelope (plan + steps + reconstructed
+  runs + lifetime usage), one-click rerun it, and watch the
+  lifetime rollup update in place via the planner SSE stream.
+  Two pieces: `<PlanFullPanel />` (self-contained drawer that
+  hydrates from `fetchFullPlan` and stays live via
+  `subscribePlannerEvents`, refetches on every lifecycle event)
+  and `<Planner />` page (list + filter strip + panel). Pure
+  helpers (`statusTone`, `formatLatencyMs`, `formatStartedAt`,
+  `formatRunSummary`, `formatLifetimeSummary`, `summariseStep`,
+  `REFETCH_KINDS`, `shouldAdvanceCursor`) extracted and pinned by
+  17 Vitest cases. Cockpit suite: **120 passed (11 files)**;
+  `tsc --noEmit` clean; `vite build` clean (Planner chunk 17.6 kB
+  / 4.96 kB gzipped); Python unchanged (2080 green). Route
+  registered in `App.tsx` and a "planner" anchor added to the
+  cockpit's top nav so operators jump in with one click.
+  Follow-ups: per-step live updates, URL-state sync for filters,
+  inline open from the chat thread.
+
+- **2026-05-01 — cockpit: typed planner client + Vitest contract (Cursor [A]):**
+  First slice of cockpit ↔ planner wiring. Adds
+  `experiments/neural-showcase-v3/src/lib/planner.ts` — a
+  typed TS client that pins every backend planner endpoint
+  shipped in PRs #109–#116 (`/api/planner` list, `/runs`,
+  `/full`, `/abort`, `/rerun`, plus the `/api/planner/events`
+  SSE stream with `after_id` resume). Header propagation
+  (`x-tars-policy-mode`, `x-meeet-trace-id`) flows through
+  every mutating call; `formatCostUSD` preserves the n/a vs
+  $0.00 distinction surfaced by `/full`'s
+  `has_priced_models`. Pinned by
+  `experiments/neural-showcase-v3/src/lib/planner.test.ts`
+  (17 Vitest cases — URLs, querystrings, header propagation,
+  `EventSource` wiring, malformed-frame drop, response
+  round-trip, formatter edge cases). Cockpit suite:
+  **103 passed (10 files)**; `tsc --noEmit` clean; Python
+  unchanged (2080 green). Next: `PlanFullPanel` React
+  component built on top of this client (drawer with rerun
+  button + live SSE updates).
+
+- **2026-05-01 — planner: GET /{plan_id}/full aggregate (Cursor [A]):**
+  One-shot aggregate endpoint for the cockpit's plan-detail
+  drawer. Returns plan envelope + reconstructed runs
+  (newest-first) + a `usage_lifetime` block summing every
+  run's per-run rollup. The lifetime `cost_usd` stays
+  `null` (cockpit renders "n/a") unless at least one run
+  had `has_priced_models=true`; mixed runs sum *only* the
+  priced runs' costs so "$0.00" never gets confused with
+  "no priced model fired". Pinned by
+  `tests/test_planner_full_endpoint.py` (7 cases). Full
+  suite: **2080 passing**. Follow-ups: cockpit drawer can
+  collapse three fetches into one; `runs_aggregated` makes
+  "across N runs" label trivial.
+
+- **2026-05-01 — planner: Makefile targets + control-tower gate (Cursor [A]):**
+  Wires the planner CLI into the operator-facing Makefile so
+  the control tower covers planner end-to-end. Six new
+  targets (`planner`, `planner-stats`, `planner-list`,
+  `planner-runs`, `planner-show`, `planner-smoke`); all
+  shell into `python -m backend.core.planner.cli` via the
+  `PLANNER` macro and share the host process's SQLite WAL
+  DBs. `planner-smoke` is folded into `gate-control-tower`
+  so a planner regression now blocks the release-readiness
+  gate. Operator passthrough via `make planner ARGS="…"`.
+  Pinned by `tests/test_makefile_planner_targets.py` (12
+  cases) — guards `.PHONY` membership, help-text presence,
+  `ARGS` invariants, and the `gate-control-tower` wiring.
+  Full suite: **2073 passing**. Follow-ups: cockpit can
+  surface gate output banner with the planner-smoke line.
+
+- **2026-05-01 — planner: bash completion script + drift-guard tests (Cursor [A]):**
+  Operator quality-of-life follow-up: `scripts/planner-completion.bash`
+  provides tab-completion for every planner subcommand and
+  flag, plus enum value completion for `--mode` /
+  `--status`, plus live `plan_id` completion sourced from
+  `cli list --quiet` (cached 5s inside the same shell). A
+  10-case Python contract test
+  (`tests/test_planner_completion_script.py`) guarantees the
+  script never drifts out of sync with `_DISPATCH` or
+  `_build_arg_parser`. Install paths and the `tars-planner`
+  alias documented in the script header. Full suite:
+  **2061 passing**.
+
+- **2026-05-01 — planner: one-shot rerun (CLI + HTTP) (Cursor [A]):**
+  Closed the loop on the rerun-via-clone flow shipped in PR
+  #108. CLI: `clone --approve [--run [--mode ...]]` composes
+  clone + approve + (optional) run into a single shell call.
+  HTTP: `POST /api/planner/{plan_id}/rerun` is the matching
+  cockpit-facing endpoint (body / header support mirrors
+  `/clone` plus `mode`). Audit lane: `planner.cloned` event
+  grows `auto_approved` and `auto_run` boolean flags; the
+  timeline summariser renders them as `· rerun` (auto_run) or
+  `· auto-approved` (approve-only). Backwards compatible —
+  bare `clone` and `POST /clone` still produce a proposed
+  plan with no auto-flip. Pinned by
+  `tests/test_planner_rerun.py` (13 cases). Full suite:
+  **2051 passing**. Follow-ups: cockpit "Rerun" button now
+  one network call away (clone+approve+run merged).
+
+- **2026-05-01 — planner: dedicated plan.run.usage event (Cursor [A]):**
+  Cost / token rollup for each plan run now ships as its own
+  top-level event in addition to being embedded in the
+  terminal event payload (existing behaviour unchanged).
+  Unblocks single-line billing queries
+  (`SELECT * FROM events WHERE kind='plan.run.usage'`) and
+  lets the cockpit render a "rollup" pill per run without
+  parsing the terminal payload. Fires on every run regardless
+  of priced-model presence; carries `plan_id`, `status`
+  (matching the upcoming terminal status), `parent_trace_id`
+  (plan's birth trace), and the same `usage` block. Wired
+  into the planner SSE allow-list and timeline summariser.
+  Pinned by `tests/test_planner_run_usage_event.py` (8 cases)
+  + the runner happy-path event-order assertion. Full suite:
+  **2038 passing**. Follow-ups: cockpit "Rollup" pill on each
+  run row; billing dashboard query simplification.
+
+- **2026-05-01 — planner: surface trace_id + parent_trace_id on PlanRun (Cursor [A]):**
+  Cockpit-facing follow-up to PR #109. `PlanRun.to_dict()` and
+  the `GET /api/planner/{plan_id}/runs` envelope now expose
+  both the per-run `trace_id` (from `plan.run.started.trace_id`)
+  and the plan's birth `parent_trace_id` (copied from the same
+  event's payload). Lets the cockpit deep-link from a single
+  run row to its trace lane, and group sibling runs of the
+  same plan under one collapsible "all runs of plan X" node
+  without an extra API call. Pinned by
+  `tests/test_planner_history_traces.py` (4 cases). Full suite
+  (excluding pre-existing `test_release_desktop_workflow`
+  errors): **2021 passing**.
+
+- **2026-05-01 — planner: per-run trace_id (Cursor [A]):**
+  Made every plan run independently observable. `PlanRunner.run`
+  now mints a fresh `trace_id` per invocation (was: reused the
+  plan's birth trace via `trace_scope(parent=plan.trace_id)`),
+  and the original plan trace travels along as
+  `parent_trace_id` on the `plan.run.started` payload + the
+  return dict. Side benefit: the per-run cost rollup
+  (`_compute_run_usage`) lost its `started_at`/`finished_at`
+  time-window clamp because the trace itself is now sufficient
+  to scope the SELECT — no off-by-one risk at run boundaries,
+  no double-attribution between concurrent runs, and the
+  rerun-via-clone flow gets correct rollups for free. Pinned by
+  `tests/test_planner_per_run_trace.py` (4 new cases) and the
+  refreshed `tests/test_planner_run_usage.py` (renamed
+  `…_clamps_to_time_window` → `…_does_not_clamp_by_time_window_anymore`
+  with inverted assertion). Full suite: **2026 passing**.
+  Follow-ups: surface per-run `trace_id` on `PlanRun.to_dict()`
+  for cockpit deep-linking; cockpit can now group activity-
+  stream entries by `parent_trace_id` to render "all runs of
+  plan X" as a collapsible section.
+
+- **2026-05-01 — planner: clone — rerun a plan without history mutation (Cursor [A]):**
+  Lets the operator "rerun" a finished plan without mutating its
+  terminal status. The original keeps its `completed`/`aborted`
+  row; the clone enters the inbox at `proposed` so the operator
+  can approve it again. Three matching surfaces:
+  `PlannerStore.clone(plan_id, *, thread_id, trace_id, goal_override)`,
+  `POST /api/planner/{plan_id}/clone`, and a CLI subcommand
+  (`python -m … clone <id> [--thread-id <t>] [--goal "..."]`).
+  Emits `planner.cloned` with `plan_id` (clone) +
+  `source_plan_id` (original) + `thread_id_rebind` /
+  `goal_overridden` flags; the timeline allow-list and
+  summariser pick it up so the cockpit audit lane renders the
+  parent → child link. Pinned by `tests/test_planner_clone.py`
+  (13 cases). Full suite: **2022 passing**. Follow-ups: cockpit
+  "Rerun" button (clone → approve → run); optional
+  `clone --approve` CLI flag for one-shot rerun.
+
+- **2026-05-01 — planner: shell CLI (Cursor [A]):**
+  Operator-facing scripting tool at
+  `python -m backend.core.planner.cli` mirroring `replay_cli`.
+  Ten subcommands (`stats`, `list`, `show`, `runs`, `synthesize`,
+  `approve`, `reject`, `run`, `abort`, `delete`); each prints
+  one machine-friendly JSON object per call (compact with
+  `--quiet`) and returns exit 0 on `ok`/1 otherwise so cron
+  / Make targets can branch cleanly. `delete` requires `--yes`
+  (otherwise returns `confirmation_required`). `run` honours
+  `--mode` to override `TARS_POLICY_MODE` per call. Shares the
+  same SQLite WAL DBs (`TARS_PLANNER_DB_PATH`,
+  `MEEET_STORE_PATH`) as the host process — safe to run side-
+  by-side with the cockpit. Unblocks operator scripting,
+  cold-start recovery (when HTTP is down), and fleet rollouts
+  via shell. Pinned by `tests/test_planner_cli.py` (23 cases).
+  Full suite: **2009 passing**. Follow-ups: bash completion
+  script, optional `clone` subcommand, `make planner-*` target
+  group in the control tower.
+
+- **2026-05-01 — planner: per-run cost / token rollup on terminal event (Cursor [A]):**
+  After every plan run, the runner now rolls up `usage.tokens`
+  events that fired inside its `trace_id` + wall-clock window and
+  stamps the totals (`calls` / `tokens_in` / `tokens_out` /
+  `cost_usd` / `latency_ms_total` / `has_priced_models`) on the
+  terminal event payload (`plan.completed` / `plan.aborted`), the
+  `PlanRunner.run` return dict, and the
+  `GET /api/planner/{id}/runs` reflector. `cost_usd` is `None`
+  when no priced model fired so the cockpit can render "n/a"
+  rather than falsely advertising a free run for a paid call
+  whose price isn't in the table. Filtering by both `trace_id`
+  AND time window keeps parallel runs of the same plan from
+  bleeding into each other (the runner currently inherits the
+  plan's birth trace). Pinned by `tests/test_planner_run_usage.py`
+  (11 cases: zero-rollup, sums by trace, unpriced cost=None,
+  trace-id filter, time-window clamp, runner stamps on completed,
+  runner stamps on aborted+raise, zero when silent, reconstructor
+  reads usage, reconstructor handles legacy payload, end-to-end
+  HTTP). Full suite: **1986 passing**. Follow-ups: drop the
+  time-window clamp once each run mints its own trace; cockpit
+  drawer renders `has_priced_models=false` as "n/a · N tokens".
+
+- **2026-05-01 — planner: per-plan run history + Last-Event-ID SSE resume (Cursor [A]):**
+  Two cockpit reads land together. `GET /api/planner/{plan_id}/runs`
+  reconstructs every past execution of one plan from the meeet event
+  store (no parallel "runs" table — single source of truth shared with
+  the timeline / SSE / gold-pill audit lane). Walks
+  `plan.run.started → plan.completed | plan.aborted` windows;
+  authoritative counters (`steps_run` / `steps_blocked` /
+  `steps_failed`) come from the terminal event when present, locally
+  derived otherwise. Returns runs newest-first with `count` and
+  `in_flight` rolled up. The SSE stream now honours the standard
+  `Last-Event-ID` HTTP header (header wins over `after_id` query;
+  invalid header silently falls back to query / default), so a vanilla
+  `EventSource` reconnect resumes correctly without cockpit-specific
+  glue. The `hello` frame advertises `after_id_source` so the cockpit
+  can tell whether the cursor came from a real reconnect or a fresh
+  subscribe. Pinned by `tests/test_planner_history.py` (16 cases).
+  Full suite: **1975 passing**. Follow-ups: cockpit "Plan Inbox"
+  panel can now consume `/events?thread_id=…` *and* the new runs
+  drawer; optional `--gc-orphans` CLI flag for pruning stale
+  partial-run events past a retention horizon.
+
+- **2026-05-01 — planner: SSE event stream + meeet.list_events(after_id) (Cursor [A]):**
+  Live feed for the cockpit "approval inbox". New
+  `GET /api/planner/events` SSE endpoint mirrors `/api/awareness/stream`:
+  emits `hello` (with active filter + cursor), then per-event frames in
+  id-ascending order, then `bye` on `max_duration_reached` /
+  `client_disconnect`. Optional query params `plan_id` / `thread_id`
+  filter on payload; `after_id` is the resume cursor; `poll_interval_s`
+  / `max_duration_s` tune the loop. Powered by a new
+  `MeeetStore.list_events(after_id=N)` filter (SQLite `id` is
+  monotonic). Surfaces every kind in the L6.2 family
+  (`plan.proposed` / `planner.synthesis.{completed,failed}` /
+  `planner.{approved,rejected,deleted}` / `plan.run.started` /
+  `plan.step.{requested,allowed,completed}` / `plan.completed` /
+  `plan.aborted` / `plan.abort.requested`). Pinned by
+  `tests/test_planner_sse.py` (9 cases incl. cursor advance,
+  filter rejection still advancing cursor, no-collision with
+  `/{plan_id}`). Full suite: **1959 passing**. Follow-ups: native
+  `Last-Event-ID` header parsing, reverse push from a single
+  TARS process, cockpit "Plan inbox" panel.
+
+- **2026-05-01 — timeline: plan.* events visible in per-thread feed (Cursor [A]):**
+  Phase L6.2 shipped the planner runner + a full `plan.*` event family
+  but the per-thread timeline (`backend/core/search/timeline.py`) had
+  not been taught about it. Cockpit threads where the operator ran a
+  plan rendered gaps. This PR adds every new event kind
+  (`plan.proposed`, `planner.{approved,rejected}`,
+  `plan.run.started`, `plan.step.{requested,allowed,completed}`,
+  `plan.completed`, `plan.aborted`, `plan.abort.requested`) to
+  `_RELEVANT_EVENT_KINDS` and adds matching `_summarise_event` branches
+  with a consistent `plan=<id> · …` shape. The
+  `plan.step.completed` summariser ranks `skipped` > `blocked` >
+  `failed` > `ok`. `plan.proposed` truncates the goal at 60 chars.
+  Pinned by `tests/test_thread_timeline.py` (12 new cases incl.
+  end-to-end flow). Full suite: **1950 passing**.
+
+- **2026-05-01 — Phase L6.2: planner runner (PlanRunner + abort + plan.* events) (Cursor [A]):**
+  Second slice of Phase L6. New `backend/core/planner/runner.py` ships
+  the `PlanRunner` that takes an `approved` `Plan`, drives every step
+  through the same policy gate the playbook runner uses, and emits the
+  `plan.*` lifecycle events spec'd in L6.2 (`plan.run.started` /
+  `plan.step.{requested,allowed,completed}` / `plan.completed` /
+  `plan.aborted`, plus `plan.proposed` at synthesis time). The runner
+  reuses `PlaybookRunner._dispatch` via a thin `_AdaptedStep` adapter so
+  the dispatcher logic (awareness snapshots, policy gate, error mapping)
+  stays single-sourced. Status transitions `approved → running →
+  completed/aborted` are runner-owned and persisted to the planner
+  store. Cooperative abort: `PlanRunRegistry.abort(plan_id)` flips an
+  `asyncio.Event` that the runner observes between groups (never
+  mid-step). New HTTP: `POST /api/planner/{plan_id}/run` (resolves
+  policy mode from body / `x-tars-policy-mode` header / env, wraps in
+  `thread_id_scope` so events inherit the persisted thread id) and
+  `POST /api/planner/{plan_id}/abort` (404s when not in flight,
+  otherwise emits `plan.abort.requested`). Pinned by
+  `tests/test_planner_runner.py` (21 cases). Full suite:
+  **1937 passing**. Follow-ups: real cloud-LLM voices in the
+  synthesizer, cockpit "approval inbox" UI driven by `plan.*` events,
+  optional `mode=async` for fire-and-forget runs.
+
+- **2026-05-01 — Phase L6 v1: planner foundations (synthesis + persistence) (Cursor [A]):**
+  Phase L6 (Planner / Agent loop) starts here. New module
+  `backend/core/planner/` ships the foundations: `Plan` /
+  `PlanStep` dataclasses + `PlanStatus` enum,
+  `PlannerStore` (SQLite at `~/.tars/planner.sqlite`, override
+  `TARS_PLANNER_DB_PATH`), and a deterministic
+  `synthesize_plan(goal, …)` that maps operator goals onto either
+  a registered playbook or a single-action fallback. Resolution
+  priority: playbook id → name → tag → action substring →
+  pack-snapshot fallback. Stable error reasons (`empty_goal` /
+  `no_match` / `ambiguous_packs` / `unknown_pack`) so the HTTP
+  layer can render localised envelopes. New router at
+  `/api/planner` exposes a complete CRUD surface (POST /plan,
+  GET /{id}, GET /, GET /_stats, POST /{id}/status,
+  DELETE /{id}). Operator transitions (`approved` / `rejected`)
+  emit `planner.{approved,rejected}` events; the runner-owned
+  `running` / `completed` / `aborted` transitions land in the
+  next slice. Pinned by `tests/test_planner_synthesis.py`
+  (41 cases). Full suite: **1916 passing**. Follow-up:
+  `PlannerLoop` runner that consumes `approved` plans and drives
+  `PlaybookRunner` in interactive mode (`plan.*` events from
+  L6.2 spec).
+
+- **2026-05-01 — MeeetClient.emit auto-injects thread_id from contextvar (Cursor [A]):**
+  After the ContextVar bridge (PR #99), every router that handles
+  `x-tars-thread-id` opens `thread_id_scope(...)` so the active
+  chat thread id rides on the asyncio context. This PR completes
+  the loop by having `MeeetClient.emit(...)` automatically copy
+  the contextvar's value into `payload['thread_id']` when the
+  contextvar is set AND the caller didn't already place
+  `thread_id` in the payload. Net result: every meeet event
+  emitted from inside an `invoke_action` / `confirm` /
+  `awareness_snapshot` scope automatically carries the chat
+  thread id, so the cockpit per-thread audit lane fills in for
+  every emitted event kind without per-router plumbing. Explicit
+  call-site values always win. Pinned by
+  `tests/test_meeet_auto_thread_id.py` (8 cases) plus regression
+  on the previous PRs. Full suite: **1875 passing**.
+
+- **2026-05-01 — ContextVar bridge: action handlers auto-inherit thread_id (Cursor [A]):**
+  PRs #97 (policy) and #98 (council HTTP) plumbed `x-tars-thread-id`
+  through the gate and the council's HTTP entry. The remaining gap
+  was action handlers calling `get_council().deliberate(...)` from
+  inside `invoke_action` — those handlers don't see the request
+  thread_id directly. This PR closes that gap with a `ContextVar`
+  bridge: new `current_thread_id()` + `thread_id_scope(...)` in
+  `backend/core/meeet/tracing.py`. `invoke_action` and the policy
+  `confirm` route open the scope; the council orchestrator falls
+  back to `current_thread_id()` when no explicit `thread_id` kwarg
+  is passed (explicit still wins). Net result: an action invoked
+  from a chat thread auto-propagates `thread_id` into every
+  council/sampler/policy event it triggers, no per-handler
+  plumbing needed. Pinned by `tests/test_thread_id_contextvar.py`
+  (12 cases) plus regression on `test_council_thread_linkage.py`
+  (10) and `test_policy_thread_linkage.py` (12). Full suite:
+  **1867 passing**.
+
+- **2026-05-01 — Council/sampler events thread chat thread_id end-to-end (Cursor [A]):**
+  After the policy-event linkage (PR #97), the next gap in the
+  per-thread audit lane was the council layer. The timeline already
+  accepts `council.deliberation.{started,completed}` and
+  `sampler.decision`, but none of those events carried a `thread_id`.
+  This PR adds `thread_id: str | None = None` kwarg to
+  `CouncilOrchestrator.deliberate(...)` and surfaces it on every
+  event the orchestrator emits (started, per-voice `usage.tokens`,
+  `sampler.decision`, completed) — only when present (exact-match
+  filter downstream). The HTTP surface
+  `POST /api/council/deliberate` reads `x-tars-thread-id` and
+  forwards. Pinned by `tests/test_council_thread_linkage.py`
+  (10 cases) plus regression on `test_council.py` (8) and
+  `test_council_parallel.py` (17). Full suite: **1855 passing**.
+  Follow-up: action handlers calling `get_council().deliberate(...)`
+  from inside `invoke_action` (e.g. `business.daily_brief`,
+  `traders.summarize_market`) don't yet see the request thread_id.
+  A clean fix is a `current_thread_id` ContextVar set in
+  `invoke_action` and read by the orchestrator; out of scope for
+  this PR.
+
+- **2026-05-01 — Policy gate threads chat thread_id end-to-end through every policy.* event (Cursor [A]):**
+  Last PR's per-thread timeline now renders policy event summaries
+  correctly *if* the events carry a `thread_id` — but no policy event
+  ever did. This PR threads `x-tars-thread-id` from the action HTTP
+  entry through `policy.gate.check()`, persists it on the
+  `confirmations` row (additive SQLite migration via
+  `_ADDITIVE_COLUMNS`), and re-attaches it to every follow-up policy
+  event so the cockpit per-thread audit lane finally fills in for
+  chat-driven destructive actions. Wires: `web_extras/routers/domains.py`
+  (`policy.queued` / `policy.blocked` / `policy.allowed`),
+  `web_extras/routers/policy.py` via the new `_attach_thread_id`
+  helper (`policy.confirm` / `policy.cancelled` / `policy.expired`),
+  and `web_extras/app.py::_policy_expire_loop` (`policy.expired` from
+  the background tick). The `thread_id` field is omitted when the
+  header is absent (timeline filter is exact-match). Pinned by
+  `tests/test_policy_thread_linkage.py` (12 cases) plus regression
+  on `test_policy.py`, `test_policy_expire_loop.py`,
+  `test_thread_timeline.py`. Full suite: **1845 passing**.
+
+- **2026-05-01 — Per-thread timeline: fix policy event names + summariser bug, expand kinds (Cursor [A]):**
+  The per-thread timeline (`backend/core/search/timeline.py`,
+  `GET /api/chat/threads/{id}/timeline`) was untested and three things
+  were quietly wrong: (1) `_RELEVANT_EVENT_KINDS` listed event names
+  nobody emits (`policy.confirmed`, `policy.rejected`,
+  `playbook.step.failed`) and missed real ones (`policy.confirm`,
+  `policy.cancelled`, `policy.blocked`, `policy.expired`,
+  `playbook.started`, `playbook.completed`, both
+  `council.deliberation.*`); (2) the `policy.*` summariser read
+  `payload['action_id']` but every router emits `payload['action']` —
+  the cockpit always rendered `action=?`; (3) no summarisers existed
+  for playbook / sampler / council events. All three fixed in this
+  PR. The `policy.*` summariser now renders `slug=… · action=… ·
+  token=…` (with `expired_at=…` for `policy.expired`); new
+  summarisers for `sampler.decision` (winner / stance / agreement /
+  cost / parallel), `council.deliberation.{started,completed}`, and
+  `playbook.{started,step.completed,completed}` give the cockpit
+  audit panel rich descriptions per event. Pinned by
+  `tests/test_thread_timeline.py` (27 cases — module was previously
+  untested). Full suite: **1833 passing**.
+
+- **2026-05-01 — Policy gate auto-expires stale confirmations + emits `policy.expired` (Cursor [A]):**
+  Closed two operator-workflow gaps in the destructive-action policy
+  gate. (1) Nothing automatically reaped stale `pending` confirmations
+  — a token sat in the cockpit's "approval inbox" forever unless an
+  operator manually hit `POST /api/policy/expire`. (2) The expire path
+  emitted no meeet event, so the audit lane saw `policy.queued` going
+  in but never the matching expiry. New `_policy_expire_loop` in
+  `web_extras/app.py` ticks every `TARS_POLICY_EXPIRE_INTERVAL_S`
+  (default `0` = off, opt-in like memory-purge), reaps stale tokens
+  via the refactored `PolicyStore.expire_stale()` (now returns
+  `list[PendingConfirmation]` so callers can emit per-token events),
+  and emits a `policy.expired` meeet event per reaped token carrying
+  `{token, slug, action, expired_at, trace_id}`. The
+  `POST /api/policy/expire` HTTP route emits the same event shape so
+  the cockpit treats both paths uniformly. Pinned by
+  `tests/test_policy_expire_loop.py` (15 cases) plus the existing
+  `tests/test_policy.py` test updated for the new return shape. Full
+  suite: **1806 passing**.
+
+- **2026-05-01 — Council orchestrator runs voices in parallel (Cursor [A]):**
+  `CouncilOrchestrator.deliberate(...)` now fans every chosen voice out
+  through `asyncio.gather(..., return_exceptions=True)` instead of
+  awaiting each `propose(...)` call serially. With three LLM voices
+  configured (12 s transport timeout each) deliberation wall-clock
+  drops from up to ~36 s to `max(per-voice latency)`. Per-voice
+  exceptions are isolated as `unavailable` proposals so one broken
+  adapter cannot crash a council turn. `usage.tokens` events still
+  emit serially in input order after the gather to keep the cost
+  ledger deterministic. `sampler.decision` adds three additive keys
+  (`latency_ms` is now wall-clock, `cumulative_latency_ms` keeps the
+  sum, `parallel: bool`) without breaking existing consumers. New
+  `_propose_one(...)` helper backfills `latency_ms` for voices that
+  forget to stamp it. Pinned by `tests/test_council_parallel.py`
+  (17 cases). Existing council suite + chat orchestrator suite pass
+  unchanged. Full suite: **1791 passing**.
+
+- **2026-05-01 — `science.hypothesis_tree` real deterministic generator (Cursor [A]):**
+  Promotes the last user-facing stub in the science pack
+  (`hypothesis_tree` returned `{node, children: []}`) into a
+  deterministic, audit-friendly hypothesis decomposition. New
+  `backend/core/domains/packs/science/hypothesis.py` ships a
+  `grow_tree(seed, *, depth=1)` builder that fans out along five
+  canonical dimensions (`mechanism / alternatives / confounders /
+  conditions / evidence`) with per-dimension grandchild templates
+  (steps, alternatives, confounders, conditions, tests). At depth=2
+  the tree is 16 nodes (1 seed + 5 children + 5×2 grandchildren).
+  Stable `h-NNNN` ids and typed `kind` per node so the cockpit
+  can pin expand state and colour-code layers. Seed normaliser
+  strips trailing punctuation so prompts read cleanly. Depth
+  clamped to `[0, 3]`. Action returns the *effective* depth
+  post-clamp + `model="heuristic-v1"` label. Pinned by 24 new
+  tests; full suite: **1774 green**.
+
+- **2026-05-01 — `mlm.update_member` + `mlm.list_members` close downline lifecycle (Cursor [A]):**
+  Closes the MLM downline lifecycle: `add_member` writes,
+  `downline_snapshot` / `retention_alert` summarise, but operators
+  had no patch-style update path and no read-only "show me everyone
+  in this branch" side door. New `update_member` (destructive, patch
+  semantics, idempotent, emits `mlm.member_updated` listing
+  `changed_fields`) and `list_members` (non-destructive, filter by
+  sponsor / rank / `recent_days` / `limit`, returns `summary.by_rank`
+  + `summary.total_volume_usd` rollups). Pinned by 33 new tests +
+  destructive-spec membership pin update; full suite: **1750 green**.
+
+- **2026-05-01 — `business.local_deals` awareness source (Cursor [A]):**
+  Mirrors `traders.local_alerts` for the business pack. New
+  `_fetch_local_deals` returns a structurally-stable envelope
+  (`count` / `pipeline_usd` / `by_stage` / `by_owner` / `deals` /
+  `filters`) defaulting to `active_only=True`, `limit=50` (clamped
+  to 200). `pipeline_usd` excludes terminal stages so the ticker
+  shows only money still in motion. Registered as
+  `business.local_deals` (`kind="local"`) advertising the default
+  store path so the cockpit form renders sensible defaults. 13 new
+  tests cover defaults, terminal-stage handling, missing store,
+  path override, aggregations, owner/stage normalisation, limit
+  clamping, and pack wiring; the live-fetcher membership pin in
+  `tests/test_awareness_fetchers.py` is extended. Full suite:
+  **1717 green**.
+
+- **2026-05-01 — `business.list_deals` read-only side door (Cursor [A]):**
+  Mirrors `traders.list_alerts` for the business pack. New
+  `read_local_deals` helper + `list_deals` action provide a fast,
+  non-destructive read on the local deals store with filters
+  (`active_only / stage / owner / limit`) and pre-computed rollups
+  (`by_stage`, `total_amount`). Avoids spinning up the council just
+  to enumerate deals. Pinned by 18 new tests; full suite:
+  **1703 green**.
+
+- **2026-05-01 — `business.update_deal` closes the deal lifecycle (Cursor [A]):**
+  Mirrors today's `traders.cancel_alert` work for the business pack.
+  New `update_local_deal` helper + `update_deal` action handler patch
+  any subset of `name / amount / stage / owner / next_step / due /
+  notes` on a previously-logged local row, stamp `updated_at`, and
+  emit `business.deal_updated` listing `changed_fields`. Optional
+  strings: `""` clears a field, `None` (or omission) leaves it
+  untouched. Idempotent: a no-op patch returns `unchanged=True` and
+  emits no event. Policy gate routes `business.update_deal` through
+  confirmation alongside `log_deal`. Pinned by 30 new tests
+  (including end-to-end `log → update → daily_brief reflects won
+  deal`); full suite: **1685 green**.
+
+- **2026-05-01 — `traders.local_alerts` awareness source (Cursor [A]):**
+  Closes the cockpit-side loop on the new local-first alerts store.
+  New `_fetch_local_alerts` returns a structurally-stable envelope
+  (`count` / `by_direction` / `by_ticker` / `alerts` / `filters`)
+  defaulting to `active_only=True`, `limit=50` (clamped to 200).
+  Registered as `traders.local_alerts` (`kind="local"`) advertising
+  the default store path so the cockpit form can render sensible
+  defaults. 12 new tests cover defaults, inactive inclusion, missing
+  store, path override, aggregations, ticker normalisation, limit
+  clamping, and pack wiring; the live-fetcher membership pin in
+  `tests/test_awareness_fetchers.py` is extended to include the
+  new source. Full suite: **1656 green**.
+
+- **2026-05-01 — `traders.cancel_alert` closes the alerts lifecycle (Cursor [A]):**
+  Natural follow-up to the `place_alert` real adapter. Adds a new
+  `cancel_local_alert` helper to
+  `backend/core/domains/packs/traders/local_alerts.py` plus a
+  `cancel_alert` action handler. Marks the row `active=False`, stamps
+  `cancelled_at` (UTC ISO Z) + optional `cancel_reason`, leaves all
+  other fields untouched for the audit trail. Idempotent: a second
+  cancel of the same id returns `already_inactive=True` and emits no
+  duplicate meeet event. Policy gate now routes `traders.cancel_alert`
+  through confirmation alongside `place_alert`. Action surfaces
+  stable error codes (`alert_id_required`, `alert_not_found`,
+  `local_store_unwritable`). Pinned by 14 new tests + 1 update to the
+  destructive-spec membership pin; full suite: **1644 green**.
+
+- **2026-05-01 — `traders.place_alert` real local-first store + `list_alerts` (Cursor [A]):**
+  Promotes the last hardcoded stub in the traders pack
+  (`return {"alert_id": "stub-0001"}`) into a real local-first
+  adapter. New `backend/core/domains/packs/traders/local_alerts.py`
+  persists every alert into `~/.tars/traders_alerts.json` (override
+  via `TARS_LOCAL_ALERTS_PATH` or `path` kwarg), mints monotonic
+  `local-alert-NNNN` ids, validates inputs strictly with stable
+  error codes (`ticker_required`, `price_invalid`,
+  `direction_invalid`), and emits `traders.alert_placed` meeet
+  events. Allowed directions expanded to
+  `above / below / cross_above / cross_below`. The destructive-action
+  policy gate now confirms a real persisted receipt instead of a
+  hardcoded echo. New non-destructive `list_alerts` action lets
+  operators / playbooks read the queue back with `ticker`,
+  `active_only`, `limit` filters. Pinned by 69 new tests covering
+  path resolution, store IO, atomic writes, ID generation,
+  coercion edge cases, the action handlers, and ActionSpec
+  wiring; full suite: **1630 green**.
+
+- **2026-05-01 — entrepreneur pack schema parity for `generate_content` (Cursor [A]):**
+  Syncs the entrepreneur pack's `generate_content` `ActionSpec`
+  schema with the upgraded MLM drafter that landed earlier
+  today. Exposes the new `tone` / `language` / `cta` knobs and
+  the `linkedin` channel through the entrepreneur namespace so
+  the cockpit can render full dropdowns. Imports the enum
+  tuples directly from `mlm.post_drafter` so the entrepreneur
+  pack can never drift from the underlying drafter. Pinned by
+  2 new tests; full suite: **1561 green**.
+
+- **2026-05-01 — `mlm.generate_post` real multi-channel drafter (Cursor [A]):**
+  Promotes the last user-facing stub in the MLM pack to a real
+  deterministic drafter. New
+  `backend/core/domains/packs/mlm/post_drafter.py` lands a 4×4×3
+  template registry (channel × tone × language) plus per-format
+  overlays (story / reel / dm), language-aware CTAs, and
+  ASCII-safe hashtag generation for ig + linkedin. Channels now
+  cover ig / tg / wa / linkedin; tones add warm / professional /
+  urgent / celebratory; languages cover en / ru / es. The action
+  surfaces `draft`, `cta`, `hashtags`, `char_count`,
+  `word_count` per platform-budget UX, and emits `mlm.post_drafted`
+  per the cross-cutting adapter rule. Backward compat
+  preserved for `playbooks/mlm/retention_round.json`. Pinned by
+  33 new tests covering full-matrix template coverage,
+  determinism, coercion, format overlays, hashtag rules, and
+  retention_round playbook compatibility; full suite:
+  **1559 green**.
+
+- **2026-05-01 — `daily_brief` unions locally-logged deals (Cursor [A]):**
+  Closes the loop on the `log_deal` adapter shipped earlier today.
+  `daily_brief` now reads `~/.tars/business_deals.json` (override
+  via `TARS_LOCAL_DEALS_PATH` or new `local_deals_path` arg) and
+  unions it with the bundled snapshot. Local rows whose id
+  collides with a bundled row replace the bundled payload
+  (operator's latest action wins); brand-new local ids append.
+  Response gains `deals_local_logged` count, `local_deals_path`
+  (resolved), and a `"local-store"` source marker. Defensive
+  against missing / corrupt local files; refuses to double-load
+  when both paths resolve to the same file. Pinned by 10 new
+  tests including the end-to-end "log_deal → daily_brief"
+  closed-loop test; full suite: **1526 green**.
+
+- **2026-05-01 — `mlm.score_recruit` over real downline signals (Cursor [A]):**
+  Promotes the score_recruit action from a one-line `hash()`
+  heuristic — which was non-deterministic across machines because
+  `hash()` is randomised by PYTHONHASHSEED — to a real local-first
+  scorer over the downline DB. New
+  `backend/core/domains/packs/mlm/scoring.py` lands a pure
+  scoring engine: `RecruitSignals` dataclass, recency / volume /
+  rank / tenure components with sane saturation thresholds,
+  weighted composition (`0.40 / 0.30 / 0.20 / 0.10`), a curated
+  7-step rank ladder (`junior → founder`), and a stable
+  SHA-256-derived fallback mapped onto `[0.40, 0.95]` for
+  unknown handles. The action now consults the downline DB,
+  surfaces `signals{}`, `rank`, `volume_usd`, `days_silent`,
+  and switches `model` between `"downline-v1"` (real) and
+  `"heuristic-v1"` (fallback). DB failures fall through cleanly
+  to the unknown-handle branch. Pinned by 40 new tests covering
+  per-component math, composition + clamping, and action
+  integration; full suite: **1516 green**.
+
+- **2026-05-01 — `business.log_deal` real local-first adapter (Cursor [A]):**
+  Promotes the last open stub in the business pack to a real
+  local-first action. When neither HubSpot nor Pipedrive
+  credentials are configured, deals append to a local JSON
+  store at `~/.tars/business_deals.json` (override via
+  `TARS_LOCAL_DEALS_PATH` or the new `store_path` arg) — the
+  same shape `daily_brief` already reads, so logged deals show
+  up next morning. New
+  `backend/core/domains/packs/business/local_deals.py` covers
+  path resolution, defensive load (corrupted JSON / non-list /
+  mixed rows tolerated), atomic tmp+rename writes,
+  monotonically-incrementing `local-NNNN` ids that ignore
+  unrelated CRM rows, and a process-local lock. Each successful
+  append emits `business.deal_logged` per the cross-cutting
+  adapter rule. The `log_deal` action's `ActionSpec` schema
+  also gains `owner` / `next_step` / `due` / `notes` /
+  `store_path` plus a `stage` enum for cockpit dropdowns.
+  Pinned by 43 new tests (incl. `OSError` surface, corrupt-store
+  recovery, monotonic ids, CRM short-circuit untouching the
+  local store); full suite: **1476 green**.
+
+- **2026-05-01 — `science.extract_dataset` reads attachments (Cursor [A]):**
+  Closes the natural follow-up to the real-adapter promotion:
+  the action now accepts `attachment_id` alongside `text` and
+  `ref`. Resolves chat attachments via the existing
+  `AttachmentStore.get_attachment(id)` async API, runs the same
+  deterministic detector against `record.extracted_text`, and
+  surfaces `attachment_id` / `filename` / `mime` / `thread_id`
+  on the response so the cockpit can label result rows with
+  the source paper. New error codes `attachment_not_found` and
+  `attachment_empty` (with a `hint`) cover the missing /
+  ingestion-still-running cases. Lazy import keeps the science
+  pack importable in offline / unit-test envs. Priority order
+  documented in the docstring + `ActionSpec` schema:
+  `text` > `attachment_id` > `ref`. Pinned by 7 new tests
+  (incl. priority enforcement and attachment-not-found / empty
+  paths); full suite: **1433 green**.
+
+- **2026-05-01 — `science.extract_dataset` real adapter (Cursor [A]):**
+  Promotes the science pack's `extract_dataset` action from a typed
+  stub to a deterministic detector. Surfaces dataset references in
+  a paper (arXiv ref) or operator text via two complementary
+  detectors: a curated `KnownDataset` registry (~25 entries —
+  ImageNet, COCO, GLUE, SQuAD, MMLU, LibriSpeech, UK Biobank, …)
+  with case-insensitive whole-word matching, and a `RepoPattern`
+  library covering Zenodo / Figshare / HuggingFace / Kaggle /
+  OpenML / OSF / Dryad. Output dedupes per `(canonical_id, source)`
+  and ships an `evidence` snippet so operators can verify the
+  call. Pinned by 27 new tests; full suite: 1426 green.
+
+- **2026-05-01 — Recovery challenge rate-limit (Cursor [A]):**
+  Closes the open follow-up from PR #74 by extending the per-IP
+  token-bucket pattern to the `/api/recovery/challenge/{start,
+  verify}` endpoints. Default 5 burst + 1/30s on `start` and
+  10 burst + 1/10s on `verify` (env-tunable via
+  `TARS_RECOVERY_CHALLENGE_{START,VERIFY}_{BURST,RATE_PER_S}`).
+  429 envelopes use `TARSAPIError` and emit a
+  `recovery.rate_limited` meeet event so the
+  `/api/pairing/audit` feed (PR #77) surfaces brute-force
+  attempts. Pinned by 7 new tests; full suite: 1399 green.
+
+- **2026-05-01 — Pairing audit feed + meeet kind_prefix (Cursor [A]):**
+  Adds the missing read-side for the pairing audit lane.
+  `MeeetStore.list_events()` gains a `kind_prefix` filter
+  (`kind LIKE ? ESCAPE '\\'` with defensive metachar escape);
+  `GET /api/meeet/events` exposes it as a query param. New
+  `GET /api/pairing/audit` folds `pair.*` + `recovery.*` into one
+  newest-first deduped feed, returning the public-safe
+  `{id, ts, trace_id, kind, payload}` shape so internal-only
+  fields (`pushed`, `last_error`, `source`) don't bleed into the
+  operator timeline. Pinned by 12 new tests; full suite: 1392 green.
+  The cockpit gold-pill audit lane (Claude lane) can now consume
+  this directly.
+
+- **2026-05-01 — Rotate-identity epoch bump (Cursor [A]):**
+  Closes the open follow-up on the rotate-identity endpoint. The
+  rotate now snapshots paired devices, calls `store.revoke()` on
+  each (because their pinned public keys reference the old host
+  identity), and emits `pair.epoch_bumped` with the cleared list
+  so the cockpit gold-pill audit lane can render a distinct epoch
+  bump row. `pair.host_rotated` gains a `cleared_device_count`
+  field for replay correlation. Zero-device rotates intentionally
+  omit `pair.epoch_bumped` to keep the timeline clean. 4 new
+  tests; full suite: 1380 green.
+
+- **2026-05-01 — Rotate-identity gated by 3-of-24 challenge (Cursor [A]):**
+  Wires the first real consumer for the seed-challenge primitive
+  shipped in PR #73. New `consume_passed_challenge` helper
+  atomically transitions a `passed` challenge to `consumed`
+  (single-use, fingerprint-bound), and a new
+  `POST /api/pairing/rotate-identity` endpoint mints a fresh host
+  keypair only when the operator can prove they still hold the
+  seed bound to the current identity. Optional
+  `new_recovery_fingerprint` body knob lets the operator rebind
+  the seed at the same time as the keypair (e.g. after a seed-leak
+  event). 409 envelopes for `recovery_not_bound`,
+  `challenge_not_passed`, `fingerprint_mismatch`; 404 for
+  `challenge_not_found`; all via `TARSAPIError`. Emits
+  `pair.host_rotated` on success with old/new public key + bound
+  fingerprint. Tests: 10 unit + 9 HTTP. Full suite: 1376 green.
+
+- **2026-05-01 — Pairing relay rate-limit (Cursor [A]):**
+  Added stdlib-only token-bucket rate limiter
+  (`web_extras/rate_limit.py`) and wired it into
+  `POST /api/pairing/begin` so pairing-token mints from a single IP
+  cannot be spammed. Defaults: 10 burst + 30/min (env-tunable via
+  `TARS_PAIR_BEGIN_CAPACITY` / `TARS_PAIR_BEGIN_REFILL_PER_MIN`).
+  Trust of `X-Forwarded-For` is opt-in via
+  `TARS_TRUST_FORWARDED_FOR=1`. 429 responses use the unified
+  `TARSAPIError` envelope with `Retry-After`,
+  `X-RateLimit-{Remaining,Reset,Bucket}` headers and emit a
+  `pair.rate_limited` meeet event; allowed calls also surface a
+  `rate_limit` block on the JSON body and the `pair.attempted`
+  event so operators can see how close the IP is to the cap.
+  Tests: 25 cases in `tests/test_rate_limit.py`; the
+  `test_pairing_contract.py` fixture also resets the limiter
+  singleton to avoid cross-test bleed. Full suite: 1312 green.
+
 - **2026-05-01 — Master release roadmap + default-EN + QA browser suite (Cursor, cross-repo):**
   Drafted the single source-of-truth release plan in
   `docs/ROADMAP_TO_RELEASE.md` (Phases A–D: i18n parity, QA-suite,
@@ -1220,6 +2301,359 @@ Smaller functional items still pending in parallel:
     TARS offline, ingests months of files on the hash embedder,
     then configures `OPENAI_API_KEY` and wants the back-catalog
     to catch up.
+32. ~~**Recovery seed verification challenge (3-of-24).**~~ **shipped**
+    (2026-05-01) — closes the "Recovery seed verification
+    policy" idea from IDEAS' Pairing & sync section. New
+    pure-stdlib state machine in
+    `backend/core/crypto/seed_challenge.py` with
+    `SeedChallenge` + `mint_challenge()` +
+    `verify_challenge()` + `SeedChallengeStore` (thread-safe
+    in-memory dict with expiry-aware reads). Asks the
+    operator to confirm 3 random word **positions** out of
+    24 instead of retyping the entire phrase — balances
+    friction against meaningful proof-of-knowledge. `count`
+    clamped `[1, 8]`, `ttl_s` clamped `[30, 1800]` (default
+    5 min), `max_attempts` clamped `[1, 10]`. Wrong answers
+    decrement attempts; exhausted attempts mark the
+    challenge `exhausted`; expired pending challenges flip
+    to `expired`. Case + whitespace insensitive matching.
+    `to_public_dict()` strips `expected_words` so the
+    cockpit can never leak them. New HTTP routes
+    `POST /api/recovery/challenge/start` (mint),
+    `POST /api/recovery/challenge/verify` (404 unknown id,
+    410 expired, 200 + `ok=false` on wrong answers),
+    `GET /api/recovery/challenge/{id}` (public-safe state
+    for resume-after-refresh). All three emit
+    `recovery.challenge.{started, passed, failed, expired,
+    exhausted}` meeet events with the fingerprint shape so
+    the timeline UI can render the challenge cycle on the
+    same gold-pill lane as existing `recovery.shown` /
+    `recovery.verified`. Pinned by
+    `tests/test_seed_challenge.py` (30 cases). Follow-up
+    (deferred): gate the destructive "rotate identity"
+    flow on a fresh `recovery.challenge.passed` event for
+    the same fingerprint.
+
+31. ~~**Streaming ingestion progress (SSE).**~~ **shipped**
+    (2026-05-01) — closes the "streaming ingestion progress"
+    idea from IDEAS' attachments section. The ingest pipeline
+    now accepts a `progress: ProgressCallback | None` kwarg
+    that fires once per phase (`started` → `extracted` →
+    `chunked` → `embedding` → `embedded` → `indexed` →
+    `completed`, plus `dedup_hit` / `zip_walked` / `error`
+    terminal variants). A defensive `_safe_progress()`
+    wrapper swallows + logs any exception inside the callback
+    so a flaky SSE consumer can never break the ingest flow.
+    Three new meeet events `attachment.extracting`,
+    `attachment.embedding`, `attachment.indexed` accompany the
+    callback for cross-cutting observability. New HTTP route
+    `POST /api/chat/threads/{id}/attachments/stream` is a
+    thin adapter that pipes the callback into a
+    `StreamingResponse` queue — frames are SSE
+    (`event: <phase>\ndata: <json>\n\n`), terminal `result`
+    frame carries the same envelope as the legacy upload so
+    the cockpit can update the chip without an extra GET.
+    Headers include `Cache-Control: no-cache` and
+    `X-Accel-Buffering: no` so nginx flushes immediately. The
+    original non-streaming endpoint is unchanged. Pinned by
+    `tests/test_attachments_streaming_upload.py` (10 cases).
+    Cockpit "indexing 12 chunks…" pill UI is the Claude-lane
+    follow-up.
+
+30. ~~**business.hubspot_pull_pipeline (read-only).**~~ **shipped**
+    (2026-05-01) — closes the `business.hubspot_pull_pipeline`
+    slot from IDEAS' "real adapters" list. New
+    `backend/core/domains/packs/business/hubspot.py` ships
+    `pull_pipeline(args)` against
+    `https://api.hubapi.com/crm/v3/objects/deals` (vault key
+    `HUBSPOT_API_KEY`). Returns a `PipelineResult` envelope
+    (per-deal `id`/`name`/`amount`/`stage_id`/`stage_label`/
+    `pipeline`/`close_date`/`created_at`/`updated_at`) with
+    derived rollups (`active_count`, `won_count`,
+    `lost_count`, `pipeline_amount`) when deals are present,
+    plus the opaque `next_cursor` from HubSpot's
+    `paging.next.after`. Stage labels resolve HubSpot's
+    default-pipeline ids to human strings; unknown / custom
+    stages pass through as the raw id. Defensive: structured
+    errors for `auth_missing` / `auth_invalid` (401) /
+    `invalid_limit` / `network_error` /
+    `upstream_status` / `upstream_payload_invalid` —
+    handler never raises on bad operator input. Emits
+    `integration.hubspot.deals_list` events
+    (`request` / `completed` / `error`) per the
+    meeet × TARS adapter rule. Optional `include_raw=true`
+    attaches each deal's raw HubSpot row under `raw` for
+    debugging. `pipeline=<id>` filters client-side. Action is
+    `destructive=False` — read-only, policy gate stays out
+    of the way. Pinned by
+    `tests/test_business_hubspot_pipeline.py` (35 cases).
+    Cockpit "deals strip" UI is the Claude-lane follow-up.
+
+29. ~~**Re-embed attachment chunks on demand.**~~ **shipped**
+    (2026-05-01) — closes the "re-embed on demand" idea from
+    IDEAS' attachments section. New
+    `reembed_attachment(attachment_id, *, embedder=None,
+    embedder_name=None, store=None, session_id=None)` in
+    `backend.core.attachments.pipeline` re-vectorises every
+    chunk of an existing attachment with a fresh embedder
+    while preserving chunk ids and ords (so any cockpit
+    permalinks survive the rebuild). `_resolve_embedder_by_name`
+    accepts the short aliases `hash` / `openai` and any
+    OpenAI model id (e.g. `text-embedding-3-large`); unknown
+    or blank names fall back to `detect_embedder()`. The
+    function emits `attachment.reembedded` and
+    `usage.tokens` with full pre/post model + cost payloads,
+    and refuses bad inputs structurally
+    (`attachment_not_found`, `no_chunks`,
+    `embedder_args_conflict`, `embedder_failed`) without
+    raising. New HTTP route
+    `POST /api/chat/attachments/{id}/reembed` accepts an
+    optional body `{model: "openai" | "hash" |
+    "text-embedding-3-large"}` and `x-tars-session-id`
+    forwards into the trace; 404 only on unknown id, every
+    other failure surfaces 200 + `ok=false`. Pinned by
+    `tests/test_attachments_reembed.py` (21 cases). Cockpit
+    "promote to OpenAI" / "swap embedder" UI is the
+    Claude-lane follow-up.
+
+28. ~~**Per-persona system-prompt overlay.**~~ **shipped**
+    (2026-05-01) — closes the "per-persona system-prompt
+    overlay" idea from IDEAS' Voice section. Persona dataclass
+    learns an optional `system_prompt_overlay` field; the five
+    named personas (Jarvis, Stark, HAL 9000, GLaDOS, TARS)
+    each carry a tone block wrapped in a stable header and a
+    safety footer that reminds the model voice overlays never
+    override pack guardrails. The default `operator` persona
+    opts out so the base prompt drives the response unchanged.
+    New helpers `get_system_prompt_overlay(persona_id)` and
+    `compose_system_prompt(*, role_overlay, pack_prompt,
+    persona_overlay)` are re-exported from
+    `backend.core.voice`. The chat orchestrator's
+    `_system_prompt_for` now stitches role → pack → persona in
+    that intentional order — persona last keeps voice closest
+    to the user message so tone wins for ambiguous cases
+    without overriding role / pack instructions. Defensive:
+    if the persona registry raises, the orchestrator
+    gracefully falls back to role + pack. Pinned by
+    `tests/test_persona_prompt_overlay.py` (23 cases).
+    `Persona.to_dict()` now exposes `has_system_prompt_overlay`
+    so the cockpit voice picker can render an info chip.
+
+27. ~~**Per-thread voice persona pinning.**~~ **shipped**
+    (2026-05-01) — closes the "per-thread persona pinning"
+    idea from IDEAS' Voice section. Threads now carry an
+    optional `voice_persona_id` (additive migration on
+    `threads`), exposed on the dataclass + every API
+    response. `POST /api/chat/threads` and
+    `PATCH /api/chat/threads/{id}` accept the field with
+    validation: `None` / blank string clear the pin, unknown
+    ids 400 with `voice_persona_id_unknown`, non-string types
+    400 with `voice_persona_id_invalid`. The validator
+    cross-checks against `iter_personas()` so any persona
+    registered at runtime (built-in or domain-pack) is
+    accepted automatically. Voice routing follow-up:
+    `POST /api/voice/speak` now accepts an optional
+    `thread_id` body field — when the caller didn't pass an
+    explicit `persona`, the endpoint resolves the thread and
+    uses its pinned id as a fallback. Response carries an
+    `x-tars-voice-persona-source` header
+    (`request` / `thread`) so the cockpit can render a
+    "voice from this thread" badge. Pinned by
+    `tests/test_thread_persona_pinning.py` (26 cases).
+    Cockpit voice picker UI is the Claude-lane follow-up.
+
+26. ~~**Attachment chunk-neighbours endpoint.**~~ **shipped**
+    (2026-05-01) — backs the "per-attachment hover preview"
+    surface from IDEAS. New
+    `AttachmentStore.get_chunk_neighbours(chunk_id, *, before,
+    after)` returns `(target, before_chunks, after_chunks)` by
+    `ord` adjacency on the same `attachment_id`. The chunker
+    doesn't emit dense `ord` values (overlap windows leave
+    gaps), so "neighbours" means the closest chunks by `ord`,
+    not by `ord ± 1`. Window args clamp to `[0, 10]`. New HTTP
+    route `GET /api/chat/attachments/{attachment_id}/chunks/
+    {chunk_id}/neighbours` (plus a `/neighbors` US alias)
+    returns `{ok, attachment, chunk, before, after, window}`
+    with optional `full_text=false` to ship only the 240-char
+    `preview`. Two 404 paths defended (unknown attachment +
+    chunk-not-in-attachment, so a typo can't leak chunks across
+    attachments) and 422 on negative / oversized window.
+    `tests/test_attachments_chunk_neighbours.py` (19 cases) pin
+    the store unit + window semantics + HTTP shape +
+    cross-attachment leak guard. Cockpit hover-card UI is the
+    Claude-lane follow-up.
+
+25. ~~**mlm.tg_outreach_draft (deterministic Telegram drafter).**~~
+    **shipped** (2026-05-01) — closes the `mlm.tg_outreach_draft`
+    slot from IDEAS' real-adapters list.
+    `backend/core/domains/packs/mlm/tg_outreach.py` ships
+    `tg_outreach_draft(args)` — a deterministic markdown
+    generator with no I/O and no LLM. Six intents (`welcome`,
+    `checkin`, `winback`, `recruit`, `celebrate`, `upsell`),
+    three tones (`warm`, `direct`, `celebratory`), three
+    languages (`en`, `ru`, `es`). The handler renders an opener
+    (with `{name}` substitution and a `there` fallback for
+    unnamed recipients), a body sentence, and a closer (the
+    operator-supplied `cta` overrides the default closer when
+    present), then optionally appends a `signature` after a
+    dash separator. Output: `{ok, intent, tone, language,
+    recipient, cta, markdown, plain_text, subject_hint, tags,
+    length_chars, send_status:"draft"}`. The
+    `send_status="draft"` field is mirrored on every response
+    so cockpit code never has to remember the no-auto-send
+    promise. Hard cap at `MAX_DRAFT_CHARS=4096` (Telegram's
+    per-message limit) — over-cap drafts surface as
+    `draft_too_long`. Input hardening: name / cta / signature
+    strip newlines and clamp to length so a pasted blob can't
+    break the markdown layout. Missing translations fall back
+    to EN silently — adding a new language is one dict entry
+    per intent. New `ActionSpec` registered on the MLM pack
+    with `destructive=False` (the action produces only a
+    preview; sending is a separate, currently absent action).
+    `tests/test_mlm_tg_outreach.py` (34 cases) covers argument
+    validation, parametrised happy paths over every intent /
+    tone / language, determinism (same args ⇒ same output;
+    different intents / languages ⇒ different drafts),
+    personalisation (name substitution, default fallback,
+    signature, CTA override, multi-line CTA flattening),
+    length cap (monkey-patched
+    `MAX_DRAFT_CHARS=50` triggers `draft_too_long`), action
+    wiring, and JSON-serialisability.
+
+24. ~~**Real adapter: traders.pull_klines (Binance).**~~ **shipped**
+    (2026-05-01) — closes the `traders.binance_pull_klines` slot
+    from IDEAS' real-adapters list.
+    `backend/core/domains/packs/traders/binance.py` ships
+    `pull_klines(args)` against Binance's public REST endpoint
+    (no API key required). Symbol normalisation strips common
+    separators (`BTC/USDT` → `BTCUSDT`), interval enum
+    (`1s..1M`, default `1h`), limit clamped `1..1000`. Defensive
+    row parsing tolerates string-typed numbers and drops corrupt
+    rows. Derived `close_first` / `close_last` / `change_pct`
+    fields land on the response when at least one candle
+    resolved. Errors surface as
+    `symbol_required` / `invalid_interval` / `invalid_limit`
+    (validation), `network_error` (transport),
+    `upstream_status` + `upstream_payload_invalid` (Binance
+    responded but the payload wasn't a JSON array). Telemetry:
+    three meeet event phases — `request`, `completed`,
+    `error` — under `integration.binance.klines` so the cost
+    ledger sees real-adapter calls. New `ActionSpec` registered
+    on the traders pack with `destructive=False` and a JSON
+    schema that enumerates valid intervals for the cockpit
+    dropdown. `tests/test_traders_binance_klines.py` (21 cases)
+    pin the parser, validation, happy / error paths, action
+    wiring, and meeet event emission. Backend suite:
+    **1137 passed**.
+
+23. ~~**Playbook schema validator (CI gate).**~~ **shipped** (2026-05-01)
+    — closes the "open work: schema validator" follow-up under the
+    Phase K4 playbooks slot. The loader is permissive (`str()` /
+    `bool()` casts) which is fine for bundled playbooks but lets
+    operator typos through silently — `on_error: stoip` ran the
+    default `stop`, forward `${steps.next.value}` resolved to
+    `None`, unknown step keys never surfaced. The new validator
+    (`backend/core/playbooks/validator.py`) produces a structured
+    `ValidationResult(ok, issues)` with `Issue(severity, code,
+    path, message)` so an operator can fix every problem in one
+    pass. Errors block (`ok=False`) and warnings are surfaced
+    verbatim. Strict checks: top-level + step key whitelists,
+    duplicate step ids, action grammar
+    (`<slug>.<action_id>` and `<slug>.awareness.<source>.snapshot`,
+    dotted action ids like `pack.memory.set` are first-class),
+    `${steps.<id>...}` references for unknown / forward ids,
+    `args` type, `when` / `on_error` / `parallel` shapes,
+    leading-`parallel` no-op. HTTP:
+    `POST /api/playbooks/_validate` (literal payload or `id`,
+    mutually exclusive) and `GET /api/playbooks/_validate_all`
+    (every playbook on disk; wire to CI). Routing fix:
+    `_reload` / `_validate` / `_validate_all` now register
+    **before** the dynamic `/{playbook_id}` route so FastAPI
+    doesn't shadow them. Smoke test pins every bundled playbook
+    against the validator. `tests/test_playbook_validator.py`
+    (40 cases). Backend suite: **1116 passed**.
+
+22. ~~**Live updater channel HTTP (Tauri lock-step).**~~ **shipped**
+    (2026-05-01) — closes the desktop distribution loop. The
+    publish CLI has been writing `<target>/<version>.json` files
+    since PR #44, but the live wire `tauri-plugin-updater`
+    consumes was missing. This slot adds
+    `GET /updates/{target}/{current_version}.json` (mounted on a
+    new `updates_router` outside `/api/product` because the
+    marketing URL pattern lives at the root) and a discovery
+    helper `GET /api/product/updater/targets`. Both endpoints
+    pull from the same `load_manifest()` as
+    `/api/product/downloads`, so the two surfaces never drift.
+    `backend/core/product/updater.build_channel_from_release()`
+    is the bridge: it converts a `ReleaseEntry` to a
+    `TauriChannel`, optionally filtered to a single target.
+    `known_targets()` and `target_to_os_arch(slug)` are
+    derived from the existing `_TARGET_BY_OS_ARCH` map so
+    adding a new target only touches one source. Custom header
+    `x-tars-updater-target` for log filtering; cache `max-age=60`.
+    `tests/test_updater_channel_http.py` (18 cases) include a
+    **lock-step assertion** (`channel.version` == `/api/product/
+    downloads/latest`) and exhaustive coverage of every known
+    target via the discovery endpoint. Backend suite: **1076
+    passed**.
+
+21. ~~**`speech.intents` extraction.**~~ **shipped** (2026-05-01) —
+    Deterministic parser for TARS slash + voice commands so
+    confident actions fire without an LLM round-trip and only the
+    ambiguous residue routes to chat.
+    `backend/core/speech/intents.py` exposes
+    `parse_intent(transcript, *, known_playbook_ids=None)`
+    returning a frozen `Intent(kind, target, query, args,
+    duration_s, cleaned, consumed, confidence, error)`. Vocabulary:
+    `run_action / run_playbook / jump / search / snooze / help /
+    none`. Wake-word stripping for `TARS / Hey TARS / Ok TARS /
+    Computer / Jarvis`. Slash forms `/run pack.action [json-args]`,
+    `/run playbook_id`, `/jump <q>`, `/search <q>`,
+    `/snooze <id> [for] <duration>`, `/help`. Voice forms with
+    `dot`-keyword normalisation
+    (`"traders dot morning check"` → `traders.morning_check`).
+    Snooze duration parser handles `s / m / h / d / w` units.
+    Registry-aware playbook arbitration: `known_playbook_ids` wins;
+    bare-token bodies optimistic-dispatch when no registry is
+    supplied; an empty registry rejects unknown tokens with
+    `run_target_unrecognised`. JSON args parse only on
+    `{ ... }` bodies; non-objects + invalid JSON surface
+    `args_must_be_object` / `invalid_json_args`. HTTP:
+    `POST /api/speech/intents` body
+    `{transcript, use_playbook_registry=true}`. A flapping loader
+    is caught and degrades to empty-registry. Side fix: deflaked
+    `test_recovery_seed.py::test_generate_emits_recovery_shown_event`
+    using the same `tmp_path / meeet.sqlite` isolation pattern as
+    pairing. `tests/test_speech_intents.py` (35 cases). Backend
+    suite: **1045 passed** + 13 pairing = 1058.
+
+20. ~~**`application/zip` walker.**~~ **shipped** (2026-05-01) —
+    Zip uploads previously fell through the binary path so the
+    operator got nothing useful. With this slot, dragging a zip
+    onto the cockpit fans the archive out: every safe member is
+    fully ingested (extract → chunk → embed → FTS) and linked back
+    to the parent zip via `meta.parent_attachment_id`. Parent stays
+    opaque (no chunks) and carries a `zip_walk` summary on its meta
+    so the cockpit can render per-member outcome.
+    `backend/core/attachments/zip_walker.py` exposes
+    `walk_zip(parent_record, blob, …)` with `ZipEntryResult` /
+    `ZipWalkSummary` dataclasses and three env knobs:
+    `TARS_ZIP_MAX_ENTRIES` (default 200, cap 5 000),
+    `TARS_ZIP_MAX_ENTRY_BYTES` (default 25 MB, floor 1 KB),
+    `TARS_ZIP_MAX_DEPTH` (default 2, cap 5). Safety: rejects
+    absolute paths, traversal segments, `__MACOSX/*`, directory
+    entries, oversize members, and corrupt archives never crash
+    the parent ingest. `pipeline.ingest()` grew
+    `parent_attachment_id` + `walk_archives` parameters; auto-walks
+    on detection, emits `attachment.zip_walked` with counts +
+    truncated flag. `tests/test_zip_walker.py` (14 cases): MIME /
+    magic / suffix detection, unsafe-name predicate, env clamps,
+    fan-out + parent linkage, directory + traversal skipping,
+    entries cap (`truncated=True`), oversize skip, corrupt archive
+    handled, `walk_archives=False` opt-out, depth-limited nested
+    walks, dedup across same-thread duplicates. Backend suite:
+    **1010 passed**.
+
 19. ~~**Memory purge background loop.**~~ **shipped** (2026-05-01) —
     Closes the per-pack memory series. `_memory_purge_loop` in
     `web_extras/app.py` ticks every
