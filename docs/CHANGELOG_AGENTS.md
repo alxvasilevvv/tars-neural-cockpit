@@ -4,6 +4,94 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-03 — Cursor [A] · session closeout audit
+
+**Summary**
+
+Wrote `docs/SYSTEM_AUDIT_2026-05-03.md` — the closeout audit for
+the multi-PR operator-surface batch (PR #136 → PR #144). All 9
+critical bugs from `SYSTEM_AUDIT_2026-05-02.md` are closed; the
+backend test suite is fully green for the first time since PR #60
+broke `attachments/index.py` (2315 passed). Cockpit vitest at
+328 passed across 22 files. Five new operator surfaces shipped
+(`/cockpit/{traces,policy,council,awareness}` + `⌘.` palette),
+multimodal image routing reaches Claude / gpt-4o natively, and
+the `/changelog` chunk is 63% smaller. Three remaining items are
+explicitly out of autonomous scope (live cloud creds, code
+signing, live Stripe) and documented with the exact missing
+inputs.
+
+`docs/AGENT_HANDOFF.md` updated with the same batch summary in
+the "Done (running list, latest first)" section so the next agent
+can pick up cleanly.
+
+**Files**
+
+- `docs/SYSTEM_AUDIT_2026-05-03.md` (new, 168 lines)
+- `docs/AGENT_HANDOFF.md` (added 2026-05-02/03 closeout block at
+  the top of the running list)
+
+## 2026-05-03 — Cursor [B] · `/changelog` chunk -63% (PR #144)
+
+**Summary**
+
+The `/changelog` page bundled the entire `CHANGELOG_AGENTS.md`
+(551 KB, 172 entries) as a raw import — the resulting Changelog
+chunk was 560 KB raw / 188 KB gzip, larger than the entire
+cockpit shell. Worse, this grows every time any agent appends to
+the per-edit log.
+
+`scripts/generate_public_changelog.py` splits the source on
+`## ` headers and writes `docs/CHANGELOG_PUBLIC.md` with the
+most recent 60 entries plus a "view full history on GitHub"
+footer. The cockpit imports the public file instead. Wired into
+the cockpit lifecycle as `predev` / `prebuild` npm hooks (so
+both dev runs and production builds always see fresh content),
+with a `changelog:check` script (and a CLI `--check` flag) for
+optional CI guard against forgotten regenerations.
+
+**Build delta**
+
+- `Changelog-*.js` raw: 560 KB → 216 KB (-62%)
+- `Changelog-*.js` gzip: 188 KB → 69 KB (-63%)
+- All other chunks unchanged
+- Vitest: 328 passed (no regressions)
+
+**Files**
+
+- `scripts/generate_public_changelog.py` (new, 117 lines)
+- `docs/CHANGELOG_PUBLIC.md` (new, generated, 210 KB)
+- `experiments/neural-showcase-v3/package.json` (predev /
+  prebuild hooks + `changelog:check` script)
+- `experiments/neural-showcase-v3/src/pages/Changelog.tsx`
+  (import switched to `CHANGELOG_PUBLIC.md`)
+
+## 2026-05-03 — Cursor [B] · Unified duplicate `reembed` route (PR #143)
+
+**Summary**
+
+`POST /api/chat/attachments/{id}/reembed` had two FastAPI route
+registrations in `web_extras/routers/chat.py` — the first
+("promote-style", from `pipeline.reembed_attachment`) shadowed
+the second ("force/batch-style", from `reembed.reembed_attachment`)
+because FastAPI dispatches by registration order. This had been
+silently breaking `tests/test_attachment_reembed.py::test_http_reembed_attachment_round_trip`
+ever since the second endpoint was added — the test was written
+for the shadowed contract that was never actually live.
+
+Unified the two endpoints into a single dispatcher route that
+inspects the request body: `force` or `target_model` → batch
+impl; otherwise → promote impl. The response shape is widened to
+satisfy both original test contracts. After this PR, the entire
+backend test suite is fully green (2315 passed, 1 skipped, 2
+xfailed).
+
+**Files**
+
+- `web_extras/routers/chat.py` (collapsed two routes into one,
+  -47 lines net)
+- `docs/CHANGELOG_AGENTS.md` (this entry)
+
 ## 2026-05-02 — Cursor [B] · Image vision routing (multimodal voices)
 
 **Summary**
