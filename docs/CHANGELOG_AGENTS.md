@@ -4,6 +4,68 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · planner: GET /{plan_id}/full aggregate endpoint for cockpit drawer
+
+**Summary**
+
+Adds a one-shot aggregate endpoint
+(`GET /api/planner/{plan_id}/full`) the cockpit's plan-detail
+drawer can hit on open instead of fanning out across three
+separate calls (`GET /{plan_id}`, `GET /{plan_id}/runs`, and
+a separate usage rollup query). Bundles the plan envelope,
+reconstructed runs (newest-first), and a `usage_lifetime`
+block summing every run's per-run rollup.
+
+The lifetime cost rollup is intentionally generous about the
+`has_priced_models=false` case: `cost_usd` stays `null` (so
+the cockpit renders "n/a", not "$0.00") unless at least one
+run reported a priced model. Mixed runs sum *only* the priced
+runs' costs. This keeps the n/a label meaningful and prevents
+"plan ran but emitted no priced calls" from looking like a
+free run.
+
+**Changes**
+
+1. `web_extras/routers/planner.py` —
+   - New `GET /{plan_id}/full` route directly after
+     `/{plan_id}/runs` so the two endpoints sit next to
+     each other in the source. Same `limit` semantics as
+     `/runs`.
+   - Iterates the reconstructed runs once and sums calls /
+     tokens / latency / cost into a `usage_lifetime` dict
+     with `runs_aggregated` count.
+   - Top-of-module docstring updated with the new
+     endpoint contract (keys, null-cost rule, limit).
+2. `tests/test_planner_full_endpoint.py` (new, 7 cases):
+   - 404 for unknown plan id.
+   - Empty plan (no runs) → empty list + zero-valued
+     lifetime block + `runs_aggregated=0`.
+   - Two priced runs → lifetime block sums calls / tokens
+     / latency / cost.
+   - Single unpriced run → `cost_usd=None`,
+     `has_priced_models=False`.
+   - Mixed priced + unpriced runs → lifetime cost equals
+     *only* the priced run's cost; `has_priced_models=True`.
+   - In-flight run surfaces in the items list with
+     `in_flight=1`.
+   - Top-level envelope shape pin: exact key set on
+     `body`, `body["runs"]`, `body["usage_lifetime"]`.
+
+**Tests**
+
+- `tests/test_planner_full_endpoint.py` — 7 passed.
+- Full `pytest -q` — **2080 passed in 40s**.
+
+**Cockpit follow-ups**
+
+- Drawer can now make one fetch on open and render
+  everything (header, runs list, billing pill).
+- `runs_aggregated` makes the "across N runs" label trivial.
+- `has_priced_models=false` ↔ render "n/a" badge instead of
+  "$0.00".
+
+---
+
 ## 2026-05-01 — Cursor [A] · planner: Makefile targets + control-tower gate coverage
 
 **Summary**
