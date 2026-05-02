@@ -36,6 +36,9 @@ _session: contextvars.ContextVar[str | None] = contextvars.ContextVar(
 _route: contextvars.ContextVar[Route | None] = contextvars.ContextVar(
     "tars.route", default=None
 )
+_thread: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+    "tars.thread_id", default=None
+)
 
 
 def new_trace_id() -> str:
@@ -66,6 +69,40 @@ def current_session() -> str | None:
 
 def current_route() -> Route | None:
     return _route.get()
+
+
+def current_thread_id() -> str | None:
+    """Return the active chat ``thread_id`` for the current scope.
+
+    Set by :func:`thread_id_scope` (typically wrapping HTTP entry
+    points that handle the ``x-tars-thread-id`` header). The
+    council orchestrator + policy gate read this when no explicit
+    ``thread_id`` kwarg is provided so the originating chat thread
+    propagates through every emitted meeet event without each
+    call-site having to re-pipe it manually.
+    """
+
+    return _thread.get()
+
+
+@contextmanager
+def thread_id_scope(thread_id: str | None) -> Iterator[str | None]:
+    """Bind ``thread_id`` to the current async context.
+
+    A ``None`` or empty string is a no-op (still pushes / pops to
+    keep call sites symmetrical, but the bound value stays at the
+    outer scope's value). Nested scopes never leak.
+    """
+
+    val = thread_id if thread_id else None
+    if val is None:
+        token = _thread.set(_thread.get())
+    else:
+        token = _thread.set(val)
+    try:
+        yield _thread.get()
+    finally:
+        _thread.reset(token)
 
 
 def set_route(route: Route | None) -> None:

@@ -24,7 +24,12 @@ from fastapi import APIRouter, Header, HTTPException
 
 from backend.core.domains import packs as _packs  # noqa: F401  (registers)
 from backend.core.domains.registry import all_packs, get_pack
-from backend.core.meeet import get_client, set_route, trace_scope
+from backend.core.meeet import (
+    get_client,
+    set_route,
+    thread_id_scope,
+    trace_scope,
+)
 from backend.core.policy import get_gate, resolve_mode
 
 router = APIRouter(prefix="/api/domains", tags=["domains"])
@@ -202,6 +207,7 @@ async def awareness_snapshot(
     source_id: str,
     x_meeet_trace_id: str | None = Header(default=None),
     x_tars_session_id: str | None = Header(default=None),
+    x_tars_thread_id: str | None = Header(default=None),
 ) -> dict[str, Any]:
     pack = get_pack(slug)
     if pack is None:
@@ -224,7 +230,7 @@ async def awareness_snapshot(
 
     client = get_client()
     started_at = time.perf_counter()
-    with trace_scope(
+    with thread_id_scope(x_tars_thread_id), trace_scope(
         parent=x_meeet_trace_id,
         session=x_tars_session_id,
         route="edge",
@@ -310,7 +316,7 @@ async def invoke_action(
     # Domain actions default to "edge" — purely local execution. Any
     # voice / adapter that crosses out to a cloud bumps the route via
     # ``set_route("cloud")`` from inside its handler.
-    with trace_scope(
+    with thread_id_scope(x_tars_thread_id), trace_scope(
         parent=x_meeet_trace_id,
         session=x_tars_session_id,
         route="edge",
