@@ -4,6 +4,30 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-03 — Cursor [D] · Clickable chunk citations in ChatPane
+
+**Summary**
+
+Assistant / system message bodies now turn `[citation_id]` tokens
+into inline pills when the id exists in persisted sources or live
+retrieval; click opens the sources footer and scrolls to the
+matching `<li id="tars-source-…">`. New pure helper
+`splitChunkCitations` in `src/lib/chunkCitations.ts` + Vitest
+suite. Makefile gains `cockpit-changelog-check` and
+`gate-control-tower` / `test-all` run it before Vitest (matches
+Cloudflare Pages CI).
+
+**Files**
+
+- `experiments/neural-showcase-v3/src/lib/chunkCitations.ts`
+- `experiments/neural-showcase-v3/src/lib/chunkCitations.test.ts`
+- `experiments/neural-showcase-v3/src/components/ChatPane.tsx`
+- `Makefile` (`cockpit-changelog-check`, wire `test-all` +
+  `gate-control-tower`)
+- `docs/IDEAS.md` (mark citation rendering shipped)
+- `docs/CHANGELOG_AGENTS.md` (this entry)
+- `docs/CHANGELOG_PUBLIC.md` (regenerated)
+
 ## 2026-05-03 — Cursor [C] · CI guard for public changelog + IDEAS sync
 
 **Summary**
