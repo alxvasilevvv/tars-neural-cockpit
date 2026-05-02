@@ -193,6 +193,37 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-01 — awareness CLI parity (Cursor [A]):** Closes the
+  operator-parity gap left by the planner CLI batch. The
+  awareness layer (the cockpit's `GET /api/domains` /
+  `…/awareness` / `…/awareness/<src>/snapshot` route) now has a
+  shell-side equivalent at
+  `python -m backend.core.domains.awareness_cli` plus four new
+  Make targets (`awareness`, `awareness-list`,
+  `awareness-snapshot`, `awareness-snapshot-all`). An operator
+  on a machine without FastAPI up — fleet rollout, cron-driven
+  cold-start brief, on-call recovery during ingest outage —
+  can now list and materialise awareness sources without HTTP,
+  and the meeet event surface is **bit-for-bit identical**
+  (`awareness.snapshot.requested / completed / failed` inside
+  a `trace_scope`) so cockpit dashboards count CLI hits the
+  same as HTTP hits. Snapshot subcommands accept
+  `--thread-id` / `--trace-id` so chained CLI calls keep the
+  trace tree intact. `snapshot-all` splits results into
+  `fetched` (real fetcher invocations) and `skipped`
+  (config-only sources, e.g. webhook receivers) — overall
+  `ok` flips on fetched-source failures only, so an operator
+  can tell "no fetcher implemented yet" apart from a real
+  fetch error. Pinned by 26 new pytest cases (16 CLI, 10
+  Makefile contract). Full Python suite: **2144 passed in
+  48.90s** (was 2118, +26). Smoke: `make awareness-list
+  ARGS=traders` returns 5 sources (4 live), `make
+  awareness-snapshot ARGS="traders binance_ws"` returns the
+  live ticker envelope with `trace_id` + `took_ms`,
+  missing-`ARGS` guards exit 2 cleanly. Follow-ups: right-rail
+  planner entrypoint from the cockpit chat thread; pre-warm
+  cron driver once a packwide ARGS pattern emerges.
+
 - **2026-05-01 — meeet replay CLI: `--repush-trace` + `planner-repush-run` Make target (Cursor [A]):**
   Operator follow-up to PR #124 (`planner-replay-run`). Adds
   the **push-this-trace-upstream-now** flow that PR didn't

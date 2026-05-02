@@ -18,7 +18,8 @@ DESKTOP   ?= desktop
         smoke-core-bridge gate-control-tower ops-bridge-secret clean \
         planner planner-stats planner-list planner-runs planner-show \
         planner-full planner-clone planner-rerun planner-replay-run \
-        planner-repush-run planner-smoke
+        planner-repush-run planner-smoke \
+        awareness awareness-list awareness-snapshot awareness-snapshot-all
 
 help:                ## list targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -186,6 +187,42 @@ planner-smoke:       ## end-to-end synthesize→stats sanity for the control tow
 	    PYTHONPATH=. $(PLANNER) --quiet show "$$plan_id" > /dev/null; \
 	    PYTHONPATH=. $(PLANNER) --quiet delete --yes "$$plan_id" > /dev/null; \
 	    echo "planner-smoke ok (plan_id=$$plan_id)"'
+
+# ---------------------------------------------------------------------
+# Awareness CLI (operator parity with planner CLI)
+# ---------------------------------------------------------------------
+#
+# All targets shell into ``python -m backend.core.domains.awareness_cli``
+# so they share the same domain registry as the host process and emit
+# the same ``awareness.snapshot.*`` events the cockpit's HTTP path
+# does (cockpit dashboards see CLI invocations the same as HTTP ones).
+#
+# ARGS is a free-form passthrough for the targets that take positional
+# args (e.g. ``make awareness-snapshot ARGS="traders binance_ws"``).
+
+AWARENESS ?= $(PY) -m backend.core.domains.awareness_cli
+
+awareness:           ## raw passthrough: make awareness ARGS="snapshot traders binance_ws"
+	PYTHONPATH=. $(AWARENESS) $(ARGS)
+
+awareness-list:      ## list awareness sources (all packs or one): make awareness-list [ARGS=<slug>]
+	PYTHONPATH=. $(AWARENESS) list $(ARGS)
+
+awareness-snapshot:  ## materialise one source: make awareness-snapshot ARGS="<slug> <source_id>"
+	@if [ -z "$(ARGS)" ]; then echo 'usage: make awareness-snapshot ARGS="<slug> <source_id>"'; exit 2; fi
+	@bash -c 'set -e; \
+	    set -- $(ARGS); \
+	    slug=$$1; \
+	    source_id=$${2:-}; \
+	    if [ -z "$$slug" ] || [ -z "$$source_id" ]; then \
+	        echo "usage: make awareness-snapshot ARGS=\"<slug> <source_id>\""; \
+	        exit 2; \
+	    fi; \
+	    PYTHONPATH=. $(AWARENESS) snapshot "$$slug" "$$source_id"'
+
+awareness-snapshot-all:  ## materialise every fetcher-bearing source: make awareness-snapshot-all ARGS=<slug>
+	@if [ -z "$(ARGS)" ]; then echo "usage: make awareness-snapshot-all ARGS=<slug>"; exit 2; fi
+	PYTHONPATH=. $(AWARENESS) snapshot-all $(ARGS)
 
 acceptance-tars-meeet:  ## production acceptance for tars.meeet.world (post-DNS)
 	bash scripts/acceptance_tars_meeet.sh
