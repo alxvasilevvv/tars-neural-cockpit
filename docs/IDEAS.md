@@ -36,9 +36,9 @@ Ideas for the next sprints. Triage by impact × cost and pull into
   `x-tars-voice-persona-source` is `request` or `thread`). Tests:
   `tests/test_thread_persona_pinning.py` (26 cases). Cockpit
   voice picker UI is the Claude-lane follow-up.
-- **Voice cloning kit (offline).** Document the path for an operator
-  to capture 3 minutes of audio, mint an ElevenLabs IVC, paste the
-  voice id into `TARS_PERSONA_OPERATOR_ELEVENLABS_ID`.
+- **Voice cloning kit (offline).** Operator checklist:
+  `docs/VOICE_CLONING_OPERATOR.md` (capture → ElevenLabs IVC →
+  `TARS_PERSONA_OPERATOR_ELEVENLABS_ID`). No audio in-repo.
 - **Native speech on mobile.** iOS: replace Web Speech in the companion
   with native `Speech` API where applicable. Android: wire
   `SpeechRecognizer` + `RecognitionService` (or ML Kit on-device ASR when
@@ -163,9 +163,12 @@ Ideas for the next sprints. Triage by impact × cost and pull into
   lock-step assertion that channel `version` matches
   `/api/product/downloads/latest`. Publish CLI continues to write
   static files for static hosting.
-- **Verify-on-download UI.** When `sha256` is present in the manifest,
-  surface a "verified ✓" affordance on `<DownloadStrip />` (read the
-  hash from `data-sha256`).
+- ~~**Verify-on-download UI.**~~ ✅ **shipped** — `<DownloadStrip />`
+  hero variant already surfaces **verified · sha256** + optional
+  signature link when `primary.sha256` is set (2026-04-29 polish).
+  **2026-05-03:** footer variant now shows a compact **✓ sha256**
+  chip (same `data-sha256` attribute) so every surface with the strip
+  communicates checksum presence.
 - **Linux .deb / AppImage track.** L9 v1 only ships macOS + Windows;
   add Linux once the signing dance for Apple/Authenticode is stable.
 - **Apple notarisation log scrape.** Detect a failed notary submission
