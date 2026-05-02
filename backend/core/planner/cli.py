@@ -11,6 +11,7 @@ Usage::
     python -m backend.core.planner.cli reject  <plan_id>
     python -m backend.core.planner.cli run     <plan_id> [--mode autopilot|confirm|dry_run]
     python -m backend.core.planner.cli abort   <plan_id>
+    python -m backend.core.planner.cli clone   <plan_id> [--thread-id <id>] [--goal <override>]
     python -m backend.core.planner.cli delete  <plan_id> [--yes]
 
 Reads the same env vars the host uses (``TARS_PLANNER_DB_PATH``,
@@ -276,6 +277,57 @@ async def _cmd_abort(args: argparse.Namespace) -> int:
     )
 
 
+async def _cmd_clone(args: argparse.Namespace) -> int:
+    """Snapshot ``plan_id`` as a fresh ``proposed`` plan."""
+
+    from backend.core.meeet import get_client
+
+    store = get_planner_store()
+    original = await store.get(args.plan_id)
+    if original is None:
+        return _emit(args, _err("plan_not_found", plan_id=args.plan_id))
+    rebound_thread = (args.thread_id or "").strip() or None
+    goal_override = (args.goal or "").strip() or None
+
+    with thread_id_scope(
+        rebound_thread or original.thread_id
+    ), trace_scope() as new_trace_id:
+        clone = await store.clone(
+            args.plan_id,
+            thread_id=rebound_thread or original.thread_id,
+            trace_id=new_trace_id,
+            goal_override=goal_override,
+        )
+        if clone is None:  # pragma: no cover - the race would be exotic
+            return _emit(args, _err("plan_not_found", plan_id=args.plan_id))
+        await get_client().emit(
+            "planner.cloned",
+            {
+                "plan_id": clone.id,
+                "source_plan_id": original.id,
+                "source_status": original.status.value,
+                "model": clone.model,
+                "pack_slug": clone.pack_slug,
+                "playbook_id": clone.playbook_id,
+                "step_count": len(clone.steps),
+                "thread_id_rebind": (
+                    rebound_thread != original.thread_id
+                    if rebound_thread is not None
+                    else False
+                ),
+                "goal_overridden": goal_override is not None,
+            },
+        )
+    return _emit(
+        args,
+        {
+            "ok": True,
+            "plan": clone.to_dict(),
+            "source_plan_id": original.id,
+        },
+    )
+
+
 async def _cmd_delete(args: argparse.Namespace) -> int:
     store = get_planner_store()
     existing = await store.get(args.plan_id)
@@ -369,6 +421,22 @@ def _build_arg_parser() -> argparse.ArgumentParser:
     p_abort = sub.add_parser("abort", help="Abort an in-flight plan run.")
     p_abort.add_argument("plan_id")
 
+    p_clone = sub.add_parser(
+        "clone",
+        help="Snapshot a plan as a fresh proposed plan (rerun without history mutation).",
+    )
+    p_clone.add_argument("plan_id")
+    p_clone.add_argument(
+        "--thread-id",
+        default=None,
+        help="Rebind the clone to a different chat thread (defaults to original).",
+    )
+    p_clone.add_argument(
+        "--goal",
+        default=None,
+        help="Override the goal copy on the clone (steps stay verbatim).",
+    )
+
     p_delete = sub.add_parser("delete", help="Delete a plan (irreversible).")
     p_delete.add_argument("plan_id")
     p_delete.add_argument(
@@ -390,6 +458,7 @@ _DISPATCH = {
     "reject": _cmd_reject,
     "run": _cmd_run,
     "abort": _cmd_abort,
+    "clone": _cmd_clone,
     "delete": _cmd_delete,
 }
 
