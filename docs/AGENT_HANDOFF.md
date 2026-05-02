@@ -193,6 +193,23 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-01 — planner: dedicated plan.run.usage event (Cursor [A]):**
+  Cost / token rollup for each plan run now ships as its own
+  top-level event in addition to being embedded in the
+  terminal event payload (existing behaviour unchanged).
+  Unblocks single-line billing queries
+  (`SELECT * FROM events WHERE kind='plan.run.usage'`) and
+  lets the cockpit render a "rollup" pill per run without
+  parsing the terminal payload. Fires on every run regardless
+  of priced-model presence; carries `plan_id`, `status`
+  (matching the upcoming terminal status), `parent_trace_id`
+  (plan's birth trace), and the same `usage` block. Wired
+  into the planner SSE allow-list and timeline summariser.
+  Pinned by `tests/test_planner_run_usage_event.py` (8 cases)
+  + the runner happy-path event-order assertion. Full suite:
+  **2038 passing**. Follow-ups: cockpit "Rollup" pill on each
+  run row; billing dashboard query simplification.
+
 - **2026-05-01 — planner: surface trace_id + parent_trace_id on PlanRun (Cursor [A]):**
   Cockpit-facing follow-up to PR #109. `PlanRun.to_dict()` and
   the `GET /api/planner/{plan_id}/runs` envelope now expose

@@ -4,6 +4,82 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · planner: dedicated plan.run.usage event for billing dashboards
+
+**Summary**
+
+The cost / token rollup for each plan run now ships as its own
+top-level event (`plan.run.usage`), in addition to being
+embedded in the terminal `plan.completed` / `plan.aborted`
+payload (existing behaviour unchanged). This unblocks the
+single-line billing query the cockpit and any meeet.world
+dashboard wants:
+
+```sql
+SELECT * FROM events WHERE kind='plan.run.usage'
+```
+
+…instead of having to walk every terminal event payload and
+parse a nested `usage` block.
+
+**Changes**
+
+1. `backend/core/planner/runner.py` —
+   - Module docstring's events-emitted list now mentions
+     `plan.run.usage` (between `plan.step.completed` and the
+     terminal events).
+   - In `PlanRunner.run`, immediately after the
+     `_compute_run_usage(trace_id=trace_id)` call and before
+     emitting the terminal event, the runner now emits
+     `plan.run.usage` with `plan_id`, `status` (the
+     terminal status that's about to be applied),
+     `parent_trace_id` (plan's birth trace), and the same
+     `usage` block. Always fires — even when no priced model
+     ran — so "ran but emitted nothing" cases stay observable.
+2. `web_extras/routers/planner.py` —
+   `_PLAN_EVENT_KINDS` (the SSE allow-list)
+   includes `plan.run.usage`, so the
+   `GET /api/planner/events` stream picks it up.
+3. `backend/core/search/timeline.py` —
+   `_RELEVANT_EVENT_KINDS` now includes `plan.run.usage`;
+   `_summarise_event` formats it as
+   `plan=<id> · status=<status> · calls=N · tokens=A+B · cost=$X` 
+   when a priced model fired, falling back to `cost=n/a` when
+   `has_priced_models=false`.
+4. `tests/test_planner_runner.py` —
+   `test_run_happy_path_completes_and_emits_events` updated
+   to expect `plan.run.usage` in the kinds-in-order list
+   (between `plan.step.completed` and `plan.completed`).
+5. `tests/test_planner_run_usage_event.py` (new, 8 cases):
+   - `plan.run.usage` fires on completion, with the right
+     payload shape (`plan_id`, `status="completed"`,
+     `parent_trace_id`, `usage`).
+   - Same on abort, with `status="aborted"`.
+   - The `usage` block is identical to what travels on the
+     terminal event (consumers see the same numbers
+     regardless of which event they read).
+   - The event lives on the run's per-run trace, not the
+     plan's birth trace, so trace-scoped queries still work.
+   - Planner SSE allow-list contains the new kind.
+   - Timeline relevant-kinds list contains the new kind.
+   - Timeline summariser renders priced + unpriced cost
+     correctly (`$X.XXXX` vs `n/a`).
+
+**Tests**
+
+- `tests/test_planner_run_usage_event.py` — 8 passed.
+- `tests/test_planner_runner.py` — 19 passed.
+- Full `pytest -q` — **2038 passed in 52s**.
+
+**Cockpit follow-ups**
+
+- Activity stream can now render a single "rollup" pill per
+  run instead of opening the terminal event card to read
+  cost data.
+- Billing dashboard query simplifies to one `kind=` filter.
+
+---
+
 ## 2026-05-01 — Cursor [A] · tests: unbreak test_release_desktop_workflow after workflow file relocation
 
 **Summary**
