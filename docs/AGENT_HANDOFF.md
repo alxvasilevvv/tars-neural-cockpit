@@ -193,6 +193,24 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-01 — ContextVar bridge: action handlers auto-inherit thread_id (Cursor [A]):**
+  PRs #97 (policy) and #98 (council HTTP) plumbed `x-tars-thread-id`
+  through the gate and the council's HTTP entry. The remaining gap
+  was action handlers calling `get_council().deliberate(...)` from
+  inside `invoke_action` — those handlers don't see the request
+  thread_id directly. This PR closes that gap with a `ContextVar`
+  bridge: new `current_thread_id()` + `thread_id_scope(...)` in
+  `backend/core/meeet/tracing.py`. `invoke_action` and the policy
+  `confirm` route open the scope; the council orchestrator falls
+  back to `current_thread_id()` when no explicit `thread_id` kwarg
+  is passed (explicit still wins). Net result: an action invoked
+  from a chat thread auto-propagates `thread_id` into every
+  council/sampler/policy event it triggers, no per-handler
+  plumbing needed. Pinned by `tests/test_thread_id_contextvar.py`
+  (12 cases) plus regression on `test_council_thread_linkage.py`
+  (10) and `test_policy_thread_linkage.py` (12). Full suite:
+  **1867 passing**.
+
 - **2026-05-01 — Council/sampler events thread chat thread_id end-to-end (Cursor [A]):**
   After the policy-event linkage (PR #97), the next gap in the
   per-thread audit lane was the council layer. The timeline already
