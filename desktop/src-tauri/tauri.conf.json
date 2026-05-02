@@ -4,7 +4,7 @@
   "version": "0.1.0-rc.1",
   "identifier": "world.meeet.tars",
   "build": {
-    "frontendDist": "../web",
+    "frontendDist": "./web",
     "devUrl": "http://localhost:5173",
     "beforeDevCommand": "pnpm --dir ../../experiments/neural-showcase-v3 dev",
     "beforeBuildCommand": "pnpm cockpit:build && pnpm cockpit:package"
