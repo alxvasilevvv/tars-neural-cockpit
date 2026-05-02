@@ -193,6 +193,26 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-01 — cockpit: typed planner client + Vitest contract (Cursor [A]):**
+  First slice of cockpit ↔ planner wiring. Adds
+  `experiments/neural-showcase-v3/src/lib/planner.ts` — a
+  typed TS client that pins every backend planner endpoint
+  shipped in PRs #109–#116 (`/api/planner` list, `/runs`,
+  `/full`, `/abort`, `/rerun`, plus the `/api/planner/events`
+  SSE stream with `after_id` resume). Header propagation
+  (`x-tars-policy-mode`, `x-meeet-trace-id`) flows through
+  every mutating call; `formatCostUSD` preserves the n/a vs
+  $0.00 distinction surfaced by `/full`'s
+  `has_priced_models`. Pinned by
+  `experiments/neural-showcase-v3/src/lib/planner.test.ts`
+  (17 Vitest cases — URLs, querystrings, header propagation,
+  `EventSource` wiring, malformed-frame drop, response
+  round-trip, formatter edge cases). Cockpit suite:
+  **103 passed (10 files)**; `tsc --noEmit` clean; Python
+  unchanged (2080 green). Next: `PlanFullPanel` React
+  component built on top of this client (drawer with rerun
+  button + live SSE updates).
+
 - **2026-05-01 — planner: GET /{plan_id}/full aggregate (Cursor [A]):**
   One-shot aggregate endpoint for the cockpit's plan-detail
   drawer. Returns plan envelope + reconstructed runs
