@@ -19,6 +19,10 @@ export interface MeeetEvent {
   id: number;
   ts: number;
   trace_id: string;
+  /** Optional — present once K-class events started carrying it. */
+  session_id?: string | null;
+  /** ``edge`` / ``cloud`` / ``fallback`` / ``mixed`` (or null). */
+  route?: string | null;
   kind: string;
   source: string;
   contract_version: string;
@@ -26,6 +30,25 @@ export interface MeeetEvent {
   pushed: boolean;
   pushed_at: number | null;
   last_error: string | null;
+}
+
+/** Trace-summary row matches ``backend/core/meeet/trace_summary.py::TraceSummary.to_dict()``. */
+export interface TraceSummary {
+  trace_id: string;
+  event_count: number;
+  kinds: string[];
+  routes: string[];
+  primary_route: string | null;
+  total_cost_usd: number;
+  tokens_in: number;
+  tokens_out: number;
+  contradictions: number;
+  error_count: number;
+  last_session_id: string | null;
+  started_at: number | null;
+  ended_at: number | null;
+  duration_ms: number | null;
+  updated_at: number;
 }
 
 export interface MeeetStats {
@@ -98,6 +121,123 @@ export async function replayNow(
   );
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
   return r.json() as Promise<LastReplay>;
+}
+
+/**
+ * GET /api/meeet/traces — newest-first rolled-up trace summaries.
+ *
+ * Server defaults: limit 50 (max 500). Filters: since (epoch s),
+ * primary_route, session_id.
+ */
+export async function listTraces(
+  opts: {
+    limit?: number;
+    since?: number;
+    primary_route?: string;
+    session_id?: string;
+  } = {},
+): Promise<TraceSummary[]> {
+  const params = new URLSearchParams();
+  if (opts.limit) params.set("limit", String(opts.limit));
+  if (opts.since != null) params.set("since", String(opts.since));
+  if (opts.primary_route) params.set("primary_route", opts.primary_route);
+  if (opts.session_id) params.set("session_id", opts.session_id);
+  const qs = params.toString();
+  const r = await fetch(
+    `${API_BASE}/api/meeet/traces${qs ? `?${qs}` : ""}`,
+  );
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  const d = (await r.json()) as { traces: TraceSummary[] };
+  return d.traces ?? [];
+}
+
+/** GET /api/meeet/traces/{trace_id} — single rollup row, 404s on miss. */
+export async function getTrace(traceId: string): Promise<TraceSummary | null> {
+  const r = await fetch(
+    `${API_BASE}/api/meeet/traces/${encodeURIComponent(traceId)}`,
+  );
+  if (r.status === 404) return null;
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  const d = (await r.json()) as { trace?: TraceSummary };
+  return d.trace ?? null;
+}
+
+/** POST /api/meeet/traces/refresh — operator-initiated rebuild. */
+export async function refreshTraces(
+  opts: { since?: number } = {},
+): Promise<{ ok: boolean; rebuilt: number }> {
+  const params = new URLSearchParams();
+  if (opts.since != null) params.set("since", String(opts.since));
+  const qs = params.toString();
+  const r = await fetch(
+    `${API_BASE}/api/meeet/traces/refresh${qs ? `?${qs}` : ""}`,
+    { method: "POST" },
+  );
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return r.json();
+}
+
+/**
+ * Polling hook for the trace summaries list. Fits the cockpit's
+ * "ambient telemetry" pattern: a five-second refresh that doesn't
+ * thrash the React tree (single state object, ref-guarded against
+ * unmount races).
+ */
+export function useTraceSummaries(
+  opts: {
+    limit?: number;
+    intervalMs?: number;
+    since?: number;
+    primary_route?: string;
+    session_id?: string;
+  } = {},
+): {
+  traces: TraceSummary[];
+  loading: boolean;
+  error: string | null;
+  refresh: () => Promise<void>;
+} {
+  const [traces, setTraces] = useState<TraceSummary[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const cancelled = useRef(false);
+  const intervalMs = opts.intervalMs ?? 5000;
+
+  const refresh = useCallback(async () => {
+    try {
+      const list = await listTraces({
+        limit: opts.limit ?? 100,
+        since: opts.since,
+        primary_route: opts.primary_route,
+        session_id: opts.session_id,
+      });
+      if (!cancelled.current) {
+        setTraces(list);
+        setError(null);
+      }
+    } catch (e) {
+      if (!cancelled.current) setError((e as Error).message);
+    } finally {
+      if (!cancelled.current) setLoading(false);
+    }
+  }, [opts.limit, opts.since, opts.primary_route, opts.session_id]);
+
+  useEffect(() => {
+    cancelled.current = false;
+    void refresh();
+    if (intervalMs > 0) {
+      const id = window.setInterval(refresh, intervalMs);
+      return () => {
+        cancelled.current = true;
+        window.clearInterval(id);
+      };
+    }
+    return () => {
+      cancelled.current = true;
+    };
+  }, [refresh, intervalMs]);
+
+  return { traces, loading, error, refresh };
 }
 
 export function useMeeetHealth(intervalMs = 5000): {
