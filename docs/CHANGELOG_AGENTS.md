@@ -4,6 +4,68 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · planner: Makefile targets + control-tower gate coverage
+
+**Summary**
+
+Wires the planner CLI into the operator-facing Makefile so the
+control tower covers planner end-to-end. Adds six targets
+(`planner`, `planner-stats`, `planner-list`, `planner-runs`,
+`planner-show`, `planner-smoke`) and folds `planner-smoke`
+into `gate-control-tower` so a planner regression cannot land
+silently while other cockpit checks stay green. A 12-case
+contract test pins the target shape so future changes to the
+CLI prompt a Makefile update.
+
+**Changes**
+
+1. `Makefile` —
+   - New section "Planner CLI (operator scripting +
+     control-tower smoke)" with six targets.
+   - All targets shell into `python -m
+     backend.core.planner.cli` via the `PLANNER` macro so
+     they share the same SQLite WAL DBs as the host process
+     (safe to run alongside a live cockpit).
+   - `planner` is a free-form passthrough
+     (`make planner ARGS="list --status approved"`).
+   - `planner-runs` and `planner-show` short-circuit with
+     `exit 2` and a usage hint when `ARGS=<plan_id>` is
+     missing.
+   - `planner-smoke` runs synthesize → show → delete on a
+     bundled goal (`PLANNER_GOAL`, default
+     `traders.morning_check`), prints one short success
+     line, and is wired into `gate-control-tower`.
+   - `.PHONY` line extended.
+2. `tests/test_makefile_planner_targets.py` (new, 12 cases):
+   - All planner targets listed in `.PHONY`.
+   - All planner targets carry a `## help text` so `make
+     help` lists them.
+   - `gate-control-tower` recipe invokes `planner-smoke`.
+   - `planner-runs` and `planner-show` recipes guard
+     `[ -z "$(ARGS)" ]` and `exit 2`.
+   - `PLANNER` macro points at
+     `backend.core.planner.cli` (no parallel script).
+   - `planner-smoke` recipe passes `--quiet` to keep the
+     gate log clean.
+
+**Tests**
+
+- `tests/test_makefile_planner_targets.py` — 12 passed.
+- Hand-tested:
+  - `make planner-smoke` → `planner-smoke ok (plan_id=…)`.
+  - `make planner-stats` → JSON stats envelope.
+  - `make planner-runs` (no ARGS) → "usage: …" + `exit 2`.
+- Full `pytest -q` — **2073 passed in 40s**.
+
+**Cockpit follow-ups**
+
+- Surface `gate-control-tower` output (now including
+  `planner-smoke ok (plan_id=…)`) in the release-readiness
+  banner so the operator can see at a glance that planner
+  scripting still works.
+
+---
+
 ## 2026-05-01 — Cursor [A] · planner: bash completion script + drift-guard tests
 
 **Summary**
