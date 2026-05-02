@@ -1,9 +1,16 @@
 """Pin the contract of the release-desktop-tagged workflow (Phase L9 L3).
 
-The file lives at the repo root (`release-desktop-tagged.yml`) since
-PR #4 moved it out of `.github/workflows/` to reset a stuck
-GitHub workflow_id. We still accept the old path as a fallback for
-older branches.
+The file MUST live at ``.github/workflows/release-desktop-tagged.yml``
+— GitHub Actions only schedules workflows from that directory.
+
+> **Regression history:** PR #4 moved the file to the repo root to
+> reset a stuck GitHub workflow_id. The unintended side effect was
+> that the file was no longer scheduled at all, leaving the
+> ``release-desktop`` workflow stuck in ``queued`` for >12h on
+> 2026-05-02 because the last actually-executed run was the one
+> right before the move. The 2026-05-02 system audit restored the
+> file and added :func:`test_workflow_lives_under_dot_github_workflows`
+> as a regression guard.
 
 We do not run GitHub Actions locally; instead we assert the workflow
 file has the shape downstream tools depend on:
@@ -19,6 +26,10 @@ file has the shape downstream tools depend on:
 4. Builds the four canonical Tauri targets (macOS arm64+x86_64,
    Windows x86_64, Linux x86_64).
 5. Invokes `desktop/scripts/sign-artifacts.sh`.
+6. ``pnpm/action-setup@v4`` runs BEFORE ``actions/setup-node@v4``
+   (the latter uses ``cache: pnpm`` and fails to locate pnpm
+   otherwise — pinned by
+   :func:`test_workflow_installs_pnpm_before_setup_node_with_pnpm_cache`).
 
 The sign script itself must:
 
@@ -36,14 +47,15 @@ from pathlib import Path
 import pytest
 
 REPO = Path(__file__).resolve().parents[1]
-# The release workflow used to live under ``.github/workflows/`` but
-# was relocated to the repo root in commit d1984f1 to reset a stuck
-# GitHub workflow_id (see PR #4). Look at the new location first,
-# fall back to the old path so the test stays green either way.
-_WORKFLOW_CANDIDATES = (
-    REPO / "release-desktop-tagged.yml",
-    REPO / ".github" / "workflows" / "release-desktop-tagged.yml",
-)
+# The release workflow lives at ``.github/workflows/`` —
+# GitHub Actions only schedules workflows from that directory.
+# Older branches that left the file at the repo root may still be
+# read as a *fallback* (the contract tests below still apply); the
+# regression guard ``test_workflow_lives_under_dot_github_workflows``
+# is the one that fails CI if the file ever gets moved out again.
+_WORKFLOW_CANONICAL = REPO / ".github" / "workflows" / "release-desktop-tagged.yml"
+_WORKFLOW_LEGACY_ROOT = REPO / "release-desktop-tagged.yml"
+_WORKFLOW_CANDIDATES = (_WORKFLOW_CANONICAL, _WORKFLOW_LEGACY_ROOT)
 
 
 def _resolve_workflow_path() -> Path:
@@ -73,11 +85,66 @@ def sign_script() -> str:
     return SIGN_SCRIPT.read_text(encoding="utf-8")
 
 
+def test_workflow_lives_under_dot_github_workflows() -> None:
+    """**Regression guard.** GitHub Actions only schedules workflows
+    that live under ``.github/workflows/``. PR #4 once moved this
+    file to the repo root to "reset a stuck workflow_id" and the
+    unintended side effect was that the file stopped being
+    scheduled at all (the ``release-desktop`` workflow sat in
+    ``queued`` for 12+ hours on 2026-05-02 because the last
+    actually-executed run was the one right before the move).
+    Pin the canonical path so the next "let's just move it" never
+    quietly disables the desktop release pipeline again.
+    """
+
+    assert _WORKFLOW_CANONICAL.exists(), (
+        f"release-desktop-tagged.yml MUST live at {_WORKFLOW_CANONICAL.relative_to(REPO)} "
+        f"(GitHub Actions only schedules workflows from that dir). "
+        f"If you need to reset the workflow_id, rename the file in "
+        f"place — do not move it out."
+    )
+    # Belt-and-braces: also ensure the legacy root copy is gone, so
+    # we never end up with two copies that drift.
+    assert not _WORKFLOW_LEGACY_ROOT.exists(), (
+        f"Legacy copy at {_WORKFLOW_LEGACY_ROOT.relative_to(REPO)} "
+        f"should be removed; the canonical location is "
+        f"{_WORKFLOW_CANONICAL.relative_to(REPO)}."
+    )
+
+
 def test_workflow_uses_dispatch_with_version_input(workflow: str) -> None:
     assert "workflow_dispatch:" in workflow
     assert "inputs:" in workflow
     assert "version:" in workflow
     assert "Semver to publish" in workflow
+
+
+def test_workflow_installs_pnpm_before_setup_node_with_pnpm_cache(workflow: str) -> None:
+    """**Regression guard.** ``actions/setup-node@v4`` with
+    ``cache: pnpm`` requires pnpm to already be on PATH; otherwise
+    the cache step fails with ``Unable to locate executable file:
+    pnpm``. ``pnpm/action-setup@v4`` MUST run earlier in the
+    ``build`` job's ``steps`` list. The 2026-05-02 audit caught
+    the inverted order plus the stuck-queued workflow at the same
+    time — pin the order so the regression can't recur silently.
+    """
+
+    pnpm_setup_idx = workflow.find("pnpm/action-setup@v4")
+    setup_node_idx = workflow.find("actions/setup-node@v4")
+    assert pnpm_setup_idx > -1, "pnpm/action-setup@v4 step missing"
+    assert setup_node_idx > -1, "actions/setup-node@v4 step missing"
+    # ``cache: pnpm`` is what makes the order matter; assert it
+    # explicitly so a future "drop pnpm cache" change doesn't
+    # accidentally make this guard vacuous.
+    assert "cache: \"pnpm\"" in workflow or "cache: pnpm" in workflow, (
+        "actions/setup-node@v4 must use cache: pnpm — drop this "
+        "guard if you intentionally moved off pnpm caching."
+    )
+    assert pnpm_setup_idx < setup_node_idx, (
+        f"pnpm/action-setup@v4 (idx={pnpm_setup_idx}) must appear "
+        f"BEFORE actions/setup-node@v4 (idx={setup_node_idx}) so "
+        f"the latter can resolve pnpm for cache: pnpm."
+    )
 
 
 def test_workflow_passes_minisign_secret_to_env(workflow: str) -> None:
