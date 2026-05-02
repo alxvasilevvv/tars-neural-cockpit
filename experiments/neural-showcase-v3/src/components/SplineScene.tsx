@@ -7,14 +7,33 @@ import {
   Suspense,
   lazy,
   useEffect,
+  useRef,
   useState,
 } from "react";
 
+// Bug #7 from docs/SYSTEM_AUDIT_2026-05-02.md — react-spline ships
+// at 2.04 MB (uncompressed) so we want it nowhere near the
+// landing-page critical path. The lazy() import is already
+// async, but Vite still triggers the chunk request the moment
+// the component is rendered. The IntersectionObserver guard
+// below defers the chunk request until the host viewport has
+// the placeholder in (or near) view, so first-paint chunks
+// stay tiny and slow connections never block on the 3D scene.
 const Spline = lazy(() => import("@splinetool/react-spline"));
 
 export interface SplineSceneProps {
   scene: string;
   className?: string;
+  /**
+   * Pixels of margin around the host element used by the
+   * IntersectionObserver root. ``"600px"`` defaults give the
+   * runtime ~2-3 frames to start downloading before the
+   * placeholder enters the visible viewport, so the swap looks
+   * smooth on a fast connection without paying the ~600 KB
+   * gzip cost on first paint when the user might never scroll
+   * to MeetTars at all.
+   */
+  rootMargin?: string;
 }
 
 /**
@@ -151,35 +170,92 @@ class SplineBoundary extends Component<
   }
 }
 
-export function SplineScene({ scene, className }: SplineSceneProps) {
+export function SplineScene({
+  scene,
+  className,
+  rootMargin = "600px",
+}: SplineSceneProps) {
+  // Bug #7 fix — defer the lazy import until the host element
+  // approaches the viewport. Without this, first-paint pays the
+  // 2 MB react-spline chunk even when the visitor never scrolls
+  // past the hero.
+  const hostRef = useRef<HTMLDivElement | null>(null);
+  const [shouldMount, setShouldMount] = useState(false);
+
+  useEffect(() => {
+    if (shouldMount) return; // already kicked off
+    const host = hostRef.current;
+    if (!host) return;
+
+    // SSR / very old browsers (Safari < 12) — fall back to mount on
+    // first effect tick, keeping the original behaviour.
+    if (typeof IntersectionObserver === "undefined") {
+      setShouldMount(true);
+      return;
+    }
+
+    const obs = new IntersectionObserver(
+      (entries) => {
+        for (const entry of entries) {
+          if (entry.isIntersecting) {
+            setShouldMount(true);
+            obs.disconnect();
+            break;
+          }
+        }
+      },
+      { rootMargin, threshold: 0 },
+    );
+    obs.observe(host);
+    return () => obs.disconnect();
+  }, [shouldMount, rootMargin]);
+
   // 8-second deadline: if Spline hasn't mounted by then, swap to fallback.
   // Common cause: prod.spline.design blocked by network / corp firewall.
   // Once `loaded=true` fires from onLoad, the deadline is ignored — Spline
-  // wins and renders for the rest of the session.
+  // wins and renders for the rest of the session. The deadline only starts
+  // *after* shouldMount flips, so we don't punish off-screen sections.
   const [loaded, setLoaded] = useState(false);
   const [tooSlow, setTooSlow] = useState(false);
   const [errored, setErrored] = useState(false);
 
   useEffect(() => {
+    if (!shouldMount) return;
     const t = setTimeout(() => setTooSlow(true), 8000);
     return () => clearTimeout(t);
-  }, []);
+  }, [shouldMount]);
 
   if (errored || (tooSlow && !loaded)) {
-    return <RobotFallback className={className} />;
+    return (
+      <div ref={hostRef} className={className ?? "h-full w-full"}>
+        <RobotFallback className={className} />
+      </div>
+    );
+  }
+
+  if (!shouldMount) {
+    // Cheap placeholder so the layout never CLSes when the chunk
+    // finally lands. The SVG fallback renders inside the same box.
+    return (
+      <div ref={hostRef} className={className ?? "h-full w-full"}>
+        <RobotFallback className={className} />
+      </div>
+    );
   }
 
   return (
-    <SplineBoundary onError={() => setErrored(true)} className={className}>
-      <Suspense
-        fallback={
-          <div className="flex h-full w-full items-center justify-center">
-            <span className="loader" aria-hidden />
-          </div>
-        }
-      >
-        <Spline scene={scene} className={className} onLoad={() => setLoaded(true)} />
-      </Suspense>
-    </SplineBoundary>
+    <div ref={hostRef} className={className ?? "h-full w-full"}>
+      <SplineBoundary onError={() => setErrored(true)} className={className}>
+        <Suspense
+          fallback={
+            <div className="flex h-full w-full items-center justify-center">
+              <span className="loader" aria-hidden />
+            </div>
+          }
+        >
+          <Spline scene={scene} className={className} onLoad={() => setLoaded(true)} />
+        </Suspense>
+      </SplineBoundary>
+    </div>
   );
 }

@@ -78,6 +78,8 @@ ERROR_CODES: Mapping[str, str] = {
         "Daily cloud-LLM budget exhausted for the current tier; "
         "upgrade or enable BYO before retrying."
     ),
+    "feature_disabled": "Endpoint is disabled in this deployment.",
+    "not_implemented": "Endpoint is recognised but the implementation is not live yet.",
 }
 
 # Hints map error_code → human-actionable next step. Optional.
