@@ -314,6 +314,13 @@ export function Cockpit() {
             >
               traces
             </Link>
+            <span aria-hidden className="text-line-strong">·</span>
+            <Link
+              to="/cockpit/policy"
+              className="transition-colors hover:text-ink"
+            >
+              policy
+            </Link>
           </nav>
 
           <div className="flex items-center gap-2">
