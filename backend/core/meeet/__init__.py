@@ -34,12 +34,14 @@ from .tracing import (
     async_session_scope,
     current_route,
     current_session,
+    current_thread_id,
     current_trace,
     new_session_id,
     new_trace_id,
     session_scope,
     set_route,
     start_trace,
+    thread_id_scope,
     trace_scope,
 )
 
@@ -56,6 +58,7 @@ __all__ = [
     "async_session_scope",
     "current_route",
     "current_session",
+    "current_thread_id",
     "current_trace",
     "get_client",
     "get_store",
@@ -69,5 +72,6 @@ __all__ = [
     "session_scope",
     "set_route",
     "start_trace",
+    "thread_id_scope",
     "trace_scope",
 ]
