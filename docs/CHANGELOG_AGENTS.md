@@ -4,6 +4,43 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · timeline: plan.* events visible in per-thread feed
+
+**Summary**
+
+Phase L6.2 added a full `plan.*` event family but the per-thread
+timeline (`backend/core/search/timeline.py`) had not been taught
+about it. Cockpit threads where the operator ran a plan rendered
+gaps where the plan lifecycle should have shown. This PR teaches
+the timeline allow-list + summariser the new event kinds so plan
+synthesis, approval, and run progress now render alongside chat
+messages, tool calls, and policy events.
+
+**Changes**
+
+1. `backend/core/search/timeline.py`:
+   - `_RELEVANT_EVENT_KINDS` now includes `plan.proposed`,
+     `planner.approved`, `planner.rejected`, `plan.run.started`,
+     `plan.step.{requested,allowed,completed}`, `plan.completed`,
+     `plan.aborted`, and `plan.abort.requested`.
+   - `_summarise_event` gains per-kind branches for every
+     planner kind. Common shape is `plan=<id> · …`. The
+     `plan.step.completed` summariser ranks `skipped` >
+     `blocked` > `failed` > `ok` so the first non-default
+     state always wins. `plan.proposed` truncates the goal at
+     60 chars to keep the row scannable.
+2. `tests/test_thread_timeline.py` — 12 new cases:
+   - Pin the new kinds in `_RELEVANT_EVENT_KINDS`.
+   - Pin every per-kind summary shape (label, fields, edge
+     cases like long goal, zero destructive, parallel tag).
+   - End-to-end: emit `plan.proposed` + `plan.completed` with
+     a matching `payload.thread_id` and assert both appear in
+     the thread's timeline with the right summaries.
+
+**Tests**
+
+`pytest -q` → **1950 passing**. `ReadLints` clean.
+
 ## 2026-05-01 — Cursor [A] · Phase L6.2: planner runner (PlanRunner + abort + plan.* events)
 
 **Summary**
