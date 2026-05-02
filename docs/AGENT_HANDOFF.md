@@ -193,6 +193,27 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-01 — Per-thread timeline: fix policy event names + summariser bug, expand kinds (Cursor [A]):**
+  The per-thread timeline (`backend/core/search/timeline.py`,
+  `GET /api/chat/threads/{id}/timeline`) was untested and three things
+  were quietly wrong: (1) `_RELEVANT_EVENT_KINDS` listed event names
+  nobody emits (`policy.confirmed`, `policy.rejected`,
+  `playbook.step.failed`) and missed real ones (`policy.confirm`,
+  `policy.cancelled`, `policy.blocked`, `policy.expired`,
+  `playbook.started`, `playbook.completed`, both
+  `council.deliberation.*`); (2) the `policy.*` summariser read
+  `payload['action_id']` but every router emits `payload['action']` —
+  the cockpit always rendered `action=?`; (3) no summarisers existed
+  for playbook / sampler / council events. All three fixed in this
+  PR. The `policy.*` summariser now renders `slug=… · action=… ·
+  token=…` (with `expired_at=…` for `policy.expired`); new
+  summarisers for `sampler.decision` (winner / stance / agreement /
+  cost / parallel), `council.deliberation.{started,completed}`, and
+  `playbook.{started,step.completed,completed}` give the cockpit
+  audit panel rich descriptions per event. Pinned by
+  `tests/test_thread_timeline.py` (27 cases — module was previously
+  untested). Full suite: **1833 passing**.
+
 - **2026-05-01 — Policy gate auto-expires stale confirmations + emits `policy.expired` (Cursor [A]):**
   Closed two operator-workflow gaps in the destructive-action policy
   gate. (1) Nothing automatically reaped stale `pending` confirmations
