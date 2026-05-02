@@ -193,6 +193,41 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-02 — cron-shipped morning bundle wrapper (Cursor [A]):**
+  Ships `scripts/playbooks_morning_cron.sh` + `make morning-bundle`
+  / `make morning-bundle-dry` targets. **Single command** for
+  cron to run every `morning`-tagged playbook (currently 4:
+  `business.morning_brief`, `ops_room.morning_standup`,
+  `research_lab.paper_to_pitch`, `traders.morning_check`),
+  flush the meeet replay buffer, and write an aggregate
+  evidence JSON to `.morning-runs/<run_id>.json`.
+  **Continue-on-failure** by default (one bad playbook doesn't
+  mask the others) with `MORNING_FAIL_FAST=1` for legacy
+  stop-on-first behaviour. Discovery is **tag-driven**, so as
+  new `morning`-tagged playbooks land in `playbooks/`, they
+  join cron automatically — no script edit. Three exit-code
+  lanes so cron alerts route differently: `0` (all green), `1`
+  (playbook failure), `2` (operator error / no playbooks
+  discovered). The `morning-bundle-dry` target hard-codes
+  `MORNING_MODE=dry_run` so rehearsals are *always* safe even
+  if the operator's env has `MODE=autopilot`. **Closes the
+  Cron-as-First-Class-Operator arc**: PR #129 made
+  cron-driven playbook execution viable; this wrapper makes
+  it ergonomic. Pinned by 23 new pytest cases (11 structural
+  — bash syntax, every documented env knob is read by the
+  script, all three exit codes documented, canonical CLI
+  modules invoked; 5 Makefile — `.PHONY`, help comments,
+  recipe wires script, dry-mode forces dry_run; 7 end-to-end
+  smoke — no-playbooks → rc=2, happy override → rc=0,
+  unknown id → rc=1, mixed continue-on-failure, fail-fast,
+  evidence filename matches printed run_id, skip-replay
+  surfaces in evidence). Full Python suite: **2227 passed in
+  54.04s** (was 2204, +23). Sample cron line:
+  `MORNING_MODE=autopilot /path/to/jarvis/scripts/playbooks_morning_cron.sh`.
+  Files: `scripts/playbooks_morning_cron.sh` (new, 280 lines),
+  `Makefile` (+25), `.gitignore` (+2), `tests/test_morning_bundle.py`
+  (new, 363 lines).
+
 - **2026-05-01 — awareness CLI bash completion (operator-CLI arc symmetry closed) (Cursor [A]):**
   Ships `scripts/awareness-completion.bash` mirroring the
   existing planner / playbooks completion scripts. **Closes
