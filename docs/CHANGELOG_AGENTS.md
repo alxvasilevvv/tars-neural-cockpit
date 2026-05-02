@@ -4,6 +4,85 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-02 — Cursor [A] · audit follow-ups: full RU pass + Local Trace Viewer
+
+**Summary**
+
+Two cleanup follow-ups on top of PR #135:
+
+1. **Full RU translation pass** — closes the partial-coverage gap
+   left by Bug #5. The previous PR shipped the i18n foundation +
+   the 7 highest-visibility surfaces; this PR extends `STRINGS_RU`
+   to full key parity with `STRINGS_EN` (~150 keys: hero, sticky
+   CTA, waitlist, cookie, footer, pricing, FAQ, compare,
+   TrustStrip, MeetTars, DomainsCards, full onboarding,
+   custom-role modal, press kit, build-with badge, common chrome,
+   cockpit chat composer + threads-empty, locale switcher).
+   Translations follow the in-file style guide ("вы" not "Вы",
+   product names stay Latin, `cap` → `лимит`, `council` → `совет`).
+   The test suite gains a **coverage threshold guard** that
+   enforces 100% RU parity at CI time so future PRs can't
+   regress; orphan-key + interpolation-slot + non-empty-value
+   guards back it up.
+
+2. **Local Trace Viewer page (`/cockpit/traces`)** — closes the
+   pending IDEAS #15 design follow-up. Backend
+   `/api/meeet/traces`, `/api/meeet/traces/{trace_id}`,
+   `/api/meeet/traces/refresh`, `/api/meeet/events?trace_id=…`
+   already shipped Phase L8; this PR is the operator-facing
+   surface that finally makes the local "black box" browsable.
+   Anatomy: sticky header (back to cockpit, refresh, rebuild
+   rollup) + filter strip (route lozenges + free-text search
+   over trace_id / kind / session_id) + 360 px left rail with
+   trace summaries (kind list, route pill, cost, duration,
+   error count) + drill-down detail with copy-to-clipboard
+   trace_id, six-stat dl grid (cost / tokens / duration /
+   started / session / contradictions), and the full event
+   timeline pulled from `/api/meeet/events?trace_id=…`. URL
+   state via `?selected=…&route=…&q=…` so the page is
+   deep-linkable. Polls every 5 s; respects existing cockpit
+   accent + alert + amber tokens (no rainbow neon). New cockpit
+   nav link + new client helpers (`listTraces`, `getTrace`,
+   `refreshTraces`, `useTraceSummaries`) + new pure helper
+   module `lib/traces.ts` (route filter coercion, route → tone
+   map, locale-aware cost / duration / timestamp formatters).
+
+**Files**
+
+- i18n: `experiments/neural-showcase-v3/src/lib/i18n.tsx` (+150
+  RU keys + 32 trace-viewer keys),
+  `experiments/neural-showcase-v3/src/lib/i18n.test.ts`
+  (added coverage / interpolation-slot / non-empty-value
+  guards; +5 contract tests).
+- Trace viewer:
+  `experiments/neural-showcase-v3/src/pages/Traces.tsx` (new,
+  500 lines),
+  `experiments/neural-showcase-v3/src/lib/traces.ts` (new, 95
+  lines — pure helpers),
+  `experiments/neural-showcase-v3/src/lib/traces.test.ts` (new,
+  +15 contract tests),
+  `experiments/neural-showcase-v3/src/lib/meeet.ts` (+
+  `listTraces` / `getTrace` / `refreshTraces` /
+  `useTraceSummaries` helpers, plus `TraceSummary` /
+  optional `session_id` + `route` on `MeeetEvent`),
+  `experiments/neural-showcase-v3/src/lib/meeet.test.ts` (new,
+  +13 contract tests),
+  `experiments/neural-showcase-v3/src/App.tsx` (lazy import +
+  route registration),
+  `experiments/neural-showcase-v3/src/pages/Cockpit.tsx`
+  (cockpit nav link).
+
+**Test deltas**
+
+- Cockpit: `pnpm vitest run` → **221 passed** (was 190; +31:
+  +5 i18n, +13 meeet, +15 traces; existing planner / pairing /
+  recovery / etc. all still green).
+- Cockpit: `pnpm tsc -b && pnpm build` → green; `Traces.tsx`
+  ships as a 14 kB / 4.4 kB gzipped lazy-loaded chunk so it
+  doesn't bloat the landing entry.
+- Backend: `pytest tests/` → **2249 passed, 1 skipped, 2
+  xfailed** (no regressions; pure cockpit-surface PR).
+
 ## 2026-05-02 — Cursor [A] · system audit closeout (PR #135 — all 8 bugs)
 
 **Summary**

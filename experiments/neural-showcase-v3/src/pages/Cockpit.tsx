@@ -307,6 +307,13 @@ export function Cockpit() {
             >
               planner
             </Link>
+            <span aria-hidden className="text-line-strong">·</span>
+            <Link
+              to="/cockpit/traces"
+              className="transition-colors hover:text-ink"
+            >
+              traces
+            </Link>
           </nav>
 
           <div className="flex items-center gap-2">
