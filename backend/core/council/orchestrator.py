@@ -223,6 +223,7 @@ class CouncilOrchestrator:
         context: Mapping[str, Any],
         *,
         mode: str = "dual_vote",
+        thread_id: str | None = None,
     ) -> Deliberation:
         if mode not in {"single", "dual_vote", "n_vote"}:
             raise ValueError(f"unknown council mode: {mode}")
@@ -239,14 +240,14 @@ class CouncilOrchestrator:
 
         client = get_client()
         with trace_scope() as tid:
-            await client.emit(
-                "council.deliberation.started",
-                {
-                    "mode": mode,
-                    "voices": [v.model for v in chosen_voices],
-                    "topic": context.get("topic"),
-                },
-            )
+            started_payload: dict[str, Any] = {
+                "mode": mode,
+                "voices": [v.model for v in chosen_voices],
+                "topic": context.get("topic"),
+            }
+            if thread_id:
+                started_payload["thread_id"] = thread_id
+            await client.emit("council.deliberation.started", started_payload)
 
             # Run every voice concurrently. ``return_exceptions=True``
             # means one slow / broken voice never starves the others —
@@ -275,18 +276,18 @@ class CouncilOrchestrator:
             # ledger keeps deterministic ordering (in input order).
             for p in proposals:
                 cost = _PRICE_TABLE.cost_usd(p.model, p.tokens_in, p.tokens_out)
-                await client.emit(
-                    "usage.tokens",
-                    {
-                        "model": p.model,
-                        "tokens_in": int(p.tokens_in),
-                        "tokens_out": int(p.tokens_out),
-                        "latency_ms": round(float(p.latency_ms), 3),
-                        "cost_usd": cost,
-                        "stance": p.stance,
-                        "topic": context.get("topic"),
-                    },
-                )
+                usage_payload: dict[str, Any] = {
+                    "model": p.model,
+                    "tokens_in": int(p.tokens_in),
+                    "tokens_out": int(p.tokens_out),
+                    "latency_ms": round(float(p.latency_ms), 3),
+                    "cost_usd": cost,
+                    "stance": p.stance,
+                    "topic": context.get("topic"),
+                }
+                if thread_id:
+                    usage_payload["thread_id"] = thread_id
+                await client.emit("usage.tokens", usage_payload)
 
             winner = _winner(proposals)
             agreement = _agreement(proposals)
@@ -306,34 +307,34 @@ class CouncilOrchestrator:
             # and per-model leaderboards.
             wall_latency_ms = max((v.latency_ms for v in proposals), default=0.0)
             cumulative_latency_ms = sum(v.latency_ms for v in proposals)
-            await client.emit(
-                "sampler.decision",
-                {
-                    "id": sampler_id,
-                    "mode": mode,
-                    "models": [v.model for v in chosen_voices],
-                    "winner": winner.model,
-                    "winning_stance": winner.stance,
-                    "latency_ms": round(wall_latency_ms, 3),
-                    "cumulative_latency_ms": round(cumulative_latency_ms, 3),
-                    "tokens_in": sum(v.tokens_in for v in proposals),
-                    "tokens_out": sum(v.tokens_out for v in proposals),
-                    "cost_usd": round(total_cost, 6),
-                    "agreement": agreement,
-                    "contradictions": contradictions,
-                    "parallel": len(proposals) > 1,
-                },
-            )
+            sampler_payload: dict[str, Any] = {
+                "id": sampler_id,
+                "mode": mode,
+                "models": [v.model for v in chosen_voices],
+                "winner": winner.model,
+                "winning_stance": winner.stance,
+                "latency_ms": round(wall_latency_ms, 3),
+                "cumulative_latency_ms": round(cumulative_latency_ms, 3),
+                "tokens_in": sum(v.tokens_in for v in proposals),
+                "tokens_out": sum(v.tokens_out for v in proposals),
+                "cost_usd": round(total_cost, 6),
+                "agreement": agreement,
+                "contradictions": contradictions,
+                "parallel": len(proposals) > 1,
+            }
+            if thread_id:
+                sampler_payload["thread_id"] = thread_id
+            await client.emit("sampler.decision", sampler_payload)
 
-            await client.emit(
-                "council.deliberation.completed",
-                {
-                    "mode": mode,
-                    "chosen": winner.stance,
-                    "winner_model": winner.model,
-                    "agreement": agreement,
-                },
-            )
+            completed_payload: dict[str, Any] = {
+                "mode": mode,
+                "chosen": winner.stance,
+                "winner_model": winner.model,
+                "agreement": agreement,
+            }
+            if thread_id:
+                completed_payload["thread_id"] = thread_id
+            await client.emit("council.deliberation.completed", completed_payload)
 
             return Deliberation(
                 mode=mode,

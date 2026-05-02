@@ -193,6 +193,27 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-01 — Council/sampler events thread chat thread_id end-to-end (Cursor [A]):**
+  After the policy-event linkage (PR #97), the next gap in the
+  per-thread audit lane was the council layer. The timeline already
+  accepts `council.deliberation.{started,completed}` and
+  `sampler.decision`, but none of those events carried a `thread_id`.
+  This PR adds `thread_id: str | None = None` kwarg to
+  `CouncilOrchestrator.deliberate(...)` and surfaces it on every
+  event the orchestrator emits (started, per-voice `usage.tokens`,
+  `sampler.decision`, completed) — only when present (exact-match
+  filter downstream). The HTTP surface
+  `POST /api/council/deliberate` reads `x-tars-thread-id` and
+  forwards. Pinned by `tests/test_council_thread_linkage.py`
+  (10 cases) plus regression on `test_council.py` (8) and
+  `test_council_parallel.py` (17). Full suite: **1855 passing**.
+  Follow-up: action handlers calling `get_council().deliberate(...)`
+  from inside `invoke_action` (e.g. `business.daily_brief`,
+  `traders.summarize_market`) don't yet see the request thread_id.
+  A clean fix is a `current_thread_id` ContextVar set in
+  `invoke_action` and read by the orchestrator; out of scope for
+  this PR.
+
 - **2026-05-01 — Policy gate threads chat thread_id end-to-end through every policy.* event (Cursor [A]):**
   Last PR's per-thread timeline now renders policy event summaries
   correctly *if* the events carry a `thread_id` — but no policy event
