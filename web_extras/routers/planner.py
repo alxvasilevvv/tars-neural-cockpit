@@ -98,6 +98,7 @@ from backend.core.planner import (
     PlanRunner,
     PlanStatus,
     PlanStep,
+    aggregate_usage_lifetime,
     get_planner_store,
     get_run_registry,
     reconstruct_runs_async,
@@ -416,38 +417,6 @@ async def get_plan_full(
 
     runs = await reconstruct_runs_async(plan_id, limit=limit)
     in_flight = sum(1 for r in runs if r.status == "running")
-
-    # Aggregate the per-run usage blocks. We are intentionally
-    # generous about the ``cost_usd`` rule: the lifetime cost is
-    # null only when *no* run reported a priced model, which lets
-    # the cockpit distinguish "ran but free" ($0.0000) from "ran
-    # but no priced model" (n/a).
-    calls_total = 0
-    tokens_in_total = 0
-    tokens_out_total = 0
-    latency_total = 0.0
-    cost_total = 0.0
-    any_priced = False
-    for run in runs:
-        calls_total += run.usage_calls
-        tokens_in_total += run.usage_tokens_in
-        tokens_out_total += run.usage_tokens_out
-        latency_total += run.usage_latency_ms_total
-        if run.usage_has_priced_models:
-            any_priced = True
-            if run.usage_cost_usd is not None:
-                cost_total += run.usage_cost_usd
-
-    usage_lifetime = {
-        "calls": calls_total,
-        "tokens_in": tokens_in_total,
-        "tokens_out": tokens_out_total,
-        "cost_usd": (cost_total if any_priced else None),
-        "latency_ms_total": latency_total,
-        "has_priced_models": any_priced,
-        "runs_aggregated": len(runs),
-    }
-
     return {
         "ok": True,
         "plan_id": plan_id,
@@ -457,7 +426,7 @@ async def get_plan_full(
             "in_flight": in_flight,
             "items": [r.to_dict() for r in runs],
         },
-        "usage_lifetime": usage_lifetime,
+        "usage_lifetime": aggregate_usage_lifetime(runs),
     }
 
 

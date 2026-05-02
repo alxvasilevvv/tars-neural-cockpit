@@ -177,6 +177,62 @@ class PlanRun:
         return out
 
 
+def aggregate_usage_lifetime(
+    runs: "list[PlanRun] | tuple[PlanRun, ...]",
+) -> dict[str, Any]:
+    """Sum every run's per-run usage rollup into a single lifetime block.
+
+    Returns the same shape the cockpit's plan-detail drawer expects on
+    the ``/api/planner/{id}/full`` envelope under ``usage_lifetime``:
+
+    .. code-block:: python
+
+        {
+            "calls":            int,    # sum across runs
+            "tokens_in":        int,
+            "tokens_out":       int,
+            "cost_usd":         float | None,
+            "latency_ms_total": float,
+            "has_priced_models": bool,
+            "runs_aggregated":  int,
+        }
+
+    The ``cost_usd`` rule is intentionally generous about the
+    "ran but emitted no priced model" case: ``cost_usd`` is
+    ``None`` (rendered as "n/a" by the cockpit) when *no* run had
+    ``usage_has_priced_models``. Mixed runs sum *only* the priced
+    runs' costs so "$0.00" never gets confused with "no priced
+    model fired" — the same rule the HTTP route applies, lifted
+    out so the CLI's ``planner full`` subcommand can call it too.
+    """
+
+    calls_total = 0
+    tokens_in_total = 0
+    tokens_out_total = 0
+    latency_total = 0.0
+    cost_total = 0.0
+    any_priced = False
+    for run in runs:
+        calls_total += run.usage_calls
+        tokens_in_total += run.usage_tokens_in
+        tokens_out_total += run.usage_tokens_out
+        latency_total += run.usage_latency_ms_total
+        if run.usage_has_priced_models:
+            any_priced = True
+            if run.usage_cost_usd is not None:
+                cost_total += run.usage_cost_usd
+
+    return {
+        "calls": calls_total,
+        "tokens_in": tokens_in_total,
+        "tokens_out": tokens_out_total,
+        "cost_usd": (cost_total if any_priced else None),
+        "latency_ms_total": latency_total,
+        "has_priced_models": any_priced,
+        "runs_aggregated": len(runs),
+    }
+
+
 def _payload(ev: StoredEvent) -> Mapping[str, Any]:
     p = ev.payload
     return p if isinstance(p, dict) else {}

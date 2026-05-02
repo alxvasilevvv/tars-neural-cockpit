@@ -17,7 +17,7 @@ DESKTOP   ?= desktop
         gate-release backend backend-dev desktop-dev desktop-build \
         smoke-core-bridge gate-control-tower ops-bridge-secret clean \
         planner planner-stats planner-list planner-runs planner-show \
-        planner-smoke
+        planner-full planner-smoke
 
 help:                ## list targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -113,6 +113,10 @@ planner-runs:        ## reconstructed run history for ARGS=<plan_id>
 planner-show:        ## inspect one plan: make planner-show ARGS=<plan_id>
 	@if [ -z "$(ARGS)" ]; then echo "usage: make planner-show ARGS=<plan_id>"; exit 2; fi
 	PYTHONPATH=. $(PLANNER) show $(ARGS)
+
+planner-full:        ## plan + runs + lifetime usage: make planner-full ARGS=<plan_id>
+	@if [ -z "$(ARGS)" ]; then echo "usage: make planner-full ARGS=<plan_id>"; exit 2; fi
+	PYTHONPATH=. $(PLANNER) full $(ARGS)
 
 planner-smoke:       ## end-to-end synthesize→stats sanity for the control tower
 	@bash -c 'set -e; \

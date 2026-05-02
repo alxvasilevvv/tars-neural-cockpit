@@ -4,6 +4,98 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · planner: `full` CLI subcommand + extracted helper
+
+**Summary**
+
+Brings the planner CLI to parity with the HTTP `/full` endpoint
+shipped in PR #116, so an operator without a cockpit window can
+inspect a plan in one command and pipe the JSON into `jq`.
+
+The lifetime aggregation logic now lives in
+`backend/core/planner/history.py::aggregate_usage_lifetime` —
+extracted from the FastAPI route so the CLI calls the exact
+same code path. The HTTP route now reads as a thin wrapper. The
+helper is re-exported from `backend.core.planner` so external
+callers (TARS-aware operator scripts, future replay tools) can
+build their own lifetime rollups without speaking HTTP.
+
+The lifetime cost rule is preserved verbatim: `cost_usd` stays
+`None` when no run had a priced model so the CLI / cockpit can
+render "n/a" instead of "$0.00", and mixed runs sum *only* the
+priced runs' costs so a "ran but free" run never gets confused
+with "no priced model fired".
+
+The new subcommand has full operator wiring:
+
+  - **CLI**: `python -m backend.core.planner.cli full <plan_id> [--limit N]`
+    — emits the same envelope as `GET /api/planner/{id}/full`
+    (keys `ok`, `plan_id`, `plan`, `runs.{count,in_flight,items}`,
+    `usage_lifetime`).
+  - **Makefile**: `make planner-full ARGS=<plan_id>` (with
+    `ARGS=` guard — no plan id ⇒ exit 2 with usage hint).
+  - **Bash completion**: `full` advertised in
+    `_TARS_PLANNER_CMDS`, gets the live `plan_id` completion and
+    `--limit` flag, mirrors the same QoL the rest of the CLI has.
+  - **Module docstring** updated with the new line in the usage
+    block.
+
+**Changes**
+
+1. `backend/core/planner/history.py` — new
+   `aggregate_usage_lifetime(runs)` helper (zero-runs returns
+   the same null-cost block, mixed runs honour the priced-only
+   rule).
+2. `backend/core/planner/__init__.py` — re-export
+   `aggregate_usage_lifetime` from the package root.
+3. `web_extras/routers/planner.py` — `/full` endpoint refactored
+   to call `aggregate_usage_lifetime(runs)` instead of
+   reimplementing the loop.
+4. `backend/core/planner/cli.py` — new `_cmd_full` handler +
+   subparser + `_DISPATCH` entry; module docstring updated.
+5. `scripts/planner-completion.bash` — `full` added to
+   `_TARS_PLANNER_CMDS`, `--limit` flag advertised under both
+   `runs)` and `full)` case branches, plan-id completion list
+   extended.
+6. `Makefile` — new `planner-full` target, added to `.PHONY`,
+   shares `PLANNER` macro and `ARGS=` guard pattern.
+7. `tests/test_planner_full_cli.py` (new, 10 cases):
+   - `aggregate_usage_lifetime`: zero runs (null cost), single
+     priced run (correct sums), all-unpriced runs (null cost
+     preserved), mixed priced+unpriced (only priced costs
+     summed), priced-but-cost-None defensive guard, accepts
+     tuple input.
+   - CLI happy path (envelope shape pinned key-by-key).
+   - CLI 404-style error envelope for unknown plan id.
+   - CLI `--limit` flag pass-through to `reconstruct_runs_async`
+     (verified via spy).
+   - CLI `--quiet` global-flag placement (`--quiet full <id>`)
+     keeps stdout to one JSON line.
+8. `tests/test_planner_completion_script.py` — extended
+   parametrize to cover `runs` and `full` carrying `--limit`.
+9. `tests/test_makefile_planner_targets.py` — `planner-full`
+   added to `_PLANNER_TARGETS`; `ARGS=` guard parametrize
+   extended to cover it.
+
+**Tests**
+
+- New file `tests/test_planner_full_cli.py` — 10 passed.
+- Existing planner contract tests still green
+  (`test_planner_completion_script.py`, `test_makefile_planner_targets.py`,
+  `test_planner_full_endpoint.py`, `test_planner_cli.py`).
+- Full `pytest -q` — **2094 passed in 40s** (was 2080, +14).
+- Cockpit unchanged (`vitest`, `tsc`, `vite build` still green
+  from PR #120).
+
+**Operator follow-ups**
+
+- Add `make planner-clone ARGS="<src> [target_thread]"` so the
+  whole "rerun with a different thread" flow is in the
+  Makefile too.
+- Right-rail entrypoint from the cockpit chat thread (open the
+  planner panel inline when the agent proposes a plan) — last
+  cockpit-side payoff still on the planner roadmap.
+
 ## 2026-05-01 — Cursor [A] · cockpit: URL-state sync for /cockpit/planner
 
 **Summary**
