@@ -14,25 +14,37 @@ Auto-loaded by Claude Code in every session. Cursor reads the same context via
 ## Project
 
 - **TARS** — local-first neural cockpit. Released under the `meeet.world` brand
-  with end-to-end logging through the meeet bridge.
-- Backend: Python (FastAPI-style routers under `web_extras/routers/`), MCP entry
-  points in `backend/mcp/`, agents in `backend/agents/`.
-- Frontend canon: dependency-free vanilla HTML/CSS/JS in `frontend/` (no React,
-  no Tailwind, no bundler).
-- Premium marketing surfaces:
-  - `experiments/neural-showcase-v2/` — vanilla JS + Vite + Three.js + GSAP +
-    Lenis + postprocessing. WebGL-heavy, custom GLSL. Dev port `5173`.
-  - `experiments/neural-showcase-v3/` — React 18 + TypeScript + Vite +
-    Tailwind v4 + framer-motion + lucide. shadcn-style `components.json`
-    pre-wired so any [21st.dev](https://21st.dev) block installs with
-    `npx shadcn@latest add "<url>"`. Dev port `5174`.
-  These are the only places where heavier frontend deps live. Do not bleed
-  those deps into `frontend/`.
+ with end-to-end logging through the meeet bridge.
+- Backend: Python (FastAPI-style routers under `web_extras/routers/`), agents
+ in `backend/agents/`. (Legacy MCP entry points were retired during the
+ 2026-05-02 audit cleanup.)
+- Frontend canon: **`experiments/neural-showcase-v3/`** — React 18 + TS +
+ Vite + Tailwind v4 + framer-motion + lucide. shadcn-style `components.json`
+ pre-wired so any [21st.dev](https://21st.dev) block installs with
+ `npx shadcn@latest add "<url>"`. Cockpit (`/cockpit`), marketing,
+ pricing all live here. Dev port `5174`.
+- Premium showcase surface: `experiments/neural-showcase-v2/` — vanilla JS +
+ Vite + Three.js + GSAP + Lenis + postprocessing. WebGL-heavy, custom GLSL.
+ Dev port `5173`.
+- ⚠ Legacy `frontend/` (vanilla HTML/CSS/JS) was retired during the
+ 2026-05-02 system audit. Anything that was once "vanilla cockpit" lives
+ in v3 today.
 
-## Awareness modules (load-bearing)
+## Awareness modules (legacy)
 
-`backend/core/awareness/` contains calendar, memory, code_index, mac_actions.
-Treat as load-bearing — do not refactor without explicit scope.
+The `backend/core/awareness/` package was a load-bearing module (calendar,
+memory, code_index, mac_actions) in early TARS phases but was retired
+during the 2026-05-02 audit when only orphan `__pycache__/` entries
+remained. The current cockpit replaces those concerns through:
+
+- **Memory** → `backend/core/memory/` + `backend/core/chat/` thread store.
+- **Calendar / mac_actions** → `backend/core/domains/packs/business/`
+ actions and (when re-introduced) Phase L mac-actions.
+- **Code index** → `backend/core/file_indexer/` + chat attachments
+ (`backend/core/attachments/`).
+
+Treat any `backend/core/awareness/...` reference in older docs as
+historical context.
 
 ## Domain packs (Phase 9)
 
@@ -162,11 +174,11 @@ Every meaningful TARS request that crosses a service boundary must run inside
 
 ## Frontend conventions
 
-- The main `frontend/` stays dependency-free. Reuse existing CSS variables and
-  animation keyframes from `frontend/jarvis-ui.css`,
-  `frontend/jarvis-hud-pro.css`, `frontend/brand-meeet.css`.
-- Cockpit/operator pages (`cockpit.html`, `tars.html`, `tars-dashboard.html`)
-  keep their dark HUD aesthetic.
+- The canonical frontend is `experiments/neural-showcase-v3/` (React 18 +
+ TS + Vite + Tailwind v4). Tokens live in `src/index.css` (shadcn CSS
+ variables); components in `src/components/`, pages in `src/pages/`.
+- Cockpit/operator pages (`/cockpit`, `/cockpit/*` under v3)
+ keep their dark HUD aesthetic.
 - Marketing/landing surfaces evolve toward a premium AI-product feel: cinematic
   hero, big confident type, glass cards, restrained gradients, purposeful
   motion. **Aesthetic = minimalism + futurism**, never neon/gaudy.

@@ -4,6 +4,95 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-02 — Cursor [A] · system audit closeout (PR #135 — all 8 bugs)
+
+**Summary**
+
+End-to-end follow-up to `docs/SYSTEM_AUDIT_2026-05-02.md`. PR #135
+closes **every audit finding** in 3 rebased-on-main commits
+(`c27831f` + `641694c` + `f8e889b`):
+
+| Bug | What landed | Tests |
+|-----|-------------|-------|
+| #2 | `web_extras/entitlements_gate.py::require_cloud_budget` wired into chat / planner / voice / council; HTTP 402 + `payment_required`; `entitlements.cap_hit` event with `surface` label | +7 contract |
+| #3 | `TARS_PAYMENT_MODE` env (off / mock / stripe); upgrade emits `entitlements.upgraded.mock`; Pricing UI shows `COMING SOON` lozenge + waitlist CTAs | +5 contract |
+| #4 | `ExpensiveRoutesRateLimitMiddleware` (Starlette) — per-IP token bucket on chat / planner / voice / council; HTTP 429 + Retry-After; XFF support; `TARS_RATE_LIMIT_EXPENSIVE` kill switch | +6 contract |
+| #5 | `src/lib/i18n.tsx` LocaleProvider + RU translations for hero / waitlist / cookie / footer / pricing / locale.\*; `<LocaleSwitcher/>` in Footer; `localStorage["tars.locale"]` persistence | +9 contract (Vitest) |
+| #6 | Removed 30 orphan `__pycache__` directories (i18n, economy, awareness, brain, knowledge_graph, …); regression guard | +1 regression |
+| #7 | `SplineScene.tsx` IntersectionObserver guard — defers the 4 MB `react-spline` + `physics` chunks until host element ≤ 600 px from viewport | covered by existing vitest |
+| #8 | `.cursorrules` / `.cursor/rules/tars-architecture.mdc` / `CLAUDE.md` rewritten to point at `experiments/neural-showcase-v3/`; marked `frontend/` and `backend/core/awareness/` as retired | n/a (docs) |
+| #9 | `desktop/src-tauri/tauri.conf.json` updater endpoint switched to GitHub Releases; `release-desktop-tagged.yml` adds `includeUpdaterJson: true`; `DEFAULT_MANIFEST` URLs point at GitHub Releases pattern; converted xfail → passing | +4 contract |
+
+**Test deltas**
+
+- Backend: `pytest tests/` → **2249 passed, 1 skipped, 2 xfailed**
+  (was 2225/1/3; +22 new tests, 1 xfail closed, no regressions).
+- Cockpit: `pnpm vitest run` → **190 passed** (was 181; +9 i18n
+  tests).
+- Cockpit: `pnpm build` green; bundle sizes unchanged but the
+  4 MB visual-flair chunks now load lazily.
+
+**Migration notes (env defaults flipped)**
+
+- `TARS_CAP_ENFORCEMENT` — defaults `on` in production. Test
+  suite flips `off` via `tests/conftest.py`. FREE-tier dev shells
+  must set `off` or upgrade with `TARS_PAYMENT_MODE=mock`.
+- `TARS_PAYMENT_MODE` — defaults `off` (paid upgrades return 503
+  `feature_disabled`). Set `mock` in dev. `stripe` lane stubbed
+  for the next PR.
+- `TARS_RATE_LIMIT_EXPENSIVE` — defaults `on` (per-IP throttle on
+  chat / planner / voice / council). Set `off` for single-operator
+  self-hosted boxes.
+
+**Parallel main-branch fix folded in (`f8e889b`)**
+
+While the audit branch was in flight, two commits on `main`
+(`6fbfb93` + `5984733`) bumped `tauri.conf.json` and `Cargo.toml`
+to `8.4.0` for MSI compatibility but skipped
+`desktop/package.json`. The PR rebased onto main inherited the
+divergence and the `desktop · version lint` workflow started
+failing. Folded the missing bump into the audit PR; all three
+desktop version sources now agree on `8.4.0`. Pure infra fix —
+no behaviour change.
+
+**Files**
+
+- Backend (Bug #2 + #4): `web_extras/entitlements_gate.py`,
+  `web_extras/middleware/__init__.py`,
+  `web_extras/middleware/expensive_routes_rate_limit.py`,
+  `web_extras/app.py`, `web_extras/errors.py`,
+  `web_extras/routers/{voice,council,planner,chat,entitlements}.py`,
+  `tests/conftest.py`,
+  `tests/test_entitlements_gate.py`,
+  `tests/test_rate_limit_expensive_routes.py`,
+  `tests/test_entitlements.py`.
+- Backend (Bug #6): deleted `backend/core/{i18n,economy,…}/` (30
+  orphan dirs), `tests/test_no_orphan_pycache.py`.
+- Backend (Bug #9): `backend/core/product/manifest.py`,
+  `tests/test_product_default_manifest_urls.py`,
+  `tests/test_release_desktop_workflow.py`.
+- Cockpit (Bug #5): `experiments/neural-showcase-v3/src/lib/i18n.tsx`
+  (renamed from .ts), `src/main.tsx`,
+  `src/components/{LocaleSwitcher,Footer}.tsx`,
+  `src/lib/i18n.test.ts`.
+- Cockpit (Bug #3): `experiments/neural-showcase-v3/src/components/Pricing.tsx`.
+- Cockpit (Bug #7): `experiments/neural-showcase-v3/src/components/SplineScene.tsx`.
+- CI / Tauri (Bug #9): `.github/workflows/release-desktop-tagged.yml`,
+  `desktop/src-tauri/tauri.conf.json`.
+- Desktop infra (folded fix): `desktop/package.json`,
+  `desktop/src-tauri/tauri.conf.json` (formatting + version
+  alignment).
+- Docs (Bug #8): `.cursorrules`, `.cursor/rules/tars-architecture.mdc`,
+  `CLAUDE.md`, `docs/SYSTEM_AUDIT_2026-05-02.md` (resolution
+  log).
+
+**Verification**
+
+- `pytest tests/` (backend, all green).
+- `pnpm vitest run` + `pnpm build` (cockpit, all green).
+- `desktop · version lint` GitHub Actions: triple-version match
+  enforced; rebase + folded fix unblocks the gate.
+
 ## 2026-05-02 — Cursor [A] · cron-shipped morning bundle wrapper
 
 **Summary**

@@ -27,6 +27,15 @@ interface Tier {
   href: string;
   color: string;
   recommended?: boolean;
+  /**
+   * Bug #3 from docs/SYSTEM_AUDIT_2026-05-02.md — paid tiers display
+   * a "Coming soon" overlay instead of pretending checkout works.
+   * The Pro/Business CTAs deep-link to the waitlist anchor; the
+   * lifetime banner uses a separate "lifetime.comingSoon" copy. Flip
+   * to false once Stripe / $MEEET wallet checkout lands and the
+   * backend ``TARS_PAYMENT_MODE`` defaults to ``stripe``.
+   */
+  comingSoon?: boolean;
 }
 
 const TIERS: Tier[] = [
@@ -67,9 +76,10 @@ const TIERS: Tier[] = [
       { ok: true, text: "Earn $MEEET while your agent works" },
     ],
     ctaKey: "pricing.tier.pro.cta",
-    href: "/install?tier=pro",
+    href: "#waitlist",
     color: "#6366F1",
     recommended: true,
+    comingSoon: true,
   },
   {
     slug: "business",
@@ -88,8 +98,9 @@ const TIERS: Tier[] = [
       { ok: true, text: "Custom skill SDK + private marketplace" },
     ],
     ctaKey: "pricing.tier.business.cta",
-    href: "/install?tier=business",
+    href: "mailto:hello@meeet.world?subject=TARS%20Business%20enquiry",
     color: "#8B5CF6",
+    comingSoon: true,
   },
 ];
 
@@ -140,9 +151,20 @@ export function Pricing() {
                 <span style={{ color: tier.color }}>{tier.num}</span>
                 <span className="text-ink">{t(tier.nameKey)}</span>
               </div>
-              {tier.recommended && (
-                <StatusLozenge label={t("pricing.recommended")} tone="accent" />
-              )}
+              <div className="flex items-center gap-2">
+                {tier.comingSoon && (
+                  <StatusLozenge
+                    label={t("pricing.comingSoon.badge")}
+                    tone="hud"
+                  />
+                )}
+                {tier.recommended && (
+                  <StatusLozenge
+                    label={t("pricing.recommended")}
+                    tone="accent"
+                  />
+                )}
+              </div>
             </header>
 
             <h3 className="mb-6 max-w-[18ch] font-display text-[22px] font-medium uppercase leading-[1.18] tracking-[0.02em] text-ink">
@@ -198,10 +220,22 @@ export function Pricing() {
                 background: tier.recommended ? tier.color : "transparent",
                 boxShadow: tier.recommended ? `0 0 24px ${tier.color}55` : undefined,
               }}
+              title={tier.comingSoon ? t("pricing.comingSoon.tooltip") : undefined}
+              aria-describedby={
+                tier.comingSoon ? `${tier.slug}-coming-soon` : undefined
+              }
             >
               {t(tier.ctaKey)}
               <span className="transition-transform duration-200 group-hover:translate-x-0.5">→</span>
             </a>
+            {tier.comingSoon && (
+              <p
+                id={`${tier.slug}-coming-soon`}
+                className="mt-3 text-center font-mono-tech text-[10px] uppercase tracking-[2px] text-ink-3"
+              >
+                {t("pricing.comingSoon.tooltip")}
+              </p>
+            )}
           </motion.div>
         ))}
       </div>
@@ -241,19 +275,29 @@ export function Pricing() {
           <p className="max-w-[46ch] text-[14px] leading-[1.6] text-ink-2">
             {t("pricing.lifetime.body")}
           </p>
-          <a
-            href="/install?tier=lifetime"
-            className="group inline-flex items-center justify-center gap-2 rounded-md border px-6 py-3.5 font-mono-tech text-[11px] uppercase tracking-[2.6px] text-ink transition-colors duration-200"
-            style={{
-              borderColor: "#8B5CF6",
-              background:
-                "linear-gradient(95deg, #6366F1 0%, #8B5CF6 50%, #06B6D4 100%)",
-              boxShadow: "0 0 24px rgba(139,92,246,0.4)",
-            }}
-          >
-            {t("pricing.lifetime.cta")}
-            <span className="transition-transform duration-200 group-hover:translate-x-0.5">→</span>
-          </a>
+          <div className="flex flex-col items-center gap-2 md:items-end">
+            <StatusLozenge
+              label={t("pricing.comingSoon.badge")}
+              tone="hud"
+            />
+            <a
+              href="#waitlist"
+              className="group inline-flex items-center justify-center gap-2 rounded-md border px-6 py-3.5 font-mono-tech text-[11px] uppercase tracking-[2.6px] text-ink transition-colors duration-200"
+              style={{
+                borderColor: "#8B5CF6",
+                background:
+                  "linear-gradient(95deg, #6366F1 0%, #8B5CF6 50%, #06B6D4 100%)",
+                boxShadow: "0 0 24px rgba(139,92,246,0.4)",
+              }}
+              title={t("pricing.comingSoon.tooltip")}
+            >
+              {t("pricing.lifetime.cta")}
+              <span className="transition-transform duration-200 group-hover:translate-x-0.5">→</span>
+            </a>
+            <span className="font-mono-tech text-[9px] uppercase tracking-[2px] text-ink-3">
+              {t("pricing.lifetime.comingSoon")}
+            </span>
+          </div>
         </div>
       </motion.div>
 

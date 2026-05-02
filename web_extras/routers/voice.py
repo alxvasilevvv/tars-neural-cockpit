@@ -15,7 +15,11 @@ Endpoints:
 
 The endpoint is **not policy-gated** — TTS is non-destructive and the
 cost rolls up automatically through the meeet bridge as a
-``voice.tts`` event.
+``voice.tts`` event. **It is** entitlements-gated: TTS providers are
+predominantly cloud-billed (ElevenLabs, OpenAI), so the entry point
+calls :func:`require_cloud_budget` to surface a 402 before hitting
+the synthesiser when the daily cap is exhausted (Bug #2 in
+``docs/SYSTEM_AUDIT_2026-05-02.md``).
 """
 
 from __future__ import annotations
@@ -32,6 +36,7 @@ from backend.core.voice import (
     list_personas,
     synthesize,
 )
+from web_extras.entitlements_gate import require_cloud_budget
 
 
 router = APIRouter(prefix="/api/voice", tags=["voice"])
@@ -75,6 +80,13 @@ async def speak_endpoint(
     session_id = (
         body.get("session_id") or x_tars_session_id or None
     )
+
+    # Bug #2 fix — TTS providers are predominantly cloud-billed; gate
+    # at the HTTP edge so a FREE-tier operator gets a clean 402
+    # before any synthesis spend lands. ``mac say`` users (route =
+    # edge) can opt out via ``TARS_CAP_ENFORCEMENT=off``; production
+    # leaves enforcement on by default.
+    await require_cloud_budget(kind="cloud", surface="voice.speak")
 
     # Thread-pinned persona fallback: if the caller didn't specify
     # an explicit ``persona`` but did pass ``thread_id``, look up

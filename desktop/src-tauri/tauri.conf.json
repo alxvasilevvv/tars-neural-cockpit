@@ -1,7 +1,7 @@
 {
   "$schema": "https://schema.tauri.app/config/2.0.0",
   "productName": "TARS",
-    "version": "8.4.0",
+  "version": "8.4.0",
   "identifier": "world.meeet.tars",
   "build": {
     "frontendDist": "./web",
@@ -65,8 +65,7 @@
     "updater": {
       "active": true,
       "endpoints": [
-        "https://meeet.world/updates/{{target}}/{{current_version}}.json",
-        "https://updates.meeet.world/tars/{{target}}/{{current_version}}.json"
+        "https://github.com/alxvasilevvv/tars-neural-cockpit/releases/latest/download/latest.json"
       ],
       "dialog": false,
       "pubkey": "TODO_PUBLIC_KEY"

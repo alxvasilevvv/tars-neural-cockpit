@@ -22,6 +22,7 @@ from fastapi import APIRouter, Body, Header, HTTPException
 
 from backend.core.council import get_council
 from backend.core.meeet import trace_scope
+from web_extras.entitlements_gate import require_cloud_budget
 
 router = APIRouter(prefix="/api/council", tags=["council"])
 
@@ -38,6 +39,11 @@ async def deliberate(
 
     if not isinstance(context, dict):
         raise HTTPException(status_code=400, detail="context_must_be_object")
+
+    # Bug #2 fix — every deliberation spawns N cloud voice calls; gate
+    # at the HTTP edge so a FREE-tier operator gets a clean 402
+    # before the orchestrator pays for the first ``Voice.propose``.
+    await require_cloud_budget(kind="cloud", surface="council.deliberate")
 
     try:
         with trace_scope(parent=x_meeet_trace_id):
