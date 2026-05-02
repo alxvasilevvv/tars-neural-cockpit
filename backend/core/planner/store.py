@@ -301,6 +301,57 @@ class PlannerStore:
     async def delete(self, plan_id: str) -> bool:
         return await asyncio.to_thread(self._delete_sync, plan_id)
 
+    async def clone(
+        self,
+        plan_id: str,
+        *,
+        thread_id: Optional[str] = None,
+        trace_id: Optional[str] = None,
+        goal_override: Optional[str] = None,
+    ) -> Optional[Plan]:
+        """Snapshot an existing plan as a fresh ``proposed`` plan.
+
+        Returns the new persisted :class:`Plan` (with a fresh
+        ``id`` / ``created_at`` / ``updated_at`` / ``status`` /
+        ``trace_id``) or ``None`` if ``plan_id`` doesn't exist.
+
+        Use cases:
+
+        - "Rerun" a finished plan without mutating its history —
+          the original keeps its terminal status; the clone enters
+          the inbox at ``proposed`` so the operator can approve
+          again.
+        - Branch a plan into a new chat thread by passing
+          ``thread_id``.
+        - Tweak the goal copy on the way through with
+          ``goal_override`` (steps stay verbatim).
+
+        Steps are deep-copied via :meth:`PlanStep.from_dict(s.to_dict())`
+        so mutating either plan's steps tuple later doesn't bleed.
+        """
+
+        existing = await self.get(plan_id)
+        if existing is None:
+            return None
+
+        cloned_steps = tuple(
+            PlanStep.from_dict(s.to_dict()) for s in existing.steps
+        )
+        new_plan = Plan(
+            id="",  # store assigns a fresh pln_<token>
+            goal=goal_override.strip() if goal_override else existing.goal,
+            steps=cloned_steps,
+            status=PlanStatus.PROPOSED,
+            rationale=existing.rationale,
+            model=existing.model,
+            pack_slug=existing.pack_slug,
+            playbook_id=existing.playbook_id,
+            thread_id=thread_id if thread_id is not None else existing.thread_id,
+            trace_id=trace_id,
+            estimated_cost_usd=existing.estimated_cost_usd,
+        )
+        return await self.insert(new_plan)
+
     def _stats_sync(self) -> dict[str, Any]:
         if not self.enabled:
             return {"enabled": False, "total": 0, "by_status": {}}

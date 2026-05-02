@@ -45,6 +45,12 @@ Endpoints:
   error) and aggregate counters. Newest run first. Optional
   ``limit`` query param caps the per-event-kind fetch (default
   ``1000``).
+- ``POST /api/planner/{plan_id}/clone`` — snapshot the plan as
+  a fresh ``proposed`` plan. Useful for "rerun" without
+  mutating the original's terminal status. Body may include
+  ``thread_id`` (rebind to a different chat) and
+  ``goal_override``. Emits ``planner.cloned`` so the cockpit
+  audit lane sees the relationship.
 
 Every state-changing endpoint emits a ``planner.*`` meeet event so
 the cockpit gold-pill audit lane sees the plan lifecycle.
@@ -458,6 +464,73 @@ async def abort_plan_endpoint(
     return {"ok": flipped, "plan_id": plan_id}
 
 
+@router.post("/{plan_id}/clone")
+async def clone_plan(
+    plan_id: str,
+    payload: dict[str, Any] = Body(default_factory=dict),
+    x_meeet_trace_id: str | None = Header(default=None),
+    x_tars_thread_id: str | None = Header(default=None),
+) -> dict[str, Any]:
+    """Snapshot ``plan_id`` as a fresh ``proposed`` plan.
+
+    The original is untouched; the returned plan has a brand new
+    ``id``, ``status="proposed"``, ``created_at`` / ``updated_at``
+    in the present, and a fresh ``trace_id`` derived from the
+    current scope. ``thread_id`` defaults to the original's; a
+    body / header value rebinds the clone to a different chat.
+    Emits ``planner.cloned`` so the cockpit audit lane can render
+    the parent → child relationship.
+    """
+
+    store = get_planner_store()
+    original = await store.get(plan_id)
+    if original is None:
+        raise HTTPException(status_code=404, detail="plan_not_found")
+
+    body_thread = payload.get("thread_id")
+    rebound_thread = (
+        str(body_thread).strip() if body_thread is not None else None
+    ) or (x_tars_thread_id or "").strip() or None
+    goal_override = payload.get("goal_override")
+    goal_str = (
+        str(goal_override).strip() if goal_override is not None else None
+    ) or None
+
+    with thread_id_scope(rebound_thread or original.thread_id), trace_scope(
+        parent=x_meeet_trace_id
+    ) as new_trace_id:
+        clone = await store.clone(
+            plan_id,
+            thread_id=rebound_thread or original.thread_id,
+            trace_id=new_trace_id,
+            goal_override=goal_str,
+        )
+        if clone is None:
+            # Race: another caller deleted the original between
+            # the get(...) above and the clone(...) here. Surface
+            # the same 404 the cockpit handles for the GET path.
+            raise HTTPException(status_code=404, detail="plan_not_found")
+        await get_client().emit(
+            "planner.cloned",
+            {
+                "plan_id": clone.id,
+                "source_plan_id": original.id,
+                "source_status": original.status.value,
+                "model": clone.model,
+                "pack_slug": clone.pack_slug,
+                "playbook_id": clone.playbook_id,
+                "step_count": len(clone.steps),
+                "thread_id_rebind": (
+                    rebound_thread != original.thread_id
+                    if rebound_thread is not None
+                    else False
+                ),
+                "goal_overridden": goal_str is not None,
+            },
+        )
+    return {"ok": True, "plan": clone.to_dict(), "source_plan_id": original.id}
+
+
 @router.delete("/{plan_id}")
 async def delete_plan(plan_id: str) -> dict[str, Any]:
     store = get_planner_store()
@@ -491,6 +564,7 @@ _PLAN_EVENT_KINDS: tuple[str, ...] = (
     "planner.synthesis.failed",
     "planner.approved",
     "planner.rejected",
+    "planner.cloned",
     "planner.deleted",
     "plan.run.started",
     "plan.step.requested",
