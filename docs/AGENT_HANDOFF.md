@@ -193,6 +193,29 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-01 — Phase L6 v1: planner foundations (synthesis + persistence) (Cursor [A]):**
+  Phase L6 (Planner / Agent loop) starts here. New module
+  `backend/core/planner/` ships the foundations: `Plan` /
+  `PlanStep` dataclasses + `PlanStatus` enum,
+  `PlannerStore` (SQLite at `~/.tars/planner.sqlite`, override
+  `TARS_PLANNER_DB_PATH`), and a deterministic
+  `synthesize_plan(goal, …)` that maps operator goals onto either
+  a registered playbook or a single-action fallback. Resolution
+  priority: playbook id → name → tag → action substring →
+  pack-snapshot fallback. Stable error reasons (`empty_goal` /
+  `no_match` / `ambiguous_packs` / `unknown_pack`) so the HTTP
+  layer can render localised envelopes. New router at
+  `/api/planner` exposes a complete CRUD surface (POST /plan,
+  GET /{id}, GET /, GET /_stats, POST /{id}/status,
+  DELETE /{id}). Operator transitions (`approved` / `rejected`)
+  emit `planner.{approved,rejected}` events; the runner-owned
+  `running` / `completed` / `aborted` transitions land in the
+  next slice. Pinned by `tests/test_planner_synthesis.py`
+  (41 cases). Full suite: **1916 passing**. Follow-up:
+  `PlannerLoop` runner that consumes `approved` plans and drives
+  `PlaybookRunner` in interactive mode (`plan.*` events from
+  L6.2 spec).
+
 - **2026-05-01 — MeeetClient.emit auto-injects thread_id from contextvar (Cursor [A]):**
   After the ContextVar bridge (PR #99), every router that handles
   `x-tars-thread-id` opens `thread_id_scope(...)` so the active
