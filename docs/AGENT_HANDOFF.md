@@ -193,6 +193,25 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-01 — Policy gate threads chat thread_id end-to-end through every policy.* event (Cursor [A]):**
+  Last PR's per-thread timeline now renders policy event summaries
+  correctly *if* the events carry a `thread_id` — but no policy event
+  ever did. This PR threads `x-tars-thread-id` from the action HTTP
+  entry through `policy.gate.check()`, persists it on the
+  `confirmations` row (additive SQLite migration via
+  `_ADDITIVE_COLUMNS`), and re-attaches it to every follow-up policy
+  event so the cockpit per-thread audit lane finally fills in for
+  chat-driven destructive actions. Wires: `web_extras/routers/domains.py`
+  (`policy.queued` / `policy.blocked` / `policy.allowed`),
+  `web_extras/routers/policy.py` via the new `_attach_thread_id`
+  helper (`policy.confirm` / `policy.cancelled` / `policy.expired`),
+  and `web_extras/app.py::_policy_expire_loop` (`policy.expired` from
+  the background tick). The `thread_id` field is omitted when the
+  header is absent (timeline filter is exact-match). Pinned by
+  `tests/test_policy_thread_linkage.py` (12 cases) plus regression
+  on `test_policy.py`, `test_policy_expire_loop.py`,
+  `test_thread_timeline.py`. Full suite: **1845 passing**.
+
 - **2026-05-01 — Per-thread timeline: fix policy event names + summariser bug, expand kinds (Cursor [A]):**
   The per-thread timeline (`backend/core/search/timeline.py`,
   `GET /api/chat/threads/{id}/timeline`) was untested and three things

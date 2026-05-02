@@ -381,16 +381,16 @@ async def _policy_expire_loop() -> None:
                 continue
             log.info("policy expire tick: expired=%s", len(expired))
             for c in expired:
-                await client.emit(
-                    "policy.expired",
-                    {
-                        "token": c.token,
-                        "slug": c.slug,
-                        "action": c.action_id,
-                        "expired_at": c.resolved_at,
-                        "trace_id": c.trace_id,
-                    },
-                )
+                payload: dict[str, object] = {
+                    "token": c.token,
+                    "slug": c.slug,
+                    "action": c.action_id,
+                    "expired_at": c.resolved_at,
+                    "trace_id": c.trace_id,
+                }
+                if c.thread_id:
+                    payload["thread_id"] = c.thread_id
+                await client.emit("policy.expired", payload)
         except asyncio.CancelledError:
             raise
         except Exception as exc:  # never crash the host
