@@ -4,6 +4,30 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-03 — Cursor [C] · CI guard for public changelog + IDEAS sync
+
+**Summary**
+
+Cloudflare Pages workflow now runs
+`python3 scripts/generate_public_changelog.py --check` before
+`npm ci`, so a PR that appends to `CHANGELOG_AGENTS.md` without
+regenerating `CHANGELOG_PUBLIC.md` fails CI (the committed GitHub
+view stays aligned with what marketing builds). Workflow `paths`
+also include `docs/CHANGELOG_{AGENTS,PUBLIC}.md` and
+`scripts/generate_public_changelog.py` so changelog-only edits
+still trigger the full cockpit gate.
+
+`docs/IDEAS.md` — marked **Cross-thread search** and **BM25 via
+SQLite FTS5** as shipped (Phase L8); both were stale relative to
+`backend/core/search/` and `POST /api/search`.
+
+**Files**
+
+- `.github/workflows/tars-meeet-cloudflare-pages.yml`
+- `docs/IDEAS.md`
+- `docs/CHANGELOG_AGENTS.md` (this entry)
+- `docs/CHANGELOG_PUBLIC.md` (regenerated)
+
 ## 2026-05-03 — Cursor [A] · session closeout audit
 
 **Summary**
@@ -4490,93 +4514,6 @@ This batch syncs the schema.
 - `docs/CHANGELOG_AGENTS.md`
 - `docs/AGENT_HANDOFF.md`
 
-## 2026-05-01 — Cursor [A] · `mlm.generate_post` real multi-channel drafter
-
-**Summary**
-
-Promotes `generate_post` from a 3-channel single-template stub
-to a full deterministic drafter. The original single English line
-per channel was the last user-facing stub in the MLM pack.
-
-New surface (all knobs optional, defaults preserve backward compat
-for `playbooks/mlm/retention_round.json`):
-
-- `channel`: `ig | tg | wa | linkedin` (was 3 channels; LinkedIn
-  added because it's the natural channel for MLM/business
-  networking).
-- `format`: `post | story | reel | dm` (kept).
-- `tone`: `warm | professional | urgent | celebratory` (new).
-- `language`: `en | ru | es` (new).
-- `topic`: free string, falls back to `"team momentum"`.
-- `cta`: optional explicit call-to-action; falls back to a
-  tone-appropriate default per language.
-
-1. **Module** (`backend/core/domains/packs/mlm/post_drafter.py`)
-   - `PostDraft` frozen dataclass: `draft`, `cta`, `hashtags`,
-     `char_count`, `word_count`, `model="drafter-v1"`, plus the
-     four enums.
-   - `_TEMPLATES[language][channel][tone]` registry covers the
-     full 4 × 4 × 3 = 48 combinations. Templates use a
-     `{topic}` placeholder.
-   - `_format_overlay(format, draft)` adds light per-format
-     tweaks: `story` appends "Swipe up if you're in.", `reel`
-     collapses to first sentence + emoji, `dm` strips the
-     trailing CTA so the operator can paste straight into a
-     1:1.
-   - `_DEFAULT_CTAS[language][tone]` provides language-aware
-     fallback CTAs.
-   - `_hashtags_for(channel, topic)` emits hashtags only for
-     `ig` and `linkedin`. Cap of 8. ASCII-only slug so RU/ES
-     topics don't end up with mixed-script tags. LinkedIn gets
-     two extra evergreens (`#leadership`, `#growth`).
-   - `_coerce(...)` is forgiving: unknown enum values fall back
-     to defaults silently. Blank topic also falls back.
-   - `draft_post(args)` is the public pure helper: same input,
-     same output, no IO.
-
-2. **Action** (`backend/core/domains/packs/mlm/actions.py`)
-   - `generate_post` keeps the strict-validation behaviour for
-     **explicitly unsupported** channels (returns `{ok=False,
-     error="unsupported_channel", supported=[...]}`) but allows
-     missing/blank channel to fall back to `ig` so existing
-     playbooks survive.
-   - Surfaces every field of the `PostDraft` directly on the
-     response (`draft`, `cta`, `hashtags`, `char_count`,
-     `word_count`, etc.).
-   - Emits `mlm.post_drafted` per the cross-cutting adapter
-     rule. Validation errors short-circuit before the emit.
-   - Module docstring no longer flags `generate_post` as a
-     stub.
-   - `ActionSpec` schema documents `tone`, `language`, `cta`,
-     and lists all four channels in the enum.
-
-3. **Tests** (`tests/test_mlm_generate_post.py`, 33 cases)
-   - Knob enum sanity + template-registry full-matrix coverage.
-   - `draft_post` happy path, determinism, full 4×4×3×4 = 192
-     combinations all render non-empty.
-   - Coercion: unknown tone / language / format / channel all
-     fall back; blank topic / blank CTA both fall back.
-   - Format overlay: story appends, reel shortens, dm strips
-     broadcast close.
-   - Hashtags: only ig / linkedin; capped at 8; ASCII-only;
-     topic stem propagates.
-   - Action handler: backward compat for retention_round.json,
-     unsupported channel returns error envelope and skips the
-     meeet emit, full-language path with non-ASCII topic.
-   - meeet event payload shape pinned.
-   - Schema documents the new knobs.
-
-4. **Suite**: 1559 tests green (was 1526).
-
-**Files touched**
-
-- `backend/core/domains/packs/mlm/post_drafter.py` (new)
-- `backend/core/domains/packs/mlm/actions.py`
-- `tests/test_mlm_generate_post.py` (new)
-- `docs/CHANGELOG_AGENTS.md`
-- `docs/AGENT_HANDOFF.md`
-- `docs/IDEAS.md`
-
 ---
 
-_Showing the most recent 60 of 175 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 176 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._

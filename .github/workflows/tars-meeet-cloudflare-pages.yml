@@ -25,10 +25,16 @@ on:
     branches: [main]
     paths:
       - "experiments/neural-showcase-v3/**"
+      - "docs/CHANGELOG_AGENTS.md"
+      - "docs/CHANGELOG_PUBLIC.md"
+      - "scripts/generate_public_changelog.py"
       - ".github/workflows/tars-meeet-cloudflare-pages.yml"
   pull_request:
     paths:
       - "experiments/neural-showcase-v3/**"
+      - "docs/CHANGELOG_AGENTS.md"
+      - "docs/CHANGELOG_PUBLIC.md"
+      - "scripts/generate_public_changelog.py"
       - ".github/workflows/tars-meeet-cloudflare-pages.yml"
 
 permissions:
@@ -45,6 +51,20 @@ jobs:
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # ``npm run build`` runs ``prebuild`` which regenerates
+      # ``docs/CHANGELOG_PUBLIC.md`` from ``CHANGELOG_AGENTS.md``,
+      # so the SPA bundle is always fresh in CI — but the *committed*
+      # ``CHANGELOG_PUBLIC.md`` would drift silently unless agents
+      # re-run the script after every append. This check fails the job
+      # when GitHub's view of the public changelog disagrees with the
+      # generator (same contract as ``pnpm changelog:check`` in v3).
+      - name: Changelog public artefact in sync
+        run: python3 scripts/generate_public_changelog.py --check
 
       - uses: actions/setup-node@v4
         with:

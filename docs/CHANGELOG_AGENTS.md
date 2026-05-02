@@ -4,6 +4,30 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-03 — Cursor [C] · CI guard for public changelog + IDEAS sync
+
+**Summary**
+
+Cloudflare Pages workflow now runs
+`python3 scripts/generate_public_changelog.py --check` before
+`npm ci`, so a PR that appends to `CHANGELOG_AGENTS.md` without
+regenerating `CHANGELOG_PUBLIC.md` fails CI (the committed GitHub
+view stays aligned with what marketing builds). Workflow `paths`
+also include `docs/CHANGELOG_{AGENTS,PUBLIC}.md` and
+`scripts/generate_public_changelog.py` so changelog-only edits
+still trigger the full cockpit gate.
+
+`docs/IDEAS.md` — marked **Cross-thread search** and **BM25 via
+SQLite FTS5** as shipped (Phase L8); both were stale relative to
+`backend/core/search/` and `POST /api/search`.
+
+**Files**
+
+- `.github/workflows/tars-meeet-cloudflare-pages.yml`
+- `docs/IDEAS.md`
+- `docs/CHANGELOG_AGENTS.md` (this entry)
+- `docs/CHANGELOG_PUBLIC.md` (regenerated)
+
 ## 2026-05-03 — Cursor [A] · session closeout audit
 
 **Summary**
