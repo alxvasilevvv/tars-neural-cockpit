@@ -47,6 +47,7 @@ _PLANNER_TARGETS = (
     "planner-runs",
     "planner-show",
     "planner-full",
+    "planner-clone",
     "planner-rerun",
     "planner-smoke",
 )
@@ -108,15 +109,21 @@ def test_gate_control_tower_includes_planner_smoke(makefile: str):
 
 @pytest.mark.parametrize(
     "target",
-    ["planner-runs", "planner-show", "planner-full", "planner-rerun"],
+    [
+        "planner-runs",
+        "planner-show",
+        "planner-full",
+        "planner-clone",
+        "planner-rerun",
+    ],
 )
 def test_args_required_targets_guard_against_empty_args(
     makefile: str, target: str
 ):
     """``planner-runs`` / ``planner-show`` / ``planner-full`` /
-    ``planner-rerun`` are useless without a plan_id; the recipe
-    must short-circuit with an error message instead of letting
-    the CLI emit a confusing argparse failure.
+    ``planner-clone`` / ``planner-rerun`` are useless without a
+    plan_id; the recipe must short-circuit with an error message
+    instead of letting the CLI emit a confusing argparse failure.
     """
 
     pattern = re.compile(
@@ -151,6 +158,55 @@ def test_planner_macro_points_at_canonical_cli_module(makefile: str):
     assert m, "PLANNER macro not declared in Makefile"
     assert "backend.core.planner.cli" in m.group(1), (
         "PLANNER macro must point at backend.core.planner.cli"
+    )
+
+
+def test_planner_clone_target_supports_optional_target_thread(
+    makefile: str,
+):
+    """``planner-clone`` must accept ``ARGS="<plan_id>"`` for a
+    bare clone *and* ``ARGS="<plan_id> <target_thread>"`` to
+    rebind the clone to a different chat thread (cron / fleet
+    forks of a known-good plan into a per-tenant thread).
+
+    The recipe parses ARGS positionally via ``set --`` so:
+
+    - ``ARGS=pln_abc`` shells into ``clone pln_abc`` (no ``--thread-id``
+      means the CLI keeps the source thread).
+    - ``ARGS="pln_abc thr_xyz"`` shells into
+      ``clone pln_abc --thread-id thr_xyz``.
+
+    Pin both branches plus the inner ``[ -z "$plan_id" ]`` re-guard
+    so a stray empty positional doesn't slip through to the CLI.
+    """
+
+    pattern = re.compile(
+        r"^planner-clone:[^\n]*\n((?:\t[^\n]*\n)+)",
+        re.MULTILINE,
+    )
+    m = pattern.search(makefile)
+    assert m, "planner-clone recipe not found"
+    recipe = m.group(1)
+    # Splits ARGS into positional words.
+    assert "set -- $(ARGS)" in recipe, (
+        "planner-clone must use ``set -- $(ARGS)`` to split the "
+        "positional plan_id / target_thread cleanly"
+    )
+    # Inner re-guard catches the edge case where ARGS expanded
+    # to whitespace-only after macro expansion.
+    assert 'if [ -z "$$plan_id" ]' in recipe, (
+        "planner-clone must re-check $plan_id post-split so a "
+        "stray empty positional doesn't reach the CLI"
+    )
+    # Branch-with-thread must forward --thread-id.
+    assert 'clone "$$plan_id" --thread-id "$$target_thread"' in recipe, (
+        "planner-clone must forward the optional second positional "
+        "as ``--thread-id <target_thread>`` to the CLI"
+    )
+    # Branch-without-thread must call clone with just the plan_id.
+    assert 'clone "$$plan_id"' in recipe, (
+        "planner-clone must shell into ``clone <plan_id>`` when no "
+        "target_thread is supplied"
     )
 
 
