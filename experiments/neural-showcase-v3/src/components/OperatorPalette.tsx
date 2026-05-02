@@ -95,6 +95,21 @@ export function OperatorPalette({ onToast }: OperatorPaletteProps = {}) {
 
   useFocusTrap(dialogRef, open);
 
+  /** Deep-link from ⌘J jump palette — pre-fill query and open. */
+  useEffect(() => {
+    const onPrefill = (event: Event) => {
+      const detail = (event as CustomEvent<{ query?: string }>).detail;
+      const q = detail?.query;
+      if (typeof q !== "string" || !q.trim()) return;
+      setQuery(q.trim());
+      setOpen(true);
+      setGroupFilter("all");
+    };
+    window.addEventListener("tars:operator-palette-prefill", onPrefill);
+    return () =>
+      window.removeEventListener("tars:operator-palette-prefill", onPrefill);
+  }, []);
+
   // --- Hotkey -------------------------------------------------------
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {

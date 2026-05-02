@@ -16,6 +16,7 @@ import { sound } from "@/lib/sound";
 import { AwarenessTicker } from "@/components/AwarenessTicker";
 import { ChatPane } from "@/components/ChatPane";
 import { CommandPalette } from "@/components/CommandPalette";
+import { JumpPalette } from "@/components/JumpPalette";
 import { OperatorPalette } from "@/components/OperatorPalette";
 import { OperatorStrip } from "@/components/OperatorStrip";
 import { UsageStrip } from "@/components/UsageStrip";
@@ -474,6 +475,8 @@ export function Cockpit() {
           );
         }}
       />
+
+      <JumpPalette />
 
       {/* IDEAS #20 — operator command palette (⌘. / Ctrl+.). Indexes
           packs / actions / playbooks / awareness sources / recent

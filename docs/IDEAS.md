@@ -278,9 +278,10 @@ Open ideas for the next layer:
   rendering each trace as a DAG of events shaded by route
   (`local` / `cloud`) and decorated by cost. Click → drill into the
   underlying meeet payload.
-- **Multi-mark BM25 highlights.** The backend already wraps matches
-  in `<mark>`; the cockpit currently strips them. Render them as
-  gold-on-bg pulses with hover-card chunk previews.
+- ~~**Multi-mark BM25 highlights.**~~ ✅ **partial 2026-04-29 / 05-03**
+  — `CommandPalette` renders `<mark>` spans as accent-tinted pills
+  (`renderHighlighted`); no strip. **Still open (Claude lane):**
+  gold-on-bg pulse polish + hover-card chunk previews on each mark.
 - ~~**Vector + BM25 blend for messages.** Currently messages are
   keyword-only; embedding them on insert (and reusing the L2
   embedder) would surface paraphrased question recall.~~ — Shipped
@@ -330,14 +331,13 @@ Open ideas for the next layer:
   (18 cases) pin the cycle.
 - ~~**Cross-thread Cmd+J jump.** ⌘K is a search; ⌘J should be a
   fuzzy thread / attachment / pack picker (lighter weight, no
-  scope chips, just deep-link nav).~~ — Backend shipped 2026-05-01:
-  `backend/core/search/jump.py` + `POST /api/search/jump`. Scoring
-  is a deliberately cheap `fuzzy_score` (exact / prefix / substring
-  / token-prefix / subsequence) and the fan-out covers threads,
-  attachments, saved searches, packs, and playbooks. Empty query
-  returns recency-first candidates. `tests/test_jump_picker.py`
-  (23 cases) pin the scorer + rank + engine + HTTP. Cockpit ⌘J
-  palette UI is the Claude-lane follow-up.
+  scope chips, just deep-link nav).~~ — ✅ **shipped 2026-05-03:**
+  `POST /api/search/jump` + `<JumpPalette />` on `/cockpit` (⌘J /
+  Ctrl+J). Threads + attachments dispatch `tars:open-thread`; packs
+  navigate `/cockpit?pack=`; playbooks + saved searches fire
+  `tars:operator-palette-prefill` so ⌘. opens pre-filtered. Client:
+  `src/components/JumpPalette.tsx`, `fetchJump` in `src/lib/search.ts`.
+  Backend shipped 2026-05-01 (`backend/core/search/jump.py`).
 - ~~**FTS5 backfill on schema bump.** When the chat DB is migrated
   from a backup, run `backfill_chunk_fts` / `backfill_message_fts`
   on first boot if the index is empty but the source tables aren't.~~
