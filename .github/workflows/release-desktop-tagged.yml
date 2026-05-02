@@ -59,10 +59,9 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
-          cache: "pnpm"
 
       - name: Install frontend deps
-        run: pnpm install --frozen-lockfile
+        run: pnpm install
 
       - name: Install Python ${{ env.PYTHON_VERSION }}
         uses: actions/setup-python@v5
