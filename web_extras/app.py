@@ -35,6 +35,7 @@ from web_extras.routers import chat as chat_router
 from web_extras.routers import council as council_router
 from web_extras.routers import domains as domains_router
 from web_extras.routers import meeet as meeet_router
+from web_extras.routers import planner as planner_router
 from web_extras.routers import playbooks as playbooks_router
 from web_extras.routers import pairing as pairing_router
 from web_extras.routers import policy as policy_router
@@ -584,6 +585,7 @@ app.include_router(awareness_router.router)
 app.include_router(meeet_router.router)
 app.include_router(council_router.router)
 app.include_router(policy_router.router)
+app.include_router(planner_router.router)
 app.include_router(playbooks_router.router)
 app.include_router(vault_router.router)
 app.include_router(usage_router.router)
