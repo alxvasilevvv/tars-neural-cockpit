@@ -50,6 +50,7 @@ _PLANNER_TARGETS = (
     "planner-clone",
     "planner-rerun",
     "planner-replay-run",
+    "planner-repush-run",
     "planner-smoke",
 )
 
@@ -117,16 +118,17 @@ def test_gate_control_tower_includes_planner_smoke(makefile: str):
         "planner-clone",
         "planner-rerun",
         "planner-replay-run",
+        "planner-repush-run",
     ],
 )
 def test_args_required_targets_guard_against_empty_args(
     makefile: str, target: str
 ):
     """``planner-runs`` / ``planner-show`` / ``planner-full`` /
-    ``planner-clone`` / ``planner-rerun`` / ``planner-replay-run``
-    are useless without their positional args; the recipe must
-    short-circuit with an error message instead of letting the
-    CLI emit a confusing argparse failure.
+    ``planner-clone`` / ``planner-rerun`` / ``planner-replay-run`` /
+    ``planner-repush-run`` are useless without their positional
+    args; the recipe must short-circuit with an error message
+    instead of letting the CLI emit a confusing argparse failure.
     """
 
     pattern = re.compile(
@@ -312,6 +314,47 @@ def test_planner_replay_run_target_wires_export_with_trace_id(
     assert '--export "$$out_path"' in recipe, (
         "planner-replay-run must use ``--export <out_path>`` to "
         "write the JSONL file (not the default replay/push branch)"
+    )
+
+
+def test_planner_repush_run_target_wires_replay_cli_with_repush_trace(
+    makefile: str,
+):
+    """``planner-repush-run`` must shell into the meeet ``replay_cli``
+    with ``--repush-trace <run_trace>`` (not ``--trace-id`` —
+    that's the export-only filter; ``--repush-trace`` is the one
+    that actually re-emits upstream).
+
+    Pin: bare ARGS shells without ``--limit``; LIMIT= variable
+    forwards as ``--limit <N>``. The recipe is a single
+    positional argument so we don't need ``set --`` /
+    inner-positional re-guards (unlike ``planner-replay-run``
+    which takes two).
+    """
+
+    pattern = re.compile(
+        r"^planner-repush-run:[^\n]*\n((?:\t[^\n]*\n)+)",
+        re.MULTILINE,
+    )
+    m = pattern.search(makefile)
+    assert m, "planner-repush-run recipe not found"
+    recipe = m.group(1)
+    # Both branches must call replay_cli with --repush-trace.
+    assert "backend.core.meeet.replay_cli --repush-trace $(ARGS)" in recipe, (
+        "planner-repush-run must shell into the meeet replay_cli "
+        "with --repush-trace (NOT --trace-id, which is export-only)"
+    )
+    # Optional LIMIT branch must forward --limit $(LIMIT).
+    assert "--limit $(LIMIT)" in recipe, (
+        "planner-repush-run must forward the optional LIMIT= "
+        "variable as ``--limit $(LIMIT)``"
+    )
+    # The two-branch shape (with-LIMIT vs without) must guard on
+    # MAKE-level ``-n "$(LIMIT)"`` so the bare invocation doesn't
+    # get a stray ``--limit`` with empty value.
+    assert '[ -n "$(LIMIT)" ]' in recipe, (
+        "planner-repush-run must check ``[ -n \"$(LIMIT)\" ]`` "
+        "before forwarding the flag"
     )
 
 
