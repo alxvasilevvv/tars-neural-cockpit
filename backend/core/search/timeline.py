@@ -42,15 +42,18 @@ _RELEVANT_EVENT_KINDS = (
     "attachment.ingested",
     "voice.tts",
     "usage.tokens",
-    "council.proposal",
-    "council.contradiction",
+    "council.deliberation.started",
+    "council.deliberation.completed",
     "policy.allowed",
     "policy.queued",
-    "policy.confirmed",
-    "policy.rejected",
+    "policy.blocked",
+    "policy.confirm",
+    "policy.cancelled",
+    "policy.expired",
     "sampler.decision",
+    "playbook.started",
     "playbook.step.completed",
-    "playbook.step.failed",
+    "playbook.completed",
 )
 
 
@@ -291,5 +294,61 @@ def _summarise_event(kind: str, payload: dict[str, Any]) -> str:
         files = payload.get("files") or []
         return f"{payload.get('chunk_count', 0)} chunks · " + ", ".join(files[:3])
     if kind.startswith("policy."):
-        return f"action={payload.get('action_id', '?')} · token={payload.get('token', '?')}"
+        # Every policy.* event uses ``action`` (not ``action_id``) — the
+        # old summariser read the wrong key and the cockpit always
+        # rendered ``action=?``. Pin the right field name here.
+        slug = payload.get("slug") or "?"
+        action = payload.get("action") or "?"
+        token = payload.get("token") or "?"
+        suffix = f"slug={slug} · action={action} · token={token}"
+        if kind == "policy.expired" and payload.get("expired_at"):
+            return f"{suffix} · expired_at={payload['expired_at']}"
+        return suffix
+    if kind == "sampler.decision":
+        winner = payload.get("winner") or "?"
+        stance = payload.get("winning_stance") or "?"
+        agreement = payload.get("agreement", 0)
+        cost = float(payload.get("cost_usd") or 0)
+        parallel_tag = " · parallel" if payload.get("parallel") else ""
+        return (
+            f"{winner} → {stance} · agree={agreement} · ${cost:.6f}{parallel_tag}"
+        )
+    if kind.startswith("council."):
+        # ``deliberation.started`` carries voices+topic, ``completed``
+        # carries chosen+winner_model+agreement.
+        if "voices" in payload:
+            return (
+                f"voices=[{', '.join(payload.get('voices') or [])}] · "
+                f"topic={payload.get('topic') or '?'}"
+            )
+        return (
+            f"chosen={payload.get('chosen') or '?'} · "
+            f"winner={payload.get('winner_model') or '?'} · "
+            f"agree={payload.get('agreement', 0)}"
+        )
+    if kind == "playbook.started":
+        return (
+            f"id={payload.get('playbook_id') or '?'} · "
+            f"steps={payload.get('steps') or 0} · "
+            f"mode={payload.get('mode') or '?'}"
+        )
+    if kind == "playbook.step.completed":
+        suffix = "ok" if payload.get("ok") else "failed"
+        if payload.get("blocked"):
+            suffix = "blocked"
+        parallel_tag = " · parallel" if payload.get("parallel") else ""
+        return (
+            f"id={payload.get('playbook_id') or '?'} · "
+            f"step={payload.get('step_id') or '?'} · "
+            f"{suffix} · {round(float(payload.get('took_ms') or 0), 1)}ms"
+            f"{parallel_tag}"
+        )
+    if kind == "playbook.completed":
+        suffix = "ok" if payload.get("ok") else "stopped"
+        return (
+            f"id={payload.get('playbook_id') or '?'} · "
+            f"{suffix} · run={payload.get('steps_run') or 0} · "
+            f"blocked={payload.get('steps_blocked') or 0} · "
+            f"failed={payload.get('steps_failed') or 0}"
+        )
     return ""
