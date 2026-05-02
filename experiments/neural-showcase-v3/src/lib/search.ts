@@ -9,6 +9,8 @@
  * The cockpit's ⌘K command palette is a thin wrapper around the
  * unified endpoint with debounced typing + arrow-key navigation +
  * a deep-link-style `onSelect` callback.
+ *
+ * ⌘J uses POST /api/search/jump (see `fetchJump`, `JumpPalette`).
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -116,6 +118,50 @@ export async function searchMessages(
   if (!r.ok) throw new Error(`HTTP ${r.status}`);
   const body = (await r.json()) as { hits: SearchHit[] };
   return body.hits ?? [];
+}
+
+// --------------------------------------------------------------------
+// Cmd+J jump picker — POST /api/search/jump
+// --------------------------------------------------------------------
+
+export type JumpHitKind =
+  | "thread"
+  | "attachment"
+  | "saved_search"
+  | "pack"
+  | "playbook";
+
+export interface JumpHit {
+  kind: JumpHitKind;
+  id: string;
+  label: string;
+  sublabel: string;
+  score: number;
+  ref: Record<string, unknown>;
+}
+
+export interface JumpResult {
+  ok: boolean;
+  query: string;
+  count: number;
+  hits: JumpHit[];
+}
+
+export async function fetchJump(
+  q: string,
+  opts: { limit?: number; signal?: AbortSignal } = {},
+): Promise<JumpResult> {
+  const r = await fetch(`${API_BASE}/api/search/jump`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      q,
+      limit: opts.limit ?? 24,
+    }),
+    signal: opts.signal,
+  });
+  if (!r.ok) throw new Error(`HTTP ${r.status}`);
+  return (await r.json()) as JumpResult;
 }
 
 export async function searchTraces(
