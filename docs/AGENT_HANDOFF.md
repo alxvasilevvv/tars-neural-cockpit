@@ -193,6 +193,31 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-01 — meeet replay CLI: `--repush-trace` + `planner-repush-run` Make target (Cursor [A]):**
+  Operator follow-up to PR #124 (`planner-replay-run`). Adds
+  the **push-this-trace-upstream-now** flow that PR didn't
+  ship: `replay_cli --repush-trace <trc>` re-emits every event
+  for one trace to ingest regardless of the existing `pushed`
+  flag, so a fleet operator can recover from a meeet ingest
+  contract bump without hand-editing SQLite. The full operator
+  pipeline now reads: dump (`make planner-replay-run`) → audit
+  → repush (`make planner-repush-run ARGS="<run_trace>"
+  [LIMIT=N]`). Load-bearing failure semantics: when an
+  upstream push fails during repush, the row's `pushed` flag
+  is **NOT regressed to 0** (only `last_error` updates) —
+  otherwise a half-failed repush would let those rows leak
+  into the next `replay_unpushed` flush and double-push them
+  once the upstream recovers, exactly the behaviour the
+  contract bump is trying to repair. Push primitive extracted
+  to `MeeetClient._push` so `replay_unpushed` and
+  `repush_trace` share the same `urlopen` call. Pinned by 12
+  new pytest cases (5 store, 4 CLI, 3 makefile). Full suite:
+  **2118 passing** (was 2106, +12). Manual smoke: bare,
+  with-ARGS, with-LIMIT, no-ingest-URL all behave correctly.
+  Follow-ups: right-rail planner entrypoint from the cockpit
+  chat thread; awareness CLI parity (`python -m
+  backend.core.awareness.cli`).
+
 - **2026-05-01 — cockpit: aria-live announcement on plan run completion / abort (Cursor [A]):**
   Plan-detail panel now surfaces every terminal run through a
   visually-hidden `aria-live="polite"` region so screen-reader

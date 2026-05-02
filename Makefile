@@ -18,7 +18,7 @@ DESKTOP   ?= desktop
         smoke-core-bridge gate-control-tower ops-bridge-secret clean \
         planner planner-stats planner-list planner-runs planner-show \
         planner-full planner-clone planner-rerun planner-replay-run \
-        planner-smoke
+        planner-repush-run planner-smoke
 
 help:                ## list targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -164,6 +164,19 @@ planner-replay-run:  ## dump one run to JSONL: make planner-replay-run ARGS="<pl
 	    PYTHONPATH=. $(PY) -m backend.core.meeet.replay_cli \
 	        --export "$$out_path" --trace-id "$$run_trace" --limit 1000; \
 	    echo "planner-replay-run wrote $$out_path"'
+
+# Force-repushes every event for one trace upstream, regardless of
+# the existing pushed flag. Use after a meeet ingest outage /
+# contract bump when you need to re-emit one run's events for
+# billing backfill or audit. LIMIT= caps rows scanned (default
+# 1000 — same as the CLI default).
+planner-repush-run:  ## re-emit one run upstream: make planner-repush-run ARGS=<run_trace> [LIMIT=N]
+	@if [ -z "$(ARGS)" ]; then echo "usage: make planner-repush-run ARGS=<run_trace> [LIMIT=N]"; exit 2; fi
+	@if [ -n "$(LIMIT)" ]; then \
+	    PYTHONPATH=. $(PY) -m backend.core.meeet.replay_cli --repush-trace $(ARGS) --limit $(LIMIT); \
+	else \
+	    PYTHONPATH=. $(PY) -m backend.core.meeet.replay_cli --repush-trace $(ARGS); \
+	fi
 
 planner-smoke:       ## end-to-end synthesize→stats sanity for the control tower
 	@bash -c 'set -e; \
