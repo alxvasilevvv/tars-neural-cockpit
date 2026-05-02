@@ -193,6 +193,27 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-01 — cockpit: PlanFullPanel + /cockpit/planner page (Cursor [A]):**
+  Operator-facing payoff for the planner backend work shipped in
+  PRs #109–#117. New page at `/cockpit/planner` lets the operator
+  inspect any plan's full envelope (plan + steps + reconstructed
+  runs + lifetime usage), one-click rerun it, and watch the
+  lifetime rollup update in place via the planner SSE stream.
+  Two pieces: `<PlanFullPanel />` (self-contained drawer that
+  hydrates from `fetchFullPlan` and stays live via
+  `subscribePlannerEvents`, refetches on every lifecycle event)
+  and `<Planner />` page (list + filter strip + panel). Pure
+  helpers (`statusTone`, `formatLatencyMs`, `formatStartedAt`,
+  `formatRunSummary`, `formatLifetimeSummary`, `summariseStep`,
+  `REFETCH_KINDS`, `shouldAdvanceCursor`) extracted and pinned by
+  17 Vitest cases. Cockpit suite: **120 passed (11 files)**;
+  `tsc --noEmit` clean; `vite build` clean (Planner chunk 17.6 kB
+  / 4.96 kB gzipped); Python unchanged (2080 green). Route
+  registered in `App.tsx` and a "planner" anchor added to the
+  cockpit's top nav so operators jump in with one click.
+  Follow-ups: per-step live updates, URL-state sync for filters,
+  inline open from the chat thread.
+
 - **2026-05-01 — cockpit: typed planner client + Vitest contract (Cursor [A]):**
   First slice of cockpit ↔ planner wiring. Adds
   `experiments/neural-showcase-v3/src/lib/planner.ts` — a
