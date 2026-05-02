@@ -25,11 +25,17 @@
  */
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { ArrowLeft, Loader2, Plug, Search } from "lucide-react";
 
 import { useDocumentMeta } from "@/lib/meta";
 import { listPlans, subscribePlannerEvents, type Plan, type PlanStatus, type PlannerEvent } from "@/lib/planner";
+import {
+  buildPlannerSearchParams,
+  parsePlannerSearchParams,
+  plannerStateEquals,
+  type PlannerUrlState,
+} from "@/lib/plannerUrl";
 import { BrandHairline } from "@/components/BrandHairline";
 import { PlanFullPanel, statusTone } from "@/components/PlanFullPanel";
 
@@ -59,12 +65,40 @@ export function Planner() {
     ogImage: "https://tars.meeet.world/og-cockpit.svg",
   });
 
+  const [searchParams, setSearchParams] = useSearchParams();
+  // Single source of truth: parse the URL on every render. React-router
+  // re-renders us when the URL changes, so this stays in sync.
+  const urlState: PlannerUrlState = useMemo(
+    () => parsePlannerSearchParams(searchParams),
+    [searchParams],
+  );
+  const { status: statusFilter, q: search, selected } = urlState;
+
+  const updateUrlState = useCallback(
+    (patch: Partial<PlannerUrlState>) => {
+      const next: PlannerUrlState = { ...urlState, ...patch };
+      if (plannerStateEquals(next, urlState)) return;
+      setSearchParams(buildPlannerSearchParams(next), { replace: true });
+    },
+    [urlState, setSearchParams],
+  );
+
+  const setStatusFilter = useCallback(
+    (s: PlanStatus | "all") => updateUrlState({ status: s }),
+    [updateUrlState],
+  );
+  const setSearch = useCallback(
+    (q: string) => updateUrlState({ q }),
+    [updateUrlState],
+  );
+  const setSelected = useCallback(
+    (id: string | null) => updateUrlState({ selected: id }),
+    [updateUrlState],
+  );
+
   const [plans, setPlans] = useState<Plan[] | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState<PlanStatus | "all">("all");
-  const [search, setSearch] = useState("");
-  const [selected, setSelected] = useState<string | null>(null);
 
   const refetch = useCallback(async () => {
     setLoading(true);
@@ -75,22 +109,27 @@ export function Planner() {
         limit: 100,
       });
       setPlans(r.plans);
-      // Keep the current selection if it still matches; otherwise pick the
-      // newest plan in the filtered list, so the right pane is never empty.
-      setSelected((prev) => {
-        if (prev && r.plans.some((p) => p.id === prev)) return prev;
-        return r.plans[0]?.id ?? null;
-      });
+      // If nothing is selected (or the selected plan vanished from the
+      // filtered list), promote the newest one so the right pane isn't
+      // empty. We do NOT clobber an explicit URL `?selected=` even if
+      // the plan is filtered out — operators may want to deep-link to
+      // a plan that doesn't match the current filter.
+      if (!selected && r.plans.length > 0) {
+        updateUrlState({ selected: r.plans[0]!.id });
+      }
     } catch (e) {
       setError(String((e as Error)?.message ?? e));
     } finally {
       setLoading(false);
     }
-  }, [statusFilter]);
+  }, [statusFilter, selected, updateUrlState]);
 
   useEffect(() => {
     void refetch();
-  }, [refetch]);
+    // We intentionally only fire on statusFilter change, not on every
+    // selection update — selecting a plan should not refetch the list.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [statusFilter]);
 
   // Live: refresh the list on plan-creation / clone / delete events.
   useEffect(() => {

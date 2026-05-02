@@ -193,6 +193,23 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-01 — cockpit: URL-state sync for /cockpit/planner (Cursor [A]):**
+  Operators can now deep-link to any planner view. Page mirrors three
+  pieces of UI state to the URL via `useSearchParams`:
+  `?status=<state>` (one of the seven filter states or "all"),
+  `?q=<text>` (free-text filter on id / goal / pack), `?selected=<id>`
+  (currently selected plan id). Defaults are elided so the URL stays
+  short for the common case; parse is permissive (unknown statuses
+  fall back to "all", malformed values never throw); writes use
+  `replace` mode so the back-stack stays clean. Pure helpers
+  (`parsePlannerSearchParams`, `buildPlannerSearchParams`,
+  `plannerStateEquals`) in `lib/plannerUrl.ts` pinned by 18 Vitest
+  cases (round-trip identity, default elision, URL-encoding
+  permissive fallback). Cockpit suite: **158 passed (13 files)**;
+  `tsc --noEmit` clean; `vite build` clean; Python unchanged
+  (2080 green). Follow-ups: right-rail entrypoint from the chat
+  thread; scroll-to-selected on first paint when `?selected=` is set.
+
 - **2026-05-01 — cockpit: per-step live ticking in PlanFullPanel (Cursor [A]):**
   Top-priority follow-up from PR #118. The plan panel's step list
   now ticks live during a run: every `plan.step.requested` /
