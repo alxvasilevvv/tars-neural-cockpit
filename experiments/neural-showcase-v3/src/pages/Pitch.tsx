@@ -420,7 +420,7 @@ const SLIDES: SlideDef[] = [
             <div className="inline-flex items-center gap-2.5 rounded-md border border-line bg-bg-1/60 px-4 py-2.5 font-mono-tech text-[11.5px] text-ink-2">
               <Download size={13} strokeWidth={1.7} className="text-accent" />
               <span style={{ color: "#6366F1" }}>$</span>
-              <code className="text-ink">curl -fsSL meeet.world/install.sh | bash</code>
+              <code className="text-ink">curl -fLO https://tars.meeet.world/TARS-8.4.0-arm64.dmg && open TARS-8.4.0-arm64.dmg</code>
             </div>
             <div className="font-mono-tech text-[10.5px] uppercase tracking-[2.4px] text-ink-3">
               v9.0 · Phase L9 desktop scaffolded · contract 1.1.0
