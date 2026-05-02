@@ -287,6 +287,7 @@ async def invoke_action(
     x_meeet_trace_id: str | None = Header(default=None),
     x_tars_policy_mode: str | None = Header(default=None),
     x_tars_session_id: str | None = Header(default=None),
+    x_tars_thread_id: str | None = Header(default=None),
 ) -> dict[str, Any]:
     pack = get_pack(slug)
     if pack is None:
@@ -334,6 +335,7 @@ async def invoke_action(
             mode=mode,
             confirmed=confirmed_by_token,
             trace_id=trace_id,
+            thread_id=x_tars_thread_id,
         )
 
         if not decision.allowed:
@@ -342,16 +344,16 @@ async def invoke_action(
                 if decision.reason == "dry_run_preview_only"
                 else "policy.queued"
             )
-            await client.emit(
-                event_kind,
-                {
-                    "slug": slug,
-                    "action": action_id,
-                    "mode": decision.mode.value,
-                    "reason": decision.reason,
-                    "token": decision.confirmation_token,
-                },
-            )
+            event_payload: dict[str, Any] = {
+                "slug": slug,
+                "action": action_id,
+                "mode": decision.mode.value,
+                "reason": decision.reason,
+                "token": decision.confirmation_token,
+            }
+            if x_tars_thread_id:
+                event_payload["thread_id"] = x_tars_thread_id
+            await client.emit(event_kind, event_payload)
             took_ms = _ms_since(started_at)
             return {
                 "ok": True,
@@ -376,16 +378,16 @@ async def invoke_action(
                 },
             }
 
-        await client.emit(
-            "policy.allowed",
-            {
-                "slug": slug,
-                "action": action_id,
-                "mode": decision.mode.value,
-                "reason": decision.reason,
-                "destructive": spec.destructive,
-            },
-        )
+        allowed_payload: dict[str, Any] = {
+            "slug": slug,
+            "action": action_id,
+            "mode": decision.mode.value,
+            "reason": decision.reason,
+            "destructive": spec.destructive,
+        }
+        if x_tars_thread_id:
+            allowed_payload["thread_id"] = x_tars_thread_id
+        await client.emit("policy.allowed", allowed_payload)
 
         try:
             result = await spec.handler(args)
