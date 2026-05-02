@@ -12,10 +12,10 @@ name: release-desktop
 # `desktop/src-tauri/tauri.conf.json`.
 #
 # Required GitHub repo secrets:
-#   TAURI_SIGNING_PRIVATE_KEY            base64 minisign secret key
-#   TAURI_SIGNING_PRIVATE_KEY_PASSWORD   passphrase for the key (may be empty)
-#   APPLE_ID, APPLE_TEAM_ID, …           reused from the existing release.yml
-#                                        for macOS notarisation (optional here).
+#   TAURI_SIGNING_PRIVATE_KEY           base64 minisign secret key
+#   TAURI_SIGNING_PRIVATE_KEY_PASSWORD  passphrase for the key (may be empty)
+#   APPLE_ID, APPLE_TEAM_ID, …         reused from the existing release.yml
+#                                       for macOS notarisation (optional here).
 
 on:
   # Releases are launched manually via the Actions UI / `gh workflow run release-desktop.yml -f version=X.Y.Z`.
@@ -75,14 +75,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
           cache: "pnpm"
-
-      - uses: pnpm/action-setup@v4
-        with:
-          version: 9
 
       - uses: actions/setup-python@v5
         with:
@@ -173,8 +173,8 @@ jobs:
           mkdir -p staged
           find artifacts -type f \
             \( -name "*.dmg" -o -name "*.app.tar.gz" -o -name "*.msi" \
-               -o -name "*Setup.exe" -o -name "*.AppImage" -o -name "*.deb" \
-               -o -name "*.sig" \) \
+            -o -name "*Setup.exe" -o -name "*.AppImage" -o -name "*.deb" \
+            -o -name "*.sig" \) \
             -exec cp {} staged/ \;
           ls -la staged
 
