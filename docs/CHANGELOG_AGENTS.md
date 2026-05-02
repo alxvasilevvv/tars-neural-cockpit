@@ -4,6 +4,73 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · cockpit: typed planner client + Vitest contract
+
+**Summary**
+
+First slice of cockpit ↔ planner wiring. Adds a typed
+TypeScript client (`experiments/neural-showcase-v3/src/lib/planner.ts`)
+that pins the shape of every backend planner endpoint shipped
+in PRs #109–#116, plus a Vitest suite that locks the
+contract so a backend rename can't silently break the React
+cockpit.
+
+The client speaks all five surfaces:
+`GET /api/planner` (list with filters),
+`GET /api/planner/{id}/runs` (history, newest-first),
+`GET /api/planner/{id}/full` (aggregate envelope with
+`usage_lifetime`), `POST /api/planner/{id}/abort`,
+`POST /api/planner/{id}/rerun` (one-shot clone+approve+run),
+and `subscribePlannerEvents` for the SSE stream
+(`/api/planner/events`) — including `Last-Event-ID`-style
+resume via `after_id`.
+
+Cost rendering uses `formatCostUSD` so the n/a vs $0.00
+distinction surfaced by `/full`'s `has_priced_models` flag
+is preserved end-to-end. Header propagation
+(`x-tars-policy-mode`, `x-meeet-trace-id`) is plumbed
+through every request that mutates server state.
+
+**Changes**
+
+1. `experiments/neural-showcase-v3/src/lib/planner.ts`
+   (new) — typed client + SSE subscriber. No deps beyond
+   the browser fetch / EventSource pair already used by
+   the cockpit's other clients.
+2. `experiments/neural-showcase-v3/src/lib/planner.test.ts`
+   (new, 17 cases) — Vitest contract:
+   - URL + querystring construction (`fetchFullPlan` with
+     `limit`, `listPlans` filters, `listPlanRuns`,
+     `subscribePlannerEvents` filters).
+   - Header propagation on `abortPlan` + `rerunPlan`.
+   - JSON body shape on `rerunPlan` (and empty body
+     fallback).
+   - Round-tripping a synthetic `PlanFullResponse` /
+     `RerunResponse` through the parser.
+   - SSE: `EventSource` wiring, JSON parsing, silent
+     drop of malformed frames, `onOpen`/`onError`
+     forwarding.
+   - `formatCostUSD`: `null` / `undefined` → `"n/a"`;
+     numeric → 4-decimal `$x.xxxx`.
+
+**Tests**
+
+- `pnpm -C experiments/neural-showcase-v3 exec vitest run` —
+  **103 passed (10 files)**, including the 17 new cases.
+- `pnpm -C experiments/neural-showcase-v3 exec tsc --noEmit` —
+  clean.
+- `pytest -q` — **2080 passed in 40s** (no Python deltas).
+
+**Cockpit follow-ups**
+
+- `PlanFullPanel` React component built on top of this client
+  (drawer that opens from the planner list, shows plan +
+  runs + lifetime usage, has a one-click Rerun button) —
+  next PR.
+- Live SSE wiring: stream `plan.run.usage` / `plan.completed`
+  frames into the panel so the lifetime rollup updates in
+  place after a rerun finishes — same follow-up.
+
 ## 2026-05-01 — Cursor [A] · planner: GET /{plan_id}/full aggregate endpoint for cockpit drawer
 
 **Summary**
