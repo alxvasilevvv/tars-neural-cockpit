@@ -4,6 +4,143 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · meeet replay CLI: `--repush-trace` + `planner-repush-run` Make target
+
+**Summary**
+
+Operator follow-up to PR #124 (`planner-replay-run`). Adds the
+**push-this-trace-upstream-now** flow that PR didn't ship:
+`replay_cli --repush-trace <trc>` re-emits every event for one
+trace to ingest, regardless of the existing `pushed` flag, so a
+fleet operator can recover from a meeet ingest contract bump
+without hand-editing SQLite.
+
+The full operator pipeline now reads:
+
+1. `make planner-replay-run ARGS="<plan_id> <run_trace>"` —
+   dump the run's events to JSONL for inspection / archive.
+2. (Operator audits the JSONL, fixes upstream contract.)
+3. `make planner-repush-run ARGS="<run_trace>"` — push every
+   matching row upstream, regardless of `pushed=0/1`.
+
+**Why force-push and not just "push unpushed"?** The existing
+`MeeetClient.replay_unpushed` only handles `pushed=0` rows.
+After a contract bump, the rows the operator needs to re-emit
+have `pushed=1` (they reached the *old* upstream). Without a
+force-flag, those rows are stuck in the buffer with no way to
+retransmit. `--repush-trace` is the audited, scoped escape
+hatch.
+
+**Why scoped to one trace?** A blanket "force re-push everything"
+would drain the buffer of unrelated events at the same time. The
+`trace_id` filter keeps the blast radius to one plan run, which
+is the unit of audit / billing the operator actually cares about.
+
+**Failure semantics** (load-bearing): when an upstream push fails
+during a repush, the row's `pushed` flag is **NOT regressed to 0**.
+Only `last_error` updates. Otherwise a half-failed repush would
+let those rows leak into the next `replay_unpushed` flush and
+**double-push** them once the upstream recovers — exactly the
+behaviour the contract bump is trying to repair.
+
+**Changes**
+
+1. `backend/core/meeet/store.py`:
+   - New `MeeetStore.repush_trace(push_callable, *, trace_id,
+     limit=1000)` async method. Lists matching events
+     (regardless of `pushed`), feeds them through the push
+     loop, returns the same envelope as `replay_unpushed` plus
+     a `trace_id` echo. Empty `trace_id` returns an
+     `error: trace_id_required` envelope without touching the
+     store (guard against silent bulk-push of empty-trace
+     rows).
+   - Push loop extracted into a private
+     `_push_events(events, push_callable)` helper so
+     `replay_unpushed` and `repush_trace` share the same
+     oldest-first / mark-pushed-on-success / record-error-on-
+     failure semantics.
+2. `backend/core/meeet/client.py`:
+   - New `MeeetClient.repush_trace(trace_id, *, limit=1000)`
+     wrapper. Identical no-ingest noop behaviour as
+     `replay_unpushed` (returns `enabled=false` envelope,
+     stamps `last_replay`).
+   - Push primitive extracted into `_push(body)` async method
+     so both `replay_unpushed` and `repush_trace` use the
+     same `urlopen` call (no more inline closures).
+3. `backend/core/meeet/replay_cli.py`:
+   - New `--repush-trace <trc>` flag. Branch precedence
+     pinned: `--stats > --repush-trace > --export > replay`
+     so an operator passing both `--repush-trace` and
+     `--export` by mistake gets the more meaningful action
+     (pushing).
+   - Module docstring updated with the per-run repush usage
+     example and a pointer to the `planner-repush-run` Make
+     target.
+4. `Makefile`:
+   - New `planner-repush-run ARGS=<run_trace> [LIMIT=N]`
+     target. Two-branch recipe (with-LIMIT / without) gated
+     by `[ -n "$(LIMIT)" ]` so the bare invocation doesn't
+     get a stray `--limit` with empty value.
+   - Added to the planner `.PHONY` line.
+5. `tests/test_meeet_store.py`:
+   - 5 new contract tests for `repush_trace`: pushes all
+     matching rows regardless of `pushed` flag, no-match ⇒
+     zero counts, push failures don't regress `pushed=0`,
+     disabled-store noop, empty-trace_id guard.
+6. `tests/test_replay_cli.py`:
+   - 4 new contract tests for `--repush-trace`: no-ingest
+     disabled envelope (rc=0), happy path with hermetic HTTP
+     monkeypatch, failure ⇒ rc=1 (cron-friendly), precedence
+     over `--export` (export branch never executes when
+     repush is set).
+7. `tests/test_makefile_planner_targets.py`:
+   - `_PLANNER_TARGETS` extended with `planner-repush-run`
+     so `.PHONY` + help-text contracts apply.
+   - `ARGS=` guard parametrize extended.
+   - New test
+     `test_planner_repush_run_target_wires_replay_cli_with_repush_trace`
+     pinning the recipe wires `--repush-trace` (not the
+     export-only `--trace-id`), forwards optional
+     `LIMIT=` as `--limit $(LIMIT)`, and gates the LIMIT
+     branch on `[ -n "$(LIMIT)" ]`.
+
+**Tests**
+
+- `pytest tests/test_meeet_store.py tests/test_replay_cli.py
+   tests/test_makefile_planner_targets.py` — **47 passed**
+  (was 35, +12).
+- `pytest -q` — **2118 passed in 49s** (was 2106, +12).
+- Manual smoke from the venv:
+  - `make planner-repush-run` (no ARGS) → exit 2 with usage.
+  - `make planner-repush-run ARGS=trc_synthetic` → returns
+    `{enabled:false, trace_id:trc_synthetic, pushed:0,
+    failed:0, remaining:0, ran_at:...}` (no ingest URL set
+    in test env, exactly the cron-safe noop we wanted).
+  - `make planner-repush-run ARGS=trc_synthetic LIMIT=5` →
+    same envelope; LIMIT was forwarded successfully.
+
+**Files touched**
+
+- `backend/core/meeet/store.py`
+- `backend/core/meeet/client.py`
+- `backend/core/meeet/replay_cli.py`
+- `Makefile`
+- `tests/test_meeet_store.py`
+- `tests/test_replay_cli.py`
+- `tests/test_makefile_planner_targets.py`
+- `docs/CHANGELOG_AGENTS.md` (this entry)
+- `docs/AGENT_HANDOFF.md` (Done bullet)
+
+**Follow-ups**
+
+- Right-rail planner entrypoint from the cockpit chat thread
+  (open the planner panel inline when the agent proposes a
+  plan).
+- Awareness CLI parity (`python -m backend.core.awareness.cli`)
+  so operator scripting reaches awareness sources too.
+
+---
+
 ## 2026-05-01 — Cursor [A] · cockpit: aria-live announcement on plan run completion / abort
 
 **Summary**
