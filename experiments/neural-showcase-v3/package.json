@@ -5,14 +5,17 @@
   "type": "module",
   "description": "TARS Neural Cockpit — React + Tailwind v4 + framer-motion. Built per ui-ux-pro-max-skill MASTER.md, ready for 21st.dev component drops.",
   "scripts": {
+    "predev": "python3 ../../scripts/generate_public_changelog.py",
     "dev": "vite",
+    "prebuild": "python3 ../../scripts/generate_public_changelog.py",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -b --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "audit:lighthouse": "npx --yes lighthouse https://tars.meeet.world --only-categories=performance,accessibility --chrome-flags=\"--headless=new\" --output=json --output-path=./lighthouse.json",
-    "audit:axe": "npx --yes @axe-core/cli https://tars.meeet.world --exit"
+    "audit:axe": "npx --yes @axe-core/cli https://tars.meeet.world --exit",
+    "changelog:check": "python3 ../../scripts/generate_public_changelog.py --check"
   },
   "dependencies": {
     "@react-three/drei": "^9.122.0",
