@@ -15,7 +15,9 @@ DESKTOP   ?= desktop
 .PHONY: help test test-product lint cockpit cockpit-build cockpit-tsc \
         acceptance-tars-meeet qa-agent qa-agent-json qa-loop qa-loop-once \
         gate-release backend backend-dev desktop-dev desktop-build \
-        smoke-core-bridge gate-control-tower ops-bridge-secret clean
+        smoke-core-bridge gate-control-tower ops-bridge-secret clean \
+        planner planner-stats planner-list planner-runs planner-show \
+        planner-smoke
 
 help:                ## list targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -74,10 +76,52 @@ desktop-build:       ## bundle the cockpit + Tauri release artifacts
 smoke-core-bridge:   ## end-to-end smoke: old core-bridge -> new tars-ingest
 	bash scripts/smoke_core_bridge_e2e.sh
 
-gate-control-tower:  ## cockpit checks + core-bridge e2e smoke
+gate-control-tower:  ## cockpit checks + core-bridge e2e smoke + planner smoke
 	$(MAKE) cockpit-tsc
 	$(MAKE) cockpit-test
 	$(MAKE) smoke-core-bridge
+	$(MAKE) planner-smoke
+
+# ---------------------------------------------------------------------
+# Planner CLI (operator scripting + control-tower smoke)
+# ---------------------------------------------------------------------
+#
+# All targets shell into ``python -m backend.core.planner.cli`` so they
+# share the same SQLite WAL DBs (``TARS_PLANNER_DB_PATH``,
+# ``MEEET_STORE_PATH``) as the host process and can be run safely
+# alongside a live cockpit.
+#
+# ``ARGS`` is a free-form passthrough for the targets that take a
+# positional plan_id (e.g. ``make planner-show ARGS=pln_abc123``).
+
+PLANNER ?= $(PY) -m backend.core.planner.cli
+PLANNER_GOAL ?= traders.morning_check
+
+planner:             ## raw passthrough: make planner ARGS="list --status approved"
+	PYTHONPATH=. $(PLANNER) $(ARGS)
+
+planner-stats:       ## summary counts by status
+	PYTHONPATH=. $(PLANNER) stats
+
+planner-list:        ## list plans newest-first (defaults to all statuses)
+	PYTHONPATH=. $(PLANNER) list $(ARGS)
+
+planner-runs:        ## reconstructed run history for ARGS=<plan_id>
+	@if [ -z "$(ARGS)" ]; then echo "usage: make planner-runs ARGS=<plan_id>"; exit 2; fi
+	PYTHONPATH=. $(PLANNER) runs $(ARGS)
+
+planner-show:        ## inspect one plan: make planner-show ARGS=<plan_id>
+	@if [ -z "$(ARGS)" ]; then echo "usage: make planner-show ARGS=<plan_id>"; exit 2; fi
+	PYTHONPATH=. $(PLANNER) show $(ARGS)
+
+planner-smoke:       ## end-to-end synthesize→stats sanity for the control tower
+	@bash -c 'set -e; \
+	    PYTHONPATH=. $(PLANNER) --quiet stats > /dev/null; \
+	    plan_json=$$(PYTHONPATH=. $(PLANNER) --quiet synthesize "$(PLANNER_GOAL)"); \
+	    plan_id=$$(echo "$$plan_json" | $(PY) -c "import json,sys; print(json.load(sys.stdin)[\"plan\"][\"id\"])"); \
+	    PYTHONPATH=. $(PLANNER) --quiet show "$$plan_id" > /dev/null; \
+	    PYTHONPATH=. $(PLANNER) --quiet delete --yes "$$plan_id" > /dev/null; \
+	    echo "planner-smoke ok (plan_id=$$plan_id)"'
 
 acceptance-tars-meeet:  ## production acceptance for tars.meeet.world (post-DNS)
 	bash scripts/acceptance_tars_meeet.sh
