@@ -4,6 +4,106 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-02 — Cursor [A] · cron-shipped morning bundle wrapper
+
+**Summary**
+
+Ships `scripts/playbooks_morning_cron.sh` + `make morning-bundle` /
+`make morning-bundle-dry` targets. **Single command** for cron to
+run every `morning`-tagged playbook (currently 4:
+`business.morning_brief`, `ops_room.morning_standup`,
+`research_lab.paper_to_pitch`, `traders.morning_check`), flush the
+meeet replay buffer, and write an aggregate evidence JSON.
+
+The wrapper is **continue-on-failure** by default (one bad playbook
+doesn't mask the others) with `MORNING_FAIL_FAST=1` for the legacy
+stop-on-first-failure mode. Discovery is **tag-driven**: as new
+`morning`-tagged playbooks land in `playbooks/`, they join the cron
+bundle automatically — no script edit required.
+
+Three exit-code lanes so cron alerts can route differently:
+- `0` — every playbook ok
+- `1` — at least one playbook failed
+- `2` — operator error (no playbooks discovered, missing dep)
+
+**Why this matters**: closes the Cron-as-First-Class-Operator arc.
+The playbook CLI (PR #129) made cron-driven playbook execution
+viable; this wrapper makes it *ergonomic*. Operator drops one line
+in crontab:
+
+```cron
+0 6 * * 1-5  cd /path/to/jarvis && \
+    MORNING_MODE=autopilot \
+    /path/to/jarvis/scripts/playbooks_morning_cron.sh \
+    >> /var/log/tars-morning.log 2>&1
+```
+
+**Changes**
+
+1. `scripts/playbooks_morning_cron.sh` (new, 280 lines):
+   - Tag-driven discovery via `playbooks_cli list` + JSON parse
+     (operator override via `MORNING_PLAYBOOKS=id1,id2`).
+   - Sequential execution; per-playbook stdout/stderr captured.
+   - Aggregate evidence JSON sink at `$MORNING_OUTPUT_DIR/<run_id>.json`
+     (default `.morning-runs/`). Filename matches printed run_id so
+     `grep` finds it in one `ls`.
+   - Final meeet `replay_cli` flush (skippable via
+     `MORNING_SKIP_REPLAY=1` for upstream maintenance windows).
+   - ANSI helpers degrade gracefully when stdout isn't a TTY (cron-safe).
+   - All env knobs (`MORNING_PLAYBOOKS`, `MORNING_MODE`,
+     `MORNING_OUTPUT_DIR`, `MORNING_SKIP_REPLAY`, `MORNING_FAIL_FAST`,
+     `MORNING_TAG`, `PY`) documented in the header AND read by the script
+     (test pins both directions).
+
+2. `Makefile`:
+   - New `morning-bundle` and `morning-bundle-dry` targets in
+     `.PHONY`. `morning-bundle` accepts optional `MODE=` /
+     `PLAYBOOKS=` for the common cron pattern;
+     `morning-bundle-dry` hard-codes `MORNING_MODE=dry_run` so
+     `make morning-bundle-dry` is *always* a safe rehearsal even
+     if the operator has `MODE=autopilot` in env.
+
+3. `.gitignore`: `.morning-runs/` and `.meeet-replays/` (the
+   default sink dirs for the morning bundle and the per-run
+   replay export — both should never be committed).
+
+4. `tests/test_morning_bundle.py` (new, 23 tests, ~360 lines):
+   - **Structural** (11 tests): script exists/executable, bash
+     shebang, `bash -n` syntax check, every documented env knob
+     is read by the script (catches doc drift in either
+     direction), all three exit codes documented, script invokes
+     the canonical `playbooks.cli` + `meeet.replay_cli` modules
+     (no bespoke runner reimplementation).
+   - **Makefile** (5 tests): both targets in `.PHONY`, both have
+     `## help` comments, recipe invokes the wrapper script,
+     dry-mode target hard-codes `MORNING_MODE=dry_run`.
+   - **End-to-end smoke** (7 tests): no-playbooks → rc=2 +
+     minimal evidence; happy override → rc=0 + full envelope;
+     unknown playbook → rc=1 + `failed_ids`; mixed
+     continue-on-failure → both playbooks recorded; fail-fast →
+     stops + marks skipped as `aborted_by_fail_fast`; evidence
+     filename matches printed run_id; `MORNING_SKIP_REPLAY=1`
+     surfaces in evidence (so auditor can tell "skipped" from
+     "upstream down").
+
+**Tests**
+
+- `pytest tests/test_morning_bundle.py` — 23/23 green.
+- Full suite — 2227/2227 green.
+- Manual smoke (5 modes verified before tests):
+  default-discovery → 4 playbooks ok rc=0; bogus tag → rc=2 with
+  no_playbooks_discovered evidence; bad id override → rc=1 with
+  `failed_ids: ["no.such.playbook"]`; `MORNING_SKIP_REPLAY=1` →
+  no flush, evidence shows `skipped: true`; mixed
+  continue-on-failure → both runs recorded, rc=1.
+
+**Files**
+
+- `scripts/playbooks_morning_cron.sh` (new, +280)
+- `Makefile` (+25, .PHONY + 2 targets + section header)
+- `.gitignore` (+2, `.morning-runs/`, `.meeet-replays/`)
+- `tests/test_morning_bundle.py` (new, +363)
+
 ## 2026-05-01 — Cursor [A] · awareness CLI bash completion (operator-CLI arc symmetry closed)
 
 **Summary**
