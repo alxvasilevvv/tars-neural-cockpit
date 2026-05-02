@@ -193,6 +193,22 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-01 — planner: Makefile targets + control-tower gate (Cursor [A]):**
+  Wires the planner CLI into the operator-facing Makefile so
+  the control tower covers planner end-to-end. Six new
+  targets (`planner`, `planner-stats`, `planner-list`,
+  `planner-runs`, `planner-show`, `planner-smoke`); all
+  shell into `python -m backend.core.planner.cli` via the
+  `PLANNER` macro and share the host process's SQLite WAL
+  DBs. `planner-smoke` is folded into `gate-control-tower`
+  so a planner regression now blocks the release-readiness
+  gate. Operator passthrough via `make planner ARGS="…"`.
+  Pinned by `tests/test_makefile_planner_targets.py` (12
+  cases) — guards `.PHONY` membership, help-text presence,
+  `ARGS` invariants, and the `gate-control-tower` wiring.
+  Full suite: **2073 passing**. Follow-ups: cockpit can
+  surface gate output banner with the planner-smoke line.
+
 - **2026-05-01 — planner: bash completion script + drift-guard tests (Cursor [A]):**
   Operator quality-of-life follow-up: `scripts/planner-completion.bash`
   provides tab-completion for every planner subcommand and
