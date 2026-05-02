@@ -1,11 +1,14 @@
-import source from "@docs/CHANGELOG_AGENTS.md?raw";
+import source from "@docs/CHANGELOG_PUBLIC.md?raw";
 import { LegalLayout } from "@/components/LegalLayout";
 
 /**
- * /changelog — public agent changelog. Renders the same
- * `docs/CHANGELOG_AGENTS.md` we keep internally, top-down newest-first.
- * It's already MIT-open on GitHub; surfacing it on the marketing site
- * gives operators an honest "what shipped when" view.
+ * /changelog — public agent changelog. Renders the trimmed
+ * `docs/CHANGELOG_PUBLIC.md` (top 60 entries; ~210 KB instead of
+ * the full 550+ KB log). The file is regenerated from
+ * `docs/CHANGELOG_AGENTS.md` by
+ * `scripts/generate_public_changelog.py` (wired into the cockpit
+ * `prebuild` script). Full per-edit log is still on GitHub for
+ * operators who want the complete history.
  */
 export function Changelog() {
   return (
