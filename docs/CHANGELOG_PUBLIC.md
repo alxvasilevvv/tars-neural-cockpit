@@ -4,6 +4,30 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-03 — Cursor [D] · Clickable chunk citations in ChatPane
+
+**Summary**
+
+Assistant / system message bodies now turn `[citation_id]` tokens
+into inline pills when the id exists in persisted sources or live
+retrieval; click opens the sources footer and scrolls to the
+matching `<li id="tars-source-…">`. New pure helper
+`splitChunkCitations` in `src/lib/chunkCitations.ts` + Vitest
+suite. Makefile gains `cockpit-changelog-check` and
+`gate-control-tower` / `test-all` run it before Vitest (matches
+Cloudflare Pages CI).
+
+**Files**
+
+- `experiments/neural-showcase-v3/src/lib/chunkCitations.ts`
+- `experiments/neural-showcase-v3/src/lib/chunkCitations.test.ts`
+- `experiments/neural-showcase-v3/src/components/ChatPane.tsx`
+- `Makefile` (`cockpit-changelog-check`, wire `test-all` +
+  `gate-control-tower`)
+- `docs/IDEAS.md` (mark citation rendering shipped)
+- `docs/CHANGELOG_AGENTS.md` (this entry)
+- `docs/CHANGELOG_PUBLIC.md` (regenerated)
+
 ## 2026-05-03 — Cursor [C] · CI guard for public changelog + IDEAS sync
 
 **Summary**
@@ -4471,49 +4495,6 @@ queue back without touching the JSON file directly.
 
 ---
 
-## 2026-05-01 — Cursor [A] · entrepreneur pack schema parity for `generate_content`
-
-**Summary**
-
-Closes the natural follow-up to the multi-channel drafter PR
-shipped earlier today. The `entrepreneur` pack re-exports the
-MLM action handlers under renamed ids (Phase M / P6); the handler
-for `entrepreneur.generate_content` is the same `generate_post`
-that just gained `tone` / `language` / `cta` knobs and a
-`linkedin` channel. But the entrepreneur pack's `ActionSpec`
-schema still listed the old 3-channel surface, so the cockpit
-couldn't render dropdowns for the new knobs through the
-entrepreneur namespace.
-
-This batch syncs the schema.
-
-1. **Action** (`backend/core/domains/packs/entrepreneur/actions.py`)
-   - `generate_content`'s schema now lists all four channels
-     (`ig / tg / wa / linkedin`), all four tones, all three
-     languages, and the optional `cta` field.
-   - Description string clarifies that the action emits
-     `mlm.post_drafted` so the entrepreneur cockpit lane and the
-     MLM cockpit lane share an audit trail.
-   - Imports the enum tuples from `mlm.post_drafter` so the
-     entrepreneur pack can never drift from the underlying
-     drafter.
-
-2. **Tests** (`tests/test_entrepreneur_pack.py`)
-   - New `test_generate_content_schema_exposes_full_drafter_surface`
-     pins the schema's enum membership.
-   - New `test_generate_content_full_knob_path_runs` exercises
-     the `linkedin × professional × ru` combination through the
-     entrepreneur surface to lock the wiring end-to-end.
-
-3. **Suite**: 1561 tests green (was 1559).
-
-**Files touched**
-
-- `backend/core/domains/packs/entrepreneur/actions.py`
-- `tests/test_entrepreneur_pack.py`
-- `docs/CHANGELOG_AGENTS.md`
-- `docs/AGENT_HANDOFF.md`
-
 ---
 
-_Showing the most recent 60 of 176 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 177 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
