@@ -16,6 +16,7 @@ import { sound } from "@/lib/sound";
 import { AwarenessTicker } from "@/components/AwarenessTicker";
 import { ChatPane } from "@/components/ChatPane";
 import { CommandPalette } from "@/components/CommandPalette";
+import { OperatorPalette } from "@/components/OperatorPalette";
 import { OperatorStrip } from "@/components/OperatorStrip";
 import { UsageStrip } from "@/components/UsageStrip";
 import { AgentsPanel } from "@/components/AgentsPanel";
@@ -464,6 +465,18 @@ export function Cockpit() {
           window.dispatchEvent(
             new CustomEvent("tars:open-thread", { detail: { threadId } }),
           );
+        }}
+      />
+
+      {/* IDEAS #20 — operator command palette (⌘. / Ctrl+.). Indexes
+          packs / actions / playbooks / awareness sources / recent
+          traces; deep-links navigation and runs invocations through
+          the policy gate. */}
+      <OperatorPalette
+        onToast={(tone, message) => {
+          if (tone === "ok") toast.success(message);
+          else if (tone === "warn") toast.warn(message);
+          else toast.error(message);
         }}
       />
 
