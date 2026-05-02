@@ -193,6 +193,28 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-01 — cockpit: aria-live announcement on plan run completion / abort (Cursor [A]):**
+  Plan-detail panel now surfaces every terminal run through a
+  visually-hidden `aria-live="polite"` region so screen-reader
+  operators learn that a run finished without watching the
+  panel. Three lifecycle outcomes get distinct phrasing —
+  clean completion (with latency + cost), soft failure (`status
+  === "completed"` AND `steps_failed > 0`, otherwise dashboards
+  tally these as green), and abort / hard failure (uses
+  `abort_reason` → `exception` → placeholder). Decision split
+  via two pure helpers (`formatRunAnnouncement`,
+  `pickRunAnnouncement`) so the dedupe logic ("trace_id, not
+  array index" + "skip in-flight head to find newest terminal")
+  is testable without DOM. Region is always rendered (not
+  conditionally mounted) because some screen-reader engines
+  skip the initial announcement when the live region appears
+  mid-page-life. Pinned by 14 new Vitest cases. Cockpit suite:
+  **181 passed (14 files)** (was 167, +14); `tsc --noEmit`
+  clean; `vite build` clean (2.82s); Python unchanged (2106
+  green). Follow-ups: right-rail planner entrypoint from the
+  cockpit chat thread; `--force-repush --trace-id` for fleet
+  ops re-emit-to-upstream; awareness CLI parity.
+
 - **2026-05-01 — cockpit: scroll-to-selected on /cockpit/planner deep links (Cursor [A]):**
   Closes the long-standing planner-page polish item: when an
   operator pastes `/cockpit/planner?selected=pln_xyz`, the
