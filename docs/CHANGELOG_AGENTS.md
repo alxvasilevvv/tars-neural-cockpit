@@ -4,6 +4,60 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-02 — Cursor [B] · Image vision routing (multimodal voices)
+
+**Summary**
+
+Closes the open follow-up of IDEAS line 63 — Anthropic Claude and
+OpenAI gpt-4o family voices now receive image bytes natively
+instead of just the OCR text-block fallback. The vision agent
+already produced `VisionPayload.image_refs` with `(attachment_id,
+mime, storage_path)` triples; this PR finally threads those refs
+to the cloud voices and packs them into the request payload.
+
+**Anatomy**
+
+- `backend/core/chat/multimodal.py` — pure helpers
+  `pack_anthropic_image_blocks` / `pack_openai_image_blocks` plus
+  mime + base64 utilities. Budget-aware (6 images per turn,
+  5 MiB per image, 18 MiB total pre-encode). Silently drops
+  unsupported mimes / oversize / unreadable files so a multimodal
+  turn never breaks.
+- `backend/core/chat/voices.py`:
+  - Abstract `ChatVoice.stream` now accepts `image_refs` kwarg.
+  - `_to_anthropic_messages` / `_to_openai_messages` widen the
+    **last** user turn into a content-block list only when
+    `image_blocks` are passed (text-only turns stay simple strings).
+  - `AnthropicChatVoice.stream` / `OpenAIChatVoice.stream` call
+    the matching multimodal packer and inject blocks.
+  - `LocalChatVoice.stream` accepts (and ignores) the kwarg to
+    keep the abstract signature uniform.
+- `backend/core/chat/orchestrator.py`: when the chosen voice
+  declares `supports_multimodal=True` AND `vision_payload.has_images`,
+  pass `image_refs=…` via `**voice_kwargs`. Critical: only forward
+  when non-empty so legacy / third-party `ChatVoice` subclasses
+  (and the `_ScriptedVoice` mock in tests) keep working with their
+  pre-multimodal `stream` signatures.
+
+**Files**
+
+- `backend/core/chat/multimodal.py` (new, ~245 lines).
+- `backend/core/chat/voices.py` (helpers + voices wiring).
+- `backend/core/chat/orchestrator.py` (kwarg-conditional plumbing).
+- `tests/test_chat_multimodal.py` (new, 39 cases).
+- `tests/test_chat_voices_multimodal.py` (new, 9 cases — Anthropic
+  + OpenAI shape integration plus LocalChatVoice safety).
+- `docs/IDEAS.md` line 63 marked shipped.
+
+**Test deltas**
+
+- Backend full sweep: **2314 passed**, 1 skipped, 2 xfailed
+  (was 2266 after PR #141; +48 multimodal). The single remaining
+  failure
+  (`test_attachment_reembed.py::test_http_reembed_attachment_round_trip`)
+  is the pre-existing duplicate-route bug carried over from PR
+  #141 — not regressed by this change.
+
 ## 2026-05-02 — Cursor [A] · Awareness explorer (`/cockpit/awareness`)
 
 **Summary**
