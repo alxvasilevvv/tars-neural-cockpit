@@ -49,6 +49,7 @@ _PLANNER_TARGETS = (
     "planner-full",
     "planner-clone",
     "planner-rerun",
+    "planner-replay-run",
     "planner-smoke",
 )
 
@@ -115,15 +116,17 @@ def test_gate_control_tower_includes_planner_smoke(makefile: str):
         "planner-full",
         "planner-clone",
         "planner-rerun",
+        "planner-replay-run",
     ],
 )
 def test_args_required_targets_guard_against_empty_args(
     makefile: str, target: str
 ):
     """``planner-runs`` / ``planner-show`` / ``planner-full`` /
-    ``planner-clone`` / ``planner-rerun`` are useless without a
-    plan_id; the recipe must short-circuit with an error message
-    instead of letting the CLI emit a confusing argparse failure.
+    ``planner-clone`` / ``planner-rerun`` / ``planner-replay-run``
+    are useless without their positional args; the recipe must
+    short-circuit with an error message instead of letting the
+    CLI emit a confusing argparse failure.
     """
 
     pattern = re.compile(
@@ -236,6 +239,103 @@ def test_planner_rerun_target_wires_clone_with_approve_and_run(
     assert '--mode "$(MODE)"' in recipe, (
         "planner-rerun must forward the optional MODE= variable as "
         "`--mode \"$(MODE)\"` so operators can pin policy mode"
+    )
+
+
+def test_planner_replay_run_target_wires_export_with_trace_id(
+    makefile: str,
+):
+    """``planner-replay-run`` must shell into the meeet ``replay_cli``
+    with ``--trace-id <run_trace>`` plus an ``--export`` path so a
+    single past run's events land in a JSONL file ready for backfill
+    or audit. The recipe parses ARGS positionally as ``<plan_id>
+    <run_trace>``; the plan_id is informational (used in the default
+    filename) but still required so the operator can grep the
+    output by plan.
+
+    Pin: positional split, both-required guard, default OUT path
+    based on ``MEEET_REPLAY_DIR``, optional ``OUT=`` override, and
+    the ``backend.core.meeet.replay_cli`` invocation.
+    """
+
+    pattern = re.compile(
+        r"^planner-replay-run:[^\n]*\n((?:\t[^\n]*\n)+)",
+        re.MULTILINE,
+    )
+    m = pattern.search(makefile)
+    assert m, "planner-replay-run recipe not found"
+    recipe = m.group(1)
+    # Splits ARGS into positional words.
+    assert "set -- $(ARGS)" in recipe, (
+        "planner-replay-run must use ``set -- $(ARGS)`` to split "
+        "<plan_id> and <run_trace>"
+    )
+    # Both positionals required (plan_id is informational but
+    # still required so the export filename is meaningful).
+    assert (
+        '[ -z "$$plan_id" ] || [ -z "$$run_trace" ]'
+        in recipe
+    ), (
+        "planner-replay-run must require both <plan_id> and "
+        "<run_trace> positionals"
+    )
+    # OUT= override path.
+    assert 'out_path="$(OUT)"' in recipe, (
+        "planner-replay-run must let operators override the export "
+        "path via ``OUT=<path>``"
+    )
+    # Default OUT directory uses MEEET_REPLAY_DIR macro.
+    assert '"$(MEEET_REPLAY_DIR)"' in recipe, (
+        "planner-replay-run must default the export dir to "
+        "``$(MEEET_REPLAY_DIR)`` so cron jobs land files in a "
+        "predictable place"
+    )
+    assert (
+        '"$(MEEET_REPLAY_DIR)/$$plan_id-$$run_trace.jsonl"'
+        in recipe
+    ), (
+        "planner-replay-run default filename must be "
+        "<dir>/<plan_id>-<run_trace>.jsonl so operators can grep "
+        "by either id"
+    )
+    # The CLI invocation must use the meeet replay_cli module
+    # with --trace-id (not the planner CLI — different module).
+    assert "backend.core.meeet.replay_cli" in recipe, (
+        "planner-replay-run must shell into the meeet replay_cli "
+        "(not the planner CLI) so it queries the meeet store"
+    )
+    assert '--trace-id "$$run_trace"' in recipe, (
+        "planner-replay-run must forward the second positional as "
+        "``--trace-id <run_trace>`` so only that run's events are "
+        "exported"
+    )
+    assert '--export "$$out_path"' in recipe, (
+        "planner-replay-run must use ``--export <out_path>`` to "
+        "write the JSONL file (not the default replay/push branch)"
+    )
+
+
+def test_planner_replay_run_uses_meeet_replay_dir_macro(makefile: str):
+    """The Makefile must declare ``MEEET_REPLAY_DIR`` with a
+    sensible default (``.meeet-replays``) and the
+    ``planner-replay-run`` recipe must reference it. Operators
+    can still override via ``MEEET_REPLAY_DIR=…`` on the make
+    command line (Makefile ``?=`` semantics) or via env.
+    """
+
+    m = re.search(
+        r"^MEEET_REPLAY_DIR\s*\?=\s*(.+?)$",
+        makefile,
+        re.MULTILINE,
+    )
+    assert m, (
+        "MEEET_REPLAY_DIR macro must be declared with ``?=`` so "
+        "operators can override it from env / command line"
+    )
+    default = m.group(1).strip()
+    assert default == ".meeet-replays", (
+        f"MEEET_REPLAY_DIR default should be ``.meeet-replays``, "
+        f"got {default!r}"
     )
 
 

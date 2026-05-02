@@ -193,6 +193,34 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-01 — meeet replay CLI: `--trace-id` filter + `planner-replay-run` Make target (Cursor [A]):**
+  Adds a per-run scoping knob to the meeet event replay CLI plus
+  the operator wrapper that uses it. CLI gains
+  `--trace-id <run_trace>` (export branch only) and Makefile
+  ships `planner-replay-run ARGS="<plan_id> <run_trace>"
+  [OUT=<path>]` defaulting the export to
+  `$(MEEET_REPLAY_DIR)/$plan_id-$run_trace.jsonl` (default dir
+  `.meeet-replays`, override-friendly via `?=`). Use case:
+  meeet ingest outage backfill or single-run audit — fleet ops
+  dump one specific run's events to JSONL without shoveling the
+  whole local store, then push / inspect / archive however they
+  want. Read-only, diff-able, and doesn't mutate `pushed` flags
+  (a future force-repush flow can layer on if demonstrated).
+  Pinned by 7 new pytest cases: 2 in `test_replay_cli` (trace
+  filter narrows export, unknown trace ⇒ empty file rc=0) and
+  5 in `test_makefile_planner_targets` (`.PHONY` membership,
+  ARGS guard, dedicated recipe contract pinning OUT override
+  + default filename + replay_cli module + `--trace-id` /
+  `--export` invocation, MEEET_REPLAY_DIR macro shape). Manual
+  smoke: end-to-end `synthesize → run → planner-replay-run`
+  produced a 12-line JSONL with every row carrying the run's
+  trace id; `OUT=` override worked; both empty-ARGS branches
+  exit 2 with usage. Full suite: **2106 passing** (was 2100,
+  +6). Follow-ups: `--force-repush --trace-id` flag pair if
+  fleet ops need re-emit-to-upstream rather than the current
+  export-to-JSONL workflow; right-rail planner entrypoint from
+  the cockpit chat thread.
+
 - **2026-05-01 — Makefile: `planner-clone` target for plan forking (Cursor [A]):**
   Adds `make planner-clone ARGS="<plan_id> [target_thread]"` so a
   fleet operator can fork a known-good plan into a fresh `proposed`
