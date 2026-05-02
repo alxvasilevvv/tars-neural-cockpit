@@ -193,6 +193,25 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-01 — planner: shell CLI (Cursor [A]):**
+  Operator-facing scripting tool at
+  `python -m backend.core.planner.cli` mirroring `replay_cli`.
+  Ten subcommands (`stats`, `list`, `show`, `runs`, `synthesize`,
+  `approve`, `reject`, `run`, `abort`, `delete`); each prints
+  one machine-friendly JSON object per call (compact with
+  `--quiet`) and returns exit 0 on `ok`/1 otherwise so cron
+  / Make targets can branch cleanly. `delete` requires `--yes`
+  (otherwise returns `confirmation_required`). `run` honours
+  `--mode` to override `TARS_POLICY_MODE` per call. Shares the
+  same SQLite WAL DBs (`TARS_PLANNER_DB_PATH`,
+  `MEEET_STORE_PATH`) as the host process — safe to run side-
+  by-side with the cockpit. Unblocks operator scripting,
+  cold-start recovery (when HTTP is down), and fleet rollouts
+  via shell. Pinned by `tests/test_planner_cli.py` (23 cases).
+  Full suite: **2009 passing**. Follow-ups: bash completion
+  script, optional `clone` subcommand, `make planner-*` target
+  group in the control tower.
+
 - **2026-05-01 — planner: per-run cost / token rollup on terminal event (Cursor [A]):**
   After every plan run, the runner now rolls up `usage.tokens`
   events that fired inside its `trace_id` + wall-clock window and
