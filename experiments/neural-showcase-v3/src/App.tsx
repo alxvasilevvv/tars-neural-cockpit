@@ -34,6 +34,9 @@ const Policy = lazy(() =>
 const Council = lazy(() =>
   import("@/pages/Council").then((m) => ({ default: m.Council })),
 );
+const Awareness = lazy(() =>
+  import("@/pages/Awareness").then((m) => ({ default: m.Awareness })),
+);
 const Install = lazy(() =>
   import("@/pages/Install").then((m) => ({ default: m.Install })),
 );
@@ -166,6 +169,14 @@ function AppShell() {
               element={
                 <Suspense fallback={<RouteSkeleton variant="cockpit" />}>
                   <Council />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/cockpit/awareness"
+              element={
+                <Suspense fallback={<RouteSkeleton variant="cockpit" />}>
+                  <Awareness />
                 </Suspense>
               }
             />
