@@ -4,6 +4,83 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · planner: per-plan run history + Last-Event-ID SSE resume
+
+**Summary**
+
+Two cockpit-facing reads land together: a new
+`GET /api/planner/{plan_id}/runs` endpoint that reconstructs every
+past execution of one plan from the meeet event store (no parallel
+"runs" table — single source of truth), and `Last-Event-ID` header
+support on `GET /api/planner/events` so a vanilla `EventSource`
+reconnect picks up where it left off without cockpit-specific
+glue. The header wins over the `after_id` query param when both
+are supplied (matches the SSE spec).
+
+**Changes**
+
+1. `backend/core/planner/history.py` (new) — event-sourced
+   reconstructor.
+   - `RunStep` / `PlanRun` dataclasses; `to_dict()` matches the
+     shape the cockpit's run inbox renders.
+   - `reconstruct_runs_async(plan_id, *, store=None, limit=1000)`
+     pulls every kind in `_RUN_EVENT_KINDS` (`plan.run.started` /
+     `plan.step.{requested,allowed,completed}` /
+     `plan.completed` / `plan.aborted` / `plan.abort.requested` /
+     `plan.run.exception`), filters to the matching `plan_id`,
+     and walks them id-ascending. Run boundaries: a
+     `plan.run.started` opens, `plan.completed` /
+     `plan.aborted` close. An open run with no terminal event
+     surfaces as `status="running"`. A second start with no
+     terminal in between auto-closes the prior run as
+     `aborted no_terminal_event`. Authoritative counters from
+     the terminal event (`steps_run` / `steps_blocked` /
+     `steps_failed`) override the locally accumulated ones.
+   - `reconstruct_runs(...)` is the sync sibling for callers
+     that already hold the GIL (e.g. CLI tools).
+2. `web_extras/routers/planner.py`:
+   - `GET /api/planner/{plan_id}/runs` — 200 with newest-first
+     runs + `count` + `in_flight`. 404 when the plan id is
+     unknown (defensive; keeps the cockpit from rendering
+     ghosts of pruned plans). Optional `limit` query (default
+     1000, capped at 5000) caps the per-event-kind fetch.
+   - `_resolve_after_id(query, header)` helper — picks the
+     effective cursor; header wins over query, returns
+     `("header" | "query" | "default")` so the `hello` frame
+     can advertise `after_id_source`.
+   - `GET /api/planner/events` accepts `Last-Event-ID` header
+     (alias-bound) and threads `cursor_source` into
+     `_planner_sse_producer`.
+   - `_planner_sse_producer(..., cursor_source="default")` —
+     `hello` payload now carries `after_id_source` so the
+     cockpit can tell whether the resume came from a real
+     reconnect or a fresh subscribe.
+3. `backend/core/planner/__init__.py` — exports `PlanRun` /
+   `RunStep` / `reconstruct_runs` / `reconstruct_runs_async`.
+4. `tests/test_planner_history.py` (new, 16 cases): groups one
+   run, two runs newest-first, in-flight (no terminal), step
+   failure counts override on terminal event, unterminated prior
+   run auto-aborted, orphan steps dropped, plan-id filter,
+   abort.requested + exception capture, HTTP 404 for unknown
+   plan, empty-list when no events, in_flight count, limit
+   param, `Last-Event-ID` honoured, header overrides query,
+   invalid header falls back to query, default when neither.
+
+**Tests**
+
+`pytest -q` → 1975 passed in 52.10s (was 1959; +16 new).
+
+**Follow-ups**
+
+- Cockpit "Plan Inbox" panel can now subscribe to
+  `/api/planner/events?thread_id=…` *and* `GET /{plan_id}/runs`
+  for the per-plan history drawer.
+- Keep `_RUN_EVENT_KINDS` in `history.py` aligned with the
+  runner's emit calls if a new event family is added.
+- Optional next step: prune-stale-runs CLI flag (`--gc-orphans`)
+  that walks the meeet store for plans where every run is
+  closed and trims the oldest events past a retention horizon.
+
 ## 2026-05-01 — Cursor [A] · planner: SSE event stream + meeet.list_events(after_id)
 
 **Summary**

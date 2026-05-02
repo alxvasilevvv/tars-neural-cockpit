@@ -193,6 +193,27 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-01 — planner: per-plan run history + Last-Event-ID SSE resume (Cursor [A]):**
+  Two cockpit reads land together. `GET /api/planner/{plan_id}/runs`
+  reconstructs every past execution of one plan from the meeet event
+  store (no parallel "runs" table — single source of truth shared with
+  the timeline / SSE / gold-pill audit lane). Walks
+  `plan.run.started → plan.completed | plan.aborted` windows;
+  authoritative counters (`steps_run` / `steps_blocked` /
+  `steps_failed`) come from the terminal event when present, locally
+  derived otherwise. Returns runs newest-first with `count` and
+  `in_flight` rolled up. The SSE stream now honours the standard
+  `Last-Event-ID` HTTP header (header wins over `after_id` query;
+  invalid header silently falls back to query / default), so a vanilla
+  `EventSource` reconnect resumes correctly without cockpit-specific
+  glue. The `hello` frame advertises `after_id_source` so the cockpit
+  can tell whether the cursor came from a real reconnect or a fresh
+  subscribe. Pinned by `tests/test_planner_history.py` (16 cases).
+  Full suite: **1975 passing**. Follow-ups: cockpit "Plan Inbox"
+  panel can now consume `/events?thread_id=…` *and* the new runs
+  drawer; optional `--gc-orphans` CLI flag for pruning stale
+  partial-run events past a retention horizon.
+
 - **2026-05-01 — planner: SSE event stream + meeet.list_events(after_id) (Cursor [A]):**
   Live feed for the cockpit "approval inbox". New
   `GET /api/planner/events` SSE endpoint mirrors `/api/awareness/stream`:

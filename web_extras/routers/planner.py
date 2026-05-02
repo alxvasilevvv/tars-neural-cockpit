@@ -32,7 +32,19 @@ Endpoints:
   the last id you saw to resume), ``poll_interval_s`` (default
   ``1.0``), ``max_duration_s`` (default ``120``). Each frame is
   JSON-encoded and includes the meeet store's row ``id`` so the
-  cockpit can persist the cursor across reconnects.
+  cockpit can persist the cursor across reconnects. Also honours
+  the standard ``Last-Event-ID`` HTTP header so a vanilla
+  ``EventSource`` reconnect picks up where it left off without
+  any cockpit-specific glue (header value wins over the
+  ``after_id`` query param when both are supplied).
+- ``GET  /api/planner/{plan_id}/runs`` — reconstructed past
+  executions of one plan. Walks the meeet store and groups
+  ``plan.run.started`` → ``plan.completed`` / ``plan.aborted``
+  windows; each entry includes start/end timestamps, status,
+  per-step results (id, action, ok, blocked, skipped, took_ms,
+  error) and aggregate counters. Newest run first. Optional
+  ``limit`` query param caps the per-event-kind fetch (default
+  ``1000``).
 
 Every state-changing endpoint emits a ``planner.*`` meeet event so
 the cockpit gold-pill audit lane sees the plan lifecycle.
@@ -66,6 +78,7 @@ from backend.core.planner import (
     PlanStep,
     get_planner_store,
     get_run_registry,
+    reconstruct_runs_async,
     synthesize_plan,
 )
 from backend.core.playbooks import list_playbooks
@@ -213,6 +226,36 @@ async def list_plans(
     }
 
 
+def _resolve_after_id(
+    *, query: int, header: str | None
+) -> tuple[int, str]:
+    """Pick the effective ``after_id`` cursor.
+
+    The native ``EventSource`` API resumes by sending the last
+    successfully-received ``id:`` line back as a
+    ``Last-Event-ID`` header. We honour that here. When both the
+    header and the ``after_id`` query param are supplied, the
+    header wins — that's the spec-mandated behaviour for SSE
+    reconnects, and it lets the cockpit pass an initial cursor
+    via query while still benefiting from automatic resume.
+
+    Returns a tuple of ``(cursor, source)`` where ``source`` is
+    one of ``"query" | "header" | "default"`` so the ``hello``
+    frame can advertise where the cursor came from.
+    """
+
+    if header is not None:
+        try:
+            parsed = int(str(header).strip())
+        except (TypeError, ValueError):
+            parsed = -1
+        if parsed >= 0:
+            return parsed, "header"
+    if query > 0:
+        return query, "query"
+    return 0, "default"
+
+
 @router.get("/events")
 async def planner_events_stream(
     plan_id: str | None = Query(default=None),
@@ -220,6 +263,7 @@ async def planner_events_stream(
     after_id: int = Query(default=0, ge=0),
     poll_interval_s: float = Query(default=1.0, gt=0.0, le=10.0),
     max_duration_s: float = Query(default=120.0, gt=0.0, le=900.0),
+    last_event_id: str | None = Header(default=None, alias="Last-Event-ID"),
 ) -> StreamingResponse:
     """SSE feed of the ``plan.*`` event family.
 
@@ -228,15 +272,20 @@ async def planner_events_stream(
     the contract.
     """
 
+    cursor, cursor_source = _resolve_after_id(
+        query=after_id, header=last_event_id
+    )
+
     async def gen() -> AsyncIterator[str]:
         with trace_scope():
             try:
                 async for frame in _planner_sse_producer(
                     plan_id=plan_id,
                     thread_id=thread_id,
-                    after_id=after_id,
+                    after_id=cursor,
                     poll_interval_s=poll_interval_s,
                     max_duration_s=max_duration_s,
+                    cursor_source=cursor_source,
                 ):
                     yield frame
             except asyncio.CancelledError:
@@ -263,6 +312,37 @@ async def get_plan(plan_id: str) -> dict[str, Any]:
     if plan is None:
         raise HTTPException(status_code=404, detail="plan_not_found")
     return {"ok": True, "plan": plan.to_dict()}
+
+
+@router.get("/{plan_id}/runs")
+async def list_plan_runs(
+    plan_id: str,
+    limit: int = Query(default=1000, ge=1, le=5000),
+) -> dict[str, Any]:
+    """List past executions of one plan.
+
+    Reconstructed from the meeet event store — no parallel
+    "runs" table — so the data is always consistent with the
+    timeline / SSE feed / gold-pill audit lane. Returns runs in
+    newest-first order. The plan itself must exist; an unknown
+    ``plan_id`` returns 404 even if there happen to be stale
+    events lying around for it (defensive: keeps the cockpit
+    from rendering ghosts of pruned plans).
+    """
+
+    plan = await get_planner_store().get(plan_id)
+    if plan is None:
+        raise HTTPException(status_code=404, detail="plan_not_found")
+
+    runs = await reconstruct_runs_async(plan_id, limit=limit)
+    in_flight = sum(1 for r in runs if r.status == "running")
+    return {
+        "ok": True,
+        "plan_id": plan_id,
+        "count": len(runs),
+        "in_flight": in_flight,
+        "runs": [r.to_dict() for r in runs],
+    }
 
 
 _OPERATOR_TRANSITIONS = {
@@ -458,6 +538,7 @@ async def _planner_sse_producer(
     after_id: int,
     poll_interval_s: float,
     max_duration_s: float,
+    cursor_source: str = "default",
 ) -> AsyncIterator[str]:
     """Yield SSE frames for the plan.* event family.
 
@@ -466,6 +547,12 @@ async def _planner_sse_producer(
     the ``_PLAN_EVENT_KINDS``. Filters on ``plan_id`` / ``thread_id``
     are applied in Python (the values live in the JSON payload).
     Closes after ``max_duration_s`` of wall-clock time.
+
+    ``cursor_source`` is plumbed in by the HTTP handler so the
+    ``hello`` frame can advertise where the resume cursor came
+    from (``"header"`` for a ``Last-Event-ID`` reconnect,
+    ``"query"`` for an explicit ``after_id`` param, ``"default"``
+    when neither was supplied).
     """
 
     started = time.time()
@@ -475,6 +562,7 @@ async def _planner_sse_producer(
         {
             "service": "tars-planner-events",
             "after_id": cursor,
+            "after_id_source": cursor_source,
             "poll_interval_s": poll_interval_s,
             "max_duration_s": max_duration_s,
             "filter": {
