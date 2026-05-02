@@ -604,17 +604,73 @@ async def reembed_attachment_route(
 ) -> dict[str, Any]:
     """Re-embed every chunk for ``attachment_id``.
 
-    Body (all optional):
-        ``{"model": "openai" | "hash" | "text-embedding-3-large"}``
+    Body (all optional)::
 
-    Returns the structured :class:`ReembedResult` body. Maps the
-    ``attachment_not_found`` error to HTTP 404; everything else
-    (no chunks, embedder failure) returns HTTP 200 with
-    ``ok=False`` so the cockpit can surface the detail to the
-    operator.
+        {
+          "model": "openai" | "hash" | "text-embedding-3-large",
+          "force": false,
+          "target_model": null
+        }
+
+    Two implementations live behind this endpoint and are
+    dispatched by the body shape:
+
+    - **Promote-style** (default, or when ``model`` is set):
+      :func:`backend.core.attachments.pipeline.reembed_attachment`
+      — emits ``attachment.reembedded`` + ``usage.tokens`` through
+      the meeet bridge, computes cost, stamps the attachment row
+      with the new ``embedding_model``. Response shape is
+      :class:`ReembedResult.to_dict()`
+      (``chunk_count`` / ``embedding_model`` / ``tokens_used`` /
+      ``cost_usd`` / ``previous_model``).
+    - **Force / batch-style** (when ``force=true`` or
+      ``target_model`` is set):
+      :func:`backend.core.attachments.reembed.reembed_attachment`
+      — batches chunks (32 at a time), idempotent (already-correct
+      chunks become ``skipped_same``), reports per-batch failures.
+      Response shape carries ``embedded`` /
+      ``skipped_blank`` / ``skipped_same`` / ``failed`` /
+      ``batches`` / ``total`` / ``model`` / ``dim``.
+
+    Both shapes include ``ok`` and ``attachment_id``. The
+    ``attachment_not_found`` error is mapped to HTTP 404 in both
+    paths; every other failure surfaces as ``200`` with
+    ``ok=False`` so the cockpit can render the structured detail.
     """
 
     body = payload or {}
+    force = bool(body.get("force"))
+    target_model_raw = body.get("target_model")
+    target_model = (
+        str(target_model_raw).strip()
+        if isinstance(target_model_raw, str) and target_model_raw.strip()
+        else None
+    )
+
+    if force or target_model:
+        # Force / batch-style path. The newer module is idempotent
+        # and exposes per-batch counters (`embedded`,
+        # `skipped_same`, `failed`) which the cockpit's reembed
+        # progress UI relies on. Imports lazily to keep the
+        # router importable when sqlite is disabled at boot.
+        from backend.core.attachments.reembed import reembed_attachment
+
+        res = await reembed_attachment(
+            attachment_id, force=force, target_model=target_model,
+        )
+        if (
+            res.get("ok") is False
+            and res.get("reason") == "attachment_not_found"
+        ):
+            raise HTTPException(
+                status_code=404, detail="attachment_not_found"
+            )
+        # Echo back the attachment_id for clients that branch on it
+        # — the newer impl only sets it on success.
+        res.setdefault("attachment_id", attachment_id)
+        return res
+
+    # Promote-style path (default + when `model` field is set).
     model_arg = body.get("model")
     embedder_name = (
         str(model_arg).strip()
@@ -639,47 +695,6 @@ async def delete_attachment(attachment_id: str) -> dict[str, Any]:
     if not ok:
         raise HTTPException(status_code=404, detail="attachment_not_found")
     return {"ok": True, "deleted": True, "attachment_id": attachment_id}
-
-
-@router.post("/attachments/{attachment_id}/reembed")
-async def reembed_attachment_endpoint(
-    attachment_id: str,
-    payload: dict[str, Any] | None = Body(default=None),
-) -> dict[str, Any]:
-    """Re-embed every chunk for one attachment with the active embedder.
-
-    Body (all optional)::
-
-        {
-          "force": false,           # rewrite even if model already matches
-          "target_model": null      # override the embedder's reported model
-                                    # (mostly for tests; defaults to embedder.model)
-        }
-
-    The active embedder is whatever :func:`detect_embedder` resolves
-    on the host — typically the OpenAI embedder once the operator
-    has set ``OPENAI_API_KEY``, the offline ``HashEmbedder``
-    otherwise. When the chosen embedder is unavailable the response
-    is ``{ok: False, reason: "embedder_unavailable", embedder: …}``;
-    nothing is written.
-    """
-
-    from backend.core.attachments.reembed import reembed_attachment
-
-    body = payload or {}
-    force = bool(body.get("force"))
-    target_model = body.get("target_model")
-    target_model = (
-        str(target_model).strip() if target_model else None
-    )
-    res = await reembed_attachment(
-        attachment_id, force=force, target_model=target_model,
-    )
-    if res.get("ok") is False and res.get("reason") == "attachment_not_found":
-        raise HTTPException(
-            status_code=404, detail="attachment_not_found"
-        )
-    return res
 
 
 @router.post("/attachments/reembed-by-model")
