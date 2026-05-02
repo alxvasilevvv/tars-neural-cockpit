@@ -385,11 +385,20 @@ def _summarise_event(kind: str, payload: dict[str, Any]) -> str:
             " · thread-rebind" if payload.get("thread_id_rebind") else ""
         )
         override = " · goal-override" if payload.get("goal_overridden") else ""
+        # Tag one-shot reruns so the timeline reads "rerun" instead
+        # of "manual approve + run". auto_run implies auto_approve,
+        # so we collapse the suffix to a single "rerun" label.
+        if payload.get("auto_run"):
+            mode_tag = " · rerun"
+        elif payload.get("auto_approved"):
+            mode_tag = " · auto-approved"
+        else:
+            mode_tag = ""
         return (
             f"plan={payload.get('plan_id') or '?'} · "
             f"from={payload.get('source_plan_id') or '?'} · "
             f"steps={payload.get('step_count') or 0}"
-            f"{rebind}{override}"
+            f"{rebind}{override}{mode_tag}"
         )
     if kind == "plan.run.started":
         return (

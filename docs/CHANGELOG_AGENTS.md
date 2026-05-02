@@ -4,6 +4,104 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-01 — Cursor [A] · planner: one-shot rerun (CLI clone --approve/--run + POST /rerun)
+
+**Summary**
+
+Closed the loop on the rerun-via-clone flow shipped in PR #108
+by adding a one-shot composition over `clone` + `approve` + `run`:
+
+- **CLI**: `clone --approve` flips the new plan to `approved`
+  in the same call; `--run` (which implies `--approve`) then
+  dispatches it through `PlanRunner` so an operator can rerun
+  a finished plan with a single shell invocation. `--mode`
+  overrides the policy gate for the run portion.
+- **HTTP**: `POST /api/planner/{plan_id}/rerun` is a
+  convenience endpoint over the same composition, intended
+  for the cockpit's "Rerun" button. Body / header support
+  mirrors `/clone` plus optional `mode` (or
+  `x-tars-policy-mode` header).
+- **Audit lane**: `planner.cloned` event now carries
+  `auto_approved` and `auto_run` boolean flags, and the
+  timeline summariser collapses them into a single readable
+  label (`· rerun` for auto_run, `· auto-approved` for the
+  approve-only case).
+
+Backwards compatibility is preserved: bare `clone` still
+returns a `proposed` plan with no auto-flip, and the existing
+`POST /api/planner/{plan_id}/clone` route is unchanged.
+
+**Changes**
+
+1. `backend/core/planner/cli.py` —
+   - `_cmd_clone` now accepts `--approve`, `--run`, and
+     `--mode autopilot|confirm|dry_run`. After the clone is
+     persisted and `planner.cloned` is emitted, the handler
+     optionally flips status to `approved` then dispatches
+     `PlanRunner.run` (using `resolve_mode(request_arg=...)`
+     so the env / fallback chain still applies). The
+     response gains `auto_approved`, `auto_run`, and
+     `run_result` keys (the latter is `None` when `--run`
+     was not requested).
+   - Errors during the `--run` phase surface a structured
+     `plan_run_failed` envelope with `plan_id` (the new
+     clone's id) and `source_plan_id` so the operator can
+     still see what was created.
+   - Module docstring usage block updated.
+2. `web_extras/routers/planner.py` —
+   - New `POST /api/planner/{plan_id}/rerun` endpoint. Body
+     supports `thread_id`, `goal_override`, `mode`. Headers
+     `x-meeet-trace-id`, `x-tars-thread-id`,
+     `x-tars-policy-mode` carry the same semantics as the
+     other endpoints. Composes clone + approve + run inside
+     a single `trace_scope` so all of the resulting events
+     stitch together. Emits `planner.cloned` with
+     `auto_approved=true` and `auto_run=true`. Run errors
+     surface as 409 with `{reason, message, plan_id,
+     source_plan_id}`.
+   - Top-of-module docstring updated with the new endpoint
+     contract.
+3. `backend/core/search/timeline.py` —
+   - `_summarise_event` for `planner.cloned` now reads
+     `auto_run` / `auto_approved` and renders one of
+     `· rerun`, `· auto-approved`, or no extra suffix
+     (legacy clones).
+4. `tests/test_planner_rerun.py` (new, 13 cases):
+   - CLI: `clone --approve` flips status; `clone --run`
+     implies approve and produces a `run_result`; bare clone
+     still proposes (compat); unknown plan id surfaces a
+     proper error envelope; argparse rejects an unknown
+     `--mode` choice with exit 2.
+   - HTTP: 404 on unknown plan; happy path returns the new
+     plan + run result with `source_plan_id`; emits
+     `planner.cloned` with both auto flags; an unknown
+     `mode` string falls back to the env default (pinned
+     behaviour); `thread_id` body override binds to the
+     clone.
+   - Timeline summariser renders `· rerun` for
+     `auto_run=true` (and not `auto-approved`), and
+     `· auto-approved` for `auto_approved=true,
+     auto_run=false`.
+
+**Tests**
+
+- `tests/test_planner_rerun.py` — 13 passed.
+- Existing planner CLI + clone suites (`test_planner_cli.py`,
+  `test_planner_clone.py`) — 36 passed (no regression).
+- Full `pytest -q` — **2051 passed in 47s**.
+
+**Cockpit follow-ups**
+
+- Wire the existing "Rerun" button on the plan card to
+  `POST /api/planner/{id}/rerun` instead of the previous
+  three-call flow (clone → approve → run). The button can
+  now show a loading spinner once and surface the
+  `run_result.status` directly.
+- Render the new timeline labels: `· rerun` for one-shot
+  reruns, `· auto-approved` for clone-then-approve flows.
+
+---
+
 ## 2026-05-01 — Cursor [A] · planner: dedicated plan.run.usage event for billing dashboards
 
 **Summary**
