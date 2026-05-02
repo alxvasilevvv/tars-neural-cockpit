@@ -54,12 +54,19 @@ Ideas for the next sprints. Triage by impact × cost and pull into
 
 ## Attachments + RAG (post-L2)
 
-- **Cross-thread search.** Stand up `POST /api/search` that runs hybrid
-  retrieval across every thread the operator can see; return chunks
-  with their thread title + permalink. Pair with L8.
-- **BM25 via SQLite FTS5.** Replace the hand-rolled tf scorer with
-  an FTS5 virtual table over `attachment_chunks(text)` for production-
-  grade keyword side; fuse with vectors as before.
+- ~~**Cross-thread search.**~~ ✅ **shipped (Phase L8)** —
+  `POST /api/search` runs hybrid retrieval across chunks + messages
+  + traces in parallel; `POST /api/search/chunks` omits
+  `thread_id` for cross-thread chunk search. Each `SearchHit`
+  carries `thread_id`, thread title, attachment id, and ord for
+  deep-link construction. Cockpit: ⌘K `CommandPalette`. Core:
+  `backend/core/search/engine.py`; HTTP: `web_extras/routers/search.py`.
+- ~~**BM25 via SQLite FTS5.**~~ ✅ **shipped (Phase L8)** —
+  `backend/core/search/fts.py` maintains FTS5 virtual tables over
+  attachment chunk text, chat messages, and meeet event payloads;
+  `search()` fuses FTS5 BM25 with optional vector cosine for chunks.
+  Field tuning of fusion weights remains optional if relevance
+  regresses at scale.
 - ~~**Image vision routing.**~~ ✅ **shipped 2026-05-02** — new
   `backend/core/chat/multimodal.py` packs vision-agent image_refs into
   native Anthropic `image` content blocks and OpenAI `image_url`
