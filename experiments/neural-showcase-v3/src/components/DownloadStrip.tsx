@@ -114,30 +114,50 @@ export function DownloadStrip({ variant = "hero" }: Props) {
     );
   }
 
-  // Footer variant — slim, single line.
+  // Footer variant — slim, single line (+ checksum hint when manifest ships sha256).
   if (variant === "footer") {
     if (!primary || !release) return null;
     return (
-      <a
-        href={primary.url}
-        data-filename={primary.filename}
-        data-sha256={primary.sha256 ?? ""}
-        onClick={() =>
-          trackClick(`download_${primary.os}_${primary.arch}`, {
-            version: release.version,
-            kind: primary.kind,
-            surface: "footer",
-          })
-        }
-        className="group inline-flex items-center gap-2.5 font-mono-tech text-[10.5px] uppercase tracking-[1.8px] text-ink-2 transition-colors hover:text-ink"
-      >
-        <span style={{ color: OS_ACCENT[primary.os] }}>
-          <OSGlyph os={primary.os} size={13} />
-        </span>
-        <span>{OS_LABELS[primary.os]}</span>
-        <span className="text-ink-3">v{release.version}</span>
-        <span aria-hidden className="transition-transform group-hover:translate-x-0.5">→</span>
-      </a>
+      <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1">
+        <a
+          href={primary.url}
+          data-filename={primary.filename}
+          data-sha256={primary.sha256 ?? ""}
+          onClick={() =>
+            trackClick(`download_${primary.os}_${primary.arch}`, {
+              version: release.version,
+              kind: primary.kind,
+              surface: "footer",
+            })
+          }
+          className="group inline-flex items-center gap-2.5 font-mono-tech text-[10.5px] uppercase tracking-[1.8px] text-ink-2 transition-colors hover:text-ink"
+        >
+          <span style={{ color: OS_ACCENT[primary.os] }}>
+            <OSGlyph os={primary.os} size={13} />
+          </span>
+          <span>{OS_LABELS[primary.os]}</span>
+          <span className="text-ink-3">v{release.version}</span>
+          <span aria-hidden className="transition-transform group-hover:translate-x-0.5">→</span>
+        </a>
+        {primary.sha256 ? (
+          <span
+            className="inline-flex items-center gap-1 font-mono-tech text-[9px] uppercase tracking-[2px] text-ink-3"
+            title={primary.sha256}
+          >
+            <span
+              className="grid h-3 w-3 place-items-center rounded-full text-[8px]"
+              style={{
+                background: "color-mix(in srgb, var(--color-success) 18%, transparent)",
+                color: "var(--color-success)",
+              }}
+              aria-hidden
+            >
+              ✓
+            </span>
+            <span className="text-ink-3">sha256</span>
+          </span>
+        ) : null}
+      </span>
     );
   }
 

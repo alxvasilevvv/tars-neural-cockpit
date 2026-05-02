@@ -4,6 +4,29 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-03 — Cursor [E] · Release gate + downloads footer + voice doc
+
+**Summary**
+
+- `scripts/gate_release.sh` — new step **cockpit-changelog-check**
+  before cockpit-tsc (parity with Makefile / Cloudflare CI).
+- `DownloadStrip` footer variant — compact **✓ sha256** affordance
+  when the primary artifact carries a checksum (`data-sha256` on
+  the link unchanged).
+- New operator checklist `docs/VOICE_CLONING_OPERATOR.md`
+  (ElevenLabs IVC → `TARS_PERSONA_OPERATOR_ELEVENLABS_ID`).
+- `docs/IDEAS.md` — voice cloning item points at the doc;
+  verify-on-download marked shipped (hero + footer).
+
+**Files**
+
+- `scripts/gate_release.sh`
+- `experiments/neural-showcase-v3/src/components/DownloadStrip.tsx`
+- `docs/VOICE_CLONING_OPERATOR.md` (new)
+- `docs/IDEAS.md`
+- `docs/CHANGELOG_AGENTS.md` (this entry)
+- `docs/CHANGELOG_PUBLIC.md` (regenerated)
+
 ## 2026-05-03 — Cursor [D] · Clickable chunk citations in ChatPane
 
 **Summary**
