@@ -193,6 +193,31 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-01 — cockpit: scroll-to-selected on /cockpit/planner deep links (Cursor [A]):**
+  Closes the long-standing planner-page polish item: when an
+  operator pastes `/cockpit/planner?selected=pln_xyz`, the
+  matching `<li>` was hidden below the fold of the
+  overflow-scroll list. Page now imperatively scrolls the row
+  into view on first paint (and on browser-back to a different
+  selection) without disrupting routine clicks. Decision lives
+  in a pure `shouldScrollTo` helper (`lib/plannerScroll.ts`)
+  that returns `true` only for the deep-link / browser-nav
+  case (skips when nothing selected, list still loading,
+  deep-link points at a filtered-out plan, or SSE refresh
+  didn't change selection); side-effect lives in a
+  `useScrollSelectedIntoView` hook on the Planner page that
+  calls `scrollIntoView({ block: "nearest", behavior: "smooth" })`
+  on the matching ref. `block: "nearest"` is load-bearing —
+  it's a no-op when the row is already visible (e.g. user just
+  clicked it), so we don't need to discriminate "click vs URL
+  change". Pinned by 9 new Vitest cases (every no-scroll branch
+  plus first-paint, browser-back, top-row, empty list, and
+  purity). Full cockpit suite: **167 passed (14 files)**;
+  `tsc --noEmit` clean; `vite build` clean (2.74s); Python
+  unchanged (2106 green). Follow-ups: `aria-live` announcement
+  on run completion / failure for screen-reader operators;
+  right-rail planner entrypoint from the cockpit chat thread.
+
 - **2026-05-01 — meeet replay CLI: `--trace-id` filter + `planner-replay-run` Make target (Cursor [A]):**
   Adds a per-run scoping knob to the meeet event replay CLI plus
   the operator wrapper that uses it. CLI gains
