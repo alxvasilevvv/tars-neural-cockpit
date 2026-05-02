@@ -60,10 +60,20 @@ Ideas for the next sprints. Triage by impact × cost and pull into
 - **BM25 via SQLite FTS5.** Replace the hand-rolled tf scorer with
   an FTS5 virtual table over `attachment_chunks(text)` for production-
   grade keyword side; fuse with vectors as before.
-- **Image vision routing.** When the chat voice is multimodal-capable
-  (Anthropic Claude / OpenAI gpt-4o), pack image bytes into the
-  request payload alongside the system prompt. Today images are
-  stored but the assistant never sees them.
+- ~~**Image vision routing.**~~ ✅ **shipped 2026-05-02** — new
+  `backend/core/chat/multimodal.py` packs vision-agent image_refs into
+  native Anthropic `image` content blocks and OpenAI `image_url`
+  blocks. Budget-aware (default 6 images per turn, 5 MiB per image,
+  18 MiB total pre-encode). Orchestrator threads
+  `vision_payload.image_refs` to the voice **only when** the voice
+  declares `supports_multimodal=True` AND images are attached, so
+  legacy / third-party voice subclasses keep working. Anthropic +
+  OpenAI message helpers now widen the **last user turn** into the
+  content-block shape only when image_blocks are present (text-only
+  turns stay simple strings). Tests: `tests/test_chat_multimodal.py`
+  (39 cases — mime routing, encode, budget caps), and
+  `tests/test_chat_voices_multimodal.py` (9 cases — message-shape
+  integration).
 - ~~**`application/zip` walker.**~~ ✅ **Shipped 2026-05-01** —
   `backend/core/attachments/zip_walker.py` walks zip uploads, ingests
   each safe member as a child attachment linked via
