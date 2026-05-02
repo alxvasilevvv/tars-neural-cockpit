@@ -133,9 +133,7 @@ async def _seed_plan(steps: tuple[PlanStep, ...]) -> Plan:
 async def test_compute_run_usage_returns_zero_when_trace_id_none():
     from backend.core.planner.runner import _compute_run_usage
 
-    out = await _compute_run_usage(
-        trace_id=None, started_at=0.0, finished_at=0.0
-    )
+    out = await _compute_run_usage(trace_id=None)
     assert out["calls"] == 0
     assert out["tokens_in"] == 0
     assert out["tokens_out"] == 0
@@ -148,9 +146,6 @@ async def test_compute_run_usage_sums_matching_events():
     from backend.core.meeet import get_client, trace_scope
     from backend.core.planner.runner import _compute_run_usage
 
-    import time as _time
-
-    started = _time.time()
     with trace_scope() as tid:
         await get_client().emit(
             "usage.tokens",
@@ -173,10 +168,7 @@ async def test_compute_run_usage_sums_matching_events():
             },
         )
 
-    finished = _time.time() + 0.5
-    out = await _compute_run_usage(
-        trace_id=tid, started_at=started, finished_at=finished
-    )
+    out = await _compute_run_usage(trace_id=tid)
     assert out["calls"] == 2
     assert out["tokens_in"] == 600
     assert out["tokens_out"] == 1200
@@ -190,9 +182,6 @@ async def test_compute_run_usage_returns_none_cost_for_unpriced_models():
     from backend.core.meeet import get_client, trace_scope
     from backend.core.planner.runner import _compute_run_usage
 
-    import time as _time
-
-    started = _time.time()
     with trace_scope() as tid:
         # cost_usd absent — emitter couldn't price the model.
         await get_client().emit(
@@ -205,11 +194,7 @@ async def test_compute_run_usage_returns_none_cost_for_unpriced_models():
             },
         )
 
-    out = await _compute_run_usage(
-        trace_id=tid,
-        started_at=started,
-        finished_at=_time.time() + 0.5,
-    )
+    out = await _compute_run_usage(trace_id=tid)
     assert out["calls"] == 1
     assert out["tokens_in"] == 1000
     assert out["tokens_out"] == 500
@@ -222,9 +207,6 @@ async def test_compute_run_usage_filters_by_trace_id():
     from backend.core.meeet import get_client, trace_scope
     from backend.core.planner.runner import _compute_run_usage
 
-    import time as _time
-
-    started = _time.time()
     # Emit one event under a DIFFERENT trace — it must be skipped.
     with trace_scope() as other_tid:
         await get_client().emit(
@@ -248,10 +230,7 @@ async def test_compute_run_usage_filters_by_trace_id():
             },
         )
 
-    finished = _time.time() + 0.5
-    out = await _compute_run_usage(
-        trace_id=wanted_tid, started_at=started, finished_at=finished
-    )
+    out = await _compute_run_usage(trace_id=wanted_tid)
     assert out["calls"] == 1
     assert out["tokens_in"] == 10
     assert out["tokens_out"] == 20
@@ -259,14 +238,16 @@ async def test_compute_run_usage_filters_by_trace_id():
 
 
 @pytest.mark.asyncio
-async def test_compute_run_usage_clamps_to_time_window():
+async def test_compute_run_usage_does_not_clamp_by_time_window_anymore():
+    """PR #109 dropped the time-window clamp because each run now
+    mints its own trace, making the clamp unnecessary. This test
+    pins the new behaviour: every event for the trace counts,
+    regardless of when it landed."""
+
     from backend.core.meeet import get_client, trace_scope
     from backend.core.planner.runner import _compute_run_usage
 
-    import time as _time
-
     with trace_scope() as tid:
-        # Event from "before" the window.
         await get_client().emit(
             "usage.tokens",
             {
@@ -276,9 +257,7 @@ async def test_compute_run_usage_clamps_to_time_window():
                 "cost_usd": 0.05,
             },
         )
-        # Open the window strictly after the first event.
         await asyncio.sleep(0.05)
-        window_start = _time.time()
         await get_client().emit(
             "usage.tokens",
             {
@@ -289,13 +268,10 @@ async def test_compute_run_usage_clamps_to_time_window():
             },
         )
 
-    out = await _compute_run_usage(
-        trace_id=tid,
-        started_at=window_start,
-        finished_at=_time.time() + 0.5,
-    )
-    assert out["calls"] == 1
-    assert out["tokens_in"] == 5
+    out = await _compute_run_usage(trace_id=tid)
+    # Both events count — no time-window filter discards the older one.
+    assert out["calls"] == 2
+    assert out["tokens_in"] == 1005
 
 
 # ---------------------------------------------------------------------------

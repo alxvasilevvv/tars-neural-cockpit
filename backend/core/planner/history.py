@@ -26,10 +26,12 @@ Run boundaries are detected by walking events in id-ascending order:
 - A run that has no terminal event yet is still returned, with
   ``status="running"`` — useful for "in flight" badges in the UI.
 
-We do NOT trust ``trace_id`` for grouping: the runner currently
-reuses the plan's birth trace via ``trace_scope(parent=plan.trace_id)``
-so every run of the same plan shares the trace. Walking events
-in chronological order is the robust signal.
+We do NOT trust ``trace_id`` for grouping even though the runner
+now mints a fresh trace per run (the plan's birth trace travels
+along as ``parent_trace_id`` on ``plan.run.started``). Walking
+events in chronological order is the simpler and more robust
+signal — it works for legacy events that pre-date per-run traces
+and degrades gracefully when an event is missing a trace at all.
 """
 
 from __future__ import annotations
