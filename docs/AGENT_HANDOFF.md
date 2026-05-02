@@ -193,6 +193,28 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-01 — planner: per-run cost / token rollup on terminal event (Cursor [A]):**
+  After every plan run, the runner now rolls up `usage.tokens`
+  events that fired inside its `trace_id` + wall-clock window and
+  stamps the totals (`calls` / `tokens_in` / `tokens_out` /
+  `cost_usd` / `latency_ms_total` / `has_priced_models`) on the
+  terminal event payload (`plan.completed` / `plan.aborted`), the
+  `PlanRunner.run` return dict, and the
+  `GET /api/planner/{id}/runs` reflector. `cost_usd` is `None`
+  when no priced model fired so the cockpit can render "n/a"
+  rather than falsely advertising a free run for a paid call
+  whose price isn't in the table. Filtering by both `trace_id`
+  AND time window keeps parallel runs of the same plan from
+  bleeding into each other (the runner currently inherits the
+  plan's birth trace). Pinned by `tests/test_planner_run_usage.py`
+  (11 cases: zero-rollup, sums by trace, unpriced cost=None,
+  trace-id filter, time-window clamp, runner stamps on completed,
+  runner stamps on aborted+raise, zero when silent, reconstructor
+  reads usage, reconstructor handles legacy payload, end-to-end
+  HTTP). Full suite: **1986 passing**. Follow-ups: drop the
+  time-window clamp once each run mints its own trace; cockpit
+  drawer renders `has_priced_models=false` as "n/a · N tokens".
+
 - **2026-05-01 — planner: per-plan run history + Last-Event-ID SSE resume (Cursor [A]):**
   Two cockpit reads land together. `GET /api/planner/{plan_id}/runs`
   reconstructs every past execution of one plan from the meeet event

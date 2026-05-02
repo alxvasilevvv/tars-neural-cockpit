@@ -102,6 +102,12 @@ class PlanRun:
     Mutable on purpose — the reconstructor builds it up step by step
     while walking events, then we freeze the picture by calling
     :meth:`to_dict` on the way out.
+
+    The ``usage`` block (calls / tokens / cost / latency) lives on
+    the terminal event the runner emits and is copied here verbatim
+    when present. ``cost_usd`` may be ``None`` when no priced model
+    fired — the cockpit renders "n/a" instead of "$0.00" so we
+    don't falsely advertise a free run.
     """
 
     plan_id: str
@@ -119,6 +125,12 @@ class PlanRun:
     steps_run: int = 0
     steps_blocked: int = 0
     steps_failed: int = 0
+    usage_calls: int = 0
+    usage_tokens_in: int = 0
+    usage_tokens_out: int = 0
+    usage_cost_usd: Optional[float] = None
+    usage_latency_ms_total: float = 0.0
+    usage_has_priced_models: bool = False
     steps: list[RunStep] = field(default_factory=list)
     _step_index: dict[str, int] = field(default_factory=dict)
 
@@ -143,6 +155,14 @@ class PlanRun:
             "abort_requested": self.abort_requested,
             "exception": self.exception,
             "took_ms": self.took_ms(),
+            "usage": {
+                "calls": self.usage_calls,
+                "tokens_in": self.usage_tokens_in,
+                "tokens_out": self.usage_tokens_out,
+                "cost_usd": self.usage_cost_usd,
+                "latency_ms_total": self.usage_latency_ms_total,
+                "has_priced_models": self.usage_has_priced_models,
+            },
             "steps": [s.to_dict() for s in self.steps],
         }
         return out
@@ -259,6 +279,26 @@ def _close_run(
         run.steps_blocked = int(payload.get("steps_blocked") or 0)
     if "steps_failed" in payload:
         run.steps_failed = int(payload.get("steps_failed") or 0)
+    # Usage rollup — runner stamps this on the terminal event.
+    usage = payload.get("usage")
+    if isinstance(usage, Mapping):
+        run.usage_calls = int(usage.get("calls") or 0)
+        run.usage_tokens_in = int(usage.get("tokens_in") or 0)
+        run.usage_tokens_out = int(usage.get("tokens_out") or 0)
+        cost = usage.get("cost_usd")
+        if cost is None:
+            run.usage_cost_usd = None
+        else:
+            try:
+                run.usage_cost_usd = float(cost)
+            except (TypeError, ValueError):
+                run.usage_cost_usd = None
+        run.usage_latency_ms_total = float(
+            usage.get("latency_ms_total") or 0.0
+        )
+        run.usage_has_priced_models = bool(
+            usage.get("has_priced_models", False)
+        )
 
 
 def reconstruct_runs(
