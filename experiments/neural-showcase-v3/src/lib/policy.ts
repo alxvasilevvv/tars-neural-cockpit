@@ -127,3 +127,58 @@ export function usePendingConfirmations(
 
   return { pending, loading, error, refresh };
 }
+
+/**
+ * Polls /recent every ``intervalMs`` (default 8s — twice the
+ * pending tick because audit history doesn't change as often).
+ *
+ * Used by the dedicated /cockpit/policy page to render a
+ * resolved-token audit log alongside the live pending queue.
+ */
+export function useRecentConfirmations(opts: {
+  limit?: number;
+  intervalMs?: number;
+} = {}): {
+  recent: PendingConfirmation[];
+  loading: boolean;
+  error: string | null;
+  refresh: () => Promise<void>;
+} {
+  const [recent, setRecent] = useState<PendingConfirmation[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const cancelled = useRef(false);
+  const intervalMs = opts.intervalMs ?? 8000;
+  const limit = opts.limit ?? 100;
+
+  const refresh = useCallback(async () => {
+    try {
+      const list = await listRecent(limit);
+      if (!cancelled.current) {
+        setRecent(list);
+        setError(null);
+      }
+    } catch (e) {
+      if (!cancelled.current) setError((e as Error).message);
+    } finally {
+      if (!cancelled.current) setLoading(false);
+    }
+  }, [limit]);
+
+  useEffect(() => {
+    cancelled.current = false;
+    void refresh();
+    if (intervalMs > 0) {
+      const id = window.setInterval(refresh, intervalMs);
+      return () => {
+        cancelled.current = true;
+        window.clearInterval(id);
+      };
+    }
+    return () => {
+      cancelled.current = true;
+    };
+  }, [refresh, intervalMs]);
+
+  return { recent, loading, error, refresh };
+}

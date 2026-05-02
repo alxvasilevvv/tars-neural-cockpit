@@ -28,6 +28,9 @@ const Planner = lazy(() =>
 const Traces = lazy(() =>
   import("@/pages/Traces").then((m) => ({ default: m.Traces })),
 );
+const Policy = lazy(() =>
+  import("@/pages/Policy").then((m) => ({ default: m.Policy })),
+);
 const Install = lazy(() =>
   import("@/pages/Install").then((m) => ({ default: m.Install })),
 );
@@ -144,6 +147,14 @@ function AppShell() {
               element={
                 <Suspense fallback={<RouteSkeleton variant="cockpit" />}>
                   <Traces />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/cockpit/policy"
+              element={
+                <Suspense fallback={<RouteSkeleton variant="cockpit" />}>
+                  <Policy />
                 </Suspense>
               }
             />
