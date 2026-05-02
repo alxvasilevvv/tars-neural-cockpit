@@ -193,6 +193,22 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-01 — MeeetClient.emit auto-injects thread_id from contextvar (Cursor [A]):**
+  After the ContextVar bridge (PR #99), every router that handles
+  `x-tars-thread-id` opens `thread_id_scope(...)` so the active
+  chat thread id rides on the asyncio context. This PR completes
+  the loop by having `MeeetClient.emit(...)` automatically copy
+  the contextvar's value into `payload['thread_id']` when the
+  contextvar is set AND the caller didn't already place
+  `thread_id` in the payload. Net result: every meeet event
+  emitted from inside an `invoke_action` / `confirm` /
+  `awareness_snapshot` scope automatically carries the chat
+  thread id, so the cockpit per-thread audit lane fills in for
+  every emitted event kind without per-router plumbing. Explicit
+  call-site values always win. Pinned by
+  `tests/test_meeet_auto_thread_id.py` (8 cases) plus regression
+  on the previous PRs. Full suite: **1875 passing**.
+
 - **2026-05-01 — ContextVar bridge: action handlers auto-inherit thread_id (Cursor [A]):**
   PRs #97 (policy) and #98 (council HTTP) plumbed `x-tars-thread-id`
   through the gate and the council's HTTP entry. The remaining gap
