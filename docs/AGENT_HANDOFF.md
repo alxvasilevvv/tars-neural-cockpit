@@ -193,6 +193,22 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-01 — planner: one-shot rerun (CLI + HTTP) (Cursor [A]):**
+  Closed the loop on the rerun-via-clone flow shipped in PR
+  #108. CLI: `clone --approve [--run [--mode ...]]` composes
+  clone + approve + (optional) run into a single shell call.
+  HTTP: `POST /api/planner/{plan_id}/rerun` is the matching
+  cockpit-facing endpoint (body / header support mirrors
+  `/clone` plus `mode`). Audit lane: `planner.cloned` event
+  grows `auto_approved` and `auto_run` boolean flags; the
+  timeline summariser renders them as `· rerun` (auto_run) or
+  `· auto-approved` (approve-only). Backwards compatible —
+  bare `clone` and `POST /clone` still produce a proposed
+  plan with no auto-flip. Pinned by
+  `tests/test_planner_rerun.py` (13 cases). Full suite:
+  **2051 passing**. Follow-ups: cockpit "Rerun" button now
+  one network call away (clone+approve+run merged).
+
 - **2026-05-01 — planner: dedicated plan.run.usage event (Cursor [A]):**
   Cost / token rollup for each plan run now ships as its own
   top-level event in addition to being embedded in the
