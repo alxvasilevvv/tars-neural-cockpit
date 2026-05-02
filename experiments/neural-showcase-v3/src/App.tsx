@@ -31,6 +31,9 @@ const Traces = lazy(() =>
 const Policy = lazy(() =>
   import("@/pages/Policy").then((m) => ({ default: m.Policy })),
 );
+const Council = lazy(() =>
+  import("@/pages/Council").then((m) => ({ default: m.Council })),
+);
 const Install = lazy(() =>
   import("@/pages/Install").then((m) => ({ default: m.Install })),
 );
@@ -155,6 +158,14 @@ function AppShell() {
               element={
                 <Suspense fallback={<RouteSkeleton variant="cockpit" />}>
                   <Policy />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/cockpit/council"
+              element={
+                <Suspense fallback={<RouteSkeleton variant="cockpit" />}>
+                  <Council />
                 </Suspense>
               }
             />

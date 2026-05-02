@@ -321,6 +321,13 @@ export function Cockpit() {
             >
               policy
             </Link>
+            <span aria-hidden className="text-line-strong">·</span>
+            <Link
+              to="/cockpit/council"
+              className="transition-colors hover:text-ink"
+            >
+              council
+            </Link>
           </nav>
 
           <div className="flex items-center gap-2">
