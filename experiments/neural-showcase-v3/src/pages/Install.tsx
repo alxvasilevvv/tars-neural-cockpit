@@ -15,10 +15,25 @@ import { CornerFrame, StatusLozenge } from "@/components/Glyphs";
 import { useDocumentMeta } from "@/lib/meta";
 import { trackClick } from "@/lib/analytics";
 
-const INSTALL_CMD = "curl -fsSL meeet.world/install.sh | bash";
-const BREW_CMD = "brew install meeet/tap/tars";
+const TARS_DL = "https://tars.meeet.world";
+const STABLE_VERSION = "8.4.0";
 
 type OS = "mac" | "linux" | "windows";
+
+function primaryInstallCommand(os: OS): string {
+  switch (os) {
+    case "mac":
+      return `curl -fLO ${TARS_DL}/TARS-${STABLE_VERSION}-arm64.dmg && open TARS-${STABLE_VERSION}-arm64.dmg`;
+    case "linux":
+      return `curl -fLO ${TARS_DL}/TARS-${STABLE_VERSION}.AppImage && chmod +x TARS-${STABLE_VERSION}.AppImage && ./TARS-${STABLE_VERSION}.AppImage`;
+    case "windows":
+      return `curl -fLO ${TARS_DL}/TARS-${STABLE_VERSION}-setup.exe`;
+    default:
+      return `curl -fLO ${TARS_DL}/TARS-${STABLE_VERSION}-arm64.dmg && open TARS-${STABLE_VERSION}-arm64.dmg`;
+  }
+}
+
+const BREW_CMD = "brew install meeet/tap/tars";
 
 function detectOS(): OS {
   if (typeof navigator === "undefined") return "mac";
@@ -33,7 +48,7 @@ const STEPS: { num: string; title: string; body: string }[] = [
   {
     num: "01",
     title: "Run the install command",
-    body: "One curl, no sudo unless absolutely needed. Installs to ~/.tars and registers a launchd / systemd service so the daemon survives reboot.",
+    body: "Use the curl one-liner for your OS — it pulls the signed binary from tars.meeet.world. Apple Silicon .dmg today; Intel Macs should use the same flow once an x64 artifact is published in the manifest.",
   },
   {
     num: "02",
@@ -191,11 +206,11 @@ export function Install() {
               $
             </span>
             <code className="overflow-x-auto whitespace-nowrap font-mono text-[14px] tracking-tight text-ink md:text-[16px]">
-              {INSTALL_CMD}
+              {primaryInstallCommand(os)}
             </code>
             <button
               type="button"
-              onClick={() => copy(INSTALL_CMD, "install")}
+              onClick={() => copy(primaryInstallCommand(os), "install")}
               className="inline-flex items-center justify-center gap-2 rounded-md border px-3.5 py-2 font-mono-tech text-[10.5px] uppercase tracking-[2.4px] text-ink transition-colors duration-200"
               style={{
                 borderColor: copied === "install" ? "var(--color-success)" : "#6366F1",
@@ -231,10 +246,10 @@ export function Install() {
                 · or download the notarized .dmg →
               </span>
               <a
-                href="https://meeet.world/dl/tars-latest.dmg"
+                href={`${TARS_DL}/TARS-${STABLE_VERSION}-arm64.dmg`}
                 className="ml-2 text-accent transition-colors hover:underline"
               >
-                tars-latest.dmg
+                TARS-{STABLE_VERSION}-arm64.dmg
               </a>
             </div>
           )}
