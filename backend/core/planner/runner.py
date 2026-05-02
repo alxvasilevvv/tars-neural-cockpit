@@ -15,6 +15,22 @@ Status transitions owned by the runner:
   was blocked under a ``stop`` ``on_block`` policy, the operator
   triggered :meth:`PlanRunRegistry.abort`, or the run raised.
 
+Trace correlation
+-----------------
+
+Each ``run(plan_id, …)`` call mints a **fresh** ``trace_id`` (via
+``trace_scope()`` with no parent) so concurrent runs of the same
+plan are observable as independent units of work. The plan's
+*birth* trace (``plan.trace_id``, set at synthesis time) is stamped
+on the ``plan.run.started`` payload as ``parent_trace_id`` so
+event consumers can stitch synthesis ↔ execution back together by
+``plan_id`` *or* by walking the parent pointer.
+
+The per-run trace also makes :func:`_compute_run_usage` cleanly
+attributable: every ``usage.tokens`` event emitted from inside the
+run inherits the run's trace, so a simple ``trace_id=run_trace``
+filter is enough — no time-window clamp needed.
+
 Events emitted, all inside ``trace_scope`` + ``thread_id_scope``:
 
 - ``plan.run.started``    — once per ``run(plan_id, …)`` call.
@@ -166,26 +182,22 @@ def _plan_step_to_adapter(step: PlanStep) -> _AdaptedStep:
 async def _compute_run_usage(
     *,
     trace_id: str | None,
-    started_at: float,
-    finished_at: float,
 ) -> dict[str, Any]:
     """Roll up ``usage.tokens`` events that fired during this run.
 
-    The runner currently inherits the plan's birth ``trace_id`` (so
-    the synthesis events and every run share it). Filtering by
-    ``trace_id`` alone would mix runs of the same plan together, so
-    we *also* clamp by the run's wall-clock window — the
-    ``usage.tokens`` event is emitted with the trace context active
-    at the moment of the LLM call, so its ``ts`` falls inside the
-    ``started_at..finished_at`` window iff it belongs to this run.
+    With the per-run trace_id introduced in PR #109, every
+    ``usage.tokens`` event emitted from inside the runner's
+    ``trace_scope()`` block inherits the run's trace. A simple
+    ``trace_id=run_trace`` filter is therefore enough — no
+    time-window clamp needed (parallel runs of the same plan now
+    have distinct traces).
 
     Returns a dict with ``calls`` / ``tokens_in`` / ``tokens_out``
     / ``cost_usd`` / ``latency_ms_total`` / ``has_priced_models``.
-    The ``cost_usd`` value is ``None`` (rather than ``0.0``) when no
-    matching event was found *and* no priced models could be
-    summed — the cockpit renders "n/a" in that case so we don't
-    falsely advertise a free run for a paid model whose price is
-    missing from the table.
+    The ``cost_usd`` value is ``None`` (rather than ``0.0``) when
+    no priced model fired so the cockpit can render "n/a" instead
+    of falsely advertising a free run for a paid model whose
+    price is missing from the table.
     """
 
     if not trace_id:
@@ -202,7 +214,6 @@ async def _compute_run_usage(
         events = await get_meeet_store().list_events(
             kind="usage.tokens",
             trace_id=trace_id,
-            since=started_at,
             limit=1000,
         )
     except Exception:
@@ -214,13 +225,8 @@ async def _compute_run_usage(
     cost_total = 0.0
     latency_total = 0.0
     priced = False
-    # Add a tiny grace margin for clock skew between the runner
-    # finishing the loop and the terminal emit landing on disk.
-    finished_clamp = max(finished_at, started_at) + 1.0
 
     for ev in events:
-        if ev.ts > finished_clamp:
-            continue
         payload = ev.payload if isinstance(ev.payload, dict) else {}
         calls += 1
         tokens_in += int(payload.get("tokens_in") or 0)
@@ -327,11 +333,11 @@ class PlanRunner:
         abort_reason: str | None = None
         adapted_steps = tuple(_plan_step_to_adapter(s) for s in plan.steps)
 
-        run_started_at = time.time()
-
-        with thread_id_scope(plan.thread_id), trace_scope(
-            parent=plan.trace_id
-        ) as trace_id:
+        # Each run mints its own trace so concurrent invocations
+        # of the same plan are independently observable. The
+        # plan's birth trace travels with the started event so
+        # consumers can stitch synthesis ↔ execution back together.
+        with thread_id_scope(plan.thread_id), trace_scope() as trace_id:
             await client.emit(
                 "plan.run.started",
                 {
@@ -341,6 +347,7 @@ class PlanRunner:
                     "playbook_id": plan.playbook_id,
                     "step_count": len(plan.steps),
                     "mode": mode.value,
+                    "parent_trace_id": plan.trace_id,
                 },
             )
 
@@ -557,12 +564,7 @@ class PlanRunner:
                 plan.id, final_status, error=error_msg
             )
 
-            run_finished_at = time.time()
-            usage = await _compute_run_usage(
-                trace_id=trace_id,
-                started_at=run_started_at,
-                finished_at=run_finished_at,
-            )
+            usage = await _compute_run_usage(trace_id=trace_id)
 
             if final_status == PlanStatus.COMPLETED:
                 await client.emit(
@@ -600,6 +602,7 @@ class PlanRunner:
                 "plan_id": plan.id,
                 "status": final_status.value,
                 "trace_id": trace_id,
+                "parent_trace_id": plan.trace_id,
                 "mode": mode.value,
                 "steps": [r.to_dict() for r in ordered],
                 "context": ctx,

@@ -193,6 +193,27 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-01 — planner: per-run trace_id (Cursor [A]):**
+  Made every plan run independently observable. `PlanRunner.run`
+  now mints a fresh `trace_id` per invocation (was: reused the
+  plan's birth trace via `trace_scope(parent=plan.trace_id)`),
+  and the original plan trace travels along as
+  `parent_trace_id` on the `plan.run.started` payload + the
+  return dict. Side benefit: the per-run cost rollup
+  (`_compute_run_usage`) lost its `started_at`/`finished_at`
+  time-window clamp because the trace itself is now sufficient
+  to scope the SELECT — no off-by-one risk at run boundaries,
+  no double-attribution between concurrent runs, and the
+  rerun-via-clone flow gets correct rollups for free. Pinned by
+  `tests/test_planner_per_run_trace.py` (4 new cases) and the
+  refreshed `tests/test_planner_run_usage.py` (renamed
+  `…_clamps_to_time_window` → `…_does_not_clamp_by_time_window_anymore`
+  with inverted assertion). Full suite: **2026 passing**.
+  Follow-ups: surface per-run `trace_id` on `PlanRun.to_dict()`
+  for cockpit deep-linking; cockpit can now group activity-
+  stream entries by `parent_trace_id` to render "all runs of
+  plan X" as a collapsible section.
+
 - **2026-05-01 — planner: clone — rerun a plan without history mutation (Cursor [A]):**
   Lets the operator "rerun" a finished plan without mutating its
   terminal status. The original keeps its `completed`/`aborted`
