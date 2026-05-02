@@ -19,8 +19,8 @@
 #   complete -F _tars_planner tars-planner
 #
 # Provides:
-#   - Subcommand completion (list, show, runs, stats, synthesize,
-#     approve, reject, run, abort, clone, delete).
+#   - Subcommand completion (list, show, runs, full, stats,
+#     synthesize, approve, reject, run, abort, clone, delete).
 #   - Per-subcommand flag completion (--quiet is global, plus the
 #     specific flags each subcommand accepts).
 #   - Live plan_id completion sourced from
@@ -31,7 +31,7 @@
 # The plan-id query is cached for 5 seconds inside the same shell
 # session so back-to-back tabs do not re-shell into Python.
 
-_TARS_PLANNER_CMDS="list show runs stats synthesize approve reject run abort clone delete"
+_TARS_PLANNER_CMDS="list show runs full stats synthesize approve reject run abort clone delete"
 
 _TARS_PLANNER_GLOBAL_FLAGS="--quiet -h --help"
 
@@ -114,7 +114,13 @@ _tars_planner() {
         delete)
             flags="--yes"
             ;;
-        show|runs|approve|reject|abort|stats)
+        runs)
+            flags="--limit"
+            ;;
+        full)
+            flags="--limit"
+            ;;
+        show|approve|reject|abort|stats)
             flags=""
             ;;
     esac
@@ -148,7 +154,7 @@ _tars_planner() {
     # the live plan list. ``synthesize`` takes a free-form goal,
     # ``stats``/``list`` take none.
     case "$sub" in
-        show|runs|approve|reject|run|abort|clone|delete)
+        show|runs|full|approve|reject|run|abort|clone|delete)
             local ids
             ids=$(_tars_planner_plan_ids)
             COMPREPLY=( $(compgen -W "$ids" -- "$cur") )
