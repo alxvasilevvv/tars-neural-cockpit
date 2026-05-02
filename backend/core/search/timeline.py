@@ -62,6 +62,7 @@ _RELEVANT_EVENT_KINDS = (
     "plan.step.requested",
     "plan.step.allowed",
     "plan.step.completed",
+    "plan.run.usage",
     "plan.completed",
     "plan.aborted",
     "plan.abort.requested",
@@ -427,6 +428,28 @@ def _summarise_event(kind: str, payload: dict[str, Any]) -> str:
             f"{suffix} · "
             f"{round(float(payload.get('took_ms') or 0), 1)}ms"
             f"{parallel_tag}"
+        )
+    if kind == "plan.run.usage":
+        usage = payload.get("usage") or {}
+        if isinstance(usage, dict):
+            calls = usage.get("calls") or 0
+            tokens_in = usage.get("tokens_in") or 0
+            tokens_out = usage.get("tokens_out") or 0
+            cost = usage.get("cost_usd")
+            has_priced = bool(usage.get("has_priced_models"))
+            cost_str = (
+                f"${float(cost):.4f}"
+                if has_priced and cost is not None
+                else "n/a"
+            )
+        else:
+            calls = tokens_in = tokens_out = 0
+            cost_str = "n/a"
+        return (
+            f"plan={payload.get('plan_id') or '?'} · "
+            f"status={payload.get('status') or '?'} · "
+            f"calls={calls} · tokens={tokens_in}+{tokens_out} · "
+            f"cost={cost_str}"
         )
     if kind == "plan.completed":
         return (
