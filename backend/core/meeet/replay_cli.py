@@ -8,6 +8,8 @@ Usage::
     # Per-run dump (one plan execution → one JSONL):
     python -m backend.core.meeet.replay_cli \\
         --export /tmp/run.jsonl --trace-id trc_abc123
+    # Force-repush every event for one trace, regardless of ``pushed``:
+    python -m backend.core.meeet.replay_cli --repush-trace trc_abc123
 
 Reads the same env vars the host uses (``MEEET_INGEST_URL``,
 ``MEEET_API_KEY``, ``MEEET_STORE_PATH``). Safe to run while the host
@@ -19,6 +21,10 @@ patch it, and re-push from this tool. Per-run scoping (``--trace-id``)
 lets fleet ops audit / backfill a single plan execution without
 shoveling the entire buffer; the ``planner-replay-run`` Make target
 wraps it so cron jobs can name the file by ``<plan_id>``.
+``--repush-trace`` is the follow-up that actually re-emits the
+matching rows upstream (regardless of whether they were already
+``pushed=1``), so an operator can recover from a meeet ingest
+contract-bump without hand-editing SQLite.
 """
 
 from __future__ import annotations
@@ -87,6 +93,21 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         ),
     )
     p.add_argument(
+        "--repush-trace",
+        type=str,
+        default=None,
+        help=(
+            "Force-push every event for one trace upstream, "
+            "regardless of the ``pushed`` flag. Use after a meeet "
+            "ingest outage / contract bump when you need to "
+            "re-emit one run's events for billing backfill or "
+            "audit. Mutually exclusive with --export and --stats. "
+            "Returns the standard {pushed, failed, remaining} "
+            "envelope plus a ``trace_id`` echo. Wired into the "
+            "Make target ``planner-repush-run ARGS=\"<run_trace>\"``."
+        ),
+    )
+    p.add_argument(
         "--quiet",
         action="store_true",
         help="Print machine-friendly JSON only (no progress lines).",
@@ -103,6 +124,17 @@ async def _run(args: argparse.Namespace) -> int:
         out = await client.health()
         print(json.dumps(out, indent=2 if not args.quiet else None))
         return 0
+
+    if args.repush_trace:
+        # Subcommand precedence: stats > repush > export > replay.
+        # We already short-circuited stats above; repush comes
+        # before export so an operator passing both flags by
+        # mistake gets the more meaningful action (pushing).
+        out = await client.repush_trace(
+            args.repush_trace, limit=max(1, int(args.limit))
+        )
+        print(json.dumps(out, indent=2 if not args.quiet else None))
+        return 0 if out.get("failed", 0) == 0 else 1
 
     if args.export:
         events = await store.list_events(
