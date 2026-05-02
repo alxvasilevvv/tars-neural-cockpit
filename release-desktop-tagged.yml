@@ -64,6 +64,10 @@ jobs:
         working-directory: desktop
         run: pnpm install
 
+      - name: Install cockpit UI deps
+        working-directory: experiments/neural-showcase-v3
+        run: pnpm install
+
       - name: Install Python ${{ env.PYTHON_VERSION }}
         uses: actions/setup-python@v5
         with:
