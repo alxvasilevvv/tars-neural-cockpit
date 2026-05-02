@@ -46,6 +46,7 @@ _PLANNER_TARGETS = (
     "planner-list",
     "planner-runs",
     "planner-show",
+    "planner-full",
     "planner-smoke",
 )
 
@@ -104,14 +105,16 @@ def test_gate_control_tower_includes_planner_smoke(makefile: str):
     )
 
 
-@pytest.mark.parametrize("target", ["planner-runs", "planner-show"])
+@pytest.mark.parametrize(
+    "target", ["planner-runs", "planner-show", "planner-full"],
+)
 def test_args_required_targets_guard_against_empty_args(
     makefile: str, target: str
 ):
-    """``planner-runs`` and ``planner-show`` are useless without
-    a plan_id; the recipe must short-circuit with an error
-    message instead of letting the CLI emit a confusing argparse
-    failure.
+    """``planner-runs`` / ``planner-show`` / ``planner-full`` are
+    useless without a plan_id; the recipe must short-circuit with
+    an error message instead of letting the CLI emit a confusing
+    argparse failure.
     """
 
     pattern = re.compile(

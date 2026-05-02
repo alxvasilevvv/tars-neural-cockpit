@@ -79,6 +79,8 @@ def test_completion_script_lists_every_subcommand_from_dispatch(script: str):
         ("list", {"--status", "--limit", "--thread-id"}),
         ("synthesize", {"--pinned-pack", "--thread-id"}),
         ("run", {"--mode"}),
+        ("runs", {"--limit"}),
+        ("full", {"--limit"}),
         ("clone", {"--thread-id", "--goal", "--approve", "--run", "--mode"}),
         ("delete", {"--yes"}),
     ],

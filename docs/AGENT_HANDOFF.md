@@ -193,6 +193,27 @@ cockpit can wire a live ticker.
 
 ## Done (running list, latest first)
 
+- **2026-05-01 — planner: `full` CLI subcommand + extracted helper (Cursor [A]):**
+  Brings the planner CLI to parity with the HTTP `/full` endpoint
+  shipped in PR #116, so an operator without a cockpit window can
+  inspect a plan in one command and pipe the JSON into `jq`. The
+  lifetime aggregation logic moves into
+  `backend/core/planner/history.py::aggregate_usage_lifetime` —
+  extracted from the FastAPI route so the CLI calls the exact same
+  code path. `cost_usd` rule preserved verbatim (None when no run
+  had a priced model; mixed runs sum priced costs only). Full
+  operator wiring: CLI subcommand
+  (`python -m backend.core.planner.cli full <plan_id> [--limit]`),
+  Makefile target (`make planner-full ARGS=<plan_id>` with `ARGS=`
+  guard), bash completion (`full` advertised + `--limit` flag).
+  Pinned by 10 new cases in `tests/test_planner_full_cli.py`
+  (helper alone: zero runs, all-unpriced, mixed priced-only-cost
+  rule, defensive guards; CLI: 404, happy path with full envelope
+  shape, `--limit` pass-through, `--quiet` placement). Full suite:
+  **2094 passing** (was 2080, +14). Follow-ups: `make planner-clone
+  ARGS="..."` for parity with rerun; right-rail planner entrypoint
+  from the cockpit chat thread.
+
 - **2026-05-01 — cockpit: URL-state sync for /cockpit/planner (Cursor [A]):**
   Operators can now deep-link to any planner view. Page mirrors three
   pieces of UI state to the URL via `useSearchParams`:
