@@ -4,6 +4,19 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-03 — Cursor · AGENT_HANDOFF: B-001 ship + deploy refs
+
+**Summary**
+
+`docs/AGENT_HANDOFF.md` — block for 2026-05-03: PR #149, Pages run
+25281019786, `meeet-solana-state` PR #38, public-funnel caveat (private
+GitHub release → anonymous 404). `>>> SYNC: Cursor · 2026-05-03`.
+
+**Files**
+
+- `docs/AGENT_HANDOFF.md`
+- `docs/CHANGELOG_AGENTS.md` (this entry)
+
 ## 2026-05-03 — Cursor · B-001: manifest artifact URLs → GitHub Release v8.4.0
 
 **Summary**

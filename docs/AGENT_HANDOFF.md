@@ -22,6 +22,21 @@ plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 > Naming: product = **TARS**. Older copy may say "Jarvis" — replace in copy
 > when editing. Folder name `Jarvis/jarvis` stays for path stability.
 
+> **2026-05-03 — B-001 (downloads manifest):** Pages Function
+> `experiments/neural-showcase-v3/functions/api/product/downloads.ts` now
+> points `artifacts[].url` at **GitHub Release v8.4.0** (Tauri filenames), not
+> `tars.meeet.world/TARS-*` (those paths served SPA HTML). Landed as
+> **PR #149**; Cloudflare Pages workflow run **25281019786** deployed
+> `tars.meeet.world`. Supabase **`tars-downloads`** fallback aligned in
+> **`meeet-solana-state-941a6045` PR #38** — run
+> `supabase functions deploy tars-downloads` from a credentialled account
+> (403 from sandbox). **Public funnel:** anonymous `curl` to GitHub
+> `releases/download` stays **404** while the repo/release is private;
+> `gh release download` works with auth — for open web, publish release
+> CDN or make assets reachable without GitHub session.
+>
+> `>>> SYNC: Cursor · 2026-05-03 · B-001 manifest ship + deploy refs`
+
 > **New workstation / GitHub / meeet.world onboarding:** step-by-step
 > checklist lives in `docs/SECOND_MACHINE_HANDOFF.md` (includes `.env.example`
 > and a first-message template for Claude Code on the destination machine).
