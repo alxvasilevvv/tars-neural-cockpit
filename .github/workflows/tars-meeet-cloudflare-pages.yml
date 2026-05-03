@@ -127,11 +127,16 @@ jobs:
       # root restored the Functions bundle.
       - name: Deploy to Cloudflare Pages
         if: steps.probe.outputs.ready == 'true'
+        env:
+          # Passed through to wrangler-action’s npx install (job-level env
+          # is not always visible inside the action’s Node subprocess).
+          NPM_CONFIG_YES: "true"
         uses: cloudflare/wrangler-action@v3
         with:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
           workingDirectory: experiments/neural-showcase-v3
+          wranglerVersion: "4.14.4"
           command: pages deploy dist --project-name=tars-meeet --branch=${{ github.head_ref || github.ref_name }}
 
       - name: Smoke (manifest reachable)

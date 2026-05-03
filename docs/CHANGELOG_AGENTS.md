@@ -4,13 +4,14 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
-## 2026-05-03 — Cursor · Pages workflow: NPM_CONFIG_YES for Wrangler on Actions
+## 2026-05-03 — Cursor · Pages workflow: Wrangler pin + npx non-interactive
 
 **Summary**
 
-Workflow **`tars.meeet.world — Cloudflare Pages`** sets **`NPM_CONFIG_YES=true`**
-on the job so `npx`/Wrangler install stays non-interactive on GitHub-hosted
-runners (avoids “npx canceled due to missing packages and no YES option”).
+**`tars.meeet.world — Cloudflare Pages`:** **`NPM_CONFIG_YES=true`** on the job
+and again on the **Deploy** step (so it reaches wrangler-action’s Node
+subprocess), plus **`wranglerVersion: "4.14.4"`** to avoid npm 10+ npx
+“no YES option” when resolving **wrangler@4.86.x**.
 
 **Files**
 
