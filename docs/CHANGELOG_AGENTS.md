@@ -4,6 +4,32 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-03 — Cursor · Pages workflow: NPM_CONFIG_YES for Wrangler on Actions
+
+**Summary**
+
+Workflow **`tars.meeet.world — Cloudflare Pages`** sets **`NPM_CONFIG_YES=true`**
+on the job so `npx`/Wrangler install stays non-interactive on GitHub-hosted
+runners (avoids “npx canceled due to missing packages and no YES option”).
+
+**Files**
+
+- `.github/workflows/tars-meeet-cloudflare-pages.yml`
+- `docs/CHANGELOG_AGENTS.md` (this entry)
+
+## 2026-05-03 — Cursor · CHANGELOG_PUBLIC sync for Pages CI gate
+
+**Summary**
+
+Regenerated and committed **`docs/CHANGELOG_PUBLIC.md`** via
+`python3 scripts/generate_public_changelog.py` so the “Changelog public
+artefact in sync” step passes on push to `main`.
+
+**Files**
+
+- `docs/CHANGELOG_PUBLIC.md`
+- `docs/CHANGELOG_AGENTS.md` (this entry)
+
 ## 2026-05-03 — Cursor · OPS TODO: Cloudflare token rotation after Secret Scanning
 
 **Summary**

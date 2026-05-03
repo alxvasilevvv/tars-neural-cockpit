@@ -36,7 +36,11 @@ Cursor finished the cutover end-to-end and ran two follow-up patches:
   reports an exposed token, **mint a new API token**, update **only** the
   GitHub Actions secret `CLOUDFLARE_API_TOKEN` (never commit the literal),
   and re-run workflow **tars.meeet.world — Cloudflare Pages**. History on
-  `main` was scrubbed; CI needs the fresh secret to deploy.
+  `main` was scrubbed; CI needs the fresh secret to deploy. From a logged-in
+  machine:  
+  `gh secret set CLOUDFLARE_API_TOKEN -R alxvasilevvv/tars-neural-cockpit`  
+  (paste the new `cfat_…` value at the prompt; then **Actions → re-run** the
+  failed workflow, or push an empty commit).
 - ✅ CI Pages deploy now runs from
   `experiments/neural-showcase-v3/` so wrangler bundles `functions/`
   (post-cutover regression in 195547a7 fixed in PR #21).

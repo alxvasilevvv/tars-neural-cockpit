@@ -4,6 +4,32 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-03 — Cursor · Pages workflow: NPM_CONFIG_YES for Wrangler on Actions
+
+**Summary**
+
+Workflow **`tars.meeet.world — Cloudflare Pages`** sets **`NPM_CONFIG_YES=true`**
+on the job so `npx`/Wrangler install stays non-interactive on GitHub-hosted
+runners (avoids “npx canceled due to missing packages and no YES option”).
+
+**Files**
+
+- `.github/workflows/tars-meeet-cloudflare-pages.yml`
+- `docs/CHANGELOG_AGENTS.md` (this entry)
+
+## 2026-05-03 — Cursor · CHANGELOG_PUBLIC sync for Pages CI gate
+
+**Summary**
+
+Regenerated and committed **`docs/CHANGELOG_PUBLIC.md`** via
+`python3 scripts/generate_public_changelog.py` so the “Changelog public
+artefact in sync” step passes on push to `main`.
+
+**Files**
+
+- `docs/CHANGELOG_PUBLIC.md`
+- `docs/CHANGELOG_AGENTS.md` (this entry)
+
 ## 2026-05-03 — Cursor · OPS TODO: Cloudflare token rotation after Secret Scanning
 
 **Summary**
@@ -4010,151 +4036,6 @@ policy gate:
 - Full suite: **1806 passing** (was 1791; +15).
 - Lints: clean on touched files.
 
-## 2026-05-01 — Cursor [A] · Council orchestrator runs voices in parallel
-
-**Summary**
-
-The `CouncilOrchestrator.deliberate(...)` loop awaited each
-`voice.propose(...)` serially. With three LLM voices configured (each
-capped at the 12s transport timeout in `backend/core/council/llm.py`)
-a single deliberation could take up to ~36s wall-clock — and a single
-slow cloud voice would starve the local voice's contribution from
-the same turn. This change replaces the serial loop with
-`asyncio.gather(..., return_exceptions=True)` so the wall-clock cost
-of a deliberation collapses to `max(per-voice latency)` while
-preserving every existing observable contract.
-
-**Changes**
-
-1. `backend/core/council/orchestrator.py`
-   - New `_propose_one(voice, prompt, context)` helper wraps each
-     voice's `propose(...)` call. It backfills `latency_ms` for
-     voices that forget to stamp it themselves so the cost ledger
-     never shows a 0 ms LLM call.
-   - New `_exception_proposal(model, exc, latency_ms)` translates a
-     per-voice exception into the existing `unavailable` proposal
-     shape (already used by `llm.py` for missing keys / transport
-     errors). One contract for `_winner` / `_agreement` /
-     `_contradictions` regardless of failure mode.
-   - `deliberate(...)` now `asyncio.gather`s every chosen voice with
-     `return_exceptions=True`, then re-orders the proposals back into
-     the input order so the cockpit voice list stays stable. Cloud
-     route detection (`set_route("cloud")`) and per-voice
-     `usage.tokens` emission run **after** the gather, in input
-     order, to keep the cost ledger deterministic.
-   - `sampler.decision` event grows three additive keys (no breaking
-     changes): `latency_ms` is now the wall-clock bound (max of per-
-     voice latencies), `cumulative_latency_ms` keeps the sum-of-
-     per-voice number for per-model leaderboards, and `parallel`
-     flags whether more than one voice ran. Existing consumers that
-     read `latency_ms` get a strictly tighter (smaller) number.
-   - Cleaned up unused imports (`current_trace`, `field`); pulled
-     `current_route` to the top-level import.
-
-2. **Tests** (`tests/test_council_parallel.py`, 17 cases)
-   - **Parallel fan-out**: three voices each sleeping 0.2 s
-     deliberate in <0.5 s wall-clock (proves gather, not serial);
-     proposals preserve input order even when voices finish out of
-     order; `dual_vote` still only runs the first two voices;
-     `single` mode still runs exactly one voice.
-   - **Failure isolation**: a `RuntimeError` in one voice doesn't
-     crash the deliberation — surfaces as `unavailable` proposal
-     with the exception name/message in `rationale`; an all-failure
-     panel returns a safe envelope (`agreement=0.0`, no
-     contradictions); `_exception_proposal` shape pinned including
-     the blank-model fallback to `"unknown"`.
-   - **Latency backfill**: `_propose_one` backfills 0 ms latency to
-     a measured wall-clock; preserves a stamped value when the
-     voice already set one.
-   - **Event ordering**: `usage.tokens` events emitted in input
-     order regardless of completion order;
-     `council.deliberation.started` lists voices in input order.
-   - **`sampler.decision` rollup**: carries `parallel=True` when
-     >1 voice ran and `parallel=False` for `single` mode;
-     `cumulative_latency_ms >= latency_ms`.
-   - **Cloud route detection**: any *available* cloud voice
-     (`anthropic/...` / `openai/...`) bumps the trace route to
-     `cloud` even when a local voice runs alongside; an unavailable
-     cloud voice does **not** trip the flag (guards the route
-     telemetry from false positives when a key is missing).
-
-**Files touched**
-
-- `backend/core/council/orchestrator.py`
-- `tests/test_council_parallel.py` (new, 17 cases)
-
-**Test status**
-
-- New suite: `tests/test_council_parallel.py` — 17 passing.
-- Existing council suite: `tests/test_council.py` +
-  `tests/test_chat_orchestrator.py` — 16 passing (no regressions).
-- Full suite: **1791 passing** (was 1774; +17).
-- Lints: clean on touched files.
-
-## 2026-05-01 — Cursor [A] · `science.hypothesis_tree` real deterministic generator
-
-**Summary**
-
-Promotes the last user-facing stub in the science pack
-(`hypothesis_tree` returned `{node: <seed>, children: []}` and
-forgot the seed) into a deterministic, audit-friendly hypothesis
-decomposition. Every science action now ships a real adapter.
-
-1. **New module** (`backend/core/domains/packs/science/hypothesis.py`)
-   - `HypothesisNode` dataclass + `grow_tree(seed, *, depth=1)`.
-   - Five canonical dimensions any peer reviewer would interrogate:
-     `mechanism / alternatives / confounders / conditions / evidence`.
-     Per-dimension grandchild templates fan out one more layer
-     (steps / alternatives / confounders / conditions / tests) so
-     `depth=2` yields a 16-node tree (1 seed + 5 children + 5×2
-     grandchildren) without hand-authoring 5×5 prompts.
-   - Stable `h-NNNN` ids minted monotonically per generation so the
-     cockpit can pin expand state across renders. Each node also
-     carries a typed `kind` so the renderer can colour-code the
-     layers.
-   - Seed normaliser strips trailing `.?!,;:` so the prompt
-     templates read cleanly even when the operator pastes a
-     sentence with terminator. Punctuation-only seeds raise
-     `ValueError("seed_required")`.
-   - Depth clamped to `[0, 3]`; negative / non-int defaults to `1`.
-
-2. **Action** (`backend/core/domains/packs/science/actions.py`)
-   - `hypothesis_tree` now wraps `grow_tree` and returns
-     `{ok, seed, depth, tree, model="heuristic-v1"}`. The echoed
-     `depth` is the *effective* depth (post-clamp) so callers can
-     verify what the tree contains.
-   - `ActionSpec` schema picks up the new `depth` knob with
-     `minimum=0`, `maximum=3`, `default=1`, plus a longer
-     description naming the five dimensions.
-
-3. **Tests** (+24 new cases in
-   `tests/test_science_hypothesis_tree.py`)
-   - `grow_tree`: seed required, depth-0 returns only the seed,
-     default depth, depth-2 grandchildren, depth clamped to 3,
-     negative falls back to 1, seed normalisation (single &
-     repeated terminators), dimension order pinned, grandchild
-     `kind` typing pinned, monotonic & unique ids (16 total at
-     depth 2), `to_dict` round-trip, full determinism.
-   - Action handler: blank seed, punctuation-only seed, default
-     depth, depth=2, depth clamped, negative depth, garbage
-     depth, seed normalisation, tree carries `kind` + `id`,
-     determinism.
-   - Spec wiring: `destructive=False`, `depth` schema bounds
-     pinned.
-
-**Test suite**: 1774 passed (was 1750). Lints clean.
-
-**Files**
-
-- `backend/core/domains/packs/science/hypothesis.py` (new)
-- `backend/core/domains/packs/science/actions.py`
-- `tests/test_science_hypothesis_tree.py` (new)
-- `docs/CHANGELOG_AGENTS.md`
-- `docs/AGENT_HANDOFF.md`
-- `docs/IDEAS.md`
-
 ---
 
----
-
-_Showing the most recent 60 of 184 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 186 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._

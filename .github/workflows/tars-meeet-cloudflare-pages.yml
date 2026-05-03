@@ -49,6 +49,9 @@ jobs:
   build-and-deploy:
     name: build · deploy
     runs-on: ubuntu-22.04
+    # npm 10+ / npx is non-interactive on Actions — allow wrangler install without TTY.
+    env:
+      NPM_CONFIG_YES: "true"
     steps:
       - uses: actions/checkout@v4
 
