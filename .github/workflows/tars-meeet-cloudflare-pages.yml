@@ -8,9 +8,12 @@ name: tars.meeet.world — Cloudflare Pages
 #   1. Create a Cloudflare Pages project named `tars-meeet`. Bind it to
 #      the custom domain `tars.meeet.world` once DNS is provisioned
 #      (see `docs/TARS_MEEET_OPS_TODO.md`).
-#   2. Add these secrets to the repo (Settings → Secrets and variables → Actions):
-#        - CLOUDFLARE_API_TOKEN  — token with Pages:Edit permission.
-#        - CLOUDFLARE_ACCOUNT_ID — your Cloudflare account id.
+#   2. Deploy pick ONE:
+#        A) Secrets: CLOUDFLARE_API_TOKEN (Pages:Edit) + CLOUDFLARE_ACCOUNT_ID
+#           → wrangler deploy from this workflow.
+#        B) No API token: delete CLOUDFLARE_API_TOKEN; connect the same GitHub
+#           repo in Cloudflare Pages and build with `npm ci && npm run build:cf`
+#           (see `docs/TARS_MEEET_OPS_TODO.md` — Step 2bis).
 #   3. Add these Pages-side env vars (Pages → Settings → Environment Variables):
 #        - BRIDGE_SHARED_SECRET — same value Lovable uses on `core-bridge`.
 #        - CORE_BRIDGE_URL      — defaults to prod core-bridge if unset.
@@ -114,7 +117,7 @@ jobs:
             echo "ready=true" >> "$GITHUB_OUTPUT"
           else
             echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "::warning::CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID not set; skipping deploy step. See docs/TARS_MEEET_OPS_TODO.md."
+            echo "::warning::CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID not set; skipping deploy step. Plan B (no token): docs/TARS_MEEET_OPS_TODO.md Step 2bis."
           fi
 
       - name: Inspect Cloudflare API token (optional verify)

@@ -29,9 +29,13 @@ Cursor finished the cutover end-to-end and ran two follow-up patches:
 - ✅ Same-origin `/api/product/{downloads,version,client-error}`
   served by Pages Functions.
 - ✅ Pages production env: `CORE_BRIDGE_URL` set.
-- ✅ GitHub repo secrets `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID`
-  pushed via gh CLI — the deploy workflow runs autonomously on push to
-  main and PRs.
+- ✅ **Deploy path A or B:** (A) GitHub secrets `CLOUDFLARE_API_TOKEN` +
+  `CLOUDFLARE_ACCOUNT_ID` → wrangler from Actions. **(B) No API token:**
+  remove `CLOUDFLARE_API_TOKEN`; connect repo in **Cloudflare Pages** Git
+  builds with `npm run build:cf` — see **Step 2bis** in this doc.
+- ✅ GitHub Actions workflow **`tars.meeet.world — Cloudflare Pages`**:
+  with **no** API token, keeps **build + tests** green; deploy only when
+  secrets are valid **or** Cloudflare Git builds production (Plan B).
 - ⚠️ **Token revoked / leaked (2026-05-03):** If Cloudflare or GitHub
   reports an exposed token, **mint a new API token**, update **only** the
   GitHub Actions secret `CLOUDFLARE_API_TOKEN` (never commit the literal),
@@ -159,6 +163,45 @@ state "No deployments yet".
 `tars.meeet.world — Cloudflare Pages` workflow. The "Probe deploy
 credentials" step prints `ready=true` and the deploy step runs
 without warning.
+
+---
+
+## Step 2bis — Deploy **without** a Cloudflare API token (Git integration)
+
+Use this when **Account → Cloudflare Pages → Edit** tokens are impossible
+(billing role, SSO policy, or “не могу”). Cloudflare builds from Git with
+its **GitHub App** — no `CLOUDFLARE_API_TOKEN` in GitHub.
+
+1. **GitHub (repository `alxvasilevvv/tars-neural-cockpit`):**  
+   Delete Actions secret **`CLOUDFLARE_API_TOKEN`** if it is set to a
+   token that cannot call the Pages API (otherwise the workflow fails on
+   Preflight).  
+   ```bash
+   gh secret delete CLOUDFLARE_API_TOKEN -R alxvasilevvv/tars-neural-cockpit
+   ```  
+   Optional: keep **`CLOUDFLARE_ACCOUNT_ID`** for local scripts; the
+   Pages workflow ignores deploy when the API token is missing.
+
+2. **Cloudflare:** **Workers & Pages** → **`tars-meeet`** → **Settings** →
+   **Builds & deployments**:
+   - **Connect to Git** → GitHub → `alxvasilevvv/tars-neural-cockpit`,
+     production branch **`main`** (authorize the Cloudflare GitHub App if asked).
+   - **Root directory:** `experiments/neural-showcase-v3`
+   - **Build command:** `npm ci && npm run build:cf`  
+     (`build:cf` skips Python; the bundle uses the **committed**
+     `docs/CHANGELOG_PUBLIC.md` — same contract as CI’s changelog check.)
+   - **Build output directory:** `dist`
+   - **Environment variables (Production):**
+     - `NODE_VERSION` = `20`
+     - `VITE_TARS_API` = `https://tars.meeet.world`
+   - Save → **Retry deployment** or push a commit to `main`.
+
+3. **Verification:** Cloudflare → **Deployments** shows a successful
+   build; `curl -sI https://tars.meeet.world/ | head -1` → `200`.
+
+**Do not** enable **both** wrangler deploy (valid API token in GitHub)
+**and** Cloudflare Git production builds on the same project unless you
+intend double deploys; pick **either** Step 2 **or** Step 2bis.
 
 ---
 

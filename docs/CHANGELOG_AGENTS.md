@@ -4,6 +4,29 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-04 — Cursor · Pages Plan B: Git build (`build:cf`) + drop broken GF API secret
+
+**Summary**
+
+**Problem:** Operator cannot mint **Cloudflare Pages → Edit** API tokens; wrangler
+preflight **403** blocked CI.
+
+**Fix:** **`npm run build:cf`** in **`experiments/neural-showcase-v3/package.json`**
+(`tsc -b && vite build`, no Python — uses committed **`CHANGELOG_PUBLIC.md`**).
+**`docs/TARS_MEEET_OPS_TODO.md` — Step 2bis:** Cloudflare Pages **Connect to Git**,
+build `npm ci && npm run build:cf`, output `dist`, env `NODE_VERSION=20`,
+`VITE_TARS_API`. Removed repo secret **`CLOUDFLARE_API_TOKEN`** on GitHub so
+probe **`ready=false`** → Actions stays **build-only green** until Plan B is wired.
+**Workflow** header documents deploy path **A|B**.
+
+**Files**
+
+- `experiments/neural-showcase-v3/package.json` (`build:cf`, `engines.node`)
+- `.github/workflows/tars-meeet-cloudflare-pages.yml`
+- `docs/TARS_MEEET_OPS_TODO.md` (CURRENT STATE + Step 2bis)
+- `docs/CHANGELOG_PUBLIC.md` (regenerated)
+- `docs/CHANGELOG_AGENTS.md` (this entry)
+
 ## 2026-05-04 — Cursor · ops: Pages 403 diagnose (accounts OK, Pages denied)
 
 **Summary**

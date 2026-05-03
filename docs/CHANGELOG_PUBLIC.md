@@ -4,6 +4,29 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-04 — Cursor · Pages Plan B: Git build (`build:cf`) + drop broken GF API secret
+
+**Summary**
+
+**Problem:** Operator cannot mint **Cloudflare Pages → Edit** API tokens; wrangler
+preflight **403** blocked CI.
+
+**Fix:** **`npm run build:cf`** in **`experiments/neural-showcase-v3/package.json`**
+(`tsc -b && vite build`, no Python — uses committed **`CHANGELOG_PUBLIC.md`**).
+**`docs/TARS_MEEET_OPS_TODO.md` — Step 2bis:** Cloudflare Pages **Connect to Git**,
+build `npm ci && npm run build:cf`, output `dist`, env `NODE_VERSION=20`,
+`VITE_TARS_API`. Removed repo secret **`CLOUDFLARE_API_TOKEN`** on GitHub so
+probe **`ready=false`** → Actions stays **build-only green** until Plan B is wired.
+**Workflow** header documents deploy path **A|B**.
+
+**Files**
+
+- `experiments/neural-showcase-v3/package.json` (`build:cf`, `engines.node`)
+- `.github/workflows/tars-meeet-cloudflare-pages.yml`
+- `docs/TARS_MEEET_OPS_TODO.md` (CURRENT STATE + Step 2bis)
+- `docs/CHANGELOG_PUBLIC.md` (regenerated)
+- `docs/CHANGELOG_AGENTS.md` (this entry)
+
 ## 2026-05-04 — Cursor · ops: Pages 403 diagnose (accounts OK, Pages denied)
 
 **Summary**
@@ -3835,53 +3858,6 @@ keeps the same behaviour.
 - `tests/test_meeet.py` — 8 (regression).
 - Full `pytest` — **1875 cases passed**.
 
-## 2026-05-01 — Cursor [A] · ContextVar bridge: action handlers auto-inherit thread_id
-
-**Summary**
-
-PRs #97 (policy) and #98 (council HTTP) plumbed `x-tars-thread-id`
-through the gate and the council's HTTP entry. The remaining gap was
-action handlers calling `get_council().deliberate(...)` from inside
-`invoke_action` (e.g. `business.daily_brief`,
-`traders.summarize_market`): those handlers don't see the request
-thread_id directly. This PR closes that gap with a `ContextVar`
-bridge so the value flows through asyncio context with no per-handler
-plumbing.
-
-**Changes**
-
-1. `backend/core/meeet/tracing.py`
-   - New `_thread: ContextVar[str | None]`, `current_thread_id()`,
-     and `thread_id_scope(thread_id)` context manager.
-   - `thread_id_scope(None)` and `thread_id_scope("")` are no-ops:
-     they keep the outer scope's value visible (a router that didn't
-     get the header doesn't accidentally clobber an outer value).
-   - Nested scopes never leak (token reset in `finally`).
-2. `backend/core/meeet/__init__.py` — export
-   `current_thread_id`, `thread_id_scope`.
-3. `web_extras/routers/domains.py` — `invoke_action` now wraps its
-   trace scope in `thread_id_scope(x_tars_thread_id)`. Also added
-   the same header to `awareness_snapshot` for parity.
-4. `web_extras/routers/policy.py` — `confirm` route opens
-   `thread_id_scope(confirmation.thread_id)` so a confirmed
-   destructive action's handler runs with the persisted thread id
-   bound.
-5. `backend/core/council/orchestrator.py` —
-   `deliberate(...)` falls back to `current_thread_id()` when no
-   explicit `thread_id` kwarg is passed; explicit kwarg still wins
-   for call-sites that want to retag.
-6. `tests/test_thread_id_contextvar.py` (new, 12 cases) covers
-   ContextVar primitives, council fallback, explicit-kwarg
-   precedence, and end-to-end flow through `invoke_action` /
-   `confirm` (via a fresh `thread_probe` test pack).
-
-**Tests**
-
-- `tests/test_thread_id_contextvar.py` — 12 cases.
-- `tests/test_council_thread_linkage.py` — 10 cases (regression).
-- `tests/test_policy_thread_linkage.py` — 12 cases (regression).
-- Full `pytest` — **1867 cases passed**.
-
 ---
 
-_Showing the most recent 60 of 190 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 191 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
