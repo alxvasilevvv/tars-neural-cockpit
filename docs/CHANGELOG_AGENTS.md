@@ -24,7 +24,7 @@ false positive).
 
 - `experiments/neural-showcase-v3/public/_redirects`
 - `.github/workflows/tars-meeet-cloudflare-pages.yml`
-- `../meeet-command-center/tools/resolution_monitor.py` (sister repo)
+- `meeet-command-center/tools/resolution_monitor.py` (sister repo; push separately)
 - `docs/CHANGELOG_AGENTS.md` (this entry)
 
 ## 2026-05-03 — Cursor · Pages workflow: Wrangler pin + npx non-interactive

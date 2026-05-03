@@ -117,6 +117,27 @@ jobs:
             echo "::warning::CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID not set; skipping deploy step. See docs/TARS_MEEET_OPS_TODO.md."
           fi
 
+      - name: Inspect Cloudflare API token (verify; no secret printed)
+        if: steps.probe.outputs.ready == 'true'
+        env:
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          t="${CF_TOKEN#Bearer }"
+          t="$(echo -n "$t" | tr -d '\r\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+          [[ -n "$t" ]] || { echo "::error::CLOUDFLARE_API_TOKEN is empty after trim"; exit 1; }
+          tmp="$(mktemp)"
+          code=$(curl -sS -o "$tmp" -w "%{http_code}" \
+            -H "Authorization: Bearer ${t}" \
+            "https://api.cloudflare.com/client/v4/user/tokens/verify")
+          if [[ "$code" != "200" ]] || ! jq -e '.success == true' "$tmp" >/dev/null 2>&1; then
+            echo "::error::Token verify failed (HTTP ${code}). Recreate token; paste only the token value (no Bearer prefix, no quotes). Body:"
+            head -c 1200 "$tmp" || true
+            exit 1
+          fi
+          echo "OK: Cloudflare token verify success; permission summary (see CF dashboard for full list):"
+          jq -r '.result | "  status=\(.status // "?")"' "$tmp" 2>/dev/null || true
+
       - name: Preflight — Cloudflare token can read Pages project
         if: steps.probe.outputs.ready == 'true'
         env:
@@ -124,13 +145,22 @@ jobs:
           CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
         run: |
           set -euo pipefail
+          CF_TOKEN="${CF_TOKEN#Bearer }"
+          CF_TOKEN="$(echo -n "$CF_TOKEN" | tr -d '\r\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+          CF_ACCOUNT="$(echo -n "$CF_ACCOUNT" | tr -d '\r\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+          [[ -n "$CF_TOKEN" && -n "$CF_ACCOUNT" ]] || { echo "::error::empty token or account id after trim"; exit 1; }
           tmp="$(mktemp)"
           code=$(curl -sS -o "$tmp" -w "%{http_code}" \
             -H "Authorization: Bearer ${CF_TOKEN}" \
             -H "Content-Type: application/json" \
             "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT}/pages/projects/tars-meeet")
           if [[ "$code" != "200" ]]; then
-            echo "::error::Cloudflare API GET pages/projects/tars-meeet returned HTTP ${code}. Token needs **Account → Cloudflare Pages → Edit** (and correct CLOUDFLARE_ACCOUNT_ID). Body (truncated):"
+            echo "::error::Cloudflare API GET pages/projects/tars-meeet returned HTTP ${code}."
+            echo "Fix: Cloudflare → My Profile → API Tokens → Create Custom Token:"
+            echo "  • Permission: **Account → Cloudflare Pages → Edit**"
+            echo "  • Account Resources: **Include → Specific account** matching CLOUDFLARE_ACCOUNT_ID (or All accounts)."
+            echo "  • Do not paste **Bearer** prefix into GitHub secret."
+            echo "Body (truncated):"
             head -c 1800 "$tmp" || true
             echo
             exit 1

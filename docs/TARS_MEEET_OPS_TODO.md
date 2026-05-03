@@ -147,6 +147,8 @@ state "No deployments yet".
 
 1. Cloudflare dashboard → **My Profile** → **API Tokens** → **Create Token** → use template **"Edit Cloudflare Workers"** (covers Pages too).
    - Scope to your account; permissions: `Account:Cloudflare Pages:Edit` is enough if the template feels too broad.
+   - **Account Resources:** set **Include → Specific account** and pick the account whose id matches **`CLOUDFLARE_ACCOUNT_ID`** (or **All accounts**). A token scoped only to Zone/DNS will **403** on `pages/projects`.
+   - Paste **only** the token string into GitHub (no `Bearer ` prefix, no quotes).
    - Save the token value — you won't see it again.
 2. Find your Account ID — **Workers & Pages** sidebar → top-right corner.
 3. GitHub → repo `alxvasilevvv/tars-neural-cockpit` → **Settings** → **Secrets and variables** → **Actions** → **New repository secret**:
