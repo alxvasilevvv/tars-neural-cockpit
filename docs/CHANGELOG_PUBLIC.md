@@ -4,6 +4,22 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-04 — Cursor · ops: push Cloudflare Pages API token + dispatch CI
+
+**Summary**
+
+**Operator:** `scripts/ops_push_cloudflare_pages_api_token.sh` + **`make ops-cf-pages-token`**
+— preflight **`GET …/pages/projects/tars-meeet`**, then **`gh secret set
+CLOUDFLARE_API_TOKEN`**, then **`gh workflow run`** (cannot mint CF tokens from
+the agent; requires dashboard token with **Account → Cloudflare Pages → Edit**).
+
+**Files**
+
+- `scripts/ops_push_cloudflare_pages_api_token.sh` (new)
+- `Makefile` (`ops-cf-pages-token`)
+- `docs/CHANGELOG_PUBLIC.md` (regenerated)
+- `docs/CHANGELOG_AGENTS.md` (this entry)
+
 ## 2026-05-03 — Cursor · Pages CI: token verify + trim + OPS Account Resources
 
 **Summary**
@@ -3882,49 +3898,6 @@ answering a chat turn.
 - `tests/test_council_parallel.py` — 17 cases (regression).
 - Full `pytest` — **1855 cases passed**.
 
-## 2026-05-01 — Cursor [A] · Policy gate: thread chat thread_id end-to-end through every policy.* event
-
-**Summary**
-
-Last PR's per-thread timeline now renders policy event summaries
-correctly *if* the events carry a `thread_id` — but no policy event
-ever did. This PR threads `x-tars-thread-id` from the action HTTP
-entry through the gate, persists it on the confirmation row (additive
-SQLite migration), and re-attaches it to every follow-up policy event
-(`policy.allowed` / `policy.queued` / `policy.blocked` /
-`policy.confirm` / `policy.cancelled` / `policy.expired`) so the
-cockpit per-thread audit lane finally fills in for chat-driven
-destructive actions.
-
-**Changes**
-
-1. `backend/core/policy/store.py` — `confirmations.thread_id TEXT`
-   column + additive migration on first connect; new field on
-   `PendingConfirmation`; `_create_sync` / `create` round-trip it;
-   `_row` defends against legacy rows missing the column.
-2. `backend/core/policy/gate.py` — `check(...)` accepts an optional
-   `thread_id` and forwards it to the store.
-3. `web_extras/routers/domains.py` — `invoke_action` reads
-   `x-tars-thread-id` header, passes it to the gate, and adds it to
-   the `policy.queued` / `policy.blocked` / `policy.allowed`
-   payloads (only when present — exact-match filter downstream).
-4. `web_extras/routers/policy.py` — `_attach_thread_id` helper plus
-   `policy.confirm` / `policy.cancelled` / `policy.expired` events
-   ride the row's persisted thread id.
-5. `web_extras/app.py` — `_policy_expire_loop` background tick copies
-   `c.thread_id` into each emitted `policy.expired` event.
-6. `tests/test_policy_thread_linkage.py` (new, 12 cases) covers the
-   round-trip across all four legs (store / HTTP entry /
-   confirm+cancel / expire route + loop).
-
-**Tests**
-
-- `tests/test_policy_thread_linkage.py` — 12 cases.
-- `tests/test_policy.py` — 10 cases (regression).
-- `tests/test_policy_expire_loop.py` — 15 cases (regression).
-- `tests/test_thread_timeline.py` — 27 cases (regression).
-- Full `pytest` — **1845 cases passed**.
-
 ---
 
-_Showing the most recent 60 of 188 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 189 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._

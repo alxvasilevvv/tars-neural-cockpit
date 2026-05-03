@@ -4,6 +4,22 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-04 — Cursor · ops: push Cloudflare Pages API token + dispatch CI
+
+**Summary**
+
+**Operator:** `scripts/ops_push_cloudflare_pages_api_token.sh` + **`make ops-cf-pages-token`**
+— preflight **`GET …/pages/projects/tars-meeet`**, then **`gh secret set
+CLOUDFLARE_API_TOKEN`**, then **`gh workflow run`** (cannot mint CF tokens from
+the agent; requires dashboard token with **Account → Cloudflare Pages → Edit**).
+
+**Files**
+
+- `scripts/ops_push_cloudflare_pages_api_token.sh` (new)
+- `Makefile` (`ops-cf-pages-token`)
+- `docs/CHANGELOG_PUBLIC.md` (regenerated)
+- `docs/CHANGELOG_AGENTS.md` (this entry)
+
 ## 2026-05-03 — Cursor · Pages CI: token verify + trim + OPS Account Resources
 
 **Summary**

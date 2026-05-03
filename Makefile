@@ -15,7 +15,7 @@ DESKTOP   ?= desktop
 .PHONY: help test test-product lint cockpit cockpit-build cockpit-tsc \
         cockpit-changelog-check acceptance-tars-meeet qa-agent qa-agent-json qa-loop qa-loop-once \
         gate-release backend backend-dev desktop-dev desktop-build \
-        smoke-core-bridge gate-control-tower ops-bridge-secret clean \
+        smoke-core-bridge gate-control-tower ops-bridge-secret ops-cf-pages-token clean \
         planner planner-stats planner-list planner-runs planner-show \
         planner-full planner-clone planner-rerun planner-replay-run \
         planner-repush-run planner-smoke \
@@ -331,6 +331,9 @@ gate-release:        ## full release readiness gate: pytest + cockpit + bridge +
 
 ops-bridge-secret:   ## one-shot: paste BRIDGE_SHARED_SECRET (Pages env + GH secret + redeploy + QA)
 	bash scripts/ops_set_bridge_shared_secret.sh
+
+ops-cf-pages-token:  ## verify CF token (Pages:Edit), push to GH, dispatch Pages workflow
+	bash scripts/ops_push_cloudflare_pages_api_token.sh
 
 # ---------------------------------------------------------------------
 # Housekeeping
