@@ -53,8 +53,12 @@ jobs:
     name: build · deploy
     runs-on: ubuntu-22.04
     # npm 10+ / npx is non-interactive on Actions — allow wrangler install without TTY.
+    # FORCE_JAVASCRIPT_ACTIONS_TO_NODE24 silences the Node 20 deprecation
+    # warning for actions/checkout, setup-node, setup-python (Node 20 EOL on
+    # GH-runners is 2026-09-16; default flips 2026-06-02).
     env:
       NPM_CONFIG_YES: "true"
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
       - uses: actions/checkout@v4
 

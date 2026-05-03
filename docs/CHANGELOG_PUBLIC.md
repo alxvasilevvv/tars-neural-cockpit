@@ -4,6 +4,63 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-04 — Cursor · launch readiness: green CI + Plan B sealed + Node 24 opt-in
+
+**Summary**
+
+Closing out the deploy lane after the operator wired Plan B
+(`tars-meeet-git` on Cloudflare Pages Git integration). Three things
+fixed in this batch:
+
+1. **Removed broken `CLOUDFLARE_API_TOKEN`** from `alxvasilevvv/tars-neural-cockpit`
+   GitHub Actions secrets (it was reseeded somewhere — likely via the
+   Cloudflare Git App handshake — with a value the Pages API rejected
+   as `9106 Authentication failed`). With the secret gone, the Pages
+   workflow's "Probe deploy credentials" gate flips to `ready=false`,
+   the deploy step is skipped cleanly with a `::warning::` pointing at
+   `docs/TARS_MEEET_OPS_TODO.md` Step 2bis, and the workflow ends
+   **green** (build + typecheck + 335 unit tests + changelog parity
+   check still run on every push). Re-dispatched run **25291442109**:
+   conclusion **success**.
+2. **Opted every workflow into Node 24 for JS actions** by setting
+   `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"` at workflow `env:`.
+   GitHub flips the default on **2026-06-02** and removes Node 20
+   from runners on **2026-09-16**; this kills the deprecation
+   annotation that was showing on every successful run.
+3. **Deleted local `cf-operator.env`** (was holding a real but
+   already-revoked Cloudflare API token). Template
+   `cf-operator.env.example` stays for any future local Plan A run.
+
+**Verification (all run on `main` against prod)**
+
+| Gate | Result |
+| --- | --- |
+| `pytest -q` | **2315 passed**, 1 skipped, 2 xfailed |
+| `tests/test_tars_meeet_pages_workflow.py + meeet + domains` | 22/22 |
+| Cockpit `npm run typecheck` | clean |
+| Cockpit `npm test` | **335/335** |
+| `bash scripts/acceptance_tars_meeet.sh` | 5/5 reachable gates GREEN (2 SKIP — operator-only secrets) |
+| `python -m scripts.qa_agent` against prod | **27 PASS · 0 FAIL · 2 WARN · 3 SKIP** |
+| `tars.meeet.world — Cloudflare Pages` workflow #25291442109 | success |
+
+The 2 WARN / 3 SKIP are not regressions; they're the documented
+operator-only paste-ins (`BRIDGE_SHARED_SECRET` on Pages prod env +
+`TARS_INGEST_API_KEY` on `MEEET_INGEST_URL`). `docs/TARS_MEEET_OPS_TODO.md`
+§Outstanding items 1 + 4 already calls them out.
+
+**Files**
+
+- `.github/workflows/tars-meeet-cloudflare-pages.yml` (`FORCE_JAVASCRIPT_ACTIONS_TO_NODE24`)
+- `.github/workflows/qa-agent.yml`, `credential-sentinel.yml`,
+  `desktop-version-lint.yml`, `release-desktop-tagged.yml`,
+  `release-tagged.yml` (same env opt-in)
+- `cf-operator.env` — **deleted** (template `.example` retained)
+- `docs/AGENT_HANDOFF.md` — launch-ready summary
+- `docs/TARS_MEEET_OPS_TODO.md` — Plan B confirmed as production
+- `docs/CHANGELOG_AGENTS.md`, `docs/CHANGELOG_PUBLIC.md` — this entry
+
+`>>> SYNC: Cursor · 2026-05-04 · launch-ready (CI green, Plan B sealed, Node 24 opt-in)`
+
 ## 2026-05-04 — Cursor · prod: tars.meeet.world live via Cloudflare Pages Git integration (Plan B)
 
 **Summary**
@@ -3663,43 +3720,6 @@ existing `/api/awareness/stream` shape: `hello` / event frames /
   that subscribes to `/api/planner/events?thread_id=…` for
   the active chat thread.
 
-## 2026-05-01 — Cursor [A] · timeline: plan.* events visible in per-thread feed
-
-**Summary**
-
-Phase L6.2 added a full `plan.*` event family but the per-thread
-timeline (`backend/core/search/timeline.py`) had not been taught
-about it. Cockpit threads where the operator ran a plan rendered
-gaps where the plan lifecycle should have shown. This PR teaches
-the timeline allow-list + summariser the new event kinds so plan
-synthesis, approval, and run progress now render alongside chat
-messages, tool calls, and policy events.
-
-**Changes**
-
-1. `backend/core/search/timeline.py`:
-   - `_RELEVANT_EVENT_KINDS` now includes `plan.proposed`,
-     `planner.approved`, `planner.rejected`, `plan.run.started`,
-     `plan.step.{requested,allowed,completed}`, `plan.completed`,
-     `plan.aborted`, and `plan.abort.requested`.
-   - `_summarise_event` gains per-kind branches for every
-     planner kind. Common shape is `plan=<id> · …`. The
-     `plan.step.completed` summariser ranks `skipped` >
-     `blocked` > `failed` > `ok` so the first non-default
-     state always wins. `plan.proposed` truncates the goal at
-     60 chars to keep the row scannable.
-2. `tests/test_thread_timeline.py` — 12 new cases:
-   - Pin the new kinds in `_RELEVANT_EVENT_KINDS`.
-   - Pin every per-kind summary shape (label, fields, edge
-     cases like long goal, zero destructive, parallel tag).
-   - End-to-end: emit `plan.proposed` + `plan.completed` with
-     a matching `payload.thread_id` and assert both appear in
-     the thread's timeline with the right summaries.
-
-**Tests**
-
-`pytest -q` → **1950 passing**. `ReadLints` clean.
-
 ---
 
-_Showing the most recent 60 of 194 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 195 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._

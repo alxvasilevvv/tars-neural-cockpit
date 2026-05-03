@@ -3,6 +3,24 @@
 Pick this up if you are continuing the work in a fresh chat. Read this file
 plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 
+> **2026-05-04 LAUNCH-READY snapshot.** `tars.meeet.world` is live
+> through Cloudflare Pages **Git integration** (project
+> `tars-meeet-git`, no `CLOUDFLARE_API_TOKEN` in GH). All gates green:
+> `pytest -q` → **2315 passed / 1 skipped / 2 xfailed**; cockpit
+> `npm run typecheck` clean + **335/335** unit tests; acceptance
+> `bash scripts/acceptance_tars_meeet.sh` 5/5 reachable PASS;
+> `python -m scripts.qa_agent` against prod **27 PASS · 0 FAIL · 2
+> WARN · 3 SKIP** (warns/skips are `BRIDGE_SHARED_SECRET` on Pages
+> prod env + `TARS_INGEST_API_KEY` for `MEEET_INGEST_URL` —
+> operator-only paste-ins, see `docs/TARS_MEEET_OPS_TODO.md`
+> §Outstanding 1 + 4); `tars.meeet.world — Cloudflare Pages` last
+> run **#25291442109** = success. Plan A (wrangler from Actions)
+> kept as documented fallback. The legacy Direct-Upload `tars-meeet`
+> Pages project still exists (no domain) — safe to delete from the
+> dashboard, no client uses it.
+>
+> `>>> SYNC: Cursor · 2026-05-04 · launch-ready snapshot`
+
 > **2026-05-01 LAUNCH-DAY pickup:** read `docs/LAUNCH_TODAY_2026-05-01.md`
 > first — it's the "what is green / what is the operator-only blocker"
 > snapshot taken just before opening the gate to public users. After

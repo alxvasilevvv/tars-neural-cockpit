@@ -23,6 +23,9 @@ on:
       - "desktop/src-tauri/tauri.conf.json"
       - ".github/workflows/desktop-version-lint.yml"
 
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
 permissions:
   contents: read
 

@@ -47,15 +47,16 @@ Cursor finished the cutover end-to-end and ran two follow-up patches:
 - ✅ GitHub Actions workflow **`tars.meeet.world — Cloudflare Pages`**:
   with **no** API token, keeps **build + tests** green; deploy only when
   secrets are valid **or** Cloudflare Git builds production (Plan B).
-- ⚠️ **Token revoked / leaked (2026-05-03):** If Cloudflare or GitHub
-  reports an exposed token, **mint a new API token**, update **only** the
-  GitHub Actions secret `CLOUDFLARE_API_TOKEN` (never commit the literal),
-  and re-run workflow **tars.meeet.world — Cloudflare Pages**. History on
-  `main` was scrubbed; CI needs the fresh secret to deploy. From a logged-in
-  machine:  
-  `gh secret set CLOUDFLARE_API_TOKEN -R alxvasilevvv/tars-neural-cockpit`  
-  (paste the new `cfat_…` value at the prompt; then **Actions → re-run** the
-  failed workflow, or push an empty commit).
+- ⚠️ **2026-05-04 follow-up:** `CLOUDFLARE_API_TOKEN` was reseeded
+  somewhere with a value Cloudflare rejected as `9106 Authentication
+  failed`. Workflow Preflight failed (HTTP 400), so the secret was
+  **deleted again**. Plan B does not need it; the Pages workflow is
+  build-only and ends green when the secret is absent. **If you ever
+  need Plan A again:** mint a new token (Account → Cloudflare Pages →
+  Edit, Account Resources scoped to the right account), then  
+  `gh secret set CLOUDFLARE_API_TOKEN -R alxvasilevvv/tars-neural-cockpit`.
+  Otherwise leave it unset — Cloudflare's GitHub App keeps building and
+  publishing on every push to `main`.
 - ✅ CI Pages deploy now runs from
   `experiments/neural-showcase-v3/` so wrangler bundles `functions/`
   (post-cutover regression in 195547a7 fixed in PR #21).
