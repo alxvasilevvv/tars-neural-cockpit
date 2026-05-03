@@ -1,17 +1,6 @@
 #!/usr/bin/env bash
-# scripts/ops_push_cloudflare_pages_api_token.sh
-#
-# Easiest path (paste-only):
-#   cp cf-operator.env.example cf-operator.env
-#   # edit cf-operator.env — two lines: ACCOUNT_ID + API_TOKEN
-#   make ops-cf-pages-token
-#
-# Or: export CLOUDFLARE_ACCOUNT_ID / CLOUDFLARE_API_TOKEN (or
-# CLOUDFLARE_API_TOKEN_NEW), or paste token at the hidden prompt.
-#
-# Steps: preflight GET …/pages/projects/tars-meeet → gh secret set → workflow run.
-#
-# Requires: curl, jq, gh (authenticated to GitHub).
+# cf-operator.env или env vars → gh secret CLOUDFLARE_API_TOKEN + dispatch Pages workflow.
+# Нужны: curl, jq, gh.
 
 set -euo pipefail
 

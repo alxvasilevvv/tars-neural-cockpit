@@ -4,7 +4,24 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
-## 2026-05-04 — Cursor · Pages Plan B: Git build (`build:cf`) + drop broken GF API secret
+## 2026-05-04 — Cursor · ops: shorten CF token path (cf-operator + script header)
+
+**Summary**
+
+Minimal **3-line** `cf-operator.env.example`, one-line Makefile/help + script banner; **TARS_MEEET_OPS_TODO**
+top «token → GitHub» blurb.
+
+**Files**
+
+- `cf-operator.env.example`
+- `cf-operator.env` (comment only; local)
+- `scripts/ops_push_cloudflare_pages_api_token.sh`
+- `Makefile`
+- `docs/TARS_MEEET_OPS_TODO.md`
+- `docs/CHANGELOG_PUBLIC.md` (regenerated)
+- `docs/CHANGELOG_AGENTS.md` (this entry)
+
+## 2026-05-04 — Cursor · Pages Plan B: Git build (`build:cf`) + drop broken CF API secret
 
 **Summary**
 

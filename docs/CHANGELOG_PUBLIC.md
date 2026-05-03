@@ -4,7 +4,24 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
-## 2026-05-04 — Cursor · Pages Plan B: Git build (`build:cf`) + drop broken GF API secret
+## 2026-05-04 — Cursor · ops: shorten CF token path (cf-operator + script header)
+
+**Summary**
+
+Minimal **3-line** `cf-operator.env.example`, one-line Makefile/help + script banner; **TARS_MEEET_OPS_TODO**
+top «token → GitHub» blurb.
+
+**Files**
+
+- `cf-operator.env.example`
+- `cf-operator.env` (comment only; local)
+- `scripts/ops_push_cloudflare_pages_api_token.sh`
+- `Makefile`
+- `docs/TARS_MEEET_OPS_TODO.md`
+- `docs/CHANGELOG_PUBLIC.md` (regenerated)
+- `docs/CHANGELOG_AGENTS.md` (this entry)
+
+## 2026-05-04 — Cursor · Pages Plan B: Git build (`build:cf`) + drop broken CF API secret
 
 **Summary**
 
@@ -3814,50 +3831,6 @@ per-thread audit lane shows planner activity per chat.
 `plan.completed` / `plan.aborted` events from L6.2, plus
 `POST /api/planner/{plan_id}/run` and abort.
 
-## 2026-05-01 — Cursor [A] · MeeetClient.emit auto-injects thread_id from contextvar
-
-**Summary**
-
-After the ContextVar bridge (PR #99), every router that handles
-`x-tars-thread-id` opens `thread_id_scope(...)` so the active chat
-thread id rides on the asyncio context. This PR completes the loop
-by having `MeeetClient.emit(...)` automatically copy the contextvar's
-value into `payload['thread_id']` when the contextvar is set AND the
-caller didn't already place `thread_id` in the payload.
-
-This collapses the manual `if x_tars_thread_id: payload['thread_id']
-= ...` blocks scattered across routers and orchestrators down to a
-single auto-injection at the bridge boundary. Existing call-sites
-that explicitly set `thread_id` always win — the contextvar is a
-fallback, not an override — so the policy router's per-row re-attach
-keeps the same behaviour.
-
-**Changes**
-
-1. `backend/core/meeet/client.py` — `emit(...)` now reads
-   `current_thread_id()` and copies it into the merged payload when
-   the field is missing. The caller's payload dict is NOT mutated
-   (defensive `dict(payload or {})` copy already happens).
-2. `tests/test_meeet_auto_thread_id.py` (new, 8 cases) covers
-   the happy path, no-op without contextvar, no-op for empty string,
-   explicit-payload precedence (incl. explicit None), nested scope
-   resolution, immutable caller payload, and `emit(kind)` with no
-   payload arg.
-
-**Tests**
-
-- `tests/test_meeet_auto_thread_id.py` — 8 cases.
-- `tests/test_thread_id_contextvar.py` — 12 (regression).
-- `tests/test_council_thread_linkage.py` — 10 (regression).
-- `tests/test_policy_thread_linkage.py` — 12 (regression).
-- `tests/test_council.py` — 8 (regression).
-- `tests/test_council_parallel.py` — 17 (regression).
-- `tests/test_policy.py` — 10 (regression).
-- `tests/test_policy_expire_loop.py` — 15 (regression).
-- `tests/test_thread_timeline.py` — 27 (regression).
-- `tests/test_meeet.py` — 8 (regression).
-- Full `pytest` — **1875 cases passed**.
-
 ---
 
-_Showing the most recent 60 of 191 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 192 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._

@@ -14,6 +14,9 @@ so both agents see the unblock.
 
 Estimated total time: **30 minutes**.
 
+**Cloudflare token → GitHub (коротко):**  
+`cp cf-operator.env.example cf-operator.env` → вставь **Account ID** и **`cfat_…`** (Cloudflare → Account → Cloudflare Pages → **Edit**) → `make ops-cf-pages-token`.
+
 ---
 
 ## CURRENT STATE — `tars.meeet.world` IS LIVE 2026-05-01 04:34 UTC
