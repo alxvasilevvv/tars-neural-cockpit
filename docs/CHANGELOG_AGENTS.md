@@ -4,6 +4,22 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-03 — Cursor · TARS repo public + `scripts/install-tars.sh` (B-001)
+
+**Summary**
+
+`gh repo edit … --visibility public --accept-visibility-change-consequences`
+so anonymous clients can fetch GitHub Release v8.4.0 assets linked from
+`GET /api/product/downloads`. Added root **`scripts/install-tars.sh`**
+for **`meeet.world/install.sh`** redirect (raw.githubusercontent.com).
+**Security:** audit git history for any committed secrets now that the
+repo is public.
+
+**Files**
+
+- `scripts/install-tars.sh`
+- `docs/CHANGELOG_AGENTS.md` (this entry)
+
 ## 2026-05-03 — Cursor · AGENT_HANDOFF: B-001 ship + deploy refs
 
 **Summary**

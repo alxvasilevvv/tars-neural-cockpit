@@ -22,6 +22,14 @@ plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 > Naming: product = **TARS**. Older copy may say "Jarvis" — replace in copy
 > when editing. Folder name `Jarvis/jarvis` stays for path stability.
 
+> **2026-05-03 — Repo visibility:** **`alxvasilevvv/tars-neural-cockpit`**
+> is **public** so `releases/download/*` works for anonymous installs (B-001).
+> **Audit:** ensure no secrets in git history. **`scripts/install-tars.sh`**
+> on `main` supports **`meeet.world/install.sh`** via redirect from
+> **`meeet-solana-state` PR #40** (deploy meeet.world for live).
+>
+> `>>> SYNC: Cursor · 2026-05-03 · public repo + install script`
+
 > **2026-05-03 — B-001 (downloads manifest):** Pages Function
 > `experiments/neural-showcase-v3/functions/api/product/downloads.ts` now
 > points `artifacts[].url` at **GitHub Release v8.4.0** (Tauri filenames), not
