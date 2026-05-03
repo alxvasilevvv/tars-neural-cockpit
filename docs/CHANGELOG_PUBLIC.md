@@ -12,11 +12,12 @@ factual; prose belongs in `AGENT_HANDOFF.md`.
 paste **`CLOUDFLARE_ACCOUNT_ID`** + **`CLOUDFLARE_API_TOKEN`**, run **`make ops-cf-pages-token`**.
 **`scripts/ops_push_cloudflare_pages_api_token.sh`** preflights **GET …/pages/projects/tars-meeet**,
 then **`gh secret set CLOUDFLARE_API_TOKEN`** + **`gh workflow run`** (dashboard token must have
-**Account → Cloudflare Pages → Edit**).
+**Account → Cloudflare Pages → Edit**). **`cf-operator.env.example`** / локальный **`cf-operator.env`**
+— пошаговые подсказки где взять ID и token.
 
 **Files**
 
-- `cf-operator.env.example` (new)
+- `cf-operator.env.example` (paste template + hints)
 - `.gitignore` (`cf-operator.env`)
 - `scripts/ops_push_cloudflare_pages_api_token.sh`
 - `Makefile` (`ops-cf-pages-token`)
