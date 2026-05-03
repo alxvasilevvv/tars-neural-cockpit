@@ -4,6 +4,22 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-03 — Cursor · Pages CI: token verify + trim + OPS Account Resources
+
+**Summary**
+
+**Workflow:** optional **`/user/tokens/verify`** is **warning-only** (that endpoint
+needs **User → User Details → Read**; Pages-only tokens skip it). **Preflight**
+still trims secrets and enforces **GET pages/projects/tars-meeet**.
+
+**Docs:** **`TARS_MEEET_OPS_TODO.md`** Step 2 — Account Resources + paste rules.
+
+**Files**
+
+- `.github/workflows/tars-meeet-cloudflare-pages.yml`
+- `docs/TARS_MEEET_OPS_TODO.md`
+- `docs/CHANGELOG_AGENTS.md` (this entry)
+
 ## 2026-05-03 — Cursor · B-001: legacy installers on tars + CF preflight + hybrid monitor
 
 **Summary**
@@ -3909,76 +3925,6 @@ destructive actions.
 - `tests/test_thread_timeline.py` — 27 cases (regression).
 - Full `pytest` — **1845 cases passed**.
 
-## 2026-05-01 — Cursor [A] · Per-thread timeline: fix policy event names + summariser bug, expand kinds
-
-**Summary**
-
-The per-thread timeline (`backend/core/search/timeline.py`,
-`GET /api/chat/threads/{id}/timeline`) was untested and three things
-were quietly wrong:
-
-1. `_RELEVANT_EVENT_KINDS` listed event names that nobody emits
-   (`policy.confirmed`, `policy.rejected`, `playbook.step.failed`)
-   and missed real ones (`policy.confirm`, `policy.cancelled`,
-   `policy.blocked`, `policy.expired`, `playbook.started`,
-   `playbook.completed`, `council.deliberation.{started,completed}`).
-2. `_summarise_event` for `policy.*` read `payload['action_id']` but
-   every router emits `payload['action']` — the cockpit always
-   showed `action=?`.
-3. There were no summarisers for playbook / sampler / council
-   events at all, so the cockpit rendered an empty string.
-
-**Changes**
-
-1. `backend/core/search/timeline.py`
-   - Fixed `_RELEVANT_EVENT_KINDS` to match the real event surface
-     (added the six missing entries; dropped the three phantom
-     names; added the two `council.deliberation.*` events).
-   - Fixed the `policy.*` summariser to read `payload['action']`
-     and added rich rendering: `slug=… · action=… · token=…` plus
-     `expired_at=…` when the event is `policy.expired`.
-   - Added summarisers for `sampler.decision` (winner / stance /
-     agreement / cost / parallel tag), `council.deliberation.*`
-     (voices+topic on started, chosen+winner_model+agreement on
-     completed), and `playbook.{started,step.completed,completed}`
-     (steps run / blocked / failed counts).
-
-2. **Tests** (`tests/test_thread_timeline.py`, 27 cases new — the
-   module was previously untested):
-   - `_RELEVANT_EVENT_KINDS` shape: tuple of unique non-empty
-     strings; covers all real `policy.*` / `playbook.*` /
-     `council.deliberation.*` events; drops the three phantom
-     names so a regression can't re-introduce them.
-   - `_summarise_event` per-kind shapes: voice / usage / attachment
-     / chat tool call / chat context retrieved each render the
-     right fields.
-   - `policy.*` summariser: reads `action`, never falls back to
-     `action_id`; `policy.blocked` handles missing token; an
-     empty payload still produces a renderable string;
-     `policy.expired` includes `expired_at`.
-   - `sampler.decision`: renders winner / stance / agreement /
-     cost / `parallel` tag; omits the parallel tag when false.
-   - `council.deliberation.{started,completed}`: each renders
-     the canonical field set.
-   - `playbook.*`: started carries id / steps / mode; step.completed
-     marks the blocked / failed / ok paths and the parallel tag;
-     completed surfaces run / blocked / failed counts.
-   - End-to-end `get_thread_timeline`: merges chat messages with a
-     thread-tagged `policy.allowed` event; filters out events
-     tagged for a *different* thread; returns empty for unknown /
-     blank thread ids.
-
-**Files touched**
-
-- `backend/core/search/timeline.py`
-- `tests/test_thread_timeline.py` (new, 27 cases)
-
-**Test status**
-
-- New suite: `tests/test_thread_timeline.py` — 27 passing.
-- Full suite: **1833 passing** (was 1806; +27).
-- Lints: clean on touched files.
-
 ---
 
-_Showing the most recent 60 of 187 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 188 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._

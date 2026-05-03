@@ -117,26 +117,30 @@ jobs:
             echo "::warning::CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID not set; skipping deploy step. See docs/TARS_MEEET_OPS_TODO.md."
           fi
 
-      - name: Inspect Cloudflare API token (verify; no secret printed)
+      - name: Inspect Cloudflare API token (optional verify)
         if: steps.probe.outputs.ready == 'true'
         env:
           CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
         run: |
-          set -euo pipefail
+          set -uo pipefail
           t="${CF_TOKEN#Bearer }"
           t="$(echo -n "$t" | tr -d '\r\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
-          [[ -n "$t" ]] || { echo "::error::CLOUDFLARE_API_TOKEN is empty after trim"; exit 1; }
+          if [[ -z "$t" ]]; then
+            echo "::warning::CLOUDFLARE_API_TOKEN empty after trim — deploy will fail"
+            exit 0
+          fi
           tmp="$(mktemp)"
           code=$(curl -sS -o "$tmp" -w "%{http_code}" \
             -H "Authorization: Bearer ${t}" \
             "https://api.cloudflare.com/client/v4/user/tokens/verify")
-          if [[ "$code" != "200" ]] || ! jq -e '.success == true' "$tmp" >/dev/null 2>&1; then
-            echo "::error::Token verify failed (HTTP ${code}). Recreate token; paste only the token value (no Bearer prefix, no quotes). Body:"
-            head -c 1200 "$tmp" || true
-            exit 1
+          # Verify API requires User → User Details → Read on the token; many
+          # deploy-only tokens omit it — do **not** fail the job on 401/403 here.
+          if [[ "$code" == "200" ]] && jq -e '.success == true' "$tmp" >/dev/null 2>&1; then
+            echo "OK: token verify (User Details scope present)"
+            jq -r '.result | "  status=\(.status // "?")"' "$tmp" 2>/dev/null || true
+          else
+            echo "::warning::Skipping token verify (HTTP ${code}) — normal if token has Pages-only scopes. Pages preflight will still enforce deploy rights."
           fi
-          echo "OK: Cloudflare token verify success; permission summary (see CF dashboard for full list):"
-          jq -r '.result | "  status=\(.status // "?")"' "$tmp" 2>/dev/null || true
 
       - name: Preflight — Cloudflare token can read Pages project
         if: steps.probe.outputs.ready == 'true'

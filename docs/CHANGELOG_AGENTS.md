@@ -4,6 +4,22 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-03 — Cursor · Pages CI: token verify + trim + OPS Account Resources
+
+**Summary**
+
+**Workflow:** optional **`/user/tokens/verify`** is **warning-only** (that endpoint
+needs **User → User Details → Read**; Pages-only tokens skip it). **Preflight**
+still trims secrets and enforces **GET pages/projects/tars-meeet**.
+
+**Docs:** **`TARS_MEEET_OPS_TODO.md`** Step 2 — Account Resources + paste rules.
+
+**Files**
+
+- `.github/workflows/tars-meeet-cloudflare-pages.yml`
+- `docs/TARS_MEEET_OPS_TODO.md`
+- `docs/CHANGELOG_AGENTS.md` (this entry)
+
 ## 2026-05-03 — Cursor · B-001: legacy installers on tars + CF preflight + hybrid monitor
 
 **Summary**
