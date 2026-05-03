@@ -4,6 +4,39 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-03 — Cursor · OPS TODO: Cloudflare token rotation after Secret Scanning
+
+**Summary**
+
+`docs/TARS_MEEET_OPS_TODO.md` — bullet under CURRENT STATE: if GitHub /
+Cloudflare revokes an exposed token, mint a new one, update **only** the
+`CLOUDFLARE_API_TOKEN` GitHub secret, re-run Pages workflow; never commit
+literals (ties to 2026-05-03 history scrub + user email). **`docs/SYNC.md`**
+handoff row + “Last updated” stamp for the same slice.
+
+**Files**
+
+- `docs/TARS_MEEET_OPS_TODO.md`
+- `docs/SYNC.md`
+- `docs/CHANGELOG_AGENTS.md` (this entry)
+
+## 2026-05-03 — Cursor · Cloudflare API token leak remediation (git history)
+
+**Summary**
+
+GitHub Secret Scanning surfaced a **`cfat_…`** literal pasted in
+`docs/TARS_MEEET_OPS_TODO.md` (May 1 cutover commits); Cloudflare auto-revoked
+the token. **Current tree was already clean** (removed in a follow-up commit).
+Rewrote **all** history with `git filter-repo --replace-text`, replacing the
+literal with `<REDACTED_CF_API_TOKEN>`, then **force-pushed** `main`, tags, and
+active branches to `origin`. **Operator:** create a **new** API token and update
+GitHub Actions secret **`CLOUDFLARE_API_TOKEN`**; re-run the Pages workflow.
+
+**Files**
+
+- Entire repo history (no content changes at `HEAD` beyond this log).
+- `docs/CHANGELOG_AGENTS.md` (this entry)
+
 ## 2026-05-03 — Cursor · TARS repo public + `scripts/install-tars.sh` (B-001)
 
 **Summary**
@@ -4122,150 +4155,6 @@ decomposition. Every science action now ships a real adapter.
 
 ---
 
-## 2026-05-01 — Cursor [A] · `mlm.update_member` + `mlm.list_members` close downline lifecycle
-
-**Summary**
-
-Closes the MLM downline lifecycle to match what just landed for the
-business pack: `add_member` writes, `downline_snapshot` /
-`retention_alert` summarise, but operators had no patch-style update
-path and no read-only "show me everyone in this branch" surface.
-This batch ships both.
-
-1. **DB helper** (`backend/core/domains/packs/mlm/db.py`)
-   - New `_parse_iso_loose` shared helper for tolerant ISO date /
-     datetime parsing (used by the `recent_days` filter and by the
-     action's timestamp validation).
-   - New `update_member_sync` / async `update_member(handle, updates)`.
-     Allowed fields: `sponsor / rank / joined_at / last_active_at /
-     volume_usd / notes`. Patch semantics: `""` clears an optional
-     string, `None` (or omission) leaves it untouched, `volume_usd`
-     must be a non-negative finite number.
-   - `update_member` returns `(member, changed_fields)`; an unknown
-     handle yields `(None, [])` (action layer maps to error code).
-   - `list_members(*, sponsor, rank, recent_days, limit)`: SQL
-     filters for sponsor / rank (case-insensitive equality), Python
-     post-filter for `recent_days` (uses `_parse_iso_loose` so
-     non-ISO strings are quietly excluded), positive-int `limit`.
-     Default no-arg call returns all rows in handle order (existing
-     behaviour preserved).
-
-2. **Actions** (`backend/core/domains/packs/mlm/actions.py`)
-   - New `update_member` handler with stable error envelopes
-     (`handle_required`, `no_updates`, `member_not_found`,
-     `volume_invalid`, `invalid_ts`).
-   - Returns `{ok, handle, member, unchanged, changed_fields,
-     db_path}`. `member` is the full row, including `updated_at`.
-     Idempotent: a no-op patch returns `unchanged=True` and emits
-     no event.
-   - Emits `mlm.member_updated` (handle, changed_fields, rank,
-     db_path) on the first transition.
-   - `ActionSpec` registered as `destructive=True`; rank enum
-     mirrors `add_member`.
-   - New `list_members` handler. Read-only; non-destructive; no
-     policy gate. Returns `{ok, count, members, db_path, filters,
-     summary}` with `summary.by_rank` (count by rank) and
-     `summary.total_volume_usd` (rounded sum) so the cockpit
-     renders a sidecar without a second pass. `limit` clamped to
-     `[1, 1000]`; garbage falls back to `None`.
-   - `recent_days` clamped to `[1, 3650]` in the schema.
-
-3. **Tests** (+33 new cases in
-   `tests/test_mlm_update_and_list_members.py`, 1 update in
-   `tests/test_policy.py`)
-   - `_parse_iso_loose`: accepts dates / datetimes / `Z` / offsets;
-     rejects garbage and blanks.
-   - `DownlineDB.update_member`: rank case-normalisation, idempotent
-     re-call, unknown handle, blank handle, invalid volume, optional
-     string clear vs None-skip, ignores fields outside the schema.
-   - `DownlineDB.list_members`: default returns all, sponsor / rank
-     normalisation, `recent_days` cutoff, positive-int `limit`.
-   - `update_member` action: happy path, missing / blank handle,
-     no_updates, unknown handle, invalid volume, invalid timestamp
-     payload, idempotent no-event, clearing optional string.
-   - `list_members` action: envelope + summary correctness, sponsor
-     / rank filters with case-normalisation, `recent_days` cutoff,
-     `limit` clamp, garbage `limit` falls back to None, total
-     volume rollup, empty-DB envelope.
-   - Spec wiring: `update_member` is destructive with `handle`
-     required; `list_members` is non-destructive with optional
-     filters.
-   - `test_action_specs_marked_destructive` extended to include
-     `("mlm", "update_member")`.
-
-**Test suite**: 1750 passed (was 1717). Lints clean.
-
-**Files**
-
-- `backend/core/domains/packs/mlm/db.py`
-- `backend/core/domains/packs/mlm/actions.py`
-- `tests/test_mlm_update_and_list_members.py` (new)
-- `tests/test_policy.py`
-- `docs/CHANGELOG_AGENTS.md`
-- `docs/AGENT_HANDOFF.md`
-- `docs/IDEAS.md`
-
 ---
 
-## 2026-05-01 — Cursor [A] · `business.local_deals` awareness source
-
-**Summary**
-
-Mirrors `traders.local_alerts` for the business pack: the existing
-awareness machinery can now subscribe to `business.local_deals` and
-surface a structured snapshot of currently-active local deals via
-`/api/domains/business/awareness/local_deals/snapshot` — no custom
-plumbing required.
-
-1. **Awareness fetcher** (`backend/core/domains/packs/business/awareness.py`)
-   - New `_fetch_local_deals(args)` reads via `read_local_deals`.
-   - Defaults: `active_only=True`, `limit=50` (clamped to `[1, 200]`).
-   - Optional `stage` and `owner` filters with case-insensitive
-     normalisation surfaced in the response `filters` block.
-   - Always returns a structurally-stable envelope so the cockpit
-     can bind unconditionally: `as_of`, `path`, `exists`, `count`,
-     `pipeline_usd`, `by_stage`, `by_owner`, `filters`, `deals`.
-   - `pipeline_usd` excludes terminal stages (`won` / `lost`) so
-     the ticker shows only money still in motion.
-   - `OSError` mapped to `local_deals_unreadable` for telemetry;
-     missing store still returns `ok=True` with `count=0` and
-     `exists=False`.
-
-2. **`AwarenessSource` registration** (same file)
-   - New entry `local_deals` (kind `local`) advertises
-     `path=~/.tars/business_deals.json`, `active_only=true`,
-     `limit=50` so the cockpit form renders sensible defaults.
-
-3. **Tests** (+13 new cases in `tests/test_business_deals_awareness.py`,
-   1 update in `tests/test_awareness_fetchers.py`)
-   - Defaults: snapshot is active-only, returns the right envelope
-     keys, exposes the resolved store path.
-   - Terminal inclusion: `active_only=False` surfaces won / lost
-     rows and `pipeline_usd` correctly excludes terminal amounts.
-   - Missing store: structurally-stable empty envelope, never raises.
-   - Path override: explicit `path` arg beats env.
-   - Aggregations: `by_stage` + `by_owner` rollups, `pipeline_usd`
-     respects terminal-stage exclusion.
-   - Owner / stage filter normalisation.
-   - Limit clamps to 200, garbage falls back to 50, tail-takes most
-     recent.
-   - Pack wiring: `find_awareness("local_deals")` returns a live
-     fetcher, `to_dict()` marks it `live=True kind="local"`.
-   - Existing live-fetcher membership pin extended.
-
-**Test suite**: 1717 passed (was 1703). Lints clean.
-
-**Files**
-
-- `backend/core/domains/packs/business/awareness.py`
-- `tests/test_business_deals_awareness.py` (new)
-- `tests/test_awareness_fetchers.py`
-- `docs/CHANGELOG_AGENTS.md`
-- `docs/AGENT_HANDOFF.md`
-- `docs/IDEAS.md`
-
----
-
----
-
-_Showing the most recent 60 of 182 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 184 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
