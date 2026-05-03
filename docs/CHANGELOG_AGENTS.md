@@ -4,6 +4,22 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-03 — Cursor · OPS TODO: Cloudflare token rotation after Secret Scanning
+
+**Summary**
+
+`docs/TARS_MEEET_OPS_TODO.md` — bullet under CURRENT STATE: if GitHub /
+Cloudflare revokes an exposed token, mint a new one, update **only** the
+`CLOUDFLARE_API_TOKEN` GitHub secret, re-run Pages workflow; never commit
+literals (ties to 2026-05-03 history scrub + user email). **`docs/SYNC.md`**
+handoff row + “Last updated” stamp for the same slice.
+
+**Files**
+
+- `docs/TARS_MEEET_OPS_TODO.md`
+- `docs/SYNC.md`
+- `docs/CHANGELOG_AGENTS.md` (this entry)
+
 ## 2026-05-03 — Cursor · Cloudflare API token leak remediation (git history)
 
 **Summary**

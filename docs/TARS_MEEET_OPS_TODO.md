@@ -32,6 +32,11 @@ Cursor finished the cutover end-to-end and ran two follow-up patches:
 - ✅ GitHub repo secrets `CLOUDFLARE_API_TOKEN` + `CLOUDFLARE_ACCOUNT_ID`
   pushed via gh CLI — the deploy workflow runs autonomously on push to
   main and PRs.
+- ⚠️ **Token revoked / leaked (2026-05-03):** If Cloudflare or GitHub
+  reports an exposed token, **mint a new API token**, update **only** the
+  GitHub Actions secret `CLOUDFLARE_API_TOKEN` (never commit the literal),
+  and re-run workflow **tars.meeet.world — Cloudflare Pages**. History on
+  `main` was scrubbed; CI needs the fresh secret to deploy.
 - ✅ CI Pages deploy now runs from
   `experiments/neural-showcase-v3/` so wrangler bundles `functions/`
   (post-cutover regression in 195547a7 fixed in PR #21).
