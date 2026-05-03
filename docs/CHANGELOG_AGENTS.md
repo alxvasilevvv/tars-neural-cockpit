@@ -4,6 +4,23 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-03 — Cursor · Cloudflare API token leak remediation (git history)
+
+**Summary**
+
+GitHub Secret Scanning surfaced a **`cfat_…`** literal pasted in
+`docs/TARS_MEEET_OPS_TODO.md` (May 1 cutover commits); Cloudflare auto-revoked
+the token. **Current tree was already clean** (removed in a follow-up commit).
+Rewrote **all** history with `git filter-repo --replace-text`, replacing the
+literal with `<REDACTED_CF_API_TOKEN>`, then **force-pushed** `main`, tags, and
+active branches to `origin`. **Operator:** create a **new** API token and update
+GitHub Actions secret **`CLOUDFLARE_API_TOKEN`**; re-run the Pages workflow.
+
+**Files**
+
+- Entire repo history (no content changes at `HEAD` beyond this log).
+- `docs/CHANGELOG_AGENTS.md` (this entry)
+
 ## 2026-05-03 — Cursor · TARS repo public + `scripts/install-tars.sh` (B-001)
 
 **Summary**
