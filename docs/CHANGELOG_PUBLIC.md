@@ -4,6 +4,29 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-03 — Cursor · B-001: legacy installers on tars + CF preflight + hybrid monitor
+
+**Summary**
+
+**TARS `public/_redirects`:** `/dl/TARS-8.4.0-*` and `/install.sh` now **302** to
+GitHub Release / raw install script (replacing `/install.sh → /install`); human
+page stays **`/install`**.
+
+**CI:** **Preflight** step `GET …/pages/projects/tars-meeet` with jq — fails fast
+with a clear error when the GitHub secret token lacks **Account → Cloudflare
+Pages → Edit** (avoids opaque Wrangler **10000**).
+
+**meeet-command-center** `resolution_monitor` B-001: each legacy path must
+**sniff** as non-HTML on **meeet.world** *or* **tars.meeet.world** (no SPA
+false positive).
+
+**Files**
+
+- `experiments/neural-showcase-v3/public/_redirects`
+- `.github/workflows/tars-meeet-cloudflare-pages.yml`
+- `../meeet-command-center/tools/resolution_monitor.py` (sister repo)
+- `docs/CHANGELOG_AGENTS.md` (this entry)
+
 ## 2026-05-03 — Cursor · Pages workflow: Wrangler pin + npx non-interactive
 
 **Summary**
@@ -3956,87 +3979,6 @@ were quietly wrong:
 - Full suite: **1833 passing** (was 1806; +27).
 - Lints: clean on touched files.
 
-## 2026-05-01 — Cursor [A] · Policy gate auto-expires stale confirmations + emits `policy.expired`
-
-**Summary**
-
-Closed two latent operator-workflow gaps in the destructive-action
-policy gate:
-
-1. Nothing automatically reaped stale `pending` confirmations — a
-   token sat in the cockpit's "approval inbox" forever unless an
-   operator manually hit `POST /api/policy/expire`. With one or two
-   ignored confirmations a day this would silently grow.
-2. The expire path emitted **no** meeet event — the cockpit
-   gold-pill audit lane / `/api/pairing/audit` feed showed
-   `policy.queued` going in but never saw the matching `expired`
-   coming out. The audit story was incomplete.
-
-**Changes**
-
-1. `backend/core/policy/store.py`
-   - `_expire_sync(before_ts)` now selects past-TTL pending rows
-     first, atomically updates them by primary key, then re-fetches
-     the freshly-updated rows so callers can emit per-token events
-     with `status='expired'` / `resolved_at=now`.
-   - `expire_stale()` returns `list[PendingConfirmation]` instead
-     of `int` — callers that only want a count do
-     `len(await store.expire_stale())`.
-   - Skips rows with `expires_at IS NULL` (TTL is optional, NULL
-     means "never auto-expire").
-
-2. `web_extras/routers/policy.py`
-   - `POST /api/policy/expire` now emits one `policy.expired`
-     meeet event per reaped token (carrying
-     `{token, slug, action, expired_at, trace_id}`) and returns
-     the new `tokens` array alongside the existing `expired`
-     count.
-
-3. `web_extras/app.py`
-   - New `_policy_expire_interval_s()` env helper reading
-     `TARS_POLICY_EXPIRE_INTERVAL_S` (default `0` = off, mirrors
-     the `_memory_purge_loop` opt-in pattern).
-   - New `_policy_expire_loop()` background task: opt-in by
-     interval, runs `PolicyStore.expire_stale()` every tick,
-     emits `policy.expired` per token, logs counts at INFO. Crash-
-     isolated: any `Exception` (excluding `CancelledError`) is
-     logged at WARNING and the loop keeps ticking.
-   - Lifespan registers the task as `policy-expire-loop`
-     alongside the existing background loops.
-
-4. **Tests** (`tests/test_policy_expire_loop.py`, 15 cases new;
-   `tests/test_policy.py` updated for the new return shape):
-   - `expire_stale()` shape: empty list when nothing pending; only
-     past-TTL rows; never flips `confirmed`/`cancelled` rows;
-     respects `expires_at IS NULL`; idempotent on re-run.
-   - Env helper: default off, parses positive, clamps negative,
-     falls back on garbage.
-   - Loop: short-circuits when disabled; one tick expires all
-     stale tokens AND emits a `policy.expired` event per token
-     (with the right slug/action/expired_at fields); fresh rows
-     stay pending; no emit when nothing expired (silent on a
-     healthy machine); SQLite blip on `expire_stale` logs a
-     WARNING and the loop keeps ticking; lifespan spawns the task
-     under the canonical name even when interval=0.
-   - HTTP: `POST /api/policy/expire` route emits the same per-
-     token event shape as the loop so the cockpit treats both
-     paths uniformly.
-
-**Files touched**
-
-- `backend/core/policy/store.py`
-- `web_extras/routers/policy.py`
-- `web_extras/app.py`
-- `tests/test_policy.py` (updated existing `test_store_expire_stale`)
-- `tests/test_policy_expire_loop.py` (new, 15 cases)
-
-**Test status**
-
-- New suite: `tests/test_policy_expire_loop.py` — 15 passing.
-- Updated suite: `tests/test_policy.py` — 10 passing.
-- Full suite: **1806 passing** (was 1791; +15).
-- Lints: clean on touched files.
-
 ---
 
-_Showing the most recent 60 of 186 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 187 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._

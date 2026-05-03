@@ -4,6 +4,29 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-03 — Cursor · B-001: legacy installers on tars + CF preflight + hybrid monitor
+
+**Summary**
+
+**TARS `public/_redirects`:** `/dl/TARS-8.4.0-*` and `/install.sh` now **302** to
+GitHub Release / raw install script (replacing `/install.sh → /install`); human
+page stays **`/install`**.
+
+**CI:** **Preflight** step `GET …/pages/projects/tars-meeet` with jq — fails fast
+with a clear error when the GitHub secret token lacks **Account → Cloudflare
+Pages → Edit** (avoids opaque Wrangler **10000**).
+
+**meeet-command-center** `resolution_monitor` B-001: each legacy path must
+**sniff** as non-HTML on **meeet.world** *or* **tars.meeet.world** (no SPA
+false positive).
+
+**Files**
+
+- `experiments/neural-showcase-v3/public/_redirects`
+- `.github/workflows/tars-meeet-cloudflare-pages.yml`
+- `../meeet-command-center/tools/resolution_monitor.py` (sister repo)
+- `docs/CHANGELOG_AGENTS.md` (this entry)
+
 ## 2026-05-03 — Cursor · Pages workflow: Wrangler pin + npx non-interactive
 
 **Summary**

@@ -117,6 +117,31 @@ jobs:
             echo "::warning::CLOUDFLARE_API_TOKEN / CLOUDFLARE_ACCOUNT_ID not set; skipping deploy step. See docs/TARS_MEEET_OPS_TODO.md."
           fi
 
+      - name: Preflight — Cloudflare token can read Pages project
+        if: steps.probe.outputs.ready == 'true'
+        env:
+          CF_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CF_ACCOUNT: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: |
+          set -euo pipefail
+          tmp="$(mktemp)"
+          code=$(curl -sS -o "$tmp" -w "%{http_code}" \
+            -H "Authorization: Bearer ${CF_TOKEN}" \
+            -H "Content-Type: application/json" \
+            "https://api.cloudflare.com/client/v4/accounts/${CF_ACCOUNT}/pages/projects/tars-meeet")
+          if [[ "$code" != "200" ]]; then
+            echo "::error::Cloudflare API GET pages/projects/tars-meeet returned HTTP ${code}. Token needs **Account → Cloudflare Pages → Edit** (and correct CLOUDFLARE_ACCOUNT_ID). Body (truncated):"
+            head -c 1800 "$tmp" || true
+            echo
+            exit 1
+          fi
+          if ! jq -e '.success == true' "$tmp" >/dev/null 2>&1; then
+            echo "::error::Cloudflare API success=false for tars-meeet project:"
+            cat "$tmp" | head -c 2500
+            exit 1
+          fi
+          echo "OK: token can read Cloudflare Pages project tars-meeet"
+
       # Deploy must run with `experiments/neural-showcase-v3/` as the
       # working directory so wrangler picks up the sibling `functions/`
       # tree (Pages Functions for `/api/product/{downloads,version}` and
