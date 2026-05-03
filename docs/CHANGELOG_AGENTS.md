@@ -4,6 +4,20 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-04 — Cursor · ops: Pages 403 diagnose (accounts OK, Pages denied)
+
+**Summary**
+
+**`ops_push_cloudflare_pages_api_token.sh`:** on Pages preflight failure, **GET /accounts**
+check — if OK, prints RU hint that token lacks **Account → Cloudflare Pages → Edit** and
+**opens** `https://dash.cloudflare.com/profile/api-tokens` unless **`OPS_CF_NO_BROWSER=1`**.
+
+**Files**
+
+- `scripts/ops_push_cloudflare_pages_api_token.sh`
+- `docs/CHANGELOG_PUBLIC.md` (regenerated)
+- `docs/CHANGELOG_AGENTS.md` (this entry)
+
 ## 2026-05-04 — Cursor · ops: cf-operator.env paste + Cloudflare → GitHub Pages deploy
 
 **Summary**
