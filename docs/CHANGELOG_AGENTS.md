@@ -4,6 +4,57 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-04 — Cursor · CI hardening: Pages workflow no longer fails on broken CF token
+
+**Summary**
+
+Operator's GitHub Inbox showed a stack of "tars.meeet.world — Cloudflare
+Pages workflow run failed for main branch" notifications from earlier
+today (all caused by the same broken `CLOUDFLARE_API_TOKEN` reseed
+that was removed in the previous batch). To make sure that class of
+notification cannot happen again, the Pages workflow Preflight is now
+**fail-soft**:
+
+- Missing secrets → `secrets_present=false`, deploy step skipped with
+  `::notice::` (no error). Same as before.
+- Token present but invalid (any non-200 from
+  `GET /accounts/<id>/pages/projects/tars-meeet`) → `deploy_ready=false`,
+  deploy skipped with `::warning::` and a 1-line "how to fix Plan A"
+  hint. **No `exit 1`.** Plan B (Cloudflare Pages Git integration)
+  keeps prod alive regardless.
+- Token present and valid → wrangler deploy runs as before.
+
+Smoke probes (`/api/product/downloads`, `/install`) now run on **every
+push to main**, regardless of which deploy path produced the bundle —
+they're meaningful even when this workflow doesn't deploy itself
+because Plan B keeps prod up. They use `continue-on-error` plus a
+`Smoke summary` step that writes to `$GITHUB_STEP_SUMMARY`, so a
+transient Cloudflare propagation hiccup does NOT turn the workflow
+red — the synthetic monitor (every 15 min) and the QA agent (every
+30 min) are the noisy alarms for actual prod regressions.
+
+Net result: the only ways the Pages workflow can go red now are:
+1. Build / typecheck / unit test break (real code regression — should fail).
+2. `CHANGELOG_PUBLIC.md` drift (a real source-of-truth bug — should fail).
+3. wrangler upload itself fails when secrets are valid (real infra issue — should fail).
+
+Token misconfig, transient prod hiccup, missing secret — none of those
+paint the workflow red anymore.
+
+**Files**
+
+- `.github/workflows/tars-meeet-cloudflare-pages.yml`
+- `docs/CHANGELOG_AGENTS.md`, `docs/CHANGELOG_PUBLIC.md`
+
+**Verification**
+
+- `pytest tests/test_tars_meeet_pages_workflow.py -q` → 5/5 (the
+  forbidden `cp 404.html` patterns + the `/install` smoke gate +
+  `_redirects` SPA contract still pinned).
+- YAML lint clean.
+
+`>>> SYNC: Cursor · 2026-05-04 · Pages workflow fail-soft against bad CF token`
+
 ## 2026-05-04 — Cursor · launch readiness: green CI + Plan B sealed + Node 24 opt-in
 
 **Summary**
