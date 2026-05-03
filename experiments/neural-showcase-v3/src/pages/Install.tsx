@@ -15,21 +15,23 @@ import { CornerFrame, StatusLozenge } from "@/components/Glyphs";
 import { useDocumentMeta } from "@/lib/meta";
 import { trackClick } from "@/lib/analytics";
 
-const TARS_DL = "https://tars.meeet.world";
-const STABLE_VERSION = "8.4.0";
+/** GitHub Release v8.4.0 — real binaries; tars.meeet.world/* paths are SPA (B-001). */
+const GH_V840 =
+  "https://github.com/alxvasilevvv/tars-neural-cockpit/releases/download/v8.4.0";
+const DMG_MAC_ARM = `${GH_V840}/TARS_8.4.0_aarch64.dmg`;
 
 type OS = "mac" | "linux" | "windows";
 
 function primaryInstallCommand(os: OS): string {
   switch (os) {
     case "mac":
-      return `curl -fLO ${TARS_DL}/TARS-${STABLE_VERSION}-arm64.dmg && open TARS-${STABLE_VERSION}-arm64.dmg`;
+      return `curl -fLO ${GH_V840}/TARS_8.4.0_aarch64.dmg && open TARS_8.4.0_aarch64.dmg`;
     case "linux":
-      return `curl -fLO ${TARS_DL}/TARS-${STABLE_VERSION}.AppImage && chmod +x TARS-${STABLE_VERSION}.AppImage && ./TARS-${STABLE_VERSION}.AppImage`;
+      return `curl -fLO ${GH_V840}/TARS_8.4.0_amd64.AppImage && chmod +x TARS_8.4.0_amd64.AppImage && ./TARS_8.4.0_amd64.AppImage`;
     case "windows":
-      return `curl -fLO ${TARS_DL}/TARS-${STABLE_VERSION}-setup.exe`;
+      return `curl -fLO ${GH_V840}/TARS_8.4.0_x64-setup.exe`;
     default:
-      return `curl -fLO ${TARS_DL}/TARS-${STABLE_VERSION}-arm64.dmg && open TARS-${STABLE_VERSION}-arm64.dmg`;
+      return `curl -fLO ${GH_V840}/TARS_8.4.0_aarch64.dmg && open TARS_8.4.0_aarch64.dmg`;
   }
 }
 
@@ -48,7 +50,7 @@ const STEPS: { num: string; title: string; body: string }[] = [
   {
     num: "01",
     title: "Run the install command",
-    body: "Use the curl one-liner for your OS — it pulls the signed binary from tars.meeet.world. Apple Silicon .dmg today; Intel Macs should use the same flow once an x64 artifact is published in the manifest.",
+    body: "Use the curl one-liner for your OS — it pulls the signed binary from GitHub Releases (same URLs as GET /api/product/downloads). Apple Silicon .dmg today; Intel Macs once an x64 dmg is in the manifest.",
   },
   {
     num: "02",
@@ -246,10 +248,10 @@ export function Install() {
                 · or download the notarized .dmg →
               </span>
               <a
-                href={`${TARS_DL}/TARS-${STABLE_VERSION}-arm64.dmg`}
+                href={DMG_MAC_ARM}
                 className="ml-2 text-accent transition-colors hover:underline"
               >
-                TARS-{STABLE_VERSION}-arm64.dmg
+                TARS_8.4.0_aarch64.dmg
               </a>
             </div>
           )}

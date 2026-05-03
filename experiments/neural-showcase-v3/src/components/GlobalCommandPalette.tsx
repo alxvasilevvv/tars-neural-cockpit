@@ -92,7 +92,7 @@ const ITEMS: CmdItem[] = [
   { id: "council",   kind: "anchor", title: "Council demo",    hint: "Two-voice deliberation",                        Icon: Hash, href: "/#council", group: "Sections" },
 
   // Actions
-  { id: "copy-install",     kind: "copy",   title: "Copy install command", hint: "Download signed DMG via curl (macOS)", Icon: Download, payload: "curl -fLO https://tars.meeet.world/TARS-8.4.0-arm64.dmg && open TARS-8.4.0-arm64.dmg", group: "Actions" },
+  { id: "copy-install",     kind: "copy",   title: "Copy install command", hint: "Download signed DMG via curl (macOS)", Icon: Download, payload: "curl -fLO https://github.com/alxvasilevvv/tars-neural-cockpit/releases/download/v8.4.0/TARS_8.4.0_aarch64.dmg && open TARS_8.4.0_aarch64.dmg", group: "Actions" },
 
   // External
   { id: "github",    kind: "external", title: "GitHub repo",      hint: "meeet-world/tars",        Icon: Image, href: "https://github.com/meeet-world/tars",        group: "External" },

@@ -56,34 +56,41 @@ interface DownloadsManifest {
   releases: Release[];
 }
 
+// Artifact URLs must point at real binaries (GitHub Releases), not
+// tars.meeet.world/* paths — static hosting serves SPA HTML for unknown
+// paths (B-001 / PB_19). Names match Tauri v8.4.0 assets on
+// alxvasilevvv/tars-neural-cockpit/releases/tag/v8.4.0.
+const GH_V840 =
+  "https://github.com/alxvasilevvv/tars-neural-cockpit/releases/download/v8.4.0";
+
 const RELEASES: Release[] = [
   {
     version: "8.4.0",
     channel: "stable",
     released_at: "2026-04-22T00:00:00Z",
     notes:
-      "Stability + observability pass. Tauri shell SecurityError eliminated, x-trace-id propagated end-to-end, downloads manifest now served same-origin from tars.meeet.world.",
+      "Stability + observability pass. Tauri shell SecurityError eliminated, x-trace-id propagated end-to-end; installers hosted on GitHub Releases (same tag).",
     artifacts: [
       {
         os: "macos",
         arch: "arm64",
         kind: "dmg",
-        filename: "TARS-8.4.0-arm64.dmg",
-        url: "https://tars.meeet.world/TARS-8.4.0-arm64.dmg",
+        filename: "TARS_8.4.0_aarch64.dmg",
+        url: `${GH_V840}/TARS_8.4.0_aarch64.dmg`,
       },
       {
         os: "windows",
         arch: "x64",
         kind: "exe",
-        filename: "TARS-8.4.0-setup.exe",
-        url: "https://tars.meeet.world/TARS-8.4.0-setup.exe",
+        filename: "TARS_8.4.0_x64-setup.exe",
+        url: `${GH_V840}/TARS_8.4.0_x64-setup.exe`,
       },
       {
         os: "linux",
         arch: "x64",
         kind: "appimage",
-        filename: "TARS-8.4.0.AppImage",
-        url: "https://tars.meeet.world/TARS-8.4.0.AppImage",
+        filename: "TARS_8.4.0_amd64.AppImage",
+        url: `${GH_V840}/TARS_8.4.0_amd64.AppImage`,
       },
     ],
   },
