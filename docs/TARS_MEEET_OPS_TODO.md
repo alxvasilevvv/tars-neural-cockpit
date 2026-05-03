@@ -14,7 +14,15 @@ so both agents see the unblock.
 
 Estimated total time: **30 minutes**.
 
-**Cloudflare token → GitHub (коротко):**  
+**Production deploy now runs through Cloudflare Pages Git integration**
+(project **`tars-meeet-git`** in account `b746402b…`, branch `main`,
+root `experiments/neural-showcase-v3`, build `npm ci && npm run build:cf`,
+output `dist`, env `NODE_VERSION=20`, `VITE_TARS_API=https://tars.meeet.world`).
+**No `CLOUDFLARE_API_TOKEN` is required** in GitHub. The legacy `tars-meeet`
+project (Direct Upload via wrangler) is retained for history but has no custom
+domain attached anymore.
+
+**Optional fallback (Plan A):**
 `cp cf-operator.env.example cf-operator.env` → вставь **Account ID** и **`cfat_…`** (Cloudflare → Account → Cloudflare Pages → **Edit**) → `make ops-cf-pages-token`.
 
 ---
@@ -32,10 +40,10 @@ Cursor finished the cutover end-to-end and ran two follow-up patches:
 - ✅ Same-origin `/api/product/{downloads,version,client-error}`
   served by Pages Functions.
 - ✅ Pages production env: `CORE_BRIDGE_URL` set.
-- ✅ **Deploy path A or B:** (A) GitHub secrets `CLOUDFLARE_API_TOKEN` +
-  `CLOUDFLARE_ACCOUNT_ID` → wrangler from Actions. **(B) No API token:**
-  remove `CLOUDFLARE_API_TOKEN`; connect repo in **Cloudflare Pages** Git
-  builds with `npm run build:cf` — see **Step 2bis** in this doc.
+- ✅ **Deploy = Cloudflare Pages Git integration (Plan B).** Project
+  **`tars-meeet-git`** auto-builds from `main` (`npm run build:cf`).
+  No `CLOUDFLARE_API_TOKEN` in GitHub secrets. Plan A (wrangler from
+  GitHub Actions) is documented in Step 2 as a fallback.
 - ✅ GitHub Actions workflow **`tars.meeet.world — Cloudflare Pages`**:
   with **no** API token, keeps **build + tests** green; deploy only when
   secrets are valid **or** Cloudflare Git builds production (Plan B).

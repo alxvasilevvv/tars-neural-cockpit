@@ -4,6 +4,30 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-04 — Cursor · prod: tars.meeet.world live via Cloudflare Pages Git integration (Plan B)
+
+**Summary**
+
+Operator wired a **new** Pages project **`tars-meeet-git`** to GitHub
+(account `b746402b…`, repo `alxvasilevvv/tars-neural-cockpit`, branch `main`,
+root `experiments/neural-showcase-v3`, build `npm ci && npm run build:cf`,
+output `dist`, env `NODE_VERSION=20`, `VITE_TARS_API=https://tars.meeet.world`).
+Custom domain **`tars.meeet.world`** moved off legacy `tars-meeet` (Direct
+Upload) onto `tars-meeet-git`. Smoke `curl -sI https://tars.meeet.world/`
+→ **200**, `x-tars-contract: 1.0.0`, `x-tars-trace-id`, `x-tars-subdomain`,
+`tars_session_id` cookie on `.meeet.world`. `/install`, `/cockpit`,
+`/dl/TARS-8.4.0-arm64.dmg`, `/install.sh` → **200**. Pages Functions
+(`/api/product/downloads`) live (`contract_version 1.0.0`).
+
+**No `CLOUDFLARE_API_TOKEN`** in GitHub secrets — Plan B path is now
+production. Plan A (wrangler) remains documented as fallback.
+
+**Files**
+
+- `docs/TARS_MEEET_OPS_TODO.md` (top blurb + CURRENT STATE: Plan B is prod)
+- `docs/CHANGELOG_PUBLIC.md` (regenerated)
+- `docs/CHANGELOG_AGENTS.md` (this entry)
+
 ## 2026-05-04 — Cursor · ops: safe parse cf-operator.env (no source — fix $ in token)
 
 **Summary**
@@ -3676,93 +3700,6 @@ messages, tool calls, and policy events.
 
 `pytest -q` → **1950 passing**. `ReadLints` clean.
 
-## 2026-05-01 — Cursor [A] · Phase L6.2: planner runner (PlanRunner + abort + plan.* events)
-
-**Summary**
-
-Second slice of Phase L6: the runner that takes an `approved`
-`Plan`, drives every step through the same policy gate the playbook
-runner uses, and emits the `plan.*` lifecycle events spec'd in
-L6.2 (`plan.run.started` / `plan.step.{requested,allowed,completed}`
-/ `plan.completed` / `plan.aborted`, plus `plan.proposed` at synth
-time). Status transitions `approved → running → completed/aborted`
-are runner-owned and persisted to the planner store. Cooperative
-abort is supported via a per-plan `asyncio.Event` registered in
-`PlanRunRegistry`; the registry is observed at every group
-boundary, so a long-running run can be stopped without surgery
-on the underlying step.
-
-**Changes**
-
-1. `backend/core/planner/runner.py` (new) — `PlanRunner`,
-   `PlanRunRegistry`, `PlanRunError` (stable reasons:
-   `plan_not_found` / `plan_not_runnable` / `plan_already_running`
-   / `status_update_failed`). The runner reuses
-   `PlaybookRunner._dispatch` via a thin `_AdaptedStep` adapter so
-   the dispatcher logic (awareness snapshots, policy gate, error
-   mapping) stays single-sourced. Per-plan abort via
-   `PlanRunRegistry.abort(plan_id)` flips an `asyncio.Event` that
-   the runner observes between groups (cooperative — never mid-step).
-   Skipped steps still emit a `plan.step.completed` with
-   `skipped=True` so the cockpit can render them gray.
-2. `backend/core/planner/__init__.py` — exports `PlanRunError` /
-   `PlanRunner` / `PlanRunRegistry` / `get_run_registry` /
-   `reset_run_registry` / `run_plan`. Top-level docstring updated
-   to reflect that the runner is no longer a follow-up.
-3. `web_extras/routers/planner.py`:
-   - `POST /api/planner/{plan_id}/run` — synchronous run; resolves
-     `PolicyMode` from the body / `x-tars-policy-mode` header /
-     env (in that order). Wraps the run in `thread_id_scope` so
-     downstream events inherit the plan's persisted thread id /
-     trace id even when the operator pings without those
-     headers.
-   - `POST /api/planner/{plan_id}/abort` — cooperative abort; 404s
-     when the plan isn't currently in flight, otherwise flips the
-     registry event and emits `plan.abort.requested`.
-   - Synthesis path now also emits `plan.proposed` (the L6.2
-     event name) alongside the existing `planner.synthesis.completed`
-     so cockpit subscribers can speak the spec vocabulary.
-4. `tests/test_planner_runner.py` (new, 21 cases) covers:
-   - `PlanRunRegistry` primitives (register / abort unknown /
-     unregister / in-flight enumeration).
-   - Happy-path run with autopilot mode: status transitions, all
-     `plan.*` events emitted in declared order, every event
-     stamped with the persisted `thread_id`.
-   - Args propagation from `PlanStep.args` into the handler.
-   - Entry guards: unknown plan, proposed plan, completed plan,
-     already-running plan all raise `PlanRunError` with the right
-     reason.
-   - Step failure: `on_error="stop"` aborts with `step_failed`,
-     `on_error="continue"` keeps going (status stays `completed`
-     but `ok=False`).
-   - Destructive step in `confirm` mode: blocked by policy gate,
-     `plan.step.allowed{allowed=false, reason='blocked_by_policy'}`,
-     status flips to `aborted` with `error='blocked_by_policy'`.
-   - Cooperative abort: pre-flipped event skips every step; abort
-     fired during step N stops step N+1 at the next group boundary.
-   - HTTP `/run`: 404 unknown plan, 409 not approved, happy path
-     emits `plan.completed`. HTTP `/abort`: 404 when not running,
-     happy path emits `plan.abort.requested`.
-   - HTTP `/plan` synthesis emits `plan.proposed` with the
-     auto-injected thread id.
-
-**Tests**
-
-`pytest -q` → **1937 passing**. `ReadLints` clean.
-
-**Follow-ups**
-
-- Real cloud-LLM voices in the synthesizer (the deterministic
-  heuristic-v1 maps "tokens in goal" to playbooks/actions; the
-  LLM voice would synthesize a multi-step plan with rationales).
-- Cockpit "approval inbox": render `proposed` plans, gate the
-  `Run` button on `approved`, surface in-flight plans alongside
-  policy confirmations, show step status icons driven by the
-  `plan.step.*` event stream.
-- Optional `mode=async` on `POST /run` for fire-and-forget
-  background runs (current run is synchronous and returns the
-  full per-step envelope).
-
 ---
 
-_Showing the most recent 60 of 193 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 194 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._

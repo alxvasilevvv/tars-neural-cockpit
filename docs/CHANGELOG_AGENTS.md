@@ -4,6 +4,30 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-04 — Cursor · prod: tars.meeet.world live via Cloudflare Pages Git integration (Plan B)
+
+**Summary**
+
+Operator wired a **new** Pages project **`tars-meeet-git`** to GitHub
+(account `b746402b…`, repo `alxvasilevvv/tars-neural-cockpit`, branch `main`,
+root `experiments/neural-showcase-v3`, build `npm ci && npm run build:cf`,
+output `dist`, env `NODE_VERSION=20`, `VITE_TARS_API=https://tars.meeet.world`).
+Custom domain **`tars.meeet.world`** moved off legacy `tars-meeet` (Direct
+Upload) onto `tars-meeet-git`. Smoke `curl -sI https://tars.meeet.world/`
+→ **200**, `x-tars-contract: 1.0.0`, `x-tars-trace-id`, `x-tars-subdomain`,
+`tars_session_id` cookie on `.meeet.world`. `/install`, `/cockpit`,
+`/dl/TARS-8.4.0-arm64.dmg`, `/install.sh` → **200**. Pages Functions
+(`/api/product/downloads`) live (`contract_version 1.0.0`).
+
+**No `CLOUDFLARE_API_TOKEN`** in GitHub secrets — Plan B path is now
+production. Plan A (wrangler) remains documented as fallback.
+
+**Files**
+
+- `docs/TARS_MEEET_OPS_TODO.md` (top blurb + CURRENT STATE: Plan B is prod)
+- `docs/CHANGELOG_PUBLIC.md` (regenerated)
+- `docs/CHANGELOG_AGENTS.md` (this entry)
+
 ## 2026-05-04 — Cursor · ops: safe parse cf-operator.env (no source — fix $ in token)
 
 **Summary**
