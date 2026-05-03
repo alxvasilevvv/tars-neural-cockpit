@@ -19,6 +19,14 @@ Endpoints:
 - ``GET /updates/{target}/latest.json`` — alias for the latest
   release of ``target`` (helpful for marketing site links).
 
+- ``GET /install.sh`` — **302** to the raw GitHub install script
+  (marketing / ``resolution_monitor`` **B-001** parity when
+  ``meeet.world`` is stale).
+
+- ``GET /dl/{artifact}`` — **302** to GitHub Release installers for
+  the canonical **v8.4.0** marketing filenames (same mapping as
+  ``meeet-solana-state`` ``public/_redirects``).
+
 All endpoints are read-only, side-effect-free, and emit a permissive
 ``Cache-Control`` so a CDN can serve them with a one-minute TTL.
 """
@@ -28,6 +36,7 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from fastapi import APIRouter, HTTPException, Query, Response
+from starlette.responses import RedirectResponse
 
 from backend.core.product import DEFAULT_MANIFEST, load_manifest
 from backend.core.product.manifest import VALID_OS
@@ -45,6 +54,44 @@ router = APIRouter(prefix="/api/product", tags=["product"])
 # ``https://meeet.world/updates/<target>/<v>.json``). We mount this
 # second router at the app level so the path stays stable.
 updates_router = APIRouter(prefix="/updates", tags=["product", "updater"])
+
+# Legacy marketing URLs on ``tars.meeet.world`` — parity with ``meeet.world``
+# ``_redirects`` when Vercel production is stale (**B-001**).
+legacy_redirect_router = APIRouter(tags=["product", "legacy-b001"])
+
+LEGACY_INSTALL_SH_RAW = (
+    "https://raw.githubusercontent.com/"
+    "alxvasilevvv/tars-neural-cockpit/main/scripts/install-tars.sh"
+)
+
+# Canonical filenames exposed on the marketing site (hyphens in dmg/exe names).
+LEGACY_DL_TO_RELEASE_URL: dict[str, str] = {
+    "TARS-8.4.0-arm64.dmg": (
+        "https://github.com/alxvasilevvv/tars-neural-cockpit/"
+        "releases/download/v8.4.0/TARS_8.4.0_aarch64.dmg"
+    ),
+    "TARS-8.4.0-setup.exe": (
+        "https://github.com/alxvasilevvv/tars-neural-cockpit/"
+        "releases/download/v8.4.0/TARS_8.4.0_x64-setup.exe"
+    ),
+    "TARS-8.4.0.AppImage": (
+        "https://github.com/alxvasilevvv/tars-neural-cockpit/"
+        "releases/download/v8.4.0/TARS_8.4.0_amd64.AppImage"
+    ),
+}
+
+
+@legacy_redirect_router.get("/install.sh", include_in_schema=False)
+async def legacy_install_sh() -> RedirectResponse:
+    return RedirectResponse(url=LEGACY_INSTALL_SH_RAW, status_code=302)
+
+
+@legacy_redirect_router.get("/dl/{artifact}", include_in_schema=False)
+async def legacy_dl_artifact(artifact: str) -> RedirectResponse:
+    dest = LEGACY_DL_TO_RELEASE_URL.get(artifact)
+    if dest is None:
+        raise HTTPException(status_code=404, detail="unknown_legacy_dl")
+    return RedirectResponse(url=dest, status_code=302)
 
 
 @router.get("/downloads")

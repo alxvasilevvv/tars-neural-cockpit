@@ -588,6 +588,7 @@ from web_extras.middleware import install_expensive_routes_rate_limit  # noqa: E
 
 install_expensive_routes_rate_limit(app)
 
+app.include_router(product_router.legacy_redirect_router)
 app.include_router(domains_router.router)
 app.include_router(awareness_router.router)
 app.include_router(meeet_router.router)
