@@ -16,6 +16,7 @@ DESKTOP   ?= desktop
         cockpit-changelog-check acceptance-tars-meeet qa-agent qa-agent-json qa-loop qa-loop-once \
         gate-release backend backend-dev desktop-dev desktop-build \
         smoke-core-bridge gate-control-tower ops-bridge-secret ops-cf-pages-token clean \
+        install-hooks \
         planner planner-stats planner-list planner-runs planner-show \
         planner-full planner-clone planner-rerun planner-replay-run \
         planner-repush-run planner-smoke \
@@ -23,6 +24,15 @@ DESKTOP   ?= desktop
         playbooks playbooks-list playbooks-show playbooks-run \
         playbooks-validate playbooks-validate-all playbooks-reload \
         morning-bundle morning-bundle-dry
+
+install-hooks:       ## symlink scripts/git-hooks/* into .git/hooks (re-run after fresh clone)
+	@for hook in scripts/git-hooks/*; do \
+	  name="$$(basename $$hook)"; \
+	  target=".git/hooks/$$name"; \
+	  rm -f "$$target"; \
+	  ln -s "../../$$hook" "$$target"; \
+	  echo "  linked $$target -> ../../$$hook"; \
+	done
 
 help:                ## list targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \

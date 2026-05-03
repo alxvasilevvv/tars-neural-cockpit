@@ -4,6 +4,42 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-04 — Cursor · pre-commit hook: auto-regenerate CHANGELOG_PUBLIC.md
+
+**Summary**
+
+Workflow run **25291933005** still went red after the previous "fail-soft"
+patch — but for an unrelated reason: the **Changelog public artefact in
+sync** check (`python3 scripts/generate_public_changelog.py --check`)
+caught real drift. I had appended the previous entry to
+`CHANGELOG_AGENTS.md` after running the regenerator locally, so the
+public file was a regen behind. Pushed → CI flagged it → workflow red.
+
+To make this class of red impossible without touching CI behaviour,
+landed a local pre-commit hook:
+
+- `scripts/git-hooks/pre-commit` — bash, stdlib-only. When a commit
+  stages `docs/CHANGELOG_AGENTS.md`, the hook runs
+  `python scripts/generate_public_changelog.py`, hashes
+  `docs/CHANGELOG_PUBLIC.md` before/after, and `git add`s it when it
+  changed. No-op when AGENTS isn't staged.
+- `make install-hooks` — symlinks every file under
+  `scripts/git-hooks/` into `.git/hooks/`. Re-run after a fresh clone.
+  Bypass any time with `git commit --no-verify`.
+
+CI guard remains as a backstop: the workflow check still fails if
+someone bypasses the hook and forgets to regen, so we still catch the
+problem before it lands in production builds — just no more "red
+notification on iOS Inbox" from this particular drift mode.
+
+**Files**
+
+- `scripts/git-hooks/pre-commit` (new, executable)
+- `Makefile` — `install-hooks` target
+- `docs/CHANGELOG_AGENTS.md`, `docs/CHANGELOG_PUBLIC.md`
+
+`>>> SYNC: Cursor · 2026-05-04 · pre-commit auto-regen for CHANGELOG_PUBLIC`
+
 ## 2026-05-04 — Cursor · CI hardening: Pages workflow no longer fails on broken CF token
 
 **Summary**

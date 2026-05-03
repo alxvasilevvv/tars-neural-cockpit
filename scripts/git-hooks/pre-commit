@@ -1,0 +1,54 @@
+#!/usr/bin/env bash
+# tars pre-commit hook
+#
+# Auto-regenerates docs/CHANGELOG_PUBLIC.md whenever the staged diff
+# touches docs/CHANGELOG_AGENTS.md. Stages the regenerated file so the
+# CI guard ``python3 scripts/generate_public_changelog.py --check``
+# (run by .github/workflows/tars-meeet-cloudflare-pages.yml) cannot
+# trip on drift.
+#
+# Install once per clone:
+#   make install-hooks
+# (or: ln -sf ../../scripts/git-hooks/pre-commit .git/hooks/pre-commit)
+#
+# Bypass: ``git commit --no-verify``.
+
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+SRC="docs/CHANGELOG_AGENTS.md"
+DST="docs/CHANGELOG_PUBLIC.md"
+
+# Only act when CHANGELOG_AGENTS.md is staged.
+if ! git diff --cached --name-only | grep -qx "$SRC"; then
+  exit 0
+fi
+
+cd "$REPO_ROOT"
+
+# Pick a usable Python: prefer .venv, fall back to python3 on PATH.
+PY="$REPO_ROOT/.venv/bin/python"
+if [[ ! -x "$PY" ]]; then
+  PY="$(command -v python3 || true)"
+fi
+if [[ -z "$PY" ]]; then
+  echo "::warning::pre-commit: no python3 found; skipping CHANGELOG_PUBLIC regeneration" >&2
+  exit 0
+fi
+
+before_hash=""
+if [[ -f "$DST" ]]; then
+  before_hash="$(shasum -a 256 "$DST" | awk '{print $1}')"
+fi
+
+"$PY" scripts/generate_public_changelog.py >/dev/null
+
+after_hash=""
+if [[ -f "$DST" ]]; then
+  after_hash="$(shasum -a 256 "$DST" | awk '{print $1}')"
+fi
+
+if [[ "$before_hash" != "$after_hash" ]]; then
+  git add "$DST"
+  echo "pre-commit: regenerated $DST and added to commit"
+fi
