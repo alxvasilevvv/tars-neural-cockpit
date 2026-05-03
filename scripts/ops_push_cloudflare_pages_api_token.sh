@@ -37,7 +37,8 @@ diagnose_pages_403() {
       open_url "https://dash.cloudflare.com/profile/api-tokens"
     fi
   else
-    red "Диагностика: токен не проходит GET /accounts — отозван, обрезан или неверный."
+    red "Диагностика: токен не проходит GET /accounts — неверный/отозван, обрезан при копировании,"
+    red "или раньше портило поле через «source .env» (символы \$ и т.д.). Скрипт теперь парсит файл без source — сохрани cf-operator.env и снова make ops-cf-pages-token."
   fi
   rm -f "$acct_tmp"
 }
@@ -50,17 +51,34 @@ need curl
 need jq
 need gh
 
+# Never `source` the token line — characters like $ or ` break or truncate the value.
+load_cf_operator_file() {
+  local f="$1" line key val
+  [[ -f "$f" ]] || return 0
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    line="${line//$'\r'/}"
+    [[ "$line" =~ ^[[:space:]]*# ]] && continue
+    [[ -z "${line// /}" ]] && continue
+    [[ "$line" == *"="* ]] || continue
+    key="${line%%=*}"
+    val="${line#*=}"
+    key="$(echo -n "$key" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+    val="$(echo -n "$val" | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')"
+    case "$key" in
+      CLOUDFLARE_ACCOUNT_ID) CLOUDFLARE_ACCOUNT_ID="$val" ;;
+      CLOUDFLARE_API_TOKEN)  CLOUDFLARE_API_TOKEN="$val" ;;
+    esac
+  done < "$f"
+}
+
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 REPO="${GH_REPO:-alxvasilevvv/tars-neural-cockpit}"
 PROJECT="${PAGES_PROJECT_NAME:-tars-meeet}"
 
 ENV_FILE="${OPS_CF_ENV:-$ROOT/cf-operator.env}"
 if [[ -f "$ENV_FILE" ]]; then
-  set -a
-  # shellcheck disable=SC1090
-  source "$ENV_FILE"
-  set +a
-  blue "Loaded: ${ENV_FILE}"
+  load_cf_operator_file "$ENV_FILE"
+  blue "Loaded (safe parse): ${ENV_FILE}"
 fi
 
 if [[ -z "${CLOUDFLARE_ACCOUNT_ID:-}" || "${CLOUDFLARE_ACCOUNT_ID}" =~ ^[[:space:]]*$ ]]; then

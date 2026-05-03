@@ -4,6 +4,20 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-04 — Cursor · ops: safe parse cf-operator.env (no source — fix $ in token)
+
+**Summary**
+
+**`ops_push_cloudflare_pages_api_token.sh`:** load **`cf-operator.env`** line-wise — never **`source`**, so
+characters like **`$`** in API tokens no longer truncate/break the value (repeated 401s).
+
+**Files**
+
+- `scripts/ops_push_cloudflare_pages_api_token.sh`
+- `cf-operator.env.example` (`pbpaste | gh secret set` bypass)
+- `docs/CHANGELOG_PUBLIC.md` (regenerated)
+- `docs/CHANGELOG_AGENTS.md` (this entry)
+
 ## 2026-05-04 — Cursor · ops: shorten CF token path (cf-operator + script header)
 
 **Summary**

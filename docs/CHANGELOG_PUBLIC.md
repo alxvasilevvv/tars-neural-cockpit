@@ -4,6 +4,20 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-04 — Cursor · ops: safe parse cf-operator.env (no source — fix $ in token)
+
+**Summary**
+
+**`ops_push_cloudflare_pages_api_token.sh`:** load **`cf-operator.env`** line-wise — never **`source`**, so
+characters like **`$`** in API tokens no longer truncate/break the value (repeated 401s).
+
+**Files**
+
+- `scripts/ops_push_cloudflare_pages_api_token.sh`
+- `cf-operator.env.example` (`pbpaste | gh secret set` bypass)
+- `docs/CHANGELOG_PUBLIC.md` (regenerated)
+- `docs/CHANGELOG_AGENTS.md` (this entry)
+
 ## 2026-05-04 — Cursor · ops: shorten CF token path (cf-operator + script header)
 
 **Summary**
@@ -3749,88 +3763,6 @@ on the underlying step.
   background runs (current run is synchronous and returns the
   full per-step envelope).
 
-## 2026-05-01 — Cursor [A] · Phase L6 v1: planner foundations (synthesis + persistence)
-
-**Summary**
-
-Phase L6 (Planner / Agent loop) starts here. This PR ships the
-*synthesis + persistence* foundations: a deterministic planner that
-maps free-form operator goals onto either a registered playbook or a
-single-action fallback, persists the resulting Plan in its own
-SQLite store, and exposes a complete CRUD HTTP surface. The
-event-emitting runner is the next slice.
-
-**Changes**
-
-1. `backend/core/planner/__init__.py` — module entry, public exports.
-2. `backend/core/planner/types.py` — `Plan` / `PlanStep` dataclasses
-   plus `PlanStatus` enum (`proposed → approved → running → completed
-   / aborted / rejected`). `terminal()` + `is_terminal()` helpers.
-3. `backend/core/planner/store.py` — `PlannerStore` (SQLite at
-   `~/.tars/planner.sqlite`, override via `TARS_PLANNER_DB_PATH`,
-   short-circuit via `PLANNER_STORE=disabled`). Schema with
-   indexes on `status` / `thread_id` / `created_at`. Additive
-   migration tuple `_ADDITIVE_COLUMNS` for forward compat. Async
-   CRUD (`insert` / `get` / `list` / `set_status` / `delete` /
-   `stats`). Terminal statuses are immutable: `set_status` silently
-   refuses to flip a `completed` / `aborted` / `rejected` row back.
-4. `backend/core/planner/synthesizer.py` — `synthesize_plan(...)`
-   deterministic mapper. Resolution order:
-   playbook id → playbook name → playbook tag → action substring →
-   single-pack snapshot fallback. Stable error reasons
-   (`empty_goal` / `no_match` / `ambiguous_packs` / `unknown_pack`)
-   so the HTTP layer can render localised envelopes without parsing
-   English. `pinned_pack` lets the operator disambiguate.
-5. `web_extras/routers/planner.py` — full HTTP surface mounted at
-   `/api/planner`:
-   - `POST /api/planner/plan` — synthesize + persist (auto-pulls
-     registered playbooks + actions, derives is-snapshot flag from
-     action id keywords).
-   - `GET /api/planner/{plan_id}` — read one Plan.
-   - `GET /api/planner` — list with `status` / `thread_id` /
-     `limit` filters.
-   - `GET /api/planner/_stats` — `total` + `by_status` counts.
-   - `POST /api/planner/{plan_id}/status` — operator transitions
-     (`approved` / `rejected` only; `running` / `completed` /
-     `aborted` reserved for the runner).
-   - `DELETE /api/planner/{plan_id}` — operator-prune.
-6. `web_extras/app.py` — mounts `planner_router.router`.
-7. `tests/test_planner_synthesis.py` (new, 41 cases) covers:
-   - `Plan` / `PlanStep` / `PlanStatus` round-trip + counts.
-   - Synthesizer resolution priority + every error reason.
-   - PlannerStore CRUD + status transitions + terminal lock +
-     filters + stats.
-   - HTTP endpoints incl. meeet event emission
-     (`planner.synthesis.completed` / `planner.synthesis.failed` /
-     `planner.approved` / `planner.deleted`) and `thread_id`
-     auto-injection.
-
-**Events emitted**
-
-- `planner.synthesis.completed` (plan_id, goal, model, pack_slug,
-  playbook_id, step_count, destructive_step_count).
-- `planner.synthesis.failed` (goal, reason, pinned_pack).
-- `planner.approved` / `planner.rejected` (plan_id, model,
-  pack_slug, playbook_id, step_count).
-- `planner.deleted` (plan_id, model, pack_slug, status_at_delete).
-
-All four ride `thread_id` via the contextvar bridge so the cockpit
-per-thread audit lane shows planner activity per chat.
-
-**Tests**
-
-- `tests/test_planner_synthesis.py` — 41 cases.
-- Full `pytest` — **1916 cases passed**.
-- `ReadLints` — clean.
-
-**Follow-up (next PR)**
-
-`PlannerLoop` runner: ingest an `approved` Plan, drive
-`PlaybookRunner` in interactive mode, emit
-`plan.proposed` / `plan.step.{requested,allowed,completed}` /
-`plan.completed` / `plan.aborted` events from L6.2, plus
-`POST /api/planner/{plan_id}/run` and abort.
-
 ---
 
-_Showing the most recent 60 of 192 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 193 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
