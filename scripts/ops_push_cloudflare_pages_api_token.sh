@@ -1,16 +1,15 @@
 #!/usr/bin/env bash
 # scripts/ops_push_cloudflare_pages_api_token.sh
 #
-# One-shot: mint a Cloudflare **custom** API token (Account → Cloudflare
-# Pages → Edit; include the account that hosts `tars-meeet`), then run:
+# Easiest path (paste-only):
+#   cp cf-operator.env.example cf-operator.env
+#   # edit cf-operator.env — two lines: ACCOUNT_ID + API_TOKEN
+#   make ops-cf-pages-token
 #
-#   export CLOUDFLARE_ACCOUNT_ID='<account id from CF dashboard>'
-#   bash scripts/ops_push_cloudflare_pages_api_token.sh
+# Or: export CLOUDFLARE_ACCOUNT_ID / CLOUDFLARE_API_TOKEN (or
+# CLOUDFLARE_API_TOKEN_NEW), or paste token at the hidden prompt.
 #
-# Paste the token at the prompt (hidden). The script:
-#   1. GET /accounts/{id}/pages/projects/tars-meeet — aborts on non-200
-#   2. gh secret set CLOUDFLARE_API_TOKEN
-#   3. gh workflow run tars-meeet-cloudflare-pages.yml
+# Steps: preflight GET …/pages/projects/tars-meeet → gh secret set → workflow run.
 #
 # Requires: curl, jq, gh (authenticated to GitHub).
 
@@ -28,20 +27,34 @@ need curl
 need jq
 need gh
 
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 REPO="${GH_REPO:-alxvasilevvv/tars-neural-cockpit}"
 PROJECT="${PAGES_PROJECT_NAME:-tars-meeet}"
 
-if [[ -z "${CLOUDFLARE_ACCOUNT_ID:-}" ]]; then
-  red "Set CLOUDFLARE_ACCOUNT_ID (Cloudflare dashboard → Workers & Pages → account id)."
+ENV_FILE="${OPS_CF_ENV:-$ROOT/cf-operator.env}"
+if [[ -f "$ENV_FILE" ]]; then
+  set -a
+  # shellcheck disable=SC1090
+  source "$ENV_FILE"
+  set +a
+  blue "Loaded: ${ENV_FILE}"
+fi
+
+if [[ -z "${CLOUDFLARE_ACCOUNT_ID:-}" || "${CLOUDFLARE_ACCOUNT_ID}" =~ ^[[:space:]]*$ ]]; then
+  red "Need CLOUDFLARE_ACCOUNT_ID (put it in cf-operator.env — see cf-operator.env.example)."
   exit 2
 fi
 
-if [[ -n "${CLOUDFLARE_API_TOKEN_NEW:-}" ]]; then
-  TOKEN="$CLOUDFLARE_API_TOKEN_NEW"
-else
-  printf '%s ' "Paste Cloudflare API token (Pages:Edit on this account, input hidden):" >&2
-  read -rs TOKEN
-  printf '\n' >&2
+TOKEN="${CLOUDFLARE_API_TOKEN_NEW:-${CLOUDFLARE_API_TOKEN:-}}"
+if [[ -z "$TOKEN" ]]; then
+  if [[ -t 0 ]]; then
+    printf '%s ' "Paste Cloudflare API token (Pages:Edit, input hidden):" >&2
+    read -rs TOKEN
+    printf '\n' >&2
+  else
+    red "Need CLOUDFLARE_API_TOKEN in cf-operator.env or paste interactively in a TTY."
+    exit 2
+  fi
 fi
 
 TOKEN="${TOKEN#Bearer }"

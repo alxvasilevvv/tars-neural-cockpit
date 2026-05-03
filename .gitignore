@@ -14,6 +14,8 @@ node_modules/
 dist/
 build/
 *.local
+# Operator-only: Cloudflare → GitHub secret push (see cf-operator.env.example)
+cf-operator.env
 .qa-runs/
 .morning-runs/
 .meeet-replays/

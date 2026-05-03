@@ -332,7 +332,7 @@ gate-release:        ## full release readiness gate: pytest + cockpit + bridge +
 ops-bridge-secret:   ## one-shot: paste BRIDGE_SHARED_SECRET (Pages env + GH secret + redeploy + QA)
 	bash scripts/ops_set_bridge_shared_secret.sh
 
-ops-cf-pages-token:  ## verify CF token (Pages:Edit), push to GH, dispatch Pages workflow
+ops-cf-pages-token:  ## paste ACCOUNT_ID+token into cf-operator.env, then push to GH + dispatch CI
 	bash scripts/ops_push_cloudflare_pages_api_token.sh
 
 # ---------------------------------------------------------------------

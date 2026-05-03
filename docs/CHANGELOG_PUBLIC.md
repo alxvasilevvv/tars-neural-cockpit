@@ -4,18 +4,21 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
-## 2026-05-04 — Cursor · ops: push Cloudflare Pages API token + dispatch CI
+## 2026-05-04 — Cursor · ops: cf-operator.env paste + Cloudflare → GitHub Pages deploy
 
 **Summary**
 
-**Operator:** `scripts/ops_push_cloudflare_pages_api_token.sh` + **`make ops-cf-pages-token`**
-— preflight **`GET …/pages/projects/tars-meeet`**, then **`gh secret set
-CLOUDFLARE_API_TOKEN`**, then **`gh workflow run`** (cannot mint CF tokens from
-the agent; requires dashboard token with **Account → Cloudflare Pages → Edit**).
+**Operator flow:** copy **`cf-operator.env.example`** → **`cf-operator.env`** (gitignored),
+paste **`CLOUDFLARE_ACCOUNT_ID`** + **`CLOUDFLARE_API_TOKEN`**, run **`make ops-cf-pages-token`**.
+**`scripts/ops_push_cloudflare_pages_api_token.sh`** preflights **GET …/pages/projects/tars-meeet**,
+then **`gh secret set CLOUDFLARE_API_TOKEN`** + **`gh workflow run`** (dashboard token must have
+**Account → Cloudflare Pages → Edit**).
 
 **Files**
 
-- `scripts/ops_push_cloudflare_pages_api_token.sh` (new)
+- `cf-operator.env.example` (new)
+- `.gitignore` (`cf-operator.env`)
+- `scripts/ops_push_cloudflare_pages_api_token.sh`
 - `Makefile` (`ops-cf-pages-token`)
 - `docs/CHANGELOG_PUBLIC.md` (regenerated)
 - `docs/CHANGELOG_AGENTS.md` (this entry)
