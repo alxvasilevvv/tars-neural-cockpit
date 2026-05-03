@@ -18,6 +18,40 @@ set -euo pipefail
 red()   { printf '\033[0;31m%s\033[0m\n' "$*" >&2; }
 green() { printf '\033[0;32m%s\033[0m\n' "$*" >&2; }
 blue()  { printf '\033[0;34m%s\033[0m\n' "$*" >&2; }
+yel()   { printf '\033[0;33m%s\033[0m\n' "$*" >&2; }
+
+open_url() {
+  if command -v open >/dev/null 2>&1; then open "$1" || true
+  elif command -v xdg-open >/dev/null 2>&1; then xdg-open "$1" || true
+  fi
+}
+
+# When Pages preflight fails: explain if token is "account OK but Pages denied".
+diagnose_pages_403() {
+  local t="$1" ac="$2" pages_http="$3"
+  local acct_tmp acode
+  acct_tmp="$(mktemp)"
+  acode=$(curl -sS -o "$acct_tmp" -w "%{http_code}" \
+    -H "Authorization: Bearer ${t}" \
+    "https://api.cloudflare.com/client/v4/accounts")
+  if [[ "$acode" == "200" ]] && jq -e '.success == true' "$acct_tmp" >/dev/null 2>&1; then
+    yel "Диагностика: токен работает для GET /accounts, но Pages API вернул HTTP ${pages_http}."
+    yel "Значит в токене нет разрешения: Account → Cloudflare Pages → Edit."
+    echo "" >&2
+    yel "Создай новый Custom Token в Cloudflare:"
+    yel "  • Permissions → Account → Cloudflare Pages → Edit"
+    yel "  • Account Resources → Include → Specific account → ${ac}"
+    yel "  • Вставь новый cfat_… в cf-operator.env → CLOUDFLARE_API_TOKEN=… (одна строка)"
+    echo "" >&2
+    if [[ "${OPS_CF_NO_BROWSER:-}" != "1" ]]; then
+      blue "Открываю https://dash.cloudflare.com/profile/api-tokens"
+      open_url "https://dash.cloudflare.com/profile/api-tokens"
+    fi
+  else
+    red "Диагностика: токен не проходит GET /accounts — отозван, обрезан или неверный."
+  fi
+  rm -f "$acct_tmp"
+}
 
 need() {
   command -v "$1" >/dev/null 2>&1 || { red "missing: $1"; exit 2; }
@@ -76,9 +110,10 @@ code=$(curl -sS -o "$tmp" -w "%{http_code}" \
   "$URL")
 
 if [[ "$code" != "200" ]] || ! jq -e '.success == true' "$tmp" >/dev/null 2>&1; then
-  red "Cloudflare returned HTTP ${code} — token needs Account → Cloudflare Pages → Edit for this account."
+  red "Cloudflare Pages preflight HTTP ${code} — нужен токен с правом Cloudflare Pages (Edit)."
   head -c 2000 "$tmp" >&2 || true
   echo >&2
+  diagnose_pages_403 "$TOKEN" "$CF_ACCOUNT" "$code"
   exit 1
 fi
 rm -f "$tmp"
