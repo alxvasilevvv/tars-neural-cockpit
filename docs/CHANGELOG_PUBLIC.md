@@ -4,6 +4,12 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-04 — Cursor: go-live 48h — runbook + CI dispatch
+
+**Summary:** `docs/GO_LIVE_48H.md` — пошагово «сегодня / завтра»: BRIDGE на Pages, acceptance, ingest keys, Lovable sitemap/cookie. Прогнан `acceptance_tars_meeet.sh` (bridge SKIP без секрета — ожидаемо). Вручную запущен workflow **tars.meeet.world — Cloudflare Pages** на `main`.
+
+**Files:** add `docs/GO_LIVE_48H.md`; modify `docs/AGENT_HANDOFF.md`, `docs/CHANGELOG_AGENTS.md`.
+
 ## 2026-05-04 — Cursor: audit-6 — Landing dividers, ScrollStory, CouncilDemo, MeeetWorldStrip, CockpitPreview (`useT`)
 
 Wired remaining marketing blocks on `/` to i18n; added `councilDemo.{eyebrow,subtitle}` so `/council` keeps `council.eyebrow` / `council.subtitle`. **Files**: `i18n.tsx` (incl. `councilDemo.{eyebrow,subtitle}` clash fix), `Landing.tsx`, `ScrollStory.tsx`, `MeeetWorldStrip.tsx`, `CouncilDemo.tsx`, `CockpitPreview.tsx`; `docs/CHANGELOG_AGENTS.md`, `docs/AGENT_HANDOFF.md`.
@@ -3333,65 +3339,6 @@ target single-purpose and composable: `planner-clone` →
 
 ---
 
-## 2026-05-01 — Cursor [A] · Makefile: `planner-rerun` target for cron / fleet workflows
-
-**Summary**
-
-Adds `make planner-rerun ARGS=<plan_id> [MODE=…]` so cron jobs
-and fleet operators can reproduce the cockpit's one-click Rerun
-button from a single Make invocation. Internally it shells into
-`python -m backend.core.planner.cli clone $(ARGS) --approve --run`
-(plus optional `--mode "$(MODE)"`) so it shares the same trace
-scope, policy gate, and meeet-event payloads as the cockpit
-path.
-
-The optional `MODE=` variable is the operator's lever for pinning
-policy mode at the Make boundary — useful for nightly cron where
-you want `MODE=autopilot` regardless of `TARS_POLICY_MODE`'s
-default. Without `MODE=`, the CLI inherits the env / header
-default and the rerun follows whatever policy the host process
-is configured for.
-
-**Changes**
-
-1. `Makefile`:
-   - New `planner-rerun` target with the standard `ARGS=` guard
-     (no plan id ⇒ exit 2 with usage hint).
-   - Added to the planner `.PHONY` line.
-2. `tests/test_makefile_planner_targets.py`:
-   - `_PLANNER_TARGETS` extended with `planner-rerun` so the
-     `.PHONY` + help-text contracts apply to it.
-   - `ARGS=` guard parametrize extended to cover `planner-rerun`.
-   - New test
-     `test_planner_rerun_target_wires_clone_with_approve_and_run`
-     pinning that:
-     - the recipe contains `clone $(ARGS) --approve --run` so
-       the workflow stays in lockstep with the cockpit's
-       one-click Rerun button;
-     - the optional `MODE=` branch forwards `--mode "$(MODE)"`
-       so the operator can pin policy mode at the Make boundary.
-
-**Tests**
-
-- `tests/test_makefile_planner_targets.py` — **17 passed**
-  (was 14, +3 from the new parametrize entry, the new
-  `planner-rerun` `.PHONY` row, and the dedicated rerun
-  contract test).
-- `pytest -q` — **2097 passed in 40s** (was 2094, +3).
-- Manual smoke: `make planner-rerun ARGS=<plan_id>` ran clone
-  → approve → execute end-to-end and printed the rerun envelope
-  with `usage_lifetime` populated.
-
-**Operator follow-ups**
-
-- Right-rail entrypoint from the cockpit chat thread (open the
-  planner panel inline when the agent proposes a plan) — last
-  cockpit-side payoff still on the planner roadmap.
-- `make planner-replay-run ARGS="<plan_id> <run_trace>"` for
-  re-emitting a single past run's events into the meeet store
-  for dashboard backfill — useful when rebuilding billing
-  rollups after a meeet ingest outage.
-
 ---
 
-_Showing the most recent 60 of 213 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 214 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
