@@ -4,6 +4,48 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-04 — Cursor · trace-summary background loop: pin behaviour with tests
+
+**Summary**
+
+The materialised `trace_summary` view (`backend/core/meeet/trace_summary.py`)
+ships with a periodic rebuild loop in the FastAPI lifespan
+(`web_extras/app.py:_trace_summary_loop`, default 300 s, `0` disables).
+The loop has been live for a while but had no dedicated tests — only the
+core rollup math was pinned in `tests/test_meeet_trace_summary.py`. A
+silent regression that disabled the loop, swallowed exceptions, or
+broke the env-var contract would slip past CI.
+
+Closed that gap with `tests/test_trace_summary_loop.py` (10 cases),
+mirroring the shape of `tests/test_message_embed_loop.py`:
+
+- **Env helper** — defaults to 300 s, parses floats, clamps negatives,
+  falls back to default on garbage, `0` disables.
+- **Loop body** — short-circuits when interval is 0, short-circuits when
+  the meeet store is disabled, runs one tick that walks the events
+  table and writes the rollup row (asserts `event_count`, `tokens_in`,
+  `tokens_out`, `total_cost_usd`, `last_session_id`, `primary_route`),
+  survives an internal exception and keeps ticking on the next iteration.
+- **Lifespan integration** — `TestClient(app)` startup must not crash
+  (interval set to `0` so the no-I/O path runs).
+
+Full pytest after this batch: **2325 passed / 1 skipped / 2 xfailed**
+(was 2315).
+
+The brute-force rebuild (`O(events)` walk on every tick) is still
+acceptable for typical local stores per the source comment; the
+high-water-mark / delta-rebuild optimisation stays in the source-code
+TODO until a hot-path operator profile proves it's needed.
+
+**Files**
+
+- `tests/test_trace_summary_loop.py` (new, 10 cases)
+- `docs/AGENT_HANDOFF.md` — checkpoint banner already updated in
+  earlier batch this session
+- `docs/CHANGELOG_AGENTS.md`, `docs/CHANGELOG_PUBLIC.md`
+
+`>>> SYNC: Cursor · 2026-05-04 · trace-summary loop tests pin lifespan wiring`
+
 ## 2026-05-04 — Cursor · pre-commit hook: auto-regenerate CHANGELOG_PUBLIC.md
 
 **Summary**
@@ -3583,77 +3625,6 @@ planned op by mistake). `run` honours `--mode` to override
 - Wire the CLI into a `make planner-*` target group so the
   control tower runs it end-to-end as part of the gate.
 
-## 2026-05-01 — Cursor [A] · planner: per-run cost / token rollup on terminal event
-
-**Summary**
-
-After a plan run finishes, the runner now rolls up every
-`usage.tokens` event that fired inside its trace_id + wall-clock
-window and stamps the totals (`calls`, `tokens_in`, `tokens_out`,
-`cost_usd`, `latency_ms_total`, `has_priced_models`) onto the
-terminal event payload (`plan.completed` / `plan.aborted`) AND
-the `PlanRunner.run` return value. The `/api/planner/{id}/runs`
-reflector surfaces the same block via the `PlanRun` dataclass,
-so the cockpit's run history drawer can render per-run cost +
-token / latency totals without an extra round-trip to the usage
-ledger.
-
-`cost_usd` is `None` (not `0.0`) when no priced model fired, so
-the cockpit shows "n/a" instead of falsely advertising a free
-run. Filtering by both `trace_id` AND time window keeps parallel
-runs of the same plan from bleeding into each other's totals
-(the runner currently inherits the plan's birth trace, so two
-concurrent runs would otherwise share a trace_id).
-
-**Changes**
-
-1. `backend/core/planner/runner.py`:
-   - New `_compute_run_usage(trace_id, started_at, finished_at)`
-     async helper. Pulls `usage.tokens` events from the meeet
-     store filtered by `trace_id` + `since=started_at`, clamps
-     each event's `ts` to `<= finished_at + 1s` (clock-skew
-     grace), sums tokens / latency / `cost_usd`. Returns
-     `cost_usd=None` when no priced model was summed; otherwise
-     rounded to 6 decimals.
-   - `PlanRunner.run` captures `run_started_at = time.time()`
-     before entering `trace_scope`, computes the rollup right
-     before emitting the terminal event, and embeds it as a
-     `usage` block on both `plan.completed` and `plan.aborted`
-     payloads. Also added to the function's return dict.
-2. `backend/core/planner/history.py`:
-   - `PlanRun` dataclass gains `usage_calls`, `usage_tokens_in`,
-     `usage_tokens_out`, `usage_cost_usd`, `usage_latency_ms_total`,
-     `usage_has_priced_models` fields. `to_dict()` exposes them
-     under a single `usage` block matching the runner's shape.
-   - `_close_run(...)` reads the `usage` block off the terminal
-     event payload (defaulting to a zero rollup with
-     `cost_usd=None` when missing — keeps legacy events readable).
-3. `tests/test_planner_run_usage.py` (new, 11 cases): zero-rollup
-   for `trace_id=None`, sums matching events, returns `None` cost
-   for unpriced models, filters by trace_id, clamps to time
-   window, runner stamps usage on `plan.completed`, runner stamps
-   usage on `plan.aborted` (handler raises mid-step), zero usage
-   when no `usage.tokens` event, reconstructor surfaces the
-   block, reconstructor handles legacy missing-usage payload, and
-   end-to-end HTTP round trip via `POST /plan` →
-   `POST /status` (approve) → `POST /run` → `GET /runs`.
-
-**Tests**
-
-`pytest -q` → 1986 passed in 46.85s (was 1975; +11 new).
-
-**Follow-ups**
-
-- Once each run gets its own trace (rather than inheriting the
-  plan's birth trace), the time-window clamp in
-  `_compute_run_usage` becomes redundant — drop it then.
-- Cockpit run-history drawer can render `usage.cost_usd` +
-  `usage.tokens_*` per row; the `has_priced_models=false` case
-  should show "n/a · N tokens" instead of "$0.00".
-- Consider folding the rollup into a dedicated `plan.run.usage`
-  event so dashboards can query it without parsing the
-  terminal event payload.
-
 ---
 
-_Showing the most recent 60 of 197 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 198 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._

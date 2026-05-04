@@ -4,6 +4,48 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-04 — Cursor · trace-summary background loop: pin behaviour with tests
+
+**Summary**
+
+The materialised `trace_summary` view (`backend/core/meeet/trace_summary.py`)
+ships with a periodic rebuild loop in the FastAPI lifespan
+(`web_extras/app.py:_trace_summary_loop`, default 300 s, `0` disables).
+The loop has been live for a while but had no dedicated tests — only the
+core rollup math was pinned in `tests/test_meeet_trace_summary.py`. A
+silent regression that disabled the loop, swallowed exceptions, or
+broke the env-var contract would slip past CI.
+
+Closed that gap with `tests/test_trace_summary_loop.py` (10 cases),
+mirroring the shape of `tests/test_message_embed_loop.py`:
+
+- **Env helper** — defaults to 300 s, parses floats, clamps negatives,
+  falls back to default on garbage, `0` disables.
+- **Loop body** — short-circuits when interval is 0, short-circuits when
+  the meeet store is disabled, runs one tick that walks the events
+  table and writes the rollup row (asserts `event_count`, `tokens_in`,
+  `tokens_out`, `total_cost_usd`, `last_session_id`, `primary_route`),
+  survives an internal exception and keeps ticking on the next iteration.
+- **Lifespan integration** — `TestClient(app)` startup must not crash
+  (interval set to `0` so the no-I/O path runs).
+
+Full pytest after this batch: **2325 passed / 1 skipped / 2 xfailed**
+(was 2315).
+
+The brute-force rebuild (`O(events)` walk on every tick) is still
+acceptable for typical local stores per the source comment; the
+high-water-mark / delta-rebuild optimisation stays in the source-code
+TODO until a hot-path operator profile proves it's needed.
+
+**Files**
+
+- `tests/test_trace_summary_loop.py` (new, 10 cases)
+- `docs/AGENT_HANDOFF.md` — checkpoint banner already updated in
+  earlier batch this session
+- `docs/CHANGELOG_AGENTS.md`, `docs/CHANGELOG_PUBLIC.md`
+
+`>>> SYNC: Cursor · 2026-05-04 · trace-summary loop tests pin lifespan wiring`
+
 ## 2026-05-04 — Cursor · pre-commit hook: auto-regenerate CHANGELOG_PUBLIC.md
 
 **Summary**
