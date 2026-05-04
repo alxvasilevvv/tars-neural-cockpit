@@ -4,6 +4,75 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-04 — Cursor · L9 sidecar: bring pyoxidizer.bzl back in sync with requirements.txt
+
+**Summary**
+
+Picked up the next L9 follow-up. The sidecar Rust shell
+(`desktop/src-tauri/src/sidecar.rs`) was already complete — TARS_BACKEND_BIN
+override → bundled `tars-backend` (pyoxidizer) → `python3 serve.py`
+fallback, with health polling, SIGTERM-then-SIGKILL Drop, and the
+`desktop.sidecar.{started,failed,exited}` event contract pinned by
+`tests/test_desktop_sidecar_events_contract.py`.
+
+The actual gap was the **build config**: `desktop/pyoxidizer.bzl` was
+hardcoding 4 stale pins (`fastapi==0.115.0`, `uvicorn==0.30.6`,
+`pynacl==1.5.0`, `pydantic==2.9.2`) and missing every other runtime
+dependency the live `web_extras.app:app` requires —
+`pydantic-settings`, `httpx`, `httpx-sse`, `pypdf`, `eth-account`,
+`tonsdk`, `solders`. A pyoxidizer build with the old config would
+crash the bundled `tars-backend` on first import.
+
+Closed the gap in three pieces:
+
+1) Rewrote `desktop/pyoxidizer.bzl` to keep the runtime dependency
+   list in a single labelled `RUNTIME_REQUIREMENTS` Starlark constant
+   that mirrors `requirements.txt` exactly (10 pins now: every runtime
+   line minus the test extras). Pins now match the dev venv.
+
+2) Flipped `policy.include_distribution_resources = True` so adjacent
+   CSV/JSON seeds in `data/` ride along with the bundled package
+   tree — loaders that read them by relative path keep working in
+   the bundle.
+
+3) New `tests/test_pyoxidizer_requirements_parity.py` (5 cases) is the
+   parity guard:
+   - every requirements.txt line (minus BUNDLE_EXCLUDED:
+     pytest / pytest-asyncio / jsonschema) appears in
+     RUNTIME_REQUIREMENTS,
+   - no bundled pin is missing from requirements.txt,
+   - every common pin matches version specifier exactly (catches
+     silent drift like `==0.115.0` vs `==0.136.1`),
+   - dev-only test packages stay out of the bundle,
+   - sanity: parser must find ≥5 pins so a regex regression can't
+     silently pass the diff guards by returning ``{}``.
+
+   The bzl-list parser handles inline `]` inside string elements
+   (e.g. `"uvicorn[standard]==0.46.0"`) by anchoring the closing
+   `]` to a column-zero match — pinned by a comment in the bzl
+   file so the formatting is part of the contract.
+
+Full pytest after this batch: **2337 passed / 1 skipped / 2 xfailed**
+(was 2332).
+
+Operator follow-up (out of code-side scope, captured for the next
+pickup): an actual `pyoxidizer build` cross-target run is still
+needed to verify the bundle assembles end-to-end on
+darwin-aarch64, darwin-x86_64, win-x86_64, win-aarch64, linux-x86_64,
+linux-aarch64. The parity guard ensures the bundle SHOULD assemble
+once a build is attempted; first signed `.dmg`/`.exe` artefacts
+remain on the operator queue per `docs/AGENT_HANDOFF.md`.
+
+**Files**
+
+- `desktop/pyoxidizer.bzl` — rewritten with `RUNTIME_REQUIREMENTS`
+  constant + parity-test contract + `include_distribution_resources`
+  flip.
+- `tests/test_pyoxidizer_requirements_parity.py` (new, 5 cases).
+- `docs/CHANGELOG_AGENTS.md`, `docs/CHANGELOG_PUBLIC.md`.
+
+`>>> SYNC: Cursor · 2026-05-04 · L9 pyoxidizer pins back in sync with runtime`
+
 ## 2026-05-04 — Cursor · L5 emit_encrypted: zero-boilerplate sealed events
 
 **Summary**
@@ -3548,73 +3617,6 @@ risks at run boundaries.
 
 ---
 
-## 2026-05-01 — Cursor [A] · planner: clone — rerun a plan without history mutation
-
-**Summary**
-
-A clone-and-relaunch primitive that lets the operator "rerun"
-a finished plan without mutating its terminal status. The
-original keeps its `completed` / `aborted` row, the clone
-enters the inbox at `proposed` so the operator can approve it
-again. Exposes both an HTTP endpoint and a CLI subcommand,
-plumbed into the timeline + SSE allow-lists so the cockpit
-audit lane can render the parent → child relationship.
-
-**Changes**
-
-1. `backend/core/planner/store.py` — new
-   `PlannerStore.clone(plan_id, *, thread_id=None,
-   trace_id=None, goal_override=None)`. Returns a fresh
-   `Plan` with a brand new `id`, `status="proposed"`, fresh
-   timestamps; deep-copies steps via `PlanStep.from_dict(s.to_dict())`
-   so mutating either tuple later doesn't bleed. `goal_override`
-   is `.strip()`-ed to mirror the synthesizer's normalisation.
-   Returns `None` when the source id is unknown.
-2. `web_extras/routers/planner.py` — new
-   `POST /api/planner/{plan_id}/clone`. Body may include
-   `thread_id` (rebind to a different chat) and `goal_override`.
-   Wraps the call in `thread_id_scope` + `trace_scope` so the
-   clone gets a fresh `trace_id` for downstream correlation.
-   Emits `planner.cloned` with `plan_id` (clone), `source_plan_id`
-   (original), `source_status`, `model`, `pack_slug`,
-   `playbook_id`, `step_count`, `thread_id_rebind`,
-   `goal_overridden`. 404s on unknown source ids. Adds the
-   new event kind to `_PLAN_EVENT_KINDS` so the SSE feed
-   picks it up.
-3. `backend/core/planner/cli.py` — new `clone` subcommand:
-   `python -m … clone <plan_id> [--thread-id <id>] [--goal "..."]`.
-   Mirrors the HTTP wiring exactly (same trace scope, same
-   event payload). Added to the global `_DISPATCH` table and
-   the docstring usage block.
-4. `backend/core/search/timeline.py` —
-   `_RELEVANT_EVENT_KINDS` now includes `planner.cloned`;
-   `_summarise_event` formats it as
-   `plan=<new_id> · from=<src_id> · steps=N` with optional
-   ` · thread-rebind` / ` · goal-override` suffixes.
-5. `tests/test_planner_clone.py` (new, 13 cases): store-level
-   clone returns fresh proposed plan with new id and deep-copied
-   steps (original untouched); thread_id override applied;
-   goal_override stripped; unknown plan returns `None`; HTTP
-   happy path returns the new plan + `source_plan_id` and emits
-   `planner.cloned`; HTTP body `thread_id` flips
-   `thread_id_rebind=true`; HTTP body `goal_override` flips
-   `goal_overridden=true`; HTTP 404 envelope; CLI happy path
-   + overrides + 404; timeline summariser produces the
-   expected string with / without override flags.
-
-**Tests**
-
-`pytest -q` → 2022 passed in 44.51s (was 2009; +13 new).
-
-**Follow-ups**
-
-- Cockpit "Rerun" button on the plan card calls
-  `POST /api/planner/{id}/clone` then immediately approves +
-  runs the returned plan id (two-call flow; `clone` itself
-  stays read-mostly so destructive intent is explicit).
-- Optional `clone --approve` CLI flag that chains the new
-  plan into the approved status without an extra subcommand.
-
 ---
 
-_Showing the most recent 60 of 199 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 200 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
