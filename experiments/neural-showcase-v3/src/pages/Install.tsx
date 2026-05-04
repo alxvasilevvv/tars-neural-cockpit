@@ -41,7 +41,7 @@ import {
  */
 
 const REPO = "alxvasilevvv/tars-neural-cockpit";
-const RELEASE_VERSION = "v8.4.0";
+const RELEASE_VERSION = "v9.1.0";
 const RELEASE_BASE = `https://github.com/${REPO}/releases/download/${RELEASE_VERSION}`;
 const VERSION_NUMERIC = RELEASE_VERSION.replace(/^v/, "");
 

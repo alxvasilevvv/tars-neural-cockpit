@@ -4,6 +4,33 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-04 — Cursor: version bump v8.4.0 → v9.1.0 (audit-1 + audit-2 release)
+
+Bumped the marketing + Tauri version pin so the new icon set,
+ad-hoc-codesigned macOS bundle, install.sh installer, CockpitGate,
+and the trace-coverage / pure-helper hardening all land in a
+single GitHub Release.
+
+**Files**
+- `desktop/src-tauri/Cargo.toml` — `version = "9.1.0"`
+- `desktop/src-tauri/tauri.conf.json` — `"version": "9.1.0"`
+- `desktop/package.json` — `"version": "9.1.0"`
+- `experiments/neural-showcase-v3/src/pages/Install.tsx` —
+  `RELEASE_VERSION = "v9.1.0"`
+- `experiments/neural-showcase-v3/functions/api/product/version.ts` —
+  `LATEST_VERSION = "9.1.0"`
+- `web_extras/routers/product.py` — added new
+  `TARS-9.1.0-{arm64,x64}.dmg`, `TARS-9.1.0-setup.exe`,
+  `TARS-9.1.0.AppImage` legacy redirects pointing at the v9.1.0
+  GitHub Release. Old v8.4.0 entries kept registered for
+  backwards-compat with any pre-audit blog post / shared link.
+
+After this lands, push tag `v9.1.0` to trigger
+`.github/workflows/release-desktop-tagged.yml` which will build
+and upload all four installers (mac arm64 dmg, mac x64 dmg,
+windows msi, linux AppImage) with the new icon and the ad-hoc
+macOS codesign already wired in by audit-1.
+
 ## 2026-05-04 — Cursor: audit-2 pass — trace coverage + new-code test nets
 
 Direct continuation of the operator audit pass earlier today (commit

@@ -24,8 +24,10 @@ Endpoints:
   ``meeet.world`` is stale).
 
 - ``GET /dl/{artifact}`` — **302** to GitHub Release installers for
-  the canonical **v8.4.0** marketing filenames (same mapping as
-  ``meeet-solana-state`` ``public/_redirects``).
+  the canonical **v9.1.0** marketing filenames (same mapping as
+  ``meeet-solana-state`` ``public/_redirects``). The previous
+  v8.4.0 filenames stay registered for backwards-compat with any
+  blog post / shared link from the audit-1 era.
 
 All endpoints are read-only, side-effect-free, and emit a permissive
 ``Cache-Control`` so a CDN can serve them with a one-minute TTL.
@@ -66,6 +68,24 @@ LEGACY_INSTALL_SH_RAW = (
 
 # Canonical filenames exposed on the marketing site (hyphens in dmg/exe names).
 LEGACY_DL_TO_RELEASE_URL: dict[str, str] = {
+    "TARS-9.1.0-arm64.dmg": (
+        "https://github.com/alxvasilevvv/tars-neural-cockpit/"
+        "releases/download/v9.1.0/TARS_9.1.0_aarch64.dmg"
+    ),
+    "TARS-9.1.0-x64.dmg": (
+        "https://github.com/alxvasilevvv/tars-neural-cockpit/"
+        "releases/download/v9.1.0/TARS_9.1.0_x64.dmg"
+    ),
+    "TARS-9.1.0-setup.exe": (
+        "https://github.com/alxvasilevvv/tars-neural-cockpit/"
+        "releases/download/v9.1.0/TARS_9.1.0_x64-setup.exe"
+    ),
+    "TARS-9.1.0.AppImage": (
+        "https://github.com/alxvasilevvv/tars-neural-cockpit/"
+        "releases/download/v9.1.0/TARS_9.1.0_amd64.AppImage"
+    ),
+    # Backwards-compat for v8.4.0 marketing URLs (kept registered
+    # so any pre-audit blog post / shared link still resolves).
     "TARS-8.4.0-arm64.dmg": (
         "https://github.com/alxvasilevvv/tars-neural-cockpit/"
         "releases/download/v8.4.0/TARS_8.4.0_aarch64.dmg"
