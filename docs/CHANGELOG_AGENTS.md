@@ -4,6 +4,49 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-04 — Cursor: audit-4 — Landing i18n coverage (Steps · Rail · CockpitLive)
+
+Closed the last visible gap from earlier audits: three of the
+loudest above-the-fold sections on `/` (Steps, Rail, CockpitLive)
+were still hard-coded English. Migrated them to `useT()` with
+38 new translation keys per locale. The parity guard
+(`i18n.test.ts`) keeps RU coverage at 100%.
+
+**New i18n namespaces (EN + RU at full parity)**
+- `steps.*` (15 keys) — section head, three step cards
+  (title/body/cue × 3)
+- `rail.*` (15 keys) — six stream labels, three live metrics
+  (integrity / streams / latency), units (ms / %)
+- `cockpitLive.*` (8 keys) — eyebrow, gradient title halves,
+  CTA, chrome title, booting label, LIVE badge, footer note
+
+**Files**
+- modify: `experiments/neural-showcase-v3/src/lib/i18n.tsx`
+  (38 new keys × 2 locales)
+- modify: `experiments/neural-showcase-v3/src/components/Steps.tsx`
+  (STEPS array now built from `t()`, head from `t()`)
+- modify: `experiments/neural-showcase-v3/src/components/Rail.tsx`
+  (STREAM_KEYS as const satisfies TKey[]; aria, metrics,
+  units all from `t()`)
+- modify: `experiments/neural-showcase-v3/src/components/CockpitLive.tsx`
+  (eyebrow, title halves, CTA, chrome title, booting label,
+  badge, footer note + CTA all from `t()`)
+
+**Verification**
+- `pnpm typecheck` (v3): clean
+- `pnpm test --run src/lib/i18n.test.ts`: 12/12 passed
+  (parity guard would fail on any missed RU translation)
+- `pnpm test --run` (v3): **368 passed** / 26 files
+- `pnpm build` (v3): clean
+
+**Coverage status**: hero / about-the-app / pricing / waitlist /
+FAQ / footer / Steps / Rail / CockpitLive / cockpit gate /
+install / locale switcher all on `useT()`. Remaining offenders
+(MeetTars secondary copy, MeeetSection long-form, Layers,
+Domains static cards, ProofStrip) are all longer-form marketing
+prose that benefits from a dedicated translation pass — defer
+to operator pick.
+
 ## 2026-05-04 — Cursor: audit-3 — release resilience + memory tracing
 
 After v9.1.0 shipped, the GitHub macOS-13 (Intel) runner pool

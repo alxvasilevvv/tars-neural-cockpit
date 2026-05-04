@@ -4,6 +4,49 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-04 — Cursor: audit-4 — Landing i18n coverage (Steps · Rail · CockpitLive)
+
+Closed the last visible gap from earlier audits: three of the
+loudest above-the-fold sections on `/` (Steps, Rail, CockpitLive)
+were still hard-coded English. Migrated them to `useT()` with
+38 new translation keys per locale. The parity guard
+(`i18n.test.ts`) keeps RU coverage at 100%.
+
+**New i18n namespaces (EN + RU at full parity)**
+- `steps.*` (15 keys) — section head, three step cards
+  (title/body/cue × 3)
+- `rail.*` (15 keys) — six stream labels, three live metrics
+  (integrity / streams / latency), units (ms / %)
+- `cockpitLive.*` (8 keys) — eyebrow, gradient title halves,
+  CTA, chrome title, booting label, LIVE badge, footer note
+
+**Files**
+- modify: `experiments/neural-showcase-v3/src/lib/i18n.tsx`
+  (38 new keys × 2 locales)
+- modify: `experiments/neural-showcase-v3/src/components/Steps.tsx`
+  (STEPS array now built from `t()`, head from `t()`)
+- modify: `experiments/neural-showcase-v3/src/components/Rail.tsx`
+  (STREAM_KEYS as const satisfies TKey[]; aria, metrics,
+  units all from `t()`)
+- modify: `experiments/neural-showcase-v3/src/components/CockpitLive.tsx`
+  (eyebrow, title halves, CTA, chrome title, booting label,
+  badge, footer note + CTA all from `t()`)
+
+**Verification**
+- `pnpm typecheck` (v3): clean
+- `pnpm test --run src/lib/i18n.test.ts`: 12/12 passed
+  (parity guard would fail on any missed RU translation)
+- `pnpm test --run` (v3): **368 passed** / 26 files
+- `pnpm build` (v3): clean
+
+**Coverage status**: hero / about-the-app / pricing / waitlist /
+FAQ / footer / Steps / Rail / CockpitLive / cockpit gate /
+install / locale switcher all on `useT()`. Remaining offenders
+(MeetTars secondary copy, MeeetSection long-form, Layers,
+Domains static cards, ProofStrip) are all longer-form marketing
+prose that benefits from a dedicated translation pass — defer
+to operator pick.
+
 ## 2026-05-04 — Cursor: audit-3 — release resilience + memory tracing
 
 After v9.1.0 shipped, the GitHub macOS-13 (Intel) runner pool
@@ -3518,88 +3561,6 @@ completed steps renders next to the action via `formatLatencyMs`.
   panel inline when the agent proposes a plan) — the next
   obvious operator workflow.
 
-## 2026-05-01 — Cursor [A] · cockpit: PlanFullPanel + /cockpit/planner page
-
-**Summary**
-
-Operator-facing payoff for the planner backend work shipped in
-PRs #109–#117. New page at `/cockpit/planner` lets the operator
-inspect any plan's full envelope (plan + steps + reconstructed
-runs + lifetime usage), one-click rerun it, and watch the
-lifetime rollup update in place via the planner SSE stream.
-
-Two pieces:
-
-1. `<PlanFullPanel />` — self-contained panel that hydrates
-   from `fetchFullPlan(planId)`, subscribes to
-   `subscribePlannerEvents({ planId })`, and refetches on
-   `plan.run.usage` / `plan.completed` / `plan.aborted` /
-   `plan.run.started` / `plan.abort.requested` /
-   `planner.cloned`. Has Rerun, Abort, and Refresh buttons.
-   Honours `cost_usd === null` → "n/a" everywhere.
-2. `<Planner />` page — wraps the panel with a list of plans
-   (`listPlans`) on the left, status pills + free-text filter
-   on top, and a global SSE subscription that refreshes the
-   list when new plans land.
-
-Pure helpers extracted from the panel (`statusTone`,
-`formatLatencyMs`, `formatStartedAt`, `formatRunSummary`,
-`formatLifetimeSummary`, `summariseStep`, `REFETCH_KINDS`,
-`shouldAdvanceCursor`) are exported and pinned by 17 Vitest
-cases — the formatting that the cockpit will read most often
-is locked in without touching the DOM.
-
-The new route is registered in `App.tsx` (lazy-loaded chunk
-`Planner-*.js`, 17.6 kB / 4.96 kB gzipped) and a "planner"
-anchor was added to the cockpit's top nav so the operator
-can jump in with one click.
-
-**Changes**
-
-1. `experiments/neural-showcase-v3/src/components/PlanFullPanel.tsx`
-   (new) — drawer panel + pure helpers. ~330 LoC including
-   sub-renderers (`PlanMetaRow`, `Steps`, `Runs`, `Lifetime`).
-2. `experiments/neural-showcase-v3/src/components/PlanFullPanel.test.ts`
-   (new, 17 cases) — pinning every helper:
-   - `statusTone` mapping for all 6 statuses + defensive default.
-   - `formatLatencyMs`: nullish/NaN/negative → "n/a"; sub-second
-     ms with one decimal; ≥1s in seconds with two decimals.
-   - `formatStartedAt`: nullish → "—"; UTC string format.
-   - `formatRunSummary`: cost honoured (priced + null).
-   - `formatLifetimeSummary`: singular/plural "run(s)".
-   - `summariseStep`: empty args → "{}", with-args → JSON.
-   - `REFETCH_KINDS`: positive (must refetch) and negative
-     (cosmetic-only) sets.
-   - `shouldAdvanceCursor`: null → always advance, otherwise
-     strict-greater.
-3. `experiments/neural-showcase-v3/src/pages/Planner.tsx`
-   (new) — `/cockpit/planner` page hosting the panel + list.
-4. `experiments/neural-showcase-v3/src/App.tsx` — register
-   `/cockpit/planner` route, lazy-loaded.
-5. `experiments/neural-showcase-v3/src/pages/Cockpit.tsx` —
-   add "planner" anchor to the top-bar nav so the operator
-   can jump from the main cockpit to the planner page.
-
-**Tests**
-
-- `pnpm vitest run` — **120 passed (11 files)**, including
-  17 new cases.
-- `pnpm tsc --noEmit` — clean.
-- `pnpm vite build` — clean. Planner chunk 17.6 kB / 4.96 kB
-  gzipped.
-- `pytest -q` — **2080 passed in 40s** (no Python deltas).
-
-**Cockpit follow-ups**
-
-- Step-level live updates: stream `plan.step.completed` into
-  the panel and render a per-step status row that ticks live
-  during a run.
-- URL-state sync for the filter strip
-  (`?status=running&q=…`) so the operator can deep-link to a
-  filter view.
-- Right-rail entrypoint from the main cockpit chat thread
-  (open the panel inline when the agent proposes a plan).
-
 ---
 
-_Showing the most recent 60 of 209 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 210 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._

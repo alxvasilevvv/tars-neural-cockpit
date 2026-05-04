@@ -542,6 +542,48 @@ const STRINGS_EN = {
   "awareness.unit.ms":             "ms",
   "awareness.unit.s":              "s",
   "cockpit.nav.awareness":         "awareness",
+
+  // Steps section (audit-4 i18n coverage — Landing).
+  "steps.head.tag":                "FLOW",
+  "steps.head.title":              "Drop. Cluster. Specialise.",
+  "steps.head.description":        "Drop any folder. TARS embeds, clusters, and wires it into a graph you can navigate at the speed of thought.",
+  "steps.s1.title":                "Drop folders & files",
+  "steps.s1.body":                 "MD, PDF, code, audio. Local indexing, no upload.",
+  "steps.s1.cue":                  "drop · scan · index",
+  "steps.s2.title":                "Embed & cluster",
+  "steps.s2.body":                 "Six awareness layers light up. Each cluster picks a place in the graph.",
+  "steps.s2.cue":                  "embed · cluster · pin",
+  "steps.s3.title":                "Pick a domain pack",
+  "steps.s3.body":                 "The core specialises into a tool for your craft — traders, business, entrepreneur or science.",
+  "steps.s3.cue":                  "specialise · arm · run",
+
+  // Rail section (live awareness streams ticker).
+  "rail.aria":                     "live awareness streams",
+  "rail.live":                     "LIVE",
+  "rail.core":                     "SK-09 / CORE",
+  "rail.stream.concept":           "concept",
+  "rail.stream.memory":            "memory",
+  "rail.stream.code":              "code",
+  "rail.stream.calendar":          "calendar",
+  "rail.stream.mac":               "mac",
+  "rail.stream.voice":             "voice",
+  "rail.metric.integrity":         "integrity",
+  "rail.metric.streams":           "streams",
+  "rail.metric.latency":           "latency",
+  "rail.unit.ms":                  "ms",
+  "rail.unit.percent":             "%",
+
+  // CockpitLive — embedded live cockpit preview.
+  "cockpitLive.eyebrow":           "04 / cockpit · live preview",
+  "cockpitLive.live":              "LIVE",
+  "cockpitLive.title.prefix":      "What you see after",
+  "cockpitLive.title.gradient":    "install",
+  "cockpitLive.cta.openReal":      "Open the real one",
+  "cockpitLive.chrome.title":      "tars · cockpit · localhost:8765",
+  "cockpitLive.booting":           "booting cockpit…",
+  "cockpitLive.badge.live":        "LIVE · interaction disabled",
+  "cockpitLive.footer.note":       "This is the actual cockpit running on your local TARS daemon — embedded read-only. Your data, your machine.",
+  "cockpitLive.footer.cta":        "interact in full →",
 } as const;
 
 /** Pre-typed key namespace export so consumers get autocomplete. */
@@ -1065,6 +1107,48 @@ const STRINGS_RU: Partial<Record<TKey, string>> = {
   "awareness.unit.ms":             "мс",
   "awareness.unit.s":              "с",
   "cockpit.nav.awareness":         "awareness",
+
+  // Steps section (audit-4 i18n coverage — Landing).
+  "steps.head.tag":                "ПРОЦЕСС",
+  "steps.head.title":              "Загрузил. Кластеризовал. Специализировал.",
+  "steps.head.description":        "Загрузите любую папку. TARS делает эмбеддинги, кластеризует и связывает всё в граф, по которому вы летаете со скоростью мысли.",
+  "steps.s1.title":                "Перенесите папки и файлы",
+  "steps.s1.body":                 "MD, PDF, код, аудио. Индексация локально, ничего не уходит в облако.",
+  "steps.s1.cue":                  "drop · scan · index",
+  "steps.s2.title":                "Эмбеддинги и кластеры",
+  "steps.s2.body":                 "Шесть слоёв осведомлённости активируются. Каждый кластер занимает место в графе.",
+  "steps.s2.cue":                  "embed · cluster · pin",
+  "steps.s3.title":                "Выберите доменный pack",
+  "steps.s3.body":                 "Ядро специализируется под ваше дело — трейдеры, бизнес, предприниматель или наука.",
+  "steps.s3.cue":                  "specialise · arm · run",
+
+  // Rail section (live awareness streams ticker).
+  "rail.aria":                     "живые потоки осведомлённости",
+  "rail.live":                     "LIVE",
+  "rail.core":                     "SK-09 / ЯДРО",
+  "rail.stream.concept":           "концепт",
+  "rail.stream.memory":            "память",
+  "rail.stream.code":              "код",
+  "rail.stream.calendar":          "календарь",
+  "rail.stream.mac":               "mac",
+  "rail.stream.voice":             "голос",
+  "rail.metric.integrity":         "целостность",
+  "rail.metric.streams":           "потоки",
+  "rail.metric.latency":           "задержка",
+  "rail.unit.ms":                  "мс",
+  "rail.unit.percent":             "%",
+
+  // CockpitLive — embedded live cockpit preview.
+  "cockpitLive.eyebrow":           "04 / кокпит · живой превью",
+  "cockpitLive.live":              "LIVE",
+  "cockpitLive.title.prefix":      "Что вы увидите после",
+  "cockpitLive.title.gradient":    "установки",
+  "cockpitLive.cta.openReal":      "Открыть настоящий",
+  "cockpitLive.chrome.title":      "tars · cockpit · localhost:8765",
+  "cockpitLive.booting":           "запуск кокпита…",
+  "cockpitLive.badge.live":        "LIVE · взаимодействие выключено",
+  "cockpitLive.footer.note":       "Это настоящий кокпит, запущенный на вашем локальном TARS-демоне — встроен только для чтения. Ваши данные, ваша машина.",
+  "cockpitLive.footer.cta":        "открыть полностью →",
 };
 
 const STRINGS_BY_LOCALE = {

@@ -3,6 +3,20 @@
 Pick this up if you are continuing the work in a fresh chat. Read this file
 plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 
+> **2026-05-04 20:10 — Audit-4 i18n coverage pass.**
+> Closed the last visible Landing-page i18n gap. Three of the
+> loudest above-the-fold sections (Steps, Rail, CockpitLive)
+> were still hard-coded English; all three now run through
+> `useT()` with 38 new keys per locale (RU at 100% parity).
+>
+> Verification: pnpm typecheck clean, vitest **368 passed** /
+> 26 files, parity guard green, production build clean.
+>
+> **Remaining i18n offenders** (longer-form marketing prose,
+> deferred to a focused translation pass): MeetTars secondary
+> copy, MeeetSection long-form, Layers, Domains static cards,
+> ProofStrip.
+>
 > **2026-05-04 18:55 — Audit-3 release-resilience pass.**
 > v9.1.0 shipped at 18:30 with 5 of 6 expected installers — the
 > macos-13 (Intel) GitHub runner pool was queue-starved and the

@@ -2,30 +2,11 @@ import { motion, useScroll, useTransform } from "framer-motion";
 import { useRef } from "react";
 import { SectionHead } from "@/components/SectionHead";
 import { CornerFrame, StatusLozenge } from "@/components/Glyphs";
-
-const STEPS = [
-  {
-    num: "01",
-    title: "Drop folders & files",
-    body: "MD, PDF, code, audio. Local indexing, no upload.",
-    cue: "drop · scan · index",
-  },
-  {
-    num: "02",
-    title: "Embed & cluster",
-    body: "Six awareness layers light up. Each cluster picks a place in the graph.",
-    cue: "embed · cluster · pin",
-  },
-  {
-    num: "03",
-    title: "Pick a domain pack",
-    body: "The core specialises into a tool for your craft — traders, business, entrepreneur or science.",
-    cue: "specialise · arm · run",
-  },
-];
+import { useT } from "@/lib/i18n";
 
 export function Steps() {
   const ref = useRef<HTMLElement>(null);
+  const t = useT();
   const { scrollYProgress } = useScroll({
     target: ref,
     offset: ["start 0.85", "end 0.45"],
@@ -33,6 +14,27 @@ export function Steps() {
     layoutEffect: false,
   });
   const lineScale = useTransform(scrollYProgress, [0, 1], [0, 1]);
+
+  const STEPS = [
+    {
+      num: "01",
+      title: t("steps.s1.title"),
+      body: t("steps.s1.body"),
+      cue: t("steps.s1.cue"),
+    },
+    {
+      num: "02",
+      title: t("steps.s2.title"),
+      body: t("steps.s2.body"),
+      cue: t("steps.s2.cue"),
+    },
+    {
+      num: "03",
+      title: t("steps.s3.title"),
+      body: t("steps.s3.body"),
+      cue: t("steps.s3.cue"),
+    },
+  ];
 
   return (
     <section
@@ -42,9 +44,9 @@ export function Steps() {
     >
       <SectionHead
         num="03"
-        tag="FLOW"
-        title="Drop. Cluster. Specialise."
-        description="Drop any folder. TARS embeds, clusters, and wires it into a graph you can navigate at the speed of thought."
+        tag={t("steps.head.tag")}
+        title={t("steps.head.title")}
+        description={t("steps.head.description")}
       />
 
       <div className="relative">
