@@ -4,6 +4,26 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-04 — Claude QA · Install page ↔ download manifest + local QA docs
+
+**Summary**
+
+Operator asked for full product QA hardening on TARS. Cockpit **Vitest** (374 tests) + **`npm run build`** green.
+
+**`/install`** no longer relies solely on hard-coded **v9.1.0** GitHub URLs (they drifted from live **`/api/product/downloads`**, which still serves **v8.4.0**). The page now loads **`useDownloads()`**, picks the primary artifact per OS tab via **`installArtifacts.ts`**, lists manifest rows in Advanced when present, and shows an EN/RU banner when URLs still target **`github.com/.../releases/download`** (private-repo **404** mitigation — **B-017**).
+
+Repo ergonomics: **`docs/QA_LOCAL_SETUP.md`**, **`make check-python-version`** (FastAPI pins need **Python ≥ 3.10** — stock macOS **3.9** was failing `pip install`), **`.python-version`** hint for pyenv.
+
+**Files**
+
+- `experiments/neural-showcase-v3/src/pages/Install.tsx`
+- `experiments/neural-showcase-v3/src/lib/installArtifacts.ts`, `installArtifacts.test.ts`
+- `experiments/neural-showcase-v3/src/lib/i18n.tsx`
+- `Makefile`, `.python-version`, `docs/QA_LOCAL_SETUP.md`
+- `docs/CHANGELOG_PUBLIC.md` (regenerated)
+
+`>>> SYNC: Claude QA · 2026-05-04 · Operator-request Install/manifest sync + QA_LOCAL_SETUP`
+
 ## 2026-05-04 — Cursor: audit-5 — full Landing i18n coverage (Layers · Domains · ProofStrip · MeeetSection)
 
 Closed every remaining hard-coded English string on the

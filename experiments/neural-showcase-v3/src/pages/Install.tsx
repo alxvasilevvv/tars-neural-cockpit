@@ -16,7 +16,15 @@ import {
 import { CornerFrame, StatusLozenge } from "@/components/Glyphs";
 import { useDocumentMeta } from "@/lib/meta";
 import { trackClick } from "@/lib/analytics";
+import { useDownloads } from "@/lib/downloads";
 import { useT } from "@/lib/i18n";
+import {
+  artifactsForTab,
+  formatArtifactSize,
+  formatDisplayVersion,
+  releaseUsesGithubUrls,
+  resolvePrimaryFromManifest,
+} from "@/lib/installArtifacts";
 import {
   detectMacArch as detectMacArchHelper,
   detectOS as detectOSHelper,
@@ -143,6 +151,7 @@ function primaryFor(os: "mac" | "linux" | "windows"): DownloadOption {
 
 export function Install() {
   const t = useT();
+  const dl = useDownloads();
   useDocumentMeta({
     title: "Install TARS · meeet.world",
     description:
@@ -157,8 +166,26 @@ export function Install() {
     setOs(detectOS());
   }, []);
 
-  const primary = useMemo(() => primaryFor(os), [os]);
-  const primaryUrl = `${RELEASE_BASE}/${primary.asset}`;
+  const macArchResolved = detectMacArch();
+  const resolvedManifestPrimary = useMemo(
+    () => resolvePrimaryFromManifest(dl.manifest, os, macArchResolved),
+    [dl.manifest, os, macArchResolved],
+  );
+  const legacyPrimary = useMemo(() => primaryFor(os), [os]);
+  const useManifestPrimary = Boolean(
+    dl.manifest?.releases?.[0]?.artifacts?.length && resolvedManifestPrimary,
+  );
+  const primaryUrl = useManifestPrimary
+    ? resolvedManifestPrimary!.url
+    : `${RELEASE_BASE}/${legacyPrimary.asset}`;
+  const displayVersionStr = dl.manifest?.releases?.[0]?.version
+    ? formatDisplayVersion(dl.manifest.releases[0].version)
+    : RELEASE_VERSION;
+
+  const advancedManifestArtifacts = useMemo(
+    () => artifactsForTab(dl.manifest, os),
+    [dl.manifest, os],
+  );
 
   const copy = (text: string, which: string) => {
     navigator.clipboard?.writeText(text);
@@ -193,7 +220,7 @@ export function Install() {
             }}
           />
           {t("install.eyebrow")}
-          <StatusLozenge label={`STABLE · ${RELEASE_VERSION}`} tone="hud" />
+          <StatusLozenge label={`STABLE · ${displayVersionStr}`} tone="hud" />
         </motion.div>
 
         <motion.h1
@@ -256,12 +283,26 @@ export function Install() {
           })}
         </div>
 
+        {releaseUsesGithubUrls(dl.manifest) && (
+          <div
+            className="mt-6 rounded-[14px] border border-sky-500/25 bg-sky-500/5 px-4 py-3 text-[13px] leading-[1.55] text-ink-2"
+            role="note"
+          >
+            {t("install.private_github.banner")}
+          </div>
+        )}
+
         {/* PRIMARY DOWNLOAD CTA — the giant button */}
         <motion.a
-          key={primary.id}
+          key={`${os}-${useManifestPrimary ? resolvedManifestPrimary!.filename : legacyPrimary.id}`}
           href={primaryUrl}
           download
-          onClick={() => trackClick("install_download_primary", { os, asset: primary.asset })}
+          onClick={() =>
+            trackClick("install_download_primary", {
+              os,
+              asset: useManifestPrimary ? resolvedManifestPrimary!.filename : legacyPrimary.asset,
+            })
+          }
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.6, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
@@ -289,14 +330,26 @@ export function Install() {
             </div>
             <div className="mt-1 font-display text-[22px] font-medium leading-tight text-ink md:text-[26px]">
               {os === "mac"
-                ? `${t("install.primary.mac")} · ${primary.arch}`
+                ? `${t("install.primary.mac")} · ${
+                    useManifestPrimary ? resolvedManifestPrimary!.archLabel : legacyPrimary.arch
+                  }`
                 : os === "linux"
                   ? t("install.primary.linux")
                   : t("install.primary.windows")}
             </div>
             <div className="mt-1 font-mono-tech text-[11px] uppercase tracking-[1.6px] text-ink-2">
-              {primary.format} · {primary.size} · {RELEASE_VERSION} ·{" "}
-              <span className="text-accent">{primary.asset}</span>
+              {useManifestPrimary ? (
+                <>
+                  {resolvedManifestPrimary!.formatLabel} · {resolvedManifestPrimary!.sizeApprox} ·{" "}
+                  {displayVersionStr} ·{" "}
+                  <span className="text-accent">{resolvedManifestPrimary!.filename}</span>
+                </>
+              ) : (
+                <>
+                  {legacyPrimary.format} · {legacyPrimary.size} · {RELEASE_VERSION} ·{" "}
+                  <span className="text-accent">{legacyPrimary.asset}</span>
+                </>
+              )}
             </div>
           </div>
           <div
@@ -454,30 +507,57 @@ export function Install() {
                 {t("install.advanced.assets.label")}
               </div>
               <ul className="divide-y divide-line border-t border-line">
-                {DOWNLOADS.filter((d) => d.os === os).map((d) => (
-                  <li
-                    key={d.id}
-                    className="flex flex-col gap-2 px-5 py-3 text-[13px] sm:flex-row sm:items-center sm:justify-between md:px-7"
-                  >
-                    <div>
-                      <div className="font-mono text-ink">{d.asset}</div>
-                      <div className="font-mono-tech text-[10px] uppercase tracking-[1.8px] text-ink-3">
-                        {d.arch} · {d.format} · {d.size}
-                      </div>
-                    </div>
-                    <a
-                      href={`${RELEASE_BASE}/${d.asset}`}
-                      download
-                      onClick={() =>
-                        trackClick("install_download_alt", { asset: d.asset })
-                      }
-                      className="inline-flex items-center justify-center gap-2 rounded-md border border-line-strong bg-bg-2 px-3.5 py-2 font-mono-tech text-[10.5px] uppercase tracking-[2.4px] text-ink transition-colors duration-200 hover:border-accent hover:text-accent"
-                    >
-                      <Download size={12} />
-                      {t("install.advanced.assets.download")}
-                    </a>
-                  </li>
-                ))}
+                {(
+                  advancedManifestArtifacts.length > 0
+                  ? advancedManifestArtifacts.map((a) => (
+                      <li
+                        key={a.filename}
+                        className="flex flex-col gap-2 px-5 py-3 text-[13px] sm:flex-row sm:items-center sm:justify-between md:px-7"
+                      >
+                        <div>
+                          <div className="font-mono text-ink">{a.filename}</div>
+                          <div className="font-mono-tech text-[10px] uppercase tracking-[1.8px] text-ink-3">
+                            {a.arch} · {a.kind} · {formatArtifactSize(a.size_bytes, "—")}
+                          </div>
+                        </div>
+                        <a
+                          href={a.url}
+                          download
+                          onClick={() =>
+                            trackClick("install_download_alt", { asset: a.filename })
+                          }
+                          className="inline-flex items-center justify-center gap-2 rounded-md border border-line-strong bg-bg-2 px-3.5 py-2 font-mono-tech text-[10.5px] uppercase tracking-[2.4px] text-ink transition-colors duration-200 hover:border-accent hover:text-accent"
+                        >
+                          <Download size={12} />
+                          {t("install.advanced.assets.download")}
+                        </a>
+                      </li>
+                    ))
+                  : DOWNLOADS.filter((d) => d.os === os).map((d) => (
+                      <li
+                        key={d.id}
+                        className="flex flex-col gap-2 px-5 py-3 text-[13px] sm:flex-row sm:items-center sm:justify-between md:px-7"
+                      >
+                        <div>
+                          <div className="font-mono text-ink">{d.asset}</div>
+                          <div className="font-mono-tech text-[10px] uppercase tracking-[1.8px] text-ink-3">
+                            {d.arch} · {d.format} · {d.size}
+                          </div>
+                        </div>
+                        <a
+                          href={`${RELEASE_BASE}/${d.asset}`}
+                          download
+                          onClick={() =>
+                            trackClick("install_download_alt", { asset: d.asset })
+                          }
+                          className="inline-flex items-center justify-center gap-2 rounded-md border border-line-strong bg-bg-2 px-3.5 py-2 font-mono-tech text-[10.5px] uppercase tracking-[2.4px] text-ink transition-colors duration-200 hover:border-accent hover:text-accent"
+                        >
+                          <Download size={12} />
+                          {t("install.advanced.assets.download")}
+                        </a>
+                      </li>
+                    ))
+                )}
               </ul>
             </div>
           </motion.div>

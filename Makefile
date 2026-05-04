@@ -16,7 +16,7 @@ DESKTOP   ?= desktop
         cockpit-changelog-check acceptance-tars-meeet qa-agent qa-agent-json qa-loop qa-loop-once \
         gate-release backend backend-dev desktop-dev desktop-build \
         smoke-core-bridge gate-control-tower ops-bridge-secret ops-cf-pages-token clean \
-        install-hooks \
+        install-hooks check-python-version \
         planner planner-stats planner-list planner-runs planner-show \
         planner-full planner-clone planner-rerun planner-replay-run \
         planner-repush-run planner-smoke \
@@ -33,6 +33,9 @@ install-hooks:       ## symlink scripts/git-hooks/* into .git/hooks (re-run afte
 	  ln -s "../../$$hook" "$$target"; \
 	  echo "  linked $$target -> ../../$$hook"; \
 	done
+
+check-python-version:  ## fail fast if python3 < 3.10 (required by pinned FastAPI stack)
+	@python3 -c 'import sys; v=sys.version_info[:2]; assert v >= (3, 10), ("Need Python 3.10+ (found %s.%s). brew install python@3.12 && PATH=/opt/homebrew/opt/python@3.12/bin:$$PATH make test" % v); print("python ok:", sys.version.split()[0])'
 
 help:                ## list targets
 	@grep -E '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \

@@ -296,6 +296,8 @@ const STRINGS_EN = {
   "install.primary.cta":           "Download",
   "install.copy":                  "Copy",
   "install.copied":                "Copied",
+  "install.private_github.banner":
+    "Installer links currently point at GitHub Releases. While the repo is private, downloads may fail unless you are logged into GitHub — use Homebrew or the install.sh one-liner below as a fallback.",
   "install.gatekeeper.title":     "First time on macOS? Run this once after install.",
   "install.gatekeeper.body":      "Apple Gatekeeper flags binaries from non-paying developers as 'damaged'. The command below removes the quarantine flag — same one Apple uses for every signed app. We will notarize after public launch (Apple Developer Program, $99/yr).",
   "install.gatekeeper.alt":       "Prefer one curl line that does everything (download · install · de-quarantine · launch)?",
@@ -944,6 +946,8 @@ const STRINGS_RU: Partial<Record<TKey, string>> = {
   "install.primary.cta":           "Скачать",
   "install.copy":                  "Скопировать",
   "install.copied":                "Скопировано",
+  "install.private_github.banner":
+    "Ссылки на установщики сейчас ведут на GitHub Releases. Пока репозиторий приватный, скачивание может не открываться без входа в GitHub — используйте Homebrew или one-liner install.sh ниже.",
   "install.gatekeeper.title":     "Первый запуск на macOS? Выполните эту команду один раз.",
   "install.gatekeeper.body":      "Apple Gatekeeper помечает бинарники без платной нотарификации как «повреждённые». Команда ниже снимает quarantine-флаг — тот же самый, что Apple проставляет каждому подписанному приложению. Мы перейдём на нотарификацию после публичного релиза (Apple Developer Program, $99/год).",
   "install.gatekeeper.alt":       "Хотите одну curl-команду, которая делает всё (скачать · подписать · снять quarantine · запустить)?",
