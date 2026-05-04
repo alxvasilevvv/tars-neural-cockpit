@@ -4,6 +4,88 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-04 — Cursor · SMTP OAuth: initial-consent (authorization-code) flow shipped
+
+**Summary**
+
+Closed the explicit "Out of scope" gap from PR #40 / oauth.py — that
+module covered the refresh-token side but assumed the operator had
+already provisioned the refresh token via "the cloud provider's
+helper". TARS now ships its own helper end-to-end so a fresh install
+can mint a refresh token in one command without leaving the project.
+
+New module `backend/core/domains/packs/business/oauth_consent.py`
+(stdlib-only, mirrors the transport surface in `oauth.py`):
+
+- `build_consent_url(client_id, redirect_uri, provider=..., scope=...,
+  tenant=..., extra_params=...)` returns a `ConsentURL` with the
+  authorization endpoint URL, a fresh PKCE verifier (43 byte URL-safe
+  random → SHA-256 challenge per RFC 7636), and a signed state token
+  the matching `verify_state()` checks back. Provider shorthand
+  resolves to Google's `accounts.google.com` v2 endpoint or
+  Microsoft's `login.microsoftonline.com/{tenant}/oauth2/v2.0`.
+  Google's quirk for refresh-token issuance (`access_type=offline +
+  prompt=consent`) is applied automatically.
+- `verify_state(state, expected_provider=None)` does constant-time
+  HMAC-SHA256 verification, freshness check (≤ 600 s default,
+  `TARS_OAUTH_STATE_MAX_AGE_S` overridable), and optional provider
+  match. All failure modes raise `ValueError("invalid state")` so
+  the callback handler can't accidentally leak which check failed.
+  Stateless: TARS doesn't need a database row per pending consent —
+  the signed token IS the pending state.
+- `exchange_authorization_code(code, code_verifier, redirect_uri,
+  client_id, ...)` swaps the auth code for refresh + access tokens
+  via the provider's token endpoint. Returns a `TokenExchangeResult`
+  dataclass with `to_dict()` that drops None fields so the response
+  shape stays clean for HTTP / cockpit surfaces. Never raises:
+  transport / decode / OAuth `error` responses all return
+  `ok=False, reason, error`.
+- State signing secret resolves from `TARS_OAUTH_STATE_SECRET` (vault
+  → env → process-lifetime random fallback so dev installs don't
+  have to set anything). Rotating the secret invalidates pending
+  consents — useful operator escape hatch for leaks.
+
+Test coverage: **31 cases** in
+`tests/test_business_smtp_oauth_consent.py` cover all three layers
+(URL builder, state verifier, code exchange) including PKCE math
+sanity, tampering / expiry / provider-mismatch rejections, OAuth
+error propagation, transport / decode error isolation,
+public-client (no `client_secret`) path, no-refresh-token warning
+path (provider returns access_token only), and the round-trip
+through `urlencode → parse_qs` the operator's browser performs.
+
+Operator helper: new `scripts/smtp_oauth_consent.py` (CLI) walks the
+operator through the dance:
+- Picks an OS-assigned localhost port.
+- Builds the consent URL via `build_consent_url`, opens it in the
+  default browser (`--no-browser` to copy manually).
+- Spins a stdlib `HTTPServer` on `127.0.0.1:<port>/cb` with a
+  one-shot handler that ACKs the operator's tab.
+- Verifies the state, calls `exchange_authorization_code`, prints
+  the resulting `TARS_SMTP_OAUTH_REFRESH_TOKEN=...` env line ready
+  to paste into the operator's shell config.
+
+Self-bootstraps `sys.path` so the operator can run it from any cwd
+without remembering `PYTHONPATH=.`.
+
+Refactored docstring of `backend/core/domains/packs/business/oauth.py`
+to remove the stale "Initial consent / authorization-code flow"
+out-of-scope bullet and point to the new module instead.
+
+Full pytest after this batch: **2368 passed / 1 skipped / 2 xfailed**
+(was 2337).
+
+**Files**
+
+- `backend/core/domains/packs/business/oauth_consent.py` (new, ~370 lines).
+- `backend/core/domains/packs/business/oauth.py` — docstring rewrite
+  removing the explicit "out of scope" bullet.
+- `scripts/smtp_oauth_consent.py` (new, operator CLI helper).
+- `tests/test_business_smtp_oauth_consent.py` (new, 31 cases).
+- `docs/CHANGELOG_AGENTS.md`, `docs/CHANGELOG_PUBLIC.md`.
+
+`>>> SYNC: Cursor · 2026-05-04 · SMTP OAuth initial consent flow closes the refresh-token bootstrap gap`
+
 ## 2026-05-04 — Cursor · L9 sidecar: bring pyoxidizer.bzl back in sync with requirements.txt
 
 **Summary**
