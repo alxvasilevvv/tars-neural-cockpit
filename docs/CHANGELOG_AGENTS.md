@@ -4,6 +4,14 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-04 — Cursor: go-live — `/pricing` `/faq` `/compare` routes + same-day runbook
+
+**Summary:** Dedicated lazy routes and page wrappers so prod URLs are not SPA-200 with in-app 404: `PricingPage`, `FAQPage`, `ComparePage`. Nav, `BudgetWarning`, `GlobalCommandPalette`, and `sitemap.xml` point to path routes. `scripts/qa_agent/probes.py` **SPA_ROUTES** extended. **TARS QA Agent** workflow passes optional `TARS_INGEST_API_KEY` and watches `App.tsx` / `pages/**`. `.env.example` documents prod ingest URL + `TARS_INGEST_API_KEY`. `docs/GO_LIVE_48H.md` rewritten as same-day operator checklist. `scripts/ops_set_bridge_shared_secret.sh` notes `PAGES_PROJECT_NAME` when the Git-integrated Pages project differs (`tars-meeet-git`). **Verify:** `pnpm typecheck`, vitest **377 passed** / 27 files.
+
+**Files:** `experiments/neural-showcase-v3/src/App.tsx`, `src/pages/PricingPage.tsx`, `FAQPage.tsx`, `ComparePage.tsx`, `src/components/Nav.tsx`, `BudgetWarning.tsx`, `GlobalCommandPalette.tsx`, `public/sitemap.xml`; `scripts/qa_agent/probes.py`, `scripts/ops_set_bridge_shared_secret.sh`; `.github/workflows/qa-agent.yml`, `.env.example`; `docs/GO_LIVE_48H.md`, `docs/AGENT_HANDOFF.md`, `docs/CHANGELOG_AGENTS.md`.
+
+`>>> SYNC: Cursor · 2026-05-04 · go-live routes + GO_LIVE same-day + qa-agent ingest env`
+
 ## 2026-05-04 — Cursor: go-live 48h — runbook + CI dispatch
 
 **Summary:** `docs/GO_LIVE_48H.md` — пошагово «сегодня / завтра»: BRIDGE на Pages, acceptance, ingest keys, Lovable sitemap/cookie. Прогнан `acceptance_tars_meeet.sh` (bridge SKIP без секрета — ожидаемо). Вручную запущен workflow **tars.meeet.world — Cloudflare Pages** на `main`.

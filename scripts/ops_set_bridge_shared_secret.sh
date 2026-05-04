@@ -22,7 +22,9 @@
 #   CLOUDFLARE_ACCOUNT_ID            the meeet account id
 #
 # Optional env:
-#   PAGES_PROJECT_NAME               default `tars-meeet`
+#   PAGES_PROJECT_NAME               default `tars-meeet` — if your custom domain
+#                                    is bound to the Git-integrated project, set
+#                                    e.g. `tars-meeet-git` before running.
 #   GH_REPO                          default `alxvasilevvv/tars-neural-cockpit`
 #
 # Exit codes:

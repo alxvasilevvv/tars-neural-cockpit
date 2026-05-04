@@ -161,6 +161,9 @@ def probe_dns(ctx: Context) -> Probe:
 SPA_ROUTES = [
     "/",
     "/install",
+    "/pricing",
+    "/faq",
+    "/compare",
     "/cockpit",
     "/onboarding",
     "/build-with",

@@ -85,10 +85,10 @@ const ITEMS: CmdItem[] = [
 
   // Sections (anchor on /)
   { id: "domains",   kind: "anchor", title: "Domain packs",    hint: "Traders / Entrepreneur / Researcher / Science", Icon: Hash, href: "/#domains", group: "Sections" },
-  { id: "pricing",   kind: "anchor", title: "Pricing",         hint: "Free / Pro / Business / Lifetime",              Icon: Hash, href: "/#pricing", group: "Sections", keywords: "tier subscription cost" },
-  { id: "faq",       kind: "anchor", title: "FAQ",             hint: "Real questions",                                Icon: Hash, href: "/#faq",     group: "Sections" },
+  { id: "pricing",   kind: "route", title: "Pricing",         hint: "Free / Pro / Business / Lifetime",              Icon: Hash, href: "/pricing", group: "Sections", keywords: "tier subscription cost" },
+  { id: "faq",       kind: "route", title: "FAQ",             hint: "Real questions",                                Icon: Hash, href: "/faq",     group: "Sections" },
   { id: "waitlist",  kind: "anchor", title: "Waitlist",        hint: "Be first when the binary drops",                Icon: Hash, href: "/#waitlist", group: "Sections", keywords: "email signup notify launch" },
-  { id: "compare",   kind: "anchor", title: "vs Cursor / Claude Desktop", hint: "Feature matrix",                     Icon: Hash, href: "/#compare", group: "Sections", keywords: "comparison difference" },
+  { id: "compare",   kind: "route", title: "vs Cursor / Claude Desktop", hint: "Feature matrix",                     Icon: Hash, href: "/compare", group: "Sections", keywords: "comparison difference" },
   { id: "council",   kind: "anchor", title: "Council demo",    hint: "Two-voice deliberation",                        Icon: Hash, href: "/#council", group: "Sections" },
 
   // Actions
@@ -105,7 +105,7 @@ const ITEMS: CmdItem[] = [
   ...indexDoc("Privacy Policy",     "/privacy",  privacyMd,  "privacy gdpr ccpa data cookie sub-processor"),
   ...indexDoc("Terms of Service",   "/terms",    termsMd,    "tos legal license arbitration"),
   ...indexDoc("Security model",     "/security", securityMd, "stride threat crypto envelope recovery"),
-  ...indexDoc("FAQ",                "/#faq",     faqMd,      "questions help support"),
+  ...indexDoc("FAQ",                "/faq",     faqMd,      "questions help support"),
 ];
 
 /**

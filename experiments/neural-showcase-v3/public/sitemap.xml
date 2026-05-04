@@ -26,6 +26,21 @@
     <priority>0.55</priority>
   </url>
   <url>
+    <loc>https://tars.meeet.world/pricing</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.9</priority>
+  </url>
+  <url>
+    <loc>https://tars.meeet.world/faq</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
+  <url>
+    <loc>https://tars.meeet.world/compare</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.82</priority>
+  </url>
+  <url>
     <loc>https://tars.meeet.world/cockpit</loc>
     <changefreq>weekly</changefreq>
     <priority>0.7</priority>

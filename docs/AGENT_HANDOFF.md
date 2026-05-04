@@ -3,11 +3,12 @@
 Pick this up if you are continuing the work in a fresh chat. Read this file
 plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 
-> **2026-05-04 — Go-live 48h runbook.** Operator execution split **today vs
-> tomorrow**: `docs/GO_LIVE_48H.md`. Production `tars.meeet.world` already
-> returns 200 + manifest; remaining **day-0** unblock is pasting
-> `BRIDGE_SHARED_SECRET` on Cloudflare Pages prod and re-running acceptance +
-> `qa-agent`. CI workflow was manually dispatched to refresh the gates.
+> **2026-05-04 — Go-live same-day closeout.** `docs/GO_LIVE_48H.md` is the
+> operator checklist (**bridge on Pages**, GitHub `BRIDGE_SHARED_SECRET`,
+> acceptance, optional `TARS_INGEST_API_KEY` for QA workflow + ingest). SPA now
+> has real routes **`/pricing`**, **`/faq`**, **`/compare`** (lazy pages + meta);
+> nav / palette / sitemap / QA probes updated. **`pnpm typecheck`**, vitest
+> **377 passed** / 27 files green.
 
 > **2026-05-04 — Audit-6 — Landing dividers, ScrollStory narrative, CouncilDemo, MeeetWorldStrip, CockpitPreview (`useT`).**
 > Migrates remaining section chrome and long-form mocks on `/`:

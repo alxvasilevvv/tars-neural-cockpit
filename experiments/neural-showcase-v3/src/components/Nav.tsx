@@ -7,8 +7,8 @@ import { LocaleSwitcher } from "@/components/LocaleSwitcher";
 
 const links = [
   { label: "Domains", href: "/#domains" },
-  { label: "Pricing", href: "/#pricing" },
-  { label: "FAQ", href: "/#faq" },
+  { label: "Pricing", href: "/pricing" },
+  { label: "FAQ", href: "/faq" },
   { label: "Cockpit", href: "/cockpit" },
 ];
 

@@ -1,78 +1,64 @@
-# Go-live — 48h runbook (TARS · tars.meeet.world)
+# Go-live — same-day closeout (`tars.meeet.world`)
 
-> **Цель:** зафиксировать публичный запуск уже сегодня и добить наблюдаемость /
-> SEO / backend-bridge завтра без хаоса.  
-> **Контекст:** `docs/TARS_MEEET_OPS_TODO.md` (инфра), `docs/TARS_MEEET_READINESS.md` (gates).
+> **Цель:** закрыть весь контур **сегодня**: публичный фронт уже live; остаётся
+> вставить секреты, прогнать приёмку и (по желанию) подключить ingest.  
+> Полная инфра-история: `docs/TARS_MEEET_OPS_TODO.md`, гейты:
+> `docs/TARS_MEEET_READINESS.md`.
 
 ---
 
-## Факт-снимок «прямо сейчас»
+## Уже в репозитории (код)
 
-Последняя автоматическая проверка показала:
+- Отдельные маршруты **`/pricing`**, **`/faq`**, **`/compare`** — не 404 SPA, те же
+  секции что на `/`, плюс корректный document title (SEO / шаринг).
+- `public/sitemap.xml` включает эти URL.
+- QA agent (`scripts/qa_agent/probes.py`) проверяет их как **HTTP 200** на проде.
+- Workflow **TARS QA Agent** передаёт опциональный секрет **`TARS_INGEST_API_KEY`**
+  (добавь в GitHub → *Settings → Secrets → Actions*, чтобы
+  `meeet.ingest_heartbeat` стал **PASS**, а не WARN).
 
-- `https://tars.meeet.world/` → **HTTP 200**, `X-Tars-Contract: 1.0.0`
-- `Set-Cookie: tars_session_id=…; Domain=.meeet.world` (правильный scope)
-- `GET /api/product/downloads` → JSON, `contract_version: 1.0.0`, `releases[]` не пустой
-- Маркетинговые SPA-маршруты (`/install`, `/pricing`, `/faq`, `/compare`, `/cockpit`, `/onboarding`) → **HTTP 200** (нет ловушки `404.html`)
+---
 
-Скрипт: из корня репозитория
+## Факт-снимок прода (проверка за 30 сек)
 
 ```bash
 SKIP_LIGHTHOUSE=1 SKIP_AXE=1 bash scripts/acceptance_tars_meeet.sh
 ```
 
-Без `BRIDGE_SHARED_SECRET` шаги 5–6 помечаются **SKIP** (это ожидаемо до вставки секрета на Pages).
+Ожидаемо жёлтые **SKIP** на мостовых шагах, пока не задан локальный
+`BRIDGE_SHARED_SECRET` для скрипта.
 
 ---
 
-## Сегодня (день 0) — «мы в эфире»
+## Чеклист оператора — всё сегодня
 
-| # | Кто | Действие |
-|---|-----|----------|
-| 1 | Cursor / CI | Убедиться, что на `main` зелёный workflow **tars.meeet.world — Cloudflare Pages** (build + tests). При необходимости: *Actions → Run workflow*. |
-| 2 | Оператор | **Cloudflare Pages → проект с `tars.meeet.world` → Settings → Environment variables → Production** — добавить **`BRIDGE_SHARED_SECRET`** (тот же, что на `core-bridge` в Supabase). **Save and deploy.** |
-| 3 | Оператор | Локально: `BRIDGE_SHARED_SECRET="…" bash scripts/acceptance_tars_meeet.sh` — должны пройти и мостовые гейты. Затем `BRIDGE_SHARED_SECRET="…" make qa-agent` (ожидаем меньше SKIP / WARN). |
-| 4 | Оператор | Опционально: `make ops-bridge-secret` (склеивает CF Pages env + редеплой, см. `Makefile` и `TARS_MEEET_OPS_TODO.md`). |
-| 5 | Коммуникации | Опубликовать каноническую ссылку: **https://tars.meeet.world** (лендинг + `/install` + кокпит как маркетинговый shell). |
+| # | Задача | Как |
+|---|--------|-----|
+| **A** | **`BRIDGE_SHARED_SECRET` на Cloudflare Pages (Production)** | Dashboard → Pages → проект с доменом `tars.meeet.world` → *Environment variables* → добавить секрет → **Save and deploy**. Либо один раз: см. ниже `make ops-bridge-secret`. |
+| **B** | **Тот же секрет в GitHub** | Уже делает `make ops-bridge-secret` **или** вручную: *Repo → Settings → Secrets → `BRIDGE_SHARED_SECRET`*. |
+| **C** | **Приёмка с мостом** | `BRIDGE_SHARED_SECRET="…" bash scripts/acceptance_tars_meeet.sh` → зелёный, без SKIP на шагах 5–6. |
+| **D** | **`make qa-agent` локально** | `BRIDGE_SHARED_SECRET="…" TARS_INGEST_API_KEY="…" make qa-agent` — максимум PASS. |
+| **E** | **`TARS_INGEST_API_KEY` в GitHub** | Тот же ключ, что **`TARS_INGEST_API_KEY`** / bearer для Supabase **`tars-ingest`**. После этого QA workflow на CI даёт зелёный heartbeat. |
+| **F** | **Backend (если поднимаешь API с логированием)** | В **`.env`** (не в git): `MEEET_INGEST_URL`, `MEEET_API_KEY` — см. корневой `.env.example`. |
+| **G** | **Lovable / meeet.world (параллельно)** | Cookie `meeet_session` с `Domain=.meeet.world`; sitemap главного домена дополнить URL TARS или отдельная запись в Search Console на `https://tars.meeet.world/sitemap.xml`. Не блокирует открытие TARS-сайта. |
+| **H** | **Анонс** | Канон: **https://tars.meeet.world**, установка **/install**. |
 
-**Не блокирует go-live:** Lighthouse/axe, native `.dmg`, полный ingest с бэкенда.
-
----
-
-## Завтра (день 1) — «добить хвосты»
-
-| # | Владелец | Действие |
-|---|----------|----------|
-| 1 | Оператор | **Backend (.env на хосте TARS API, не в git):** `MEEET_INGEST_URL`, `MEEET_API_KEY`, при необходимости `MEEET_SOURCE` / `MEEET_CONTRACT_VERSION` — см. `TARS_MEEET_OPS_TODO.md` § outstanding п.4. Проверка: `TARS_INGEST_API_KEY="…" make qa-agent` → `meeet.ingest_heartbeat` **PASS**. |
-| 2 | Claude / Lovable | **Sitemap:** добавить URL-ы `https://tars.meeet.world/...` в публичный sitemap meeet.world (или отдельный sitemap + ping в Search Console). |
-| 3 | Claude / Lovable | **Cookie auth:** убедиться, что `meeet_session` выставляется с `Domain=.meeet.world`, чтобы субдомен видел сессию (см. `TARS_MEEET_READINESS.md` §2.2). |
-| 4 | Оператор | **Post-launch:** строка на `status.meeet.world` для `tars.meeet.world` (некритично). |
-| 5 | Оператор | **Desktop:** когда будут ключи подписи — релиз по `docs/LAUNCH_TODAY_2026-05-01.md` §4 (не обязателен для web go-live). |
-
----
-
-## Быстрые команды
+### Один-shot мост (нужны `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`)
 
 ```bash
-# Приёмочные пробы прод (Mac / Linux)
-cd /path/to/jarvis
-SKIP_LIGHTHOUSE=1 SKIP_AXE=1 bash scripts/acceptance_tars_meeet.sh
-
-# С секретом моста (после шага Pages)
-BRIDGE_SHARED_SECRET="..." bash scripts/acceptance_tars_meeet.sh
-
-# Smoke core-bridge (нужен тот же секрет)
-BRIDGE_SHARED_SECRET="..." make smoke-core-bridge
-
-# QA-agent (heartbeat ingest — после настройки API key)
-TARS_INGEST_API_KEY="..." make qa-agent
+cd /path/to/jarvis   # корень репозитория TARS
+export CLOUDFLARE_API_TOKEN=...
+export CLOUDFLARE_ACCOUNT_ID=...
+# если API/project name не `tars-meeet`:
+# export PAGES_PROJECT_NAME=tars-meeet-git
+make ops-bridge-secret   # секрет stdin — см. скрипт
 ```
+
+Затем вручную (если ещё не сделано): **`gh secret set TARS_INGEST_API_KEY`** с ключом ingest.
 
 ---
 
-## Синк между агентами
+## После выполнения
 
-После выполнения **дня 0** п.2–3 оставить одну строку на GitHub **[tars-neural-cockpit#8](https://github.com/alxvasilevvv/tars-neural-cockpit/issues/8)**  
-и при желании добавить запись в `docs/CHANGELOG_AGENTS.md`.
-
-Файл обновлять по факту: дата выполнения шагов, не раньше.
+Одна строка на **[tars-neural-cockpit#8](https://github.com/alxvasilevvv/tars-neural-cockpit/issues/8)**  
+(`BRIDGE ✓ ingest ✓ qa-agent ✓`).

@@ -19,12 +19,17 @@ on:
       - "experiments/neural-showcase-v3/public/_headers"
       - "experiments/neural-showcase-v3/public/_redirects"
       - "experiments/neural-showcase-v3/functions/**"
+      - "experiments/neural-showcase-v3/src/App.tsx"
+      - "experiments/neural-showcase-v3/src/pages/**"
   pull_request:
     paths:
       - "scripts/qa_agent/**"
+      - ".github/workflows/qa-agent.yml"
       - "experiments/neural-showcase-v3/public/_headers"
       - "experiments/neural-showcase-v3/public/_redirects"
       - "experiments/neural-showcase-v3/functions/**"
+      - "experiments/neural-showcase-v3/src/App.tsx"
+      - "experiments/neural-showcase-v3/src/pages/**"
   schedule:
     - cron: "*/30 * * * *"
 
@@ -54,6 +59,7 @@ jobs:
       - name: Run QA agent (text)
         env:
           BRIDGE_SHARED_SECRET: ${{ secrets.BRIDGE_SHARED_SECRET }}
+          TARS_INGEST_API_KEY: ${{ secrets.TARS_INGEST_API_KEY }}
         run: |
           python -m scripts.qa_agent --no-color | tee qa-report.txt
           rc=${PIPESTATUS[0]}
@@ -64,6 +70,7 @@ jobs:
         if: always()
         env:
           BRIDGE_SHARED_SECRET: ${{ secrets.BRIDGE_SHARED_SECRET }}
+          TARS_INGEST_API_KEY: ${{ secrets.TARS_INGEST_API_KEY }}
         run: |
           python -m scripts.qa_agent --json --no-color > qa-report.json || true
 

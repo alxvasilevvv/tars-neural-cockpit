@@ -4,6 +4,14 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-04 — Cursor: go-live — `/pricing` `/faq` `/compare` routes + same-day runbook
+
+**Summary:** Dedicated lazy routes and page wrappers so prod URLs are not SPA-200 with in-app 404: `PricingPage`, `FAQPage`, `ComparePage`. Nav, `BudgetWarning`, `GlobalCommandPalette`, and `sitemap.xml` point to path routes. `scripts/qa_agent/probes.py` **SPA_ROUTES** extended. **TARS QA Agent** workflow passes optional `TARS_INGEST_API_KEY` and watches `App.tsx` / `pages/**`. `.env.example` documents prod ingest URL + `TARS_INGEST_API_KEY`. `docs/GO_LIVE_48H.md` rewritten as same-day operator checklist. `scripts/ops_set_bridge_shared_secret.sh` notes `PAGES_PROJECT_NAME` when the Git-integrated Pages project differs (`tars-meeet-git`). **Verify:** `pnpm typecheck`, vitest **377 passed** / 27 files.
+
+**Files:** `experiments/neural-showcase-v3/src/App.tsx`, `src/pages/PricingPage.tsx`, `FAQPage.tsx`, `ComparePage.tsx`, `src/components/Nav.tsx`, `BudgetWarning.tsx`, `GlobalCommandPalette.tsx`, `public/sitemap.xml`; `scripts/qa_agent/probes.py`, `scripts/ops_set_bridge_shared_secret.sh`; `.github/workflows/qa-agent.yml`, `.env.example`; `docs/GO_LIVE_48H.md`, `docs/AGENT_HANDOFF.md`, `docs/CHANGELOG_AGENTS.md`.
+
+`>>> SYNC: Cursor · 2026-05-04 · go-live routes + GO_LIVE same-day + qa-agent ingest env`
+
 ## 2026-05-04 — Cursor: go-live 48h — runbook + CI dispatch
 
 **Summary:** `docs/GO_LIVE_48H.md` — пошагово «сегодня / завтра»: BRIDGE на Pages, acceptance, ingest keys, Lovable sitemap/cookie. Прогнан `acceptance_tars_meeet.sh` (bridge SKIP без секрета — ожидаемо). Вручную запущен workflow **tars.meeet.world — Cloudflare Pages** на `main`.
@@ -3228,117 +3236,6 @@ without touching the Makefile.
 
 ---
 
-## 2026-05-01 — Cursor [A] · Makefile: `planner-clone` target for plan forking
-
-**Summary**
-
-Adds `make planner-clone ARGS="<plan_id> [target_thread]"` so a
-fleet operator can fork a known-good plan into a fresh
-`proposed` row from the shell — without immediately approving
-or running it (that's `planner-rerun`'s job). Use case: golden
-plan lives on `thread_main`, you want a per-tenant copy queued
-on `thread_acme` for the on-call operator to review and approve
-manually, and you don't want to write a five-line bash wrapper
-for every clone.
-
-The recipe accepts ARGS as a positional pair so the second word
-(if any) becomes `--thread-id <target_thread>`. Bare
-`ARGS=<plan_id>` invokes a vanilla clone that inherits the
-source's thread.
-
-**Recipe shape**
-
-```
-planner-clone:
-	@if [ -z "$(ARGS)" ]; then echo 'usage: ...'; exit 2; fi
-	@bash -c 'set -e; \
-	    set -- $(ARGS); \
-	    plan_id=$$1; \
-	    target_thread=$${2:-}; \
-	    if [ -z "$$plan_id" ]; then echo ...; exit 2; fi; \
-	    if [ -n "$$target_thread" ]; then \
-	        PYTHONPATH=. $(PLANNER) clone "$$plan_id" \
-	            --thread-id "$$target_thread"; \
-	    else \
-	        PYTHONPATH=. $(PLANNER) clone "$$plan_id"; \
-	    fi'
-```
-
-The inner `[ -z "$plan_id" ]` re-guard catches the edge case
-where ARGS expanded to whitespace-only after macro expansion
-(e.g. `ARGS="  "`).
-
-**Changes**
-
-1. `Makefile`:
-   - New `planner-clone` target with the standard `ARGS=` outer
-     guard plus an inner per-positional re-guard.
-   - Added to the planner `.PHONY` line between `planner-full`
-     and `planner-rerun` so help-text ordering reads
-     "show → full → clone → rerun → smoke" (operator mental
-     model: inspect, then mutate).
-2. `tests/test_makefile_planner_targets.py`:
-   - `_PLANNER_TARGETS` extended with `planner-clone` so the
-     `.PHONY` + help-text contracts apply to it.
-   - `ARGS=` guard parametrize extended to cover
-     `planner-clone`.
-   - New test
-     `test_planner_clone_target_supports_optional_target_thread`
-     pinning the recipe's positional split, the inner
-     re-guard, and both branches (with / without
-     `--thread-id`).
-
-**Tests**
-
-- `pytest tests/test_makefile_planner_targets.py` —
-  **20 passed** (was 17, +3: phony membership, ARGS guard,
-  dedicated clone-recipe contract).
-- `pytest -q` — **2100 passed in 41s** (was 2097, +3).
-- Manual end-to-end smoke from the venv:
-  - `make planner-clone ARGS=<plan_id>` → bare clone, inherits
-    thread, status `proposed`, `auto_approved=false`.
-  - `make planner-clone ARGS="<plan_id> thr_fleet_42"` → clone
-    with `thread_id=thr_fleet_42`, source thread untouched.
-  - `make planner-clone` (no ARGS) → exits 2 with usage line.
-
-**Why a clone-only target when `planner-rerun` already exists?**
-
-`planner-rerun` is opinionated: clone → approve → run. That's
-the right default for the cockpit's one-click button. But fleet
-ops sometimes want to:
-
-- Fork a golden plan into a per-tenant thread and let the
-  on-call operator approve manually (audit trail / four-eyes
-  policy).
-- Stage many clones overnight, then approve the curated subset
-  in the morning.
-- Snapshot a plan before mutating the source so a rollback
-  copy exists.
-
-All three want clone-without-side-effects, which `planner-rerun`
-intentionally doesn't provide. Splitting the workflow keeps each
-target single-purpose and composable: `planner-clone` →
-`planner-show` (review) → `planner` ARGS="approve <id>" →
-`planner` ARGS="run <id>".
-
-**Files touched**
-
-- `Makefile`
-- `tests/test_makefile_planner_targets.py`
-- `docs/CHANGELOG_AGENTS.md` (this entry)
-- `docs/AGENT_HANDOFF.md` (Done bullet)
-
-**Follow-ups**
-
-- Right-rail entrypoint from the cockpit chat thread (open the
-  planner panel inline when the agent proposes a plan).
-- `make planner-replay-run ARGS="<plan_id> <run_trace>"` for
-  re-emitting a single past run's events into the meeet store
-  for dashboard backfill — useful when rebuilding billing
-  rollups after a meeet ingest outage.
-
 ---
 
----
-
-_Showing the most recent 60 of 214 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 215 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._

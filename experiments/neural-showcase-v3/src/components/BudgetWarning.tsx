@@ -112,7 +112,7 @@ export function BudgetWarning() {
         )}
       </span>
       <Link
-        to="/#pricing"
+        to="/pricing"
         className="text-ink underline-offset-4 transition-colors hover:underline"
       >
         upgrade

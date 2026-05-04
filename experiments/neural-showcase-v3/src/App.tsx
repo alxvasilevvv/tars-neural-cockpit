@@ -77,6 +77,15 @@ const Changelog = lazy(() =>
 const BuildWith = lazy(() =>
   import("@/pages/BuildWith").then((m) => ({ default: m.BuildWith })),
 );
+const PricingPage = lazy(() =>
+  import("@/pages/PricingPage").then((m) => ({ default: m.PricingPage })),
+);
+const FAQPage = lazy(() =>
+  import("@/pages/FAQPage").then((m) => ({ default: m.FAQPage })),
+);
+const ComparePage = lazy(() =>
+  import("@/pages/ComparePage").then((m) => ({ default: m.ComparePage })),
+);
 
 // Default skeleton for routes that don't pin a specific layout shape.
 const Loading = () => <RouteSkeleton variant="default" />;
@@ -206,6 +215,30 @@ function AppShell() {
               element={
                 <Suspense fallback={<RouteSkeleton variant="default" />}>
                   <Onboarding />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/pricing"
+              element={
+                <Suspense fallback={<RouteSkeleton variant="default" />}>
+                  <PricingPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/faq"
+              element={
+                <Suspense fallback={<RouteSkeleton variant="default" />}>
+                  <FAQPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/compare"
+              element={
+                <Suspense fallback={<RouteSkeleton variant="default" />}>
+                  <ComparePage />
                 </Suspense>
               }
             />
