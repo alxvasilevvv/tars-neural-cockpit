@@ -4,6 +4,14 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-05 — Cursor: QA/agent — auto-load `.env` + ingest key parity
+
+**Summary:** `scripts/with_repo_env.sh` sources repo-root `.env` before QA, acceptance, and core-bridge smoke (`Makefile`). `resolved_ingest_api_key()` uses **TARS_INGEST_API_KEY** or **MEEET_API_KEY** (`scripts/qa_agent/env_resolve.py`); **`gate_release.sh`** loads `.env` so bridge smoke triggers when stored locally. **`tests/test_qa_agent_env_resolve.py`** pins resolution. **`docs/GO_LIVE_48H.md`** operator row D updated.
+
+**Files:** `Makefile`, `scripts/with_repo_env.sh`, `scripts/qa_agent/env_resolve.py`, `scripts/qa_agent/runner.py`, `scripts/qa_agent/loop.py`, `scripts/qa_agent/probes.py`, `scripts/gate_release.sh`, `.env.example`, `docs/GO_LIVE_48H.md`, `tests/test_qa_agent_env_resolve.py`; `docs/CHANGELOG_AGENTS.md`, `docs/AGENT_HANDOFF.md`.
+
+`>>> SYNC: Cursor · 2026-05-05 · QA env loader + MEEET_API_KEY ingest fallback`
+
 ## 2026-05-04 — Cursor: go-live — `/pricing` `/faq` `/compare` routes + same-day runbook
 
 **Summary:** Dedicated lazy routes and page wrappers so prod URLs are not SPA-200 with in-app 404: `PricingPage`, `FAQPage`, `ComparePage`. Nav, `BudgetWarning`, `GlobalCommandPalette`, and `sitemap.xml` point to path routes. `scripts/qa_agent/probes.py` **SPA_ROUTES** extended. **TARS QA Agent** workflow passes optional `TARS_INGEST_API_KEY` and watches `App.tsx` / `pages/**`. `.env.example` documents prod ingest URL + `TARS_INGEST_API_KEY`. `docs/GO_LIVE_48H.md` rewritten as same-day operator checklist. `scripts/ops_set_bridge_shared_secret.sh` notes `PAGES_PROJECT_NAME` when the Git-integrated Pages project differs (`tars-meeet-git`). **Verify:** `pnpm typecheck`, vitest **377 passed** / 27 files.

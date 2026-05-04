@@ -30,6 +30,13 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
+if [[ -f .env ]]; then
+  set -a
+  # shellcheck disable=SC1091
+  source .env
+  set +a
+fi
+
 PY="${PY:-.venv/bin/python}"
 COCKPIT="${COCKPIT:-experiments/neural-showcase-v3}"
 OUT_DIR="${GATE_OUTPUT_DIR:-docs/release-evidence}"

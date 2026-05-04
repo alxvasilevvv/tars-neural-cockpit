@@ -22,7 +22,7 @@
 ## Факт-снимок прода (проверка за 30 сек)
 
 ```bash
-SKIP_LIGHTHOUSE=1 SKIP_AXE=1 bash scripts/acceptance_tars_meeet.sh
+SKIP_LIGHTHOUSE=1 SKIP_AXE=1 make acceptance-tars-meeet
 ```
 
 Ожидаемо жёлтые **SKIP** на мостовых шагах, пока не задан локальный
@@ -36,8 +36,8 @@ SKIP_LIGHTHOUSE=1 SKIP_AXE=1 bash scripts/acceptance_tars_meeet.sh
 |---|--------|-----|
 | **A** | **`BRIDGE_SHARED_SECRET` на Cloudflare Pages (Production)** | Dashboard → Pages → проект с доменом `tars.meeet.world` → *Environment variables* → добавить секрет → **Save and deploy**. Либо один раз: см. ниже `make ops-bridge-secret`. |
 | **B** | **Тот же секрет в GitHub** | Уже делает `make ops-bridge-secret` **или** вручную: *Repo → Settings → Secrets → `BRIDGE_SHARED_SECRET`*. |
-| **C** | **Приёмка с мостом** | `BRIDGE_SHARED_SECRET="…" bash scripts/acceptance_tars_meeet.sh` → зелёный, без SKIP на шагах 5–6. |
-| **D** | **`make qa-agent` локально** | `BRIDGE_SHARED_SECRET="…" TARS_INGEST_API_KEY="…" make qa-agent` — максимум PASS. |
+| **C** | **Приёмка с мостом** | Добавь **`BRIDGE_SHARED_SECRET`** в **`.env`**, затем `make acceptance-tars-meeet` — без SKIP на шагах bridge. Либо одноразово: `BRIDGE_SHARED_SECRET="…" make acceptance-tars-meeet`. |
+| **D** | **`make qa-agent` локально** | Из корня репозитория: `make qa-agent` **подхватывает** `MEEET_API_KEY` и `BRIDGE_*` из **`.env`** (через `scripts/with_repo_env.sh`). Ключ ingest: **`TARS_INGEST_API_KEY`** или тот же **`MEEET_API_KEY`**. Для полного PASS: ещё **`BRIDGE_SHARED_SECRET`** в `.env`. |
 | **E** | **`TARS_INGEST_API_KEY` в GitHub** | Тот же ключ, что **`TARS_INGEST_API_KEY`** / bearer для Supabase **`tars-ingest`**. После этого QA workflow на CI даёт зелёный heartbeat. |
 | **F** | **Backend (если поднимаешь API с логированием)** | В **`.env`** (не в git): `MEEET_INGEST_URL`, `MEEET_API_KEY` — см. корневой `.env.example`. |
 | **G** | **Lovable / meeet.world (параллельно)** | Cookie `meeet_session` с `Domain=.meeet.world`; sitemap главного домена дополнить URL TARS или отдельная запись в Search Console на `https://tars.meeet.world/sitemap.xml`. Не блокирует открытие TARS-сайта. |

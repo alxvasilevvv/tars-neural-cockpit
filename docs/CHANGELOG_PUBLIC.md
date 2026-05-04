@@ -4,6 +4,14 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-05 — Cursor: QA/agent — auto-load `.env` + ingest key parity
+
+**Summary:** `scripts/with_repo_env.sh` sources repo-root `.env` before QA, acceptance, and core-bridge smoke (`Makefile`). `resolved_ingest_api_key()` uses **TARS_INGEST_API_KEY** or **MEEET_API_KEY** (`scripts/qa_agent/env_resolve.py`); **`gate_release.sh`** loads `.env` so bridge smoke triggers when stored locally. **`tests/test_qa_agent_env_resolve.py`** pins resolution. **`docs/GO_LIVE_48H.md`** operator row D updated.
+
+**Files:** `Makefile`, `scripts/with_repo_env.sh`, `scripts/qa_agent/env_resolve.py`, `scripts/qa_agent/runner.py`, `scripts/qa_agent/loop.py`, `scripts/qa_agent/probes.py`, `scripts/gate_release.sh`, `.env.example`, `docs/GO_LIVE_48H.md`, `tests/test_qa_agent_env_resolve.py`; `docs/CHANGELOG_AGENTS.md`, `docs/AGENT_HANDOFF.md`.
+
+`>>> SYNC: Cursor · 2026-05-05 · QA env loader + MEEET_API_KEY ingest fallback`
+
 ## 2026-05-04 — Cursor: go-live — `/pricing` `/faq` `/compare` routes + same-day runbook
 
 **Summary:** Dedicated lazy routes and page wrappers so prod URLs are not SPA-200 with in-app 404: `PricingPage`, `FAQPage`, `ComparePage`. Nav, `BudgetWarning`, `GlobalCommandPalette`, and `sitemap.xml` point to path routes. `scripts/qa_agent/probes.py` **SPA_ROUTES** extended. **TARS QA Agent** workflow passes optional `TARS_INGEST_API_KEY` and watches `App.tsx` / `pages/**`. `.env.example` documents prod ingest URL + `TARS_INGEST_API_KEY`. `docs/GO_LIVE_48H.md` rewritten as same-day operator checklist. `scripts/ops_set_bridge_shared_secret.sh` notes `PAGES_PROJECT_NAME` when the Git-integrated Pages project differs (`tars-meeet-git`). **Verify:** `pnpm typecheck`, vitest **377 passed** / 27 files.
@@ -3094,148 +3102,6 @@ the URL-change case actually scrolls.
 
 ---
 
-## 2026-05-01 — Cursor [A] · meeet replay CLI: `--trace-id` filter + `planner-replay-run` Make target
-
-**Summary**
-
-Adds a per-run scoping knob to the meeet event replay CLI plus
-the operator wrapper that uses it. The combo:
-
-- `python -m backend.core.meeet.replay_cli --export <path>
-   --trace-id <run_trace>` — dumps just one run's events to
-  JSONL.
-- `make planner-replay-run ARGS="<plan_id> <run_trace>"
-   [OUT=<path>]` — convenience wrapper that defaults the output
-  to `.meeet-replays/<plan_id>-<run_trace>.jsonl` so cron jobs
-  can grep by either id without writing custom shell.
-
-**Use case** — meeet ingest outage backfill / single-run audit.
-After fixing an upstream ingest endpoint, fleet ops want to dump
-one specific run's events for re-push or evidence trail without
-shoveling the entire local store. `MeeetStore.list_events` has
-supported `trace_id=` for a while, but the export branch of
-`replay_cli` didn't expose it. One flag + one Make target closes
-the gap.
-
-**Why JSONL export instead of force-repush?** The existing
-replay path (`MeeetClient.replay_unpushed`) only handles
-`pushed=0` events. A force-repush flag would need to flip
-`pushed→0` for matching rows, which mutates store state and
-reorders the global push queue — a bigger semantic change than
-this PR wants to land in one go. Export-to-JSONL is read-only,
-diff-able, and lets the operator decide how to push (curl
-loop, custom script, or just keep the file as audit evidence).
-A `--force-repush --trace-id` flow can layer on later if the
-need is demonstrated.
-
-**Recipe shape**
-
-```
-MEEET_REPLAY_DIR ?= .meeet-replays
-planner-replay-run:
-	@if [ -z "$(ARGS)" ]; then echo 'usage: ...'; exit 2; fi
-	@bash -c 'set -e; \
-	    set -- $(ARGS); \
-	    plan_id=$$1; \
-	    run_trace=$${2:-}; \
-	    if [ -z "$$plan_id" ] || [ -z "$$run_trace" ]; then \
-	        echo "usage: ..."; exit 2; \
-	    fi; \
-	    out_path="$(OUT)"; \
-	    if [ -z "$$out_path" ]; then \
-	        mkdir -p "$(MEEET_REPLAY_DIR)"; \
-	        out_path="$(MEEET_REPLAY_DIR)/$$plan_id-$$run_trace.jsonl"; \
-	    fi; \
-	    PYTHONPATH=. $(PY) -m backend.core.meeet.replay_cli \
-	        --export "$$out_path" --trace-id "$$run_trace" \
-	        --limit 1000; \
-	    echo "planner-replay-run wrote $$out_path"'
-```
-
-Both positionals are required (the plan_id is informational —
-used in the default filename — but mandating it keeps the
-contract memorable: "plan_id, then trace"). `MEEET_REPLAY_DIR`
-uses `?=` so operators can override via env or command line
-without touching the Makefile.
-
-**Changes**
-
-1. `backend/core/meeet/replay_cli.py`:
-   - New `--trace-id <trc>` CLI flag, threaded into
-     `store.list_events(trace_id=...)` in the export branch
-     only (stats / replay branches are unchanged).
-   - Module docstring updated with a per-run usage example
-     and a pointer to the `planner-replay-run` Make target.
-2. `Makefile`:
-   - New `MEEET_REPLAY_DIR ?= .meeet-replays` macro.
-   - New `planner-replay-run` target (added to `.PHONY`,
-     gated by ARGS guard + inner positional re-guard).
-3. `tests/test_replay_cli.py`:
-   - `_seed` helper now accepts `trace_id` and `session_id`
-     parameters so tests can fan out to multiple runs.
-   - `test_cli_export_trace_id_filters_to_one_run` — pins
-     that `--trace-id` only exports matching rows (run B's
-     events stay in the store but don't reach the file).
-   - `test_cli_export_trace_id_with_no_match_writes_empty_file`
-     — pins that an unknown trace produces an empty JSONL
-     and `rc=0` (cron-friendly).
-4. `tests/test_makefile_planner_targets.py`:
-   - `_PLANNER_TARGETS` extended with `planner-replay-run`
-     so the `.PHONY` + help-text contracts apply to it.
-   - `ARGS=` guard parametrize extended to cover
-     `planner-replay-run`.
-   - New test `test_planner_replay_run_target_wires_export_with_trace_id`
-     pinning every load-bearing piece of the recipe:
-     positional split, both-required guard, OUT= override,
-     default `MEEET_REPLAY_DIR/$plan-$trace.jsonl` filename,
-     `--trace-id` and `--export` invocation, and that the
-     module is `backend.core.meeet.replay_cli` (not the
-     planner CLI — different store).
-   - New test `test_planner_replay_run_uses_meeet_replay_dir_macro`
-     pinning that `MEEET_REPLAY_DIR` is declared with `?=`
-     (override-friendly) and the default is `.meeet-replays`.
-
-**Tests**
-
-- `pytest tests/test_replay_cli.py
-   tests/test_makefile_planner_targets.py` — **29 passed**
-  (was 22, +7: 2 trace-id CLI cases plus 5 from broader
-  Makefile fan-out).
-- `pytest -q` — **2106 passed in 40s** (was 2100, +6).
-- Manual smoke from the venv:
-  - Synthesized + ran `traders.morning_check` (12 events
-    emitted: started + 3×requested + 3×allowed + 3×completed
-    + run.usage + run.completed).
-  - `make planner-replay-run ARGS="$plan_id $trace"` →
-    wrote `.meeet-replays/$plan-$trace.jsonl` with 12 lines,
-    every line carrying `trace_id == $trace`.
-  - `OUT=/tmp/custom.jsonl` override → wrote to the custom
-    path.
-  - No ARGS → exit 2 with usage line.
-  - One positional only → exit 2 with usage line.
-
-**Files touched**
-
-- `backend/core/meeet/replay_cli.py`
-- `Makefile`
-- `tests/test_replay_cli.py`
-- `tests/test_makefile_planner_targets.py`
-- `docs/CHANGELOG_AGENTS.md` (this entry)
-- `docs/AGENT_HANDOFF.md` (Done bullet)
-
-**Follow-ups**
-
-- `--force-repush --trace-id` flag pair on `replay_cli` if
-  fleet ops actually need re-emit-to-upstream (rather than
-  the current export-to-JSONL workflow). Would need to
-  flip `pushed→0` for matching rows then reuse
-  `replay_unpushed`.
-- Right-rail planner entrypoint from the cockpit chat
-  thread (open the planner panel inline when the agent
-  proposes a plan).
-
 ---
 
----
-
-_Showing the most recent 60 of 215 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 216 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._

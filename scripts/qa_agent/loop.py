@@ -32,6 +32,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable
 
+from .env_resolve import resolved_ingest_api_key
 from .probes import Context, Probe
 from .runner import render_json, render_text, run_all
 
@@ -160,8 +161,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--ingest-api-key",
-        default=os.environ.get("TARS_INGEST_API_KEY", "") or None,
-        help="Bearer / x-api-key for tars-ingest heartbeat",
+        default=None,
+        help="Bearer / x-api-key for tars-ingest (default: TARS_INGEST_API_KEY or MEEET_API_KEY)",
     )
     parser.add_argument(
         "--interval",
@@ -191,13 +192,14 @@ def main(argv: list[str] | None = None) -> int:
         help="Suppress per-run text reports; still writes JSON + summary line",
     )
     args = parser.parse_args(argv)
+    ingest_key = resolved_ingest_api_key(args.ingest_api_key)
 
     ctx = Context(
         tars_base=args.target.rstrip("/"),
         core_bridge_url=args.core_bridge.rstrip("/"),
         tars_supabase_url=args.tars_supabase.rstrip("/"),
         core_supabase_url=args.core_supabase.rstrip("/"),
-        tars_ingest_api_key=args.ingest_api_key,
+        tars_ingest_api_key=ingest_key,
         bridge_shared_secret=args.bridge_secret,
     )
 

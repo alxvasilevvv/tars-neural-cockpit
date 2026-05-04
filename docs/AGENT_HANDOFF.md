@@ -9,6 +9,12 @@ plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 > has real routes **`/pricing`**, **`/faq`**, **`/compare`** (lazy pages + meta);
 > nav / palette / sitemap / QA probes updated. **`pnpm typecheck`**, vitest
 > **377 passed** / 27 files green.
+>
+> **2026-05-05 — QA env parity.** `make qa-agent`, `acceptance-tars-meeet`, and `smoke-core-bridge`
+> source **`scripts/with_repo_env.sh`** (loads repo **`.env`**). QA agent accepts
+> ingest via **`TARS_INGEST_API_KEY`** **or** **`MEEET_API_KEY`**. **`gate_release.sh`** sources **`.env`**
+> before bridge step. Secrets for **GitHub Actions** (**`BRIDGE_SHARED_SECRET`**,
+> **`TARS_INGEST_API_KEY`**, **`CLOUDFLARE_API_TOKEN`**) are not in git — configure in repo Secrets.
 
 > **2026-05-04 — Audit-6 — Landing dividers, ScrollStory narrative, CouncilDemo, MeeetWorldStrip, CockpitPreview (`useT`).**
 > Migrates remaining section chrome and long-form mocks on `/`:

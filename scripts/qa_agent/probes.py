@@ -1097,7 +1097,7 @@ def probe_meeet_ingest_heartbeat(ctx: Context) -> Probe:
                 return _warn(
                     "meeet.ingest_heartbeat",
                     "meeet",
-                    "tars-ingest enforcing auth — TARS_INGEST_API_KEY not provided "
+                    "tars-ingest enforcing auth — set TARS_INGEST_API_KEY or MEEET_API_KEY "
                     "(see docs/TARS_MEEET_OPS_TODO §1 step 4)",
                     url=ingest_url,
                     trace_id=trace_id,

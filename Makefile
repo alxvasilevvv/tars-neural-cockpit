@@ -96,7 +96,7 @@ desktop-build:       ## bundle the cockpit + Tauri release artifacts
 # ---------------------------------------------------------------------
 
 smoke-core-bridge:   ## end-to-end smoke: old core-bridge -> new tars-ingest
-	bash scripts/smoke_core_bridge_e2e.sh
+	bash scripts/with_repo_env.sh bash scripts/smoke_core_bridge_e2e.sh
 
 gate-control-tower:  ## cockpit checks + core-bridge e2e smoke + planner / playbooks gates
 	$(MAKE) cockpit-changelog-check
@@ -325,19 +325,19 @@ morning-bundle-dry:  ## same as morning-bundle but forced dry_run mode (safe reh
 	@MORNING_MODE=dry_run bash scripts/playbooks_morning_cron.sh
 
 acceptance-tars-meeet:  ## production acceptance for tars.meeet.world (post-DNS)
-	bash scripts/acceptance_tars_meeet.sh
+	bash scripts/with_repo_env.sh bash scripts/acceptance_tars_meeet.sh
 
 qa-agent:            ## TARS QA Agent (python stdlib, no deps): autonomous probes
-	$(PY) -m scripts.qa_agent
+	bash scripts/with_repo_env.sh $(PY) -m scripts.qa_agent
 
 qa-agent-json:       ## QA agent in JSON mode (for CI / tooling)
-	$(PY) -m scripts.qa_agent --json --no-color
+	bash scripts/with_repo_env.sh $(PY) -m scripts.qa_agent --json --no-color
 
 qa-loop:             ## autonomous QA loop (every QA_LOOP_INTERVAL_S, default 300s)
-	$(PY) -m scripts.qa_agent.loop
+	bash scripts/with_repo_env.sh $(PY) -m scripts.qa_agent.loop
 
 qa-loop-once:        ## single QA loop iteration; writes JSON report to .qa-runs/
-	$(PY) -m scripts.qa_agent.loop --once
+	bash scripts/with_repo_env.sh $(PY) -m scripts.qa_agent.loop --once
 
 gate-release:        ## full release readiness gate: pytest + cockpit + bridge + QA
 	bash scripts/gate_release.sh

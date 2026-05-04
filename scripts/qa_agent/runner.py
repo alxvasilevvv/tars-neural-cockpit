@@ -22,6 +22,7 @@ from collections import Counter
 from dataclasses import asdict
 from datetime import datetime, timezone
 
+from .env_resolve import resolved_ingest_api_key
 from .probes import (
     Context,
     Probe,
@@ -196,8 +197,8 @@ def main(argv: list[str] | None = None) -> int:
     )
     parser.add_argument(
         "--ingest-api-key",
-        default=os.environ.get("TARS_INGEST_API_KEY", "") or None,
-        help="Bearer / x-api-key for tars-ingest heartbeat (required if function enforces auth)",
+        default=None,
+        help="Bearer / x-api-key for tars-ingest (default: env TARS_INGEST_API_KEY or MEEET_API_KEY)",
     )
     parser.add_argument(
         "--json", action="store_true", help="Emit JSON instead of text"
@@ -210,13 +211,14 @@ def main(argv: list[str] | None = None) -> int:
         help="Exit 0 if all FAILs are clean even if WARNs are present (default: WARN→0, FAIL→1)",
     )
     args = parser.parse_args(argv)
+    ingest_key = resolved_ingest_api_key(args.ingest_api_key)
 
     ctx = Context(
         tars_base=args.target.rstrip("/"),
         core_bridge_url=args.core_bridge.rstrip("/"),
         tars_supabase_url=args.tars_supabase.rstrip("/"),
         core_supabase_url=args.core_supabase.rstrip("/"),
-        tars_ingest_api_key=args.ingest_api_key,
+        tars_ingest_api_key=ingest_key,
         bridge_shared_secret=args.bridge_secret,
     )
 
