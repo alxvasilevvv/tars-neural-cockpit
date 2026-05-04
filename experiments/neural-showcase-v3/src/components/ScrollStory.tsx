@@ -14,6 +14,22 @@ import {
   Eye,
   Zap,
 } from "lucide-react";
+import type { TKey } from "@/lib/i18n";
+import { useT } from "@/lib/i18n";
+
+const SCROLL_IDS = ["s1", "s2", "s3", "s4"] as const;
+const SCROLL_VISUALS: Segment["visual"][] = [
+  "briefing",
+  "watch",
+  "memory",
+  "vault",
+];
+const SCROLL_ACCENTS = [
+  "var(--brand-indigo)",
+  "var(--brand-violet)",
+  "var(--brand-cyan)",
+  "var(--brand-orchid)",
+] as const;
 
 /**
  * <ScrollStory /> — scroll-pinned storytelling section. Pattern:
@@ -29,8 +45,8 @@ import {
  *              since iOS Safari position:sticky inside scroll-snap
  *              fights pinch-zoom).
  *
- * Segments are pure data — to add a fifth, append to STORY and tune
- * the height calc in the wrapper. Reduced-motion users get a single
+ * Segments load copy via ``useT()`` — add a fifth by extending ``SCROLL_IDS``
+ * and tuning the wrapper height calc. Reduced-motion users get a single
  * static snapshot per segment (animations skipped).
  */
 
@@ -45,64 +61,43 @@ interface Segment {
   accent: string;
 }
 
-const STORY: Segment[] = [
-  {
-    num: "01",
-    eyebrow: "DAILY BRIEFING",
-    title: "See everything you missed —\nbefore your first coffee.",
-    body:
-      "TARS reads your calendar, inbox, GitHub, and Slack overnight, then hands you a single brief at sign-in. No app-switching, no ten-tab triage. The cockpit shows what changed, what's blocking, and what to do first.",
-    visual: "briefing",
-    accent: "var(--brand-indigo)",
-  },
-  {
-    num: "02",
-    eyebrow: "WATCH ME WORK",
-    title: "Every action, on your screen,\nin real time.",
-    body:
-      "Background TARS doesn't run in a black box. The cockpit streams a verbose timeline as your agent moves files, drafts replies, or runs code. Pause it, replay it, or anchor a receipt to Solana — your choice, every step.",
-    visual: "watch",
-    accent: "var(--brand-violet)",
-  },
-  {
-    num: "03",
-    eyebrow: "MEMORY THAT COMPOUNDS",
-    title: "Your AI clone gets sharper\nevery week.",
-    body:
-      "TARS captures how you write, decide, and triage. A weekly reflection summarises what was learned and asks for confirmation before adopting new patterns. After three weeks, your AI Clone drafts replies that sound like you — opt-in, audited, deletable.",
-    visual: "memory",
-    accent: "var(--brand-cyan)",
-  },
-  {
-    num: "04",
-    eyebrow: "YOUR DATA, YOUR MACHINE",
-    title: "Local-first, end-to-end,\nzero-knowledge sync.",
-    body:
-      "Master keyring lives in macOS Keychain or Windows DPAPI. meeet.world only ever sees ciphertext — XChaCha20-Poly1305 + X25519, contract 1.1.0. You hold the recovery seed. You can pair a second device or revoke access in one click.",
-    visual: "vault",
-    accent: "var(--brand-orchid)",
-  },
-];
+function buildSegments(
+  tt: (key: TKey, vars?: Record<string, string | number>) => string,
+): Segment[] {
+  return SCROLL_IDS.map((id, i) => ({
+    num: `0${i + 1}`,
+    eyebrow: tt(`scrollStory.${id}.eyebrow` as TKey),
+    title: tt(`scrollStory.${id}.title` as TKey),
+    body: tt(`scrollStory.${id}.body` as TKey),
+    visual: SCROLL_VISUALS[i]!,
+    accent: SCROLL_ACCENTS[i]!,
+  }));
+}
 
 export function ScrollStory() {
+  const tr = useT();
+  const segments = buildSegments(tr);
+
   return (
     <section
-      aria-label="how TARS works, scroll-driven"
+      aria-label={tr("scrollStory.aria")}
       className="relative z-20 mx-auto max-w-[1280px] px-6 py-20 md:px-12 md:py-32"
     >
       {/* Section header */}
       <header className="mb-12 grid gap-6 md:mb-20 md:grid-cols-[1fr_auto] md:items-end">
         <div>
           <div className="mb-4 inline-flex items-center gap-2.5 font-mono-tech text-[11px] uppercase tracking-[3px] text-ink-2">
-            <span style={{ color: "var(--brand-indigo)" }}>04</span>
+            <span style={{ color: "var(--brand-indigo)" }}>
+              {tr("scrollStory.head.num")}
+            </span>
             <span aria-hidden>·</span>
-            <span>how it works</span>
+            <span>{tr("scrollStory.head.eyebrow")}</span>
           </div>
           <h2
             className="font-display font-medium leading-[0.96] tracking-[-0.02em] text-ink"
             style={{ fontSize: "var(--text-display-md)" }}
           >
-            Four ways TARS pays for itself{" "}
+            {tr("scrollStory.head.title.before")}
             <span
               className="bg-clip-text text-transparent"
               style={{
@@ -110,26 +105,30 @@ export function ScrollStory() {
                   "linear-gradient(95deg, var(--brand-indigo) 0%, var(--brand-violet) 50%, var(--brand-cyan) 100%)",
               }}
             >
-              before lunch
+              {tr("scrollStory.head.title.grad")}
             </span>
             .
           </h2>
         </div>
         <p className="max-w-[36ch] font-mono-tech text-[12.5px] leading-[1.65] text-ink-2 md:text-right">
-          Scroll the panel — each feature unfolds in place. No app-switching,
-          no chat-window soup, no cloud lock-in.
+          {tr("scrollStory.head.subtitle")}
         </p>
       </header>
 
       {/* Desktop: pinned scroll-driven storytelling. md+ only. */}
       <div className="hidden md:block">
-        <PinnedTrack />
+        <PinnedTrack segments={segments} />
       </div>
 
       {/* Mobile: stack of full-bleed segment cards. */}
       <div className="space-y-12 md:hidden">
-        {STORY.map((s, i) => (
-          <MobileSegment key={s.num} segment={s} index={i} />
+        {segments.map((s, i) => (
+          <MobileSegment
+            key={s.num}
+            segment={s}
+            index={i}
+            segmentCount={segments.length}
+          />
         ))}
       </div>
     </section>
@@ -138,11 +137,11 @@ export function ScrollStory() {
 
 /* ─── Desktop pinned track ──────────────────────────────────────── */
 
-function PinnedTrack() {
+function PinnedTrack({ segments }: { segments: Segment[] }) {
   const trackRef = useRef<HTMLDivElement | null>(null);
-  // Track height = 4 segments × 100vh (so each occupies one viewport
+  // Track height = N segments × 100vh (so each occupies one viewport
   // of scroll). Inside, the visual column is sticky.
-  const SEG_COUNT = STORY.length;
+  const SEG_COUNT = segments.length;
 
   // Single source of truth for scroll progress. Lifted up here so:
   //   1. ref is hydrated synchronously (same component as ref decl)
@@ -163,13 +162,17 @@ function PinnedTrack() {
       <div className="sticky top-[10vh] grid grid-cols-[1fr_1.1fr] gap-12 lg:gap-20">
         {/* Left — copy column with progress rail */}
         <div className="relative flex h-[80vh] flex-col">
-          <ProgressRail scrollYProgress={scrollYProgress} />
+          <ProgressRail
+            scrollYProgress={scrollYProgress}
+            segmentCount={segments.length}
+          />
           <div className="flex-1 pl-8">
-            {STORY.map((s, i) => (
+            {segments.map((s, i) => (
               <CopyPane
                 key={s.num}
                 segment={s}
                 index={i}
+                segmentCount={segments.length}
                 scrollYProgress={scrollYProgress}
               />
             ))}
@@ -179,11 +182,12 @@ function PinnedTrack() {
         {/* Right — visual column */}
         <div className="relative flex h-[80vh] items-center">
           <div className="relative h-full w-full">
-            {STORY.map((s, i) => (
+            {segments.map((s, i) => (
               <VisualPane
                 key={s.num}
                 segment={s}
                 index={i}
+                segmentCount={segments.length}
                 scrollYProgress={scrollYProgress}
               />
             ))}
@@ -196,10 +200,13 @@ function PinnedTrack() {
 
 function ProgressRail({
   scrollYProgress,
+  segmentCount,
 }: {
   scrollYProgress: MotionValue<number>;
+  segmentCount: number;
 }) {
   const fillHeight = useTransform(scrollYProgress, [0, 1], ["0%", "100%"]);
+  const denom = Math.max(1, segmentCount - 1);
 
   return (
     <div className="absolute left-0 top-0 h-full w-px bg-line">
@@ -213,13 +220,13 @@ function ProgressRail({
         }}
       />
       {/* Segment ticks */}
-      {STORY.map((_, i) => (
+      {Array.from({ length: segmentCount }, (_, i) => (
         <div
           key={i}
           aria-hidden
           className="absolute left-[-3px] h-1.5 w-1.5 rounded-full bg-bg-1"
           style={{
-            top: `${(i / (STORY.length - 1)) * 100}%`,
+            top: `${(i / denom) * 100}%`,
             border: "1px solid var(--color-line-strong)",
           }}
         />
@@ -231,14 +238,16 @@ function ProgressRail({
 function CopyPane({
   segment,
   index,
+  segmentCount,
   scrollYProgress,
 }: {
   segment: Segment;
   index: number;
+  segmentCount: number;
   scrollYProgress: MotionValue<number>;
 }) {
   // Each segment owns a 1/N slice of the scroll.
-  const N = STORY.length;
+  const N = segmentCount;
   const start = index / N;
   const end = (index + 1) / N;
   const peak = (start + end) / 2;
@@ -283,13 +292,15 @@ function CopyPane({
 function VisualPane({
   segment,
   index,
+  segmentCount,
   scrollYProgress,
 }: {
   segment: Segment;
   index: number;
+  segmentCount: number;
   scrollYProgress: MotionValue<number>;
 }) {
-  const N = STORY.length;
+  const N = segmentCount;
   const start = index / N;
   const end = (index + 1) / N;
   const peak = (start + end) / 2;
@@ -319,9 +330,11 @@ function VisualPane({
 function MobileSegment({
   segment,
   index,
+  segmentCount,
 }: {
   segment: Segment;
   index: number;
+  segmentCount: number;
 }) {
   return (
     <motion.div
@@ -352,7 +365,7 @@ function MobileSegment({
         <Visual kind={segment.visual} accent={segment.accent} />
       </div>
       {/* divider unless last */}
-      {index < STORY.length - 1 && (
+      {index < segmentCount - 1 && (
         <div className="mt-2 h-px w-16 bg-line-strong" aria-hidden />
       )}
     </motion.div>

@@ -667,6 +667,151 @@ const STRINGS_EN = {
   "meeetSection.p3.body":          "Agent-to-agent marketplace with escrow + Solana memo anchoring. Send a handshake, lock $MEEET, deliver work, receive payment automatically.",
   "meeetSection.p3.statNum":       "92%",
   "meeetSection.p3.statLabel":     "deals settled in <24h",
+
+  // ── audit-6 · remaining Landing (no Apple) ─────────────────────
+  // Section dividers on `/` (between major blocks).
+  "landing.section.00":            "00 / persona",
+  "landing.section.01":            "01 / awareness",
+  "landing.section.02":            "02 / packs",
+  "landing.section.03":            "03 / how",
+  "landing.section.04":            "04 / flow",
+  "landing.section.05":            "05 / cockpit",
+  "landing.section.06":            "06 / meeet",
+  "landing.section.07":            "07 / council",
+  "landing.section.08":            "08 / vs",
+  "landing.section.09":            "09 / pricing",
+  "landing.section.10":            "10 / waitlist",
+  "landing.section.11":            "11 / faq",
+
+  // MeeetWorldStrip — issuer card + footer variant.
+  "meeetStrip.footer.issuedBy":    "issued by",
+  "meeetStrip.footer.contract":    "contract {version}",
+  "meeetStrip.card.kicker":        "issuer · sync · economy",
+  "meeetStrip.card.brand":         "meeet.world",
+  "meeetStrip.status.checking":    "checking…",
+  "meeetStrip.status.online":      "daemon online · contract {version}",
+  "meeetStrip.status.offline":     "daemon offline · stays local-only",
+  "meeetStrip.cta.signIn":         "Sign in",
+  "meeetStrip.cta.account":        "Account",
+
+  // ScrollStory — scroll-pinned `/` narrative.
+  "scrollStory.aria":              "how TARS works, scroll-driven",
+  "scrollStory.head.num":          "04",
+  "scrollStory.head.eyebrow":      "how it works",
+  "scrollStory.head.title.before": "Four ways TARS pays for itself ",
+  "scrollStory.head.title.grad":   "before lunch",
+  "scrollStory.head.subtitle":
+    "Scroll the panel — each feature unfolds in place. No app-switching, no chat-window soup, no cloud lock-in.",
+
+  "scrollStory.s1.eyebrow":        "DAILY BRIEFING",
+  "scrollStory.s1.title":
+    "See everything you missed —\nbefore your first coffee.",
+  "scrollStory.s1.body":
+    "TARS reads your calendar, inbox, GitHub, and Slack overnight, then hands you a single brief at sign-in. No app-switching, no ten-tab triage. The cockpit shows what changed, what's blocking, and what to do first.",
+
+  "scrollStory.s2.eyebrow":        "WATCH ME WORK",
+  "scrollStory.s2.title":
+    "Every action, on your screen,\nin real time.",
+  "scrollStory.s2.body":
+    "Background TARS doesn't run in a black box. The cockpit streams a verbose timeline as your agent moves files, drafts replies, or runs code. Pause it, replay it, or anchor a receipt to Solana — your choice, every step.",
+
+  "scrollStory.s3.eyebrow":        "MEMORY THAT COMPOUNDS",
+  "scrollStory.s3.title":
+    "Your AI clone gets sharper\nevery week.",
+  "scrollStory.s3.body":
+    "TARS captures how you write, decide, and triage. A weekly reflection summarises what was learned and asks for confirmation before adopting new patterns. After three weeks, your AI Clone drafts replies that sound like you — opt-in, audited, deletable.",
+
+  "scrollStory.s4.eyebrow":        "YOUR DATA, YOUR MACHINE",
+  "scrollStory.s4.title":
+    "Local-first, end-to-end,\nzero-knowledge sync.",
+  "scrollStory.s4.body":
+    "Master keyring lives in macOS Keychain or Windows DPAPI. meeet.world only ever sees ciphertext — XChaCha20-Poly1305 + X25519, contract 1.1.0. You hold the recovery seed. You can pair a second device or revoke access in one click.",
+
+  // CouncilDemo — dual-vote visual on `/` (keys namespaced so /council page keeps `council.eyebrow` / `council.subtitle`).
+  "councilDemo.eyebrow":               "06 / council",
+  "council.title.before":          "Two voices, ",
+  "council.title.grad":            "one verdict",
+  "councilDemo.subtitle":
+    "Every action passes through a council vote. Anthropic and OpenAI deliberate in parallel — confidence, latency, tokens, all logged. The operator sees both proposals before anything destructive runs.",
+  "council.dualVote":              "dual-vote",
+  "council.confidence":            "Confidence",
+  "council.agreement":             "agreement",
+  "council.tok":                   "tok",
+
+  "council.d1.prompt":
+    "Should I auto-reply to Sasha's draft?",
+  "council.d1.rationale":
+    "Higher-confidence voice wins under split votes. Policy gate set to confirm for outbound iMessage.",
+  "council.d1.v0.stance":          "draft + hold",
+  "council.d1.v0.summary":
+    "Compose the reply but pause before send. The original is technical and needs your sign-off.",
+  "council.d1.v1.stance":          "draft + send",
+  "council.d1.v1.summary":
+    "Reply directly. Sasha's prompt is procedural — confirmation overhead would break the flow.",
+
+  "council.d2.prompt":
+    "Sort ~/Downloads — auto or dry-run first?",
+  "council.d2.rationale":
+    "Strong agreement. Both voices voted auto. Default handler chosen.",
+  "council.d2.v0.stance":          "auto",
+  "council.d2.v0.summary":
+    "Operation is reversible (move within same volume), low risk. Run, drop receipt, offer undo.",
+  "council.d2.v1.stance":          "auto",
+  "council.d2.v1.summary":
+    "Sort by extension category. Receipt with full file map. Undo via reverse-receipt within 10 minutes.",
+
+  "council.d3.prompt":
+    "Run the playbook quarterly_close.json now?",
+  "council.d3.rationale":
+    "Both blocked. Policy gate confirms — operator must press Run.",
+  "council.d3.v0.stance":          "block",
+  "council.d3.v0.summary":
+    "Playbook touches send_email + payment.transfer. Both are high-risk. Require explicit run.",
+  "council.d3.v1.stance":          "block",
+  "council.d3.v1.summary":
+    "High-risk chain. Schedule for end-of-day with confirm prompts on each destructive step.",
+
+  // CockpitPreview — static mock chrome (offline marketing fallback).
+  "cockpitPreview.eyebrow":        "04 / cockpit preview",
+  "cockpitPreview.chromeTitle":    "tars · cockpit · 127.0.0.1:8765",
+  "cockpitPreview.live":           "live",
+  "cockpitPreview.domainPacks":    "domain packs",
+  "cockpitPreview.actions":        "{n} actions",
+  "cockpitPreview.connectors":     "connectors",
+  "cockpitPreview.phase.routing":  "Routing",
+  "cockpitPreview.phase.tool":     "Tool",
+  "cockpitPreview.phase.drafting": "Drafting",
+  "cockpitPreview.phase.done":     "Done",
+  "cockpitPreview.greeting":       "Good morning, Alien.",
+  "cockpitPreview.briefMeta":
+    "Tuesday, 28 April · 2 meetings · 4 unread · 3 files",
+  "cockpitPreview.tile1.label":    "2 meetings today",
+  "cockpitPreview.tile1.detail":   "10:00 Sync · 15:30 Review",
+  "cockpitPreview.tile2.label":    "3 PRs await review",
+  "cockpitPreview.tile2.detail":   "tars · relayer · agent-sdk",
+  "cockpitPreview.tile3.label":    "Sasha × 4 messages",
+  "cockpitPreview.tile3.detail":   "mentioned meeet brain",
+  "cockpitPreview.tile4.label":    "proposal.docx",
+  "cockpitPreview.tile4.detail":   "edited 4 times",
+  "cockpitPreview.chatPlaceholder":
+    "Show PRs waiting for review",
+  "cockpitPreview.awarenessLabel": "awareness",
+  "cockpitPreview.newBadge":       "12 new",
+
+  "cockpitPreview.row1.tag":       "council",
+  "cockpitPreview.row1.body":
+    "two-voice vote · sonnet won 0.62",
+  "cockpitPreview.row2.tag":       "policy",
+  "cockpitPreview.row2.body":
+    "send_email gate · awaiting confirm",
+  "cockpitPreview.row3.tag":       "files",
+  "cockpitPreview.row3.body":
+    "proposal.docx · 4th edit today",
+  "cockpitPreview.row4.tag":       "trace",
+  "cockpitPreview.row4.body":
+    "$MEEET 0.42 · paid out",
+  "cockpitPreview.row5.tag":       "calendar",
+  "cockpitPreview.row5.body":      "meeting in 23 min",
 } as const;
 
 /** Pre-typed key namespace export so consumers get autocomplete. */
@@ -1314,6 +1459,146 @@ const STRINGS_RU: Partial<Record<TKey, string>> = {
   "meeetSection.p3.body":          "Маркетплейс agent-to-agent с escrow + Solana memo anchoring. Отправьте handshake, заблокируйте $MEEET, выполните работу, автоматически получите оплату.",
   "meeetSection.p3.statNum":       "92%",
   "meeetSection.p3.statLabel":     "сделок закрыто за <24ч",
+
+  // audit-6 · RU parity
+  "landing.section.00":            "00 / персона",
+  "landing.section.01":            "01 / осведомлённость",
+  "landing.section.02":            "02 / паки",
+  "landing.section.03":            "03 / процесс",
+  "landing.section.04":            "04 / поток",
+  "landing.section.05":            "05 / кокпит",
+  "landing.section.06":            "06 / meeet",
+  "landing.section.07":            "07 / совет",
+  "landing.section.08":            "08 / сравнение",
+  "landing.section.09":            "09 / тарифы",
+  "landing.section.10":            "10 / лист ожидания",
+  "landing.section.11":            "11 / faq",
+
+  "meeetStrip.footer.issuedBy":    "выпущено",
+  "meeetStrip.footer.contract":    "контракт {version}",
+  "meeetStrip.card.kicker":        "эмитент · синк · экономика",
+  "meeetStrip.card.brand":         "meeet.world",
+  "meeetStrip.status.checking":    "проверка…",
+  "meeetStrip.status.online":      "демон онлайн · контракт {version}",
+  "meeetStrip.status.offline":     "демон офлайн · всё локально",
+  "meeetStrip.cta.signIn":         "Войти",
+  "meeetStrip.cta.account":        "Аккаунт",
+
+  "scrollStory.aria":              "как работает TARS, скролл-драйв",
+  "scrollStory.head.num":          "04",
+  "scrollStory.head.eyebrow":      "как это работает",
+  "scrollStory.head.title.before": "Четыре способа, каким TARS окупается ",
+  "scrollStory.head.title.grad":   "до обеда",
+  "scrollStory.head.subtitle":
+    "Прокрутите панель — каждый сценарий раскрывается на месте. Без скачков по приложениям, без супа из чат-окон, без облачного лок-ина.",
+
+  "scrollStory.s1.eyebrow":        "УТРЕННИЙ БРИФ",
+  "scrollStory.s1.title":
+    "Увидеть всё, что вы упустили, —\nещё до первого кофе.",
+  "scrollStory.s1.body":
+    "За ночь TARS читает ваш календарь, входящие, GitHub и Slack, а при входе отдаёт один бриф. Без табов и десяти окон триажа. В кокпите видно, что изменилось, что блокирует работу и с чего начать.",
+
+  "scrollStory.s2.eyebrow":        "СЛЕДИТЕ ЗА РАБОТОЙ",
+  "scrollStory.s2.title":
+    "Каждое действие — на вашем экране,\nв реальном времени.",
+  "scrollStory.s2.body":
+    "Фоновый TARS не прячется в чёрном ящике. Кокпит стримит подробную линию времени: как агент двигает файлы, пишет ответы или гоняет код. Ставьте на паузу, смотрите повтор или якорите чек Solana — на каждом шаге решение за вами.",
+
+  "scrollStory.s3.eyebrow":        "ПАМЯТЬ, КОТОРАЯ КОПИТСЯ",
+  "scrollStory.s3.title":
+    "Ваш AI-клон становится точнее\nкаждую неделю.",
+  "scrollStory.s3.body":
+    "TARS запоминает, как вы пишете, решаете и сортируете входящие. Раз в неделю — рефлексия: что поняли и что хотите утвердить как новые правила — только после вашего ок. Через три недели черновики ответов звучат как вы — opt-in, с аудиторским следом и правом удалить.",
+
+  "scrollStory.s4.eyebrow":        "ВАШИ ДАННЫЕ · ВАША МАШИНА",
+  "scrollStory.s4.title":
+    "Локально по умолчанию,\nот конца до конца,\nнуля знание в облако.",
+  "scrollStory.s4.body":
+    "Главное кольцо ключей живёт в macOS Keychain или Windows DPAPI. На meeet.world утекает только шифртекст — XChaCha20-Poly1305 + X25519, контракт 1.1.0. Резервная фраза у вас. Можно спарить второе устройство или отозвать доступ в один клик.",
+
+  "councilDemo.eyebrow":               "06 / совет",
+  "council.title.before":          "Два голоса, ",
+  "council.title.grad":            "одно решение",
+  "councilDemo.subtitle":
+    "Каждое действие проходит совет. Anthropic и OpenAI параллельно обсуждают задачу — уверенность, задержка, токены, всё пишется в лог. Оператор видит обе позиции до любого деструктива.",
+  "council.dualVote":              "dual-vote",
+  "council.confidence":            "Уверенность",
+  "council.agreement":             "согласие",
+  "council.tok":                   "ток",
+
+  "council.d1.prompt":
+    "Отвечать Саше на черновик автоматически?",
+  "council.d1.rationale":
+    "При расхождении побеждает голос с большей уверенностью. Политика требует подтверждения перед исходящим в iMessage.",
+  "council.d1.v0.stance":          "черновик + пауза",
+  "council.d1.v0.summary":
+    "Напиши ответ, но остановись перед отправкой. Оригинал технический — нужен ваш ок.",
+  "council.d1.v1.stance":          "черновик + отправка",
+  "council.d1.v1.summary":
+    "Ответь напрямую. У Саши процедурный запрос — лишнее подтверждение сломает поток.",
+
+  "council.d2.prompt":
+    "Разобрать ~/Downloads — сразу авто или сначала dry-run?",
+  "council.d2.rationale":
+    "Очень сильное согласие: оба за авто. Выбран стандартный обработчик по умолчанию.",
+  "council.d2.v0.stance":          "авто",
+  "council.d2.v0.summary":
+    "Операция обратима (перемещение в том же томе), риск низкий. Запуск, чек, предложить откат.",
+  "council.d2.v1.stance":          "авто",
+  "council.d2.v1.summary":
+    "Сортировать по расширению. Чек с полной картой файлов. Откат через обратный чек за 10 минут.",
+
+  "council.d3.prompt":
+    "Запустить плейбук quarterly_close.json сейчас?",
+  "council.d3.rationale":
+    "Оба затормозили. Политика: оператор должен нажать «Запуск» явно.",
+  "council.d3.v0.stance":          "стоп",
+  "council.d3.v0.summary":
+    "Плейбук трогает send_email + payment.transfer. Оба высокого риска. Нужен явный запуск.",
+  "council.d3.v1.stance":          "стоп",
+  "council.d3.v1.summary":
+    "Цепочка высокого риска. Перенеси на конец дня с подтверждением каждого деструктивного шага.",
+
+  "cockpitPreview.eyebrow":        "04 / превью кокпита",
+  "cockpitPreview.chromeTitle":    "tars · cockpit · 127.0.0.1:8765",
+  "cockpitPreview.live":           "live",
+  "cockpitPreview.domainPacks":    "доменные паки",
+  "cockpitPreview.actions":        "{n} действий",
+  "cockpitPreview.connectors":     "коннекторы",
+  "cockpitPreview.phase.routing":  "Маршрут",
+  "cockpitPreview.phase.tool":     "Инструмент",
+  "cockpitPreview.phase.drafting": "Черновик",
+  "cockpitPreview.phase.done":     "Готово",
+  "cockpitPreview.greeting":       "Доброе утро, Alien.",
+  "cockpitPreview.briefMeta":
+    "вторник, 28 апреля · 2 встречи · 4 непрочитанных · 3 файла",
+  "cockpitPreview.tile1.label":    "2 встречи сегодня",
+  "cockpitPreview.tile1.detail":   "10:00 Sync · 15:30 Review",
+  "cockpitPreview.tile2.label":    "3 PR ждут ревью",
+  "cockpitPreview.tile2.detail":   "tars · relayer · agent-sdk",
+  "cockpitPreview.tile3.label":    "Саша · 4 сообщения",
+  "cockpitPreview.tile3.detail":   "упомянули meeet brain",
+  "cockpitPreview.tile4.label":    "proposal.docx",
+  "cockpitPreview.tile4.detail":   "правок сегодня: 4",
+  "cockpitPreview.chatPlaceholder":
+    "Покажи PR, ждущие ревью",
+  "cockpitPreview.awarenessLabel": "осведомлённость",
+  "cockpitPreview.newBadge":       "12 новых",
+
+  "cockpitPreview.row1.tag":       "council",
+  "cockpitPreview.row1.body":
+    "dual-vote · выиграл sonnet 0.62",
+  "cockpitPreview.row2.tag":       "policy",
+  "cockpitPreview.row2.body":
+    "шлюз send_email · ждёт подтверждения",
+  "cockpitPreview.row3.tag":       "files",
+  "cockpitPreview.row3.body":
+    "proposal.docx · 4-я правка сегодня",
+  "cockpitPreview.row4.tag":       "trace",
+  "cockpitPreview.row4.body":
+    "$MEEET 0.42 · выплачено",
+  "cockpitPreview.row5.tag":       "calendar",
+  "cockpitPreview.row5.body":      "встреча через 23 мин",
 };
 
 const STRINGS_BY_LOCALE = {

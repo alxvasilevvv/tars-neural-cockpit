@@ -31,6 +31,7 @@ import { ArrowUpRight } from "lucide-react";
 import { MeeetMark } from "@/components/BrandLogos";
 import { getHealth } from "@/lib/api";
 import { useDownloads } from "@/lib/downloads";
+import { useT } from "@/lib/i18n";
 
 interface Props {
   variant?: "card" | "footer";
@@ -38,6 +39,7 @@ interface Props {
 }
 
 export function MeeetWorldStrip({ variant = "card", className }: Props) {
+  const t = useT();
   const [healthy, setHealthy] = useState<boolean | null>(null);
   // Read contract_version from the live manifest so we don't hard-code
   // a stale "1.0.0" — Cursor's L5 batch bumped it to 1.1.0 (additive
@@ -74,7 +76,7 @@ export function MeeetWorldStrip({ variant = "card", className }: Props) {
         <span style={{ color: "var(--color-meeet-cyan, #06B6D4)" }}>
           <MeeetMark size={12} />
         </span>
-        <span className="text-ink-2">issued by</span>
+        <span className="text-ink-2">{t("meeetStrip.footer.issuedBy")}</span>
         <a
           href="https://meeet.world"
           className="text-ink transition-colors hover:text-accent"
@@ -82,7 +84,9 @@ export function MeeetWorldStrip({ variant = "card", className }: Props) {
           meeet.world
         </a>
         <span aria-hidden>·</span>
-        <span className="text-ink-3">contract {contractVersion}</span>
+        <span className="text-ink-3">
+          {t("meeetStrip.footer.contract", { version: contractVersion })}
+        </span>
       </div>
     );
   }
@@ -119,10 +123,10 @@ export function MeeetWorldStrip({ variant = "card", className }: Props) {
           </span>
           <div>
             <div className="font-display text-[15px] tracking-[0.02em] text-ink">
-              meeet.world
+              {t("meeetStrip.card.brand")}
             </div>
             <div className="mt-0.5 font-mono-tech text-[10px] uppercase tracking-[2.2px] text-ink-3">
-              issuer · sync · economy
+              {t("meeetStrip.card.kicker")}
             </div>
           </div>
         </div>
@@ -152,10 +156,10 @@ export function MeeetWorldStrip({ variant = "card", className }: Props) {
             />
             <span>
               {healthy === null
-                ? "checking…"
+                ? t("meeetStrip.status.checking")
                 : healthy
-                  ? "daemon online · contract " + contractVersion
-                  : "daemon offline · stays local-only"}
+                  ? t("meeetStrip.status.online", { version: contractVersion })
+                  : t("meeetStrip.status.offline")}
             </span>
           </div>
         </div>
@@ -169,7 +173,7 @@ export function MeeetWorldStrip({ variant = "card", className }: Props) {
             className="group inline-flex items-center gap-1.5 rounded-md border px-4 py-2 font-mono-tech text-[10.5px] uppercase tracking-[2.2px] text-ink transition-colors duration-200 hover:bg-white/[0.04]"
             style={{ borderColor: "rgba(99,102,241,0.45)", background: "rgba(99,102,241,0.08)" }}
           >
-            Sign in
+            {t("meeetStrip.cta.signIn")}
             <ArrowUpRight
               size={12}
               strokeWidth={1.8}
@@ -182,7 +186,7 @@ export function MeeetWorldStrip({ variant = "card", className }: Props) {
             rel="noopener noreferrer"
             className="group inline-flex items-center gap-1.5 rounded-md border border-line px-4 py-2 font-mono-tech text-[10.5px] uppercase tracking-[2.2px] text-ink-2 backdrop-blur-sm transition-colors duration-200 hover:border-line-strong hover:text-ink"
           >
-            Account
+            {t("meeetStrip.cta.account")}
             <ArrowUpRight
               size={12}
               strokeWidth={1.8}

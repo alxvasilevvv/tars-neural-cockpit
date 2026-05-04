@@ -1,6 +1,10 @@
 import { motion } from "framer-motion";
 import { ArrowUpRight, Zap, Activity, FileText } from "lucide-react";
 import { Link } from "react-router-dom";
+import type { TKey } from "@/lib/i18n";
+import { useT } from "@/lib/i18n";
+
+const COCKPIT_PHASE_IDS = ["routing", "tool", "drafting", "done"] as const;
 
 /**
  * CockpitPreview — visual mockup of the operator runtime.
@@ -14,6 +18,37 @@ import { Link } from "react-router-dom";
  */
 
 export function CockpitPreview() {
+  const tt = useT();
+
+  const navRows = [
+    { slug: "traders" as const, n: 12, color: "#6366F1", active: true },
+    { slug: "business" as const, n: 8, color: "#8B5CF6" },
+    { slug: "entrepreneur" as const, n: 6, color: "#06B6D4" },
+    { slug: "science" as const, n: 9, color: "#A78BFA" },
+  ];
+
+  const phaseState: { done: boolean; active: boolean }[] = [
+    { done: true, active: false },
+    { done: true, active: false },
+    { done: false, active: true },
+    { done: false, active: false },
+  ];
+
+  const tiles = [
+    { icon: "▣", labelKey: "cockpitPreview.tile1.label" as TKey, detailKey: "cockpitPreview.tile1.detail" as TKey },
+    { icon: "◇", labelKey: "cockpitPreview.tile2.label" as TKey, detailKey: "cockpitPreview.tile2.detail" as TKey },
+    { icon: "◆", labelKey: "cockpitPreview.tile3.label" as TKey, detailKey: "cockpitPreview.tile3.detail" as TKey },
+    { icon: "═", labelKey: "cockpitPreview.tile4.label" as TKey, detailKey: "cockpitPreview.tile4.detail" as TKey },
+  ];
+
+  const awarenessRows = [
+    { Icon: Zap, tagKey: "cockpitPreview.row1.tag" as TKey, bodyKey: "cockpitPreview.row1.body" as TKey },
+    { Icon: Activity, tagKey: "cockpitPreview.row2.tag" as TKey, bodyKey: "cockpitPreview.row2.body" as TKey },
+    { Icon: FileText, tagKey: "cockpitPreview.row3.tag" as TKey, bodyKey: "cockpitPreview.row3.body" as TKey },
+    { Icon: Zap, tagKey: "cockpitPreview.row4.tag" as TKey, bodyKey: "cockpitPreview.row4.body" as TKey },
+    { Icon: Activity, tagKey: "cockpitPreview.row5.tag" as TKey, bodyKey: "cockpitPreview.row5.body" as TKey },
+  ];
+
   return (
     <section
       id="cockpit-preview"
@@ -35,13 +70,13 @@ export function CockpitPreview() {
                 boxShadow: "0 0 8px var(--color-meeet-cyan-soft)",
               }}
             />
-            04 / cockpit preview
+            {tt("cockpitPreview.eyebrow")}
           </div>
           <h2
             className="font-display font-medium leading-[0.94] tracking-[-0.02em] text-ink"
             style={{ fontSize: "clamp(2rem, 4.4vw, 3.6rem)" }}
           >
-            What you see after{" "}
+            {tt("cockpitLive.title.prefix")}{" "}
             <span
               className="bg-clip-text text-transparent"
               style={{
@@ -49,7 +84,7 @@ export function CockpitPreview() {
                   "linear-gradient(95deg, #6366F1 0%, #8B5CF6 50%, #06B6D4 100%)",
               }}
             >
-              install
+              {tt("cockpitLive.title.gradient")}
             </span>
             .
           </h2>
@@ -58,7 +93,7 @@ export function CockpitPreview() {
           to="/cockpit"
           className="group inline-flex items-center gap-2 rounded-md border border-line bg-white/[0.02] px-4 py-2.5 font-mono-tech text-[11px] uppercase tracking-[2.4px] text-ink transition-all duration-200 hover:-translate-y-0.5 hover:border-line-strong"
         >
-          Open the real one
+          {tt("cockpitLive.cta.openReal")}
           <ArrowUpRight
             size={14}
             strokeWidth={1.8}
@@ -92,7 +127,7 @@ export function CockpitPreview() {
             <span className="h-2.5 w-2.5 rounded-full bg-[#FEBC2E]" />
             <span className="h-2.5 w-2.5 rounded-full bg-[#28C840]" />
             <span className="ml-3 font-mono-tech text-[10.5px] uppercase tracking-[2px] text-ink-3">
-              tars · cockpit · 127.0.0.1:8765
+              {tt("cockpitPreview.chromeTitle")}
             </span>
           </div>
           <div className="flex items-center gap-3 font-mono-tech text-[10px] uppercase tracking-[2px] text-ink-2">
@@ -111,7 +146,7 @@ export function CockpitPreview() {
                   animation: "pulseDot 2s ease-in-out infinite",
                 }}
               />
-              live
+              {tt("cockpitPreview.live")}
             </span>
           </div>
         </div>
@@ -121,17 +156,12 @@ export function CockpitPreview() {
           {/* Left — domain nav */}
           <div className="bg-bg-1/80 px-5 py-6">
             <div className="mb-4 font-mono-tech text-[9.5px] uppercase tracking-[2.4px] text-ink-3">
-              domain packs
+              {tt("cockpitPreview.domainPacks")}
             </div>
             <ul className="space-y-1.5">
-              {[
-                { label: "Traders",  count: "12 actions", color: "#6366F1", active: true },
-                { label: "Business", count: "8 actions",  color: "#8B5CF6" },
-                { label: "MLM",      count: "6 actions",  color: "#06B6D4" },
-                { label: "Science",  count: "9 actions",  color: "#A78BFA" },
-              ].map((d) => (
+              {navRows.map((d) => (
                 <li
-                  key={d.label}
+                  key={d.slug}
                   className="flex items-center gap-2.5 rounded-md px-2.5 py-2 font-mono-tech text-[11px]"
                   style={{
                     background: d.active ? `${d.color}1F` : "transparent",
@@ -146,15 +176,17 @@ export function CockpitPreview() {
                     }}
                   />
                   <span className={d.active ? "text-ink" : "text-ink-2"}>
-                    {d.label}
+                    {tt(`domains.${d.slug}.name` as TKey)}
                   </span>
-                  <span className="ml-auto text-[9.5px] text-ink-3">{d.count}</span>
+                  <span className="ml-auto text-[9.5px] text-ink-3">
+                    {tt("cockpitPreview.actions", { n: d.n })}
+                  </span>
                 </li>
               ))}
             </ul>
 
             <div className="mt-7 mb-3 font-mono-tech text-[9.5px] uppercase tracking-[2.4px] text-ink-3">
-              connectors
+              {tt("cockpitPreview.connectors")}
             </div>
             <div className="flex flex-wrap gap-1.5">
               {["GitHub", "Slack", "Calendar", "iMessage", "Mac"].map((c) => (
@@ -172,61 +204,55 @@ export function CockpitPreview() {
           <div className="relative bg-bg-1/40 px-6 py-6">
             {/* Watch-Me-Work phase bar */}
             <div className="mb-5 inline-flex items-center gap-1.5 rounded-full border border-line bg-bg-0/50 px-3 py-1 font-mono-tech text-[9.5px] uppercase tracking-[2px]">
-              {[
-                { label: "Routing",  done: true,  active: false },
-                { label: "Tool",     done: true,  active: false },
-                { label: "Drafting", done: false, active: true  },
-                { label: "Done",     done: false, active: false },
-              ].map((p, i) => (
-                <span key={p.label} className="flex items-center gap-1.5">
-                  {i > 0 && <span className="text-ink-3">·</span>}
-                  <span
-                    className="h-1 w-1 rounded-full"
-                    style={{
-                      background: p.done
-                        ? "var(--color-success)"
-                        : p.active
-                          ? "var(--color-meeet-violet)"
-                          : "var(--color-ink-3)",
-                      boxShadow: p.active
-                        ? "0 0 6px var(--color-meeet-violet-soft)"
-                        : "none",
-                      animation: p.active ? "pulseDot 1.4s ease-in-out infinite" : "none",
-                    }}
-                  />
-                  <span
-                    className={
-                      p.done
-                        ? "text-success"
-                        : p.active
-                          ? "text-ink"
-                          : "text-ink-3"
-                    }
-                  >
-                    {p.label}
+              {COCKPIT_PHASE_IDS.map((pid, i) => {
+                const p = phaseState[i]!;
+                const label = tt(`cockpitPreview.phase.${pid}` as TKey);
+                return (
+                  <span key={pid} className="flex items-center gap-1.5">
+                    {i > 0 && <span className="text-ink-3">·</span>}
+                    <span
+                      className="h-1 w-1 rounded-full"
+                      style={{
+                        background: p.done
+                          ? "var(--color-success)"
+                          : p.active
+                            ? "var(--color-meeet-violet)"
+                            : "var(--color-ink-3)",
+                        boxShadow: p.active
+                          ? "0 0 6px var(--color-meeet-violet-soft)"
+                          : "none",
+                        animation: p.active ? "pulseDot 1.4s ease-in-out infinite" : "none",
+                      }}
+                    />
+                    <span
+                      className={
+                        p.done
+                          ? "text-success"
+                          : p.active
+                            ? "text-ink"
+                            : "text-ink-3"
+                      }
+                    >
+                      {label}
+                    </span>
                   </span>
-                </span>
-              ))}
+                );
+              })}
             </div>
 
             {/* Daily briefing card */}
             <div className="mb-5 rounded-[12px] border border-line bg-bg-0/60 p-5 backdrop-blur-sm">
               <div className="mb-1 font-display text-[18px] font-medium leading-tight text-ink">
-                Good morning, Alien.
+                {tt("cockpitPreview.greeting")}
               </div>
               <div className="font-mono-tech text-[11px] tracking-[0.4px] text-ink-2">
-                Tuesday, 28 April · 2 meetings · 4 unread · 3 files
+                {tt("cockpitPreview.briefMeta")}
               </div>
 
               <div className="mt-4 grid grid-cols-2 gap-2">
-                {[
-                  { icon: "▣", label: "2 meetings today",    detail: "10:00 Sync · 15:30 Review" },
-                  { icon: "◇", label: "3 PRs await review",  detail: "tars · relayer · agent-sdk" },
-                  { icon: "◆", label: "Sasha × 4 messages",  detail: "mentioned meeet brain" },
-                  { icon: "═", label: "proposal.docx",       detail: "edited 4 times" },
-                ].map((it) => (
+                {tiles.map((it) => (
                   <div
-                    key={it.label}
+                    key={it.labelKey}
                     className="rounded-md border border-line bg-bg-1/60 px-3 py-2.5"
                   >
                     <div className="mb-0.5 flex items-center gap-1.5">
@@ -237,11 +263,11 @@ export function CockpitPreview() {
                         {it.icon}
                       </span>
                       <span className="font-mono-tech text-[10.5px] font-semibold text-ink">
-                        {it.label}
+                        {tt(it.labelKey)}
                       </span>
                     </div>
                     <div className="font-mono-tech text-[9.5px] leading-[1.45] text-ink-2">
-                      {it.detail}
+                      {tt(it.detailKey)}
                     </div>
                   </div>
                 ))}
@@ -255,7 +281,7 @@ export function CockpitPreview() {
             >
               <span style={{ color: "var(--color-meeet-indigo)" }}>$</span>
               <span className="flex-1 truncate text-ink-2">
-                Show PRs waiting for review
+                {tt("cockpitPreview.chatPlaceholder")}
               </span>
               <span
                 aria-hidden
@@ -269,7 +295,7 @@ export function CockpitPreview() {
           <div className="bg-bg-1/60 px-4 py-5">
             <div className="mb-4 flex items-center justify-between">
               <div className="font-mono-tech text-[9.5px] uppercase tracking-[2.4px] text-ink-3">
-                awareness
+                {tt("cockpitPreview.awarenessLabel")}
               </div>
               <span
                 className="rounded-full px-2 py-0.5 font-mono-tech text-[9px] uppercase tracking-[1.4px]"
@@ -278,18 +304,12 @@ export function CockpitPreview() {
                   color: "var(--color-meeet-cyan)",
                 }}
               >
-                12 new
+                {tt("cockpitPreview.newBadge")}
               </span>
             </div>
 
             <ul className="space-y-2">
-              {[
-                { Icon: Zap,      tag: "council", body: "two-voice vote · sonnet won 0.62" },
-                { Icon: Activity, tag: "policy",  body: "send_email gate · awaiting confirm" },
-                { Icon: FileText, tag: "files",   body: "proposal.docx · 4th edit today" },
-                { Icon: Zap,      tag: "trace",   body: "$MEEET 0.42 · paid out" },
-                { Icon: Activity, tag: "calendar",body: "meeting in 23 min" },
-              ].map((o, i) => (
+              {awarenessRows.map((o, i) => (
                 <li
                   key={i}
                   className="rounded-md border border-line bg-bg-0/40 px-3 py-2.5"
@@ -301,11 +321,11 @@ export function CockpitPreview() {
                       style={{ color: "var(--color-meeet-cyan)" }}
                     />
                     <span className="font-mono-tech text-[9.5px] uppercase tracking-[1.4px] text-ink-3">
-                      {o.tag}
+                      {tt(o.tagKey)}
                     </span>
                   </div>
                   <div className="font-mono-tech text-[10.5px] leading-[1.4] text-ink-2">
-                    {o.body}
+                    {tt(o.bodyKey)}
                   </div>
                 </li>
               ))}

@@ -17,27 +17,29 @@ import { Waitlist } from "@/components/Waitlist";
 import { FAQ } from "@/components/FAQ";
 import { Footer } from "@/components/Footer";
 import { SectionDivider } from "@/components/SectionDivider";
+import { useT } from "@/lib/i18n";
 
 export function Landing() {
+  const t = useT();
   return (
     <>
       <Hero />
       <TrustStrip />
       <ProofStrip />
-      <SectionDivider label="00 / persona" />
+      <SectionDivider label={t("landing.section.00")} />
       <MeetTars />
       <Rail />
-      <SectionDivider label="01 / awareness" />
+      <SectionDivider label={t("landing.section.01")} />
       <Layers />
-      <SectionDivider label="02 / packs" />
+      <SectionDivider label={t("landing.section.02")} />
       <Domains />
-      <SectionDivider label="03 / how" />
+      <SectionDivider label={t("landing.section.03")} />
       <ScrollStory />
-      <SectionDivider label="04 / flow" />
+      <SectionDivider label={t("landing.section.04")} />
       <Steps />
-      <SectionDivider label="05 / cockpit" />
+      <SectionDivider label={t("landing.section.05")} />
       <CockpitLive />
-      <SectionDivider label="06 / meeet" />
+      <SectionDivider label={t("landing.section.06")} />
       <MeeetSection />
       {/* meeet.world front-door card — sits between the brand pillars
           (MeeetSection) and the council demo. Reads /health for the
@@ -45,15 +47,15 @@ export function Landing() {
       <div className="mx-auto -mt-6 mb-12 max-w-[1280px] px-8 md:px-14">
         <MeeetWorldStrip variant="card" />
       </div>
-      <SectionDivider label="07 / council" />
+      <SectionDivider label={t("landing.section.07")} />
       <CouncilDemo />
-      <SectionDivider label="08 / vs" />
+      <SectionDivider label={t("landing.section.08")} />
       <Compare />
-      <SectionDivider label="09 / pricing" />
+      <SectionDivider label={t("landing.section.09")} />
       <Pricing />
-      <SectionDivider label="10 / waitlist" />
+      <SectionDivider label={t("landing.section.10")} />
       <Waitlist />
-      <SectionDivider label="11 / faq" />
+      <SectionDivider label={t("landing.section.11")} />
       <FAQ />
       <Footer />
     </>

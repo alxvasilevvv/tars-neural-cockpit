@@ -4,6 +4,10 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-04 — Cursor: audit-6 — Landing dividers, ScrollStory, CouncilDemo, MeeetWorldStrip, CockpitPreview (`useT`)
+
+Wired remaining marketing blocks on `/` to i18n; added `councilDemo.{eyebrow,subtitle}` so `/council` keeps `council.eyebrow` / `council.subtitle`. **Files**: `i18n.tsx` (incl. `councilDemo.{eyebrow,subtitle}` clash fix), `Landing.tsx`, `ScrollStory.tsx`, `MeeetWorldStrip.tsx`, `CouncilDemo.tsx`, `CockpitPreview.tsx`; `docs/CHANGELOG_AGENTS.md`, `docs/AGENT_HANDOFF.md`.
+
 ## 2026-05-04 — Claude QA · Install page ↔ download manifest + local QA docs
 
 **Summary**

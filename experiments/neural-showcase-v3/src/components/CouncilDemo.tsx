@@ -1,6 +1,7 @@
 import { motion, AnimatePresence } from "framer-motion";
 import { useEffect, useState } from "react";
 import { Check } from "lucide-react";
+import { useT } from "@/lib/i18n";
 
 /**
  * CouncilDemo — two-voice deliberation visual.
@@ -34,97 +35,100 @@ interface MockDeliberation {
   rationale: string;
 }
 
-const DELIBERATIONS: MockDeliberation[] = [
-  {
-    prompt: "Should I auto-reply to Sasha's draft?",
-    voices: [
-      {
-        model: "claude-sonnet-4.5",
-        brand: "#CB7E5A",
-        stance: "draft + hold",
-        summary: "Compose the reply but pause before send. The original is technical and needs your sign-off.",
-        confidence: 0.78,
-        latency: "412ms",
-        tokens: "1.4k / 380",
-      },
-      {
-        model: "gpt-5",
-        brand: "#34D399",
-        stance: "draft + send",
-        summary: "Reply directly. Sasha's prompt is procedural — confirmation overhead would break the flow.",
-        confidence: 0.62,
-        latency: "538ms",
-        tokens: "1.6k / 410",
-      },
-    ],
-    chosenIdx: 0,
-    agreement: 0.62,
-    rationale:
-      "Higher-confidence voice wins under split votes. Policy gate set to confirm for outbound iMessage.",
-  },
-  {
-    prompt: "Sort ~/Downloads — auto or dry-run first?",
-    voices: [
-      {
-        model: "claude-sonnet-4.5",
-        brand: "#CB7E5A",
-        stance: "auto",
-        summary: "Operation is reversible (move within same volume), low risk. Run, drop receipt, offer undo.",
-        confidence: 0.91,
-        latency: "298ms",
-        tokens: "0.9k / 220",
-      },
-      {
-        model: "gpt-5",
-        brand: "#34D399",
-        stance: "auto",
-        summary: "Sort by extension category. Receipt with full file map. Undo via reverse-receipt within 10 minutes.",
-        confidence: 0.88,
-        latency: "356ms",
-        tokens: "1.1k / 245",
-      },
-    ],
-    chosenIdx: 1,
-    agreement: 0.97,
-    rationale: "Strong agreement. Both voices voted auto. Default handler chosen.",
-  },
-  {
-    prompt: "Run the playbook quarterly_close.json now?",
-    voices: [
-      {
-        model: "claude-sonnet-4.5",
-        brand: "#CB7E5A",
-        stance: "block",
-        summary: "Playbook touches send_email + payment.transfer. Both are high-risk. Require explicit run.",
-        confidence: 0.94,
-        latency: "421ms",
-        tokens: "2.1k / 380",
-      },
-      {
-        model: "gpt-5",
-        brand: "#34D399",
-        stance: "block",
-        summary: "High-risk chain. Schedule for end-of-day with confirm prompts on each destructive step.",
-        confidence: 0.90,
-        latency: "510ms",
-        tokens: "2.3k / 410",
-      },
-    ],
-    chosenIdx: 0,
-    agreement: 0.92,
-    rationale: "Both blocked. Policy gate confirms — operator must press Run.",
-  },
-];
-
 export function CouncilDemo() {
+  const t = useT();
+  const deliberations: MockDeliberation[] = [
+    {
+      prompt: t("council.d1.prompt"),
+      voices: [
+        {
+          model: "claude-sonnet-4.5",
+          brand: "#CB7E5A",
+          stance: t("council.d1.v0.stance"),
+          summary: t("council.d1.v0.summary"),
+          confidence: 0.78,
+          latency: "412ms",
+          tokens: "1.4k / 380",
+        },
+        {
+          model: "gpt-5",
+          brand: "#34D399",
+          stance: t("council.d1.v1.stance"),
+          summary: t("council.d1.v1.summary"),
+          confidence: 0.62,
+          latency: "538ms",
+          tokens: "1.6k / 410",
+        },
+      ],
+      chosenIdx: 0,
+      agreement: 0.62,
+      rationale: t("council.d1.rationale"),
+    },
+    {
+      prompt: t("council.d2.prompt"),
+      voices: [
+        {
+          model: "claude-sonnet-4.5",
+          brand: "#CB7E5A",
+          stance: t("council.d2.v0.stance"),
+          summary: t("council.d2.v0.summary"),
+          confidence: 0.91,
+          latency: "298ms",
+          tokens: "0.9k / 220",
+        },
+        {
+          model: "gpt-5",
+          brand: "#34D399",
+          stance: t("council.d2.v1.stance"),
+          summary: t("council.d2.v1.summary"),
+          confidence: 0.88,
+          latency: "356ms",
+          tokens: "1.1k / 245",
+        },
+      ],
+      chosenIdx: 1,
+      agreement: 0.97,
+      rationale: t("council.d2.rationale"),
+    },
+    {
+      prompt: t("council.d3.prompt"),
+      voices: [
+        {
+          model: "claude-sonnet-4.5",
+          brand: "#CB7E5A",
+          stance: t("council.d3.v0.stance"),
+          summary: t("council.d3.v0.summary"),
+          confidence: 0.94,
+          latency: "421ms",
+          tokens: "2.1k / 380",
+        },
+        {
+          model: "gpt-5",
+          brand: "#34D399",
+          stance: t("council.d3.v1.stance"),
+          summary: t("council.d3.v1.summary"),
+          confidence: 0.9,
+          latency: "510ms",
+          tokens: "2.3k / 410",
+        },
+      ],
+      chosenIdx: 0,
+      agreement: 0.92,
+      rationale: t("council.d3.rationale"),
+    },
+  ];
+
   const [idx, setIdx] = useState(0);
 
   useEffect(() => {
-    const t = setInterval(() => setIdx((i) => (i + 1) % DELIBERATIONS.length), 6200);
-    return () => clearInterval(t);
-  }, []);
+    const tick = setInterval(
+      () => setIdx((i) => (i + 1) % deliberations.length),
+      6200,
+    );
+    return () => clearInterval(tick);
+  }, [deliberations.length]);
 
-  const d = DELIBERATIONS[idx];
+  const d = deliberations[idx];
 
   return (
     <section
@@ -146,13 +150,13 @@ export function CouncilDemo() {
               boxShadow: "0 0 8px var(--color-meeet-cyan-soft)",
             }}
           />
-          06 / council
+          {t("councilDemo.eyebrow")}
         </div>
         <h2
           className="font-display font-medium leading-[0.94] tracking-[-0.02em] text-ink"
           style={{ fontSize: "clamp(2rem, 4.4vw, 3.6rem)" }}
         >
-          Two voices,{" "}
+          {t("council.title.before")}
           <span
             className="bg-clip-text text-transparent"
             style={{
@@ -160,14 +164,12 @@ export function CouncilDemo() {
                 "linear-gradient(95deg, #6366F1 0%, #8B5CF6 50%, #06B6D4 100%)",
             }}
           >
-            one verdict
+            {t("council.title.grad")}
           </span>
           .
         </h2>
         <p className="mt-5 max-w-[640px] text-[14.5px] leading-[1.6] text-ink-2">
-          Every action passes through a council vote. Anthropic and OpenAI
-          deliberate in parallel — confidence, latency, tokens, all logged.
-          The operator sees both proposals before anything destructive runs.
+          {t("councilDemo.subtitle")}
         </p>
       </motion.div>
 
@@ -209,7 +211,7 @@ export function CouncilDemo() {
             className="flex-shrink-0 font-mono-tech text-[10px] uppercase tracking-[1.6px]"
             style={{ color: "var(--color-meeet-cyan)" }}
           >
-            dual-vote
+            {t("council.dualVote")}
           </span>
         </div>
 
@@ -273,7 +275,7 @@ export function CouncilDemo() {
                 {/* Bottom stats: confidence bar + latency + tokens */}
                 <div className="grid gap-2.5 border-t border-line pt-4 font-mono-tech text-[10px] uppercase tracking-[1.6px] text-ink-3">
                   <div className="flex items-center gap-3">
-                    <span className="w-[68px] text-ink-2">Confidence</span>
+                    <span className="w-[68px] text-ink-2">{t("council.confidence")}</span>
                     <div className="flex-1 overflow-hidden rounded-full bg-bg-0">
                       <motion.div
                         key={`c-${idx}-${vi}`}
@@ -290,7 +292,9 @@ export function CouncilDemo() {
                   </div>
                   <div className="flex items-center justify-between text-ink-2">
                     <span>{v.latency}</span>
-                    <span>{v.tokens} tok</span>
+                    <span>
+                      {v.tokens} {t("council.tok")}
+                    </span>
                   </div>
                 </div>
               </motion.div>
@@ -302,7 +306,7 @@ export function CouncilDemo() {
         <div className="grid gap-4 border-t border-line px-6 py-5 md:grid-cols-[180px_1fr] md:items-center">
           <div>
             <div className="mb-1.5 font-mono-tech text-[9.5px] uppercase tracking-[2px] text-ink-3">
-              agreement
+              {t("council.agreement")}
             </div>
             <div className="flex items-center gap-2.5">
               <div className="flex-1 overflow-hidden rounded-full bg-bg-0">
