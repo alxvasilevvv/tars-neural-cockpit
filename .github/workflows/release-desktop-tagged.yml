@@ -27,18 +27,31 @@ jobs:
           - platform: macos-latest
             target: aarch64-apple-darwin
             label: macOS-arm64
+            optional: false
+          # macos-13 (Intel) runners have been chronically queue-starved
+          # on the GitHub free plan since Apple Silicon migration. This
+          # job is marked ``continue-on-error`` so a runner shortage
+          # can't pin the whole release in "queued" state — operators
+          # on Intel Macs can still install the arm64 dmg via Rosetta,
+          # and the asset name redirect at ``/dl/TARS-x.y.z-x64.dmg``
+          # falls back to the arm64 dmg when the Intel one is missing.
           - platform: macos-13
             target: x86_64-apple-darwin
             label: macOS-x64
+            optional: true
           - platform: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
             label: Linux-x64
+            optional: false
           - platform: windows-latest
             target: x86_64-pc-windows-msvc
             label: Windows-x64
+            optional: false
 
     runs-on: ${{ matrix.platform }}
     name: Build - ${{ matrix.label }}
+    timeout-minutes: 90
+    continue-on-error: ${{ matrix.optional }}
 
     steps:
       - uses: actions/checkout@v4
@@ -146,6 +159,23 @@ jobs:
           releaseName: "TARS ${{ github.ref_name }}"
           releaseBody: |
             Automated release for ${{ github.ref_name }}.
+
+            ## macOS first-run
+
+            Apple Gatekeeper blocks unnotarised binaries with a "TARS is damaged"
+            modal. After installing the .dmg, run **once**:
+
+            ```bash
+            xattr -dr com.apple.quarantine /Applications/TARS.app
+            ```
+
+            …or use the one-liner installer from tars.meeet.world that does it
+            automatically:
+
+            ```bash
+            curl -fsSL https://tars.meeet.world/install.sh | bash
+            ```
+
             See CHANGELOG.md for details.
           releaseDraft: false
           prerelease: false
@@ -159,24 +189,59 @@ jobs:
           updaterJsonPreferNsis: false
           args: --target ${{ matrix.target }}
 
+      # Bug #2 fix (2026-05-04 audit) — "Приложение TARS повреждено".
+      # Apple Gatekeeper blocks unsigned bundles. We can't notarize
+      # without the $99 Developer Program, but ad-hoc codesigning is
+      # zero-cost AND lets users Right-click → Open without the
+      # "damaged" modal (only "Unidentified developer" remains, which
+      # the install.sh xattr command also clears).
+      - name: Ad-hoc codesign macOS app bundle
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -e
+          BUNDLE="desktop/src-tauri/target/${{ matrix.target }}/release/bundle/macos/TARS.app"
+          if [ -d "${BUNDLE}" ]; then
+            echo "Ad-hoc signing ${BUNDLE}…"
+            codesign --force --deep --sign - "${BUNDLE}"
+            codesign --verify --deep --strict --verbose=2 "${BUNDLE}" || true
+            xattr -cr "${BUNDLE}" || true
+            echo "✓ ad-hoc codesigned"
+          else
+            echo "warn: macOS bundle not at ${BUNDLE} — skipping ad-hoc sign"
+          fi
+
   notify:
+    # 2026-05-04 audit-3: don't fail the whole pipeline if the only
+    # missing artifact is the optional ``macOS-x64`` one. The Intel
+    # mac dmg is best-effort because the macos-13 runner pool is
+    # chronically queue-starved; arm64 + linux + windows must all
+    # succeed.
     needs: build
     runs-on: ubuntu-latest
     if: always()
     steps:
       - name: Check build result
         run: |
-          if [ "${{ needs.build.result }}" = "success" ]; then
-            echo "All builds succeeded for ${{ github.ref_name }}"
+          # ``continue-on-error: true`` on the optional macos-13 job
+          # means a single mac-x64 failure shows up as
+          # ``needs.build.result == 'success'`` — that's the
+          # intended behaviour.
+          RESULT="${{ needs.build.result }}"
+          if [ "${RESULT}" = "success" ]; then
+            echo "All required builds succeeded for ${{ github.ref_name }}"
           else
-            echo "::error::Some builds failed"
+            echo "::error::Required builds failed (result=${RESULT})"
             exit 1
           fi
 
   update-download-links:
     needs: build
     runs-on: ubuntu-latest
-    if: success()
+    # Use ``!failure() && !cancelled()`` so a single optional
+    # mac-x64 failure doesn't suppress the link summary the
+    # operator pastes into release notes.
+    if: ${{ !failure() && !cancelled() }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -189,6 +254,6 @@ jobs:
           echo "Release tag: ${TAG}"
           echo "Download links:"
           echo "  macOS arm64: https://github.com/${REPO}/releases/download/${TAG}/TARS_${TAG#v}_aarch64.dmg"
-          echo "  macOS x64: https://github.com/${REPO}/releases/download/${TAG}/TARS_${TAG#v}_x64.dmg"
+          echo "  macOS x64: https://github.com/${REPO}/releases/download/${TAG}/TARS_${TAG#v}_x64.dmg (may fall back to arm64 dmg + Rosetta)"
           echo "  Linux x64: https://github.com/${REPO}/releases/download/${TAG}/TARS_${TAG#v}_amd64.deb"
           echo "  Windows x64: https://github.com/${REPO}/releases/download/${TAG}/TARS_${TAG#v}_x64-setup.exe"

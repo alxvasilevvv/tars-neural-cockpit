@@ -3,15 +3,320 @@
 Pick this up if you are continuing the work in a fresh chat. Read this file
 plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 
-> **2026-05-04 15:54 — Lovable repo billing blocker RESOLVED.** Operator
-> paid GH Actions billing. All 5 workflows in
-> `alxvasilevvv/meeet-solana-state-941a6045` re-enabled and validated by
-> a manual `workflow_dispatch` of `Edge Functions Type Check` (run
+> **2026-05-04 20:20 — Audit-5 — full Landing i18n.**
+> Closed every remaining hard-coded English string on the Landing
+> surface. Four prose-heavy components (Layers, Domains, ProofStrip,
+> MeeetSection) migrated to `useT()` with **60 new keys × 2
+> locales** (RU↔EN parity 100%, parity guard pinned).
+>
+> **Total i18n today (audit-1 + audit-4 + audit-5)**: 198 new
+> bilingual keys, every Landing section translated. Remaining
+> non-translated copy is in deliberately code-shaped surfaces
+> (terminal chrome `localhost:8765`, BarStack tickers
+> `BTC · ETH · SOL`, layer lozenges `L01..L06`) that read
+> identically across locales.
+>
+> Verification: pnpm typecheck clean, vitest **368 passed** /
+> 26 files, parity guard green, production build clean.
+>
+> **2026-05-04 20:10 — Audit-4 i18n coverage pass.**
+> Closed the last visible Landing-page i18n gap. Three of the
+> loudest above-the-fold sections (Steps, Rail, CockpitLive)
+> were still hard-coded English; all three now run through
+> `useT()` with 38 new keys per locale (RU at 100% parity).
+>
+> Verification: pnpm typecheck clean, vitest **368 passed** /
+> 26 files, parity guard green, production build clean.
+>
+> **Remaining i18n offenders** (longer-form marketing prose,
+> deferred to a focused translation pass): MeetTars secondary
+> copy, MeeetSection long-form, Layers, Domains static cards,
+> ProofStrip.
+>
+> **2026-05-04 18:55 — Audit-3 release-resilience pass.**
+> v9.1.0 shipped at 18:30 with 5 of 6 expected installers — the
+> macos-13 (Intel) GitHub runner pool was queue-starved and the
+> mac-x64 dmg job sat in "queued" for 40+ minutes. Cancelled the
+> stuck job (release was already published with the other 5
+> artifacts) and shipped four follow-ups:
+>
+> 1. `release-desktop-tagged.yml` macos-13 row now marks itself
+>    `continue-on-error: true` with a 90-min timeout. The
+>    downstream `notify` + `update-download-links` flows now
+>    use `!failure() && !cancelled()` so an optional mac-x64
+>    failure doesn't suppress the link summary.
+>
+> 2. `web_extras/routers/product.py` legacy `/dl/TARS-x.y.z-x64.dmg`
+>    redirects fall back to the arm64 dmg until a future tag's
+>    mac-x64 build succeeds (Rosetta runs the arm64 binary
+>    cleanly). `<Install />` row reflects the same fallback +
+>    "Intel x64 (via Rosetta)" label. New `intelMacFallbackToArm`
+>    option on `primaryAssetName` covers any other call sites.
+>
+> 3. `web_extras/routers/memory.py` `POST /api/packs/{slug}/memory`
+>    and `DELETE /api/packs/{slug}/memory/{key}` wrapped in
+>    `trace_scope` with `memory.upsert.*` / `memory.delete.*`
+>    meeet events. Pack memory writes feed prompt context, so
+>    provenance lands in the trail.
+>
+> 4. v9.1.0 GitHub release body rewritten via `gh release edit`
+>    to cover audit-1 + audit-2 + audit-3 + macOS first-run +
+>    Intel-Mac-via-Rosetta.
+>
+> **Verification:** pytest **2406 passed** (+2) / 1 skipped /
+> 2 xfailed (39s), vitest **368 passed** (+3) / 26 files,
+> typecheck + production build clean.
+>
+> **Open operator follow-up:** future v9.1.x or v9.2.0 tag will
+> rebuild the Intel mac dmg if the macos-13 runner pool is no
+> longer queue-starved. Until then the fallback table in
+> `product.py` keeps Intel Mac downloads working.
+>
+> **2026-05-04 18:05 — Audit-2 hardening pass.** Direct
+> continuation of the 17:50 audit pass. Operator said "продолжай"
+> at 17:51 → went looking for follow-ups. Three concrete deliveries:
+>
+> 1. **Trace coverage** extended over `voice.speak` + `speech.intents`.
+>    Both now wrap in `trace_scope`, emit `*.requested/completed/failed`
+>    meeet events, honour `x-meeet-trace-id` parent header, surface
+>    the `trace_id` either as `x-trace-id` response header (voice)
+>    or in the JSON body (speech).
+> 2. **Pure helpers** extracted from `<CockpitGate />` (runtime
+>    detection) and `<Install />` (OS+arch detection) — single
+>    source of truth + 30 new vitest cases pinning the heuristics.
+> 3. **Trace coverage tests** — `tests/test_meeet_router_trace_coverage.py`
+>    pins the contract for chat / voice / speech: each successful
+>    call MUST land at least one `*.requested` and one `*.completed`
+>    row in the local meeet store with the right kind.
+>
+> **Verification:** pytest **2404 passed** (+6) / 1 skipped /
+> 2 xfailed in 40s. Vitest **365 passed** (+30) across 26 files.
+> Typecheck + production build clean.
+>
+> **Bonus:** `favicon.svg` regenerated to match the new desktop
+> PNG icon (serif T on indigo→violet gradient) so the browser
+> tab matches the Dock icon.
+>
+> **2026-05-04 17:50 — Operator audit pass.** The operator
+> screenshot-reviewed the live deployment at 17:29 and filed seven
+> blockers. All seven are closed in the same pass; full per-task
+> details are in the most recent `docs/CHANGELOG_AGENTS.md` entry
+> (search "operator audit pass").
+>
+> **What changed:**
+>
+> 1. **App icon** — premium 1024×1024 master generated, full Tauri
+>    set + .icns + .ico + 6 web favicons regenerated via the new
+>    `desktop/scripts/build_icon_set.py` (idempotent, runs on any
+>    new master). Old icon (purple T in a thin cyan ring) replaced
+>    with a richer indigo-violet gradient + serif T + cyan halo +
+>    hexagonal HUD texture. Looks like a sibling of Linear / Cursor
+>    / Arc in the Dock.
+>
+> 2. **Install page** — full rewrite. The old page made you read
+>    a curl command and click a small `.dmg` link in a footer
+>    (operator's quote: "там нужно на файл нажимать"). New page
+>    leads with a single giant "Download for $OS · $arch" CTA,
+>    auto-detects the architecture, and surfaces the Gatekeeper
+>    fix prominently in amber.
+>
+> 3. **Gatekeeper "TARS is damaged"** — the screenshot showed
+>    Apple's classic unsigned-binary modal. Two zero-cost fixes:
+>    (a) `release-desktop-tagged.yml` now ad-hoc codesigns the
+>    `TARS.app` after `tauri-action` (`codesign --force --deep
+>    --sign -` + `xattr -cr`), so Right-click → Open works without
+>    the "damaged" wording on the next release. (b) `install.sh`
+>    one-liner hosted on tars.meeet.world that handles
+>    download + ad-hoc sign + de-quarantine + launch in one shot.
+>    Public-launch path is still Apple Developer Program
+>    notarization ($99/yr — operator follow-up).
+>
+> 4. **Web cockpit** — was rendering a half-broken operator console
+>    every time you visit `/cockpit` from the marketing host (no
+>    daemon at 127.0.0.1:8765). New `CockpitGate` runtime check
+>    detects Tauri vs browser, pings local daemon with a 1s budget,
+>    and shows a brand-correct upgrade card when both fail (giant
+>    "Get the app" CTA + 3 secondary paths: read-only preview,
+>    docs, pitch). Wraps all 6 cockpit routes in App.tsx.
+>
+> 5. **meeet.world brand surface** — Nav.tsx adds a small
+>    "by meeet.world" pill next to the TARS logo. All new copy on
+>    Install + CockpitGate explicitly references meeet.world in
+>    eyebrow + body. GitHub release notes (workflow yaml) embed
+>    the meeet.world install.sh one-liner.
+>
+> 6. **Tracing coverage** — chat router was the largest hot
+>    operator-facing surface without trace emission. Wrapped
+>    `POST /api/chat/threads/{id}/messages` in `trace_scope`
+>    + `chat.message.{requested,completed,failed}` events. SSE
+>    stream emits an inline `trace` frame so the cockpit can stamp
+>    conversations with their trace_id.
+>
+> 7. **i18n** — Nav gets a global `<LocaleSwitcher>` (was footer-
+>    only). 60+ new strings (install.* + cockpitGate.* namespaces)
+>    in EN + RU with full key parity — the i18n.test.ts parity
+>    guard stays green.
+>
+> **Verification:** pytest 2398 passed / 1 skipped / 2 xfailed in
+> 47s. Vitest 335 passed across 24 files. Production build clean.
+>
+> **Operator follow-ups (still open):**
+> - Apple Developer Program enrollment ($99/yr) — required to
+>   notarize and remove the Gatekeeper fix step entirely.
+> - Tag a new release (`v9.1.0`) so the new install.sh + ad-hoc
+>   codesign step actually fire. Until then existing v8.4.0 DMG
+>   still needs the manual `xattr` fix.
+> - Optional: paid translation pass for RU (current strings are
+>   product-quality but a native RU writer could polish a handful
+>   of edges, especially in Cockpit operator surfaces).
+>
+> **2026-05-04 17:25 — Autonomous-block end-of-day.** Five rounds
+> closed back-to-back during the operator's 2-3 hour off-block.
+> Everything below the line still applies; this paragraph is the
+> delta since 16:30:
+>
+> **TARS lane (commits `cc54d7d`, `e6f477e`, `b863821`, `7567e9d`):**
+>
+> - **Round T-2 — L5 pairing crypto reality + DX**: docstring of
+>   `backend/core/pairing/__init__.py` rewritten to reflect that real
+>   X25519 / XChaCha20-Poly1305 / SealedBox already ship (the previous
+>   "What's mock for now" wording was 1 phase stale). Added
+>   `MeeetClient.emit_encrypted()` convenience method that resolves
+>   recipients from the singleton `PairingStore`, seals via
+>   `encrypt_event` with proper `trace_id|kind` AAD, and forwards
+>   through the existing emit pipeline. 7 new pytest cases.
+> - **Round T-3 — desktop sidecar pin parity**: rewrote
+>   `desktop/pyoxidizer.bzl` so its `RUNTIME_REQUIREMENTS` list mirrors
+>   `requirements.txt` exactly (was missing 6 packages incl. pynacl,
+>   eth-account, tonsdk, solders), enabled
+>   `policy.include_distribution_resources = True` so adjacent
+>   `data/*.csv|json` seeds bundle. New parity guard test
+>   `test_pyoxidizer_requirements_parity.py` (5 cases) so future
+>   `requirements.txt` bumps fail loudly if `pyoxidizer.bzl` drifts.
+> - **Round T-4 — SMTP OAuth initial-consent**: brand-new
+>   `backend/core/domains/packs/business/oauth_consent.py` ships
+>   `build_consent_url` (PKCE + signed state for Google / Microsoft /
+>   common-tenant), `verify_state` (HMAC + freshness + provider
+>   match), `exchange_authorization_code` (full token swap, OAuth
+>   error propagation, transport guard). CLI helper
+>   `scripts/smtp_oauth_consent.py` opens the browser, spawns a
+>   one-shot HTTPServer, prints the env line. 31 pytest cases.
+> - **Round R-1 — OAuth HTTP router + vault write-back**:
+>   `web_extras/routers/oauth_consent.py` exposes
+>   `POST /api/oauth/smtp/{start,exchange}`. New `set_secret` /
+>   `delete_secret` in `backend/core/vault/keychain.py` (Keychain
+>   write via `security add-generic-password -U`, env fallback on
+>   non-Darwin). New `persist_refresh_token` helper auto-writes
+>   refresh_token + accompanying client_id/secret/provider/tenant.
+>   Refresh token never echoed when persistence succeeds (vault is
+>   canonical, browser history would leak). Audit events
+>   `business.smtp.oauth.consent.{started,completed,failed}` only
+>   carry `client_id_tail` (last 6) and a `had_refresh_token` bool.
+>   30 new pytest cases (14 vault + 16 router).
+>
+> **TARS pytest after T-2/T-3/T-4/R-1 batches: 2398 passed / 1
+> skipped / 2 xfailed** (was 2315 last checkpoint, +83 cases).
+>
+> **Lovable lane (commits `31043daf`, `6f6a6f3d`, `a197c7ae`,
+> `1c716228`):**
+>
+> - **Round L-2 — `mst_` API key smoke test**: new
+>   `src/test/meeetExternalApi.test.ts` (6 vitest cases pinning
+>   `getMeeetFunctionsBase` URL composition + `MEEET_TOKEN_MINT`
+>   address). New `scripts/smoke_agent_api.sh` (4 checks: anon
+>   `economy_snapshot`, anon `list_tasks`, mst-bearer 401, mst-x-api
+>   401) with deploy-aware diagnostics — banner if `agent-api` returns
+>   401 on `economy_snapshot` (means production is older than commit
+>   `e531fb0f` and needs `supabase functions deploy agent-api`).
+> - **Round L-3 — PR #33 triage**: PR #33 (DRAFT since 2026-05-02,
+>   161 files, `@supabase/supabase-js` SDK unification) was made
+>   un-mergeable by 3 days of main drift (8 conflict files: new
+>   `@2.45.0` pin landed, `verifyBearerToken` renamed to
+>   `requireUser/requireAgentOwner`). Closed as superseded by a
+>   fresh sed-bump on top of current main (commit `6f6a6f3d`):
+>   164 files, 166 references, 0 conflicts, all 3 CI workflows
+>   green. SDK matrix: 6 versions → 1 (`2.57.4` everywhere).
+> - **Round L-4 — tg-* ESLint cleanup**: 27 `@typescript-eslint/
+>   no-explicit-any` errors → 0 across all 6 `tg-*` edge functions
+>   via new shared module `supabase/functions/_shared/tg-types.ts`
+>   (TelegramUser/Chat/Message/CallbackQuery/Update + AgentRow /
+>   AgentMap / CountryRow / TreasuryRow / etc). All 6 deno check
+>   clean. Frontend vitest 348 passed. JSON contracts (notably
+>   tg-app-data `top_countries[]` shape) preserved exactly.
+> - **Round L-5 — stale TODO sweep**: 2 actionable TODOs found,
+>   both implemented (not just shelved):
+>   - `src/components/profile/TelegramPanel.tsx` — replaced
+>     client-side mock token generation with live
+>     `supabase.functions.invoke("tg-bot-link", ...)` call.
+>   - `supabase/functions/purchase-subscription/index.ts` — added
+>     real on-chain verification via new shared
+>     `_shared/solana-rpc.ts` module (`verifySolTransaction`
+>     extracted from `create-subscription`, 10-conf wait, 2%
+>     tolerance, walks inner instructions for CPI-wrapped
+>     payments). Fixes a real undercharge-attack window.
+> - 3 pre-existing `any` cleaned up while in the neighbourhood.
+>   ESLint debt: 727 → 697 errors net.
+>
+> **Operator follow-ups still pending (not blocking, but worth
+> doing on next session):**
+>
+> - **Lovable**: redeploy `agent-api` edge function to production —
+>   the new code (commit `e531fb0f`, 2026-05-04) drops auth on
+>   public read actions and surfaces the canonical MEEET mint, but
+>   `supabase functions deploy agent-api` (or Lovable auto-deploy)
+>   needs to run to ship it. Smoke script
+>   `scripts/smoke_agent_api.sh` will detect a stale prod deploy
+>   and tell the operator exactly what to do.
+> - **TARS desktop**: actually run a `pyoxidizer build` for the 6
+>   target triples to confirm the bundle assembles end-to-end. The
+>   new parity guard test catches drift, but only an actual build
+>   catches "this dependency wheel doesn't have an aarch64-apple
+>   binary" surprises.
+> - **TARS SMTP OAuth**: run a real consent flow via
+>   `scripts/smtp_oauth_consent.py` once Google / MS OAuth app
+>   credentials exist. The dance is fully wired and tested with
+>   stubs; the only "untested in prod" path is the actual round-trip
+>   to `accounts.google.com`.
+
+> **2026-05-04 16:30 — Lovable post-refactor checkpoint.** Sister repo
+> `alxvasilevvv/meeet-solana-state-941a6045` is fully healthy after the
+> morning's 3-commit refactor (split Developer.tsx → DeveloperPortal +
+> DashboardApiKeys + meeetExternalApi helper; parametrize SDK URLs via
+> env; new `mst_<64 hex>` API key format aligned across api-keys and
+> generate-api-key edge functions). Forward-only fix landed too:
+> migration `20260504160500_fix_academy_pro_api_developer_key_format.sql`
+> updates the Academy module `pro-api-developer` content_md so the
+> `mst_…` prefix matches what new users actually see in the dashboard.
+> Original seed migration `20260418143829_*.sql` also patched at the
+> source line so fresh database init lands the corrected docstring.
+>
+> **TARS itself green:** `pytest -q` → 2315 passed / 1 skipped /
+> 2 xfailed (44s); cockpit `npm run typecheck` clean; cockpit vitest
+> 335/335 passed. Identical to the launch-ready snapshot below.
+>
+> **Known follow-ups (not blocking, captured for next pickup):**
+> - Lovable: B-001 dist guard workflow has path filters
+>   (`dist/**`, `public/_redirects`, `index.html`) so it didn't trigger
+>   on our developer/SDK/edge-function refactor. That is by design but
+>   means dist-impacting future PRs have to touch one of those paths or
+>   call the workflow via `workflow_dispatch`.
+> - Lovable: PR #33 (claude-qa, Supabase SDK unification across 161
+>   files) sits as DRAFT since 2026-05-02 — needs a triage decision
+>   (revive vs close).
+> - Lovable: `supabase/functions/tg-*` carry ~600 ESLint errors of
+>   `@typescript-eslint/no-explicit-any` legacy debt. Pre-existing,
+>   independent of any Cursor-lane work; addressable as a typed-cleanup
+>   sprint when the schedule allows.
+>
+> **Earlier today (resolved, kept for trace):**
+> Operator paid GH Actions billing this afternoon. All 5 workflows in
+> `meeet-solana-state-941a6045` re-enabled and validated by a manual
+> `workflow_dispatch` of `Edge Functions Type Check` (run
 > `25310042203`, ✓ success). 3 commits landed on that repo's main
-> (`05c57827` split Developer.tsx, `d62a5433` parametrize SDK URLs,
-> `e531fb0f` mst_ API key flow), CI green on all 3 push-triggered runs.
-> LaunchAgent + `MORNING_TODO_2026-05-04.md` cleaned up. TARS itself
-> remains untouched — see entry below for the launch-ready snapshot.
+> (`05c57827`, `d62a5433`, `e531fb0f`), CI green on all 3
+> push-triggered runs (`Unit Tests` `25310235104`, `RLS Integration
+> Tests` `25310235113`, `Edge Functions Type Check` `25310235108`).
+> LaunchAgent + `MORNING_TODO_2026-05-04.md` cleaned up.
 
 > **2026-05-04 LAUNCH-READY snapshot.** `tars.meeet.world` is live
 > through Cloudflare Pages **Git integration** (project

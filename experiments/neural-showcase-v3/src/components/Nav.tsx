@@ -3,6 +3,7 @@ import { Link, useLocation } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { SoundToggle } from "@/components/SoundToggle";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { LocaleSwitcher } from "@/components/LocaleSwitcher";
 
 const links = [
   { label: "Domains", href: "/#domains" },
@@ -45,6 +46,20 @@ export function Nav() {
           <span className="hidden font-mono-tech text-[10px] uppercase tracking-[3px] text-ink-2 sm:inline">
             / NEURAL COCKPIT
           </span>
+          <a
+            href="https://meeet.world"
+            target="_blank"
+            rel="noreferrer noopener"
+            onClick={(e) => e.stopPropagation()}
+            aria-label="Released by meeet.world"
+            className="hidden items-center gap-1.5 rounded border border-line bg-bg-1/50 px-1.5 py-0.5 font-mono-tech text-[9px] uppercase tracking-[2px] text-ink-3 transition-colors hover:border-accent/40 hover:text-accent md:inline-flex"
+          >
+            <span
+              className="h-1 w-1 rounded-full bg-accent"
+              style={{ boxShadow: "0 0 4px var(--color-accent)" }}
+            />
+            by meeet.world
+          </a>
         </Link>
         <ul className="flex items-center gap-1">
           {/* Inner anchor links — hidden on small screens; scroll is enough nav. */}
@@ -102,6 +117,9 @@ export function Nav() {
             >
               Install
             </Link>
+          </li>
+          <li className="hidden lg:inline-flex">
+            <LocaleSwitcher />
           </li>
           <li>
             <ThemeToggle />

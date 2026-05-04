@@ -9,7 +9,7 @@ const PRODUCT = "tars";
 const CHANNEL = "stable";
 const SOURCE = "tars.meeet.world/pages-functions";
 
-const LATEST_VERSION = "8.4.0";
+const LATEST_VERSION = "9.1.0";
 const LATEST_RELEASED_AT = "2026-04-22T00:00:00Z";
 
 const CACHE_HEADERS: Record<string, string> = {

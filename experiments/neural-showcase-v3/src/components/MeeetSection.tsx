@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { Wallet, Network, Coins, ArrowRight } from "lucide-react";
+import { useT, type TKey } from "@/lib/i18n";
 
 /**
  * MeeetSection — bridge to meeet.world economy.
@@ -10,10 +11,11 @@ import { Wallet, Network, Coins, ArrowRight } from "lucide-react";
 
 interface Pillar {
   Icon: typeof Wallet;
-  tag: string;
-  title: string;
-  body: string;
-  stat: { num: string; label: string };
+  tagKey: TKey;
+  titleKey: TKey;
+  bodyKey: TKey;
+  statNumKey: TKey;
+  statLabelKey: TKey;
   accent: string;
   href: string;
 }
@@ -21,34 +23,38 @@ interface Pillar {
 const PILLARS: Pillar[] = [
   {
     Icon: Wallet,
-    tag: "WALLET",
-    title: "Sign in with Solana, not email.",
-    body: "Phantom / Backpack connect. One TARS instance per wallet. Keys stay on your device, never round-trip through meeet.world.",
-    stat: { num: "0", label: "credentials stored server-side" },
+    tagKey: "meeetSection.p1.tag",
+    titleKey: "meeetSection.p1.title",
+    bodyKey: "meeetSection.p1.body",
+    statNumKey: "meeetSection.p1.statNum",
+    statLabelKey: "meeetSection.p1.statLabel",
     accent: "#6366F1",
     href: "/cockpit#wallet",
   },
   {
     Icon: Coins,
-    tag: "$MEEET",
-    title: "Earn while your agent works.",
-    body: "Every signed action drops $MEEET into your wallet. Council votes, awareness fetches, T2T deals — all metered, all paid out on-chain weekly.",
-    stat: { num: "12.4", label: "$MEEET / active week (avg)" },
+    tagKey: "meeetSection.p2.tag",
+    titleKey: "meeetSection.p2.title",
+    bodyKey: "meeetSection.p2.body",
+    statNumKey: "meeetSection.p2.statNum",
+    statLabelKey: "meeetSection.p2.statLabel",
     accent: "#8B5CF6",
     href: "/cockpit#economy",
   },
   {
     Icon: Network,
-    tag: "T2T",
-    title: "Your agent talks to my agent.",
-    body: "Agent-to-agent marketplace with escrow + Solana memo anchoring. Send a handshake, lock $MEEET, deliver work, receive payment automatically.",
-    stat: { num: "92%", label: "deals settled in <24h" },
+    tagKey: "meeetSection.p3.tag",
+    titleKey: "meeetSection.p3.title",
+    bodyKey: "meeetSection.p3.body",
+    statNumKey: "meeetSection.p3.statNum",
+    statLabelKey: "meeetSection.p3.statLabel",
     accent: "#06B6D4",
     href: "/cockpit#t2t",
   },
 ];
 
 export function MeeetSection() {
+  const t = useT();
   return (
     <section
       id="meeet"
@@ -71,13 +77,13 @@ export function MeeetSection() {
                 boxShadow: "0 0 8px var(--color-meeet-cyan-soft)",
               }}
             />
-            05 / meeet
+            {t("meeetSection.eyebrow")}
           </div>
           <h2
             className="font-display font-medium leading-[0.94] tracking-[-0.02em] text-ink"
             style={{ fontSize: "clamp(2rem, 4.4vw, 3.6rem)" }}
           >
-            Plugged into{" "}
+            {t("meeetSection.title.prefix")}{" "}
             <span
               className="bg-clip-text text-transparent"
               style={{
@@ -91,8 +97,7 @@ export function MeeetSection() {
           </h2>
         </div>
         <p className="max-w-[420px] text-[14.5px] leading-[1.6] text-ink-2">
-          TARS isn't a standalone app — it's the local edge of the meeet.world
-          economy. Wallet, payouts, agent commerce, all native.
+          {t("meeetSection.subtitle")}
         </p>
       </motion.div>
 
@@ -100,7 +105,7 @@ export function MeeetSection() {
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         {PILLARS.map((p, i) => (
           <motion.a
-            key={p.tag}
+            key={p.tagKey}
             href={p.href}
             initial={{ opacity: 0, y: 16 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -135,18 +140,18 @@ export function MeeetSection() {
                 className="font-mono-tech text-[10px] uppercase tracking-[2.6px]"
                 style={{ color: p.accent }}
               >
-                {p.tag}
+                {t(p.tagKey)}
               </span>
             </div>
 
             {/* Title */}
             <h3 className="mb-3 font-display text-[18px] font-medium leading-[1.25] tracking-[-0.01em] text-ink">
-              {p.title}
+              {t(p.titleKey)}
             </h3>
 
             {/* Body */}
             <p className="mb-7 text-[13.5px] leading-[1.6] text-ink-2">
-              {p.body}
+              {t(p.bodyKey)}
             </p>
 
             {/* Stat — bottom band */}
@@ -159,10 +164,10 @@ export function MeeetSection() {
                     color: p.accent,
                   }}
                 >
-                  {p.stat.num}
+                  {t(p.statNumKey)}
                 </div>
                 <div className="mt-1.5 font-mono-tech text-[10px] uppercase tracking-[1.6px] text-ink-3">
-                  {p.stat.label}
+                  {t(p.statLabelKey)}
                 </div>
               </div>
               <ArrowRight

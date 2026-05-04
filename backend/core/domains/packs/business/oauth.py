@@ -41,15 +41,20 @@ Provider shorthand (mirrors ``smtp.py`` ``_PROVIDERS``):
 
 Other providers can override with ``TARS_SMTP_OAUTH_TOKEN_URL``.
 
+Initial consent / authorization-code flow lives in
+:mod:`backend.core.domains.packs.business.oauth_consent` — that module
+mints the refresh token this one consumes (PKCE-protected, signed
+state, provider shorthand for Gmail / Microsoft, stdlib-only). After
+the operator runs the consent dance via that module, drop the resulting
+``refresh_token`` into ``TARS_SMTP_OAUTH_REFRESH_TOKEN`` and this
+module picks it up on the next request.
+
 Out of scope (separate slice):
 
 - Persisting the refreshed access token back into the vault. The
   in-memory cache is sufficient as long as TARS lives in one process
   per machine; a future slot can wire vault write-back when we add a
   vault adapter that supports updates.
-- Initial consent / authorization-code flow. This module assumes the
-  refresh token is already provisioned (operator does the consent
-  dance once via the cloud provider's helper).
 """
 
 from __future__ import annotations

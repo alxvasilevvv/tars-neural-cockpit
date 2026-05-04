@@ -1,6 +1,6 @@
 {
   "name": "tars-desktop",
-  "version": "8.4.0",
+  "version": "9.1.0",
   "private": true,
   "description": "TARS desktop shell — Tauri 2 wrapper around the neural cockpit. macOS + Windows installers.",
   "scripts": {

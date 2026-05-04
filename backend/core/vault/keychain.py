@@ -86,6 +86,155 @@ def get_secret(
     return _from_keychain(key, service=service, timeout_s=timeout_s)
 
 
+# --------------------------------------------------------- write-back
+
+
+def _to_keychain(
+    key: str,
+    value: str,
+    *,
+    service: str = DEFAULT_SERVICE,
+    timeout_s: float = 5.0,
+) -> bool:
+    """Persist ``key=value`` into the macOS Keychain via the
+    ``security`` CLI. Returns ``True`` on success, ``False`` on any
+    failure (non-Darwin host, missing CLI, timeout, non-zero exit).
+
+    Uses ``add-generic-password -U`` so the call is idempotent — an
+    existing entry with the same ``service`` + ``account`` gets
+    overwritten instead of erroring.
+    """
+
+    if sys.platform != "darwin":
+        return False
+    if shutil.which("security") is None:
+        return False
+    try:
+        out = subprocess.run(
+            [
+                "security",
+                "add-generic-password",
+                "-a",
+                service,
+                "-s",
+                key,
+                "-w",
+                value,
+                "-U",  # update if exists
+            ],
+            capture_output=True,
+            text=True,
+            timeout=timeout_s,
+        )
+    except (subprocess.TimeoutExpired, OSError):
+        return False
+    return out.returncode == 0
+
+
+def _delete_keychain(
+    key: str,
+    *,
+    service: str = DEFAULT_SERVICE,
+    timeout_s: float = 5.0,
+) -> bool:
+    """Drop a Keychain entry. Returns ``True`` if the entry was
+    removed, ``False`` if it didn't exist or the call failed."""
+
+    if sys.platform != "darwin":
+        return False
+    if shutil.which("security") is None:
+        return False
+    try:
+        out = subprocess.run(
+            [
+                "security",
+                "delete-generic-password",
+                "-a",
+                service,
+                "-s",
+                key,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=timeout_s,
+        )
+    except (subprocess.TimeoutExpired, OSError):
+        return False
+    return out.returncode == 0
+
+
+def set_secret(
+    key: str,
+    value: str,
+    *,
+    service: str = DEFAULT_SERVICE,
+    timeout_s: float = 5.0,
+) -> SecretRef:
+    """Write ``key=value`` into the durable vault.
+
+    Resolution order matches :func:`get_secret`:
+
+    - On Darwin with ``security`` available, writes into the Keychain
+      under ``service`` and returns ``SecretRef(source="keychain")``.
+    - On any platform where the Keychain isn't reachable, sets
+      ``os.environ[key]`` so the value is at least available for the
+      remainder of the process and returns
+      ``SecretRef(source="env")``. The operator should then mirror it
+      into their shell config / systemd unit / launchd plist for the
+      value to survive a restart.
+    - Refuses to write empty values (raises ``ValueError``) — that's
+      almost always a programming bug; explicit deletion goes through
+      :func:`delete_secret`.
+
+    The function never echoes ``value`` back to the caller — only the
+    resolved storage location, so the same return shape as
+    :func:`list_known` keeps audit logs free of secret material.
+    """
+
+    if not isinstance(key, str) or not key.strip():
+        raise ValueError("set_secret: key must be a non-empty string")
+    if value is None or not isinstance(value, str) or not value.strip():
+        raise ValueError(
+            "set_secret: refusing to write an empty value (use delete_secret)"
+        )
+    key = key.strip()
+    value = value.strip()
+
+    if _to_keychain(key, value, service=service, timeout_s=timeout_s):
+        return SecretRef(key=key, source="keychain", available=True)
+
+    # Fallback: process-lifetime env so the rest of the app sees the
+    # new value immediately. Operator follow-up is responsible for
+    # making it durable across restarts.
+    os.environ[key] = value
+    return SecretRef(key=key, source="env", available=True)
+
+
+def delete_secret(
+    key: str,
+    *,
+    service: str = DEFAULT_SERVICE,
+    timeout_s: float = 5.0,
+) -> bool:
+    """Drop ``key`` from the vault and ``os.environ``.
+
+    Returns ``True`` when at least one storage location was cleared.
+    ``False`` only when the key was already absent everywhere.
+    """
+
+    if not isinstance(key, str) or not key.strip():
+        raise ValueError("delete_secret: key must be a non-empty string")
+    key = key.strip()
+
+    cleared = False
+    if _delete_keychain(key, service=service, timeout_s=timeout_s):
+        cleared = True
+    if key in os.environ:
+        del os.environ[key]
+        cleared = True
+    return cleared
+
+
 def list_known(*, service: str = DEFAULT_SERVICE) -> list[SecretRef]:
     """Return availability metadata for the well-known keys."""
 

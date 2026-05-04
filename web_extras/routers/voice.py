@@ -30,6 +30,7 @@ from fastapi import APIRouter, Body, Header, HTTPException
 from fastapi.responses import Response
 
 from backend.core.chat import get_chat_store
+from backend.core.meeet import get_client as get_meeet_client, new_trace_id, trace_scope
 from backend.core.voice import (
     SynthesisError,
     available_engines,
@@ -68,6 +69,7 @@ async def health_endpoint() -> dict[str, Any]:
 async def speak_endpoint(
     payload: dict[str, Any] | None = Body(default=None),
     x_tars_session_id: str | None = Header(default=None),
+    x_meeet_trace_id: str | None = Header(default=None),
 ) -> Response:
     body = payload or {}
     text = str(body.get("text") or "").strip()
@@ -100,21 +102,56 @@ async def speak_endpoint(
             persona = thread.voice_persona_id
             persona_source = "thread"
 
-    try:
-        result = await synthesize(
-            text,
-            persona=str(persona) if persona else None,
-            provider=str(provider) if provider else None,
-            session_id=str(session_id) if session_id else None,
+    # 2026-05-04 audit-2: voice.speak is one of the most-billed
+    # operator surfaces (ElevenLabs/OpenAI tokens at ~$0.30/1k chars).
+    # Wrap in trace_scope + emit voice.tts.{requested,completed,failed}
+    # so every utterance is observable in the meeet trail with the
+    # provider, persona, byte count and trace_id.
+    parent_trace = (x_meeet_trace_id or "").strip() or None
+    trace_id = parent_trace or new_trace_id()
+    meeet = get_meeet_client()
+    base_payload = {
+        "text_len": len(text),
+        "persona": persona,
+        "persona_source": persona_source,
+        "provider_hint": provider,
+        "session_id": session_id,
+        "thread_id": thread_id_arg,
+    }
+
+    with trace_scope(trace_id):
+        await meeet.emit("voice.tts.requested", base_payload)
+        try:
+            result = await synthesize(
+                text,
+                persona=str(persona) if persona else None,
+                provider=str(provider) if provider else None,
+                session_id=str(session_id) if session_id else None,
+            )
+        except SynthesisError as exc:
+            await meeet.emit(
+                "voice.tts.failed",
+                {**base_payload, "error": str(exc)[:200]},
+            )
+            raise HTTPException(status_code=503, detail=str(exc)) from exc
+
+        await meeet.emit(
+            "voice.tts.completed",
+            {
+                **base_payload,
+                "provider": result.provider,
+                "voice_id": result.voice_id,
+                "bytes_total": result.bytes_total,
+                "duration_estimate_ms": result.duration_estimate_ms,
+            },
         )
-    except SynthesisError as exc:
-        raise HTTPException(status_code=503, detail=str(exc)) from exc
 
     headers = {
         "x-tars-voice-provider": result.provider,
         "x-tars-voice-voice-id": result.voice_id,
         "x-tars-voice-bytes": str(result.bytes_total),
         "x-tars-voice-duration-ms": str(result.duration_estimate_ms),
+        "x-trace-id": trace_id,
         "cache-control": "no-store",
     }
     if persona_source:
