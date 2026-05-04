@@ -4,6 +4,136 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-04 — Cursor · Lovable: stale TODO sweep (round R-4)
+
+(Cross-repo entry; commit lives in
+`alxvasilevvv/meeet-solana-state-941a6045@1c716228`.)
+
+Hunted the entire Lovable codebase for `\bTODO|FIXME|XXX|HACK\b`
+across `src/`, `supabase/`, `qa-suite/`, `scripts/`, `sdk/`. Found
+exactly 2 actionable TODOs; both got real implementations rather
+than being deferred to GitHub issues:
+
+1. **`src/components/profile/TelegramPanel.tsx`** said
+   "replace with edge function `tg-bot-link` once ready". The
+   edge function has been live for weeks (and we just typed it
+   in round R-3). Wired in a real
+   `supabase.functions.invoke("tg-bot-link", { body: { action:
+   "generate" } })` call, dropped the client-side mock token
+   generation. Renamed `mockDeeplink` / `setMockDeeplink` →
+   `pendingDeeplink` / `setPendingDeeplink` (5 references) so
+   the variable name stops lying about what it holds. Cleaned up
+   the surrounding `catch (e: any)` to use type narrowing.
+
+2. **`supabase/functions/purchase-subscription/index.ts`** said
+   "verify tx_signature on-chain before granting subscription. For
+   now, the duplicate-tx guard above prevents replay; on-chain
+   verification is tracked separately and should be added before
+   opening this to mainnet." That guard alone allows undercharge
+   attacks (the signature exists on-chain but transferred 0.001
+   SOL instead of 0.07). Extracted the live
+   `verifySolTransaction` from
+   `create-subscription/index.ts` into a brand new shared module
+   `supabase/functions/_shared/solana-rpc.ts` and wired it into
+   `purchase-subscription`'s `purchase` action. Standard 10-conf
+   wait, 2% tolerance, walks inner instructions so CPI-wrapped
+   payments still pass. Same pattern that's been live in
+   `create-subscription` since the first subscription mainnet
+   flow.
+
+Bonus: 3 pre-existing `any` annotations cleaned up while
+touching these files. Net ESLint debt: 700 → 697 errors (-3).
+
+Validation: `deno check` clean on the new shared module +
+purchase-subscription. `npm run test`: 348 passed | 5 skipped.
+TODO recount across the swept directories: 2 → 0.
+
+The remaining `TODO`-string mentions in TARS scripts/ are all
+documentation references (TARS_MEEET_OPS_TODO.md sections), the
+`mktemp -t .XXXXXX` template syntax, or the named constant
+`TODO_PUBLIC_KEY`. None are stale debt.
+
+`>>> SYNC: Cursor · 2026-05-04 · stale TODO sweep — both real ones now real implementations (not just deferred)`
+
+## 2026-05-04 — Cursor · Lovable: tg-* ESLint cleanup (round R-3)
+
+(Cross-repo entry; commit lives in
+`alxvasilevvv/meeet-solana-state-941a6045@a197c7ae`.)
+
+Typed-cleanup sprint on the Telegram bot edge functions. Replaces
+27 ESLint `@typescript-eslint/no-explicit-any` errors (and 2
+prefer-const warnings) with concrete types backed by a new shared
+type module `supabase/functions/_shared/tg-types.ts`:
+
+- `TelegramUser` / `TelegramChat` / `TelegramMessage` /
+  `TelegramMessageEntity` / `TelegramCallbackQuery` /
+  `TelegramUpdate` — the subset of the official Telegram Bot API
+  surface that `tg-*` actually consumes. Kept thin (no
+  third-party type pack) to avoid inflating cold-start / deno
+  check time on edge.
+- `AgentRow`, `AgentMap`, `CountryRow`, `CountryAggregate`,
+  `TreasuryRow`, `MarketplaceListingRow`, `DuelRow` — minimal
+  SELECT shapes for the DB rows the bot reads.
+
+Per-file cleanup ranged from drop-in (`Record<string, any>` →
+`Record<string, unknown>` in tg-notify-send) to medium
+(SupabaseClient typing + InvokeResult interface in tg-bot-webhook).
+The largest, tg-app-data, also picked up an inline `TopCountryOut`
+interface with a strong comment that its shape is the public
+contract consumed by the Telegram mini-app — DO NOT rename
+without coordinating with the bot client.
+
+Validation: ESLint on `tg-*/index.ts`: 27 errors → 0 (full repo:
+727 → 700). All 6 tg-* deno check clean. `npm run test`: 348
+passed | 5 skipped. JSON output contracts preserved exactly —
+the cleanup is type-only and does not touch any output field.
+
+`>>> SYNC: Cursor · 2026-05-04 · tg-* edge functions: 27 ESLint any errors → 0 (introduces _shared/tg-types.ts)`
+
+## 2026-05-04 — Cursor · Lovable: PR #33 triage → fresh main bump (round R-2)
+
+(Cross-repo entry; commit lives in
+`alxvasilevvv/meeet-solana-state-941a6045@6f6a6f3d`. PR #33 was
+closed as superseded by this commit.)
+
+PR #33 (DRAFT since 2026-05-02, "unify @supabase/supabase-js to
+2.57.4 across 161 EFs") was made un-mergeable by 3 days of main
+drift: 8 conflict files because subsequent commits introduced both
+new SDK pins (e.g. `@2.45.0` in agent-chat-ai/index.ts) and
+renamed auth-compat helpers (`verifyBearerToken` →
+`requireUser/requireAgentOwner`). Resolved by doing the bump
+fresh on top of current main rather than fighting 9 conflicts and
+force-pushing to a stale claude-qa branch.
+
+Before this commit:
+
+  140× @supabase/supabase-js@2          (bare, undefined-version)
+    9× @supabase/supabase-js@2.49.1
+    7× @supabase/supabase-js@2.49.4
+    6× @supabase/supabase-js@2.45.0
+    2× @supabase/supabase-js@2.99.2
+    2× @supabase/supabase-js@2.57.4
+
+After:
+
+  166× @supabase/supabase-js@2.57.4
+
+Validation:
+- `deno check` clean on all 177 edge function entrypoints
+  (deno 2.7.14 + TS 5.9.2 locally; CI mirrors via
+  `.github/workflows/edge-functions-typecheck.yml`).
+- `npm run test`: 348 passed | 5 skipped.
+- All 3 GH Actions workflows green on commit `6f6a6f3d`:
+  `RLS Integration Tests` `25313198746`, `Edge Functions Type
+  Check` `25313198727`, `Unit Tests` `25313198721`.
+
+Side benefit: collapses the SDK matrix that
+`_shared/auth-compat.ts` was written to mitigate ("X is not a
+function" class of bugs from mixed minor versions across
+functions sharing types).
+
+`>>> SYNC: Cursor · 2026-05-04 · @supabase/supabase-js unified to 2.57.4 across all 164 EFs (PR #33 superseded + closed)`
+
 ## 2026-05-04 — Cursor · SMTP OAuth: HTTP router + vault write-back (round 5/N)
 
 **Summary**

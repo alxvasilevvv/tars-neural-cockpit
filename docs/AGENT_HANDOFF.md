@@ -3,6 +3,114 @@
 Pick this up if you are continuing the work in a fresh chat. Read this file
 plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 
+> **2026-05-04 17:25 — Autonomous-block end-of-day.** Five rounds
+> closed back-to-back during the operator's 2-3 hour off-block.
+> Everything below the line still applies; this paragraph is the
+> delta since 16:30:
+>
+> **TARS lane (commits `cc54d7d`, `e6f477e`, `b863821`, `7567e9d`):**
+>
+> - **Round T-2 — L5 pairing crypto reality + DX**: docstring of
+>   `backend/core/pairing/__init__.py` rewritten to reflect that real
+>   X25519 / XChaCha20-Poly1305 / SealedBox already ship (the previous
+>   "What's mock for now" wording was 1 phase stale). Added
+>   `MeeetClient.emit_encrypted()` convenience method that resolves
+>   recipients from the singleton `PairingStore`, seals via
+>   `encrypt_event` with proper `trace_id|kind` AAD, and forwards
+>   through the existing emit pipeline. 7 new pytest cases.
+> - **Round T-3 — desktop sidecar pin parity**: rewrote
+>   `desktop/pyoxidizer.bzl` so its `RUNTIME_REQUIREMENTS` list mirrors
+>   `requirements.txt` exactly (was missing 6 packages incl. pynacl,
+>   eth-account, tonsdk, solders), enabled
+>   `policy.include_distribution_resources = True` so adjacent
+>   `data/*.csv|json` seeds bundle. New parity guard test
+>   `test_pyoxidizer_requirements_parity.py` (5 cases) so future
+>   `requirements.txt` bumps fail loudly if `pyoxidizer.bzl` drifts.
+> - **Round T-4 — SMTP OAuth initial-consent**: brand-new
+>   `backend/core/domains/packs/business/oauth_consent.py` ships
+>   `build_consent_url` (PKCE + signed state for Google / Microsoft /
+>   common-tenant), `verify_state` (HMAC + freshness + provider
+>   match), `exchange_authorization_code` (full token swap, OAuth
+>   error propagation, transport guard). CLI helper
+>   `scripts/smtp_oauth_consent.py` opens the browser, spawns a
+>   one-shot HTTPServer, prints the env line. 31 pytest cases.
+> - **Round R-1 — OAuth HTTP router + vault write-back**:
+>   `web_extras/routers/oauth_consent.py` exposes
+>   `POST /api/oauth/smtp/{start,exchange}`. New `set_secret` /
+>   `delete_secret` in `backend/core/vault/keychain.py` (Keychain
+>   write via `security add-generic-password -U`, env fallback on
+>   non-Darwin). New `persist_refresh_token` helper auto-writes
+>   refresh_token + accompanying client_id/secret/provider/tenant.
+>   Refresh token never echoed when persistence succeeds (vault is
+>   canonical, browser history would leak). Audit events
+>   `business.smtp.oauth.consent.{started,completed,failed}` only
+>   carry `client_id_tail` (last 6) and a `had_refresh_token` bool.
+>   30 new pytest cases (14 vault + 16 router).
+>
+> **TARS pytest after T-2/T-3/T-4/R-1 batches: 2398 passed / 1
+> skipped / 2 xfailed** (was 2315 last checkpoint, +83 cases).
+>
+> **Lovable lane (commits `31043daf`, `6f6a6f3d`, `a197c7ae`,
+> `1c716228`):**
+>
+> - **Round L-2 — `mst_` API key smoke test**: new
+>   `src/test/meeetExternalApi.test.ts` (6 vitest cases pinning
+>   `getMeeetFunctionsBase` URL composition + `MEEET_TOKEN_MINT`
+>   address). New `scripts/smoke_agent_api.sh` (4 checks: anon
+>   `economy_snapshot`, anon `list_tasks`, mst-bearer 401, mst-x-api
+>   401) with deploy-aware diagnostics — banner if `agent-api` returns
+>   401 on `economy_snapshot` (means production is older than commit
+>   `e531fb0f` and needs `supabase functions deploy agent-api`).
+> - **Round L-3 — PR #33 triage**: PR #33 (DRAFT since 2026-05-02,
+>   161 files, `@supabase/supabase-js` SDK unification) was made
+>   un-mergeable by 3 days of main drift (8 conflict files: new
+>   `@2.45.0` pin landed, `verifyBearerToken` renamed to
+>   `requireUser/requireAgentOwner`). Closed as superseded by a
+>   fresh sed-bump on top of current main (commit `6f6a6f3d`):
+>   164 files, 166 references, 0 conflicts, all 3 CI workflows
+>   green. SDK matrix: 6 versions → 1 (`2.57.4` everywhere).
+> - **Round L-4 — tg-* ESLint cleanup**: 27 `@typescript-eslint/
+>   no-explicit-any` errors → 0 across all 6 `tg-*` edge functions
+>   via new shared module `supabase/functions/_shared/tg-types.ts`
+>   (TelegramUser/Chat/Message/CallbackQuery/Update + AgentRow /
+>   AgentMap / CountryRow / TreasuryRow / etc). All 6 deno check
+>   clean. Frontend vitest 348 passed. JSON contracts (notably
+>   tg-app-data `top_countries[]` shape) preserved exactly.
+> - **Round L-5 — stale TODO sweep**: 2 actionable TODOs found,
+>   both implemented (not just shelved):
+>   - `src/components/profile/TelegramPanel.tsx` — replaced
+>     client-side mock token generation with live
+>     `supabase.functions.invoke("tg-bot-link", ...)` call.
+>   - `supabase/functions/purchase-subscription/index.ts` — added
+>     real on-chain verification via new shared
+>     `_shared/solana-rpc.ts` module (`verifySolTransaction`
+>     extracted from `create-subscription`, 10-conf wait, 2%
+>     tolerance, walks inner instructions for CPI-wrapped
+>     payments). Fixes a real undercharge-attack window.
+> - 3 pre-existing `any` cleaned up while in the neighbourhood.
+>   ESLint debt: 727 → 697 errors net.
+>
+> **Operator follow-ups still pending (not blocking, but worth
+> doing on next session):**
+>
+> - **Lovable**: redeploy `agent-api` edge function to production —
+>   the new code (commit `e531fb0f`, 2026-05-04) drops auth on
+>   public read actions and surfaces the canonical MEEET mint, but
+>   `supabase functions deploy agent-api` (or Lovable auto-deploy)
+>   needs to run to ship it. Smoke script
+>   `scripts/smoke_agent_api.sh` will detect a stale prod deploy
+>   and tell the operator exactly what to do.
+> - **TARS desktop**: actually run a `pyoxidizer build` for the 6
+>   target triples to confirm the bundle assembles end-to-end. The
+>   new parity guard test catches drift, but only an actual build
+>   catches "this dependency wheel doesn't have an aarch64-apple
+>   binary" surprises.
+> - **TARS SMTP OAuth**: run a real consent flow via
+>   `scripts/smtp_oauth_consent.py` once Google / MS OAuth app
+>   credentials exist. The dance is fully wired and tested with
+>   stubs; the only "untested in prod" path is the actual round-trip
+>   to `accounts.google.com`.
+
 > **2026-05-04 16:30 — Lovable post-refactor checkpoint.** Sister repo
 > `alxvasilevvv/meeet-solana-state-941a6045` is fully healthy after the
 > morning's 3-commit refactor (split Developer.tsx → DeveloperPortal +

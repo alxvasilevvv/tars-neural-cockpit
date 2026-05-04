@@ -4,6 +4,136 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-04 — Cursor · Lovable: stale TODO sweep (round R-4)
+
+(Cross-repo entry; commit lives in
+`alxvasilevvv/meeet-solana-state-941a6045@1c716228`.)
+
+Hunted the entire Lovable codebase for `\bTODO|FIXME|XXX|HACK\b`
+across `src/`, `supabase/`, `qa-suite/`, `scripts/`, `sdk/`. Found
+exactly 2 actionable TODOs; both got real implementations rather
+than being deferred to GitHub issues:
+
+1. **`src/components/profile/TelegramPanel.tsx`** said
+   "replace with edge function `tg-bot-link` once ready". The
+   edge function has been live for weeks (and we just typed it
+   in round R-3). Wired in a real
+   `supabase.functions.invoke("tg-bot-link", { body: { action:
+   "generate" } })` call, dropped the client-side mock token
+   generation. Renamed `mockDeeplink` / `setMockDeeplink` →
+   `pendingDeeplink` / `setPendingDeeplink` (5 references) so
+   the variable name stops lying about what it holds. Cleaned up
+   the surrounding `catch (e: any)` to use type narrowing.
+
+2. **`supabase/functions/purchase-subscription/index.ts`** said
+   "verify tx_signature on-chain before granting subscription. For
+   now, the duplicate-tx guard above prevents replay; on-chain
+   verification is tracked separately and should be added before
+   opening this to mainnet." That guard alone allows undercharge
+   attacks (the signature exists on-chain but transferred 0.001
+   SOL instead of 0.07). Extracted the live
+   `verifySolTransaction` from
+   `create-subscription/index.ts` into a brand new shared module
+   `supabase/functions/_shared/solana-rpc.ts` and wired it into
+   `purchase-subscription`'s `purchase` action. Standard 10-conf
+   wait, 2% tolerance, walks inner instructions so CPI-wrapped
+   payments still pass. Same pattern that's been live in
+   `create-subscription` since the first subscription mainnet
+   flow.
+
+Bonus: 3 pre-existing `any` annotations cleaned up while
+touching these files. Net ESLint debt: 700 → 697 errors (-3).
+
+Validation: `deno check` clean on the new shared module +
+purchase-subscription. `npm run test`: 348 passed | 5 skipped.
+TODO recount across the swept directories: 2 → 0.
+
+The remaining `TODO`-string mentions in TARS scripts/ are all
+documentation references (TARS_MEEET_OPS_TODO.md sections), the
+`mktemp -t .XXXXXX` template syntax, or the named constant
+`TODO_PUBLIC_KEY`. None are stale debt.
+
+`>>> SYNC: Cursor · 2026-05-04 · stale TODO sweep — both real ones now real implementations (not just deferred)`
+
+## 2026-05-04 — Cursor · Lovable: tg-* ESLint cleanup (round R-3)
+
+(Cross-repo entry; commit lives in
+`alxvasilevvv/meeet-solana-state-941a6045@a197c7ae`.)
+
+Typed-cleanup sprint on the Telegram bot edge functions. Replaces
+27 ESLint `@typescript-eslint/no-explicit-any` errors (and 2
+prefer-const warnings) with concrete types backed by a new shared
+type module `supabase/functions/_shared/tg-types.ts`:
+
+- `TelegramUser` / `TelegramChat` / `TelegramMessage` /
+  `TelegramMessageEntity` / `TelegramCallbackQuery` /
+  `TelegramUpdate` — the subset of the official Telegram Bot API
+  surface that `tg-*` actually consumes. Kept thin (no
+  third-party type pack) to avoid inflating cold-start / deno
+  check time on edge.
+- `AgentRow`, `AgentMap`, `CountryRow`, `CountryAggregate`,
+  `TreasuryRow`, `MarketplaceListingRow`, `DuelRow` — minimal
+  SELECT shapes for the DB rows the bot reads.
+
+Per-file cleanup ranged from drop-in (`Record<string, any>` →
+`Record<string, unknown>` in tg-notify-send) to medium
+(SupabaseClient typing + InvokeResult interface in tg-bot-webhook).
+The largest, tg-app-data, also picked up an inline `TopCountryOut`
+interface with a strong comment that its shape is the public
+contract consumed by the Telegram mini-app — DO NOT rename
+without coordinating with the bot client.
+
+Validation: ESLint on `tg-*/index.ts`: 27 errors → 0 (full repo:
+727 → 700). All 6 tg-* deno check clean. `npm run test`: 348
+passed | 5 skipped. JSON output contracts preserved exactly —
+the cleanup is type-only and does not touch any output field.
+
+`>>> SYNC: Cursor · 2026-05-04 · tg-* edge functions: 27 ESLint any errors → 0 (introduces _shared/tg-types.ts)`
+
+## 2026-05-04 — Cursor · Lovable: PR #33 triage → fresh main bump (round R-2)
+
+(Cross-repo entry; commit lives in
+`alxvasilevvv/meeet-solana-state-941a6045@6f6a6f3d`. PR #33 was
+closed as superseded by this commit.)
+
+PR #33 (DRAFT since 2026-05-02, "unify @supabase/supabase-js to
+2.57.4 across 161 EFs") was made un-mergeable by 3 days of main
+drift: 8 conflict files because subsequent commits introduced both
+new SDK pins (e.g. `@2.45.0` in agent-chat-ai/index.ts) and
+renamed auth-compat helpers (`verifyBearerToken` →
+`requireUser/requireAgentOwner`). Resolved by doing the bump
+fresh on top of current main rather than fighting 9 conflicts and
+force-pushing to a stale claude-qa branch.
+
+Before this commit:
+
+  140× @supabase/supabase-js@2          (bare, undefined-version)
+    9× @supabase/supabase-js@2.49.1
+    7× @supabase/supabase-js@2.49.4
+    6× @supabase/supabase-js@2.45.0
+    2× @supabase/supabase-js@2.99.2
+    2× @supabase/supabase-js@2.57.4
+
+After:
+
+  166× @supabase/supabase-js@2.57.4
+
+Validation:
+- `deno check` clean on all 177 edge function entrypoints
+  (deno 2.7.14 + TS 5.9.2 locally; CI mirrors via
+  `.github/workflows/edge-functions-typecheck.yml`).
+- `npm run test`: 348 passed | 5 skipped.
+- All 3 GH Actions workflows green on commit `6f6a6f3d`:
+  `RLS Integration Tests` `25313198746`, `Edge Functions Type
+  Check` `25313198727`, `Unit Tests` `25313198721`.
+
+Side benefit: collapses the SDK matrix that
+`_shared/auth-compat.ts` was written to mitigate ("X is not a
+function" class of bugs from mixed minor versions across
+functions sharing types).
+
+`>>> SYNC: Cursor · 2026-05-04 · @supabase/supabase-js unified to 2.57.4 across all 164 EFs (PR #33 superseded + closed)`
+
 ## 2026-05-04 — Cursor · SMTP OAuth: HTTP router + vault write-back (round 5/N)
 
 **Summary**
@@ -3443,211 +3573,6 @@ tars-planner show <TAB>      # → live plan_id list
 
 ---
 
-## 2026-05-01 — Cursor [A] · planner: one-shot rerun (CLI clone --approve/--run + POST /rerun)
-
-**Summary**
-
-Closed the loop on the rerun-via-clone flow shipped in PR #108
-by adding a one-shot composition over `clone` + `approve` + `run`:
-
-- **CLI**: `clone --approve` flips the new plan to `approved`
-  in the same call; `--run` (which implies `--approve`) then
-  dispatches it through `PlanRunner` so an operator can rerun
-  a finished plan with a single shell invocation. `--mode`
-  overrides the policy gate for the run portion.
-- **HTTP**: `POST /api/planner/{plan_id}/rerun` is a
-  convenience endpoint over the same composition, intended
-  for the cockpit's "Rerun" button. Body / header support
-  mirrors `/clone` plus optional `mode` (or
-  `x-tars-policy-mode` header).
-- **Audit lane**: `planner.cloned` event now carries
-  `auto_approved` and `auto_run` boolean flags, and the
-  timeline summariser collapses them into a single readable
-  label (`· rerun` for auto_run, `· auto-approved` for the
-  approve-only case).
-
-Backwards compatibility is preserved: bare `clone` still
-returns a `proposed` plan with no auto-flip, and the existing
-`POST /api/planner/{plan_id}/clone` route is unchanged.
-
-**Changes**
-
-1. `backend/core/planner/cli.py` —
-   - `_cmd_clone` now accepts `--approve`, `--run`, and
-     `--mode autopilot|confirm|dry_run`. After the clone is
-     persisted and `planner.cloned` is emitted, the handler
-     optionally flips status to `approved` then dispatches
-     `PlanRunner.run` (using `resolve_mode(request_arg=...)`
-     so the env / fallback chain still applies). The
-     response gains `auto_approved`, `auto_run`, and
-     `run_result` keys (the latter is `None` when `--run`
-     was not requested).
-   - Errors during the `--run` phase surface a structured
-     `plan_run_failed` envelope with `plan_id` (the new
-     clone's id) and `source_plan_id` so the operator can
-     still see what was created.
-   - Module docstring usage block updated.
-2. `web_extras/routers/planner.py` —
-   - New `POST /api/planner/{plan_id}/rerun` endpoint. Body
-     supports `thread_id`, `goal_override`, `mode`. Headers
-     `x-meeet-trace-id`, `x-tars-thread-id`,
-     `x-tars-policy-mode` carry the same semantics as the
-     other endpoints. Composes clone + approve + run inside
-     a single `trace_scope` so all of the resulting events
-     stitch together. Emits `planner.cloned` with
-     `auto_approved=true` and `auto_run=true`. Run errors
-     surface as 409 with `{reason, message, plan_id,
-     source_plan_id}`.
-   - Top-of-module docstring updated with the new endpoint
-     contract.
-3. `backend/core/search/timeline.py` —
-   - `_summarise_event` for `planner.cloned` now reads
-     `auto_run` / `auto_approved` and renders one of
-     `· rerun`, `· auto-approved`, or no extra suffix
-     (legacy clones).
-4. `tests/test_planner_rerun.py` (new, 13 cases):
-   - CLI: `clone --approve` flips status; `clone --run`
-     implies approve and produces a `run_result`; bare clone
-     still proposes (compat); unknown plan id surfaces a
-     proper error envelope; argparse rejects an unknown
-     `--mode` choice with exit 2.
-   - HTTP: 404 on unknown plan; happy path returns the new
-     plan + run result with `source_plan_id`; emits
-     `planner.cloned` with both auto flags; an unknown
-     `mode` string falls back to the env default (pinned
-     behaviour); `thread_id` body override binds to the
-     clone.
-   - Timeline summariser renders `· rerun` for
-     `auto_run=true` (and not `auto-approved`), and
-     `· auto-approved` for `auto_approved=true,
-     auto_run=false`.
-
-**Tests**
-
-- `tests/test_planner_rerun.py` — 13 passed.
-- Existing planner CLI + clone suites (`test_planner_cli.py`,
-  `test_planner_clone.py`) — 36 passed (no regression).
-- Full `pytest -q` — **2051 passed in 47s**.
-
-**Cockpit follow-ups**
-
-- Wire the existing "Rerun" button on the plan card to
-  `POST /api/planner/{id}/rerun` instead of the previous
-  three-call flow (clone → approve → run). The button can
-  now show a loading spinner once and surface the
-  `run_result.status` directly.
-- Render the new timeline labels: `· rerun` for one-shot
-  reruns, `· auto-approved` for clone-then-approve flows.
-
 ---
 
-## 2026-05-01 — Cursor [A] · planner: dedicated plan.run.usage event for billing dashboards
-
-**Summary**
-
-The cost / token rollup for each plan run now ships as its own
-top-level event (`plan.run.usage`), in addition to being
-embedded in the terminal `plan.completed` / `plan.aborted`
-payload (existing behaviour unchanged). This unblocks the
-single-line billing query the cockpit and any meeet.world
-dashboard wants:
-
-```sql
-SELECT * FROM events WHERE kind='plan.run.usage'
-```
-
-…instead of having to walk every terminal event payload and
-parse a nested `usage` block.
-
-**Changes**
-
-1. `backend/core/planner/runner.py` —
-   - Module docstring's events-emitted list now mentions
-     `plan.run.usage` (between `plan.step.completed` and the
-     terminal events).
-   - In `PlanRunner.run`, immediately after the
-     `_compute_run_usage(trace_id=trace_id)` call and before
-     emitting the terminal event, the runner now emits
-     `plan.run.usage` with `plan_id`, `status` (the
-     terminal status that's about to be applied),
-     `parent_trace_id` (plan's birth trace), and the same
-     `usage` block. Always fires — even when no priced model
-     ran — so "ran but emitted nothing" cases stay observable.
-2. `web_extras/routers/planner.py` —
-   `_PLAN_EVENT_KINDS` (the SSE allow-list)
-   includes `plan.run.usage`, so the
-   `GET /api/planner/events` stream picks it up.
-3. `backend/core/search/timeline.py` —
-   `_RELEVANT_EVENT_KINDS` now includes `plan.run.usage`;
-   `_summarise_event` formats it as
-   `plan=<id> · status=<status> · calls=N · tokens=A+B · cost=$X` 
-   when a priced model fired, falling back to `cost=n/a` when
-   `has_priced_models=false`.
-4. `tests/test_planner_runner.py` —
-   `test_run_happy_path_completes_and_emits_events` updated
-   to expect `plan.run.usage` in the kinds-in-order list
-   (between `plan.step.completed` and `plan.completed`).
-5. `tests/test_planner_run_usage_event.py` (new, 8 cases):
-   - `plan.run.usage` fires on completion, with the right
-     payload shape (`plan_id`, `status="completed"`,
-     `parent_trace_id`, `usage`).
-   - Same on abort, with `status="aborted"`.
-   - The `usage` block is identical to what travels on the
-     terminal event (consumers see the same numbers
-     regardless of which event they read).
-   - The event lives on the run's per-run trace, not the
-     plan's birth trace, so trace-scoped queries still work.
-   - Planner SSE allow-list contains the new kind.
-   - Timeline relevant-kinds list contains the new kind.
-   - Timeline summariser renders priced + unpriced cost
-     correctly (`$X.XXXX` vs `n/a`).
-
-**Tests**
-
-- `tests/test_planner_run_usage_event.py` — 8 passed.
-- `tests/test_planner_runner.py` — 19 passed.
-- Full `pytest -q` — **2038 passed in 52s**.
-
-**Cockpit follow-ups**
-
-- Activity stream can now render a single "rollup" pill per
-  run instead of opening the terminal event card to read
-  cost data.
-- Billing dashboard query simplifies to one `kind=` filter.
-
----
-
-## 2026-05-01 — Cursor [A] · tests: unbreak test_release_desktop_workflow after workflow file relocation
-
-**Summary**
-
-PR #4 (`d1984f1`) intentionally moved the release workflow out
-of `.github/workflows/release-desktop-tagged.yml` to the repo
-root (`release-desktop-tagged.yml`) to reset a stuck GitHub
-`workflow_id`. The contract test still hard-coded the old path,
-which dragged the full pytest suite from 2030 green down to
-2024 passed + 5 errors. This patch teaches the test to look at
-the new location first and fall back to the legacy path so old
-branches keep working too.
-
-**Changes**
-
-- `tests/test_release_desktop_workflow.py` — added a
-  `_resolve_workflow_path()` helper that walks
-  `(REPO/release-desktop-tagged.yml,
-    REPO/.github/workflows/release-desktop-tagged.yml)` in
-  order and raises a clear "checked these N paths" error if
-  neither exists. Module docstring updated to explain the
-  relocation.
-
-**Tests**
-
-- `tests/test_release_desktop_workflow.py` — 9 passed.
-- Full `pytest -q` — **2030 passed in 38s** (was 2024 + 5
-  errors before this patch).
-
----
-
----
-
-_Showing the most recent 60 of 202 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 205 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
