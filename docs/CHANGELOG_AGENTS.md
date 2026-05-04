@@ -4,6 +4,22 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-04 — Claude QA · SYNC §6 handoff row (privatize + P0 path)
+
+**Summary**
+
+Canonical coordination post landed in **`tars-neural-cockpit#8`** (comment
+4369632637). Appended **§6 handoff table** row capturing **B-017** (artifact
+hosting after private repos), **B-001** split (**TARS** redeploy vs **`meeet.world`**
+**`PB_21`**), and **P1** rulesets deferral — so agents relying on **`docs/SYNC.md`**
+see the same ordering without scraping the issue thread.
+
+**Files**
+
+- `docs/SYNC.md`, `docs/CHANGELOG_AGENTS.md`, `docs/CHANGELOG_PUBLIC.md`
+
+`>>> SYNC: Claude QA · 2026-05-04 · §6 table row mirrors #8 coordination`
+
 ## 2026-05-04 — Cursor · pre-commit hook: auto-regenerate CHANGELOG_PUBLIC.md
 
 **Summary**

@@ -4,6 +4,22 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-04 — Claude QA · SYNC §6 handoff row (privatize + P0 path)
+
+**Summary**
+
+Canonical coordination post landed in **`tars-neural-cockpit#8`** (comment
+4369632637). Appended **§6 handoff table** row capturing **B-017** (artifact
+hosting after private repos), **B-001** split (**TARS** redeploy vs **`meeet.world`**
+**`PB_21`**), and **P1** rulesets deferral — so agents relying on **`docs/SYNC.md`**
+see the same ordering without scraping the issue thread.
+
+**Files**
+
+- `docs/SYNC.md`, `docs/CHANGELOG_AGENTS.md`, `docs/CHANGELOG_PUBLIC.md`
+
+`>>> SYNC: Claude QA · 2026-05-04 · §6 table row mirrors #8 coordination`
+
 ## 2026-05-04 — Cursor · pre-commit hook: auto-regenerate CHANGELOG_PUBLIC.md
 
 **Summary**
@@ -3583,77 +3599,6 @@ planned op by mistake). `run` honours `--mode` to override
 - Wire the CLI into a `make planner-*` target group so the
   control tower runs it end-to-end as part of the gate.
 
-## 2026-05-01 — Cursor [A] · planner: per-run cost / token rollup on terminal event
-
-**Summary**
-
-After a plan run finishes, the runner now rolls up every
-`usage.tokens` event that fired inside its trace_id + wall-clock
-window and stamps the totals (`calls`, `tokens_in`, `tokens_out`,
-`cost_usd`, `latency_ms_total`, `has_priced_models`) onto the
-terminal event payload (`plan.completed` / `plan.aborted`) AND
-the `PlanRunner.run` return value. The `/api/planner/{id}/runs`
-reflector surfaces the same block via the `PlanRun` dataclass,
-so the cockpit's run history drawer can render per-run cost +
-token / latency totals without an extra round-trip to the usage
-ledger.
-
-`cost_usd` is `None` (not `0.0`) when no priced model fired, so
-the cockpit shows "n/a" instead of falsely advertising a free
-run. Filtering by both `trace_id` AND time window keeps parallel
-runs of the same plan from bleeding into each other's totals
-(the runner currently inherits the plan's birth trace, so two
-concurrent runs would otherwise share a trace_id).
-
-**Changes**
-
-1. `backend/core/planner/runner.py`:
-   - New `_compute_run_usage(trace_id, started_at, finished_at)`
-     async helper. Pulls `usage.tokens` events from the meeet
-     store filtered by `trace_id` + `since=started_at`, clamps
-     each event's `ts` to `<= finished_at + 1s` (clock-skew
-     grace), sums tokens / latency / `cost_usd`. Returns
-     `cost_usd=None` when no priced model was summed; otherwise
-     rounded to 6 decimals.
-   - `PlanRunner.run` captures `run_started_at = time.time()`
-     before entering `trace_scope`, computes the rollup right
-     before emitting the terminal event, and embeds it as a
-     `usage` block on both `plan.completed` and `plan.aborted`
-     payloads. Also added to the function's return dict.
-2. `backend/core/planner/history.py`:
-   - `PlanRun` dataclass gains `usage_calls`, `usage_tokens_in`,
-     `usage_tokens_out`, `usage_cost_usd`, `usage_latency_ms_total`,
-     `usage_has_priced_models` fields. `to_dict()` exposes them
-     under a single `usage` block matching the runner's shape.
-   - `_close_run(...)` reads the `usage` block off the terminal
-     event payload (defaulting to a zero rollup with
-     `cost_usd=None` when missing — keeps legacy events readable).
-3. `tests/test_planner_run_usage.py` (new, 11 cases): zero-rollup
-   for `trace_id=None`, sums matching events, returns `None` cost
-   for unpriced models, filters by trace_id, clamps to time
-   window, runner stamps usage on `plan.completed`, runner stamps
-   usage on `plan.aborted` (handler raises mid-step), zero usage
-   when no `usage.tokens` event, reconstructor surfaces the
-   block, reconstructor handles legacy missing-usage payload, and
-   end-to-end HTTP round trip via `POST /plan` →
-   `POST /status` (approve) → `POST /run` → `GET /runs`.
-
-**Tests**
-
-`pytest -q` → 1986 passed in 46.85s (was 1975; +11 new).
-
-**Follow-ups**
-
-- Once each run gets its own trace (rather than inheriting the
-  plan's birth trace), the time-window clamp in
-  `_compute_run_usage` becomes redundant — drop it then.
-- Cockpit run-history drawer can render `usage.cost_usd` +
-  `usage.tokens_*` per row; the `has_priced_models=false` case
-  should show "n/a · N tokens" instead of "$0.00".
-- Consider folding the rollup into a dedicated `plan.run.usage`
-  event so dashboards can query it without parsing the
-  terminal event payload.
-
 ---
 
-_Showing the most recent 60 of 197 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 198 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
