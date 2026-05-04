@@ -3,24 +3,15 @@
 Pick this up if you are continuing the work in a fresh chat. Read this file
 plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 
-> **2026-05-04 05:30 — ⚠ Operator-only blocker (NOT TARS):** the
-> private repo **`alxvasilevvv/meeet-solana-state-941a6045`** (Lovable
-> Solana state, sister project) hit GitHub Actions billing — every push
-> spawned 5 red workflow runs with *"recent account payments have failed
-> or your spending limit needs to be increased"*. **All 6 workflows in
-> that repo are now `disabled_manually`** so the operator's GH Inbox
-> stops bleeding while they sleep. A `launchd` LaunchAgent
-> (`~/Library/LaunchAgents/world.meeet.tars.morning-reminder.plist`)
-> fires at 09:00 to open `MORNING_TODO_2026-05-04.md` + GitHub billing.
-> **Re-enable command** once billing is OK or the repo is made public:
-> ```
-> for wf in 270359873 266711772 269441388 266711773 267017484; do
->   gh workflow enable $wf -R alxvasilevvv/meeet-solana-state-941a6045
-> done
-> ```
-> TARS itself (this repo) is **public** so its Actions are unaffected
-> and remain green. See `MORNING_TODO_2026-05-04.md` at repo root for
-> the full operator brief.
+> **2026-05-04 15:54 — Lovable repo billing blocker RESOLVED.** Operator
+> paid GH Actions billing. All 5 workflows in
+> `alxvasilevvv/meeet-solana-state-941a6045` re-enabled and validated by
+> a manual `workflow_dispatch` of `Edge Functions Type Check` (run
+> `25310042203`, ✓ success). 3 commits landed on that repo's main
+> (`05c57827` split Developer.tsx, `d62a5433` parametrize SDK URLs,
+> `e531fb0f` mst_ API key flow), CI green on all 3 push-triggered runs.
+> LaunchAgent + `MORNING_TODO_2026-05-04.md` cleaned up. TARS itself
+> remains untouched — see entry below for the launch-ready snapshot.
 
 > **2026-05-04 LAUNCH-READY snapshot.** `tars.meeet.world` is live
 > through Cloudflare Pages **Git integration** (project
