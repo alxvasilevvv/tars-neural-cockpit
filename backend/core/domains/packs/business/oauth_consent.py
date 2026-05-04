@@ -55,14 +55,12 @@ Provider shorthand mirrors ``oauth.py``:
   on the configured tenant (default ``common``), default scope
   includes ``offline_access`` so a refresh token always comes back.
 
-Out of scope (separate slice):
-
-- HTTP router endpoints + cockpit UI for "press button → consent →
-  TARS persists refresh token" (next pickup; this module exposes the
-  primitives so the router/UI can be ~30 lines on top).
-- Vault write-back of the refresh token (the SMTP path already reads
-  vault keys, but persisting the freshly-minted token is the next
-  module's job).
+HTTP surface lives in :mod:`web_extras.routers.oauth_consent`
+(``POST /api/oauth/smtp/{start,exchange}``). The
+:func:`persist_refresh_token` helper below auto-writes the freshly
+minted token into the vault (Keychain on macOS, env fallback
+elsewhere) so the operator's only step is "click consent, paste env
+line if you're on Linux".
 """
 
 from __future__ import annotations
@@ -81,10 +79,23 @@ import urllib.request
 from dataclasses import dataclass
 from typing import Any, Mapping
 
-from backend.core.vault import get_secret
+from backend.core.vault import (
+    SecretRef,
+    get_secret,
+    set_secret,
+)
 
 
 log = logging.getLogger("tars.business.smtp.oauth_consent")
+
+
+# Vault key the SMTP path reads in `oauth.py` — keep these constants
+# as the single source of truth so a rename only edits one line.
+VAULT_KEY_REFRESH_TOKEN = "TARS_SMTP_OAUTH_REFRESH_TOKEN"
+VAULT_KEY_CLIENT_ID = "TARS_SMTP_OAUTH_CLIENT_ID"
+VAULT_KEY_CLIENT_SECRET = "TARS_SMTP_OAUTH_CLIENT_SECRET"
+VAULT_KEY_PROVIDER = "TARS_SMTP_PROVIDER"
+VAULT_KEY_TENANT = "TARS_SMTP_OAUTH_TENANT"
 
 
 # Provider shorthand → (auth endpoint, token endpoint template). Same
@@ -558,4 +569,100 @@ def exchange_authorization_code(
         expires_in=expires_in_f,
         scope=str(response.get("scope")) if response.get("scope") else None,
         token_type=str(response.get("token_type")) if response.get("token_type") else None,
+    )
+
+
+# ============================================================ persistence
+
+
+@dataclass(frozen=True)
+class PersistedConsent:
+    """Result of :func:`persist_refresh_token` — list of vault keys the
+    helper wrote and where each one landed (``"keychain"`` / ``"env"``).
+    The returned shape is intentionally value-free so logs / HTTP
+    responses don't leak secret material."""
+
+    persisted: tuple[SecretRef, ...]
+    skipped: tuple[str, ...]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "persisted": [
+                {"key": ref.key, "source": ref.source}
+                for ref in self.persisted
+            ],
+            "skipped": list(self.skipped),
+        }
+
+
+def persist_refresh_token(
+    result: TokenExchangeResult,
+    *,
+    client_id: str,
+    client_secret: str | None = None,
+    provider: str | None = None,
+    tenant: str | None = None,
+) -> PersistedConsent:
+    """Write the freshly-minted credentials into the vault.
+
+    Skips any field that's empty / None so an operator who already had
+    one piece set (e.g. ``TARS_SMTP_PROVIDER`` in ``.env``) doesn't
+    have it overwritten unnecessarily. Tenant defaults to ``"common"``
+    upstream and is only persisted when explicitly provided so the
+    Keychain entry stays absent for default Microsoft consumer flow.
+
+    Returns a :class:`PersistedConsent` describing what landed where —
+    callers (HTTP handler / CLI helper) surface this so the operator
+    sees per-key destinations without ever seeing the values
+    themselves.
+
+    Raises :class:`ValueError` only when ``result.ok=False`` — refusing
+    to persist a failed exchange is a defensive guard against partial
+    writes (an operator must explicitly re-run the consent dance).
+    """
+
+    if not result.ok:
+        raise ValueError(
+            "persist_refresh_token: refusing to persist a failed "
+            f"TokenExchangeResult (reason={result.reason!r})"
+        )
+    if not result.refresh_token:
+        # Without a refresh token there's nothing durable to write —
+        # the access_token expires in ~1h and is meaningless to
+        # persist alone. Surface the skip explicitly.
+        return PersistedConsent(persisted=(), skipped=(VAULT_KEY_REFRESH_TOKEN,))
+
+    persisted: list[SecretRef] = []
+    skipped: list[str] = []
+
+    persisted.append(set_secret(VAULT_KEY_REFRESH_TOKEN, result.refresh_token))
+
+    # Mirror the operator-facing values that the SMTP path reads on
+    # every send — without these, the refresh exchange in oauth.py
+    # would not know which client / endpoint to talk to.
+    if client_id:
+        persisted.append(set_secret(VAULT_KEY_CLIENT_ID, client_id))
+    else:
+        skipped.append(VAULT_KEY_CLIENT_ID)
+
+    if client_secret:
+        persisted.append(set_secret(VAULT_KEY_CLIENT_SECRET, client_secret))
+    else:
+        skipped.append(VAULT_KEY_CLIENT_SECRET)
+
+    if provider:
+        persisted.append(set_secret(VAULT_KEY_PROVIDER, provider))
+    else:
+        skipped.append(VAULT_KEY_PROVIDER)
+
+    # Only write tenant when it's non-default — keeps the Keychain
+    # tidy for the common Gmail / consumer-MS case where the default
+    # ``common`` already covers the request.
+    if tenant and tenant.strip().lower() != "common":
+        persisted.append(set_secret(VAULT_KEY_TENANT, tenant))
+    else:
+        skipped.append(VAULT_KEY_TENANT)
+
+    return PersistedConsent(
+        persisted=tuple(persisted), skipped=tuple(skipped)
     )

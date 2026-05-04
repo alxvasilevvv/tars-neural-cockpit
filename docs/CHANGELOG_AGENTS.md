@@ -4,6 +4,102 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-04 — Cursor · SMTP OAuth: HTTP router + vault write-back (round 5/N)
+
+**Summary**
+
+Closes the two remaining "out of scope" bullets from the morning's
+SMTP OAuth slice — vault write-back of the freshly-minted refresh
+token, and an HTTP router so the cockpit can drive the consent
+dance end-to-end without operators copy-pasting env lines.
+
+Vault write-back (`backend/core/vault/keychain.py`):
+
+- New `set_secret(key, value, *, service, timeout_s)` — writes via
+  the macOS `security` CLI (`add-generic-password -U` for idempotent
+  upsert), falls back to `os.environ[key]` on non-Darwin /
+  Keychain-disabled hosts so the value is at least process-lifetime
+  available. Returns a `SecretRef` describing the destination
+  ("keychain" / "env") — the value itself never leaks back out.
+- New `delete_secret(key)` — clears both Keychain entry and env var,
+  returns `True` if at least one was cleared.
+- Both refuse empty inputs (raise `ValueError`) — defensive guard
+  against partial writes.
+- 14 new cases in `tests/test_vault_write_back.py` mock both
+  `_to_keychain` / `_delete_keychain` (matches the existing read-side
+  pattern) and verify env fallback, idempotent overwrite, no-op on
+  non-Darwin, end-to-end visibility through `get_secret`.
+
+OAuth consent persistence
+(`backend/core/domains/packs/business/oauth_consent.py`):
+
+- New `persist_refresh_token(result, *, client_id, client_secret,
+  provider, tenant)` — writes the refresh token + accompanying
+  config (`TARS_SMTP_OAUTH_REFRESH_TOKEN`,
+  `TARS_SMTP_OAUTH_CLIENT_ID`, `TARS_SMTP_OAUTH_CLIENT_SECRET`,
+  `TARS_SMTP_PROVIDER`, optional `TARS_SMTP_OAUTH_TENANT`) into the
+  vault. Skips empty fields, omits the default `common` tenant so
+  Keychain stays tidy. Returns a `PersistedConsent` dataclass with
+  `to_dict()` for safe serialisation (only key + destination, never
+  values).
+- Refuses to persist a failed `TokenExchangeResult` (`ok=False`) —
+  defensive guard against partial writes during transport failures.
+- Vault key constants (`VAULT_KEY_REFRESH_TOKEN`, etc.) are exported
+  so callers reference the same source-of-truth strings.
+
+HTTP router (`web_extras/routers/oauth_consent.py`,
+`/api/oauth/smtp/{start,exchange}`):
+
+- `POST /api/oauth/smtp/start` builds the consent URL and returns
+  `{url, state, code_verifier, provider, trace_id}`. Cockpit caches
+  `code_verifier` locally (PKCE — never round-trips through the
+  provider) and redirects the operator to `url`.
+- `POST /api/oauth/smtp/exchange` verifies the signed state first
+  (defence in depth — token endpoint is never hit on tampered or
+  expired callbacks), swaps the auth code for tokens, persists when
+  `persist=True` (default). When persistence succeeds, the response
+  withholds the actual `refresh_token` (vault is canonical, echoing
+  would leak it into browser history / proxy logs); `persist=false`
+  echoes for dry-run inspection.
+- Every consent attempt — start, success, state mismatch, OAuth
+  error — emits a structured `business.smtp.oauth.consent.*` event
+  into the meeet store with only `client_id_tail` (last 6 chars)
+  and `had_refresh_token` boolean leaking into the audit trail. The
+  full client_id and the refresh token value never appear in any
+  emitted payload.
+- Wired into `web_extras/app.py` next to the existing vault router.
+
+Test coverage: 16 new router cases in
+`tests/test_oauth_consent_router.py` cover happy path through
+TestClient (verifies full HTTP wire), dry-run mode, tampered
+state, provider-mismatch state replay, OAuth error propagation
+(structured `ok=False` response, not 500), audit-event emission
+on both success and state-verify failure, refresh-token redaction,
+and the four `persist_refresh_token` edge cases (no refresh token,
+refusal on failed result, default-tenant skip, non-default-tenant
+write).
+
+Full pytest after this batch: **2398 passed / 1 skipped / 2 xfailed**
+(was 2368).
+
+**Files**
+
+- `backend/core/vault/keychain.py` — added `set_secret` /
+  `delete_secret` / `_to_keychain` / `_delete_keychain` helpers.
+- `backend/core/vault/__init__.py` — exported the new symbols.
+- `backend/core/domains/packs/business/oauth_consent.py` — added
+  vault key constants + `PersistedConsent` dataclass +
+  `persist_refresh_token` helper. Updated docstring "Out of scope"
+  bullet to point at the new HTTP router.
+- `web_extras/routers/oauth_consent.py` (new, ~280 lines).
+- `web_extras/app.py` — import + `include_router` for the new router.
+- `tests/test_vault_write_back.py` (new, 14 cases).
+- `tests/test_oauth_consent_router.py` (new, 16 cases including 4
+  `persist_refresh_token` unit cases).
+- `docs/CHANGELOG_AGENTS.md`, `docs/CHANGELOG_PUBLIC.md`.
+
+`>>> SYNC: Cursor · 2026-05-04 · SMTP OAuth HTTP router + vault write-back close the operator-onboarding loop`
+
 ## 2026-05-04 — Cursor · SMTP OAuth: initial-consent (authorization-code) flow shipped
 
 **Summary**

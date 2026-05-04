@@ -23,8 +23,10 @@ from .keychain import (
     DEFAULT_SERVICE,
     KNOWN_KEYS,
     SecretRef,
+    delete_secret,
     get_secret,
     list_known,
+    set_secret,
     status_for_keys,
 )
 
@@ -39,7 +41,9 @@ __all__ = [
     "DEFAULT_SERVICE",
     "KNOWN_KEYS",
     "SecretRef",
+    "delete_secret",
     "get_secret",
     "list_known",
+    "set_secret",
     "status_for_keys",
 ]
