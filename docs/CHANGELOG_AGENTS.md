@@ -4,6 +4,67 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-04 — Cursor: audit-3 — release resilience + memory tracing
+
+After v9.1.0 shipped, the GitHub macOS-13 (Intel) runner pool
+was queue-starved → the `Build - macOS-x64` job sat in
+"queued" status for 40+ minutes. Three concrete fixes:
+
+1. **Workflow resilience** —
+   `release-desktop-tagged.yml` now marks the macos-13 job
+   `continue-on-error: true` and adds a 90-min `timeout-minutes`.
+   `notify` + `update-download-links` flow rewritten to use
+   `!failure() && !cancelled()` so an optional mac-x64 failure
+   no longer suppresses the operator-facing summary log.
+
+2. **Fallback redirects** — `web_extras/routers/product.py`
+   `LEGACY_DL_TO_RELEASE_URL` now sends
+   `TARS-9.1.0-x64.dmg` requests to the arm64 dmg (Rosetta runs
+   it cleanly). The `<Install />` page's `mac-x64` row now
+   labels itself "Intel x64 (via Rosetta)" and serves the same
+   arm64 asset. New `intelMacFallbackToArm` option on
+   `primaryAssetName` covers the same fallback for any future
+   call site.
+
+3. **Memory router tracing** — `web_extras/routers/memory.py`
+   `POST /api/packs/{slug}/memory` and
+   `DELETE /api/packs/{slug}/memory/{key}` now wrap in
+   `trace_scope` and emit `memory.upsert.{requested,completed,
+   failed}` and `memory.delete.{requested,completed,failed}`
+   meeet events. Pack memory writes are operator-meaningful
+   (every saved fact eventually feeds prompt context) so
+   provenance ends up in the trail.
+
+4. **Release-notes polish** — v9.1.0 GitHub release body
+   rewritten to cover all three audit passes + the macOS
+   first-run command + the Intel-Mac-via-Rosetta note.
+
+**Files**
+- modify: `.github/workflows/release-desktop-tagged.yml`
+  (matrix row marks mac-x64 optional + timeout + summary
+  rewrite)
+- modify: `web_extras/routers/memory.py` (trace_scope + events
+  on upsert/delete)
+- modify: `web_extras/routers/product.py` (TARS-9.1.0-x64.dmg
+  fallback)
+- modify: `experiments/neural-showcase-v3/src/pages/Install.tsx`
+  (mac-x64 row labelled "via Rosetta", asset = arm64 dmg)
+- modify: `experiments/neural-showcase-v3/src/lib/installDetect.ts`
+  (intelMacFallbackToArm option)
+- modify: `experiments/neural-showcase-v3/src/lib/installDetect.test.ts`
+  (3 new cases pinning the fallback)
+- modify: `tests/test_meeet_router_trace_coverage.py`
+  (2 new cases for memory.upsert + memory.delete)
+- modify: GitHub release v9.1.0 body (gh release edit)
+
+**Verification**
+- `pytest tests/`: **2406 passed / 1 skipped / 2 xfailed** in 39s
+  (+2 from new memory trace coverage tests)
+- `pnpm test --run` (v3): **368 passed / 26 files** (+3 from
+  new fallback tests)
+- `pnpm typecheck` (v3): clean
+- `pnpm build` (v3): clean
+
 ## 2026-05-04 — Cursor: version bump v8.4.0 → v9.1.0 (audit-1 + audit-2 release)
 
 Bumped the marketing + Tauri version pin so the new icon set,

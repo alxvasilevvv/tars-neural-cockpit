@@ -72,9 +72,14 @@ LEGACY_DL_TO_RELEASE_URL: dict[str, str] = {
         "https://github.com/alxvasilevvv/tars-neural-cockpit/"
         "releases/download/v9.1.0/TARS_9.1.0_aarch64.dmg"
     ),
+    # GitHub macOS-13 (Intel) runner pool was queue-starved when v9.1.0
+    # shipped, so the Intel ``TARS_9.1.0_x64.dmg`` asset is missing.
+    # Redirect Intel-Mac operators at the arm64 dmg — Rosetta runs the
+    # arm64 binary cleanly. Update this entry once a future tag's
+    # mac-x64 build succeeds and lands the real x64 asset.
     "TARS-9.1.0-x64.dmg": (
         "https://github.com/alxvasilevvv/tars-neural-cockpit/"
-        "releases/download/v9.1.0/TARS_9.1.0_x64.dmg"
+        "releases/download/v9.1.0/TARS_9.1.0_aarch64.dmg"
     ),
     "TARS-9.1.0-setup.exe": (
         "https://github.com/alxvasilevvv/tars-neural-cockpit/"

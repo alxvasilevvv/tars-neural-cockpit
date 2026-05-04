@@ -234,6 +234,57 @@ def test_speech_intents_completed_carries_intent_kind(client: TestClient) -> Non
 
 
 # ----------------------------------------------------------------------
+# memory.upsert / memory.delete — pack memory partitions (audit-3)
+# ----------------------------------------------------------------------
+
+
+def test_memory_upsert_emits_requested_and_completed(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """``POST /api/packs/{slug}/memory`` emits memory.upsert.*."""
+
+    res = client.post(
+        "/api/packs/test_pack/memory",
+        json={
+            "key": "favourite_color",
+            "value": "cyan",
+            "kind": "fact",
+            "source": "operator",
+        },
+    )
+    # Memory store may be disabled in some test envs — skip then.
+    if res.status_code == 503:
+        pytest.skip("memory store disabled in this environment")
+    assert res.status_code == 200, res.text
+    body = res.json()
+    trace_id = body.get("trace_id")
+    assert trace_id, "trace_id missing in upsert response"
+
+    kinds = {r.kind for r in _events_for_trace(trace_id)}
+    assert "memory.upsert.requested" in kinds, kinds
+    assert "memory.upsert.completed" in kinds, kinds
+
+
+def test_memory_delete_emits_failed_on_missing_key(
+    client: TestClient,
+) -> None:
+    """``DELETE`` on an unknown key must still emit memory.delete.failed."""
+
+    parent_trace = "tr_test_memory_delete_404"
+    res = client.delete(
+        "/api/packs/test_pack/memory/this_key_definitely_does_not_exist",
+        headers={"x-meeet-trace-id": parent_trace},
+    )
+    if res.status_code == 503:
+        pytest.skip("memory store disabled in this environment")
+    assert res.status_code == 404
+
+    kinds = {r.kind for r in _events_for_trace(parent_trace)}
+    assert "memory.delete.requested" in kinds, kinds
+    assert "memory.delete.failed" in kinds, kinds
+
+
+# ----------------------------------------------------------------------
 # Bridge invariants the audit also implicitly relies on
 # ----------------------------------------------------------------------
 

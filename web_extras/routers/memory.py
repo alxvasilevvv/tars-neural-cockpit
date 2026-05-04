@@ -25,9 +25,10 @@ from __future__ import annotations
 import time
 from typing import Any
 
-from fastapi import APIRouter, Body, HTTPException, Query
+from fastapi import APIRouter, Body, Header, HTTPException, Query
 
 from backend.core.memory import MemoryEntry, get_memory_store
+from backend.core.meeet import get_client as get_meeet_client, new_trace_id, trace_scope
 
 
 router = APIRouter(prefix="/api", tags=["memory"])
@@ -89,6 +90,7 @@ async def list_memory(
 async def upsert_memory(
     slug: str,
     payload: dict[str, Any] = Body(...),
+    x_meeet_trace_id: str | None = Header(default=None),
 ) -> dict[str, Any]:
     body = payload or {}
     key = body.get("key")
@@ -115,16 +117,47 @@ async def upsert_memory(
         raise HTTPException(
             status_code=503, detail="memory_store_disabled"
         )
-    entry = await store.upsert(
-        pack_slug=slug,
-        key=key,
-        value=body["value"],
-        kind=kind,
-        ttl_until=ttl_until,
-        source=source,
-        metadata=metadata,
-    )
-    return {"ok": True, "entry": _entry_dict(entry)}
+
+    # 2026-05-04 audit-3: pack memory writes are operator-meaningful
+    # (every saved fact eventually feeds prompt context). Trace
+    # them so the meeet trail captures provenance.
+    parent_trace = (x_meeet_trace_id or "").strip() or None
+    trace_id = parent_trace or new_trace_id()
+    meeet = get_meeet_client()
+    base_payload = {
+        "pack_slug": slug,
+        "key": key,
+        "kind": kind,
+        "source": source,
+        "ttl_until": ttl_until,
+        "has_metadata": bool(metadata),
+    }
+
+    with trace_scope(trace_id):
+        await meeet.emit("memory.upsert.requested", base_payload)
+        try:
+            entry = await store.upsert(
+                pack_slug=slug,
+                key=key,
+                value=body["value"],
+                kind=kind,
+                ttl_until=ttl_until,
+                source=source,
+                metadata=metadata,
+            )
+        except Exception as exc:
+            await meeet.emit(
+                "memory.upsert.failed",
+                {**base_payload, "error": str(exc)[:200]},
+            )
+            raise
+
+        await meeet.emit(
+            "memory.upsert.completed",
+            {**base_payload, "entry_id": getattr(entry, "id", None)},
+        )
+
+    return {"ok": True, "entry": _entry_dict(entry), "trace_id": trace_id}
 
 
 @router.get("/packs/{slug}/memory/_stats")
@@ -157,12 +190,29 @@ async def get_memory_entry(
 
 
 @router.delete("/packs/{slug}/memory/{key:path}")
-async def delete_memory_entry(slug: str, key: str) -> dict[str, Any]:
+async def delete_memory_entry(
+    slug: str,
+    key: str,
+    x_meeet_trace_id: str | None = Header(default=None),
+) -> dict[str, Any]:
     store = get_memory_store()
-    deleted = await store.delete(pack_slug=slug, key=key)
-    if not deleted:
-        raise HTTPException(status_code=404, detail="not_found")
-    return {"ok": True, "pack_slug": slug, "key": key}
+    parent_trace = (x_meeet_trace_id or "").strip() or None
+    trace_id = parent_trace or new_trace_id()
+    meeet = get_meeet_client()
+    base_payload = {"pack_slug": slug, "key": key}
+
+    with trace_scope(trace_id):
+        await meeet.emit("memory.delete.requested", base_payload)
+        deleted = await store.delete(pack_slug=slug, key=key)
+        if not deleted:
+            await meeet.emit(
+                "memory.delete.failed",
+                {**base_payload, "error": "not_found"},
+            )
+            raise HTTPException(status_code=404, detail="not_found")
+        await meeet.emit("memory.delete.completed", base_payload)
+
+    return {"ok": True, "pack_slug": slug, "key": key, "trace_id": trace_id}
 
 
 @router.get("/memory/stats")

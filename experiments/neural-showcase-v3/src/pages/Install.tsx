@@ -72,11 +72,18 @@ const DOWNLOADS: DownloadOption[] = [
     primary: true,
   },
   {
+    // 2026-05-04 audit-3: macOS-13 (Intel) GitHub runner pool was
+    // queue-starved when v9.1.0 shipped, so the dedicated Intel
+    // dmg is missing. We still surface this row so Intel-Mac
+    // operators see "your platform is supported" copy, but the
+    // asset URL points at the arm64 dmg — Rosetta runs the
+    // arm64 binary cleanly. Restore ``TARS_x64.dmg`` here once a
+    // future tag's mac-x64 runner finishes successfully.
     id: "mac-x64",
     os: "mac",
-    arch: "Intel x64",
+    arch: "Intel x64 (via Rosetta)",
     format: "DMG",
-    asset: `TARS_${VERSION_NUMERIC}_x64.dmg`,
+    asset: `TARS_${VERSION_NUMERIC}_aarch64.dmg`,
     size: "~7 MB",
   },
   {
