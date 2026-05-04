@@ -4,6 +4,69 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-04 — Cursor · L5 emit_encrypted: zero-boilerplate sealed events
+
+**Summary**
+
+Picked up the L5 (Phase L5) follow-up roadmap entry — the "real
+crypto" was already shipped (real PyNaCl XChaCha20-Poly1305 + X25519
+sealed-boxes per recipient in `backend/core/crypto/envelope.py`,
+plumbed through `backend/core/pairing/store.py` with vault-persisted
+host identity), but the docstring in `backend/core/pairing/__init__.py`
+still claimed mock crypto and every caller had to write ~10 lines of
+boilerplate to seal an event:
+
+  1. Pull paired devices from the singleton pairing store
+  2. Resolve / mint a trace id, pin it before sealing
+  3. Call `encrypt_event(payload, recipients, trace_id, kind)`
+  4. Pass the resulting `ciphertext` + `envelope` through to `emit()`
+  5. Open a `trace_scope` so `emit()` reuses the same trace id (AAD
+     binding requirement)
+
+Closed two gaps in one batch:
+
+1) `MeeetClient.emit_encrypted(kind, payload, *, recipients=None,
+   require_recipients=False)` — collapses the boilerplate into one
+   call. Resolves recipients from the singleton `PairingStore` when
+   `recipients` is omitted; pins trace id before sealing; reuses an
+   outer `trace_scope` if one is active, otherwise opens a one-shot
+   inner scope; degrades to plain `emit()` when no devices are paired
+   (or raises `ValueError` when `require_recipients=True` for the
+   end-to-end-privacy guarantee path used by chat/wallet flows).
+
+2) `backend/core/pairing/__init__.py` docstring rewritten — the
+   "What's mock for now" section was outright wrong. The new docstring
+   describes what actually ships today (vault-persisted X25519 host
+   identity, 32-byte ephemeral key validation on every `begin`,
+   accept-token + per-device `DeviceKey` on `accept`, future L5.2
+   re-keying as the only deliberate TODO).
+
+Test coverage: 7 new cases in `tests/test_meeet_emit_encrypted.py` pin
+
+  - happy path through singleton pairing store,
+  - explicit `recipients=` override,
+  - AAD `trace_id|kind` binding (fails decrypt under wrong trace id),
+  - reuse of an outer `trace_scope` (no shadowing),
+  - graceful degrade to plain emit when no devices are paired,
+  - strict-mode `require_recipients=True` raises with no devices,
+  - durable-store round-trip preserves ciphertext + envelope so a
+    later `replay_unpushed` can re-push the same sealed event upstream.
+
+Full pytest after this batch: **2332 passed / 1 skipped / 2 xfailed**
+(was 2325).
+
+**Files**
+
+- `backend/core/meeet/client.py` — new `emit_encrypted` method
+  (~60 lines), import surface widened with `Iterable` + `trace_scope`
+  + a TYPE_CHECKING import of `DeviceKey`.
+- `backend/core/pairing/__init__.py` — docstring rewrite reflecting
+  the real-crypto reality.
+- `tests/test_meeet_emit_encrypted.py` (new, 7 cases).
+- `docs/CHANGELOG_AGENTS.md`, `docs/CHANGELOG_PUBLIC.md`.
+
+`>>> SYNC: Cursor · 2026-05-04 · L5 emit_encrypted closes the boilerplate gap`
+
 ## 2026-05-04 — Cursor · trace-summary background loop: pin behaviour with tests
 
 **Summary**

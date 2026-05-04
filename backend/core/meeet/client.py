@@ -20,10 +20,22 @@ from typing import Any, Mapping
 
 import time
 
+from typing import Iterable, TYPE_CHECKING
+
 from .config import MeeetConfig, load_config
 from .events import TARSEvent
 from .store import MeeetStore, get_store
-from .tracing import current_route, current_session, current_thread_id, current_trace, new_trace_id
+from .tracing import (
+    current_route,
+    current_session,
+    current_thread_id,
+    current_trace,
+    new_trace_id,
+    trace_scope,
+)
+
+if TYPE_CHECKING:
+    from backend.core.crypto import DeviceKey
 
 
 class MeeetClient:
@@ -119,6 +131,103 @@ class MeeetClient:
                 pass
 
         return body
+
+    async def emit_encrypted(
+        self,
+        kind: str,
+        payload: Mapping[str, Any] | None = None,
+        *,
+        recipients: "Iterable[DeviceKey] | None" = None,
+        session_id: str | None = None,
+        route: str | None = None,
+        require_recipients: bool = False,
+    ) -> dict[str, Any]:
+        """Encrypt + emit in one call. Sealed for all paired devices.
+
+        Looks up paired-device keys from the singleton
+        :class:`backend.core.pairing.PairingStore` when ``recipients`` is
+        omitted, then seals ``payload`` per device using
+        :func:`backend.core.crypto.encrypt_event` and forwards the
+        resulting envelope through the regular :meth:`emit` pipeline.
+
+        AAD binding: the AEAD associated-data string is
+        ``trace_id|kind`` (see :mod:`backend.core.crypto.envelope`),
+        so we resolve / mint the trace id BEFORE sealing and pin the
+        same id on the :meth:`emit` call. If the caller is already
+        inside an outer ``trace_scope`` we reuse the existing id;
+        otherwise we wrap the emit in a one-shot scope so the
+        ``ciphertext / envelope`` binding survives the durable-store
+        round-trip and any later ``replay_unpushed`` flush.
+
+        Degradation policy:
+
+        - ``require_recipients=False`` (default): when no paired devices
+          are reachable, fall through to a plain :meth:`emit` so
+          cockpit-only operators don't have to fork their call sites
+          for the "no paired phone yet" case.
+        - ``require_recipients=True``: raise ``ValueError`` when the
+          recipient set is empty. Useful for end-to-end privacy
+          guarantees ("only emit when at least one paired device can
+          decrypt") — operator-grade callers in chat / wallet flows
+          should opt in.
+
+        Returns the same dict :meth:`emit` returns, so the caller can
+        treat ``emit_encrypted`` and ``emit`` as interchangeable in
+        the happy path.
+        """
+
+        if recipients is None:
+            from backend.core.pairing import get_pairing_store
+
+            materialised = list(get_pairing_store().device_keys())
+        else:
+            materialised = list(recipients)
+
+        if not materialised:
+            if require_recipients:
+                raise ValueError(
+                    "emit_encrypted: no paired devices and require_recipients=True"
+                )
+            return await self.emit(
+                kind,
+                payload=payload,
+                session_id=session_id,
+                route=route,
+            )
+
+        # Pin the trace id BEFORE sealing so the AAD matches what emit()
+        # stamps on the wire and in the durable buffer.
+        trace_id = current_trace() or new_trace_id()
+
+        from backend.core.crypto import encrypt_event
+
+        sealed = encrypt_event(
+            payload=payload or {},
+            recipients=materialised,
+            trace_id=trace_id,
+            kind=kind,
+        )
+
+        if current_trace() == trace_id:
+            return await self.emit(
+                kind,
+                payload={},
+                session_id=session_id,
+                route=route,
+                **sealed.to_kwargs(),
+            )
+
+        # No outer scope — open a fresh one so emit() reads the same id
+        # current_trace() returned above and the ciphertext/envelope
+        # AAD binding stays consistent.
+        with trace_scope(parent=trace_id):
+            return await self.emit(
+                kind,
+                payload={},
+                session_id=session_id,
+                route=route,
+                **sealed.to_kwargs(),
+            )
 
     async def replay_unpushed(self, *, limit: int = 100) -> dict[str, Any]:
         """Flush any locally-buffered events to ingest.

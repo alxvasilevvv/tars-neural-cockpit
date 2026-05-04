@@ -4,6 +4,69 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-04 — Cursor · L5 emit_encrypted: zero-boilerplate sealed events
+
+**Summary**
+
+Picked up the L5 (Phase L5) follow-up roadmap entry — the "real
+crypto" was already shipped (real PyNaCl XChaCha20-Poly1305 + X25519
+sealed-boxes per recipient in `backend/core/crypto/envelope.py`,
+plumbed through `backend/core/pairing/store.py` with vault-persisted
+host identity), but the docstring in `backend/core/pairing/__init__.py`
+still claimed mock crypto and every caller had to write ~10 lines of
+boilerplate to seal an event:
+
+  1. Pull paired devices from the singleton pairing store
+  2. Resolve / mint a trace id, pin it before sealing
+  3. Call `encrypt_event(payload, recipients, trace_id, kind)`
+  4. Pass the resulting `ciphertext` + `envelope` through to `emit()`
+  5. Open a `trace_scope` so `emit()` reuses the same trace id (AAD
+     binding requirement)
+
+Closed two gaps in one batch:
+
+1) `MeeetClient.emit_encrypted(kind, payload, *, recipients=None,
+   require_recipients=False)` — collapses the boilerplate into one
+   call. Resolves recipients from the singleton `PairingStore` when
+   `recipients` is omitted; pins trace id before sealing; reuses an
+   outer `trace_scope` if one is active, otherwise opens a one-shot
+   inner scope; degrades to plain `emit()` when no devices are paired
+   (or raises `ValueError` when `require_recipients=True` for the
+   end-to-end-privacy guarantee path used by chat/wallet flows).
+
+2) `backend/core/pairing/__init__.py` docstring rewritten — the
+   "What's mock for now" section was outright wrong. The new docstring
+   describes what actually ships today (vault-persisted X25519 host
+   identity, 32-byte ephemeral key validation on every `begin`,
+   accept-token + per-device `DeviceKey` on `accept`, future L5.2
+   re-keying as the only deliberate TODO).
+
+Test coverage: 7 new cases in `tests/test_meeet_emit_encrypted.py` pin
+
+  - happy path through singleton pairing store,
+  - explicit `recipients=` override,
+  - AAD `trace_id|kind` binding (fails decrypt under wrong trace id),
+  - reuse of an outer `trace_scope` (no shadowing),
+  - graceful degrade to plain emit when no devices are paired,
+  - strict-mode `require_recipients=True` raises with no devices,
+  - durable-store round-trip preserves ciphertext + envelope so a
+    later `replay_unpushed` can re-push the same sealed event upstream.
+
+Full pytest after this batch: **2332 passed / 1 skipped / 2 xfailed**
+(was 2325).
+
+**Files**
+
+- `backend/core/meeet/client.py` — new `emit_encrypted` method
+  (~60 lines), import surface widened with `Iterable` + `trace_scope`
+  + a TYPE_CHECKING import of `DeviceKey`.
+- `backend/core/pairing/__init__.py` — docstring rewrite reflecting
+  the real-crypto reality.
+- `tests/test_meeet_emit_encrypted.py` (new, 7 cases).
+- `docs/CHANGELOG_AGENTS.md`, `docs/CHANGELOG_PUBLIC.md`.
+
+`>>> SYNC: Cursor · 2026-05-04 · L5 emit_encrypted closes the boilerplate gap`
+
 ## 2026-05-04 — Cursor · trace-summary background loop: pin behaviour with tests
 
 **Summary**
@@ -3552,79 +3615,6 @@ audit lane can render the parent → child relationship.
 - Optional `clone --approve` CLI flag that chains the new
   plan into the approved status without an extra subcommand.
 
-## 2026-05-01 — Cursor [A] · planner: shell CLI (synthesize/run/list/abort/…)
-
-**Summary**
-
-Operator-facing scripting tool that mirrors `replay_cli`'s shape.
-Exposes every planner CRUD + lifecycle operation as a subcommand
-that prints one machine-friendly JSON object per call (so it
-pipes cleanly into `jq`) and uses POSIX exit codes (0 on `ok`,
-1 otherwise) so cron / Make targets can branch on success.
-Reads the same env vars the host uses (`TARS_PLANNER_DB_PATH`,
-`MEEET_STORE_PATH`, `TARS_POLICY_MODE`) and shares the SQLite
-WAL DBs with the running cockpit — safe to run side-by-side
-with the FastAPI surface.
-
-Three jobs the CLI unblocks:
-
-- **Operator scripting** — chain
-  `synthesize | jq -r .plan.id | xargs -I{} python -m … approve {}`
-  in cron jobs.
-- **Cold-start recovery** — when the HTTP layer is down the CLI
-  is the only path to inspect / reset planner state.
-- **Fleet rollouts** — shell out to TARS from a higher-level
-  orchestrator without going through the FastAPI surface.
-
-**Subcommands**
-
-`stats`, `list`, `show`, `runs`, `synthesize`, `approve`,
-`reject`, `run`, `abort`, `delete`. Global `--quiet` strips the
-JSON indentation so log shippers see one line per call.
-`delete` requires `--yes` (otherwise returns
-`confirmation_required` so a sleepy operator can't `rm -rf` a
-planned op by mistake). `run` honours `--mode` to override
-`TARS_POLICY_MODE` per invocation.
-
-**Changes**
-
-1. `backend/core/planner/cli.py` (new) —
-   `argparse`-based dispatcher → 10 subcommand handlers
-   (`_cmd_list / _cmd_show / _cmd_runs / _cmd_stats /
-   _cmd_synthesize / _cmd_approve / _cmd_reject / _cmd_run /
-   _cmd_abort / _cmd_delete`). Each handler returns a `dict`
-   with `ok` plus per-call payload; the shared `_emit(...)`
-   helper renders JSON and maps to exit codes. `_err(...)`
-   builds the error envelope with a stable `reason` key. The
-   synthesize handler reuses the HTTP route's pack / playbook
-   enumeration so the deterministic mapper sees the exact same
-   inputs as the API.
-2. `tests/test_planner_cli.py` (new, 23 cases): `stats`
-   on a fresh DB, `synthesize` happy / empty-goal / no-match,
-   `show` 404 / 200, `list` returns count + plans, `list
-   --status` filter, unknown status envelope, `--quiet` strips
-   indent (single line), `approve` / `reject` flips, `approve`
-   404, `approve` on terminal plan refused, `run` 404, `run`
-   on un-approved plan refused with `plan_not_runnable`,
-   `abort` when not running, `runs` 404 / empty / OK, `delete`
-   without `--yes` is a dry-run, `delete --yes` actually drops,
-   `delete` 404, full lifecycle round trip
-   (synthesize → approve → list → delete → stats).
-
-**Tests**
-
-`pytest -q` → 2009 passed in 44.83s (was 1986; +23 new).
-
-**Follow-ups**
-
-- Tab-completion file (`scripts/planner-completion.bash`) for
-  shell users.
-- Optional `clone` subcommand that snapshots a finished plan as
-  a fresh `proposed` plan (operator-side "rerun" without the
-  history mutation).
-- Wire the CLI into a `make planner-*` target group so the
-  control tower runs it end-to-end as part of the gate.
-
 ---
 
-_Showing the most recent 60 of 198 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 199 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
