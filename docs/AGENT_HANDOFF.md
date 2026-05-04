@@ -3,6 +3,31 @@
 Pick this up if you are continuing the work in a fresh chat. Read this file
 plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 
+> **2026-05-04 18:05 — Audit-2 hardening pass.** Direct
+> continuation of the 17:50 audit pass. Operator said "продолжай"
+> at 17:51 → went looking for follow-ups. Three concrete deliveries:
+>
+> 1. **Trace coverage** extended over `voice.speak` + `speech.intents`.
+>    Both now wrap in `trace_scope`, emit `*.requested/completed/failed`
+>    meeet events, honour `x-meeet-trace-id` parent header, surface
+>    the `trace_id` either as `x-trace-id` response header (voice)
+>    or in the JSON body (speech).
+> 2. **Pure helpers** extracted from `<CockpitGate />` (runtime
+>    detection) and `<Install />` (OS+arch detection) — single
+>    source of truth + 30 new vitest cases pinning the heuristics.
+> 3. **Trace coverage tests** — `tests/test_meeet_router_trace_coverage.py`
+>    pins the contract for chat / voice / speech: each successful
+>    call MUST land at least one `*.requested` and one `*.completed`
+>    row in the local meeet store with the right kind.
+>
+> **Verification:** pytest **2404 passed** (+6) / 1 skipped /
+> 2 xfailed in 40s. Vitest **365 passed** (+30) across 26 files.
+> Typecheck + production build clean.
+>
+> **Bonus:** `favicon.svg` regenerated to match the new desktop
+> PNG icon (serif T on indigo→violet gradient) so the browser
+> tab matches the Dock icon.
+>
 > **2026-05-04 17:50 — Operator audit pass.** The operator
 > screenshot-reviewed the live deployment at 17:29 and filed seven
 > blockers. All seven are closed in the same pass; full per-task

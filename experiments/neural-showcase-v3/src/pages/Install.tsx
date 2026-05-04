@@ -17,6 +17,10 @@ import { CornerFrame, StatusLozenge } from "@/components/Glyphs";
 import { useDocumentMeta } from "@/lib/meta";
 import { trackClick } from "@/lib/analytics";
 import { useT } from "@/lib/i18n";
+import {
+  detectMacArch as detectMacArchHelper,
+  detectOS as detectOSHelper,
+} from "@/lib/installDetect";
 
 /**
  * Install page — rebuilt for the 2026-05-04 audit:
@@ -113,36 +117,12 @@ const DOWNLOADS: DownloadOption[] = [
 
 function detectOS(): "mac" | "linux" | "windows" {
   if (typeof navigator === "undefined") return "mac";
-  const p = navigator.platform.toLowerCase();
-  const ua = navigator.userAgent.toLowerCase();
-  if (p.includes("mac") || ua.includes("mac")) return "mac";
-  if (p.includes("win") || ua.includes("windows")) return "windows";
-  return "linux";
+  return detectOSHelper(navigator);
 }
 
 function detectMacArch(): "arm" | "x64" {
-  // Apple Silicon Macs report "Intel" via navigator.platform, but the
-  // architecture is leaked through the user-agent's `arm64` token in
-  // newer Safari + Chromium-on-Mac builds. When we can't tell, default
-  // to ARM since that's >85% of new sales and the wrong choice still
-  // works (Rosetta runs the x64 binary fine).
   if (typeof navigator === "undefined") return "arm";
-  const ua = navigator.userAgent.toLowerCase();
-  if (ua.includes("intel")) {
-    // The string "Intel" is the legacy Mac UA tag — present on EVERY
-    // Mac, even Apple Silicon. We need to check for the absence of
-    // explicit ARM markers.
-    if (ua.includes("arm64") || ua.includes("aarch64")) return "arm";
-    // Modern Safari on Apple Silicon doesn't put arm64 in the UA, so
-    // fall back to a heuristic: number of logical processors. Apple
-    // Silicon Macs ship with hardwareConcurrency divisible by 4 (8 on
-    // M1/M2 base, 12 on Pro, 24 on Max). Intel Macs have it too but
-    // the divisibility heuristic is the best we can do without WebGPU.
-    const cores = (navigator as { hardwareConcurrency?: number })
-      .hardwareConcurrency ?? 0;
-    if (cores >= 8 && cores % 4 === 0) return "arm";
-  }
-  return "x64";
+  return detectMacArchHelper(navigator);
 }
 
 function primaryFor(os: "mac" | "linux" | "windows"): DownloadOption {

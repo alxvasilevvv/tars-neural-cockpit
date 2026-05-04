@@ -38,41 +38,30 @@ import { Download, ShieldCheck, Globe, Cpu, ArrowRight } from "lucide-react";
 import { getHealth, API_BASE } from "@/lib/api";
 import { CornerFrame, StatusLozenge } from "@/components/Glyphs";
 import { useT } from "@/lib/i18n";
+import {
+  isInsideTauri as isInsideTauriHelper,
+  readPreviewFlag as readPreviewFlagHelper,
+  setPreviewFlag as setPreviewFlagHelper,
+  type WindowLike,
+} from "@/lib/cockpitGate";
 
-const PREVIEW_FLAG_KEY = "tars.web.preview";
 const PROBE_TIMEOUT_MS = 1000;
 
 type GateState = "probing" | "live" | "preview" | "locked";
 
 function isInsideTauri(): boolean {
   if (typeof window === "undefined") return false;
-  // Tauri 2.x exposes `__TAURI_INTERNALS__`; older 1.x used `__TAURI__`.
-  // Check both because the desktop shell may pin either depending on
-  // the build channel.
-  const w = window as unknown as Record<string, unknown>;
-  return Boolean(w.__TAURI_INTERNALS__ || w.__TAURI__);
+  return isInsideTauriHelper(window as unknown as WindowLike);
 }
 
 function readPreviewFlag(): boolean {
   if (typeof window === "undefined") return false;
-  try {
-    return window.localStorage.getItem(PREVIEW_FLAG_KEY) === "1";
-  } catch {
-    return false;
-  }
+  return readPreviewFlagHelper(window.localStorage);
 }
 
 function setPreviewFlag(value: boolean): void {
   if (typeof window === "undefined") return;
-  try {
-    if (value) {
-      window.localStorage.setItem(PREVIEW_FLAG_KEY, "1");
-    } else {
-      window.localStorage.removeItem(PREVIEW_FLAG_KEY);
-    }
-  } catch {
-    // localStorage may throw in private browsing; tolerate.
-  }
+  setPreviewFlagHelper(value, window.localStorage);
 }
 
 function detectOS(): "mac" | "linux" | "windows" {
