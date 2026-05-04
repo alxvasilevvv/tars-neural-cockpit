@@ -3,6 +3,75 @@
 Pick this up if you are continuing the work in a fresh chat. Read this file
 plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 
+> **2026-05-04 20:20 — Audit-5 — full Landing i18n.**
+> Closed every remaining hard-coded English string on the Landing
+> surface. Four prose-heavy components (Layers, Domains, ProofStrip,
+> MeeetSection) migrated to `useT()` with **60 new keys × 2
+> locales** (RU↔EN parity 100%, parity guard pinned).
+>
+> **Total i18n today (audit-1 + audit-4 + audit-5)**: 198 new
+> bilingual keys, every Landing section translated. Remaining
+> non-translated copy is in deliberately code-shaped surfaces
+> (terminal chrome `localhost:8765`, BarStack tickers
+> `BTC · ETH · SOL`, layer lozenges `L01..L06`) that read
+> identically across locales.
+>
+> Verification: pnpm typecheck clean, vitest **368 passed** /
+> 26 files, parity guard green, production build clean.
+>
+> **2026-05-04 20:10 — Audit-4 i18n coverage pass.**
+> Closed the last visible Landing-page i18n gap. Three of the
+> loudest above-the-fold sections (Steps, Rail, CockpitLive)
+> were still hard-coded English; all three now run through
+> `useT()` with 38 new keys per locale (RU at 100% parity).
+>
+> Verification: pnpm typecheck clean, vitest **368 passed** /
+> 26 files, parity guard green, production build clean.
+>
+> **Remaining i18n offenders** (longer-form marketing prose,
+> deferred to a focused translation pass): MeetTars secondary
+> copy, MeeetSection long-form, Layers, Domains static cards,
+> ProofStrip.
+>
+> **2026-05-04 18:55 — Audit-3 release-resilience pass.**
+> v9.1.0 shipped at 18:30 with 5 of 6 expected installers — the
+> macos-13 (Intel) GitHub runner pool was queue-starved and the
+> mac-x64 dmg job sat in "queued" for 40+ minutes. Cancelled the
+> stuck job (release was already published with the other 5
+> artifacts) and shipped four follow-ups:
+>
+> 1. `release-desktop-tagged.yml` macos-13 row now marks itself
+>    `continue-on-error: true` with a 90-min timeout. The
+>    downstream `notify` + `update-download-links` flows now
+>    use `!failure() && !cancelled()` so an optional mac-x64
+>    failure doesn't suppress the link summary.
+>
+> 2. `web_extras/routers/product.py` legacy `/dl/TARS-x.y.z-x64.dmg`
+>    redirects fall back to the arm64 dmg until a future tag's
+>    mac-x64 build succeeds (Rosetta runs the arm64 binary
+>    cleanly). `<Install />` row reflects the same fallback +
+>    "Intel x64 (via Rosetta)" label. New `intelMacFallbackToArm`
+>    option on `primaryAssetName` covers any other call sites.
+>
+> 3. `web_extras/routers/memory.py` `POST /api/packs/{slug}/memory`
+>    and `DELETE /api/packs/{slug}/memory/{key}` wrapped in
+>    `trace_scope` with `memory.upsert.*` / `memory.delete.*`
+>    meeet events. Pack memory writes feed prompt context, so
+>    provenance lands in the trail.
+>
+> 4. v9.1.0 GitHub release body rewritten via `gh release edit`
+>    to cover audit-1 + audit-2 + audit-3 + macOS first-run +
+>    Intel-Mac-via-Rosetta.
+>
+> **Verification:** pytest **2406 passed** (+2) / 1 skipped /
+> 2 xfailed (39s), vitest **368 passed** (+3) / 26 files,
+> typecheck + production build clean.
+>
+> **Open operator follow-up:** future v9.1.x or v9.2.0 tag will
+> rebuild the Intel mac dmg if the macos-13 runner pool is no
+> longer queue-starved. Until then the fallback table in
+> `product.py` keeps Intel Mac downloads working.
+>
 > **2026-05-04 18:05 — Audit-2 hardening pass.** Direct
 > continuation of the 17:50 audit pass. Operator said "продолжай"
 > at 17:51 → went looking for follow-ups. Three concrete deliveries:

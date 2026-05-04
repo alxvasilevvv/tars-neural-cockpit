@@ -5,6 +5,7 @@ import { Link } from "react-router-dom";
 import { CockpitPreview } from "@/components/CockpitPreview";
 import { CornerFrame, StatusLozenge } from "@/components/Glyphs";
 import { getHealth } from "@/lib/api";
+import { useT } from "@/lib/i18n";
 
 /**
  * CockpitLive — "real cockpit, embedded" preview.
@@ -29,6 +30,7 @@ type Mode = "checking" | "live" | "offline";
 export function CockpitLive() {
   const [mode, setMode] = useState<Mode>("checking");
   const [iframeReady, setIframeReady] = useState(false);
+  const t = useT();
 
   useEffect(() => {
     let cancelled = false;
@@ -84,14 +86,14 @@ export function CockpitLive() {
                 animation: "pulseDot 1.6s ease-in-out infinite",
               }}
             />
-            04 / cockpit · live preview
-            <StatusLozenge label="LIVE" tone="success" />
+            {t("cockpitLive.eyebrow")}
+            <StatusLozenge label={t("cockpitLive.live")} tone="success" />
           </div>
           <h2
             className="font-display font-medium leading-[0.94] tracking-[-0.02em] text-ink"
             style={{ fontSize: "clamp(2rem, 4.4vw, 3.6rem)" }}
           >
-            What you see after{" "}
+            {t("cockpitLive.title.prefix")}{" "}
             <span
               className="bg-clip-text text-transparent"
               style={{
@@ -99,7 +101,7 @@ export function CockpitLive() {
                   "linear-gradient(95deg, #6366F1 0%, #8B5CF6 50%, #06B6D4 100%)",
               }}
             >
-              install
+              {t("cockpitLive.title.gradient")}
             </span>
             .
           </h2>
@@ -108,7 +110,7 @@ export function CockpitLive() {
           to="/cockpit"
           className="group inline-flex items-center gap-2 rounded-md border border-line bg-white/[0.02] px-4 py-2.5 font-mono-tech text-[11px] uppercase tracking-[2.4px] text-ink transition-all duration-200 hover:-translate-y-0.5 hover:border-line-strong"
         >
-          Open the real one
+          {t("cockpitLive.cta.openReal")}
           <ArrowUpRight
             size={14}
             strokeWidth={1.8}
@@ -143,7 +145,7 @@ export function CockpitLive() {
             <span className="h-3 w-3 rounded-full bg-[#28C840]" />
           </div>
           <span className="font-mono-tech text-[10px] uppercase tracking-[2.4px] text-ink-3">
-            tars · cockpit · localhost:8765
+            {t("cockpitLive.chrome.title")}
           </span>
           <span style={{ width: 60 }} />
         </div>
@@ -163,7 +165,7 @@ export function CockpitLive() {
                   className="animate-spin"
                   style={{ color: "#6366F1" }}
                 />
-                booting cockpit…
+                {t("cockpitLive.booting")}
               </div>
             </div>
           )}
@@ -198,21 +200,20 @@ export function CockpitLive() {
                 backdropFilter: "blur(4px)",
               }}
             >
-              LIVE · interaction disabled
+              {t("cockpitLive.badge.live")}
             </span>
           </div>
         </div>
 
         <div className="grid items-center gap-3 border-t border-line px-5 py-3.5 font-mono-tech text-[10px] uppercase tracking-[2.4px] text-ink-3 md:grid-cols-[1fr_auto]">
           <span>
-            This is the actual cockpit running on your local TARS daemon —
-            embedded read-only. Your data, your machine.
+            {t("cockpitLive.footer.note")}
           </span>
           <Link
             to="/cockpit"
             className="text-success transition-colors hover:underline"
           >
-            interact in full →
+            {t("cockpitLive.footer.cta")}
           </Link>
         </div>
       </motion.div>

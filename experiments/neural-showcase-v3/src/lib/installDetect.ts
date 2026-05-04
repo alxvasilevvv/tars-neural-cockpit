@@ -60,12 +60,21 @@ export function primaryAssetName(
   os: DetectedOS,
   versionNumeric: string,
   macArch: DetectedMacArch = "arm",
+  options?: { intelMacFallbackToArm?: boolean },
 ): string {
   switch (os) {
-    case "mac":
+    case "mac": {
+      // 2026-05-04 audit-3: when the Intel ``TARS_x.y.z_x64.dmg`` is
+      // missing from the GitHub Release (mac-13 runner shortage),
+      // the caller can opt into falling back to the arm64 dmg —
+      // Rosetta runs it cleanly.
+      if (macArch === "x64" && options?.intelMacFallbackToArm) {
+        return `TARS_${versionNumeric}_aarch64.dmg`;
+      }
       return macArch === "arm"
         ? `TARS_${versionNumeric}_aarch64.dmg`
         : `TARS_${versionNumeric}_x64.dmg`;
+    }
     case "linux":
       return `TARS_${versionNumeric}_amd64.AppImage`;
     case "windows":

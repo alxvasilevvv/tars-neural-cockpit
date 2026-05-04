@@ -4,22 +4,6 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
-## 2026-05-04 — Claude QA · SYNC §6 handoff row (privatize + P0 path)
-
-**Summary**
-
-Canonical coordination post landed in **`tars-neural-cockpit#8`** (comment
-4369632637). Appended **§6 handoff table** row capturing **B-017** (artifact
-hosting after private repos), **B-001** split (**TARS** redeploy vs **`meeet.world`**
-**`PB_21`**), and **P1** rulesets deferral — so agents relying on **`docs/SYNC.md`**
-see the same ordering without scraping the issue thread.
-
-**Files**
-
-- `docs/SYNC.md`, `docs/CHANGELOG_AGENTS.md`, `docs/CHANGELOG_PUBLIC.md`
-
-`>>> SYNC: Claude QA · 2026-05-04 · §6 table row mirrors #8 coordination`
-
 ## 2026-05-04 — Claude QA · Install page ↔ download manifest + local QA docs
 
 **Summary**
@@ -39,6 +23,870 @@ Repo ergonomics: **`docs/QA_LOCAL_SETUP.md`**, **`make check-python-version`** (
 - `docs/CHANGELOG_PUBLIC.md` (regenerated)
 
 `>>> SYNC: Claude QA · 2026-05-04 · Operator-request Install/manifest sync + QA_LOCAL_SETUP`
+
+## 2026-05-04 — Cursor: audit-5 — full Landing i18n coverage (Layers · Domains · ProofStrip · MeeetSection)
+
+Closed every remaining hard-coded English string on the
+Landing surface. Four large prose-heavy components migrated
+to `useT()`:
+
+- **Layers** (six awareness streams) — `layers.head.{tag,
+  title,description}` + 18 keys for the six cards
+  (`layers.l1..l6.{tag,title,body}`) + `layers.signal.prefix`
+- **Domains** (pack picker) — `domains.head.{tag,title,
+  description}` + `domains.armed` + `domains.throughput.normal`
+  + 16 keys for the four packs (title + 3 bullets each).
+  `domains.<slug>.name` keys reuse the existing entries from
+  the DomainsCards block — single source of truth.
+- **ProofStrip** (count-up stat row) — `proof.aria` +
+  8 keys for the four cells (`proof.s1..s4.{label,caption}`)
+- **MeeetSection** (three meeet.world pillars) —
+  `meeetSection.{eyebrow,title.prefix,subtitle}` + 15 keys
+  for the three pillars (tag, title, body, statNum, statLabel
+  × 3)
+
+**Total: 60 new keys × 2 locales (RU↔EN parity 100%)**.
+
+The parity guard in `i18n.test.ts` would catch any missed
+RU translation at CI time.
+
+**Files**
+- modify: `experiments/neural-showcase-v3/src/lib/i18n.tsx`
+  (+60 EN, +60 RU)
+- modify: `experiments/neural-showcase-v3/src/components/Layers.tsx`
+  (CARDS now uses `tagKey`/`titleKey`/`bodyKey` discriminator;
+  signal label and section head all from `t()`)
+- modify: `experiments/neural-showcase-v3/src/components/Domains.tsx`
+  (PACKS uses `nameKey`/`titleKey`/`bulletKeys` discriminator;
+  picker tabs, ARMED lozenge, throughput label, section head
+  all from `t()`)
+- modify: `experiments/neural-showcase-v3/src/components/ProofStrip.tsx`
+  (STATS uses `labelKey`/`captionKey` discriminator; aria
+  label from `t()`)
+- modify: `experiments/neural-showcase-v3/src/components/MeeetSection.tsx`
+  (PILLARS uses `tagKey`/`titleKey`/`bodyKey`/`statNumKey`/
+  `statLabelKey` discriminator; eyebrow + gradient title +
+  subtitle all from `t()`)
+
+**Verification**
+- `pnpm typecheck` (v3): clean
+- `pnpm test --run` (v3): **368 passed** / 26 files (parity
+  guard green on 60 new bilingual keys)
+- `pnpm build` (v3): clean
+
+**Coverage status after audit-5**: every above-the-fold and
+mid-page Landing section runs through `useT()` — Hero,
+TrustStrip, ProofStrip, MeetTars, Rail, Layers, Steps,
+Domains, CockpitLive, MeeetSection, Pricing, Waitlist, FAQ,
+Footer, install, cockpit gate, locale switcher. Remaining
+non-translated copy is in deliberately code-shaped surfaces
+(BarStack labels like `BTC · ETH · SOL · NDX`, terminal
+chrome `localhost:8765`, level lozenges `L01..L06`) that
+benefit from staying universal across locales.
+
+## 2026-05-04 — Cursor: audit-4 — Landing i18n coverage (Steps · Rail · CockpitLive)
+
+Closed the last visible gap from earlier audits: three of the
+loudest above-the-fold sections on `/` (Steps, Rail, CockpitLive)
+were still hard-coded English. Migrated them to `useT()` with
+38 new translation keys per locale. The parity guard
+(`i18n.test.ts`) keeps RU coverage at 100%.
+
+**New i18n namespaces (EN + RU at full parity)**
+- `steps.*` (15 keys) — section head, three step cards
+  (title/body/cue × 3)
+- `rail.*` (15 keys) — six stream labels, three live metrics
+  (integrity / streams / latency), units (ms / %)
+- `cockpitLive.*` (8 keys) — eyebrow, gradient title halves,
+  CTA, chrome title, booting label, LIVE badge, footer note
+
+**Files**
+- modify: `experiments/neural-showcase-v3/src/lib/i18n.tsx`
+  (38 new keys × 2 locales)
+- modify: `experiments/neural-showcase-v3/src/components/Steps.tsx`
+  (STEPS array now built from `t()`, head from `t()`)
+- modify: `experiments/neural-showcase-v3/src/components/Rail.tsx`
+  (STREAM_KEYS as const satisfies TKey[]; aria, metrics,
+  units all from `t()`)
+- modify: `experiments/neural-showcase-v3/src/components/CockpitLive.tsx`
+  (eyebrow, title halves, CTA, chrome title, booting label,
+  badge, footer note + CTA all from `t()`)
+
+**Verification**
+- `pnpm typecheck` (v3): clean
+- `pnpm test --run src/lib/i18n.test.ts`: 12/12 passed
+  (parity guard would fail on any missed RU translation)
+- `pnpm test --run` (v3): **368 passed** / 26 files
+- `pnpm build` (v3): clean
+
+**Coverage status**: hero / about-the-app / pricing / waitlist /
+FAQ / footer / Steps / Rail / CockpitLive / cockpit gate /
+install / locale switcher all on `useT()`. Remaining offenders
+(MeetTars secondary copy, MeeetSection long-form, Layers,
+Domains static cards, ProofStrip) are all longer-form marketing
+prose that benefits from a dedicated translation pass — defer
+to operator pick.
+
+## 2026-05-04 — Cursor: audit-3 — release resilience + memory tracing
+
+After v9.1.0 shipped, the GitHub macOS-13 (Intel) runner pool
+was queue-starved → the `Build - macOS-x64` job sat in
+"queued" status for 40+ minutes. Three concrete fixes:
+
+1. **Workflow resilience** —
+   `release-desktop-tagged.yml` now marks the macos-13 job
+   `continue-on-error: true` and adds a 90-min `timeout-minutes`.
+   `notify` + `update-download-links` flow rewritten to use
+   `!failure() && !cancelled()` so an optional mac-x64 failure
+   no longer suppresses the operator-facing summary log.
+
+2. **Fallback redirects** — `web_extras/routers/product.py`
+   `LEGACY_DL_TO_RELEASE_URL` now sends
+   `TARS-9.1.0-x64.dmg` requests to the arm64 dmg (Rosetta runs
+   it cleanly). The `<Install />` page's `mac-x64` row now
+   labels itself "Intel x64 (via Rosetta)" and serves the same
+   arm64 asset. New `intelMacFallbackToArm` option on
+   `primaryAssetName` covers the same fallback for any future
+   call site.
+
+3. **Memory router tracing** — `web_extras/routers/memory.py`
+   `POST /api/packs/{slug}/memory` and
+   `DELETE /api/packs/{slug}/memory/{key}` now wrap in
+   `trace_scope` and emit `memory.upsert.{requested,completed,
+   failed}` and `memory.delete.{requested,completed,failed}`
+   meeet events. Pack memory writes are operator-meaningful
+   (every saved fact eventually feeds prompt context) so
+   provenance ends up in the trail.
+
+4. **Release-notes polish** — v9.1.0 GitHub release body
+   rewritten to cover all three audit passes + the macOS
+   first-run command + the Intel-Mac-via-Rosetta note.
+
+**Files**
+- modify: `.github/workflows/release-desktop-tagged.yml`
+  (matrix row marks mac-x64 optional + timeout + summary
+  rewrite)
+- modify: `web_extras/routers/memory.py` (trace_scope + events
+  on upsert/delete)
+- modify: `web_extras/routers/product.py` (TARS-9.1.0-x64.dmg
+  fallback)
+- modify: `experiments/neural-showcase-v3/src/pages/Install.tsx`
+  (mac-x64 row labelled "via Rosetta", asset = arm64 dmg)
+- modify: `experiments/neural-showcase-v3/src/lib/installDetect.ts`
+  (intelMacFallbackToArm option)
+- modify: `experiments/neural-showcase-v3/src/lib/installDetect.test.ts`
+  (3 new cases pinning the fallback)
+- modify: `tests/test_meeet_router_trace_coverage.py`
+  (2 new cases for memory.upsert + memory.delete)
+- modify: GitHub release v9.1.0 body (gh release edit)
+
+**Verification**
+- `pytest tests/`: **2406 passed / 1 skipped / 2 xfailed** in 39s
+  (+2 from new memory trace coverage tests)
+- `pnpm test --run` (v3): **368 passed / 26 files** (+3 from
+  new fallback tests)
+- `pnpm typecheck` (v3): clean
+- `pnpm build` (v3): clean
+
+## 2026-05-04 — Cursor: version bump v8.4.0 → v9.1.0 (audit-1 + audit-2 release)
+
+Bumped the marketing + Tauri version pin so the new icon set,
+ad-hoc-codesigned macOS bundle, install.sh installer, CockpitGate,
+and the trace-coverage / pure-helper hardening all land in a
+single GitHub Release.
+
+**Files**
+- `desktop/src-tauri/Cargo.toml` — `version = "9.1.0"`
+- `desktop/src-tauri/tauri.conf.json` — `"version": "9.1.0"`
+- `desktop/package.json` — `"version": "9.1.0"`
+- `experiments/neural-showcase-v3/src/pages/Install.tsx` —
+  `RELEASE_VERSION = "v9.1.0"`
+- `experiments/neural-showcase-v3/functions/api/product/version.ts` —
+  `LATEST_VERSION = "9.1.0"`
+- `web_extras/routers/product.py` — added new
+  `TARS-9.1.0-{arm64,x64}.dmg`, `TARS-9.1.0-setup.exe`,
+  `TARS-9.1.0.AppImage` legacy redirects pointing at the v9.1.0
+  GitHub Release. Old v8.4.0 entries kept registered for
+  backwards-compat with any pre-audit blog post / shared link.
+
+After this lands, push tag `v9.1.0` to trigger
+`.github/workflows/release-desktop-tagged.yml` which will build
+and upload all four installers (mac arm64 dmg, mac x64 dmg,
+windows msi, linux AppImage) with the new icon and the ad-hoc
+macOS codesign already wired in by audit-1.
+
+## 2026-05-04 — Cursor: audit-2 pass — trace coverage + new-code test nets
+
+Direct continuation of the operator audit pass earlier today (commit
+`c262cb4`). The first pass closed seven UX blockers; this follow-up
+hardens the new code with explicit test coverage and extends the
+meeet trace bridge over two more hot operator surfaces that were
+previously dark on the trail.
+
+1. **Trace coverage** — `voice.py` and `speech.py` were the largest
+   remaining operator-facing routers without `trace_scope` /
+   `MeeetClient.emit` calls.
+   - `POST /api/voice/speak` now wraps the synthesizer call in
+     `trace_scope` and emits
+     `voice.tts.{requested,completed,failed}` with the resolved
+     persona, persona-source, provider hint, byte count, and
+     duration estimate. Response carries `x-trace-id` so the
+     cockpit can stamp the audio chip with its trace.
+   - `POST /api/speech/intents` wraps `parse_intent` in
+     `trace_scope`, emits
+     `speech.intent.{requested,completed,failed}`, surfaces
+     `trace_id` in the JSON response. Completed event payload
+     carries `intent_kind` + `intent_target` so dictation
+     dashboards can group by what was actually triggered.
+   - Both honour the `x-meeet-trace-id` header for cross-service
+     trace propagation.
+
+2. **Pure helpers + test nets for the audit-1 components**:
+   - Extracted runtime detection from `<CockpitGate />` into
+     `src/lib/cockpitGate.ts` (`isInsideTauri`,
+     `readPreviewFlag`, `setPreviewFlag`). Component now imports
+     these helpers — single source of truth + testable without
+     mounting framer-motion.
+   - Extracted OS+arch detection from `<Install />` into
+     `src/lib/installDetect.ts` (`detectOS`, `detectMacArch`,
+     `primaryAssetName`). Apple-Silicon-vs-Intel guess pinned
+     against the M1/M2/Pro/Max/Intel-quad/Intel-hex matrix.
+
+3. **New test files**:
+   - `tests/test_meeet_router_trace_coverage.py` — 6 cases:
+     voice.tts requested+completed, failed-when-no-provider,
+     parent-trace-id propagation, speech.intent
+     requested+completed, completed-payload-carries-intent-kind,
+     offline-buffer persistence invariant.
+   - `src/lib/cockpitGate.test.ts` — 13 cases: Tauri 1.x/2.x
+     marker detection, falsy markers, both-markers, missing
+     window, preview-flag round-trip, throwing-storage tolerance,
+     literal-only "1" semantics, key constant pin.
+   - `src/lib/installDetect.test.ts` — 17 cases: Mac/Linux/Windows
+     OS detection across Safari/Chrome/Edge/Firefox UAs,
+     fallback-to-Linux, missing-navigator, ARM-vs-Intel via UA
+     marker / Intel UA + 8/12-core / Intel UA + 4/6-core / no
+     signal, asset name builder for all three OSes + both Mac
+     arches.
+
+4. **Branding consistency** — regenerated `favicon.svg` so the
+   web tab favicon matches the new desktop app icon (serif T on
+   indigo→violet gradient with cyan halo). Old polygon
+   icosahedron design retired with the audit-1 PNG icon set.
+
+**Files**
+- new: `web_extras/routers/{voice,speech}.py` modifications
+- new: `experiments/neural-showcase-v3/src/lib/cockpitGate.{ts,test.ts}`
+- new: `experiments/neural-showcase-v3/src/lib/installDetect.{ts,test.ts}`
+- new: `tests/test_meeet_router_trace_coverage.py`
+- modify: `experiments/neural-showcase-v3/src/components/CockpitGate.tsx`
+  (delegate to helpers)
+- modify: `experiments/neural-showcase-v3/src/pages/Install.tsx`
+  (delegate to helpers)
+- modify: `experiments/neural-showcase-v3/public/favicon.svg`
+  (T glyph re-skin)
+
+**Verification**
+- `pytest tests/`: **2404 passed / 1 skipped / 2 xfailed** in 40s
+  (+6 from new trace coverage tests vs the audit-1 baseline of
+  2398)
+- `pnpm typecheck` (v3): clean
+- `pnpm test --run` (v3): **365 passed / 26 files** (+30 from
+  new vitest suites vs the audit-1 baseline of 335)
+- `pnpm build` (v3): clean
+
+## 2026-05-04 — Cursor: operator audit pass — icon, install, gatekeeper, cockpit gate, brand, tracing, i18n
+
+Closed all 7 items the operator filed in their 5:29 PM screenshot
+review (icon was ugly, no download button on /install, "TARS is
+damaged" Gatekeeper modal blocking everyone, web cockpit broken
+without daemon, missing meeet.world brand surface, partial trace
+coverage, missing language switcher in Nav).
+
+1. **Icon** — generated a premium 1024×1024 master via Cursor's
+   image tool, square-cropped, wrote a deterministic
+   `desktop/scripts/build_icon_set.py` that emits the full Tauri
+   set (`32/64/128/128@2x` + Square* MSIX + `icon.icns` via
+   `iconutil` + multi-res `icon.ico` via Pillow) plus web favicons
+   in `experiments/neural-showcase-v3/public/` (16/32/180/192/512
+   + `apple-touch-icon`). The .icns embeds 10 sizes
+   (16/16@2x/32/32@2x/128/128@2x/256/256@2x/512/512@2x) so the Mac
+   Dock + Spotlight + Mission Control all render crisp on Retina.
+
+2. **Install page** — full rewrite of
+   `experiments/neural-showcase-v3/src/pages/Install.tsx`:
+     - giant primary "Download for $OS" CTA at the top with
+       OS+arch auto-detect (Apple Silicon vs Intel via UA + core
+       count heuristic), so the screenshot's "click on a file"
+       confusion goes away
+     - prominent amber Gatekeeper notice on macOS with one-click
+       copy of `xattr -dr com.apple.quarantine /Applications/TARS.app`
+     - alternative `curl -fsSL https://tars.meeet.world/install.sh | bash`
+       one-liner that handles download + ad-hoc sign + de-quarantine
+       + launch automatically
+     - collapsible "Advanced" section: brew tap, all release assets,
+       per-format download buttons
+     - fully bilingual (EN + RU) via the existing `useT()` pipeline
+
+3. **Gatekeeper** — root cause is the missing Apple Developer
+   Program ($99/yr). Two zero-cost mitigations shipped:
+     - `experiments/neural-showcase-v3/public/install.sh` —
+       new bash installer hosted on tars.meeet.world that does
+       `xattr -dr com.apple.quarantine` + `codesign --force --deep
+       --sign -` + `open` after download. Curl-pipe-bash safe
+       because it ships from immutable Cloudflare Pages and only
+       writes user-owned paths
+     - `.github/workflows/release-desktop-tagged.yml` adds an
+       "Ad-hoc codesign macOS app bundle" step after `tauri-action`
+       that runs `codesign --force --deep --sign -` against the
+       built `TARS.app` plus `xattr -cr` to strip any quarantine
+       attrs from CI runners. Right-click → Open now works without
+       the "damaged" modal even on hand-installed DMGs
+
+4. **Cockpit simplification** — new
+   `experiments/neural-showcase-v3/src/components/CockpitGate.tsx`
+   wraps every `/cockpit*` route. Detects Tauri runtime (via
+   `window.__TAURI_INTERNALS__`/`__TAURI__`) → live cockpit. In
+   the browser pings `getHealth()` with a 1s budget → live or
+   "preview/locked" depending on outcome. The locked state shows
+   a brand-correct upgrade card (giant download CTA + 3 secondary
+   paths: read-only preview, docs, pitch). `App.tsx` updated to
+   wrap all 6 cockpit routes (`/cockpit`, `/planner`, `/traces`,
+   `/policy`, `/council`, `/awareness`)
+
+5. **meeet.world brand surface** — Nav.tsx adds a small
+   "by meeet.world" pill next to the TARS logo (links to
+   meeet.world, gated with `target=_blank rel=noopener` so it
+   doesn't hijack the SPA). All new copy on Install + CockpitGate
+   namespaces meeet.world prominently in eyebrow + body. Release
+   notes (workflow yaml) now embed the canonical curl one-liner
+   so GitHub Releases mention meeet.world too
+
+6. **Tracing coverage** — chat router (`web_extras/routers/chat.py`)
+   was the largest hot operator-facing surface without trace
+   emission. Wrapped `POST /api/chat/threads/{id}/messages` in
+   `trace_scope`, added `chat.message.{requested,completed,failed}`
+   meeet events with thread_id / session_id / policy_mode /
+   text_len / attachments_count payloads. SSE stream now also
+   emits an inline `trace` frame so the cockpit can stamp
+   conversations with their trace_id. Response carries `X-Trace-Id`
+   header for client-side correlation
+
+7. **i18n** — Nav.tsx gains a `<LocaleSwitcher>` (already
+   existed in Footer) at lg+ widths so language can be flipped
+   from any page header. Added 60+ new strings (install.* and
+   cockpitGate.* namespaces) in both EN and RU with full key
+   parity — the i18n.test.ts parity guard stays green
+
+**Files**
+- new: `desktop/scripts/build_icon_set.py`
+- new: `experiments/neural-showcase-v3/public/install.sh`
+- new: `experiments/neural-showcase-v3/src/components/CockpitGate.tsx`
+- new: web favicons (`favicon-{16,32,180,192,512}.png`,
+  `apple-touch-icon.png`)
+- regen: every `desktop/src-tauri/icons/*.png` + `icon.icns` +
+  `icon.ico` + `desktop/assets/icon-source.png` master
+- modify: `.github/workflows/release-desktop-tagged.yml`
+- modify: `experiments/neural-showcase-v3/index.html` (favicon
+  links pointing at the new PNGs)
+- modify: `experiments/neural-showcase-v3/src/App.tsx` (CockpitGate
+  wrap)
+- modify: `experiments/neural-showcase-v3/src/components/Nav.tsx`
+  (meeet.world pill + LocaleSwitcher)
+- modify: `experiments/neural-showcase-v3/src/lib/i18n.tsx`
+  (install.* + cockpitGate.* namespaces, EN+RU parity)
+- modify: `experiments/neural-showcase-v3/src/pages/Install.tsx`
+  (full rewrite)
+- modify: `web_extras/routers/chat.py` (trace_scope + meeet events)
+
+**Verification**
+- `pytest tests/`: **2398 passed / 1 skipped / 2 xfailed** in 47s
+- `pnpm typecheck` (v3): clean
+- `pnpm test --run` (v3): **335 passed / 24 files** including
+  i18n parity guard
+- `pnpm build` (v3): clean (Cockpit chunk 204 kB gz / 51 kB)
+
+## 2026-05-04 — Cursor · Lovable: stale TODO sweep (round R-4)
+
+(Cross-repo entry; commit lives in
+`alxvasilevvv/meeet-solana-state-941a6045@1c716228`.)
+
+Hunted the entire Lovable codebase for `\bTODO|FIXME|XXX|HACK\b`
+across `src/`, `supabase/`, `qa-suite/`, `scripts/`, `sdk/`. Found
+exactly 2 actionable TODOs; both got real implementations rather
+than being deferred to GitHub issues:
+
+1. **`src/components/profile/TelegramPanel.tsx`** said
+   "replace with edge function `tg-bot-link` once ready". The
+   edge function has been live for weeks (and we just typed it
+   in round R-3). Wired in a real
+   `supabase.functions.invoke("tg-bot-link", { body: { action:
+   "generate" } })` call, dropped the client-side mock token
+   generation. Renamed `mockDeeplink` / `setMockDeeplink` →
+   `pendingDeeplink` / `setPendingDeeplink` (5 references) so
+   the variable name stops lying about what it holds. Cleaned up
+   the surrounding `catch (e: any)` to use type narrowing.
+
+2. **`supabase/functions/purchase-subscription/index.ts`** said
+   "verify tx_signature on-chain before granting subscription. For
+   now, the duplicate-tx guard above prevents replay; on-chain
+   verification is tracked separately and should be added before
+   opening this to mainnet." That guard alone allows undercharge
+   attacks (the signature exists on-chain but transferred 0.001
+   SOL instead of 0.07). Extracted the live
+   `verifySolTransaction` from
+   `create-subscription/index.ts` into a brand new shared module
+   `supabase/functions/_shared/solana-rpc.ts` and wired it into
+   `purchase-subscription`'s `purchase` action. Standard 10-conf
+   wait, 2% tolerance, walks inner instructions so CPI-wrapped
+   payments still pass. Same pattern that's been live in
+   `create-subscription` since the first subscription mainnet
+   flow.
+
+Bonus: 3 pre-existing `any` annotations cleaned up while
+touching these files. Net ESLint debt: 700 → 697 errors (-3).
+
+Validation: `deno check` clean on the new shared module +
+purchase-subscription. `npm run test`: 348 passed | 5 skipped.
+TODO recount across the swept directories: 2 → 0.
+
+The remaining `TODO`-string mentions in TARS scripts/ are all
+documentation references (TARS_MEEET_OPS_TODO.md sections), the
+`mktemp -t .XXXXXX` template syntax, or the named constant
+`TODO_PUBLIC_KEY`. None are stale debt.
+
+`>>> SYNC: Cursor · 2026-05-04 · stale TODO sweep — both real ones now real implementations (not just deferred)`
+
+## 2026-05-04 — Cursor · Lovable: tg-* ESLint cleanup (round R-3)
+
+(Cross-repo entry; commit lives in
+`alxvasilevvv/meeet-solana-state-941a6045@a197c7ae`.)
+
+Typed-cleanup sprint on the Telegram bot edge functions. Replaces
+27 ESLint `@typescript-eslint/no-explicit-any` errors (and 2
+prefer-const warnings) with concrete types backed by a new shared
+type module `supabase/functions/_shared/tg-types.ts`:
+
+- `TelegramUser` / `TelegramChat` / `TelegramMessage` /
+  `TelegramMessageEntity` / `TelegramCallbackQuery` /
+  `TelegramUpdate` — the subset of the official Telegram Bot API
+  surface that `tg-*` actually consumes. Kept thin (no
+  third-party type pack) to avoid inflating cold-start / deno
+  check time on edge.
+- `AgentRow`, `AgentMap`, `CountryRow`, `CountryAggregate`,
+  `TreasuryRow`, `MarketplaceListingRow`, `DuelRow` — minimal
+  SELECT shapes for the DB rows the bot reads.
+
+Per-file cleanup ranged from drop-in (`Record<string, any>` →
+`Record<string, unknown>` in tg-notify-send) to medium
+(SupabaseClient typing + InvokeResult interface in tg-bot-webhook).
+The largest, tg-app-data, also picked up an inline `TopCountryOut`
+interface with a strong comment that its shape is the public
+contract consumed by the Telegram mini-app — DO NOT rename
+without coordinating with the bot client.
+
+Validation: ESLint on `tg-*/index.ts`: 27 errors → 0 (full repo:
+727 → 700). All 6 tg-* deno check clean. `npm run test`: 348
+passed | 5 skipped. JSON output contracts preserved exactly —
+the cleanup is type-only and does not touch any output field.
+
+`>>> SYNC: Cursor · 2026-05-04 · tg-* edge functions: 27 ESLint any errors → 0 (introduces _shared/tg-types.ts)`
+
+## 2026-05-04 — Cursor · Lovable: PR #33 triage → fresh main bump (round R-2)
+
+(Cross-repo entry; commit lives in
+`alxvasilevvv/meeet-solana-state-941a6045@6f6a6f3d`. PR #33 was
+closed as superseded by this commit.)
+
+PR #33 (DRAFT since 2026-05-02, "unify @supabase/supabase-js to
+2.57.4 across 161 EFs") was made un-mergeable by 3 days of main
+drift: 8 conflict files because subsequent commits introduced both
+new SDK pins (e.g. `@2.45.0` in agent-chat-ai/index.ts) and
+renamed auth-compat helpers (`verifyBearerToken` →
+`requireUser/requireAgentOwner`). Resolved by doing the bump
+fresh on top of current main rather than fighting 9 conflicts and
+force-pushing to a stale claude-qa branch.
+
+Before this commit:
+
+  140× @supabase/supabase-js@2          (bare, undefined-version)
+    9× @supabase/supabase-js@2.49.1
+    7× @supabase/supabase-js@2.49.4
+    6× @supabase/supabase-js@2.45.0
+    2× @supabase/supabase-js@2.99.2
+    2× @supabase/supabase-js@2.57.4
+
+After:
+
+  166× @supabase/supabase-js@2.57.4
+
+Validation:
+- `deno check` clean on all 177 edge function entrypoints
+  (deno 2.7.14 + TS 5.9.2 locally; CI mirrors via
+  `.github/workflows/edge-functions-typecheck.yml`).
+- `npm run test`: 348 passed | 5 skipped.
+- All 3 GH Actions workflows green on commit `6f6a6f3d`:
+  `RLS Integration Tests` `25313198746`, `Edge Functions Type
+  Check` `25313198727`, `Unit Tests` `25313198721`.
+
+Side benefit: collapses the SDK matrix that
+`_shared/auth-compat.ts` was written to mitigate ("X is not a
+function" class of bugs from mixed minor versions across
+functions sharing types).
+
+`>>> SYNC: Cursor · 2026-05-04 · @supabase/supabase-js unified to 2.57.4 across all 164 EFs (PR #33 superseded + closed)`
+
+## 2026-05-04 — Cursor · SMTP OAuth: HTTP router + vault write-back (round 5/N)
+
+**Summary**
+
+Closes the two remaining "out of scope" bullets from the morning's
+SMTP OAuth slice — vault write-back of the freshly-minted refresh
+token, and an HTTP router so the cockpit can drive the consent
+dance end-to-end without operators copy-pasting env lines.
+
+Vault write-back (`backend/core/vault/keychain.py`):
+
+- New `set_secret(key, value, *, service, timeout_s)` — writes via
+  the macOS `security` CLI (`add-generic-password -U` for idempotent
+  upsert), falls back to `os.environ[key]` on non-Darwin /
+  Keychain-disabled hosts so the value is at least process-lifetime
+  available. Returns a `SecretRef` describing the destination
+  ("keychain" / "env") — the value itself never leaks back out.
+- New `delete_secret(key)` — clears both Keychain entry and env var,
+  returns `True` if at least one was cleared.
+- Both refuse empty inputs (raise `ValueError`) — defensive guard
+  against partial writes.
+- 14 new cases in `tests/test_vault_write_back.py` mock both
+  `_to_keychain` / `_delete_keychain` (matches the existing read-side
+  pattern) and verify env fallback, idempotent overwrite, no-op on
+  non-Darwin, end-to-end visibility through `get_secret`.
+
+OAuth consent persistence
+(`backend/core/domains/packs/business/oauth_consent.py`):
+
+- New `persist_refresh_token(result, *, client_id, client_secret,
+  provider, tenant)` — writes the refresh token + accompanying
+  config (`TARS_SMTP_OAUTH_REFRESH_TOKEN`,
+  `TARS_SMTP_OAUTH_CLIENT_ID`, `TARS_SMTP_OAUTH_CLIENT_SECRET`,
+  `TARS_SMTP_PROVIDER`, optional `TARS_SMTP_OAUTH_TENANT`) into the
+  vault. Skips empty fields, omits the default `common` tenant so
+  Keychain stays tidy. Returns a `PersistedConsent` dataclass with
+  `to_dict()` for safe serialisation (only key + destination, never
+  values).
+- Refuses to persist a failed `TokenExchangeResult` (`ok=False`) —
+  defensive guard against partial writes during transport failures.
+- Vault key constants (`VAULT_KEY_REFRESH_TOKEN`, etc.) are exported
+  so callers reference the same source-of-truth strings.
+
+HTTP router (`web_extras/routers/oauth_consent.py`,
+`/api/oauth/smtp/{start,exchange}`):
+
+- `POST /api/oauth/smtp/start` builds the consent URL and returns
+  `{url, state, code_verifier, provider, trace_id}`. Cockpit caches
+  `code_verifier` locally (PKCE — never round-trips through the
+  provider) and redirects the operator to `url`.
+- `POST /api/oauth/smtp/exchange` verifies the signed state first
+  (defence in depth — token endpoint is never hit on tampered or
+  expired callbacks), swaps the auth code for tokens, persists when
+  `persist=True` (default). When persistence succeeds, the response
+  withholds the actual `refresh_token` (vault is canonical, echoing
+  would leak it into browser history / proxy logs); `persist=false`
+  echoes for dry-run inspection.
+- Every consent attempt — start, success, state mismatch, OAuth
+  error — emits a structured `business.smtp.oauth.consent.*` event
+  into the meeet store with only `client_id_tail` (last 6 chars)
+  and `had_refresh_token` boolean leaking into the audit trail. The
+  full client_id and the refresh token value never appear in any
+  emitted payload.
+- Wired into `web_extras/app.py` next to the existing vault router.
+
+Test coverage: 16 new router cases in
+`tests/test_oauth_consent_router.py` cover happy path through
+TestClient (verifies full HTTP wire), dry-run mode, tampered
+state, provider-mismatch state replay, OAuth error propagation
+(structured `ok=False` response, not 500), audit-event emission
+on both success and state-verify failure, refresh-token redaction,
+and the four `persist_refresh_token` edge cases (no refresh token,
+refusal on failed result, default-tenant skip, non-default-tenant
+write).
+
+Full pytest after this batch: **2398 passed / 1 skipped / 2 xfailed**
+(was 2368).
+
+**Files**
+
+- `backend/core/vault/keychain.py` — added `set_secret` /
+  `delete_secret` / `_to_keychain` / `_delete_keychain` helpers.
+- `backend/core/vault/__init__.py` — exported the new symbols.
+- `backend/core/domains/packs/business/oauth_consent.py` — added
+  vault key constants + `PersistedConsent` dataclass +
+  `persist_refresh_token` helper. Updated docstring "Out of scope"
+  bullet to point at the new HTTP router.
+- `web_extras/routers/oauth_consent.py` (new, ~280 lines).
+- `web_extras/app.py` — import + `include_router` for the new router.
+- `tests/test_vault_write_back.py` (new, 14 cases).
+- `tests/test_oauth_consent_router.py` (new, 16 cases including 4
+  `persist_refresh_token` unit cases).
+- `docs/CHANGELOG_AGENTS.md`, `docs/CHANGELOG_PUBLIC.md`.
+
+`>>> SYNC: Cursor · 2026-05-04 · SMTP OAuth HTTP router + vault write-back close the operator-onboarding loop`
+
+## 2026-05-04 — Cursor · SMTP OAuth: initial-consent (authorization-code) flow shipped
+
+**Summary**
+
+Closed the explicit "Out of scope" gap from PR #40 / oauth.py — that
+module covered the refresh-token side but assumed the operator had
+already provisioned the refresh token via "the cloud provider's
+helper". TARS now ships its own helper end-to-end so a fresh install
+can mint a refresh token in one command without leaving the project.
+
+New module `backend/core/domains/packs/business/oauth_consent.py`
+(stdlib-only, mirrors the transport surface in `oauth.py`):
+
+- `build_consent_url(client_id, redirect_uri, provider=..., scope=...,
+  tenant=..., extra_params=...)` returns a `ConsentURL` with the
+  authorization endpoint URL, a fresh PKCE verifier (43 byte URL-safe
+  random → SHA-256 challenge per RFC 7636), and a signed state token
+  the matching `verify_state()` checks back. Provider shorthand
+  resolves to Google's `accounts.google.com` v2 endpoint or
+  Microsoft's `login.microsoftonline.com/{tenant}/oauth2/v2.0`.
+  Google's quirk for refresh-token issuance (`access_type=offline +
+  prompt=consent`) is applied automatically.
+- `verify_state(state, expected_provider=None)` does constant-time
+  HMAC-SHA256 verification, freshness check (≤ 600 s default,
+  `TARS_OAUTH_STATE_MAX_AGE_S` overridable), and optional provider
+  match. All failure modes raise `ValueError("invalid state")` so
+  the callback handler can't accidentally leak which check failed.
+  Stateless: TARS doesn't need a database row per pending consent —
+  the signed token IS the pending state.
+- `exchange_authorization_code(code, code_verifier, redirect_uri,
+  client_id, ...)` swaps the auth code for refresh + access tokens
+  via the provider's token endpoint. Returns a `TokenExchangeResult`
+  dataclass with `to_dict()` that drops None fields so the response
+  shape stays clean for HTTP / cockpit surfaces. Never raises:
+  transport / decode / OAuth `error` responses all return
+  `ok=False, reason, error`.
+- State signing secret resolves from `TARS_OAUTH_STATE_SECRET` (vault
+  → env → process-lifetime random fallback so dev installs don't
+  have to set anything). Rotating the secret invalidates pending
+  consents — useful operator escape hatch for leaks.
+
+Test coverage: **31 cases** in
+`tests/test_business_smtp_oauth_consent.py` cover all three layers
+(URL builder, state verifier, code exchange) including PKCE math
+sanity, tampering / expiry / provider-mismatch rejections, OAuth
+error propagation, transport / decode error isolation,
+public-client (no `client_secret`) path, no-refresh-token warning
+path (provider returns access_token only), and the round-trip
+through `urlencode → parse_qs` the operator's browser performs.
+
+Operator helper: new `scripts/smtp_oauth_consent.py` (CLI) walks the
+operator through the dance:
+- Picks an OS-assigned localhost port.
+- Builds the consent URL via `build_consent_url`, opens it in the
+  default browser (`--no-browser` to copy manually).
+- Spins a stdlib `HTTPServer` on `127.0.0.1:<port>/cb` with a
+  one-shot handler that ACKs the operator's tab.
+- Verifies the state, calls `exchange_authorization_code`, prints
+  the resulting `TARS_SMTP_OAUTH_REFRESH_TOKEN=...` env line ready
+  to paste into the operator's shell config.
+
+Self-bootstraps `sys.path` so the operator can run it from any cwd
+without remembering `PYTHONPATH=.`.
+
+Refactored docstring of `backend/core/domains/packs/business/oauth.py`
+to remove the stale "Initial consent / authorization-code flow"
+out-of-scope bullet and point to the new module instead.
+
+Full pytest after this batch: **2368 passed / 1 skipped / 2 xfailed**
+(was 2337).
+
+**Files**
+
+- `backend/core/domains/packs/business/oauth_consent.py` (new, ~370 lines).
+- `backend/core/domains/packs/business/oauth.py` — docstring rewrite
+  removing the explicit "out of scope" bullet.
+- `scripts/smtp_oauth_consent.py` (new, operator CLI helper).
+- `tests/test_business_smtp_oauth_consent.py` (new, 31 cases).
+- `docs/CHANGELOG_AGENTS.md`, `docs/CHANGELOG_PUBLIC.md`.
+
+`>>> SYNC: Cursor · 2026-05-04 · SMTP OAuth initial consent flow closes the refresh-token bootstrap gap`
+
+## 2026-05-04 — Cursor · L9 sidecar: bring pyoxidizer.bzl back in sync with requirements.txt
+
+**Summary**
+
+Picked up the next L9 follow-up. The sidecar Rust shell
+(`desktop/src-tauri/src/sidecar.rs`) was already complete — TARS_BACKEND_BIN
+override → bundled `tars-backend` (pyoxidizer) → `python3 serve.py`
+fallback, with health polling, SIGTERM-then-SIGKILL Drop, and the
+`desktop.sidecar.{started,failed,exited}` event contract pinned by
+`tests/test_desktop_sidecar_events_contract.py`.
+
+The actual gap was the **build config**: `desktop/pyoxidizer.bzl` was
+hardcoding 4 stale pins (`fastapi==0.115.0`, `uvicorn==0.30.6`,
+`pynacl==1.5.0`, `pydantic==2.9.2`) and missing every other runtime
+dependency the live `web_extras.app:app` requires —
+`pydantic-settings`, `httpx`, `httpx-sse`, `pypdf`, `eth-account`,
+`tonsdk`, `solders`. A pyoxidizer build with the old config would
+crash the bundled `tars-backend` on first import.
+
+Closed the gap in three pieces:
+
+1) Rewrote `desktop/pyoxidizer.bzl` to keep the runtime dependency
+   list in a single labelled `RUNTIME_REQUIREMENTS` Starlark constant
+   that mirrors `requirements.txt` exactly (10 pins now: every runtime
+   line minus the test extras). Pins now match the dev venv.
+
+2) Flipped `policy.include_distribution_resources = True` so adjacent
+   CSV/JSON seeds in `data/` ride along with the bundled package
+   tree — loaders that read them by relative path keep working in
+   the bundle.
+
+3) New `tests/test_pyoxidizer_requirements_parity.py` (5 cases) is the
+   parity guard:
+   - every requirements.txt line (minus BUNDLE_EXCLUDED:
+     pytest / pytest-asyncio / jsonschema) appears in
+     RUNTIME_REQUIREMENTS,
+   - no bundled pin is missing from requirements.txt,
+   - every common pin matches version specifier exactly (catches
+     silent drift like `==0.115.0` vs `==0.136.1`),
+   - dev-only test packages stay out of the bundle,
+   - sanity: parser must find ≥5 pins so a regex regression can't
+     silently pass the diff guards by returning ``{}``.
+
+   The bzl-list parser handles inline `]` inside string elements
+   (e.g. `"uvicorn[standard]==0.46.0"`) by anchoring the closing
+   `]` to a column-zero match — pinned by a comment in the bzl
+   file so the formatting is part of the contract.
+
+Full pytest after this batch: **2337 passed / 1 skipped / 2 xfailed**
+(was 2332).
+
+Operator follow-up (out of code-side scope, captured for the next
+pickup): an actual `pyoxidizer build` cross-target run is still
+needed to verify the bundle assembles end-to-end on
+darwin-aarch64, darwin-x86_64, win-x86_64, win-aarch64, linux-x86_64,
+linux-aarch64. The parity guard ensures the bundle SHOULD assemble
+once a build is attempted; first signed `.dmg`/`.exe` artefacts
+remain on the operator queue per `docs/AGENT_HANDOFF.md`.
+
+**Files**
+
+- `desktop/pyoxidizer.bzl` — rewritten with `RUNTIME_REQUIREMENTS`
+  constant + parity-test contract + `include_distribution_resources`
+  flip.
+- `tests/test_pyoxidizer_requirements_parity.py` (new, 5 cases).
+- `docs/CHANGELOG_AGENTS.md`, `docs/CHANGELOG_PUBLIC.md`.
+
+`>>> SYNC: Cursor · 2026-05-04 · L9 pyoxidizer pins back in sync with runtime`
+
+## 2026-05-04 — Cursor · L5 emit_encrypted: zero-boilerplate sealed events
+
+**Summary**
+
+Picked up the L5 (Phase L5) follow-up roadmap entry — the "real
+crypto" was already shipped (real PyNaCl XChaCha20-Poly1305 + X25519
+sealed-boxes per recipient in `backend/core/crypto/envelope.py`,
+plumbed through `backend/core/pairing/store.py` with vault-persisted
+host identity), but the docstring in `backend/core/pairing/__init__.py`
+still claimed mock crypto and every caller had to write ~10 lines of
+boilerplate to seal an event:
+
+  1. Pull paired devices from the singleton pairing store
+  2. Resolve / mint a trace id, pin it before sealing
+  3. Call `encrypt_event(payload, recipients, trace_id, kind)`
+  4. Pass the resulting `ciphertext` + `envelope` through to `emit()`
+  5. Open a `trace_scope` so `emit()` reuses the same trace id (AAD
+     binding requirement)
+
+Closed two gaps in one batch:
+
+1) `MeeetClient.emit_encrypted(kind, payload, *, recipients=None,
+   require_recipients=False)` — collapses the boilerplate into one
+   call. Resolves recipients from the singleton `PairingStore` when
+   `recipients` is omitted; pins trace id before sealing; reuses an
+   outer `trace_scope` if one is active, otherwise opens a one-shot
+   inner scope; degrades to plain `emit()` when no devices are paired
+   (or raises `ValueError` when `require_recipients=True` for the
+   end-to-end-privacy guarantee path used by chat/wallet flows).
+
+2) `backend/core/pairing/__init__.py` docstring rewritten — the
+   "What's mock for now" section was outright wrong. The new docstring
+   describes what actually ships today (vault-persisted X25519 host
+   identity, 32-byte ephemeral key validation on every `begin`,
+   accept-token + per-device `DeviceKey` on `accept`, future L5.2
+   re-keying as the only deliberate TODO).
+
+Test coverage: 7 new cases in `tests/test_meeet_emit_encrypted.py` pin
+
+  - happy path through singleton pairing store,
+  - explicit `recipients=` override,
+  - AAD `trace_id|kind` binding (fails decrypt under wrong trace id),
+  - reuse of an outer `trace_scope` (no shadowing),
+  - graceful degrade to plain emit when no devices are paired,
+  - strict-mode `require_recipients=True` raises with no devices,
+  - durable-store round-trip preserves ciphertext + envelope so a
+    later `replay_unpushed` can re-push the same sealed event upstream.
+
+Full pytest after this batch: **2332 passed / 1 skipped / 2 xfailed**
+(was 2325).
+
+**Files**
+
+- `backend/core/meeet/client.py` — new `emit_encrypted` method
+  (~60 lines), import surface widened with `Iterable` + `trace_scope`
+  + a TYPE_CHECKING import of `DeviceKey`.
+- `backend/core/pairing/__init__.py` — docstring rewrite reflecting
+  the real-crypto reality.
+- `tests/test_meeet_emit_encrypted.py` (new, 7 cases).
+- `docs/CHANGELOG_AGENTS.md`, `docs/CHANGELOG_PUBLIC.md`.
+
+`>>> SYNC: Cursor · 2026-05-04 · L5 emit_encrypted closes the boilerplate gap`
+
+## 2026-05-04 — Cursor · trace-summary background loop: pin behaviour with tests
+
+**Summary**
+
+The materialised `trace_summary` view (`backend/core/meeet/trace_summary.py`)
+ships with a periodic rebuild loop in the FastAPI lifespan
+(`web_extras/app.py:_trace_summary_loop`, default 300 s, `0` disables).
+The loop has been live for a while but had no dedicated tests — only the
+core rollup math was pinned in `tests/test_meeet_trace_summary.py`. A
+silent regression that disabled the loop, swallowed exceptions, or
+broke the env-var contract would slip past CI.
+
+Closed that gap with `tests/test_trace_summary_loop.py` (10 cases),
+mirroring the shape of `tests/test_message_embed_loop.py`:
+
+- **Env helper** — defaults to 300 s, parses floats, clamps negatives,
+  falls back to default on garbage, `0` disables.
+- **Loop body** — short-circuits when interval is 0, short-circuits when
+  the meeet store is disabled, runs one tick that walks the events
+  table and writes the rollup row (asserts `event_count`, `tokens_in`,
+  `tokens_out`, `total_cost_usd`, `last_session_id`, `primary_route`),
+  survives an internal exception and keeps ticking on the next iteration.
+- **Lifespan integration** — `TestClient(app)` startup must not crash
+  (interval set to `0` so the no-I/O path runs).
+
+Full pytest after this batch: **2325 passed / 1 skipped / 2 xfailed**
+(was 2315).
+
+The brute-force rebuild (`O(events)` walk on every tick) is still
+acceptable for typical local stores per the source comment; the
+high-water-mark / delta-rebuild optimisation stays in the source-code
+TODO until a hot-path operator profile proves it's needed.
+
+**Files**
+
+- `tests/test_trace_summary_loop.py` (new, 10 cases)
+- `docs/AGENT_HANDOFF.md` — checkpoint banner already updated in
+  earlier batch this session
+- `docs/CHANGELOG_AGENTS.md`, `docs/CHANGELOG_PUBLIC.md`
+
+`>>> SYNC: Cursor · 2026-05-04 · trace-summary loop tests pin lifespan wiring`
 
 ## 2026-05-04 — Cursor · pre-commit hook: auto-regenerate CHANGELOG_PUBLIC.md
 
@@ -2632,920 +3480,6 @@ The new subcommand has full operator wiring:
   planner panel inline when the agent proposes a plan) — last
   cockpit-side payoff still on the planner roadmap.
 
-## 2026-05-01 — Cursor [A] · cockpit: URL-state sync for /cockpit/planner
-
-**Summary**
-
-Operators can now deep-link to any planner view. The page mirrors
-three pieces of UI state in the URL via `useSearchParams`:
-
-  - `?status=<status>` — one of the seven filter states or "all".
-  - `?q=<text>` — free-text filter (id / goal / pack_slug).
-  - `?selected=<id>` — currently selected plan id.
-
-Defaults are elided (no `?status=all`, no empty `?q=`, no
-`?selected=`) so the URL stays short for the common case. Parse is
-permissive: unknown statuses fall back to "all", whitespace-only
-q / selected become empty / null, malformed values never throw.
-
-The wiring uses `replace` mode so URL updates don't pollute the
-browser back-stack with every keystroke / click. Selection promotion
-(when nothing is selected, pick the newest plan) writes through the
-same updater so the URL reflects the auto-selection too.
-
-Pure helpers (`parsePlannerSearchParams`,
-`buildPlannerSearchParams`, `plannerStateEquals`) live in
-`lib/plannerUrl.ts` and are pinned by 18 Vitest cases — round-trip
-identity, default elision, URL-encoding (spaces / `&` / unicode),
-permissive fallback for invalid input.
-
-**Changes**
-
-1. `experiments/neural-showcase-v3/src/lib/plannerUrl.ts` (new) —
-   parse / build / equals + `DEFAULT_STATE`.
-2. `experiments/neural-showcase-v3/src/lib/plannerUrl.test.ts`
-   (new, 18 cases):
-   - `parsePlannerSearchParams`: empty URL → defaults; every
-     valid status accepted; unknown / empty / whitespace status →
-     "all"; q trimmed; whitespace-only q → ""; missing / empty
-     / whitespace selected → null; non-empty selected preserved.
-   - `buildPlannerSearchParams`: empty for default state; status
-     omitted at "all"; q omitted at ""; URL-encoding for spaces,
-     `&`, unicode (`☃`); selected omitted at null; stable ordering
-     `status / q / selected`.
-   - Round-trip identity for default state, fully-filled state,
-     status alone, q alone (with spaces).
-   - `plannerStateEquals`: true on identical content; false on
-     any single field difference.
-3. `experiments/neural-showcase-v3/src/pages/Planner.tsx` —
-   replaces local `useState` for filter / search / selection
-   with `useSearchParams`-backed `urlState`. `updateUrlState`
-   writes through `setSearchParams(..., { replace: true })`.
-   Selection auto-promotion now flows through the same updater
-   so the URL reflects auto-selection. Refetch effect dep-list
-   updated to fire only on `statusFilter` (selection changes
-   don't refetch the list).
-
-**Tests**
-
-- `pnpm vitest run` — **158 passed (13 files)**, incl. 18 new
-  url-helper cases.
-- `pnpm tsc --noEmit` — clean.
-- `pnpm vite build` — clean.
-- `pytest -q` — **2080 passed in 40s** (no Python deltas).
-
-**Cockpit follow-ups**
-
-- Right-rail entrypoint from the cockpit chat thread (open the
-  panel inline when the agent proposes a plan) — last item on
-  the planner-cockpit roadmap before declaring the operator
-  workflow complete.
-- Scroll-to-selected on first paint: when `?selected=` is set on
-  load, scroll the selected row into view in the left rail so the
-  deep-linked plan is immediately visible (small QoL fix).
-
-## 2026-05-01 — Cursor [A] · cockpit: per-step live ticking in PlanFullPanel
-
-**Summary**
-
-Top-priority follow-up from PR #118. The plan panel's step list
-now ticks live during a run: every `plan.step.requested` /
-`plan.step.allowed` / `plan.step.completed` SSE frame flips the
-matching row's status badge in place — no extra round-trip, no
-flash, no out-of-order rendering.
-
-The step-state reducer is its own module (`lib/plannerSteps.ts`)
-and pure / DOM-free, so the contract with the backend's step
-event payloads can be pinned without a React tree. The reducer
-honours three subtle rules:
-
-1. **Trace scoping** — only events whose `trace_id` matches the
-   most recent `plan.run.started` we've seen are applied. Stray
-   events from older reruns whose terminals are still flushing
-   are dropped on the floor; the panel always shows the freshest
-   run's progress.
-2. **Resume idempotency** — re-delivery of the same start frame
-   (same `trace_id`) after a `Last-Event-ID` reconnect does not
-   reset mid-run progress. Test pins this with referential equality.
-3. **Skipped > blocked > failed** — terminal states fall through a
-   precedence ladder so a step that is `{skipped:true, ok:false,
-   blocked:true}` (which the runner can emit when a previous step
-   aborts the run) renders as "skipped", not "blocked" or
-   "failed".
-
-The panel seeds an "all pending" snapshot the moment the plan
-envelope arrives, so the rows render immediately instead of
-waiting for the first SSE frame; once `plan.run.started` lands
-the snapshot is keyed to that trace.
-
-Status badges use the same tone palette as the rest of the
-cockpit (amber for in-flight via `pulse`, success for ok, alert
-for blocked / failed, muted for pending / skipped). Latency on
-completed steps renders next to the action via `formatLatencyMs`.
-
-**Changes**
-
-1. `experiments/neural-showcase-v3/src/lib/plannerSteps.ts`
-   (new) — pure reducer, snapshot type, helpers
-   (`pendingSnapshot`, `applyEvent`, `snapshotInFlight`,
-   `stepStatusLabel`).
-2. `experiments/neural-showcase-v3/src/lib/plannerSteps.test.ts`
-   (new, 20 cases) — every transition pinned:
-   - `pendingSnapshot` seeds + empty case.
-   - `plan.run.started`: trace-lock, redelivery no-op
-     (referential equality), fresh-trace mid-flight reset.
-   - Scoping: drops events from a foreign trace, drops
-     payloads with no `step_id`, drops cosmetic kinds.
-   - `plan.step.requested`: status flip + parallel flag.
-   - `plan.step.allowed`: blocked-eager (`allowed=false`) and
-     allowed-tooltip (`allowed=true`) paths.
-   - `plan.step.completed`: ok / failed (with error) /
-     blocked-wins-over-failed / skipped-wins-over-everything /
-     non-numeric `took_ms` falls back to undefined.
-   - `snapshotInFlight`: true while requested, false on
-     completion, false on fresh pending.
-   - `stepStatusLabel`: short label for every status.
-3. `experiments/neural-showcase-v3/src/components/PlanFullPanel.tsx`
-   - `useState<StepLiveSnapshot>` seeded from the plan envelope.
-   - SSE callback now feeds step-event kinds through the
-     reducer in addition to the existing `REFETCH_KINDS`
-     refresh trigger.
-   - `Steps` sub-renderer rewritten to take the snapshot and
-     render per-step badges + live latency. Header carries an
-     amber "live · run in flight" lozenge while
-     `snapshotInFlight(snapshot)` is true.
-
-**Tests**
-
-- `pnpm vitest run` — **140 passed (12 files)**, incl. 20 new
-  step-reducer cases.
-- `pnpm tsc --noEmit` — clean.
-- `pnpm vite build` — clean.
-- `pytest -q` — **2080 passed in 40s** (no Python deltas).
-
-**Cockpit follow-ups**
-
-- URL-state sync for the `<Planner />` filter strip
-  (`?status=running&q=…`) so operators can deep-link to a
-  view; mirror the selected `plan_id` in the path so a refresh
-  stays put.
-- Right-rail entrypoint from the cockpit chat thread (open the
-  panel inline when the agent proposes a plan) — the next
-  obvious operator workflow.
-
-## 2026-05-01 — Cursor [A] · cockpit: PlanFullPanel + /cockpit/planner page
-
-**Summary**
-
-Operator-facing payoff for the planner backend work shipped in
-PRs #109–#117. New page at `/cockpit/planner` lets the operator
-inspect any plan's full envelope (plan + steps + reconstructed
-runs + lifetime usage), one-click rerun it, and watch the
-lifetime rollup update in place via the planner SSE stream.
-
-Two pieces:
-
-1. `<PlanFullPanel />` — self-contained panel that hydrates
-   from `fetchFullPlan(planId)`, subscribes to
-   `subscribePlannerEvents({ planId })`, and refetches on
-   `plan.run.usage` / `plan.completed` / `plan.aborted` /
-   `plan.run.started` / `plan.abort.requested` /
-   `planner.cloned`. Has Rerun, Abort, and Refresh buttons.
-   Honours `cost_usd === null` → "n/a" everywhere.
-2. `<Planner />` page — wraps the panel with a list of plans
-   (`listPlans`) on the left, status pills + free-text filter
-   on top, and a global SSE subscription that refreshes the
-   list when new plans land.
-
-Pure helpers extracted from the panel (`statusTone`,
-`formatLatencyMs`, `formatStartedAt`, `formatRunSummary`,
-`formatLifetimeSummary`, `summariseStep`, `REFETCH_KINDS`,
-`shouldAdvanceCursor`) are exported and pinned by 17 Vitest
-cases — the formatting that the cockpit will read most often
-is locked in without touching the DOM.
-
-The new route is registered in `App.tsx` (lazy-loaded chunk
-`Planner-*.js`, 17.6 kB / 4.96 kB gzipped) and a "planner"
-anchor was added to the cockpit's top nav so the operator
-can jump in with one click.
-
-**Changes**
-
-1. `experiments/neural-showcase-v3/src/components/PlanFullPanel.tsx`
-   (new) — drawer panel + pure helpers. ~330 LoC including
-   sub-renderers (`PlanMetaRow`, `Steps`, `Runs`, `Lifetime`).
-2. `experiments/neural-showcase-v3/src/components/PlanFullPanel.test.ts`
-   (new, 17 cases) — pinning every helper:
-   - `statusTone` mapping for all 6 statuses + defensive default.
-   - `formatLatencyMs`: nullish/NaN/negative → "n/a"; sub-second
-     ms with one decimal; ≥1s in seconds with two decimals.
-   - `formatStartedAt`: nullish → "—"; UTC string format.
-   - `formatRunSummary`: cost honoured (priced + null).
-   - `formatLifetimeSummary`: singular/plural "run(s)".
-   - `summariseStep`: empty args → "{}", with-args → JSON.
-   - `REFETCH_KINDS`: positive (must refetch) and negative
-     (cosmetic-only) sets.
-   - `shouldAdvanceCursor`: null → always advance, otherwise
-     strict-greater.
-3. `experiments/neural-showcase-v3/src/pages/Planner.tsx`
-   (new) — `/cockpit/planner` page hosting the panel + list.
-4. `experiments/neural-showcase-v3/src/App.tsx` — register
-   `/cockpit/planner` route, lazy-loaded.
-5. `experiments/neural-showcase-v3/src/pages/Cockpit.tsx` —
-   add "planner" anchor to the top-bar nav so the operator
-   can jump from the main cockpit to the planner page.
-
-**Tests**
-
-- `pnpm vitest run` — **120 passed (11 files)**, including
-  17 new cases.
-- `pnpm tsc --noEmit` — clean.
-- `pnpm vite build` — clean. Planner chunk 17.6 kB / 4.96 kB
-  gzipped.
-- `pytest -q` — **2080 passed in 40s** (no Python deltas).
-
-**Cockpit follow-ups**
-
-- Step-level live updates: stream `plan.step.completed` into
-  the panel and render a per-step status row that ticks live
-  during a run.
-- URL-state sync for the filter strip
-  (`?status=running&q=…`) so the operator can deep-link to a
-  filter view.
-- Right-rail entrypoint from the main cockpit chat thread
-  (open the panel inline when the agent proposes a plan).
-
-## 2026-05-01 — Cursor [A] · cockpit: typed planner client + Vitest contract
-
-**Summary**
-
-First slice of cockpit ↔ planner wiring. Adds a typed
-TypeScript client (`experiments/neural-showcase-v3/src/lib/planner.ts`)
-that pins the shape of every backend planner endpoint shipped
-in PRs #109–#116, plus a Vitest suite that locks the
-contract so a backend rename can't silently break the React
-cockpit.
-
-The client speaks all five surfaces:
-`GET /api/planner` (list with filters),
-`GET /api/planner/{id}/runs` (history, newest-first),
-`GET /api/planner/{id}/full` (aggregate envelope with
-`usage_lifetime`), `POST /api/planner/{id}/abort`,
-`POST /api/planner/{id}/rerun` (one-shot clone+approve+run),
-and `subscribePlannerEvents` for the SSE stream
-(`/api/planner/events`) — including `Last-Event-ID`-style
-resume via `after_id`.
-
-Cost rendering uses `formatCostUSD` so the n/a vs $0.00
-distinction surfaced by `/full`'s `has_priced_models` flag
-is preserved end-to-end. Header propagation
-(`x-tars-policy-mode`, `x-meeet-trace-id`) is plumbed
-through every request that mutates server state.
-
-**Changes**
-
-1. `experiments/neural-showcase-v3/src/lib/planner.ts`
-   (new) — typed client + SSE subscriber. No deps beyond
-   the browser fetch / EventSource pair already used by
-   the cockpit's other clients.
-2. `experiments/neural-showcase-v3/src/lib/planner.test.ts`
-   (new, 17 cases) — Vitest contract:
-   - URL + querystring construction (`fetchFullPlan` with
-     `limit`, `listPlans` filters, `listPlanRuns`,
-     `subscribePlannerEvents` filters).
-   - Header propagation on `abortPlan` + `rerunPlan`.
-   - JSON body shape on `rerunPlan` (and empty body
-     fallback).
-   - Round-tripping a synthetic `PlanFullResponse` /
-     `RerunResponse` through the parser.
-   - SSE: `EventSource` wiring, JSON parsing, silent
-     drop of malformed frames, `onOpen`/`onError`
-     forwarding.
-   - `formatCostUSD`: `null` / `undefined` → `"n/a"`;
-     numeric → 4-decimal `$x.xxxx`.
-
-**Tests**
-
-- `pnpm -C experiments/neural-showcase-v3 exec vitest run` —
-  **103 passed (10 files)**, including the 17 new cases.
-- `pnpm -C experiments/neural-showcase-v3 exec tsc --noEmit` —
-  clean.
-- `pytest -q` — **2080 passed in 40s** (no Python deltas).
-
-**Cockpit follow-ups**
-
-- `PlanFullPanel` React component built on top of this client
-  (drawer that opens from the planner list, shows plan +
-  runs + lifetime usage, has a one-click Rerun button) —
-  next PR.
-- Live SSE wiring: stream `plan.run.usage` / `plan.completed`
-  frames into the panel so the lifetime rollup updates in
-  place after a rerun finishes — same follow-up.
-
-## 2026-05-01 — Cursor [A] · planner: GET /{plan_id}/full aggregate endpoint for cockpit drawer
-
-**Summary**
-
-Adds a one-shot aggregate endpoint
-(`GET /api/planner/{plan_id}/full`) the cockpit's plan-detail
-drawer can hit on open instead of fanning out across three
-separate calls (`GET /{plan_id}`, `GET /{plan_id}/runs`, and
-a separate usage rollup query). Bundles the plan envelope,
-reconstructed runs (newest-first), and a `usage_lifetime`
-block summing every run's per-run rollup.
-
-The lifetime cost rollup is intentionally generous about the
-`has_priced_models=false` case: `cost_usd` stays `null` (so
-the cockpit renders "n/a", not "$0.00") unless at least one
-run reported a priced model. Mixed runs sum *only* the priced
-runs' costs. This keeps the n/a label meaningful and prevents
-"plan ran but emitted no priced calls" from looking like a
-free run.
-
-**Changes**
-
-1. `web_extras/routers/planner.py` —
-   - New `GET /{plan_id}/full` route directly after
-     `/{plan_id}/runs` so the two endpoints sit next to
-     each other in the source. Same `limit` semantics as
-     `/runs`.
-   - Iterates the reconstructed runs once and sums calls /
-     tokens / latency / cost into a `usage_lifetime` dict
-     with `runs_aggregated` count.
-   - Top-of-module docstring updated with the new
-     endpoint contract (keys, null-cost rule, limit).
-2. `tests/test_planner_full_endpoint.py` (new, 7 cases):
-   - 404 for unknown plan id.
-   - Empty plan (no runs) → empty list + zero-valued
-     lifetime block + `runs_aggregated=0`.
-   - Two priced runs → lifetime block sums calls / tokens
-     / latency / cost.
-   - Single unpriced run → `cost_usd=None`,
-     `has_priced_models=False`.
-   - Mixed priced + unpriced runs → lifetime cost equals
-     *only* the priced run's cost; `has_priced_models=True`.
-   - In-flight run surfaces in the items list with
-     `in_flight=1`.
-   - Top-level envelope shape pin: exact key set on
-     `body`, `body["runs"]`, `body["usage_lifetime"]`.
-
-**Tests**
-
-- `tests/test_planner_full_endpoint.py` — 7 passed.
-- Full `pytest -q` — **2080 passed in 40s**.
-
-**Cockpit follow-ups**
-
-- Drawer can now make one fetch on open and render
-  everything (header, runs list, billing pill).
-- `runs_aggregated` makes the "across N runs" label trivial.
-- `has_priced_models=false` ↔ render "n/a" badge instead of
-  "$0.00".
-
 ---
 
-## 2026-05-01 — Cursor [A] · planner: Makefile targets + control-tower gate coverage
-
-**Summary**
-
-Wires the planner CLI into the operator-facing Makefile so the
-control tower covers planner end-to-end. Adds six targets
-(`planner`, `planner-stats`, `planner-list`, `planner-runs`,
-`planner-show`, `planner-smoke`) and folds `planner-smoke`
-into `gate-control-tower` so a planner regression cannot land
-silently while other cockpit checks stay green. A 12-case
-contract test pins the target shape so future changes to the
-CLI prompt a Makefile update.
-
-**Changes**
-
-1. `Makefile` —
-   - New section "Planner CLI (operator scripting +
-     control-tower smoke)" with six targets.
-   - All targets shell into `python -m
-     backend.core.planner.cli` via the `PLANNER` macro so
-     they share the same SQLite WAL DBs as the host process
-     (safe to run alongside a live cockpit).
-   - `planner` is a free-form passthrough
-     (`make planner ARGS="list --status approved"`).
-   - `planner-runs` and `planner-show` short-circuit with
-     `exit 2` and a usage hint when `ARGS=<plan_id>` is
-     missing.
-   - `planner-smoke` runs synthesize → show → delete on a
-     bundled goal (`PLANNER_GOAL`, default
-     `traders.morning_check`), prints one short success
-     line, and is wired into `gate-control-tower`.
-   - `.PHONY` line extended.
-2. `tests/test_makefile_planner_targets.py` (new, 12 cases):
-   - All planner targets listed in `.PHONY`.
-   - All planner targets carry a `## help text` so `make
-     help` lists them.
-   - `gate-control-tower` recipe invokes `planner-smoke`.
-   - `planner-runs` and `planner-show` recipes guard
-     `[ -z "$(ARGS)" ]` and `exit 2`.
-   - `PLANNER` macro points at
-     `backend.core.planner.cli` (no parallel script).
-   - `planner-smoke` recipe passes `--quiet` to keep the
-     gate log clean.
-
-**Tests**
-
-- `tests/test_makefile_planner_targets.py` — 12 passed.
-- Hand-tested:
-  - `make planner-smoke` → `planner-smoke ok (plan_id=…)`.
-  - `make planner-stats` → JSON stats envelope.
-  - `make planner-runs` (no ARGS) → "usage: …" + `exit 2`.
-- Full `pytest -q` — **2073 passed in 40s**.
-
-**Cockpit follow-ups**
-
-- Surface `gate-control-tower` output (now including
-  `planner-smoke ok (plan_id=…)`) in the release-readiness
-  banner so the operator can see at a glance that planner
-  scripting still works.
-
----
-
-## 2026-05-01 — Cursor [A] · planner: bash completion script + drift-guard tests
-
-**Summary**
-
-Operator quality-of-life follow-up to the planner CLI. Adds
-`scripts/planner-completion.bash` so `tab` after a planner
-subcommand fills in flags, mode/status enum values, and (for
-the subcommands that take a positional `plan_id`) live plan
-ids fetched from `python -m backend.core.planner.cli list`.
-A small Python contract test guarantees the script never
-drifts out of sync with the actual CLI's `_DISPATCH` map and
-flag declarations.
-
-**Changes**
-
-1. `scripts/planner-completion.bash` (new, executable):
-   - Provides a `_tars_planner` completion function and
-     registers it on the `tars-planner` alias (set up by the
-     operator).
-   - Handles all 11 subcommands (`list`, `show`, `runs`,
-     `stats`, `synthesize`, `approve`, `reject`, `run`,
-     `abort`, `clone`, `delete`).
-   - Per-subcommand flag tables (`--approve`, `--run`,
-     `--mode`, `--thread-id`, etc.); value completion for
-     enum-typed flags (`--mode → autopilot|confirm|dry_run`,
-     `--status → proposed|approved|…`).
-   - Live `plan_id` completion sourced from
-     `cli list --quiet`, JSON-parsed in a tiny inline Python
-     snippet; cached for 5s inside the same shell session so
-     back-to-back tabs do not re-shell.
-   - Documented install paths in the header (Linux / macOS
-     `bash-completion@2`).
-2. `tests/test_planner_completion_script.py` (new, 10 cases):
-   - Script exists, is executable, has a shebang.
-   - `bash -n` parse-only check passes.
-   - Every key in `_DISPATCH` is advertised in
-     `_TARS_PLANNER_CMDS` (and vice versa — no extras).
-   - Per-subcommand flag tables cover the flags actually
-     declared in `_build_arg_parser` (parametrised over
-     `list`, `synthesize`, `run`, `clone`, `delete`).
-   - `--mode` completion lists exactly
-     `autopilot|confirm|dry_run`.
-   - `--status` completion lists exactly the values of
-     `PlanStatus` (so a future enum add prompts an update).
-
-**Tests**
-
-- `tests/test_planner_completion_script.py` — 10 passed.
-- Full `pytest -q` — **2061 passed in 42s**.
-
-**Operator note**
-
-```
-alias tars-planner='python -m backend.core.planner.cli'
-source scripts/planner-completion.bash
-tars-planner clone --<TAB>   # → --approve --goal --help --mode --quiet --run --thread-id
-tars-planner show <TAB>      # → live plan_id list
-```
-
----
-
-## 2026-05-01 — Cursor [A] · planner: one-shot rerun (CLI clone --approve/--run + POST /rerun)
-
-**Summary**
-
-Closed the loop on the rerun-via-clone flow shipped in PR #108
-by adding a one-shot composition over `clone` + `approve` + `run`:
-
-- **CLI**: `clone --approve` flips the new plan to `approved`
-  in the same call; `--run` (which implies `--approve`) then
-  dispatches it through `PlanRunner` so an operator can rerun
-  a finished plan with a single shell invocation. `--mode`
-  overrides the policy gate for the run portion.
-- **HTTP**: `POST /api/planner/{plan_id}/rerun` is a
-  convenience endpoint over the same composition, intended
-  for the cockpit's "Rerun" button. Body / header support
-  mirrors `/clone` plus optional `mode` (or
-  `x-tars-policy-mode` header).
-- **Audit lane**: `planner.cloned` event now carries
-  `auto_approved` and `auto_run` boolean flags, and the
-  timeline summariser collapses them into a single readable
-  label (`· rerun` for auto_run, `· auto-approved` for the
-  approve-only case).
-
-Backwards compatibility is preserved: bare `clone` still
-returns a `proposed` plan with no auto-flip, and the existing
-`POST /api/planner/{plan_id}/clone` route is unchanged.
-
-**Changes**
-
-1. `backend/core/planner/cli.py` —
-   - `_cmd_clone` now accepts `--approve`, `--run`, and
-     `--mode autopilot|confirm|dry_run`. After the clone is
-     persisted and `planner.cloned` is emitted, the handler
-     optionally flips status to `approved` then dispatches
-     `PlanRunner.run` (using `resolve_mode(request_arg=...)`
-     so the env / fallback chain still applies). The
-     response gains `auto_approved`, `auto_run`, and
-     `run_result` keys (the latter is `None` when `--run`
-     was not requested).
-   - Errors during the `--run` phase surface a structured
-     `plan_run_failed` envelope with `plan_id` (the new
-     clone's id) and `source_plan_id` so the operator can
-     still see what was created.
-   - Module docstring usage block updated.
-2. `web_extras/routers/planner.py` —
-   - New `POST /api/planner/{plan_id}/rerun` endpoint. Body
-     supports `thread_id`, `goal_override`, `mode`. Headers
-     `x-meeet-trace-id`, `x-tars-thread-id`,
-     `x-tars-policy-mode` carry the same semantics as the
-     other endpoints. Composes clone + approve + run inside
-     a single `trace_scope` so all of the resulting events
-     stitch together. Emits `planner.cloned` with
-     `auto_approved=true` and `auto_run=true`. Run errors
-     surface as 409 with `{reason, message, plan_id,
-     source_plan_id}`.
-   - Top-of-module docstring updated with the new endpoint
-     contract.
-3. `backend/core/search/timeline.py` —
-   - `_summarise_event` for `planner.cloned` now reads
-     `auto_run` / `auto_approved` and renders one of
-     `· rerun`, `· auto-approved`, or no extra suffix
-     (legacy clones).
-4. `tests/test_planner_rerun.py` (new, 13 cases):
-   - CLI: `clone --approve` flips status; `clone --run`
-     implies approve and produces a `run_result`; bare clone
-     still proposes (compat); unknown plan id surfaces a
-     proper error envelope; argparse rejects an unknown
-     `--mode` choice with exit 2.
-   - HTTP: 404 on unknown plan; happy path returns the new
-     plan + run result with `source_plan_id`; emits
-     `planner.cloned` with both auto flags; an unknown
-     `mode` string falls back to the env default (pinned
-     behaviour); `thread_id` body override binds to the
-     clone.
-   - Timeline summariser renders `· rerun` for
-     `auto_run=true` (and not `auto-approved`), and
-     `· auto-approved` for `auto_approved=true,
-     auto_run=false`.
-
-**Tests**
-
-- `tests/test_planner_rerun.py` — 13 passed.
-- Existing planner CLI + clone suites (`test_planner_cli.py`,
-  `test_planner_clone.py`) — 36 passed (no regression).
-- Full `pytest -q` — **2051 passed in 47s**.
-
-**Cockpit follow-ups**
-
-- Wire the existing "Rerun" button on the plan card to
-  `POST /api/planner/{id}/rerun` instead of the previous
-  three-call flow (clone → approve → run). The button can
-  now show a loading spinner once and surface the
-  `run_result.status` directly.
-- Render the new timeline labels: `· rerun` for one-shot
-  reruns, `· auto-approved` for clone-then-approve flows.
-
----
-
-## 2026-05-01 — Cursor [A] · planner: dedicated plan.run.usage event for billing dashboards
-
-**Summary**
-
-The cost / token rollup for each plan run now ships as its own
-top-level event (`plan.run.usage`), in addition to being
-embedded in the terminal `plan.completed` / `plan.aborted`
-payload (existing behaviour unchanged). This unblocks the
-single-line billing query the cockpit and any meeet.world
-dashboard wants:
-
-```sql
-SELECT * FROM events WHERE kind='plan.run.usage'
-```
-
-…instead of having to walk every terminal event payload and
-parse a nested `usage` block.
-
-**Changes**
-
-1. `backend/core/planner/runner.py` —
-   - Module docstring's events-emitted list now mentions
-     `plan.run.usage` (between `plan.step.completed` and the
-     terminal events).
-   - In `PlanRunner.run`, immediately after the
-     `_compute_run_usage(trace_id=trace_id)` call and before
-     emitting the terminal event, the runner now emits
-     `plan.run.usage` with `plan_id`, `status` (the
-     terminal status that's about to be applied),
-     `parent_trace_id` (plan's birth trace), and the same
-     `usage` block. Always fires — even when no priced model
-     ran — so "ran but emitted nothing" cases stay observable.
-2. `web_extras/routers/planner.py` —
-   `_PLAN_EVENT_KINDS` (the SSE allow-list)
-   includes `plan.run.usage`, so the
-   `GET /api/planner/events` stream picks it up.
-3. `backend/core/search/timeline.py` —
-   `_RELEVANT_EVENT_KINDS` now includes `plan.run.usage`;
-   `_summarise_event` formats it as
-   `plan=<id> · status=<status> · calls=N · tokens=A+B · cost=$X` 
-   when a priced model fired, falling back to `cost=n/a` when
-   `has_priced_models=false`.
-4. `tests/test_planner_runner.py` —
-   `test_run_happy_path_completes_and_emits_events` updated
-   to expect `plan.run.usage` in the kinds-in-order list
-   (between `plan.step.completed` and `plan.completed`).
-5. `tests/test_planner_run_usage_event.py` (new, 8 cases):
-   - `plan.run.usage` fires on completion, with the right
-     payload shape (`plan_id`, `status="completed"`,
-     `parent_trace_id`, `usage`).
-   - Same on abort, with `status="aborted"`.
-   - The `usage` block is identical to what travels on the
-     terminal event (consumers see the same numbers
-     regardless of which event they read).
-   - The event lives on the run's per-run trace, not the
-     plan's birth trace, so trace-scoped queries still work.
-   - Planner SSE allow-list contains the new kind.
-   - Timeline relevant-kinds list contains the new kind.
-   - Timeline summariser renders priced + unpriced cost
-     correctly (`$X.XXXX` vs `n/a`).
-
-**Tests**
-
-- `tests/test_planner_run_usage_event.py` — 8 passed.
-- `tests/test_planner_runner.py` — 19 passed.
-- Full `pytest -q` — **2038 passed in 52s**.
-
-**Cockpit follow-ups**
-
-- Activity stream can now render a single "rollup" pill per
-  run instead of opening the terminal event card to read
-  cost data.
-- Billing dashboard query simplifies to one `kind=` filter.
-
----
-
-## 2026-05-01 — Cursor [A] · tests: unbreak test_release_desktop_workflow after workflow file relocation
-
-**Summary**
-
-PR #4 (`d1984f1`) intentionally moved the release workflow out
-of `.github/workflows/release-desktop-tagged.yml` to the repo
-root (`release-desktop-tagged.yml`) to reset a stuck GitHub
-`workflow_id`. The contract test still hard-coded the old path,
-which dragged the full pytest suite from 2030 green down to
-2024 passed + 5 errors. This patch teaches the test to look at
-the new location first and fall back to the legacy path so old
-branches keep working too.
-
-**Changes**
-
-- `tests/test_release_desktop_workflow.py` — added a
-  `_resolve_workflow_path()` helper that walks
-  `(REPO/release-desktop-tagged.yml,
-    REPO/.github/workflows/release-desktop-tagged.yml)` in
-  order and raises a clear "checked these N paths" error if
-  neither exists. Module docstring updated to explain the
-  relocation.
-
-**Tests**
-
-- `tests/test_release_desktop_workflow.py` — 9 passed.
-- Full `pytest -q` — **2030 passed in 38s** (was 2024 + 5
-  errors before this patch).
-
----
-
-## 2026-05-01 — Cursor [A] · planner: surface trace_id + parent_trace_id on PlanRun history
-
-**Summary**
-
-Cockpit-facing follow-up to PR #109 (per-run trace_id). The
-reconstructor now exposes the per-run `trace_id` *and* the
-plan's birth `parent_trace_id` on every `PlanRun.to_dict()` and
-on the JSON envelope returned by
-`GET /api/planner/{plan_id}/runs`. The cockpit can now:
-
-- deep-link from one run row straight to its trace lane
-  (`trace_id`),
-- group all runs of the same plan under one collapsible node
-  (`parent_trace_id`),
-- pivot from "rerun via clone" output back to the original
-  synthesis trace without an extra API call.
-
-**Changes**
-
-1. `backend/core/planner/history.py` —
-   - `PlanRun` gains a `parent_trace_id: Optional[str]` field
-     (defaults to `None` for legacy events that pre-date PR
-     #109).
-   - `to_dict()` exposes both `trace_id` (per-run, stamped on
-     `plan.run.started`) and `parent_trace_id` (plan's birth
-     trace, copied verbatim from the event payload).
-   - Both `reconstruct_runs` and `reconstruct_runs_async` /
-     `_reduce_rows` now read `parent_trace_id` from the
-     `plan.run.started` payload when constructing a new
-     `PlanRun`.
-2. `tests/test_planner_history_traces.py` (new, 4 cases):
-   - `to_dict()` exposes `trace_id` + `parent_trace_id`.
-   - Legacy `plan.run.started` (no `parent_trace_id` key) →
-     `parent_trace_id=None`, no crash.
-   - Two sibling runs share the same `parent_trace_id` and
-     have distinct per-run `trace_id`s.
-   - HTTP `GET /{plan_id}/runs` envelope surfaces both fields
-     verbatim.
-   - Tests use a `_emit_in_fresh_trace` helper that wraps
-     each emit in its own `trace_scope` so they do not depend
-     on whatever `current_trace()` ContextVar a prior test
-     happens to have left in place.
-
-**Tests**
-
-- `tests/test_planner_history_traces.py` — 4 passed.
-- Full `pytest -q --ignore=tests/test_release_desktop_workflow.py`
-  — **2021 passed in 45s**.
-- `tests/test_release_desktop_workflow.py` is pre-existing red
-  (5 errors) caused by a previous merge that renamed
-  `.github/workflows/release-desktop-tagged.yml`; out of scope
-  for this PR.
-
-**Cockpit follow-ups**
-
-- Render `trace_id` as an inline pill on each run row that
-  links to `/cockpit/trace/<id>` (existing trace viewer).
-- Group consecutive run rows by `parent_trace_id` so the
-  inbox can collapse "all runs of plan X" behind a single
-  expander.
-
----
-
-## 2026-05-01 — Cursor [A] · planner: per-run trace_id (each run gets its own trace, plan trace becomes the parent)
-
-**Summary**
-
-Made every plan run independently observable. Previously
-`PlanRunner` reused the plan's birth `trace_id` for all of its
-runs via `trace_scope(parent=plan.trace_id)`, which meant
-concurrent runs of the same plan (and the rerun-via-clone flow)
-all bled events into a single trace. As a side-effect the per-run
-cost rollup needed a time-window clamp to disambiguate which
-`usage.tokens` events belonged to which run.
-
-Now each run mints a fresh `trace_id` and the plan's birth trace
-travels along as `parent_trace_id` on `plan.run.started` so the
-synthesis ↔ execution link is preserved. The cost rollup query
-becomes a clean trace-scoped SELECT — no time clamp, no off-by-one
-risks at run boundaries.
-
-**Changes**
-
-1. `backend/core/planner/runner.py` —
-   - `PlanRunner.run` now uses `trace_scope()` (no `parent=`) so
-     each invocation gets its own fresh trace id. The original
-     `plan.trace_id` is added to the `plan.run.started` payload
-     as `parent_trace_id`.
-   - The return dict now exposes both `trace_id` (per-run) and
-     `parent_trace_id` (plan birth) so callers can correlate
-     across surfaces.
-   - Updated module docstring to explain the new contract.
-   - `_compute_run_usage(*, trace_id)` lost its `started_at` /
-     `finished_at` parameters — the trace is now sufficient to
-     scope the rollup. Docstring updated to reflect the new
-     semantics.
-2. `backend/core/planner/history.py` — refreshed the module
-   docstring: noted that the runner now mints per-run traces but
-   the reconstructor still groups by event order (works for
-   legacy events and degrades gracefully).
-3. `tests/test_planner_per_run_trace.py` (new, 4 cases):
-   - Two runs of (cloned) twin plans get distinct fresh
-     `trace_id`s and both report the plan's birth trace as
-     `parent_trace_id`.
-   - `plan.run.started` payload carries `parent_trace_id`.
-   - The terminal event (`plan.completed`) for a run shares the
-     trace with its `plan.run.started` (intra-run consistency).
-   - `usage.tokens` events fire on the run's own trace, so the
-     rollup attributes them to the right run with no time-window
-     clamping required.
-4. `tests/test_planner_run_usage.py` —
-   - Updated all `_compute_run_usage` call sites to the new
-     no-`started_at` / no-`finished_at` signature.
-   - Renamed `test_compute_run_usage_clamps_to_time_window` to
-     `test_compute_run_usage_does_not_clamp_by_time_window_anymore`
-     and inverted the assertion: events outside the (former)
-     window are now correctly summed when they share the trace.
-
-**Tests**
-
-- `tests/test_planner_per_run_trace.py` — 4 passed.
-- `tests/test_planner_run_usage.py` — 11 passed.
-- Full planner-related selection (`runner`, `history`, `clone`,
-  `cli`, `sse`, `synthesis`, `thread_timeline`, plus the two
-  above) — 178 passed.
-- Full `pytest -q` — **2026 passed in 44s**.
-
-**Cockpit follow-ups**
-
-- The "rerun" button can now show `trace_id` and `parent_trace_id`
-  side-by-side so operators can pivot from the new run back to
-  the plan's synthesis trace.
-- Activity stream entries can be grouped on `parent_trace_id`
-  to render "all runs of plan X" as a single collapsible
-  section.
-- The cost ledger drawer no longer needs run-window awareness —
-  a `WHERE trace_id=<run_trace>` is now sufficient and matches
-  what `_compute_run_usage` does internally.
-
-**Optional next step**
-
-- Persist the per-run `trace_id` on `PlanRun.to_dict()` so the
-  history endpoint can expose it alongside `started_at` /
-  `finished_at` for cockpit deep-linking.
-
----
-
-## 2026-05-01 — Cursor [A] · planner: clone — rerun a plan without history mutation
-
-**Summary**
-
-A clone-and-relaunch primitive that lets the operator "rerun"
-a finished plan without mutating its terminal status. The
-original keeps its `completed` / `aborted` row, the clone
-enters the inbox at `proposed` so the operator can approve it
-again. Exposes both an HTTP endpoint and a CLI subcommand,
-plumbed into the timeline + SSE allow-lists so the cockpit
-audit lane can render the parent → child relationship.
-
-**Changes**
-
-1. `backend/core/planner/store.py` — new
-   `PlannerStore.clone(plan_id, *, thread_id=None,
-   trace_id=None, goal_override=None)`. Returns a fresh
-   `Plan` with a brand new `id`, `status="proposed"`, fresh
-   timestamps; deep-copies steps via `PlanStep.from_dict(s.to_dict())`
-   so mutating either tuple later doesn't bleed. `goal_override`
-   is `.strip()`-ed to mirror the synthesizer's normalisation.
-   Returns `None` when the source id is unknown.
-2. `web_extras/routers/planner.py` — new
-   `POST /api/planner/{plan_id}/clone`. Body may include
-   `thread_id` (rebind to a different chat) and `goal_override`.
-   Wraps the call in `thread_id_scope` + `trace_scope` so the
-   clone gets a fresh `trace_id` for downstream correlation.
-   Emits `planner.cloned` with `plan_id` (clone), `source_plan_id`
-   (original), `source_status`, `model`, `pack_slug`,
-   `playbook_id`, `step_count`, `thread_id_rebind`,
-   `goal_overridden`. 404s on unknown source ids. Adds the
-   new event kind to `_PLAN_EVENT_KINDS` so the SSE feed
-   picks it up.
-3. `backend/core/planner/cli.py` — new `clone` subcommand:
-   `python -m … clone <plan_id> [--thread-id <id>] [--goal "..."]`.
-   Mirrors the HTTP wiring exactly (same trace scope, same
-   event payload). Added to the global `_DISPATCH` table and
-   the docstring usage block.
-4. `backend/core/search/timeline.py` —
-   `_RELEVANT_EVENT_KINDS` now includes `planner.cloned`;
-   `_summarise_event` formats it as
-   `plan=<new_id> · from=<src_id> · steps=N` with optional
-   ` · thread-rebind` / ` · goal-override` suffixes.
-5. `tests/test_planner_clone.py` (new, 13 cases): store-level
-   clone returns fresh proposed plan with new id and deep-copied
-   steps (original untouched); thread_id override applied;
-   goal_override stripped; unknown plan returns `None`; HTTP
-   happy path returns the new plan + `source_plan_id` and emits
-   `planner.cloned`; HTTP body `thread_id` flips
-   `thread_id_rebind=true`; HTTP body `goal_override` flips
-   `goal_overridden=true`; HTTP 404 envelope; CLI happy path
-   + overrides + 404; timeline summariser produces the
-   expected string with / without override flags.
-
-**Tests**
-
-`pytest -q` → 2022 passed in 44.51s (was 2009; +13 new).
-
-**Follow-ups**
-
-- Cockpit "Rerun" button on the plan card calls
-  `POST /api/planner/{id}/clone` then immediately approves +
-  runs the returned plan id (two-call flow; `clone` itself
-  stays read-mostly so destructive intent is explicit).
-- Optional `clone --approve` CLI flag that chains the new
-  plan into the approved status without an extra subcommand.
-
----
-
-_Showing the most recent 60 of 199 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 212 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._

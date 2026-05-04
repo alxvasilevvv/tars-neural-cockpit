@@ -4,13 +4,15 @@ import { SectionHead } from "@/components/SectionHead";
 import { DomainsCards } from "@/components/DomainsCards";
 import { CornerFrame, StatusLozenge, BarStack } from "@/components/Glyphs";
 import { Waveform } from "@/components/Waveform";
+import { useT, type TKey } from "@/lib/i18n";
 
 interface Pack {
   num: string;
   slug: string;
-  name: string;
-  title: string;
-  bullets: string[];
+  nameKey: TKey;
+  titleKey: TKey;
+  bulletKeys: readonly [TKey, TKey, TKey];
+  /** Schema labels stay tech jargon (BTC · ETH · …) — no i18n needed. */
   schema: string;
   color: string;
 }
@@ -19,12 +21,12 @@ const PACKS: Pack[] = [
   {
     num: "01",
     slug: "traders",
-    name: "Traders",
-    title: "Markets and signals at the speed of a thought.",
-    bullets: [
-      "Live market awareness across exchanges and feeds.",
-      "Signal generation with explainable model votes.",
-      "Risk and portfolio actions guarded by policy.",
+    nameKey: "domains.traders.name",
+    titleKey: "domains.traders.title",
+    bulletKeys: [
+      "domains.traders.b1",
+      "domains.traders.b2",
+      "domains.traders.b3",
     ],
     schema: "BTC · ETH · SOL · NDX",
     color: "#6366F1",
@@ -32,12 +34,12 @@ const PACKS: Pack[] = [
   {
     num: "02",
     slug: "business",
-    name: "Business",
-    title: "A second brain for your operating cadence.",
-    bullets: [
-      "Deals, contacts and revenue across mail and CRM.",
-      "KPI nodes auto-update from your data sources.",
-      "Daily brief composed by the council each morning.",
+    nameKey: "domains.business.name",
+    titleKey: "domains.business.title",
+    bulletKeys: [
+      "domains.business.b1",
+      "domains.business.b2",
+      "domains.business.b3",
     ],
     schema: "CRM · GSHEETS · MAIL · CAL",
     color: "#8B5CF6",
@@ -45,12 +47,12 @@ const PACKS: Pack[] = [
   {
     num: "03",
     slug: "entrepreneur",
-    name: "Entrepreneur",
-    title: "Pipeline, leads and outreach — all in one rhythm.",
-    bullets: [
-      "Pipeline depth, activity and churn tracked live.",
-      "Outreach playbooks tuned to your tone of voice.",
-      "Auto content drafts across IG, TG, WA, email.",
+    nameKey: "domains.entrepreneur.name",
+    titleKey: "domains.entrepreneur.title",
+    bulletKeys: [
+      "domains.entrepreneur.b1",
+      "domains.entrepreneur.b2",
+      "domains.entrepreneur.b3",
     ],
     schema: "PIPELINE · LEADS · CONTENT",
     color: "#06B6D4",
@@ -58,12 +60,12 @@ const PACKS: Pack[] = [
   {
     num: "04",
     slug: "science",
-    name: "Science",
-    title: "From paper pile to citation-aware council.",
-    bullets: [
-      "arXiv, Crossref and Semantic Scholar awareness.",
-      "Equation and dataset graph across your projects.",
-      "Hypothesis trees with model-voted evidence.",
+    nameKey: "domains.science.name",
+    titleKey: "domains.science.title",
+    bulletKeys: [
+      "domains.science.b1",
+      "domains.science.b2",
+      "domains.science.b3",
     ],
     schema: "ARXIV · DATASETS · LATEX",
     color: "#A78BFA",
@@ -73,6 +75,7 @@ const PACKS: Pack[] = [
 export function Domains() {
   const [active, setActive] = useState<string>("traders");
   const pack = PACKS.find((p) => p.slug === active) ?? PACKS[0];
+  const t = useT();
 
   return (
     <section
@@ -81,9 +84,9 @@ export function Domains() {
     >
       <SectionHead
         num="02"
-        tag="PACKS"
-        title="Same core, four crafts."
-        description="Plug-in packs that turn the neural core into a focused tool — traders, business, entrepreneur, science. Hover a node to inspect."
+        tag={t("domains.head.tag")}
+        title={t("domains.head.title")}
+        description={t("domains.head.description")}
       />
 
       <div className="grid grid-cols-1 gap-px overflow-hidden rounded-[14px] border border-line bg-line lg:grid-cols-[1.2fr_1fr]">
@@ -119,7 +122,7 @@ export function Domains() {
                   }}
                 >
                   <span className="opacity-60">{p.num}</span>{" "}
-                  <span className="font-semibold">{p.name}</span>
+                  <span className="font-semibold">{t(p.nameKey)}</span>
                 </button>
               </li>
             ))}
@@ -135,22 +138,22 @@ export function Domains() {
             >
               <header className="mb-3 flex items-baseline gap-3.5 font-mono-tech text-[11px] uppercase tracking-[3px]">
                 <span style={{ color: pack.color }}>{pack.num}</span>
-                <span className="text-ink">{pack.name}</span>
-                <StatusLozenge label="ARMED" tone="accent" className="ml-auto" />
+                <span className="text-ink">{t(pack.nameKey)}</span>
+                <StatusLozenge label={t("domains.armed")} tone="accent" className="ml-auto" />
               </header>
               <h3 className="mb-5 max-w-[28ch] font-display text-[24px] font-medium leading-[1.2] tracking-[-0.01em] text-ink">
-                {pack.title}
+                {t(pack.titleKey)}
               </h3>
               <ul className="mb-6 grid gap-2.5 text-[13.5px] leading-[1.6] text-ink-2">
-                {pack.bullets.map((b, idx) => (
-                  <li key={idx} className="grid grid-cols-[18px_1fr] items-start gap-2.5">
+                {pack.bulletKeys.map((bKey) => (
+                  <li key={bKey} className="grid grid-cols-[18px_1fr] items-start gap-2.5">
                     <span
                       className="mt-0.5 font-mono-tech text-[12px]"
                       style={{ color: pack.color }}
                     >
                       +
                     </span>
-                    <span>{b}</span>
+                    <span>{t(bKey)}</span>
                   </li>
                 ))}
               </ul>
@@ -168,7 +171,7 @@ export function Domains() {
                   height={14}
                   color={pack.color}
                 />
-                <span className="text-ink-2">throughput · normal</span>
+                <span className="text-ink-2">{t("domains.throughput.normal")}</span>
               </div>
             </motion.div>
           </AnimatePresence>

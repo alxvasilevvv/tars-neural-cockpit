@@ -147,4 +147,28 @@ describe("primaryAssetName", () => {
       "TARS_9.1.0_x64_en-US.msi",
     );
   });
+
+  it("intelMacFallbackToArm option swaps Intel dmg for arm64 dmg", () => {
+    expect(
+      primaryAssetName("mac", VERSION, "x64", {
+        intelMacFallbackToArm: true,
+      }),
+    ).toBe("TARS_9.1.0_aarch64.dmg");
+  });
+
+  it("intelMacFallbackToArm has no effect for arm64 macs", () => {
+    expect(
+      primaryAssetName("mac", VERSION, "arm", {
+        intelMacFallbackToArm: true,
+      }),
+    ).toBe("TARS_9.1.0_aarch64.dmg");
+  });
+
+  it("intelMacFallbackToArm has no effect for non-mac OSes", () => {
+    expect(
+      primaryAssetName("linux", VERSION, "x64", {
+        intelMacFallbackToArm: true,
+      }),
+    ).toBe("TARS_9.1.0_amd64.AppImage");
+  });
 });
