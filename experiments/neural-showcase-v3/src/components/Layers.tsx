@@ -11,11 +11,12 @@ import {
   Radio,
 } from "lucide-react";
 import type { LucideIcon } from "lucide-react";
+import { useT, type TKey } from "@/lib/i18n";
 
 interface LayerCard {
-  tag: string;
-  title: string;
-  body: string;
+  tagKey: TKey;
+  titleKey: TKey;
+  bodyKey: TKey;
   Icon: LucideIcon;
   accent?: "accent" | "alert" | "default";
   bars: number[];
@@ -23,46 +24,46 @@ interface LayerCard {
 
 const CARDS: LayerCard[] = [
   {
-    tag: "concept",
-    title: "Knowledge graph",
-    body: "Files, docs and threads embedded into a graph. The concept layer is the spine.",
+    tagKey: "layers.l1.tag",
+    titleKey: "layers.l1.title",
+    bodyKey: "layers.l1.body",
     Icon: Brain,
     accent: "accent",
     bars: [0.3, 0.55, 0.78, 0.45, 0.92, 0.7, 0.6, 0.85],
   },
   {
-    tag: "memory",
-    title: "Long-term recall",
-    body: "Decisions, names, projects pinned to a shell that orbits the concept core.",
+    tagKey: "layers.l2.tag",
+    titleKey: "layers.l2.title",
+    bodyKey: "layers.l2.body",
     Icon: Database,
     bars: [0.5, 0.42, 0.6, 0.7, 0.65, 0.78, 0.82, 0.5],
   },
   {
-    tag: "code",
-    title: "Repo awareness",
-    body: "Codebases linked into the graph as a tight, ordered arm — symbol-aware.",
+    tagKey: "layers.l3.tag",
+    titleKey: "layers.l3.title",
+    bodyKey: "layers.l3.body",
     Icon: GitBranch,
     bars: [0.18, 0.6, 0.55, 0.9, 0.4, 0.62, 0.7, 0.52],
   },
   {
-    tag: "calendar",
-    title: "Time-aware context",
-    body: "Events become time-anchored nodes that fire when relevant.",
+    tagKey: "layers.l4.tag",
+    titleKey: "layers.l4.title",
+    bodyKey: "layers.l4.body",
     Icon: CalendarClock,
     accent: "alert",
     bars: [0.28, 0.7, 0.4, 0.56, 0.6, 0.32, 0.78, 0.48],
   },
   {
-    tag: "mac actions",
-    title: "Hands on the OS",
-    body: "Open, type, click, automate — under explicit policy.",
+    tagKey: "layers.l5.tag",
+    titleKey: "layers.l5.title",
+    bodyKey: "layers.l5.body",
     Icon: MousePointerClick,
     bars: [0.35, 0.45, 0.62, 0.32, 0.7, 0.55, 0.4, 0.62],
   },
   {
-    tag: "voice",
-    title: "Always-on listener",
-    body: "Voice intents threaded through every other layer.",
+    tagKey: "layers.l6.tag",
+    titleKey: "layers.l6.title",
+    bodyKey: "layers.l6.body",
     Icon: Radio,
     accent: "accent",
     bars: [0.5, 0.62, 0.4, 0.78, 0.5, 0.85, 0.55, 0.7],
@@ -78,6 +79,7 @@ const dotColor = (a: LayerCard["accent"]) =>
 
 export function Layers() {
   const ref = useRef<HTMLElement>(null);
+  const t = useT();
   const { scrollYProgress } = useScroll({
     target: ref,
     offset: ["start end", "end start"],
@@ -95,9 +97,9 @@ export function Layers() {
     >
       <SectionHead
         num="01"
-        tag="AWARENESS"
-        title="Six streams, one graph."
-        description="Every signal lands on the core and gets clustered into the graph. No upload — local-first by default."
+        tag={t("layers.head.tag")}
+        title={t("layers.head.title")}
+        description={t("layers.head.description")}
       />
 
       {/* Iso stack — perspective wrapper */}
@@ -108,9 +110,10 @@ export function Layers() {
         <ul className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
           {CARDS.map((c, i) => {
             const depth = (i % 3) * 24 - 12;
+            const tag = t(c.tagKey);
             return (
               <motion.li
-                key={c.tag}
+                key={c.tagKey}
                 initial={{ opacity: 0, y: 32, rotateY: -8 }}
                 whileInView={{ opacity: 1, y: 0, rotateY: 0 }}
                 viewport={{ once: true, margin: "-80px" }}
@@ -158,19 +161,19 @@ export function Layers() {
                     >
                       <c.Icon size={14} strokeWidth={1.5} />
                     </span>
-                    {c.tag}
+                    {tag}
                   </div>
                   <StatusLozenge label={`L${(i + 1).toString().padStart(2, "0")}`} tone="muted" />
                 </div>
 
                 <h3 className="mb-2 font-display text-[19px] font-semibold uppercase tracking-[0.02em] text-ink">
-                  {c.title}
+                  {t(c.titleKey)}
                 </h3>
-                <p className="mb-5 text-[13.5px] leading-[1.65] text-ink-2">{c.body}</p>
+                <p className="mb-5 text-[13.5px] leading-[1.65] text-ink-2">{t(c.bodyKey)}</p>
 
                 {/* Live mini-bars + scan label */}
                 <div className="flex items-end justify-between border-t border-line pt-4 font-mono-tech text-[9.5px] uppercase tracking-[2.4px] text-ink-3">
-                  <span>signal · {c.tag}</span>
+                  <span>{t("layers.signal.prefix")} · {tag}</span>
                   <BarStack
                     values={c.bars}
                     height={20}

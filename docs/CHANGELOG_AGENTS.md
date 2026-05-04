@@ -4,6 +4,66 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-04 — Cursor: audit-5 — full Landing i18n coverage (Layers · Domains · ProofStrip · MeeetSection)
+
+Closed every remaining hard-coded English string on the
+Landing surface. Four large prose-heavy components migrated
+to `useT()`:
+
+- **Layers** (six awareness streams) — `layers.head.{tag,
+  title,description}` + 18 keys for the six cards
+  (`layers.l1..l6.{tag,title,body}`) + `layers.signal.prefix`
+- **Domains** (pack picker) — `domains.head.{tag,title,
+  description}` + `domains.armed` + `domains.throughput.normal`
+  + 16 keys for the four packs (title + 3 bullets each).
+  `domains.<slug>.name` keys reuse the existing entries from
+  the DomainsCards block — single source of truth.
+- **ProofStrip** (count-up stat row) — `proof.aria` +
+  8 keys for the four cells (`proof.s1..s4.{label,caption}`)
+- **MeeetSection** (three meeet.world pillars) —
+  `meeetSection.{eyebrow,title.prefix,subtitle}` + 15 keys
+  for the three pillars (tag, title, body, statNum, statLabel
+  × 3)
+
+**Total: 60 new keys × 2 locales (RU↔EN parity 100%)**.
+
+The parity guard in `i18n.test.ts` would catch any missed
+RU translation at CI time.
+
+**Files**
+- modify: `experiments/neural-showcase-v3/src/lib/i18n.tsx`
+  (+60 EN, +60 RU)
+- modify: `experiments/neural-showcase-v3/src/components/Layers.tsx`
+  (CARDS now uses `tagKey`/`titleKey`/`bodyKey` discriminator;
+  signal label and section head all from `t()`)
+- modify: `experiments/neural-showcase-v3/src/components/Domains.tsx`
+  (PACKS uses `nameKey`/`titleKey`/`bulletKeys` discriminator;
+  picker tabs, ARMED lozenge, throughput label, section head
+  all from `t()`)
+- modify: `experiments/neural-showcase-v3/src/components/ProofStrip.tsx`
+  (STATS uses `labelKey`/`captionKey` discriminator; aria
+  label from `t()`)
+- modify: `experiments/neural-showcase-v3/src/components/MeeetSection.tsx`
+  (PILLARS uses `tagKey`/`titleKey`/`bodyKey`/`statNumKey`/
+  `statLabelKey` discriminator; eyebrow + gradient title +
+  subtitle all from `t()`)
+
+**Verification**
+- `pnpm typecheck` (v3): clean
+- `pnpm test --run` (v3): **368 passed** / 26 files (parity
+  guard green on 60 new bilingual keys)
+- `pnpm build` (v3): clean
+
+**Coverage status after audit-5**: every above-the-fold and
+mid-page Landing section runs through `useT()` — Hero,
+TrustStrip, ProofStrip, MeetTars, Rail, Layers, Steps,
+Domains, CockpitLive, MeeetSection, Pricing, Waitlist, FAQ,
+Footer, install, cockpit gate, locale switcher. Remaining
+non-translated copy is in deliberately code-shaped surfaces
+(BarStack labels like `BTC · ETH · SOL · NDX`, terminal
+chrome `localhost:8765`, level lozenges `L01..L06`) that
+benefit from staying universal across locales.
+
 ## 2026-05-04 — Cursor: audit-4 — Landing i18n coverage (Steps · Rail · CockpitLive)
 
 Closed the last visible gap from earlier audits: three of the

@@ -4,6 +4,66 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-04 — Cursor: audit-5 — full Landing i18n coverage (Layers · Domains · ProofStrip · MeeetSection)
+
+Closed every remaining hard-coded English string on the
+Landing surface. Four large prose-heavy components migrated
+to `useT()`:
+
+- **Layers** (six awareness streams) — `layers.head.{tag,
+  title,description}` + 18 keys for the six cards
+  (`layers.l1..l6.{tag,title,body}`) + `layers.signal.prefix`
+- **Domains** (pack picker) — `domains.head.{tag,title,
+  description}` + `domains.armed` + `domains.throughput.normal`
+  + 16 keys for the four packs (title + 3 bullets each).
+  `domains.<slug>.name` keys reuse the existing entries from
+  the DomainsCards block — single source of truth.
+- **ProofStrip** (count-up stat row) — `proof.aria` +
+  8 keys for the four cells (`proof.s1..s4.{label,caption}`)
+- **MeeetSection** (three meeet.world pillars) —
+  `meeetSection.{eyebrow,title.prefix,subtitle}` + 15 keys
+  for the three pillars (tag, title, body, statNum, statLabel
+  × 3)
+
+**Total: 60 new keys × 2 locales (RU↔EN parity 100%)**.
+
+The parity guard in `i18n.test.ts` would catch any missed
+RU translation at CI time.
+
+**Files**
+- modify: `experiments/neural-showcase-v3/src/lib/i18n.tsx`
+  (+60 EN, +60 RU)
+- modify: `experiments/neural-showcase-v3/src/components/Layers.tsx`
+  (CARDS now uses `tagKey`/`titleKey`/`bodyKey` discriminator;
+  signal label and section head all from `t()`)
+- modify: `experiments/neural-showcase-v3/src/components/Domains.tsx`
+  (PACKS uses `nameKey`/`titleKey`/`bulletKeys` discriminator;
+  picker tabs, ARMED lozenge, throughput label, section head
+  all from `t()`)
+- modify: `experiments/neural-showcase-v3/src/components/ProofStrip.tsx`
+  (STATS uses `labelKey`/`captionKey` discriminator; aria
+  label from `t()`)
+- modify: `experiments/neural-showcase-v3/src/components/MeeetSection.tsx`
+  (PILLARS uses `tagKey`/`titleKey`/`bodyKey`/`statNumKey`/
+  `statLabelKey` discriminator; eyebrow + gradient title +
+  subtitle all from `t()`)
+
+**Verification**
+- `pnpm typecheck` (v3): clean
+- `pnpm test --run` (v3): **368 passed** / 26 files (parity
+  guard green on 60 new bilingual keys)
+- `pnpm build` (v3): clean
+
+**Coverage status after audit-5**: every above-the-fold and
+mid-page Landing section runs through `useT()` — Hero,
+TrustStrip, ProofStrip, MeetTars, Rail, Layers, Steps,
+Domains, CockpitLive, MeeetSection, Pricing, Waitlist, FAQ,
+Footer, install, cockpit gate, locale switcher. Remaining
+non-translated copy is in deliberately code-shaped surfaces
+(BarStack labels like `BTC · ETH · SOL · NDX`, terminal
+chrome `localhost:8765`, level lozenges `L01..L06`) that
+benefit from staying universal across locales.
+
 ## 2026-05-04 — Cursor: audit-4 — Landing i18n coverage (Steps · Rail · CockpitLive)
 
 Closed the last visible gap from earlier audits: three of the
@@ -3472,95 +3532,6 @@ permissive fallback for invalid input.
   load, scroll the selected row into view in the left rail so the
   deep-linked plan is immediately visible (small QoL fix).
 
-## 2026-05-01 — Cursor [A] · cockpit: per-step live ticking in PlanFullPanel
-
-**Summary**
-
-Top-priority follow-up from PR #118. The plan panel's step list
-now ticks live during a run: every `plan.step.requested` /
-`plan.step.allowed` / `plan.step.completed` SSE frame flips the
-matching row's status badge in place — no extra round-trip, no
-flash, no out-of-order rendering.
-
-The step-state reducer is its own module (`lib/plannerSteps.ts`)
-and pure / DOM-free, so the contract with the backend's step
-event payloads can be pinned without a React tree. The reducer
-honours three subtle rules:
-
-1. **Trace scoping** — only events whose `trace_id` matches the
-   most recent `plan.run.started` we've seen are applied. Stray
-   events from older reruns whose terminals are still flushing
-   are dropped on the floor; the panel always shows the freshest
-   run's progress.
-2. **Resume idempotency** — re-delivery of the same start frame
-   (same `trace_id`) after a `Last-Event-ID` reconnect does not
-   reset mid-run progress. Test pins this with referential equality.
-3. **Skipped > blocked > failed** — terminal states fall through a
-   precedence ladder so a step that is `{skipped:true, ok:false,
-   blocked:true}` (which the runner can emit when a previous step
-   aborts the run) renders as "skipped", not "blocked" or
-   "failed".
-
-The panel seeds an "all pending" snapshot the moment the plan
-envelope arrives, so the rows render immediately instead of
-waiting for the first SSE frame; once `plan.run.started` lands
-the snapshot is keyed to that trace.
-
-Status badges use the same tone palette as the rest of the
-cockpit (amber for in-flight via `pulse`, success for ok, alert
-for blocked / failed, muted for pending / skipped). Latency on
-completed steps renders next to the action via `formatLatencyMs`.
-
-**Changes**
-
-1. `experiments/neural-showcase-v3/src/lib/plannerSteps.ts`
-   (new) — pure reducer, snapshot type, helpers
-   (`pendingSnapshot`, `applyEvent`, `snapshotInFlight`,
-   `stepStatusLabel`).
-2. `experiments/neural-showcase-v3/src/lib/plannerSteps.test.ts`
-   (new, 20 cases) — every transition pinned:
-   - `pendingSnapshot` seeds + empty case.
-   - `plan.run.started`: trace-lock, redelivery no-op
-     (referential equality), fresh-trace mid-flight reset.
-   - Scoping: drops events from a foreign trace, drops
-     payloads with no `step_id`, drops cosmetic kinds.
-   - `plan.step.requested`: status flip + parallel flag.
-   - `plan.step.allowed`: blocked-eager (`allowed=false`) and
-     allowed-tooltip (`allowed=true`) paths.
-   - `plan.step.completed`: ok / failed (with error) /
-     blocked-wins-over-failed / skipped-wins-over-everything /
-     non-numeric `took_ms` falls back to undefined.
-   - `snapshotInFlight`: true while requested, false on
-     completion, false on fresh pending.
-   - `stepStatusLabel`: short label for every status.
-3. `experiments/neural-showcase-v3/src/components/PlanFullPanel.tsx`
-   - `useState<StepLiveSnapshot>` seeded from the plan envelope.
-   - SSE callback now feeds step-event kinds through the
-     reducer in addition to the existing `REFETCH_KINDS`
-     refresh trigger.
-   - `Steps` sub-renderer rewritten to take the snapshot and
-     render per-step badges + live latency. Header carries an
-     amber "live · run in flight" lozenge while
-     `snapshotInFlight(snapshot)` is true.
-
-**Tests**
-
-- `pnpm vitest run` — **140 passed (12 files)**, incl. 20 new
-  step-reducer cases.
-- `pnpm tsc --noEmit` — clean.
-- `pnpm vite build` — clean.
-- `pytest -q` — **2080 passed in 40s** (no Python deltas).
-
-**Cockpit follow-ups**
-
-- URL-state sync for the `<Planner />` filter strip
-  (`?status=running&q=…`) so operators can deep-link to a
-  view; mirror the selected `plan_id` in the path so a refresh
-  stays put.
-- Right-rail entrypoint from the cockpit chat thread (open the
-  panel inline when the agent proposes a plan) — the next
-  obvious operator workflow.
-
 ---
 
-_Showing the most recent 60 of 210 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 211 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._

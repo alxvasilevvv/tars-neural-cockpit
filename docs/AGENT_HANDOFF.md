@@ -3,6 +3,22 @@
 Pick this up if you are continuing the work in a fresh chat. Read this file
 plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 
+> **2026-05-04 20:20 — Audit-5 — full Landing i18n.**
+> Closed every remaining hard-coded English string on the Landing
+> surface. Four prose-heavy components (Layers, Domains, ProofStrip,
+> MeeetSection) migrated to `useT()` with **60 new keys × 2
+> locales** (RU↔EN parity 100%, parity guard pinned).
+>
+> **Total i18n today (audit-1 + audit-4 + audit-5)**: 198 new
+> bilingual keys, every Landing section translated. Remaining
+> non-translated copy is in deliberately code-shaped surfaces
+> (terminal chrome `localhost:8765`, BarStack tickers
+> `BTC · ETH · SOL`, layer lozenges `L01..L06`) that read
+> identically across locales.
+>
+> Verification: pnpm typecheck clean, vitest **368 passed** /
+> 26 files, parity guard green, production build clean.
+>
 > **2026-05-04 20:10 — Audit-4 i18n coverage pass.**
 > Closed the last visible Landing-page i18n gap. Three of the
 > loudest above-the-fold sections (Steps, Rail, CockpitLive)
