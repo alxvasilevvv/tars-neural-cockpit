@@ -3,15 +3,45 @@
 Pick this up if you are continuing the work in a fresh chat. Read this file
 plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 
-> **2026-05-04 15:54 — Lovable repo billing blocker RESOLVED.** Operator
-> paid GH Actions billing. All 5 workflows in
-> `alxvasilevvv/meeet-solana-state-941a6045` re-enabled and validated by
-> a manual `workflow_dispatch` of `Edge Functions Type Check` (run
+> **2026-05-04 16:30 — Lovable post-refactor checkpoint.** Sister repo
+> `alxvasilevvv/meeet-solana-state-941a6045` is fully healthy after the
+> morning's 3-commit refactor (split Developer.tsx → DeveloperPortal +
+> DashboardApiKeys + meeetExternalApi helper; parametrize SDK URLs via
+> env; new `mst_<64 hex>` API key format aligned across api-keys and
+> generate-api-key edge functions). Forward-only fix landed too:
+> migration `20260504160500_fix_academy_pro_api_developer_key_format.sql`
+> updates the Academy module `pro-api-developer` content_md so the
+> `mst_…` prefix matches what new users actually see in the dashboard.
+> Original seed migration `20260418143829_*.sql` also patched at the
+> source line so fresh database init lands the corrected docstring.
+>
+> **TARS itself green:** `pytest -q` → 2315 passed / 1 skipped /
+> 2 xfailed (44s); cockpit `npm run typecheck` clean; cockpit vitest
+> 335/335 passed. Identical to the launch-ready snapshot below.
+>
+> **Known follow-ups (not blocking, captured for next pickup):**
+> - Lovable: B-001 dist guard workflow has path filters
+>   (`dist/**`, `public/_redirects`, `index.html`) so it didn't trigger
+>   on our developer/SDK/edge-function refactor. That is by design but
+>   means dist-impacting future PRs have to touch one of those paths or
+>   call the workflow via `workflow_dispatch`.
+> - Lovable: PR #33 (claude-qa, Supabase SDK unification across 161
+>   files) sits as DRAFT since 2026-05-02 — needs a triage decision
+>   (revive vs close).
+> - Lovable: `supabase/functions/tg-*` carry ~600 ESLint errors of
+>   `@typescript-eslint/no-explicit-any` legacy debt. Pre-existing,
+>   independent of any Cursor-lane work; addressable as a typed-cleanup
+>   sprint when the schedule allows.
+>
+> **Earlier today (resolved, kept for trace):**
+> Operator paid GH Actions billing this afternoon. All 5 workflows in
+> `meeet-solana-state-941a6045` re-enabled and validated by a manual
+> `workflow_dispatch` of `Edge Functions Type Check` (run
 > `25310042203`, ✓ success). 3 commits landed on that repo's main
-> (`05c57827` split Developer.tsx, `d62a5433` parametrize SDK URLs,
-> `e531fb0f` mst_ API key flow), CI green on all 3 push-triggered runs.
-> LaunchAgent + `MORNING_TODO_2026-05-04.md` cleaned up. TARS itself
-> remains untouched — see entry below for the launch-ready snapshot.
+> (`05c57827`, `d62a5433`, `e531fb0f`), CI green on all 3
+> push-triggered runs (`Unit Tests` `25310235104`, `RLS Integration
+> Tests` `25310235113`, `Edge Functions Type Check` `25310235108`).
+> LaunchAgent + `MORNING_TODO_2026-05-04.md` cleaned up.
 
 > **2026-05-04 LAUNCH-READY snapshot.** `tars.meeet.world` is live
 > through Cloudflare Pages **Git integration** (project
