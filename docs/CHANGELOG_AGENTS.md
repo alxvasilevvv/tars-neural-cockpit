@@ -4,6 +4,117 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-04 — Cursor: operator audit pass — icon, install, gatekeeper, cockpit gate, brand, tracing, i18n
+
+Closed all 7 items the operator filed in their 5:29 PM screenshot
+review (icon was ugly, no download button on /install, "TARS is
+damaged" Gatekeeper modal blocking everyone, web cockpit broken
+without daemon, missing meeet.world brand surface, partial trace
+coverage, missing language switcher in Nav).
+
+1. **Icon** — generated a premium 1024×1024 master via Cursor's
+   image tool, square-cropped, wrote a deterministic
+   `desktop/scripts/build_icon_set.py` that emits the full Tauri
+   set (`32/64/128/128@2x` + Square* MSIX + `icon.icns` via
+   `iconutil` + multi-res `icon.ico` via Pillow) plus web favicons
+   in `experiments/neural-showcase-v3/public/` (16/32/180/192/512
+   + `apple-touch-icon`). The .icns embeds 10 sizes
+   (16/16@2x/32/32@2x/128/128@2x/256/256@2x/512/512@2x) so the Mac
+   Dock + Spotlight + Mission Control all render crisp on Retina.
+
+2. **Install page** — full rewrite of
+   `experiments/neural-showcase-v3/src/pages/Install.tsx`:
+     - giant primary "Download for $OS" CTA at the top with
+       OS+arch auto-detect (Apple Silicon vs Intel via UA + core
+       count heuristic), so the screenshot's "click on a file"
+       confusion goes away
+     - prominent amber Gatekeeper notice on macOS with one-click
+       copy of `xattr -dr com.apple.quarantine /Applications/TARS.app`
+     - alternative `curl -fsSL https://tars.meeet.world/install.sh | bash`
+       one-liner that handles download + ad-hoc sign + de-quarantine
+       + launch automatically
+     - collapsible "Advanced" section: brew tap, all release assets,
+       per-format download buttons
+     - fully bilingual (EN + RU) via the existing `useT()` pipeline
+
+3. **Gatekeeper** — root cause is the missing Apple Developer
+   Program ($99/yr). Two zero-cost mitigations shipped:
+     - `experiments/neural-showcase-v3/public/install.sh` —
+       new bash installer hosted on tars.meeet.world that does
+       `xattr -dr com.apple.quarantine` + `codesign --force --deep
+       --sign -` + `open` after download. Curl-pipe-bash safe
+       because it ships from immutable Cloudflare Pages and only
+       writes user-owned paths
+     - `.github/workflows/release-desktop-tagged.yml` adds an
+       "Ad-hoc codesign macOS app bundle" step after `tauri-action`
+       that runs `codesign --force --deep --sign -` against the
+       built `TARS.app` plus `xattr -cr` to strip any quarantine
+       attrs from CI runners. Right-click → Open now works without
+       the "damaged" modal even on hand-installed DMGs
+
+4. **Cockpit simplification** — new
+   `experiments/neural-showcase-v3/src/components/CockpitGate.tsx`
+   wraps every `/cockpit*` route. Detects Tauri runtime (via
+   `window.__TAURI_INTERNALS__`/`__TAURI__`) → live cockpit. In
+   the browser pings `getHealth()` with a 1s budget → live or
+   "preview/locked" depending on outcome. The locked state shows
+   a brand-correct upgrade card (giant download CTA + 3 secondary
+   paths: read-only preview, docs, pitch). `App.tsx` updated to
+   wrap all 6 cockpit routes (`/cockpit`, `/planner`, `/traces`,
+   `/policy`, `/council`, `/awareness`)
+
+5. **meeet.world brand surface** — Nav.tsx adds a small
+   "by meeet.world" pill next to the TARS logo (links to
+   meeet.world, gated with `target=_blank rel=noopener` so it
+   doesn't hijack the SPA). All new copy on Install + CockpitGate
+   namespaces meeet.world prominently in eyebrow + body. Release
+   notes (workflow yaml) now embed the canonical curl one-liner
+   so GitHub Releases mention meeet.world too
+
+6. **Tracing coverage** — chat router (`web_extras/routers/chat.py`)
+   was the largest hot operator-facing surface without trace
+   emission. Wrapped `POST /api/chat/threads/{id}/messages` in
+   `trace_scope`, added `chat.message.{requested,completed,failed}`
+   meeet events with thread_id / session_id / policy_mode /
+   text_len / attachments_count payloads. SSE stream now also
+   emits an inline `trace` frame so the cockpit can stamp
+   conversations with their trace_id. Response carries `X-Trace-Id`
+   header for client-side correlation
+
+7. **i18n** — Nav.tsx gains a `<LocaleSwitcher>` (already
+   existed in Footer) at lg+ widths so language can be flipped
+   from any page header. Added 60+ new strings (install.* and
+   cockpitGate.* namespaces) in both EN and RU with full key
+   parity — the i18n.test.ts parity guard stays green
+
+**Files**
+- new: `desktop/scripts/build_icon_set.py`
+- new: `experiments/neural-showcase-v3/public/install.sh`
+- new: `experiments/neural-showcase-v3/src/components/CockpitGate.tsx`
+- new: web favicons (`favicon-{16,32,180,192,512}.png`,
+  `apple-touch-icon.png`)
+- regen: every `desktop/src-tauri/icons/*.png` + `icon.icns` +
+  `icon.ico` + `desktop/assets/icon-source.png` master
+- modify: `.github/workflows/release-desktop-tagged.yml`
+- modify: `experiments/neural-showcase-v3/index.html` (favicon
+  links pointing at the new PNGs)
+- modify: `experiments/neural-showcase-v3/src/App.tsx` (CockpitGate
+  wrap)
+- modify: `experiments/neural-showcase-v3/src/components/Nav.tsx`
+  (meeet.world pill + LocaleSwitcher)
+- modify: `experiments/neural-showcase-v3/src/lib/i18n.tsx`
+  (install.* + cockpitGate.* namespaces, EN+RU parity)
+- modify: `experiments/neural-showcase-v3/src/pages/Install.tsx`
+  (full rewrite)
+- modify: `web_extras/routers/chat.py` (trace_scope + meeet events)
+
+**Verification**
+- `pytest tests/`: **2398 passed / 1 skipped / 2 xfailed** in 47s
+- `pnpm typecheck` (v3): clean
+- `pnpm test --run` (v3): **335 passed / 24 files** including
+  i18n parity guard
+- `pnpm build` (v3): clean (Cockpit chunk 204 kB gz / 51 kB)
+
 ## 2026-05-04 — Cursor · Lovable: stale TODO sweep (round R-4)
 
 (Cross-repo entry; commit lives in

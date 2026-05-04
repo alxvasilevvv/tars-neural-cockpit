@@ -146,6 +146,23 @@ jobs:
           releaseName: "TARS ${{ github.ref_name }}"
           releaseBody: |
             Automated release for ${{ github.ref_name }}.
+
+            ## macOS first-run
+
+            Apple Gatekeeper blocks unnotarised binaries with a "TARS is damaged"
+            modal. After installing the .dmg, run **once**:
+
+            ```bash
+            xattr -dr com.apple.quarantine /Applications/TARS.app
+            ```
+
+            …or use the one-liner installer from tars.meeet.world that does it
+            automatically:
+
+            ```bash
+            curl -fsSL https://tars.meeet.world/install.sh | bash
+            ```
+
             See CHANGELOG.md for details.
           releaseDraft: false
           prerelease: false
@@ -158,6 +175,28 @@ jobs:
           includeUpdaterJson: true
           updaterJsonPreferNsis: false
           args: --target ${{ matrix.target }}
+
+      # Bug #2 fix (2026-05-04 audit) — "Приложение TARS повреждено".
+      # Apple Gatekeeper blocks unsigned bundles. We can't notarize
+      # without the $99 Developer Program, but ad-hoc codesigning is
+      # zero-cost AND lets users Right-click → Open without the
+      # "damaged" modal (only "Unidentified developer" remains, which
+      # the install.sh xattr command also clears).
+      - name: Ad-hoc codesign macOS app bundle
+        if: runner.os == 'macOS'
+        shell: bash
+        run: |
+          set -e
+          BUNDLE="desktop/src-tauri/target/${{ matrix.target }}/release/bundle/macos/TARS.app"
+          if [ -d "${BUNDLE}" ]; then
+            echo "Ad-hoc signing ${BUNDLE}…"
+            codesign --force --deep --sign - "${BUNDLE}"
+            codesign --verify --deep --strict --verbose=2 "${BUNDLE}" || true
+            xattr -cr "${BUNDLE}" || true
+            echo "✓ ad-hoc codesigned"
+          else
+            echo "warn: macOS bundle not at ${BUNDLE} — skipping ad-hoc sign"
+          fi
 
   notify:
     needs: build

@@ -3,6 +3,7 @@ import { Suspense, lazy, useEffect } from "react";
 import { trackPageView } from "@/lib/analytics";
 import { AnimatePresence, motion } from "framer-motion";
 import { Brackets } from "@/components/Brackets";
+import { CockpitGate } from "@/components/CockpitGate";
 import { Nav } from "@/components/Nav";
 import { Atmosphere } from "@/components/Atmosphere";
 import { MagneticCursor } from "@/components/MagneticCursor";
@@ -135,49 +136,61 @@ function AppShell() {
             <Route
               path="/cockpit"
               element={
-                <Suspense fallback={<RouteSkeleton variant="cockpit" />}>
-                  <Cockpit />
-                </Suspense>
+                <CockpitGate>
+                  <Suspense fallback={<RouteSkeleton variant="cockpit" />}>
+                    <Cockpit />
+                  </Suspense>
+                </CockpitGate>
               }
             />
             <Route
               path="/cockpit/planner"
               element={
-                <Suspense fallback={<RouteSkeleton variant="cockpit" />}>
-                  <Planner />
-                </Suspense>
+                <CockpitGate>
+                  <Suspense fallback={<RouteSkeleton variant="cockpit" />}>
+                    <Planner />
+                  </Suspense>
+                </CockpitGate>
               }
             />
             <Route
               path="/cockpit/traces"
               element={
-                <Suspense fallback={<RouteSkeleton variant="cockpit" />}>
-                  <Traces />
-                </Suspense>
+                <CockpitGate>
+                  <Suspense fallback={<RouteSkeleton variant="cockpit" />}>
+                    <Traces />
+                  </Suspense>
+                </CockpitGate>
               }
             />
             <Route
               path="/cockpit/policy"
               element={
-                <Suspense fallback={<RouteSkeleton variant="cockpit" />}>
-                  <Policy />
-                </Suspense>
+                <CockpitGate>
+                  <Suspense fallback={<RouteSkeleton variant="cockpit" />}>
+                    <Policy />
+                  </Suspense>
+                </CockpitGate>
               }
             />
             <Route
               path="/cockpit/council"
               element={
-                <Suspense fallback={<RouteSkeleton variant="cockpit" />}>
-                  <Council />
-                </Suspense>
+                <CockpitGate>
+                  <Suspense fallback={<RouteSkeleton variant="cockpit" />}>
+                    <Council />
+                  </Suspense>
+                </CockpitGate>
               }
             />
             <Route
               path="/cockpit/awareness"
               element={
-                <Suspense fallback={<RouteSkeleton variant="cockpit" />}>
-                  <Awareness />
-                </Suspense>
+                <CockpitGate>
+                  <Suspense fallback={<RouteSkeleton variant="cockpit" />}>
+                    <Awareness />
+                  </Suspense>
+                </CockpitGate>
               }
             />
             <Route

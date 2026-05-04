@@ -71,6 +71,7 @@ from backend.core.chat import (
     get_chat_store,
 )
 from backend.core.chat.orchestrator import ChatOrchestrator
+from backend.core.meeet import get_client as get_meeet_client, new_trace_id, trace_scope
 from backend.core.policy import PolicyMode, resolve_mode
 from backend.core.voice.personas import iter_personas
 from web_extras.entitlements_gate import require_cloud_budget
@@ -264,22 +265,51 @@ async def post_message(
 
     orchestrator = ChatOrchestrator()
 
+    # Bug audit (2026-05-04) — chat is a high-value operator surface
+    # but was not emitting meeet trace events. Wrap the SSE generator
+    # in a trace_scope so every assistant turn flows through the
+    # meeet bridge with chat.message.{requested,completed,failed}.
+    parent_trace = (x_meeet_trace_id or "").strip() or None
+    trace_id = parent_trace or new_trace_id()
+    meeet = get_meeet_client()
+    meeet_payload_base: dict[str, Any] = {
+        "thread_id": thread_id,
+        "session_id": x_tars_session_id,
+        "policy_mode": mode.value if hasattr(mode, "value") else str(mode),
+        "text_len": len(text),
+        "attachments": len(attachments),
+    }
+
     async def _generate():
-        # SSE handshake: emit a small comment so curl/EventSource open
-        # the connection promptly even before the voice yields.
-        yield ": stream-open\n\n"
-        try:
-            async for event in orchestrator.post_message(
-                thread_id,
-                text,
-                session_id=x_tars_session_id,
-                attachments=attachments,
-                policy_mode=mode,
-            ):
-                yield _encode_sse(event.kind, event.data)
-        except Exception as exc:  # never crash the SSE pipe
-            yield _encode_sse("error", {"error": str(exc)})
-        yield _encode_sse("stream.closed", {"thread_id": thread_id})
+        with trace_scope(trace_id):
+            await meeet.emit("chat.message.requested", meeet_payload_base)
+            yield ": stream-open\n\n"
+            yield _encode_sse("trace", {"trace_id": trace_id})
+            event_count = 0
+            try:
+                async for event in orchestrator.post_message(
+                    thread_id,
+                    text,
+                    session_id=x_tars_session_id,
+                    attachments=attachments,
+                    policy_mode=mode,
+                ):
+                    event_count += 1
+                    yield _encode_sse(event.kind, event.data)
+                await meeet.emit(
+                    "chat.message.completed",
+                    {**meeet_payload_base, "events": event_count},
+                )
+            except Exception as exc:  # never crash the SSE pipe
+                yield _encode_sse("error", {"error": str(exc)})
+                await meeet.emit(
+                    "chat.message.failed",
+                    {**meeet_payload_base, "error": str(exc)[:200]},
+                )
+            yield _encode_sse(
+                "stream.closed",
+                {"thread_id": thread_id, "trace_id": trace_id},
+            )
 
     return StreamingResponse(
         _generate(),
@@ -287,6 +317,7 @@ async def post_message(
         headers={
             "Cache-Control": "no-cache, no-transform",
             "X-Accel-Buffering": "no",
+            "X-Trace-Id": trace_id,
         },
     )
 

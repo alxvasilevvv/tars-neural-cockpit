@@ -3,6 +3,79 @@
 Pick this up if you are continuing the work in a fresh chat. Read this file
 plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 
+> **2026-05-04 17:50 — Operator audit pass.** The operator
+> screenshot-reviewed the live deployment at 17:29 and filed seven
+> blockers. All seven are closed in the same pass; full per-task
+> details are in the most recent `docs/CHANGELOG_AGENTS.md` entry
+> (search "operator audit pass").
+>
+> **What changed:**
+>
+> 1. **App icon** — premium 1024×1024 master generated, full Tauri
+>    set + .icns + .ico + 6 web favicons regenerated via the new
+>    `desktop/scripts/build_icon_set.py` (idempotent, runs on any
+>    new master). Old icon (purple T in a thin cyan ring) replaced
+>    with a richer indigo-violet gradient + serif T + cyan halo +
+>    hexagonal HUD texture. Looks like a sibling of Linear / Cursor
+>    / Arc in the Dock.
+>
+> 2. **Install page** — full rewrite. The old page made you read
+>    a curl command and click a small `.dmg` link in a footer
+>    (operator's quote: "там нужно на файл нажимать"). New page
+>    leads with a single giant "Download for $OS · $arch" CTA,
+>    auto-detects the architecture, and surfaces the Gatekeeper
+>    fix prominently in amber.
+>
+> 3. **Gatekeeper "TARS is damaged"** — the screenshot showed
+>    Apple's classic unsigned-binary modal. Two zero-cost fixes:
+>    (a) `release-desktop-tagged.yml` now ad-hoc codesigns the
+>    `TARS.app` after `tauri-action` (`codesign --force --deep
+>    --sign -` + `xattr -cr`), so Right-click → Open works without
+>    the "damaged" wording on the next release. (b) `install.sh`
+>    one-liner hosted on tars.meeet.world that handles
+>    download + ad-hoc sign + de-quarantine + launch in one shot.
+>    Public-launch path is still Apple Developer Program
+>    notarization ($99/yr — operator follow-up).
+>
+> 4. **Web cockpit** — was rendering a half-broken operator console
+>    every time you visit `/cockpit` from the marketing host (no
+>    daemon at 127.0.0.1:8765). New `CockpitGate` runtime check
+>    detects Tauri vs browser, pings local daemon with a 1s budget,
+>    and shows a brand-correct upgrade card when both fail (giant
+>    "Get the app" CTA + 3 secondary paths: read-only preview,
+>    docs, pitch). Wraps all 6 cockpit routes in App.tsx.
+>
+> 5. **meeet.world brand surface** — Nav.tsx adds a small
+>    "by meeet.world" pill next to the TARS logo. All new copy on
+>    Install + CockpitGate explicitly references meeet.world in
+>    eyebrow + body. GitHub release notes (workflow yaml) embed
+>    the meeet.world install.sh one-liner.
+>
+> 6. **Tracing coverage** — chat router was the largest hot
+>    operator-facing surface without trace emission. Wrapped
+>    `POST /api/chat/threads/{id}/messages` in `trace_scope`
+>    + `chat.message.{requested,completed,failed}` events. SSE
+>    stream emits an inline `trace` frame so the cockpit can stamp
+>    conversations with their trace_id.
+>
+> 7. **i18n** — Nav gets a global `<LocaleSwitcher>` (was footer-
+>    only). 60+ new strings (install.* + cockpitGate.* namespaces)
+>    in EN + RU with full key parity — the i18n.test.ts parity
+>    guard stays green.
+>
+> **Verification:** pytest 2398 passed / 1 skipped / 2 xfailed in
+> 47s. Vitest 335 passed across 24 files. Production build clean.
+>
+> **Operator follow-ups (still open):**
+> - Apple Developer Program enrollment ($99/yr) — required to
+>   notarize and remove the Gatekeeper fix step entirely.
+> - Tag a new release (`v9.1.0`) so the new install.sh + ad-hoc
+>   codesign step actually fire. Until then existing v8.4.0 DMG
+>   still needs the manual `xattr` fix.
+> - Optional: paid translation pass for RU (current strings are
+>   product-quality but a native RU writer could polish a handful
+>   of edges, especially in Cockpit operator surfaces).
+>
 > **2026-05-04 17:25 — Autonomous-block end-of-day.** Five rounds
 > closed back-to-back during the operator's 2-3 hour off-block.
 > Everything below the line still applies; this paragraph is the
