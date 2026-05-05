@@ -16,6 +16,7 @@ import {
   type JumpHit,
   type JumpHitKind,
 } from "@/lib/search";
+import { useFocusTrap } from "@/lib/useFocusTrap";
 
 function JumpKindBadge({ kind }: { kind: JumpHitKind }) {
   const tone =
@@ -52,10 +53,14 @@ export function JumpPalette() {
   const [error, setError] = useState<string | null>(null);
   const [activeIdx, setActiveIdx] = useState(0);
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const dialogRef = useRef<HTMLDivElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const reqToken = useRef(0);
 
   useGlobalShortcut("j", () => setOpen((p) => !p));
+
+  // WCAG 2.1.2 — Tab must not escape to background while open.
+  useFocusTrap(dialogRef, open);
 
   const close = useCallback(() => setOpen(false), []);
 
@@ -175,9 +180,11 @@ export function JumpPalette() {
 
   return (
     <motion.div
+      ref={dialogRef}
       role="dialog"
       aria-modal="true"
       aria-label="jump"
+      tabIndex={-1}
       onKeyDown={onKeyDown}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}

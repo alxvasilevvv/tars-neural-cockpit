@@ -4,6 +4,27 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-05 — Claude · Wave 58: Tab focus trap on 3 Cmd+K palettes
+
+>>> SYNC: Claude · 2026-05-05 · WCAG 2.1.2 closure on CommandPalette / JumpPalette / GlobalCommandPalette — `useFocusTrap(dialogRef, open)` wired in all three, dialog roots get `ref={dialogRef} tabIndex={-1}`. Static audit (Wave 57) caught Tab escaping to background page despite `aria-modal="true"`. No backend touched.
+
+**Summary**
+
+Static a11y audit on the running dev server's surface (without WebFetch access to localhost) flagged a P1 WCAG 2.1.2 violation: the three command palettes had `aria-modal="true"` from Wave 55 but no Tab focus trap, so keyboard users could Tab out of the palette into the inert background page. Arrow-key navigation + Esc + Enter handlers were already correct; this just plugged the Tab-escape hole.
+
+Pattern applied to each:
+
+1. Import `useFocusTrap` from `@/lib/useFocusTrap`.
+2. Add `const dialogRef = useRef<HTMLDivElement | null>(null);`.
+3. Call `useFocusTrap(dialogRef, open)` after the `useGlobalShortcut` hook.
+4. On the dialog `motion.div`, add `ref={dialogRef}` + `tabIndex={-1}`.
+
+`GlobalCommandPalette` already had the hook + ref wired (lines 209, 212) but the dialog `motion.div` was missing the `ref` + `tabIndex`. Closed that loop.
+
+Wave 55's `useFocusTrap.ts` utility handles all the heavy lifting (Tab cycling, restore-on-close, microtask focus seed). No changes to the utility itself were needed.
+
+**Files** — `experiments/neural-showcase-v3/src/components/CommandPalette.tsx`, `experiments/neural-showcase-v3/src/components/JumpPalette.tsx`, `experiments/neural-showcase-v3/src/components/GlobalCommandPalette.tsx`, `docs/CHANGELOG_AGENTS.md` (this entry).
+
 ## 2026-05-05 — Cursor · Wave 56: P1 hex→tokens + billing mirror exhaustion log
 
 >>> SYNC: Cursor · 2026-05-05 · Wave 56 P1 closure — 3 hex→token in Onboarding role chips (+ --brand-amber added to index.css), structured log meeet.mirror.usage.exhausted on retry budget exhaustion in client.py:178. P1-2 confirmed already covered by smoke-core-bridge. Frontend (cockpit lane) untouched.

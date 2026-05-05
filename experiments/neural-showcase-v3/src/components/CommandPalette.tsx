@@ -24,6 +24,7 @@ import {
   type SearchHit,
   type SearchScope,
 } from "@/lib/search";
+import { useFocusTrap } from "@/lib/useFocusTrap";
 
 interface CommandPaletteProps {
   /** Called when the operator picks a result. */
@@ -46,9 +47,15 @@ export function CommandPalette({
   const [open, setOpen] = useState(false);
   const search = useDebouncedSearch({ initialScope: "all", topK: 14 });
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const dialogRef = useRef<HTMLDivElement | null>(null);
   const [activeIdx, setActiveIdx] = useState(0);
 
   useGlobalShortcut("k", () => setOpen((prev) => !prev));
+
+  // WCAG 2.1.2 — keep Tab inside the palette while it's open. Arrow
+  // keys are the primary navigation, but Tab must not escape to the
+  // background page (which would break the aria-modal contract).
+  useFocusTrap(dialogRef, open);
 
   // Reset on close.
   useEffect(() => {
@@ -124,9 +131,11 @@ export function CommandPalette({
 
   return (
     <motion.div
+      ref={dialogRef}
       role="dialog"
       aria-modal="true"
       aria-label="search"
+      tabIndex={-1}
       onKeyDown={onKeyDown}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}

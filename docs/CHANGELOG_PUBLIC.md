@@ -4,6 +4,27 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-05 — Claude · Wave 58: Tab focus trap on 3 Cmd+K palettes
+
+>>> SYNC: Claude · 2026-05-05 · WCAG 2.1.2 closure on CommandPalette / JumpPalette / GlobalCommandPalette — `useFocusTrap(dialogRef, open)` wired in all three, dialog roots get `ref={dialogRef} tabIndex={-1}`. Static audit (Wave 57) caught Tab escaping to background page despite `aria-modal="true"`. No backend touched.
+
+**Summary**
+
+Static a11y audit on the running dev server's surface (without WebFetch access to localhost) flagged a P1 WCAG 2.1.2 violation: the three command palettes had `aria-modal="true"` from Wave 55 but no Tab focus trap, so keyboard users could Tab out of the palette into the inert background page. Arrow-key navigation + Esc + Enter handlers were already correct; this just plugged the Tab-escape hole.
+
+Pattern applied to each:
+
+1. Import `useFocusTrap` from `@/lib/useFocusTrap`.
+2. Add `const dialogRef = useRef<HTMLDivElement | null>(null);`.
+3. Call `useFocusTrap(dialogRef, open)` after the `useGlobalShortcut` hook.
+4. On the dialog `motion.div`, add `ref={dialogRef}` + `tabIndex={-1}`.
+
+`GlobalCommandPalette` already had the hook + ref wired (lines 209, 212) but the dialog `motion.div` was missing the `ref` + `tabIndex`. Closed that loop.
+
+Wave 55's `useFocusTrap.ts` utility handles all the heavy lifting (Tab cycling, restore-on-close, microtask focus seed). No changes to the utility itself were needed.
+
+**Files** — `experiments/neural-showcase-v3/src/components/CommandPalette.tsx`, `experiments/neural-showcase-v3/src/components/JumpPalette.tsx`, `experiments/neural-showcase-v3/src/components/GlobalCommandPalette.tsx`, `docs/CHANGELOG_AGENTS.md` (this entry).
+
 ## 2026-05-05 — Cursor · Wave 56: P1 hex→tokens + billing mirror exhaustion log
 
 >>> SYNC: Cursor · 2026-05-05 · Wave 56 P1 closure — 3 hex→token in Onboarding role chips (+ --brand-amber added to index.css), structured log meeet.mirror.usage.exhausted on retry budget exhaustion in client.py:178. P1-2 confirmed already covered by smoke-core-bridge. Frontend (cockpit lane) untouched.
@@ -1703,60 +1724,6 @@ xfailed).
   -47 lines net)
 - `docs/CHANGELOG_AGENTS.md` (this entry)
 
-## 2026-05-02 — Cursor [B] · Image vision routing (multimodal voices)
-
-**Summary**
-
-Closes the open follow-up of IDEAS line 63 — Anthropic Claude and
-OpenAI gpt-4o family voices now receive image bytes natively
-instead of just the OCR text-block fallback. The vision agent
-already produced `VisionPayload.image_refs` with `(attachment_id,
-mime, storage_path)` triples; this PR finally threads those refs
-to the cloud voices and packs them into the request payload.
-
-**Anatomy**
-
-- `backend/core/chat/multimodal.py` — pure helpers
-  `pack_anthropic_image_blocks` / `pack_openai_image_blocks` plus
-  mime + base64 utilities. Budget-aware (6 images per turn,
-  5 MiB per image, 18 MiB total pre-encode). Silently drops
-  unsupported mimes / oversize / unreadable files so a multimodal
-  turn never breaks.
-- `backend/core/chat/voices.py`:
-  - Abstract `ChatVoice.stream` now accepts `image_refs` kwarg.
-  - `_to_anthropic_messages` / `_to_openai_messages` widen the
-    **last** user turn into a content-block list only when
-    `image_blocks` are passed (text-only turns stay simple strings).
-  - `AnthropicChatVoice.stream` / `OpenAIChatVoice.stream` call
-    the matching multimodal packer and inject blocks.
-  - `LocalChatVoice.stream` accepts (and ignores) the kwarg to
-    keep the abstract signature uniform.
-- `backend/core/chat/orchestrator.py`: when the chosen voice
-  declares `supports_multimodal=True` AND `vision_payload.has_images`,
-  pass `image_refs=…` via `**voice_kwargs`. Critical: only forward
-  when non-empty so legacy / third-party `ChatVoice` subclasses
-  (and the `_ScriptedVoice` mock in tests) keep working with their
-  pre-multimodal `stream` signatures.
-
-**Files**
-
-- `backend/core/chat/multimodal.py` (new, ~245 lines).
-- `backend/core/chat/voices.py` (helpers + voices wiring).
-- `backend/core/chat/orchestrator.py` (kwarg-conditional plumbing).
-- `tests/test_chat_multimodal.py` (new, 39 cases).
-- `tests/test_chat_voices_multimodal.py` (new, 9 cases — Anthropic
-  + OpenAI shape integration plus LocalChatVoice safety).
-- `docs/IDEAS.md` line 63 marked shipped.
-
-**Test deltas**
-
-- Backend full sweep: **2314 passed**, 1 skipped, 2 xfailed
-  (was 2266 after PR #141; +48 multimodal). The single remaining
-  failure
-  (`test_attachment_reembed.py::test_http_reembed_attachment_round_trip`)
-  is the pre-existing duplicate-route bug carried over from PR
-  #141 — not regressed by this change.
-
 ---
 
-_Showing the most recent 60 of 231 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 232 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
