@@ -252,15 +252,23 @@ function CopyPane({
   const start = index / N;
   const end = (index + 1) / N;
   const peak = (start + end) / 2;
+  // Edge-segment fix: the first segment must be fully visible from the
+  // moment the section pins (scroll=0), the last must stay visible until
+  // the section unpins (scroll=1). Without this, both ends fade through
+  // 0 and the operator sees a huge empty container. (Wave 59-1.)
+  const isFirst = index === 0;
+  const isLast = index === segmentCount - 1;
+  const startScroll = isFirst ? 0 : Math.max(0, start - 0.04);
+  const endScroll = isLast ? 1 : Math.min(1, end + 0.04);
   const opacity = useTransform(
     scrollYProgress,
-    [Math.max(0, start - 0.04), peak, Math.min(1, end + 0.04)],
-    [0, 1, 0],
+    [startScroll, peak, endScroll],
+    [isFirst ? 1 : 0, 1, isLast ? 1 : 0],
   );
   const y = useTransform(
     scrollYProgress,
-    [Math.max(0, start - 0.04), peak, Math.min(1, end + 0.04)],
-    [16, 0, -16],
+    [startScroll, peak, endScroll],
+    [isFirst ? 0 : 16, 0, isLast ? 0 : -16],
   );
 
   return (
@@ -305,15 +313,20 @@ function VisualPane({
   const start = index / N;
   const end = (index + 1) / N;
   const peak = (start + end) / 2;
+  // Same edge-segment fix as CopyPane (Wave 59-1).
+  const isFirst = index === 0;
+  const isLast = index === segmentCount - 1;
+  const startScroll = isFirst ? 0 : Math.max(0, start - 0.05);
+  const endScroll = isLast ? 1 : Math.min(1, end + 0.05);
   const opacity = useTransform(
     scrollYProgress,
-    [Math.max(0, start - 0.05), peak, Math.min(1, end + 0.05)],
-    [0, 1, 0],
+    [startScroll, peak, endScroll],
+    [isFirst ? 1 : 0, 1, isLast ? 1 : 0],
   );
   const scale = useTransform(
     scrollYProgress,
-    [Math.max(0, start - 0.05), peak, Math.min(1, end + 0.05)],
-    [0.96, 1, 1.02],
+    [startScroll, peak, endScroll],
+    [isFirst ? 1 : 0.96, 1, isLast ? 1 : 1.02],
   );
 
   return (

@@ -15,8 +15,8 @@ Store listings are explicitly out of scope for v1.
 ## Status
 
 - [x] Project layout sketched (this folder).
-- [x] `src-tauri/` minimal Rust shell with one window loading the
-      cockpit dist (or local Vite dev server in dev mode).
+- [x] `src-tauri/` Rust shell with one window loading the cockpit
+      dist (or local Vite dev server in dev mode).
 - [x] Sidecar spawn hook wired with health-poll + lifecycle events
       (`desktop.sidecar.started|failed|exited`). Schema:
       `desktop/src-tauri/sidecar-events.schema.json`. Pinned by
@@ -24,6 +24,21 @@ Store listings are explicitly out of scope for v1.
 - [x] Sidecar binary resolution: `TARS_BACKEND_BIN` env var → bundled
       `tars-backend(.exe)` in resource_dir → `python3 serve.py`
       fallback. Pyoxidizer config: `desktop/pyoxidizer.bzl`.
+- [x] **Wave 59 — Native UX layer:**
+      - Window state persistence (`tauri-plugin-window-state` —
+        size + position remembered across launches).
+      - System tray / menu-bar icon with click-to-toggle main
+        window + Show/Quit menu.
+      - Global shortcut `Cmd+Shift+Space` (macOS) /
+        `Ctrl+Shift+Space` (Windows/Linux) toggles window from
+        anywhere — Spotlight/Raycast pattern.
+      - Deep links: `tars://onboarding[?role=…]`, `tars://thread/<id>`,
+        `tars://cockpit`, `tars://login`, `tars://settings` route
+        into React Router via the `tars://deeplink` Tauri event
+        (handled by `src/lib/useTarsDeepLink.ts`).
+      - Pre-flight build gate (`scripts/preflight-build.sh`): fails
+        fast if `src-tauri/web/` is empty/stale, icons missing, or
+        updater pubkey still placeholder (release mode only).
 - [ ] Cross-target pyoxidizer CI build matrix (darwin × {aarch64,
       x86_64}, windows × {x86_64, aarch64}, linux × {x86_64,
       aarch64}). Local `pyoxidizer build` works on the host arch.
@@ -50,8 +65,8 @@ desktop/
 │   ├── build.rs
 │   ├── icons/                ← placeholder icons
 │   └── src/
-│       ├── main.rs           ← entry point, spawns sidecar, manages window
-│       └── sidecar.rs        ← TODO: bring up FastAPI as a child process
+│       ├── main.rs           ← entry point; sidecar bring-up + tray + global shortcut + deep links
+│       └── sidecar.rs        ← FastAPI child process lifecycle (spawn/health-poll/teardown)
 └── scripts/
     └── package-cockpit.sh    ← copies the v3 dist into Tauri's web root
 ```

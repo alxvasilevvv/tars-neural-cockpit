@@ -10,10 +10,19 @@ rust-version = "1.77"
 tauri-build = { version = "2.0", features = [] }
 
 [dependencies]
-tauri = { version = "2.0", features = [] }
+# `tray-icon` feature ships the menu-bar tray (macOS) / system-tray
+# (Windows/Linux) APIs as part of core Tauri 2.x. Wave 59 wires it.
+tauri = { version = "2.0", features = ["tray-icon"] }
 tauri-plugin-shell = "2.0"
 tauri-plugin-notification = "2.0"
 tauri-plugin-updater = "2.0"
+# Wave 59 native UX additions:
+#   window-state    — remember main-window size/pos across launches
+#   global-shortcut — Cmd/Ctrl+Shift+Space toggles main window
+#   deep-link       — `tars://…` scheme handler for meeet.world ↔ TARS handshake
+tauri-plugin-window-state = "2.0"
+tauri-plugin-global-shortcut = "2.0"
+tauri-plugin-deep-link = "2.0"
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 log = "0.4"

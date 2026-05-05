@@ -10,7 +10,9 @@
     "tauri:icons": "tauri icon assets/icon-source.png -o src-tauri/icons",
     "cockpit:build": "pnpm --dir ../experiments/neural-showcase-v3 build",
     "cockpit:package": "bash scripts/package-cockpit.sh",
-    "release": "pnpm cockpit:build && pnpm cockpit:package && pnpm tauri:build"
+    "preflight": "bash scripts/preflight-build.sh",
+    "preflight:release": "bash scripts/preflight-build.sh --release",
+    "release": "pnpm cockpit:build && pnpm cockpit:package && pnpm preflight:release && pnpm tauri:build"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.0.0"

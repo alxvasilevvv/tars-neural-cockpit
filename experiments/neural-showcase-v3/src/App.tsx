@@ -1,6 +1,7 @@
 import { Routes, Route, useLocation } from "react-router-dom";
 import { Suspense, lazy, useEffect } from "react";
 import { trackPageView } from "@/lib/analytics";
+import { useTarsDeepLink } from "@/lib/useTarsDeepLink";
 import { AnimatePresence, motion } from "framer-motion";
 import { Brackets } from "@/components/Brackets";
 import { CockpitGate } from "@/components/CockpitGate";
@@ -109,6 +110,10 @@ function AppShell() {
   useEffect(() => {
     trackPageView(loc.pathname + loc.search);
   }, [loc.pathname, loc.search]);
+
+  // Wave 59 — Tauri desktop deep-link routing. Cheap no-op in browser
+  // builds (gated by typeof __TAURI_INTERNALS__).
+  useTarsDeepLink();
   return (
     <main className="relative min-h-screen bg-bg-0 text-ink">
       <a href="#main" className="skip-link">

@@ -4,6 +4,45 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-05 — Claude · Wave 59: Desktop native UX + ScrollStory fix
+
+>>> SYNC: Claude · 2026-05-05 · Tauri 2 desktop shell gets window-state persistence, tray icon (menu bar), global shortcut Cmd+Shift+Space, `tars://` deep-link routing, pre-flight build gate. Plus ScrollStory edge-segment opacity fix. Cargo.toml + tauri.conf.json + capabilities + main.rs + cockpit deep-link hook. No backend touched.
+
+**Summary**
+
+Two surfaces, one wave.
+
+**Cockpit polish — ScrollStory edge segments (Wave 59-1).**
+The "04 · How it works · Four ways TARS pays for itself before lunch" section pinned for 400vh of scroll, but `CopyPane`/`VisualPane` had `[start - 0.04, peak, end + 0.04] → [0, 1, 0]` opacity ranges. For segment 0 that meant opacity=0 at scroll=0 → huge blank pinned area at section entry. For segment N-1 it faded to 0 before unpin. Fix: first segment stays opacity=1 from scroll=0 to peak; last stays opacity=1 from peak to scroll=1. Same fix for y/scale transforms. (User reported via screenshot.)
+
+**Desktop native UX (Wave 59-2 → 59-8).**
+Tauri 2 shell was minimal — bare window + sidecar spawn. This wave layers the things that make a desktop app stop feeling like a wrapped web view:
+
+1. **Window state persistence** (`tauri-plugin-window-state` 2.0) — TARS remembers main-window size + position across launches.
+2. **System tray icon** (Tauri 2 `tray-icon` feature) — menu-bar entry on macOS / system tray on Windows+Linux. Left-click toggles window. Right-click opens menu (Show TARS / Quit).
+3. **Global shortcut** (`tauri-plugin-global-shortcut` 2.0) — `Cmd+Shift+Space` (macOS) / `Ctrl+Shift+Space` (Windows/Linux) summons or hides the main window from anywhere. Soft-fails if OS denies registration (other app conflict).
+4. **Deep links** (`tauri-plugin-deep-link` 2.0) — `tars://` scheme registered via `tauri.conf.json`. Rust side captures cold-start + warm-arrival URLs, focuses the window, and emits `tars://deeplink` event with the URL array. New cockpit hook `src/lib/useTarsDeepLink.ts` listens (browser-build no-op when `__TAURI_INTERNALS__` undefined) and routes via React Router. Supported verbs: `onboarding`, `login`, `cockpit`, `thread/<id>`, `settings`.
+5. **Pre-flight build gate** (`desktop/scripts/preflight-build.sh`) — fails fast before `tauri build` if `src-tauri/web/` is empty / missing index.html / has fewer than 5 asset chunks (silent blank-window risk), icons absent, or `--release` mode but `pubkey: TODO_PUBLIC_KEY` still in tauri.conf. Wired into `pnpm release` chain.
+6. **Stale TODO cleanup** — `desktop/README.md` L54 outdated "TODO: bring up FastAPI" comment (sidecar shipped Phase L9 A1).
+7. **Download URL drift** — `.env.example` `TARS_DOWNLOAD_BASE_URL` was `https://meeet.world/downloads/tars` (404, never hosted). Switched to GitHub Releases (where CI actually publishes), with a multi-line comment explaining the proxy plan.
+
+Capabilities manifest created at `desktop/src-tauri/capabilities/default.json` granting the new plugins their permissions on the `main` window only (no widening of the security envelope beyond what the new features require).
+
+**Files** —
+`experiments/neural-showcase-v3/src/components/ScrollStory.tsx`,
+`experiments/neural-showcase-v3/src/App.tsx`,
+`experiments/neural-showcase-v3/src/lib/useTarsDeepLink.ts` (new),
+`desktop/src-tauri/Cargo.toml`,
+`desktop/src-tauri/tauri.conf.json`,
+`desktop/src-tauri/src/main.rs`,
+`desktop/src-tauri/capabilities/default.json` (new),
+`desktop/scripts/preflight-build.sh` (new),
+`desktop/package.json`,
+`desktop/README.md`,
+`.env.example`,
+`docs/CHANGELOG_AGENTS.md` (this entry),
+`docs/WAVE_59_DESKTOP_SIGNOFF.md` (new).
+
 ## 2026-05-05 — Claude · Wave 58: Tab focus trap on 3 Cmd+K palettes
 
 >>> SYNC: Claude · 2026-05-05 · WCAG 2.1.2 closure on CommandPalette / JumpPalette / GlobalCommandPalette — `useFocusTrap(dialogRef, open)` wired in all three, dialog roots get `ref={dialogRef} tabIndex={-1}`. Static audit (Wave 57) caught Tab escaping to background page despite `aria-modal="true"`. No backend touched.
