@@ -4,6 +4,50 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-05 — Cursor: remote billing usage mirror (`POST /operator/usage`)
+
+**Summary:** **meeet-solana-state:** edge **`tars-billing`** accepts **`POST …/operator/usage`** (`delta_usd`, same Bearer). **Jarvis:** `post_operator_usage_delta`, `mirror_usage.after_usage_tokens_emitted` from **`MeeetClient.emit`** after durable insert (runs even when ingest URL unset); `MEEET_BILLING_MAX_DELTA_USD`. Contract **v1.1.0**, tests `tests/test_meeet_billing_usage.py`.
+
+**Files (meeet-solana-state):** `supabase/functions/tars-billing/index.ts`.
+
+**Files (Jarvis):** `backend/core/meeet_billing/{client,mirror_usage}.py`, `backend/core/meeet_billing/__init__.py`, `backend/core/meeet/client.py`, `docs/contracts/TARS_MEEET_BILLING.md`, `.env.example`, `tests/test_meeet_billing_usage.py`, `docs/CHANGELOG_AGENTS.md`, `docs/AGENT_HANDOFF.md`.
+
+`>>> SYNC: Cursor · 2026-05-05 · billing POST usage + TARS mirror from usage.tokens`
+
+## 2026-05-05 — Cursor: meeet-solana-state `tars-billing` edge + TARS contract/env
+
+**Summary:** **meeet-solana-state:** migration `tars_billing_operators`, edge **`tars-billing`** (`compute.ts`, Deno unit tests, RLS regression + anon SELECT probe), **`config.toml`**, **`_shared/http.ts`** CORS `x-tars-operator-id`, **edge-functions-typecheck** runs `deno test` on billing compute. **Jarvis:** `docs/contracts/TARS_MEEET_BILLING.md` (Supabase BASE_URL + secret names), `.env.example` example `MEEET_BILLING_BASE_URL`, `docs/AGENT_HANDOFF.md`.
+
+**Files (meeet-solana-state):** `supabase/migrations/20260505140000_tars_billing_operators.sql`, `supabase/functions/tars-billing/{index,compute,compute_test}.ts`, `supabase/functions/_shared/http.ts`, `supabase/functions/rls-regression-tests/rls_test.ts`, `supabase/config.toml`, `.github/workflows/edge-functions-typecheck.yml`.
+
+**Files (Jarvis):** `docs/contracts/TARS_MEEET_BILLING.md`, `.env.example`, `docs/CHANGELOG_AGENTS.md`, `docs/AGENT_HANDOFF.md`.
+
+`>>> SYNC: Cursor · 2026-05-05 · Supabase tars-billing edge + contract/env handoff`
+
+## 2026-05-05 — Cursor: meeet.world authoritative billing mirror (TARS)
+
+**Summary:** Contract `docs/contracts/TARS_MEEET_BILLING.md` + package `backend/core/meeet_billing/` (stdlib GET `/operator`, 5s cache). When **`TARS_BILLING_SOURCE=remote`** + `MEEET_BILLING_BASE_URL` + `MEEET_BILLING_API_KEY`: `GET /api/entitlements` mirrors meeet tier/live; **`can_run`** uses remote gate (fail closed if unreachable); **`POST /upgrade`** returns delegated `redirect`; **`POST /byo`** → 503. Tests: `tests/test_meeet_billing_remote.py`. `.env.example` knobs.
+
+**Files:** `docs/contracts/TARS_MEEET_BILLING.md`, `backend/core/meeet_billing/`, `backend/core/entitlements/checker.py`, `web_extras/routers/entitlements.py`, `tests/test_meeet_billing_remote.py`, `.env.example`, `CLAUDE.md`, `docs/CHANGELOG_AGENTS.md`, `docs/AGENT_HANDOFF.md`.
+
+`>>> SYNC: Cursor · 2026-05-05 · remote billing plane + contract`
+
+## 2026-05-05 — Cursor: payment rails — SOL / $MEEET only (Stripe deprecated)
+
+**Summary:** `TARS_PAYMENT_MODE` on-chain stub accepts **`onchain`**, **`tokens`**, and legacy **`stripe`** (same 503 `not_implemented`). Copy + legal/docs + cockpit i18n now describe **SOL / $MEEET** only; Stripe row removed from `PRIVACY_POLICY.md`. Tests parametrized in `tests/test_entitlements.py`.
+
+**Files:** `web_extras/routers/entitlements.py`, `tests/test_entitlements.py`, `experiments/neural-showcase-v3/src/lib/i18n.tsx`, `Pricing.tsx`, `DomainsCards.tsx`, `Status.tsx`, `ScrollStory.tsx`, `docs/PRIVACY_POLICY.md`, `docs/FAQ.md`, `docs/contracts/TARS_SUBDOMAIN.md`, `docs/AGENT_HANDOFF.md`, `docs/CHANGELOG_AGENTS.md`.
+
+`>>> SYNC: Cursor · 2026-05-05 · SOL+MEEET payment messaging; stripe env alias deprecated`
+
+## 2026-05-05 — Cursor: commercial-readiness chain tests (no marketing)
+
+**Summary:** Added `tests/test_commercial_readiness_chain.py` — one ordered GET sweep of operator/sell surfaces (domains list + manifest + pack detail + health, entitlements, usage rollup, product downloads + version, policy pending, meeet stats + health, playbooks catalog) plus B-001 `/dl/*` and `/install.sh` 302 checks. **`make test-commercial-readiness`** runs only this file. Full pytest **2411 passed** (+2).
+
+**Files:** `tests/test_commercial_readiness_chain.py`, `Makefile`, `docs/CHANGELOG_AGENTS.md`, `docs/AGENT_HANDOFF.md`.
+
+`>>> SYNC: Cursor · 2026-05-05 · commercial readiness pytest chain + Makefile target`
+
 ## 2026-05-05 — Cursor: QA/agent — auto-load `.env` + ingest key parity
 
 **Summary:** `scripts/with_repo_env.sh` sources repo-root `.env` before QA, acceptance, and core-bridge smoke (`Makefile`). `resolved_ingest_api_key()` uses **TARS_INGEST_API_KEY** or **MEEET_API_KEY** (`scripts/qa_agent/env_resolve.py`); **`gate_release.sh`** loads `.env` so bridge smoke triggers when stored locally. **`tests/test_qa_agent_env_resolve.py`** pins resolution. **`docs/GO_LIVE_48H.md`** operator row D updated.

@@ -3,6 +3,24 @@
 Pick this up if you are continuing the work in a fresh chat. Read this file
 plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 
+> **2026-05-05 — Commercial-readiness tests (product surface, no marketing).**
+> `tests/test_commercial_readiness_chain.py` + `make test-commercial-readiness`
+> — ordered GET chain for domains / entitlements / usage / product / policy /
+> meeet / playbooks + B-001 download redirects. Full pytest **2411 passed**.
+
+> **2026-05-05 — Billing narrative:** paid tiers are **SOL + $MEEET on Solana**
+> only. `TARS_PAYMENT_MODE=onchain|tokens|stripe` (``stripe`` = deprecated alias)
+> → same 503 stub until settlement ships; FAQ/Privacy/i18n updated.
+
+> **2026-05-05 — Remote billing:** `TARS_BILLING_SOURCE=remote` + `MEEET_BILLING_*`
+> → tier / cloud gate / spend mirror **meeet.world** (`docs/contracts/TARS_MEEET_BILLING.md`).
+> **Implementing host:** Supabase edge **`tars-billing`** + table **`tars_billing_operators`**
+> in **meeet-solana-state** (`functions/v1/tars-billing` + `GET …/operator`; secrets
+> **`TARS_BILLING_API_KEY`** or **`MEEET_BILLING_API_KEY`** must match TARS).
+> **Usage:** `POST …/operator/usage` with `delta_usd`; TARS mirrors priced **`usage.tokens`**
+> on routes `cloud`/`fallback`/`mixed` from **`MeeetClient.emit`** (after local durable insert).
+> Local `entitlements.json` is fallback UI only when remote snapshot fails.
+
 > **2026-05-04 — Go-live same-day closeout.** `docs/GO_LIVE_48H.md` is the
 > operator checklist (**bridge on Pages**, GitHub `BRIDGE_SHARED_SECRET`,
 > acceptance, optional `TARS_INGEST_API_KEY` for QA workflow + ingest). SPA now
@@ -635,7 +653,7 @@ cockpit can wire a live ticker.
     Authenticode certs) — workflow exists at
     `.github/workflows/release-desktop-tagged.yml` but needs
     `TAURI_SIGNING_PRIVATE_KEY` secret to actually sign.
-  - Live Stripe billing / consumption-limit end-to-end —
+  - Live SOL / $MEEET billing / consumption-limit end-to-end —
     needs operator with test card.
 
 - **2026-05-02 — cron-shipped morning bundle wrapper (Cursor [A]):**

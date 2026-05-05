@@ -106,6 +106,17 @@ class MeeetClient:
                 # Local logging must never crash the request path.
                 pass
 
+        if kind == "usage.tokens":
+            try:
+                from backend.core.meeet_billing import mirror_usage
+
+                await mirror_usage.after_usage_tokens_emitted(
+                    route=event.route,
+                    payload=merged_payload,
+                )
+            except Exception:
+                pass
+
         if not self.config.enabled or not self.config.ingest_url:
             return body
 
