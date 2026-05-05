@@ -113,6 +113,7 @@ class MeeetClient:
                 await mirror_usage.after_usage_tokens_emitted(
                     route=event.route,
                     payload=merged_payload,
+                    trace_id=event.trace_id,
                 )
             except Exception:
                 pass

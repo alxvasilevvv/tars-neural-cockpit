@@ -43,12 +43,15 @@ async def test_post_operator_usage_delta_ok(monkeypatch: pytest.MonkeyPatch) -> 
             ).encode()
 
     with patch("urllib.request.urlopen", return_value=_Resp()) as m:
-        out = await post_operator_usage_delta(0.01)
+        out = await post_operator_usage_delta(0.01, trace_id="trc_test_xyz")
     assert out["ok"] is True
     assert m.call_count == 1
     req = m.call_args[0][0]
     assert req.full_url == "https://meeet.example/billing/operator/usage"
     assert req.get_method() == "POST"
+    sent = json.loads(req.data.decode("utf-8"))
+    assert sent["delta_usd"] == 0.01
+    assert sent["trace_id"] == "trc_test_xyz"
 
 
 @pytest.mark.asyncio
@@ -83,9 +86,84 @@ async def test_mirror_posts_when_cloud_remote(monkeypatch: pytest.MonkeyPatch) -
         await mirror_usage.after_usage_tokens_emitted(
             route="cloud",
             payload={"cost_usd": 0.25},
+            trace_id="trc_outer",
         )
     mock.assert_called_once()
     assert mock.call_args[0][0] == 0.25
+    assert mock.call_args.kwargs.get("trace_id") == "trc_outer"
+
+
+@pytest.mark.asyncio
+async def test_post_usage_retries_on_transient_http(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import urllib.error
+
+    monkeypatch.setenv("TARS_BILLING_SOURCE", "remote")
+    monkeypatch.setenv("MEEET_BILLING_BASE_URL", "https://meeet.example/billing")
+    monkeypatch.setenv("MEEET_BILLING_API_KEY", "secret")
+    monkeypatch.setenv("MEEET_BILLING_USAGE_RETRIES", "4")
+
+    class _Ok:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def read(self):
+            return json.dumps({"ok": True}).encode()
+
+    calls: list[int] = []
+
+    def side_effect(req, timeout=None):
+        calls.append(1)
+        if len(calls) < 3:
+            raise urllib.error.HTTPError(
+                req.full_url, 503, "unavailable", hdrs=None, fp=None
+            )
+        return _Ok()
+
+    with patch("urllib.request.urlopen", side_effect=side_effect):
+        out = await post_operator_usage_delta(0.01)
+    assert out["ok"] is True
+    assert len(calls) == 3
+
+
+@pytest.mark.asyncio
+async def test_post_operator_usage_retry_exhausted(
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    import urllib.error
+
+    monkeypatch.setenv("TARS_BILLING_SOURCE", "remote")
+    monkeypatch.setenv("MEEET_BILLING_BASE_URL", "https://meeet.example/billing")
+    monkeypatch.setenv("MEEET_BILLING_API_KEY", "secret")
+    monkeypatch.setenv("MEEET_BILLING_USAGE_RETRIES", "3")
+
+    def always_503(req, timeout=None):
+        raise urllib.error.HTTPError(
+            req.full_url, 503, "unavailable", hdrs=None, fp=None
+        )
+
+    caplog.set_level("WARNING")
+    with (
+        patch("urllib.request.urlopen", side_effect=always_503),
+        patch(
+            "backend.core.meeet_billing.client.asyncio.sleep",
+            new_callable=AsyncMock,
+        ),
+    ):
+        out = await post_operator_usage_delta(0.02, trace_id="trc_exhaust")
+    assert out.get("ok") is False
+    assert out.get("error") == "http_503"
+    exhausted = next(
+        r for r in caplog.records if r.getMessage() == "meeet.mirror.usage.exhausted"
+    )
+    assert getattr(exhausted, "trace_id", None) == "trc_exhaust"
+    assert getattr(exhausted, "attempts", None) == 3
+    assert getattr(exhausted, "last_error", None) == "http_503"
 
 
 @pytest.mark.asyncio
@@ -114,3 +192,4 @@ async def test_emit_usage_tokens_triggers_mirror_without_ingest(
                 {"model": "openai/gpt-4o", "tokens_in": 100, "tokens_out": 50, "cost_usd": 0.01},
             )
     mock.assert_called_once()
+    assert mock.call_args.kwargs.get("trace_id")

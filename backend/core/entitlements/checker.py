@@ -15,6 +15,7 @@ import time
 from dataclasses import dataclass
 from typing import Literal
 
+from backend.core.meeet_billing.client import fetch_operator_snapshot
 from backend.core.usage.ledger import UsageLedger
 
 from .store import get_store
@@ -36,6 +37,70 @@ def _seconds_in_24h() -> float:
     return 24 * 60 * 60.0
 
 
+def _can_run_with_remote(
+    remote: dict,
+    *,
+    kind: Literal["edge", "cloud", "fallback", "mixed"],
+) -> CanRunResult:
+    """Authoritative gate from meeet.world ``/operator`` snapshot."""
+
+    raw_tier = remote.get("tier", Tier.FREE.value)
+    try:
+        tier = Tier(str(raw_tier))
+    except ValueError:
+        tier = Tier.FREE
+    byo = bool(remote.get("byo_enabled", False))
+    live = remote.get("live") or {}
+    spent = float(live.get("spent_usd_24h", 0.0) or 0.0)
+    cap = float(live.get("cap_usd_daily", 0.0) or 0.0)
+    remaining = float(live.get("remaining_usd", max(0.0, cap - spent)) or 0.0)
+    allowed_cloud = bool(live.get("allowed_cloud", False))
+    reason = live.get("reason")
+
+    if kind == "edge":
+        return CanRunResult(
+            allowed=True,
+            tier=tier,
+            reason=None,
+            spent_usd=spent,
+            cap_usd=cap,
+            remaining_usd=remaining,
+            byo_enabled=byo,
+        )
+
+    if byo:
+        return CanRunResult(
+            allowed=True,
+            tier=tier,
+            reason=None,
+            spent_usd=spent,
+            cap_usd=cap,
+            remaining_usd=remaining,
+            byo_enabled=True,
+        )
+
+    if not allowed_cloud:
+        return CanRunResult(
+            allowed=False,
+            tier=tier,
+            reason=str(reason) if reason else "remote_cap",
+            spent_usd=spent,
+            cap_usd=cap,
+            remaining_usd=remaining,
+            byo_enabled=False,
+        )
+
+    return CanRunResult(
+        allowed=True,
+        tier=tier,
+        reason=None,
+        spent_usd=spent,
+        cap_usd=cap,
+        remaining_usd=remaining,
+        byo_enabled=False,
+    )
+
+
 async def can_run(
     *,
     kind: Literal["edge", "cloud", "fallback", "mixed"] = "cloud",
@@ -52,8 +117,43 @@ async def can_run(
     - When the operator toggled BYO on, cloud calls are *also* allowed
       (the cost lands on their key, not on TARS' pooled budget).
 
+    When ``TARS_BILLING_SOURCE=remote``, cloud/fallback/mixed gates read
+    the **meeet.world** ``/operator`` snapshot (see
+    ``docs/contracts/TARS_MEEET_BILLING.md``). If that fetch fails, cloud
+    is **denied** (fail closed) while edge stays allowed.
+
     ``model`` is reserved for future per-model gating.
     """
+
+    remote = await fetch_operator_snapshot()
+    if remote is not None:
+        if remote.get("ok") is True:
+            return _can_run_with_remote(remote, kind=kind)
+        snap = get_store().snapshot()
+        try:
+            lt = Tier(str(snap.get("tier", Tier.FREE.value)))
+        except ValueError:
+            lt = Tier.FREE
+        byo_local = bool(snap.get("byo_enabled", False))
+        if kind == "edge":
+            return CanRunResult(
+                allowed=True,
+                tier=lt,
+                reason=None,
+                spent_usd=0.0,
+                cap_usd=0.0,
+                remaining_usd=0.0,
+                byo_enabled=byo_local,
+            )
+        return CanRunResult(
+            allowed=False,
+            tier=lt,
+            reason="billing_unreachable",
+            spent_usd=0.0,
+            cap_usd=0.0,
+            remaining_usd=0.0,
+            byo_enabled=byo_local,
+        )
 
     snapshot = get_store().snapshot()
     try:

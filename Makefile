@@ -12,10 +12,10 @@ PYTEST    ?= $(PY) -m pytest -q
 COCKPIT   ?= experiments/neural-showcase-v3
 DESKTOP   ?= desktop
 
-.PHONY: help test test-product lint cockpit cockpit-build cockpit-tsc \
+.PHONY: help test test-product test-commercial-readiness lint cockpit cockpit-build cockpit-tsc \
         cockpit-changelog-check acceptance-tars-meeet qa-agent qa-agent-json qa-loop qa-loop-once \
         gate-release backend backend-dev desktop-dev desktop-build \
-        smoke-core-bridge gate-control-tower ops-bridge-secret ops-cf-pages-token clean \
+        smoke-core-bridge smoke-billing-tars backend-tars-up dev-tars-stack gate-control-tower ops-bridge-secret ops-billing-remote-wizard ops-cf-pages-token clean \
         install-hooks check-python-version \
         planner planner-stats planner-list planner-runs planner-show \
         planner-full planner-clone planner-rerun planner-replay-run \
@@ -56,6 +56,9 @@ test:                ## full pytest suite
 
 test-product:        ## focused tests for the new download manifest surface
 	PYTHONPATH=. $(PYTEST) tests/test_product_downloads.py tests/test_search_router.py
+
+test-commercial-readiness:  ## chain sweep: sell surfaces (domains, entitlements, product, policy, meeet, playbooks) + B-001 redirects
+	PYTHONPATH=. $(PYTEST) tests/test_commercial_readiness_chain.py -q
 
 # ---------------------------------------------------------------------
 # Cockpit (React)
@@ -344,6 +347,18 @@ gate-release:        ## full release readiness gate: pytest + cockpit + bridge +
 
 ops-bridge-secret:   ## one-shot: paste BRIDGE_SHARED_SECRET (Pages env + GH secret + redeploy + QA)
 	bash scripts/ops_set_bridge_shared_secret.sh
+
+ops-billing-remote-wizard:  ## paste MEEET_BILLING_API_KEY; prod smoke + optional .env merge + pytest
+	bash scripts/ops_billing_remote_wizard.sh
+
+smoke-billing-tars:  ## with .env: stdlib GET remote operator (no uvicorn)
+	bash scripts/smoke_billing_tars_backend.sh
+
+backend-tars-up:  ## kill :8765 if busy; start uvicorn+.env in bg; curl /api/entitlements
+	bash scripts/backend_tars_up.sh
+
+dev-tars-stack:  ## backend-tars-up then neural-showcase-v3 dev (Ctrl+C = UI only)
+	bash scripts/dev_tars_stack.sh
 
 ops-cf-pages-token:  ## cf-operator.env (id+cfat_) → GitHub secret + run Pages deploy workflow
 	bash scripts/ops_push_cloudflare_pages_api_token.sh

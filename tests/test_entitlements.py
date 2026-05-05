@@ -55,7 +55,7 @@ def client(
     # endpoint now defaults to ``off`` (rejects paid upgrades). Most
     # of the existing tests in this file exercise the legacy mock
     # path, so the fixture pins ``mock`` mode for them. Tests that
-    # check the ``off`` / ``stripe`` modes use their own monkeypatch.
+    # check the ``off`` / on-chain modes use their own monkeypatch.
     monkeypatch.setenv("TARS_PAYMENT_MODE", "mock")
     with TestClient(app) as c:
         yield c
@@ -285,14 +285,22 @@ def test_upgrade_default_mode_is_off(
         assert r.json()["error_code"] == "feature_disabled"
 
 
-def test_upgrade_stripe_mode_returns_not_implemented(
-    fresh_store: None, monkeypatch: pytest.MonkeyPatch
+@pytest.mark.parametrize(
+    "mode",
+    ("onchain", "tokens", "stripe"),
+    ids=("onchain", "tokens", "stripe-legacy-alias"),
+)
+def test_upgrade_onchain_modes_return_not_implemented(
+    fresh_store: None,
+    monkeypatch: pytest.MonkeyPatch,
+    mode: str,
 ) -> None:
-    """**Bug #3 contract.** Setting the env to ``stripe`` advertises
-    intent but until the integration ships the endpoint must 503 with
-    ``not_implemented`` rather than silently accept the mock token."""
+    """**Bug #3 contract.** On-chain payment envs advertise intent but until
+    SOL / $MEEET verification ships the endpoint must 503 with
+    ``not_implemented``. ``stripe`` remains a deprecated alias for the
+    same stub (card rails are not used)."""
 
-    monkeypatch.setenv("TARS_PAYMENT_MODE", "stripe")
+    monkeypatch.setenv("TARS_PAYMENT_MODE", mode)
     with TestClient(app) as c:
         r = c.post(
             "/api/entitlements/upgrade",
@@ -301,7 +309,8 @@ def test_upgrade_stripe_mode_returns_not_implemented(
         assert r.status_code == 503
         body = r.json()
         assert body["error_code"] == "not_implemented"
-        assert body["context"]["payment_mode"] == "stripe"
+        assert body["context"]["payment_mode"] == mode
+        assert "SOL" in body["message"] or "$MEEET" in body["message"]
 
 
 def test_upgrade_to_free_works_in_off_mode(
@@ -324,7 +333,7 @@ def test_upgrade_mock_mode_emits_explicit_mock_event_kind(
 ) -> None:
     """**Bug #3 audit-trail safety**. Mock-mode upgrades must NOT emit
     plain ``entitlements.upgraded`` (reserved for real-payment events
-    once Stripe lands). Use ``entitlements.upgraded.mock`` so the
+    on-chain settlement lands). Use ``entitlements.upgraded.mock`` so the
     audit page can distinguish 'this user actually paid' from 'a dev
     bumped their tier with a fake token'."""
 

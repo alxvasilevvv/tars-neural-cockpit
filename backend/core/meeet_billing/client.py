@@ -4,12 +4,15 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 import os
 import threading
 import time
 import urllib.error
 import urllib.request
 from typing import Any
+
+_log = logging.getLogger(__name__)
 
 _BILLING_SOURCE_ENV = "TARS_BILLING_SOURCE"
 _BASE_ENV = "MEEET_BILLING_BASE_URL"
@@ -75,12 +78,17 @@ def _fetch_sync() -> dict[str, Any]:
     return data
 
 
-def _post_usage_sync(delta_usd: float) -> dict[str, Any]:
+def _post_usage_sync(delta_usd: float, trace_id: str | None) -> dict[str, Any]:
     url = _usage_url()
     key = (os.getenv(_KEY_ENV) or "").strip()
     if not url or not key:
         return {"ok": False, "error": "missing_billing_url_or_key"}
-    body = json.dumps({"delta_usd": round(float(delta_usd), 6)}).encode("utf-8")
+    payload_obj: dict[str, Any] = {"delta_usd": round(float(delta_usd), 6)}
+    if trace_id:
+        tid = trace_id.strip()[:256]
+        if tid:
+            payload_obj["trace_id"] = tid
+    body = json.dumps(payload_obj).encode("utf-8")
     req = urllib.request.Request(
         url,
         data=body,
@@ -104,11 +112,36 @@ def _post_usage_sync(delta_usd: float) -> dict[str, Any]:
     return data
 
 
-async def post_operator_usage_delta(delta_usd: float) -> dict[str, Any]:
+def _http_code_transient(code: int) -> bool:
+    return code in {408, 425, 429, 500, 502, 503, 504}
+
+
+def _usage_result_transient(out: dict[str, Any]) -> bool:
+    if out.get("ok") is True:
+        return False
+    err = str(out.get("error", ""))
+    if err.startswith("http_"):
+        try:
+            c = int(err.split("_", 1)[1])
+        except (ValueError, IndexError):
+            return False
+        return _http_code_transient(c)
+    if err.startswith("url_"):
+        return True
+    low = err.lower()
+    return "timed out" in low or "temporarily" in low
+
+
+async def post_operator_usage_delta(
+    delta_usd: float,
+    *,
+    trace_id: str | None = None,
+) -> dict[str, Any]:
     """POST ``delta_usd`` cloud spend to meeet ``/operator/usage`` (remote mode only).
 
-    Returns a dict with ``ok``; on transport errors ``ok: False`` and ``error``.
-    Does not touch the operator snapshot cache (callers may clear it on success).
+    Retries transient HTTP / transport failures a few times (see
+    ``MEEET_BILLING_USAGE_RETRIES``). Optional ``trace_id`` enables server-side
+    idempotency on the billing edge.
     """
 
     if not is_remote_billing_configured():
@@ -123,14 +156,42 @@ async def post_operator_usage_delta(delta_usd: float) -> dict[str, Any]:
         return {"ok": False, "error": "non_positive_delta"}
     if d > max_delta:
         d = max_delta
-    try:
-        return await asyncio.to_thread(_post_usage_sync, d)
-    except urllib.error.HTTPError as exc:  # pragma: no cover
-        return {"ok": False, "error": f"http_{exc.code}"}
-    except urllib.error.URLError as exc:
-        return {"ok": False, "error": f"url_{exc.reason}"}
-    except (TimeoutError, json.JSONDecodeError, OSError) as exc:
-        return {"ok": False, "error": str(exc)}
+    retries = int(os.getenv("MEEET_BILLING_USAGE_RETRIES") or "3")
+    retries = max(1, min(8, retries))
+    tid = trace_id.strip()[:256] if isinstance(trace_id, str) and trace_id.strip() else None
+
+    last: dict[str, Any] = {"ok": False, "error": "exhausted_retries"}
+    for attempt in range(retries):
+        try:
+            out = await asyncio.to_thread(_post_usage_sync, d, tid)
+        except urllib.error.HTTPError as exc:
+            out = {"ok": False, "error": f"http_{exc.code}"}
+            if not _http_code_transient(exc.code):
+                return out
+        except urllib.error.URLError as exc:
+            out = {"ok": False, "error": f"url_{exc.reason}"}
+        except (TimeoutError, json.JSONDecodeError, OSError) as exc:
+            out = {"ok": False, "error": str(exc)}
+        else:
+            if not _usage_result_transient(out):
+                return out
+        last = out
+        if attempt + 1 < retries:
+            await asyncio.sleep(min(2.0, 0.12 * (2**attempt)))
+    # Retry budget exhausted. Emit a structured event so the operator
+    # cockpit + ops dashboards can flag a stuck mirror without diffing
+    # individual warnings. Trace id, attempts taken, and last error
+    # shape are the minimal triage payload.
+    _log.warning(
+        "meeet.mirror.usage.exhausted",
+        extra={
+            "trace_id": tid,
+            "attempts": retries,
+            "last_error": (last or {}).get("error"),
+            "delta_usd": d,
+        },
+    )
+    return last
 
 
 async def fetch_operator_snapshot(*, bypass_cache: bool = False) -> dict[str, Any] | None:
