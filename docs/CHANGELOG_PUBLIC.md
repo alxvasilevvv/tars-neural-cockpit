@@ -4,6 +4,33 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-05 — Claude · Wave 62: /settings page + updater UI + Cmd+K palette entry
+
+>>> SYNC: Claude · 2026-05-05 · New standalone /settings route (About / Updater / Keyboard reference). tars://settings deep-link re-pointed from /cockpit?panel=settings to /settings. GlobalCommandPalette index gets a Settings entry. No backend touched.
+
+**Summary**
+
+Wave 59 registered `tars://settings` as a deep-link verb but routed it to `/cockpit?panel=settings` — a panel that didn't exist. Wave 62 builds the actual destination so the deep link lands on a real page:
+
+- **`src/pages/Settings.tsx`** (new) — three cards:
+  - **About** — version, runtime label (`desktop · tauri 2` vs `browser · web`), live sidecar status (port + boot took_ms when ready, otherwise stage), GitHub link.
+  - **Updates** — "Check for updates" button. In Tauri, dynamically imports `@tauri-apps/plugin-updater` and calls `check()`; renders up-to-date / available / error states. In browser, opens GitHub Releases in a new tab. The plugin import is `/* @vite-ignore */`-gated so the bundler doesn't bake it into web builds (avoiding Vite resolve errors).
+  - **Keyboard** — table of every shortcut TARS responds to (⌘K / ⌘J / ⌘. / ⇧/ / ⌘⇧Space / Tab).
+- **Route wired** in `App.tsx` under `/settings` with `RouteSkeleton variant="legal"` Suspense fallback.
+- **Deep-link parser** (`useTarsDeepLink.ts`): `tars://settings` now → `/settings` (was: `/cockpit?panel=settings`).
+- **Cmd+K palette** (`GlobalCommandPalette.tsx`): added Settings entry under "Pages" group with keywords `preferences updater shortcuts version about` so it's findable via fuzzy search.
+- **DESKTOP.md**: deep-link table updated.
+
+Page is browser-safe — `getHealth` heartbeat reuses the Wave 61 hook, runtime detection mirrors `__TAURI_INTERNALS__` checks elsewhere. Settings link visible to both web and desktop users.
+
+**Files** —
+`experiments/neural-showcase-v3/src/pages/Settings.tsx` (new),
+`experiments/neural-showcase-v3/src/App.tsx`,
+`experiments/neural-showcase-v3/src/lib/useTarsDeepLink.ts`,
+`experiments/neural-showcase-v3/src/components/GlobalCommandPalette.tsx`,
+`docs/DESKTOP.md`,
+`docs/CHANGELOG_AGENTS.md` (this entry).
+
 ## 2026-05-05 — Claude · Wave 61: Mid-session sidecar crash detection + early_exit + heartbeat
 
 >>> SYNC: Claude · 2026-05-05 · sidecar.rs gets a watcher thread (Wave 61). Drop emits desktop.sidecar.exited only on app shutdown — mid-session child crashes were silently lost. Watcher polls child.try_wait() every 2s, emits on unexpected termination, marks the slot None so Drop doesn't double-emit. wait_for_health now also detects early_exit (the schema's third stage was unused dead code). useSidecarStatus gets defense-in-depth /health heartbeat (30s, 2-fail budget) for hung-but-alive sidecars where try_wait wouldn't fire.
@@ -1707,30 +1734,6 @@ Cloudflare Pages CI).
 - `docs/CHANGELOG_AGENTS.md` (this entry)
 - `docs/CHANGELOG_PUBLIC.md` (regenerated)
 
-## 2026-05-03 — Cursor [C] · CI guard for public changelog + IDEAS sync
-
-**Summary**
-
-Cloudflare Pages workflow now runs
-`python3 scripts/generate_public_changelog.py --check` before
-`npm ci`, so a PR that appends to `CHANGELOG_AGENTS.md` without
-regenerating `CHANGELOG_PUBLIC.md` fails CI (the committed GitHub
-view stays aligned with what marketing builds). Workflow `paths`
-also include `docs/CHANGELOG_{AGENTS,PUBLIC}.md` and
-`scripts/generate_public_changelog.py` so changelog-only edits
-still trigger the full cockpit gate.
-
-`docs/IDEAS.md` — marked **Cross-thread search** and **BM25 via
-SQLite FTS5** as shipped (Phase L8); both were stale relative to
-`backend/core/search/` and `POST /api/search`.
-
-**Files**
-
-- `.github/workflows/tars-meeet-cloudflare-pages.yml`
-- `docs/IDEAS.md`
-- `docs/CHANGELOG_AGENTS.md` (this entry)
-- `docs/CHANGELOG_PUBLIC.md` (regenerated)
-
 ---
 
-_Showing the most recent 60 of 235 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 236 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._

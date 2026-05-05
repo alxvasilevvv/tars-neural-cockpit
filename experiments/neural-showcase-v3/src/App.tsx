@@ -88,6 +88,9 @@ const FAQPage = lazy(() =>
 const ComparePage = lazy(() =>
   import("@/pages/ComparePage").then((m) => ({ default: m.ComparePage })),
 );
+const SettingsPage = lazy(() =>
+  import("@/pages/Settings").then((m) => ({ default: m.Settings })),
+);
 
 // Default skeleton for routes that don't pin a specific layout shape.
 const Loading = () => <RouteSkeleton variant="default" />;
@@ -328,6 +331,14 @@ function AppShell() {
               element={
                 <Suspense fallback={<RouteSkeleton variant="legal" />}>
                   <BuildWith />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/settings"
+              element={
+                <Suspense fallback={<RouteSkeleton variant="legal" />}>
+                  <SettingsPage />
                 </Suspense>
               }
             />

@@ -81,7 +81,7 @@ Supported verbs:
 | `tars://login`                     | Magic-link landing (alias of onboarding)          |
 | `tars://cockpit`                   | Main cockpit                                      |
 | `tars://thread/<id>`               | Cockpit, deep-linked to a thread                  |
-| `tars://settings`                  | Cockpit with the Settings panel open              |
+| `tars://settings`                  | Standalone Settings page (`/settings`)            |
 
 Anything else logs a `tars.unknown.deeplink` warning in the console and stays on the current page.
 

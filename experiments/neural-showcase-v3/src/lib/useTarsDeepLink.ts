@@ -108,9 +108,10 @@ export function parseTarsUrl(raw: string): string | null {
       return `/cockpit${search}${sep}thread=${threadId}`;
     }
     case "settings":
-      // No standalone /settings route yet — surface inside cockpit as
-      // a query param so the cockpit shell can open the panel.
-      return `/cockpit?panel=settings`;
+      // Wave 62: standalone /settings page with About + Updater +
+      // Keyboard reference. (Older Wave 59 routed via /cockpit?panel=
+      // before the page existed.)
+      return `/settings`;
     default:
       return null;
   }

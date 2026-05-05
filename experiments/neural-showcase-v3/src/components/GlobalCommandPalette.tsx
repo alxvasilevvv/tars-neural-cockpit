@@ -15,6 +15,7 @@ import {
   Briefcase,
   Image,
   Stamp,
+  Settings2,
   Search,
   Hash,
   CornerDownLeft,
@@ -82,6 +83,7 @@ const ITEMS: CmdItem[] = [
   { id: "roadmap",   kind: "route", title: "Roadmap",          hint: "Phase M product plan",       Icon: FileText,    href: "/roadmap",    group: "Pages", keywords: "future plan" },
   { id: "changelog", kind: "route", title: "Changelog",        hint: "What shipped, top-down",     Icon: FileText,    href: "/changelog",  group: "Pages", keywords: "history release" },
   { id: "buildwith", kind: "route", title: "Built with TARS",  hint: "Embed badge for your repo / site", Icon: Stamp,    href: "/build-with", group: "Pages", keywords: "badge embed widget viral share" },
+  { id: "settings",  kind: "route", title: "Settings",          hint: "Updates · keyboard · about",         Icon: Settings2, href: "/settings",   group: "Pages", keywords: "preferences updater shortcuts version about" },
 
   // Sections (anchor on /)
   { id: "domains",   kind: "anchor", title: "Domain packs",    hint: "Traders / Entrepreneur / Researcher / Science", Icon: Hash, href: "/#domains", group: "Sections" },
