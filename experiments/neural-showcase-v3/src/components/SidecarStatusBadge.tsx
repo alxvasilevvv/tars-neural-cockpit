@@ -201,6 +201,12 @@ function exitedDetail(
   payload: { pid: number; ran_ms: number; exit_code?: number | null; signal?: string | null } | undefined,
 ): string {
   if (!payload) return "The local FastAPI sidecar exited unexpectedly.";
+  // Heartbeat-lost case: TS-side detected /health unresponsive. The
+  // Rust watcher might still see the child as "alive" (zombie / hung)
+  // — phrase it without claiming a specific exit reason.
+  if (payload.signal === "heartbeat_lost") {
+    return "Backend stopped responding to /health. It may be hung or partitioned. Relaunch TARS.";
+  }
   const reason = payload.signal
     ? `signal ${payload.signal}`
     : typeof payload.exit_code === "number"

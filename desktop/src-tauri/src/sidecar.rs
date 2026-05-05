@@ -1,13 +1,24 @@
 // Sidecar — bring up the FastAPI backend as a child process.
 //
-// Lifecycle (Phase L9 A1):
+// Lifecycle (Phase L9 A1 + Wave 61):
 //
 //   spawn() → resolve binary path → Command::spawn → poll /health
 //          ↘ (failure: emit `desktop.sidecar.failed`)
-//          ↘ (success: emit `desktop.sidecar.started`, retain handle)
+//          ↘ (early child exit during health-poll: emit
+//             `desktop.sidecar.failed` with stage=`early_exit`)
+//          ↘ (success: emit `desktop.sidecar.started`, retain handle,
+//             spawn watcher thread)
+//
+//   watcher thread (Wave 61) — polls child.try_wait() every 2s while
+//          the SidecarHandle is alive. If the child exits unexpectedly
+//          mid-session (crash, OOM, manual kill), emits
+//          `desktop.sidecar.exited` and clears the child slot so the
+//          Drop impl below doesn't double-emit.
 //
 //   on app shutdown → SidecarHandle::Drop → SIGTERM → wait 5 s → SIGKILL
 //                                          ↘ emit `desktop.sidecar.exited`
+//                                            (skipped if watcher already
+//                                            emitted for a crash)
 //
 // The event payload contract lives at
 // `desktop/src-tauri/sidecar-events.schema.json` and is pinned by
@@ -24,7 +35,7 @@ use std::io::{Read, Write};
 use std::net::TcpStream;
 use std::path::{Path, PathBuf};
 use std::process::{Child, Command, Stdio};
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, Weak};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -37,6 +48,10 @@ const DEFAULT_PORT: u16 = 8765;
 const HEALTH_TIMEOUT: Duration = Duration::from_secs(15);
 const HEALTH_INTERVAL: Duration = Duration::from_millis(250);
 const SHUTDOWN_GRACE: Duration = Duration::from_secs(5);
+/// Watcher poll cadence — fast enough that a crashed sidecar surfaces
+/// in the cockpit in seconds, slow enough that we don't burn CPU on
+/// the lock + try_wait dance.
+const WATCHER_INTERVAL: Duration = Duration::from_secs(2);
 
 #[derive(Clone, Copy, Debug)]
 enum LaunchMode {
@@ -57,7 +72,9 @@ impl LaunchMode {
 
 /// Owned sidecar process. Drop kills the child and emits
 /// `desktop.sidecar.exited` (best-effort, non-fatal if the runtime is
-/// already shutting down).
+/// already shutting down). When the watcher thread (Wave 61) detects
+/// a mid-session crash, it clears `child` to None *before* emitting,
+/// so this Drop skips its own emit and avoids double-firing.
 pub struct SidecarHandle {
     child: Option<Child>,
     pid: u32,
@@ -82,22 +99,26 @@ impl Drop for SidecarHandle {
         let pid = self.pid;
         let ran_ms = self.started_at.elapsed().as_millis() as u64;
 
-        let exit = if let Some(mut child) = self.child.take() {
-            let _ = child.kill();
-            let deadline = Instant::now() + SHUTDOWN_GRACE;
-            loop {
-                match child.try_wait() {
-                    Ok(Some(status)) => break Some(status),
-                    Ok(None) if Instant::now() >= deadline => {
-                        let _ = child.kill();
-                        break child.wait().ok();
-                    }
-                    Ok(None) => thread::sleep(Duration::from_millis(100)),
-                    Err(_) => break None,
+        // If the watcher already noticed a mid-session crash, it took
+        // ownership of emitting `desktop.sidecar.exited` and cleared
+        // self.child. Skip our own emit to keep the event stream sane.
+        let Some(mut child) = self.child.take() else {
+            info!("tars.desktop.sidecar.drop_after_watcher pid={pid} ran_ms={ran_ms}");
+            return;
+        };
+
+        let _ = child.kill();
+        let deadline = Instant::now() + SHUTDOWN_GRACE;
+        let exit = loop {
+            match child.try_wait() {
+                Ok(Some(status)) => break Some(status),
+                Ok(None) if Instant::now() >= deadline => {
+                    let _ = child.kill();
+                    break child.wait().ok();
                 }
+                Ok(None) => thread::sleep(Duration::from_millis(100)),
+                Err(_) => break None,
             }
-        } else {
-            None
         };
 
         let payload = json!({
@@ -122,10 +143,13 @@ fn unix_signal_name(_status: &std::process::ExitStatus) -> Option<String> {
     None
 }
 
+type SharedHandle = Arc<Mutex<Option<SidecarHandle>>>;
+
 /// Try to bring the sidecar up. Always emits exactly one of
 /// `desktop.sidecar.started` or `desktop.sidecar.failed`. On success
 /// the returned handle is stashed in Tauri state so it lives as long
-/// as the app.
+/// as the app; a watcher thread also starts to catch mid-session
+/// crashes (Wave 61).
 pub fn spawn(app: &tauri::AppHandle<tauri::Wry>) -> Result<(), String> {
     let port = std::env::var("PORT")
         .ok()
@@ -151,10 +175,15 @@ pub fn spawn(app: &tauri::AppHandle<tauri::Wry>) -> Result<(), String> {
     );
 
     let handle = SidecarHandle::new(child, app.clone());
-    let handle = Arc::new(Mutex::new(Some(handle)));
+    let handle: SharedHandle = Arc::new(Mutex::new(Some(handle)));
     app.manage(handle.clone());
 
-    match wait_for_health(port, HEALTH_TIMEOUT) {
+    // Health-poll loop also watches for the child crashing during boot
+    // (early_exit). The closure consults the same Arc<Mutex<>> we just
+    // stashed in Tauri state, via Weak so the loop doesn't keep the
+    // handle alive past the app's lifetime.
+    let weak_for_health = Arc::downgrade(&handle);
+    match wait_for_health(port, HEALTH_TIMEOUT, || child_status(&weak_for_health)) {
         Ok(took_ms) => {
             let payload = json!({
                 "pid": pid,
@@ -167,18 +196,89 @@ pub fn spawn(app: &tauri::AppHandle<tauri::Wry>) -> Result<(), String> {
                 "tars.desktop.sidecar.started pid={pid} port={port} mode={mode} took_ms={took_ms}",
                 mode = mode.as_str()
             );
+
+            // Wave 61 — watcher thread. Catches mid-session crashes
+            // that the Drop impl would otherwise miss (Drop only runs
+            // when the app shuts down, not when the child dies under
+            // a still-running app).
+            spawn_watcher(Arc::downgrade(&handle), app.clone(), started_at, pid);
+
             Ok(())
         }
-        Err(stage_err) => {
+        Err((stage, error)) => {
             let took_ms = started_at.elapsed().as_millis() as u64;
-            emit_failed(app, &stage_err.0, &stage_err.1, took_ms, Some(pid));
+            emit_failed(app, &stage, &error, took_ms, Some(pid));
             // Drop the handle to kill the child we just spawned.
             if let Ok(mut guard) = handle.lock() {
                 *guard = None;
             }
-            Err(format!("sidecar health failed: {}", stage_err.1))
+            Err(format!("sidecar health failed: {}", error))
         }
     }
+}
+
+/// Sample the child's status WITHOUT blocking. Returns:
+///   - `Ok(true)`  → still running
+///   - `Ok(false)` → exited (caller treats as early_exit during boot)
+///   - `Err(())`   → handle is gone or unlockable; treat as gone
+fn child_status(weak: &Weak<Mutex<Option<SidecarHandle>>>) -> Result<bool, ()> {
+    let arc = weak.upgrade().ok_or(())?;
+    let mut guard = arc.lock().map_err(|_| ())?;
+    let Some(handle) = guard.as_mut() else { return Err(()) };
+    let Some(child) = handle.child.as_mut() else { return Err(()) };
+    match child.try_wait() {
+        Ok(None) => Ok(true),
+        Ok(Some(_)) => Ok(false),
+        Err(_) => Err(()),
+    }
+}
+
+/// Wave 61 watcher thread. Owns a Weak ref to the SidecarHandle so it
+/// doesn't keep the app alive. Polls `child.try_wait()` every 2s.
+/// On unexpected exit, emits `desktop.sidecar.exited` and zeros out
+/// the child slot so the SidecarHandle's Drop doesn't double-emit on
+/// app shutdown.
+fn spawn_watcher(
+    weak: Weak<Mutex<Option<SidecarHandle>>>,
+    app: tauri::AppHandle<tauri::Wry>,
+    started_at: Instant,
+    pid: u32,
+) {
+    thread::spawn(move || loop {
+        thread::sleep(WATCHER_INTERVAL);
+        let Some(arc) = weak.upgrade() else { return };
+        let Ok(mut guard) = arc.lock() else { return };
+        let Some(handle) = guard.as_mut() else { return };
+        let Some(child) = handle.child.as_mut() else { return };
+        match child.try_wait() {
+            Ok(None) => continue,
+            Ok(Some(status)) => {
+                let ran_ms = started_at.elapsed().as_millis() as u64;
+                let payload = json!({
+                    "pid": pid,
+                    "ran_ms": ran_ms,
+                    "exit_code": status.code(),
+                    "signal": unix_signal_name(&status),
+                });
+                let _ = app.emit("desktop.sidecar.exited", payload);
+                warn!(
+                    "tars.desktop.sidecar.crashed_mid_session pid={pid} ran_ms={ran_ms} \
+                     exit_code={:?} signal={:?}",
+                    status.code(),
+                    unix_signal_name(&status)
+                );
+                // Mark the child as already-exited so Drop skips its
+                // own emit. We can't drop the SidecarHandle from here
+                // without racing with Tauri's app state cleanup.
+                handle.child = None;
+                return;
+            }
+            Err(err) => {
+                warn!("tars.desktop.sidecar.watcher.try_wait_err err={err}");
+                return;
+            }
+        }
+    });
 }
 
 fn build_command(
@@ -258,9 +358,39 @@ fn emit_failed(
     );
 }
 
-fn wait_for_health(port: u16, timeout: Duration) -> Result<u64, (String, String)> {
+/// Health-poll until the sidecar's `/health` returns 200 *or* the
+/// child exits prematurely *or* the timeout elapses. The `is_alive`
+/// closure is consulted on every iteration so a child crashing during
+/// boot surfaces as `early_exit` rather than waiting out the full 15s
+/// `health_timeout`. (Wave 61.)
+fn wait_for_health<F>(
+    port: u16,
+    timeout: Duration,
+    mut is_alive: F,
+) -> Result<u64, (String, String)>
+where
+    F: FnMut() -> Result<bool, ()>,
+{
     let start = Instant::now();
     loop {
+        match is_alive() {
+            Ok(true) => {} // still running
+            Ok(false) => {
+                return Err((
+                    "early_exit".to_string(),
+                    format!(
+                        "sidecar process exited before /health returned 200 (after {}ms)",
+                        start.elapsed().as_millis()
+                    ),
+                ));
+            }
+            Err(()) => {
+                return Err((
+                    "early_exit".to_string(),
+                    "sidecar handle gone before /health returned 200".to_string(),
+                ));
+            }
+        }
         if start.elapsed() > timeout {
             return Err((
                 "health_timeout".to_string(),

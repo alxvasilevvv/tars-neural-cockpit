@@ -4,6 +4,32 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-05 — Claude · Wave 61: Mid-session sidecar crash detection + early_exit + heartbeat
+
+>>> SYNC: Claude · 2026-05-05 · sidecar.rs gets a watcher thread (Wave 61). Drop emits desktop.sidecar.exited only on app shutdown — mid-session child crashes were silently lost. Watcher polls child.try_wait() every 2s, emits on unexpected termination, marks the slot None so Drop doesn't double-emit. wait_for_health now also detects early_exit (the schema's third stage was unused dead code). useSidecarStatus gets defense-in-depth /health heartbeat (30s, 2-fail budget) for hung-but-alive sidecars where try_wait wouldn't fire.
+
+**Summary**
+
+Reviewed `sidecar.rs` after Wave 60 to make sure my new cockpit badge would actually catch real crashes. Found a real gap: the `Drop` impl is the **only** place `desktop.sidecar.exited` was emitted, and Drop only runs on app shutdown. So a sidecar crashing mid-session (OOM, bug, manual kill from outside) never produced a status event — the cockpit's `useSidecarStatus` would stay in `ready` forever while every API call failed with connection refused.
+
+Fixed at three layers:
+
+1. **Watcher thread (Rust).** After health passes, spawn a thread that holds a `Weak<Mutex<Option<SidecarHandle>>>` and polls `child.try_wait()` every 2 seconds. On unexpected termination, emits `desktop.sidecar.exited` with exit_code/signal/ran_ms and zeroes the child slot. Drop now skips its own emit if the slot was already cleared, so we don't double-fire.
+
+2. **`early_exit` stage (Rust).** The schema lists `early_exit` as a possible `desktop.sidecar.failed` stage (sidecar dies during boot, before health passes), but the previous `wait_for_health` didn't watch the child — it just polled HTTP. Now it consults a `is_alive` closure on every iteration; if the child has exited, we emit `desktop.sidecar.failed` with `stage: "early_exit"` instead of waiting out the full 15s timeout.
+
+3. **`/health` heartbeat (TypeScript, defense-in-depth).** The watcher catches when the **process** dies. It can't catch when the **process is alive but unresponsive** (zombie / hung). `useSidecarStatus` now also pings `/health` every 30s while in `ready`. After 2 consecutive failures, flips to `exited` with synthetic signal `heartbeat_lost`. SidecarStatusBadge renders that case as "Backend stopped responding to /health. It may be hung or partitioned. Relaunch TARS." Cheap (one fetch per 30s, ~no impact on idle loop).
+
+The watcher uses Weak references throughout so it doesn't keep the app alive past its natural lifetime; if Tauri drops the SharedHandle Arc during shutdown, the watcher's next `weak.upgrade()` returns None and the thread exits cleanly.
+
+No schema changes — `desktop.sidecar.exited` payload is unchanged, the watcher just emits it from a new place. Existing test `tests/test_desktop_sidecar_events_contract.py` still pins v1.0.0.
+
+**Files** —
+`desktop/src-tauri/src/sidecar.rs`,
+`experiments/neural-showcase-v3/src/lib/useSidecarStatus.ts`,
+`experiments/neural-showcase-v3/src/components/SidecarStatusBadge.tsx`,
+`docs/CHANGELOG_AGENTS.md` (this entry).
+
 ## 2026-05-05 — Claude · Wave 60: Sidecar status indicator + DESKTOP.md operator guide
 
 >>> SYNC: Claude · 2026-05-05 · Cockpit listens to desktop.sidecar.{started,failed,exited} Tauri events via new `useSidecarStatus` hook + `SidecarStatusBadge` component (mounted in AppShell). Shows starting/ready/failed/exited states; browser builds skip entirely. Plus user-facing `docs/DESKTOP.md` operator guide.

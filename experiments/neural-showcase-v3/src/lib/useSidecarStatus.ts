@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { getHealth } from "@/lib/api";
 
 /**
  * useSidecarStatus — listens to the Tauri desktop sidecar lifecycle
@@ -61,11 +62,14 @@ export interface SidecarState {
 }
 
 const COLD_LOAD_TIMEOUT_MS = 8_000;
+const HEARTBEAT_INTERVAL_MS = 30_000;
+const HEARTBEAT_FAIL_BUDGET = 2;
 
 export function useSidecarStatus(): SidecarState {
   const [state, setState] = useState<SidecarState>(() => ({
     status: "unknown",
   }));
+  const consecFails = useRef(0);
 
   useEffect(() => {
     const isTauri =
@@ -163,6 +167,54 @@ export function useSidecarStatus(): SidecarState {
       });
     };
   }, []);
+
+  // Wave 61 heartbeat — defense-in-depth on top of the Rust watcher.
+  // The Rust watcher catches when the child PID exits, but it can't
+  // detect a hung/zombie sidecar where the process is alive but
+  // `/health` stops responding. Once we're in "ready", ping every
+  // 30s; flip to "exited" after `HEARTBEAT_FAIL_BUDGET` consecutive
+  // failures. Resets the counter on any success. Cheap (one HEAD-
+  // sized request per 30s) and quietly stops when we leave "ready".
+  useEffect(() => {
+    if (state.status !== "ready") {
+      consecFails.current = 0;
+      return;
+    }
+    let cancelled = false;
+    const tick = async () => {
+      try {
+        const h = await getHealth();
+        if (cancelled) return;
+        if (h && (h.ok === true || h.status === "ok" || h.status === "ready")) {
+          consecFails.current = 0;
+          return;
+        }
+        // 2xx but unexpected shape — don't penalise; backend may be
+        // mid-deploy. Reset.
+        consecFails.current = 0;
+      } catch {
+        if (cancelled) return;
+        consecFails.current += 1;
+        if (consecFails.current >= HEARTBEAT_FAIL_BUDGET) {
+          setState({
+            status: "exited",
+            exited: {
+              pid: 0, // unknown — heartbeat-derived
+              ran_ms: 0,
+              exit_code: null,
+              signal: "heartbeat_lost",
+            },
+          });
+        }
+      }
+    };
+    const id = setInterval(tick, HEARTBEAT_INTERVAL_MS);
+    // Don't fire immediately — the "ready" event already proved health.
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+  }, [state.status]);
 
   return state;
 }
