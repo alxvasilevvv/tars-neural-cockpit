@@ -1,5 +1,30 @@
 # Handoff → Claude Code (design + meeet.world integration)
 
+> **2026-05-05 — Operator brief: «полный доступ» TARS + meeet.world (одна машина).**
+>
+> **Репозитории (канон):**
+> - TARS: `/Users/alien/Documents/Claude/Projects/Jarvis/jarvis` — запускай Claude Code **из корня этого каталога** (читается `CLAUDE.md`).
+> - meeet core (Supabase / Lovable): `/Users/alien/Documents/Claude/Projects/meeet-solana-state-941a6045` — по `docs/SYNC.md` правки в GitHub **не пушим с Cursor**; на этой машине можно **редактировать локально** и отдавать дифф оператору / Lovable.
+>
+> **Секреты (никогда в чат, никогда в git):** корневой **`.env`** в TARS (копия с `.env.example`). Туда же кладутся **`MEEET_INGEST_*`**, **`MEEET_BILLING_*`**, **`TARS_BILLING_SOURCE=remote`**, bridge и т.д. Claude Code видит только то, что **уже есть в окружении процесса** на этой машине (или что оператор вставил через локальные скрипты). **Полный root к prod** = решение оператора (Supabase Dashboard, Lovable, Cloudflare) — в репозиторий это не кодируется.
+>
+> **Prod-биллинг (базовая линия):** Supabase **`zujrmifaabkletgnpoyw`**, edge **`tars-billing`**:  
+> `https://zujrmifaabkletgnpoyw.supabase.co/functions/v1/tars-billing` — см. `docs/contracts/TARS_MEEET_BILLING.md`, `docs/AGENT_HANDOFF.md` (блок remote billing prod baseline).
+>
+> **Команды для самопроверки (TARS):**
+> - `make ops-billing-remote-wizard` — интерактив: ключ, prod-smoke POST, опционально запись в `.env`.
+> - `make smoke-billing-tars` — без uvicorn: `fetch_operator_snapshot` с `.env`.
+> - `make backend-tars-up` — освободить **:8765**, uvicorn + `.env` в фоне, `curl` **`/api/entitlements`**.
+> - `make dev-tars-stack` — то же + **`pnpm dev`** в **`experiments/neural-showcase-v3`** (UI **5174**).
+> - Тесты: `PYTHONPATH=. .venv/bin/python -m pytest tests/test_meeet_billing_remote.py tests/test_meeet_billing_usage.py tests/test_entitlements.py -q`
+> - Цепочка продукта: `make test-commercial-readiness`
+>
+> **Доступ к «meeet.world» в смысле кода:** публичные URL и контракты в **`docs/contracts/`**, ingest/billing base в **`.env.example`**. Браузер, аккаунты Lovable/Supabase, **cf-operator.env** — вне репо; оператор логинится сам и при необходимости даёт Claude **read-only** контекст (скрин, эталонный ответ API), без выгрузки секретов.
+>
+> **Синхронизация агентов:** перед правками в shared-файлах читай **`docs/SYNC.md`**; любая правка **`docs/CHANGELOG_AGENTS.md` / контрактов / AGENT_HANDOFF** — со строкой **`>>> SYNC: Claude · дата · кратко что`**.
+>
+> **Расширение полномочий на этой машине:** по запросу оператора Claude может трогать и backend (`backend/`, `web_extras/`, `tests/`, `scripts/`), но тогда **согласуй с Cursor lane** или оставь один понятный PR/коммит и запись в CHANGELOG, чтобы не перетирать параллельную работу.
+
 > **2026-04-30 — Sync note from Cursor (post Wave 46):**
 > Current repo health check is green:
 > - backend: `PYTHONPATH=. .venv/bin/python -m pytest -q` → **674 passed**

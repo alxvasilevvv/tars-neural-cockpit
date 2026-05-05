@@ -56,7 +56,7 @@ export function CookieConsent() {
     <AnimatePresence>
       {visible && (
         <motion.div
-          role="dialog"
+          role="region"
           aria-label="cookie notice"
           initial={{ opacity: 0, y: 30 }}
           animate={{ opacity: 1, y: 0 }}

@@ -17,9 +17,24 @@ plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 > **Implementing host:** Supabase edge **`tars-billing`** + table **`tars_billing_operators`**
 > in **meeet-solana-state** (`functions/v1/tars-billing` + `GET …/operator`; secrets
 > **`TARS_BILLING_API_KEY`** or **`MEEET_BILLING_API_KEY`** must match TARS).
-> **Usage:** `POST …/operator/usage` with `delta_usd`; TARS mirrors priced **`usage.tokens`**
-> on routes `cloud`/`fallback`/`mixed` from **`MeeetClient.emit`** (after local durable insert).
+> **Usage:** `POST …/operator/usage` with `delta_usd` + optional **`trace_id`** (edge dedupe table);
+> TARS mirrors priced **`usage.tokens`** on routes `cloud`/`fallback`/`mixed` from **`MeeetClient.emit`**
+> (after local durable insert) with retries (`MEEET_BILLING_USAGE_RETRIES`).
 > Local `entitlements.json` is fallback UI only when remote snapshot fails.
+>
+> **2026-05-05 — Remote billing prod baseline (start line):** meeet core Supabase
+> **`zujrmifaabkletgnpoyw`** — table **`public.tars_billing_usage_dedupe`**, edge
+> **`tars-billing`** redeployed with **`trace_id`** idempotency; secret **`TARS_BILLING_API_KEY`**
+> set (TARS uses the same value as **`MEEET_BILLING_API_KEY`**). Operator smoke:
+> **GET …/operator**, first **POST …/operator/usage** then duplicate POST (spend
+> unchanged), anon **REST** on dedupe → **`[]`**. Canonical TARS remote URL:
+> `MEEET_BILLING_BASE_URL=https://zujrmifaabkletgnpoyw.supabase.co/functions/v1/tars-billing`.
+> Optional **`TARS_BILLING_CHECKOUT_BASE`** / **`TARS_BILLING_ACCOUNT_URL`** unset → defaults
+> `https://meeet.world/billing/tars` and `https://meeet.world/account`.
+> Local operator: **`make ops-billing-remote-wizard`** — hidden key paste, prod GET+POST idempotency smoke, optional **`.env`** merge.
+> After `.env` is set: **`make smoke-billing-tars`** — same machine, stdlib **`fetch_operator_snapshot`** (no uvicorn) to confirm TARS reads prod.
+> One command dev server: **`make backend-tars-up`** — frees **:8765**, starts **uvicorn** with **`.env`** in background, prints **`/api/entitlements`** billing JSON; stop: **`kill $(cat /tmp/tars-backend-8765.pid)`**.
+> Full local stack (API bg + Vite fg): **`make dev-tars-stack`** — same as **`backend-tars-up`**, then **`pnpm dev`** in **`experiments/neural-showcase-v3`** (cockpit **5174** talks to API **8765** by default).
 
 > **2026-05-04 — Go-live same-day closeout.** `docs/GO_LIVE_48H.md` is the
 > operator checklist (**bridge on Pages**, GitHub `BRIDGE_SHARED_SECRET`,

@@ -125,6 +125,7 @@ export function CommandPalette({
   return (
     <motion.div
       role="dialog"
+      aria-modal="true"
       aria-label="search"
       onKeyDown={onKeyDown}
       initial={{ opacity: 0 }}

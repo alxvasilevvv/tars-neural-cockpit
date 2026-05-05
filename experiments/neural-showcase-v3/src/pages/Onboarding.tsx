@@ -20,6 +20,7 @@ import {
 import { CornerFrame, StatusLozenge } from "@/components/Glyphs";
 import { useDocumentMeta } from "@/lib/meta";
 import { useT, type TKey } from "@/lib/i18n";
+import { useFocusTrap } from "@/lib/useFocusTrap";
 import { activateRole, createCustomRole } from "@/lib/api";
 
 /**
@@ -112,7 +113,7 @@ const ROLES: Role[] = [
     nameKey: "onboarding.role.marketer.name",
     descriptionKey: "onboarding.role.marketer.desc",
     Icon: Megaphone,
-    color: "#A78BFA",
+    color: "var(--brand-orchid)",
     backingPacks: ["entrepreneur"],
   },
   {
@@ -121,7 +122,7 @@ const ROLES: Role[] = [
     nameKey: "onboarding.role.engineer.name",
     descriptionKey: "onboarding.role.engineer.desc",
     Icon: Code,
-    color: "#34D399",
+    color: "var(--color-success)",
     backingPacks: ["science"],
   },
   {
@@ -130,7 +131,7 @@ const ROLES: Role[] = [
     nameKey: "onboarding.role.operator.name",
     descriptionKey: "onboarding.role.operator.desc",
     Icon: Briefcase,
-    color: "#F59E0B",
+    color: "var(--brand-amber)",
     backingPacks: ["traders", "entrepreneur", "science", "business"],
   },
 ];
@@ -715,10 +716,30 @@ function CustomRoleModal({ onClose, onSave, initial }: CustomRoleModalProps) {
   const valid = name.trim().length >= 2 && description.trim().length >= 24;
   const t = useT();
 
+  // WCAG 2.1 AA — Section 4.1.2 Name Role Value + 2.1.2 No Keyboard Trap.
+  // The modal must (a) announce itself as a modal so screen readers stop
+  // exposing the page behind it, and (b) trap Tab so keyboard users can't
+  // escape into the inert backdrop. Esc + backdrop click already close it.
+  const dialogRef = useRef<HTMLDivElement>(null);
+  useFocusTrap(dialogRef, true);
+
+  // Esc closes the modal — pairs with the focus trap so keyboard users
+  // always have an escape hatch (WCAG 2.1.2).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
   return (
     <motion.div
+      ref={dialogRef}
       role="dialog"
+      aria-modal="true"
       aria-label="custom role"
+      tabIndex={-1}
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}

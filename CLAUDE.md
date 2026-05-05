@@ -11,6 +11,13 @@ Auto-loaded by Claude Code in every session. Cursor reads the same context via
 > **Fresh clone / second machine / GitHub + meeet.world:**
 > follow `docs/SECOND_MACHINE_HANDOFF.md`; copy `.env.example` → `.env` (never commit).
 
+> **2026-05-05 — Operator brief ("полный доступ" TARS + meeet.world, one machine):**
+> see `docs/handoff-claude.md` (top block) for canonical repo paths
+> (TARS + `meeet-solana-state-941a6045`), the prod billing baseline on
+> Supabase `zujrmifaabkletgnpoyw`, and self-check make targets
+> (`backend-tars-up`, `dev-tars-stack`, `smoke-billing-tars`,
+> `ops-billing-remote-wizard`, `test-commercial-readiness`).
+
 ## Project
 
 - **TARS** — local-first neural cockpit. Released under the `meeet.world` brand
@@ -171,6 +178,15 @@ set, so it is safe in tests and offline envs.
 
 Every meaningful TARS request that crosses a service boundary must run inside
 `trace_scope` and emit at least one `*.invoked` and one `*.completed` event.
+
+### Authoritative billing mirror (meeet.world)
+
+When `TARS_BILLING_SOURCE=remote`, TARS reads tier + cloud gate + spend display
+from **meeet.world** (`MEEET_BILLING_BASE_URL` … `/operator`, Bearer
+`MEEET_BILLING_API_KEY`). Contract: `docs/contracts/TARS_MEEET_BILLING.md`.
+Implementation: `backend/core/meeet_billing/`. Paid upgrades are **delegated**
+(open `redirect` on meeet); local `~/.tars/entitlements.json` is not the source
+of truth for tier in that mode.
 
 ## Frontend conventions
 

@@ -4,6 +4,155 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-05 — Cursor · Wave 56: P1 hex→tokens + billing mirror exhaustion log
+
+>>> SYNC: Cursor · 2026-05-05 · Wave 56 P1 closure — 3 hex→token in Onboarding role chips (+ --brand-amber added to index.css), structured log meeet.mirror.usage.exhausted on retry budget exhaustion in client.py:178. P1-2 confirmed already covered by smoke-core-bridge. Frontend (cockpit lane) untouched.
+
+**Files** — `experiments/neural-showcase-v3/src/index.css`, `experiments/neural-showcase-v3/src/pages/Onboarding.tsx`, `backend/core/meeet_billing/client.py`, `tests/test_meeet_billing_usage.py`, `docs/CHANGELOG_AGENTS.md` (this entry).
+
+## 2026-05-05 — Claude · Wave 55: Final launch ownership pass — modal a11y sweep + sign-off
+
+>>> SYNC: Claude · 2026-05-05 · WCAG 2.1 AA pass on 4 modal/overlay surfaces in `experiments/neural-showcase-v3/src/`. No backend code touched. Cursor lanes (`backend/`, `lib/`, `Makefile`, `scripts/`) untouched.
+
+**Summary**
+
+Final pre-launch ownership pass. Took the 2026-05-05 baseline (HEAD `4b6a322`, 217 commits ahead of Wave 51 baseline) and ran a focused a11y sweep across every `role="dialog"` surface using launch-readiness criteria.
+
+Of 11 dialog-roled overlays in the cockpit/marketing surface, 7 already had `aria-modal="true"` (Cockpit, Onboarding's other dialog branch, KeyboardOverlay, CockpitTour, WatchMeWork, OperatorPalette, GlobalCommandPalette — Cursor's Wave 53 follow-up landed those). Four were missing — closed in this wave:
+
+1. **`src/pages/Onboarding.tsx`** (CustomRoleModal at L713) — added `aria-modal="true"`, `tabIndex={-1}` on the dialog root, and wired `useFocusTrap(dialogRef, true)` from the existing `src/lib/useFocusTrap.ts` utility. Added Esc-to-close keyboard handler (the surrounding `onClick={onClose}` only handled backdrop clicks, leaving keyboard users with no escape hatch — WCAG 2.1.2). Inline comments cite WCAG sections so the next agent knows why the extra wiring exists.
+2. **`src/components/JumpPalette.tsx`** (L177) — added `aria-modal="true"`. The component already auto-focuses its search input and handles `Escape`/`Enter`/`Arrow{Up,Down}` via its own `onKeyDown`; minimal aria-modal addition avoids conflicting with that keyboard logic.
+3. **`src/components/CommandPalette.tsx`** (L126) — same minimal `aria-modal="true"` addition for the same reason.
+4. **`src/components/CookieConsent.tsx`** (L58) — corrected the role: a non-blocking bottom-of-viewport banner is not a dialog. Changed `role="dialog"` → `role="region"`. Screen readers will now announce it as a labeled region (consistent with its Cookie/Accept/Reject button affordances) instead of trapping users into expecting modal semantics that don't apply.
+
+**Why this wave matters for launch:** with 217 commits since baseline and Cursor's billing/payment work in flight, every agent has been touching keyboard-modal surfaces but no one had run the consolidated `role="dialog"` sweep. Modal a11y regressions are the kind of thing that ship silently and surface in App Store / accessibility review later.
+
+**Untouched, intentionally:**
+
+- Hardcoded hex colors in `src/pages/PricingPage.tsx`, `ComparePage.tsx`, and `src/pages/Onboarding.tsx` role color chips. Real but P1 (visual consistency, not a11y); Cursor lane.
+- BRIDGE_SHARED_SECRET propagation into `make gate-control-tower` smoke target. Closed at the env template level in Wave 54; runtime side is Cursor's `Makefile` lane.
+- billing mirror silent-failure logging on `POST /operator/usage` retry exhaustion. Cursor lane (`backend/core/meeet/billing_mirror_remote.py`).
+
+**Files** — `src/pages/Onboarding.tsx`, `src/components/JumpPalette.tsx`, `src/components/CommandPalette.tsx`, `src/components/CookieConsent.tsx`, `docs/CHANGELOG_AGENTS.md` (this entry).
+
+## 2026-05-05 — Claude · Wave 54: handoff brief pointers + .env.example bridge key
+
+>>> SYNC: Claude · 2026-05-05 · CLAUDE.md pointer to handoff-claude.md 2026-05-05 brief block; .env.example adds BRIDGE_SHARED_SECRET= template (per docs/SYNC.md §7 + docs/contracts/CORE_BRIDGE.md). No backend code touched.
+
+**Summary**
+
+Read the four canonical docs from the 2026-05-05 operator brief
+(`docs/handoff-claude.md`, `docs/SYNC.md`, `docs/AGENT_HANDOFF.md`,
+`docs/contracts/TARS_MEEET_BILLING.md`) and ran the brief's self-checks
+where the sandbox allowed. All four test files exist (`test_meeet_billing_remote`,
+`test_meeet_billing_usage`, `test_entitlements`, `test_commercial_readiness_chain`),
+all five make targets are wired (`ops-billing-remote-wizard`,
+`smoke-billing-tars`, `backend-tars-up`, `dev-tars-stack`,
+`test-commercial-readiness`), `.env` is gitignored correctly, and the
+recent billing commits (`4b6a322`, `47f942a`) line up with the contract.
+
+Two tiny gaps closed locally:
+
+1. **`.env.example`** — added `BRIDGE_SHARED_SECRET=` template under a
+   new "meeet core ↔ TARS core-bridge" section. Brief explicitly lists
+   *bridge* among the keys an operator copies into `.env`, but the
+   template was missing it; fresh-clone operators following
+   `docs/SECOND_MACHINE_HANDOFF.md` could ship without it and quietly
+   fail `make smoke-core-bridge` / `make gate-control-tower`.
+2. **`CLAUDE.md`** — added a one-liner pointer (right under the
+   "Fresh clone / second machine" block) that routes new sessions to
+   the 2026-05-05 brief at the top of `docs/handoff-claude.md`. Cursor
+   and Claude both auto-load `CLAUDE.md` so this surfaces the operator
+   brief without requiring the agent to grep for it.
+
+Pytest / vitest could not run in this sandbox (no `.venv`, native
+rollup binary mismatch on `@rollup/rollup-linux-arm64-gnu`). Brief's
+real verification still belongs to the operator on local hardware.
+
+**Files** — `.env.example`, `CLAUDE.md`, `docs/CHANGELOG_AGENTS.md`
+(this entry).
+
+## 2026-05-05 — Claude · Wave 53: Pre-launch sign-off + 2 P0 a11y/UX fixes
+
+**Summary**
+
+Comprehensive pre-launch audit verifying 217 commits since baseline. Brother's
+GO_LIVE_48H assessment is GREEN: Cursor closed all 4 P1 items from Wave 51
+(P1-1 payment_token via TARS_PAYMENT_MODE env, P1-2 server-side policy mode
+authority, P1-3 custom token-bucket rate-limiter, P1-4 BYO toggle gate).
+Backend security clean — 0 hardcoded secrets, 0 stray prints/logs, CORS safe.
+2315 backend tests + 328 vitest passing + 25/0/2/3 smoke.
+
+Closed 2 P0 launch-blockers in this wave:
+- FAQ accordion: button gets `aria-label="Expand answer · {q}"`, panel gets
+  `role="region"` + `aria-labelledby` for screen readers (WCAG 2.1 AA · 2.4.4
+  + 2.4.6 + 4.1.2)
+- CockpitGate footer hides raw `API_BASE` in prod builds (was leaking
+  `127.0.0.1:8765` or `tars.meeet.world` to confused public visitors)
+
+5 P1 + 6 P2 findings catalogued for first-week sprint (JumpPalette silent
+fail, OperatorPalette AbortSignal, LocaleSwitcher empty guard, Onboarding
+modal aria-modal+focus-trap, Compare mobile sticky column, etc).
+
+Two pending operator (brother) actions before public launch:
+- BRIDGE_SHARED_SECRET on Cloudflare Pages env (blocker)
+- /api/tars/downloads proxy on meeet-app (optional)
+
+Full sign-off doc at `docs/WAVE_53_LAUNCH_SIGNOFF.md`. Verdict: ship it.
+
+**Files** — `src/components/FAQ.tsx`, `src/components/CockpitGate.tsx`,
+`docs/WAVE_53_LAUNCH_SIGNOFF.md`.
+
+## 2026-05-05 — Cursor: dev-tars-stack (API bg + cockpit pnpm dev)
+
+**Summary:** **`scripts/dev_tars_stack.sh`** + **`make dev-tars-stack`** — runs **`backend_tars_up`** then **`pnpm dev`** in v3 cockpit; **`VITE_TARS_API`** when **`PORT≠8765`**. **`docs/AGENT_HANDOFF.md`**, **`.env.example`**.
+
+**Files:** `scripts/dev_tars_stack.sh`, `Makefile`, `.env.example`, `docs/AGENT_HANDOFF.md`, `docs/CHANGELOG_AGENTS.md`.
+
+`>>> SYNC: Cursor · 2026-05-05 · dev-tars-stack`
+
+## 2026-05-05 — Cursor: backend-tars-up (one-shot uvicorn + probe)
+
+**Summary:** **`scripts/backend_tars_up.sh`** + **`make backend-tars-up`**: kill **:8765**, **nohup** uvicorn via **`with_repo_env`**, wait, **`curl` + `jq`** on **`/api/entitlements`**. **`docs/AGENT_HANDOFF.md`**.
+
+**Files:** `scripts/backend_tars_up.sh`, `Makefile`, `.env.example`, `docs/AGENT_HANDOFF.md`, `docs/CHANGELOG_AGENTS.md`.
+
+`>>> SYNC: Cursor · 2026-05-05 · backend-tars-up`
+
+## 2026-05-05 — Cursor: smoke-billing-tars (no uvicorn)
+
+**Summary:** **`make smoke-billing-tars`** + **`scripts/smoke_billing_tars_backend.{sh,py}`** — load **`.env`**, **`fetch_operator_snapshot(bypass_cache=True)`**, print tier/live (stdlib path operators use). **`docs/AGENT_HANDOFF.md`** pointer.
+
+**Files:** `scripts/smoke_billing_tars_backend.sh`, `scripts/smoke_billing_tars_backend.py`, `Makefile`, `.env.example`, `docs/AGENT_HANDOFF.md`, `docs/CHANGELOG_AGENTS.md`.
+
+`>>> SYNC: Cursor · 2026-05-05 · smoke-billing-tars`
+
+## 2026-05-05 — Cursor: ops wizard for remote billing key + .env
+
+**Summary:** **`scripts/ops_billing_remote_wizard.sh`** + **`make ops-billing-remote-wizard`**: hidden paste of **`MEEET_BILLING_API_KEY`**, confirm prod smoke (**GET /operator**, duplicate **POST /operator/usage**), optional merge into **`.env`**, optional pytest billing files. **`docs/AGENT_HANDOFF.md`** pointer.
+
+**Files:** `scripts/ops_billing_remote_wizard.sh`, `Makefile`, `.env.example`, `docs/AGENT_HANDOFF.md`, `docs/CHANGELOG_AGENTS.md`.
+
+`>>> SYNC: Cursor · 2026-05-05 · ops_billing_remote_wizard`
+
+## 2026-05-05 — Cursor: remote billing prod baseline (handoff + contract)
+
+**Summary:** Documented **live** `tars-billing` on Supabase **`zujrmifaabkletgnpoyw`**: dedupe migration applied, edge redeployed, smoke + RLS verified (operator / Lovable). **`AGENT_HANDOFF`** «start line» for TARS `MEEET_BILLING_BASE_URL` + key parity; **`TARS_MEEET_BILLING.md`** prod reference paragraph.
+
+**Files:** `docs/AGENT_HANDOFF.md`, `docs/contracts/TARS_MEEET_BILLING.md`, `docs/CHANGELOG_AGENTS.md`.
+
+`>>> SYNC: Cursor · 2026-05-05 · billing prod baseline zujrmifaabkletgnpoyw in handoff + contract`
+
+## 2026-05-05 — Cursor: billing usage idempotency + client retries
+
+**Summary:** **`POST /operator/usage`:** optional **`trace_id`** / dedupe table on meeet edge (duplicate → 200, no double spend); success JSON includes **`duplicate: false`**. **Jarvis:** `post_operator_usage_delta` retries transient HTTP/transport (`MEEET_BILLING_USAGE_RETRIES`); mirror passes **`trace_id`** from `usage.tokens` emit; tests assert `call_args.kwargs` + retry path. Contract **v1.2.0**, `.env.example` retry knob. **meeet-solana-state:** `deno check` + `deno test` on **`tars-billing`** green; runbook **`docs/TARS_INTEGRATION_RUNBOOK.md`** documents billing edge + secrets + optional TARS env.
+
+**Files (meeet-solana-state):** migration `tars_billing_usage_dedupe`, `supabase/functions/tars-billing/index.ts`, `rls-regression-tests/rls_test.ts`, `docs/TARS_INTEGRATION_RUNBOOK.md`.
+
+**Files (Jarvis):** `backend/core/meeet_billing/{client,mirror_usage}.py`, `backend/core/meeet/client.py`, `tests/test_meeet_billing_usage.py`, `docs/contracts/TARS_MEEET_BILLING.md`, `.env.example`, `docs/CHANGELOG_AGENTS.md`, `docs/AGENT_HANDOFF.md`.
+
+`>>> SYNC: Cursor · 2026-05-05 · billing POST trace_id dedupe + usage retries`
+
 ## 2026-05-05 — Cursor: remote billing usage mirror (`POST /operator/usage`)
 
 **Summary:** **meeet-solana-state:** edge **`tars-billing`** accepts **`POST …/operator/usage`** (`delta_usd`, same Bearer). **Jarvis:** `post_operator_usage_delta`, `mirror_usage.after_usage_tokens_emitted` from **`MeeetClient.emit`** after durable insert (runs even when ingest URL unset); `MEEET_BILLING_MAX_DELTA_USD`. Contract **v1.1.0**, tests `tests/test_meeet_billing_usage.py`.

@@ -318,7 +318,13 @@ export function CockpitGate({ children }: CockpitGateProps) {
         </motion.div>
 
         <p className="mt-8 text-center font-mono-tech text-[10px] uppercase tracking-[2.4px] text-ink-3">
-          {t("cockpitGate.footer.probe")} · {API_BASE}
+          {/* Production builds hide the raw API_BASE — public visitors at
+              tars.meeet.world don't need the URL leaked into the gate
+              message; it confuses operators who haven't installed yet
+              ("why does it say 127.0.0.1?" / "why tars.meeet.world?").
+              Dev builds keep the URL for daemon-debugging convenience. */}
+          {t("cockpitGate.footer.probe")}
+          {!import.meta.env.PROD ? <> · {API_BASE}</> : null}
         </p>
       </section>
     </div>

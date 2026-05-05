@@ -32,8 +32,8 @@ interface Tier {
    * a "Coming soon" overlay instead of pretending checkout works.
    * The Pro/Business CTAs deep-link to the waitlist anchor; the
    * lifetime banner uses a separate "lifetime.comingSoon" copy. Flip
-   * to false once Stripe / $MEEET wallet checkout lands and the
-   * backend ``TARS_PAYMENT_MODE`` defaults to ``stripe``.
+   * to false once SOL / $MEEET on-chain checkout lands and the
+   * backend ``TARS_PAYMENT_MODE`` defaults to ``onchain``.
    */
   comingSoon?: boolean;
 }
@@ -135,7 +135,7 @@ export function Pricing() {
           >
             <CornerFrame />
 
-            {/* Tier accent stripe on top */}
+            {/* Tier accent hairline on top */}
             <div
               aria-hidden
               className="absolute inset-x-0 top-0 h-px"

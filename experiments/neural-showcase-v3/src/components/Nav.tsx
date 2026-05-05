@@ -38,19 +38,20 @@ export function Nav() {
         initial={{ opacity: 0, y: -8 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-        className="relative z-30 flex items-center justify-between px-8 py-5 md:px-14"
+        className="sticky top-0 z-[45] flex items-center justify-between border-b border-line/60 bg-bg-0/80 px-8 py-5 backdrop-blur-md md:px-14"
       >
-        <Link to="/" aria-label="TARS — home" className="flex items-baseline gap-3">
-          <span className="block h-2 w-2 self-center rounded-full bg-accent shadow-[0_0_12px_var(--color-accent-soft)]" />
-          <span className="font-display text-[14px] font-bold tracking-tight text-ink">TARS</span>
-          <span className="hidden font-mono-tech text-[10px] uppercase tracking-[3px] text-ink-2 sm:inline">
-            / NEURAL COCKPIT
-          </span>
+        <div className="flex items-baseline gap-3">
+          <Link to="/" aria-label="TARS — home" className="flex items-baseline gap-3">
+            <span className="block h-2 w-2 self-center rounded-full bg-accent shadow-[0_0_12px_var(--color-accent-soft)]" />
+            <span className="font-display text-[14px] font-bold tracking-tight text-ink">TARS</span>
+            <span className="hidden font-mono-tech text-[10px] uppercase tracking-[3px] text-ink-2 sm:inline">
+              / NEURAL COCKPIT
+            </span>
+          </Link>
           <a
             href="https://meeet.world"
             target="_blank"
             rel="noreferrer noopener"
-            onClick={(e) => e.stopPropagation()}
             aria-label="Released by meeet.world"
             className="hidden items-center gap-1.5 rounded border border-line bg-bg-1/50 px-1.5 py-0.5 font-mono-tech text-[9px] uppercase tracking-[2px] text-ink-3 transition-colors hover:border-accent/40 hover:text-accent md:inline-flex"
           >
@@ -60,7 +61,7 @@ export function Nav() {
             />
             by meeet.world
           </a>
-        </Link>
+        </div>
         <ul className="flex items-center gap-1">
           {/* Inner anchor links — hidden on small screens; scroll is enough nav. */}
           {links.map((l) => {

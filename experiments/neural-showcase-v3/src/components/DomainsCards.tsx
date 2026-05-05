@@ -5,7 +5,7 @@ import { useT, type TKey } from "@/lib/i18n";
 /**
  * DomainsCards — replaces the 3D octahedron scene with a refined
  * card grid. Pattern reference: Vercel framework picker, Linear
- * roadmap cards, Stripe products tiles.
+ * roadmap cards, SaaS product tiles.
  *
  * Each card carries:
  *   - Top hairline accent in the pack's brand colour

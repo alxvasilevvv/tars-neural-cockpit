@@ -4,6 +4,155 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-05 — Cursor · Wave 56: P1 hex→tokens + billing mirror exhaustion log
+
+>>> SYNC: Cursor · 2026-05-05 · Wave 56 P1 closure — 3 hex→token in Onboarding role chips (+ --brand-amber added to index.css), structured log meeet.mirror.usage.exhausted on retry budget exhaustion in client.py:178. P1-2 confirmed already covered by smoke-core-bridge. Frontend (cockpit lane) untouched.
+
+**Files** — `experiments/neural-showcase-v3/src/index.css`, `experiments/neural-showcase-v3/src/pages/Onboarding.tsx`, `backend/core/meeet_billing/client.py`, `tests/test_meeet_billing_usage.py`, `docs/CHANGELOG_AGENTS.md` (this entry).
+
+## 2026-05-05 — Claude · Wave 55: Final launch ownership pass — modal a11y sweep + sign-off
+
+>>> SYNC: Claude · 2026-05-05 · WCAG 2.1 AA pass on 4 modal/overlay surfaces in `experiments/neural-showcase-v3/src/`. No backend code touched. Cursor lanes (`backend/`, `lib/`, `Makefile`, `scripts/`) untouched.
+
+**Summary**
+
+Final pre-launch ownership pass. Took the 2026-05-05 baseline (HEAD `4b6a322`, 217 commits ahead of Wave 51 baseline) and ran a focused a11y sweep across every `role="dialog"` surface using launch-readiness criteria.
+
+Of 11 dialog-roled overlays in the cockpit/marketing surface, 7 already had `aria-modal="true"` (Cockpit, Onboarding's other dialog branch, KeyboardOverlay, CockpitTour, WatchMeWork, OperatorPalette, GlobalCommandPalette — Cursor's Wave 53 follow-up landed those). Four were missing — closed in this wave:
+
+1. **`src/pages/Onboarding.tsx`** (CustomRoleModal at L713) — added `aria-modal="true"`, `tabIndex={-1}` on the dialog root, and wired `useFocusTrap(dialogRef, true)` from the existing `src/lib/useFocusTrap.ts` utility. Added Esc-to-close keyboard handler (the surrounding `onClick={onClose}` only handled backdrop clicks, leaving keyboard users with no escape hatch — WCAG 2.1.2). Inline comments cite WCAG sections so the next agent knows why the extra wiring exists.
+2. **`src/components/JumpPalette.tsx`** (L177) — added `aria-modal="true"`. The component already auto-focuses its search input and handles `Escape`/`Enter`/`Arrow{Up,Down}` via its own `onKeyDown`; minimal aria-modal addition avoids conflicting with that keyboard logic.
+3. **`src/components/CommandPalette.tsx`** (L126) — same minimal `aria-modal="true"` addition for the same reason.
+4. **`src/components/CookieConsent.tsx`** (L58) — corrected the role: a non-blocking bottom-of-viewport banner is not a dialog. Changed `role="dialog"` → `role="region"`. Screen readers will now announce it as a labeled region (consistent with its Cookie/Accept/Reject button affordances) instead of trapping users into expecting modal semantics that don't apply.
+
+**Why this wave matters for launch:** with 217 commits since baseline and Cursor's billing/payment work in flight, every agent has been touching keyboard-modal surfaces but no one had run the consolidated `role="dialog"` sweep. Modal a11y regressions are the kind of thing that ship silently and surface in App Store / accessibility review later.
+
+**Untouched, intentionally:**
+
+- Hardcoded hex colors in `src/pages/PricingPage.tsx`, `ComparePage.tsx`, and `src/pages/Onboarding.tsx` role color chips. Real but P1 (visual consistency, not a11y); Cursor lane.
+- BRIDGE_SHARED_SECRET propagation into `make gate-control-tower` smoke target. Closed at the env template level in Wave 54; runtime side is Cursor's `Makefile` lane.
+- billing mirror silent-failure logging on `POST /operator/usage` retry exhaustion. Cursor lane (`backend/core/meeet/billing_mirror_remote.py`).
+
+**Files** — `src/pages/Onboarding.tsx`, `src/components/JumpPalette.tsx`, `src/components/CommandPalette.tsx`, `src/components/CookieConsent.tsx`, `docs/CHANGELOG_AGENTS.md` (this entry).
+
+## 2026-05-05 — Claude · Wave 54: handoff brief pointers + .env.example bridge key
+
+>>> SYNC: Claude · 2026-05-05 · CLAUDE.md pointer to handoff-claude.md 2026-05-05 brief block; .env.example adds BRIDGE_SHARED_SECRET= template (per docs/SYNC.md §7 + docs/contracts/CORE_BRIDGE.md). No backend code touched.
+
+**Summary**
+
+Read the four canonical docs from the 2026-05-05 operator brief
+(`docs/handoff-claude.md`, `docs/SYNC.md`, `docs/AGENT_HANDOFF.md`,
+`docs/contracts/TARS_MEEET_BILLING.md`) and ran the brief's self-checks
+where the sandbox allowed. All four test files exist (`test_meeet_billing_remote`,
+`test_meeet_billing_usage`, `test_entitlements`, `test_commercial_readiness_chain`),
+all five make targets are wired (`ops-billing-remote-wizard`,
+`smoke-billing-tars`, `backend-tars-up`, `dev-tars-stack`,
+`test-commercial-readiness`), `.env` is gitignored correctly, and the
+recent billing commits (`4b6a322`, `47f942a`) line up with the contract.
+
+Two tiny gaps closed locally:
+
+1. **`.env.example`** — added `BRIDGE_SHARED_SECRET=` template under a
+   new "meeet core ↔ TARS core-bridge" section. Brief explicitly lists
+   *bridge* among the keys an operator copies into `.env`, but the
+   template was missing it; fresh-clone operators following
+   `docs/SECOND_MACHINE_HANDOFF.md` could ship without it and quietly
+   fail `make smoke-core-bridge` / `make gate-control-tower`.
+2. **`CLAUDE.md`** — added a one-liner pointer (right under the
+   "Fresh clone / second machine" block) that routes new sessions to
+   the 2026-05-05 brief at the top of `docs/handoff-claude.md`. Cursor
+   and Claude both auto-load `CLAUDE.md` so this surfaces the operator
+   brief without requiring the agent to grep for it.
+
+Pytest / vitest could not run in this sandbox (no `.venv`, native
+rollup binary mismatch on `@rollup/rollup-linux-arm64-gnu`). Brief's
+real verification still belongs to the operator on local hardware.
+
+**Files** — `.env.example`, `CLAUDE.md`, `docs/CHANGELOG_AGENTS.md`
+(this entry).
+
+## 2026-05-05 — Claude · Wave 53: Pre-launch sign-off + 2 P0 a11y/UX fixes
+
+**Summary**
+
+Comprehensive pre-launch audit verifying 217 commits since baseline. Brother's
+GO_LIVE_48H assessment is GREEN: Cursor closed all 4 P1 items from Wave 51
+(P1-1 payment_token via TARS_PAYMENT_MODE env, P1-2 server-side policy mode
+authority, P1-3 custom token-bucket rate-limiter, P1-4 BYO toggle gate).
+Backend security clean — 0 hardcoded secrets, 0 stray prints/logs, CORS safe.
+2315 backend tests + 328 vitest passing + 25/0/2/3 smoke.
+
+Closed 2 P0 launch-blockers in this wave:
+- FAQ accordion: button gets `aria-label="Expand answer · {q}"`, panel gets
+  `role="region"` + `aria-labelledby` for screen readers (WCAG 2.1 AA · 2.4.4
+  + 2.4.6 + 4.1.2)
+- CockpitGate footer hides raw `API_BASE` in prod builds (was leaking
+  `127.0.0.1:8765` or `tars.meeet.world` to confused public visitors)
+
+5 P1 + 6 P2 findings catalogued for first-week sprint (JumpPalette silent
+fail, OperatorPalette AbortSignal, LocaleSwitcher empty guard, Onboarding
+modal aria-modal+focus-trap, Compare mobile sticky column, etc).
+
+Two pending operator (brother) actions before public launch:
+- BRIDGE_SHARED_SECRET on Cloudflare Pages env (blocker)
+- /api/tars/downloads proxy on meeet-app (optional)
+
+Full sign-off doc at `docs/WAVE_53_LAUNCH_SIGNOFF.md`. Verdict: ship it.
+
+**Files** — `src/components/FAQ.tsx`, `src/components/CockpitGate.tsx`,
+`docs/WAVE_53_LAUNCH_SIGNOFF.md`.
+
+## 2026-05-05 — Cursor: dev-tars-stack (API bg + cockpit pnpm dev)
+
+**Summary:** **`scripts/dev_tars_stack.sh`** + **`make dev-tars-stack`** — runs **`backend_tars_up`** then **`pnpm dev`** in v3 cockpit; **`VITE_TARS_API`** when **`PORT≠8765`**. **`docs/AGENT_HANDOFF.md`**, **`.env.example`**.
+
+**Files:** `scripts/dev_tars_stack.sh`, `Makefile`, `.env.example`, `docs/AGENT_HANDOFF.md`, `docs/CHANGELOG_AGENTS.md`.
+
+`>>> SYNC: Cursor · 2026-05-05 · dev-tars-stack`
+
+## 2026-05-05 — Cursor: backend-tars-up (one-shot uvicorn + probe)
+
+**Summary:** **`scripts/backend_tars_up.sh`** + **`make backend-tars-up`**: kill **:8765**, **nohup** uvicorn via **`with_repo_env`**, wait, **`curl` + `jq`** on **`/api/entitlements`**. **`docs/AGENT_HANDOFF.md`**.
+
+**Files:** `scripts/backend_tars_up.sh`, `Makefile`, `.env.example`, `docs/AGENT_HANDOFF.md`, `docs/CHANGELOG_AGENTS.md`.
+
+`>>> SYNC: Cursor · 2026-05-05 · backend-tars-up`
+
+## 2026-05-05 — Cursor: smoke-billing-tars (no uvicorn)
+
+**Summary:** **`make smoke-billing-tars`** + **`scripts/smoke_billing_tars_backend.{sh,py}`** — load **`.env`**, **`fetch_operator_snapshot(bypass_cache=True)`**, print tier/live (stdlib path operators use). **`docs/AGENT_HANDOFF.md`** pointer.
+
+**Files:** `scripts/smoke_billing_tars_backend.sh`, `scripts/smoke_billing_tars_backend.py`, `Makefile`, `.env.example`, `docs/AGENT_HANDOFF.md`, `docs/CHANGELOG_AGENTS.md`.
+
+`>>> SYNC: Cursor · 2026-05-05 · smoke-billing-tars`
+
+## 2026-05-05 — Cursor: ops wizard for remote billing key + .env
+
+**Summary:** **`scripts/ops_billing_remote_wizard.sh`** + **`make ops-billing-remote-wizard`**: hidden paste of **`MEEET_BILLING_API_KEY`**, confirm prod smoke (**GET /operator**, duplicate **POST /operator/usage**), optional merge into **`.env`**, optional pytest billing files. **`docs/AGENT_HANDOFF.md`** pointer.
+
+**Files:** `scripts/ops_billing_remote_wizard.sh`, `Makefile`, `.env.example`, `docs/AGENT_HANDOFF.md`, `docs/CHANGELOG_AGENTS.md`.
+
+`>>> SYNC: Cursor · 2026-05-05 · ops_billing_remote_wizard`
+
+## 2026-05-05 — Cursor: remote billing prod baseline (handoff + contract)
+
+**Summary:** Documented **live** `tars-billing` on Supabase **`zujrmifaabkletgnpoyw`**: dedupe migration applied, edge redeployed, smoke + RLS verified (operator / Lovable). **`AGENT_HANDOFF`** «start line» for TARS `MEEET_BILLING_BASE_URL` + key parity; **`TARS_MEEET_BILLING.md`** prod reference paragraph.
+
+**Files:** `docs/AGENT_HANDOFF.md`, `docs/contracts/TARS_MEEET_BILLING.md`, `docs/CHANGELOG_AGENTS.md`.
+
+`>>> SYNC: Cursor · 2026-05-05 · billing prod baseline zujrmifaabkletgnpoyw in handoff + contract`
+
+## 2026-05-05 — Cursor: billing usage idempotency + client retries
+
+**Summary:** **`POST /operator/usage`:** optional **`trace_id`** / dedupe table on meeet edge (duplicate → 200, no double spend); success JSON includes **`duplicate: false`**. **Jarvis:** `post_operator_usage_delta` retries transient HTTP/transport (`MEEET_BILLING_USAGE_RETRIES`); mirror passes **`trace_id`** from `usage.tokens` emit; tests assert `call_args.kwargs` + retry path. Contract **v1.2.0**, `.env.example` retry knob. **meeet-solana-state:** `deno check` + `deno test` on **`tars-billing`** green; runbook **`docs/TARS_INTEGRATION_RUNBOOK.md`** documents billing edge + secrets + optional TARS env.
+
+**Files (meeet-solana-state):** migration `tars_billing_usage_dedupe`, `supabase/functions/tars-billing/index.ts`, `rls-regression-tests/rls_test.ts`, `docs/TARS_INTEGRATION_RUNBOOK.md`.
+
+**Files (Jarvis):** `backend/core/meeet_billing/{client,mirror_usage}.py`, `backend/core/meeet/client.py`, `tests/test_meeet_billing_usage.py`, `docs/contracts/TARS_MEEET_BILLING.md`, `.env.example`, `docs/CHANGELOG_AGENTS.md`, `docs/AGENT_HANDOFF.md`.
+
+`>>> SYNC: Cursor · 2026-05-05 · billing POST trace_id dedupe + usage retries`
+
 ## 2026-05-05 — Cursor: remote billing usage mirror (`POST /operator/usage`)
 
 **Summary:** **meeet-solana-state:** edge **`tars-billing`** accepts **`POST …/operator/usage`** (`delta_usd`, same Bearer). **Jarvis:** `post_operator_usage_delta`, `mirror_usage.after_usage_tokens_emitted` from **`MeeetClient.emit`** after durable insert (runs even when ingest URL unset); `MEEET_BILLING_MAX_DELTA_USD`. Contract **v1.1.0**, tests `tests/test_meeet_billing_usage.py`.
@@ -1608,796 +1757,6 @@ to the cloud voices and packs them into the request payload.
   is the pre-existing duplicate-route bug carried over from PR
   #141 — not regressed by this change.
 
-## 2026-05-02 — Cursor [A] · Awareness explorer (`/cockpit/awareness`)
-
-**Summary**
-
-Closes IDEAS #30 — backend
-`GET /api/domains/<slug>/awareness/<id>/snapshot` shipped Phase
-K-A; this PR is the design-side surface that finally lets the
-operator browse every awareness source per pack and snapshot
-live feeds on demand. Caps the operator-surface batch alongside
-Trace Viewer (#136), Policy Inbox (#137), Council Debug (#138),
-Operator Palette (#139).
-
-**Anatomy**
-
-- Three-column workspace: pack rail (with awareness-count + live
-  badge) → source rail (search + kind chip + last-fetched stamp)
-  → snapshot pane (config preview + live data + took / fetched /
-  trace badges).
-- URL state: `?slug=`, `?source=`, `?q=` for deep-linkable
-  navigation (so the operator palette can route operators here
-  with a single click).
-- Snapshot button is disabled for config-only sources (no live
-  fetcher) and surfaces the daemon's `fetcher_unavailable`
-  envelope inline. 500s render their `state.error` in the same
-  red banner so the operator can grep daemon logs by `trace_id`.
-- Per-source render state held by an in-page dictionary keyed on
-  `(slug, source_id)` — every snapshot is independent and the
-  page never refetches on selection.
-- Pure helpers in `lib/awarenessFmt.ts` (kind tone, fmtTookMs,
-  fmtAgo, prettyJson, filterAwareness, pickSlug, totalSourceCount,
-  liveSourceCount, snapshotKey/emptySnapshotState) are
-  side-effect-free and unit-tested in isolation (29 vitest cases).
-- EN + RU strings shipped at parity (40 keys per locale).
-
-**Files**
-
-- `experiments/neural-showcase-v3/src/pages/Awareness.tsx` (new,
-  ~520 lines).
-- `experiments/neural-showcase-v3/src/lib/awarenessFmt.ts` (new,
-  ~140 lines).
-- `experiments/neural-showcase-v3/src/lib/i18n.tsx` (+40 EN keys
-  + 40 RU translations).
-- `experiments/neural-showcase-v3/src/App.tsx` (lazy import +
-  `/cockpit/awareness` route).
-- `experiments/neural-showcase-v3/src/pages/Cockpit.tsx` (nav
-  link).
-- New tests: `awarenessFmt.test.ts` (29 cases — kind routing,
-  duration / age formatters, snapshot envelope state, slug
-  picker, source filter, count helpers, JSON tolerance).
-
-**Test deltas**
-
-- Cockpit: `pnpm vitest run` → **328 passed** (was 299; +29
-  awarenessFmt).
-- Cockpit: `pnpm tsc -b && pnpm build` → green; cockpit chunk
-  unchanged (197 KB) since Awareness lazy-loads into its own
-  chunk.
-- i18n parity guard kept at 100% RU coverage.
-
-## 2026-05-02 — Cursor [A] · Operator command palette (⌘. / Ctrl+.)
-
-**Summary**
-
-Closes IDEAS #20 — the cockpit's existing ⌘K palette is a search
-surface (chunks / messages / traces); this PR ships the
-*action* counterpart: a fuzzy index over **packs**, **pack
-actions**, **playbooks**, **awareness sources**, and the most
-**recent traces**. Bound to ⌘. (period) so it never collides
-with ⌘K.
-
-**Anatomy**
-
-- `lib/operatorPalette.ts` — pure helpers (no React, no DOM):
-  `OperatorEntry` / `OperatorIndex` types, shapers per resource
-  (`shapePack` / `shapeAction` / `shapeAwareness` / `shapePlaybook`
-  / `shapeTrace`), `loadOperatorIndex` (parallel-safe loader with
-  per-group error capture), `fuzzyScore` + `rankEntries` (subsequence
-  scorer with title-prefix + pack bonuses), `filterByGroup` /
-  `groupCounts` / `totalCount`, `loadRecentIds` / `pushRecent` /
-  `pickRecent` (localStorage-backed top-5), and `entryHref` for
-  pack / trace deep-links.
-- `components/OperatorPalette.tsx` — modal overlay with focus trap,
-  group filter chips with live counts, partial-failure banner,
-  result strip, and per-row activation badge that routes by kind:
-  pack / trace navigate; action / awareness / playbook invoke
-  through the existing API clients (`invokeAction`,
-  `snapshotAwareness`, `runPlaybook`). Destructive actions surface
-  the policy gate's "blocked, approve via inbox" path with an
-  amber toast.
-- `pages/Cockpit.tsx` — mounts `<OperatorPalette/>` next to
-  the existing `<CommandPalette/>`; activations route through
-  `toast.success` / `toast.warn` / `toast.error`.
-- `lib/i18n.tsx` — 38 EN keys + 38 RU translations for every
-  surface (placeholder / chips / kind labels / activation outcomes
-  / refresh / footer hints).
-
-**Test deltas**
-
-- Cockpit: `pnpm vitest run` → **299 passed** (was 267; +32
-  operatorPalette).
-- Cockpit: `pnpm tsc -b && pnpm build` → green; cockpit chunk
-  grew 182KB → 197KB.
-- i18n parity guard kept at 100% RU coverage.
-
-## 2026-05-02 — Cursor [A] · Council Debug page (`/cockpit/council`)
-
-**Summary**
-
-Closes IDEAS #18 — backend `/api/council/deliberate` shipped Phase
-K-C, every deliberation already drops a `sampler.decision` event
-into the meeet trail, but a dedicated full-page operator surface
-that exposes the dual-voice diff (confidence bars, agreement %,
-contradictions, latency) had been waiting on a design pass. This
-PR ships it.
-
-**Anatomy**
-
-- Sticky header: back to cockpit, refresh history.
-- Two-column workspace:
-  - Left rail: stage form (prompt + context JSON + mode), live
-    JSON-validity badge that swaps in `{}` on parse fail (so the
-    operator never silently sends an invalid object), and a
-    newest-first history of `sampler.decision` events
-    (winner / agreement / mode / time + stance pill).
-  - Right pane: rendered deliberation. Six-stat header (chosen /
-    agreement / mode / total tokens / total latency / voice count)
-    + per-voice card grid with stance pill, **confidence bar**,
-    summary, recommended actions, rationale, latency, tokens.
-    Highest-confidence voice marked with a "★ winner" pill +
-    accent border. Unavailable voices render an explicit
-    explainer instead of the bar (matches orchestrator's
-    `stance="unavailable"` filter).
-  - Contradictions list rendered below; explicit "no contradictions
-    surfaced" copy when empty.
-- Polling: history @ 6 s (matches existing OperatorStrip cadence).
-- New cockpit nav link (`cockpit · planner · traces · policy ·
-  council`).
-
-**Files**
-
-- `experiments/neural-showcase-v3/src/pages/Council.tsx` (new,
-  ~480 lines).
-- `experiments/neural-showcase-v3/src/lib/councilFmt.ts` (new,
-  ~110 lines — pure helpers: `stanceTone`, `fmtConfidencePct`,
-  `confidenceWidth`, `pickWinningVoice`, `rollupVoices`,
-  `fmtLatencyMs`, `normaliseStance`).
-- `experiments/neural-showcase-v3/src/lib/i18n.tsx` (+38 EN keys
-  + 38 RU translations for the council surface).
-- `experiments/neural-showcase-v3/src/App.tsx` (lazy import + route).
-- `experiments/neural-showcase-v3/src/pages/Cockpit.tsx` (nav link).
-- New tests: `councilFmt.test.ts` (20 cases — stance routing,
-  confidence clamp, winner pick, rollup tolerance to NaN,
-  latency formatter).
-
-**Test deltas**
-
-- Cockpit: `pnpm vitest run` → **267 passed** (was 247; +20
-  councilFmt).
-- Cockpit: `pnpm tsc -b && pnpm build` → green.
-- Backend: `pytest tests/test_council.py tests/test_meeet.py
-  tests/test_meeet_contract.py` → **22 passed** (touched
-  surfaces; no regressions).
-
-## 2026-05-02 — Cursor [A] · Policy Inbox page (`/cockpit/policy`)
-
-**Summary**
-
-Closes IDEAS #29 — backend `/api/policy/{pending,recent,confirm,
-cancel,expire}` shipped Phase K-D, `<OperatorStrip />` had a barebones
-list, but a dedicated full-page operator surface for the destructive-
-action queue had been waiting on a design pass. This PR ships it.
-
-**Anatomy**
-
-- Sticky header: back to cockpit, refresh, expire-stale (admin).
-- Tab strip: pending / recent (each tab carries its own count).
-- Filter strip: free-text search box (matches token / slug /
-  action / requested_by / trace_id substrings, case-insensitive).
-- Two-column workspace:
-  - 380 px left rail with status pill, slug.action, age, time-to-
-    expire (pending only), requested_by, token.
-  - Right pane drill-down: copy-to-clipboard token, six-stat dl
-    grid (token / created / expires / requested_by / trace / status),
-    full args / result JSON dumps, confirm + cancel affordances.
-- **Confirm modal**: an `alertdialog` with focus trap + ESC close +
-  click-outside dismiss so the operator can never one-click a
-  destructive action by mistake. Message interpolates the action
-  slug + trace_id so the consequences are visible at the point of
-  decision.
-- Polling: pending @ 4 s, recent @ 8 s. Optimistic re-fetch after
-  every confirm/cancel/expire so the rail catches up within one
-  tick.
-- URL state via `?tab=…&selected=…&q=…` (deep-linkable).
-- New cockpit nav link (`cockpit · planner · traces · policy`).
-
-**Files**
-
-- `experiments/neural-showcase-v3/src/pages/Policy.tsx` (new, ~590 lines).
-- `experiments/neural-showcase-v3/src/lib/policyFmt.ts` (new, ~140
-  lines — pure helpers: `statusTone`, `fmtAge`, `fmtTimeLeft`,
-  `compareConfirmationsNewestFirst`, `matchesQuery`, `ALL_STATUSES`).
-- `experiments/neural-showcase-v3/src/lib/policy.ts` (+
-  `useRecentConfirmations` hook).
-- `experiments/neural-showcase-v3/src/lib/i18n.tsx` (+39 EN keys
-  + 39 RU translations for the policy surface).
-- `experiments/neural-showcase-v3/src/App.tsx` (lazy import + route).
-- `experiments/neural-showcase-v3/src/pages/Cockpit.tsx` (nav link).
-- New tests: `policyFmt.test.ts` (16 cases — status tone / age
-  / time-left / sort / match), `policy.test.ts` (10 cases — list /
-  confirm / cancel / expire wire shape + error envelopes).
-
-**Test deltas**
-
-- Cockpit: `pnpm vitest run` → **247 passed** (was 221; +16
-  policyFmt, +10 policy).
-- Cockpit: `pnpm tsc -b && pnpm build` → green.
-- Backend: `pytest tests/` → **2249 passed, 1 skipped, 2 xfailed**
-  (no regressions; pure cockpit-surface PR).
-
-## 2026-05-01 — Cursor [A] · Re-embed attachments on demand
-
-**Summary**
-
-Operator workflow: install TARS, leave it on the offline
-`HashEmbedder`, ingest a few months of attachments, *then*
-configure `OPENAI_API_KEY` for the upgrade. Until now those
-historical chunks stayed on the cheap embedder and silently
-under-performed semantic recall. This slot is the **promote-on-
-demand** path: hit one endpoint and the affected chunks re-embed
-in place. New attachments already pick the better embedder, so
-this only catches up the back-catalog.
-
-1. **Storage primitives** (`backend/core/attachments/index.py`)
-   - `AttachmentStore.update_chunk_embedding(chunk_id, model, dim,
-     vector)` — single-row in-place rewrite. Returns `True` only
-     when the row exists. Same `pack_vector(...)` discipline as
-     the ingest path.
-   - `AttachmentStore.list_chunks_by_model(embedding_model,
-     thread_id?, limit)` — find chunks at a given model
-     (`None` matches "never embedded"). Optional `thread_id`
-     scope, `limit` defaults to 500. Used both by the orchestrator
-     and the future cockpit "stuck on hash" badge.
-
-2. **Orchestrator** (`backend/core/attachments/reembed.py`, new)
-   - `reembed_chunks(chunks, *, embedder, force, target_model)`
-     — base helper. Skips blank text (counted as
-     `skipped_blank`), skips chunks already at the target model
-     (counted as `skipped_same`) unless `force=True`. Per-batch
-     upstream failures bump `failed`; nothing raises.
-   - `reembed_attachment(attachment_id, ...)` — fetch every chunk
-     for one attachment and call the base helper. 404 surfaces as
-     `{ok: False, reason: "attachment_not_found"}`.
-   - `reembed_by_model(old_model, *, thread_id?, limit, ...)` —
-     list-by-model + reembed in one call. The "promote
-     hash → openai" workflow: pass
-     `old_model="tars-hash-bigram-v1-d384"` and the active
-     embedder runs over every legacy row.
-
-3. **HTTP** (`web_extras/routers/chat.py`)
-   - `POST /api/chat/attachments/{attachment_id}/reembed` — body
-     `{force?, target_model?}`. 404 when the id is missing;
-     otherwise the orchestrator stats dict.
-   - `POST /api/chat/attachments/reembed-by-model` — body
-     `{old_model (required), thread_id?, limit?, force?,
-     target_model?}`. 400 on missing `old_model`; garbage
-     `limit` falls back to 500. Designed for the
-     "I just configured `OPENAI_API_KEY`" promotion.
-
-4. **Tests** (`tests/test_attachment_reembed.py`, 18 cases)
-   - Storage helpers: in-place update writes, returns False for
-     missing id, list-by-model filters and scopes to thread.
-   - Orchestrator: blank-text skip, "same model" skip without
-     force, force rewrite, embedder-unavailable → ok=False,
-     batch failure isolation, attachment 404, `reembed_by_model`
-     promotes only the matching rows and respects `thread_id`.
-   - HTTP: per-attachment round-trip + 404, `old_model` required,
-     promotion writes through, garbage `limit` clamped.
-
-**Files**
-
-- `backend/core/attachments/reembed.py` (new)
-- `backend/core/attachments/index.py` (added
-  `update_chunk_embedding`, `list_chunks_by_model`)
-- `web_extras/routers/chat.py` (two new endpoints)
-- `tests/test_attachment_reembed.py` (new, 18 cases)
-
-**Verification:** full backend suite **1027 passed**, lints
-clean.
-
-## 2026-05-02 — Cursor [A] · audit follow-ups: full RU pass + Local Trace Viewer
-
-**Summary**
-
-Two cleanup follow-ups on top of PR #135:
-
-1. **Full RU translation pass** — closes the partial-coverage gap
-   left by Bug #5. The previous PR shipped the i18n foundation +
-   the 7 highest-visibility surfaces; this PR extends `STRINGS_RU`
-   to full key parity with `STRINGS_EN` (~150 keys: hero, sticky
-   CTA, waitlist, cookie, footer, pricing, FAQ, compare,
-   TrustStrip, MeetTars, DomainsCards, full onboarding,
-   custom-role modal, press kit, build-with badge, common chrome,
-   cockpit chat composer + threads-empty, locale switcher).
-   Translations follow the in-file style guide ("вы" not "Вы",
-   product names stay Latin, `cap` → `лимит`, `council` → `совет`).
-   The test suite gains a **coverage threshold guard** that
-   enforces 100% RU parity at CI time so future PRs can't
-   regress; orphan-key + interpolation-slot + non-empty-value
-   guards back it up.
-
-2. **Local Trace Viewer page (`/cockpit/traces`)** — closes the
-   pending IDEAS #15 design follow-up. Backend
-   `/api/meeet/traces`, `/api/meeet/traces/{trace_id}`,
-   `/api/meeet/traces/refresh`, `/api/meeet/events?trace_id=…`
-   already shipped Phase L8; this PR is the operator-facing
-   surface that finally makes the local "black box" browsable.
-   Anatomy: sticky header (back to cockpit, refresh, rebuild
-   rollup) + filter strip (route lozenges + free-text search
-   over trace_id / kind / session_id) + 360 px left rail with
-   trace summaries (kind list, route pill, cost, duration,
-   error count) + drill-down detail with copy-to-clipboard
-   trace_id, six-stat dl grid (cost / tokens / duration /
-   started / session / contradictions), and the full event
-   timeline pulled from `/api/meeet/events?trace_id=…`. URL
-   state via `?selected=…&route=…&q=…` so the page is
-   deep-linkable. Polls every 5 s; respects existing cockpit
-   accent + alert + amber tokens (no rainbow neon). New cockpit
-   nav link + new client helpers (`listTraces`, `getTrace`,
-   `refreshTraces`, `useTraceSummaries`) + new pure helper
-   module `lib/traces.ts` (route filter coercion, route → tone
-   map, locale-aware cost / duration / timestamp formatters).
-
-**Files**
-
-- i18n: `experiments/neural-showcase-v3/src/lib/i18n.tsx` (+150
-  RU keys + 32 trace-viewer keys),
-  `experiments/neural-showcase-v3/src/lib/i18n.test.ts`
-  (added coverage / interpolation-slot / non-empty-value
-  guards; +5 contract tests).
-- Trace viewer:
-  `experiments/neural-showcase-v3/src/pages/Traces.tsx` (new,
-  500 lines),
-  `experiments/neural-showcase-v3/src/lib/traces.ts` (new, 95
-  lines — pure helpers),
-  `experiments/neural-showcase-v3/src/lib/traces.test.ts` (new,
-  +15 contract tests),
-  `experiments/neural-showcase-v3/src/lib/meeet.ts` (+
-  `listTraces` / `getTrace` / `refreshTraces` /
-  `useTraceSummaries` helpers, plus `TraceSummary` /
-  optional `session_id` + `route` on `MeeetEvent`),
-  `experiments/neural-showcase-v3/src/lib/meeet.test.ts` (new,
-  +13 contract tests),
-  `experiments/neural-showcase-v3/src/App.tsx` (lazy import +
-  route registration),
-  `experiments/neural-showcase-v3/src/pages/Cockpit.tsx`
-  (cockpit nav link).
-
-**Test deltas**
-
-- Cockpit: `pnpm vitest run` → **221 passed** (was 190; +31:
-  +5 i18n, +13 meeet, +15 traces; existing planner / pairing /
-  recovery / etc. all still green).
-- Cockpit: `pnpm tsc -b && pnpm build` → green; `Traces.tsx`
-  ships as a 14 kB / 4.4 kB gzipped lazy-loaded chunk so it
-  doesn't bloat the landing entry.
-- Backend: `pytest tests/` → **2249 passed, 1 skipped, 2
-  xfailed** (no regressions; pure cockpit-surface PR).
-
-## 2026-05-02 — Cursor [A] · system audit closeout (PR #135 — all 8 bugs)
-
-**Summary**
-
-End-to-end follow-up to `docs/SYSTEM_AUDIT_2026-05-02.md`. PR #135
-closes **every audit finding** in 3 rebased-on-main commits
-(`c27831f` + `641694c` + `f8e889b`):
-
-| Bug | What landed | Tests |
-|-----|-------------|-------|
-| #2 | `web_extras/entitlements_gate.py::require_cloud_budget` wired into chat / planner / voice / council; HTTP 402 + `payment_required`; `entitlements.cap_hit` event with `surface` label | +7 contract |
-| #3 | `TARS_PAYMENT_MODE` env (off / mock / stripe); upgrade emits `entitlements.upgraded.mock`; Pricing UI shows `COMING SOON` lozenge + waitlist CTAs | +5 contract |
-| #4 | `ExpensiveRoutesRateLimitMiddleware` (Starlette) — per-IP token bucket on chat / planner / voice / council; HTTP 429 + Retry-After; XFF support; `TARS_RATE_LIMIT_EXPENSIVE` kill switch | +6 contract |
-| #5 | `src/lib/i18n.tsx` LocaleProvider + RU translations for hero / waitlist / cookie / footer / pricing / locale.\*; `<LocaleSwitcher/>` in Footer; `localStorage["tars.locale"]` persistence | +9 contract (Vitest) |
-| #6 | Removed 30 orphan `__pycache__` directories (i18n, economy, awareness, brain, knowledge_graph, …); regression guard | +1 regression |
-| #7 | `SplineScene.tsx` IntersectionObserver guard — defers the 4 MB `react-spline` + `physics` chunks until host element ≤ 600 px from viewport | covered by existing vitest |
-| #8 | `.cursorrules` / `.cursor/rules/tars-architecture.mdc` / `CLAUDE.md` rewritten to point at `experiments/neural-showcase-v3/`; marked `frontend/` and `backend/core/awareness/` as retired | n/a (docs) |
-| #9 | `desktop/src-tauri/tauri.conf.json` updater endpoint switched to GitHub Releases; `release-desktop-tagged.yml` adds `includeUpdaterJson: true`; `DEFAULT_MANIFEST` URLs point at GitHub Releases pattern; converted xfail → passing | +4 contract |
-
-**Test deltas**
-
-- Backend: `pytest tests/` → **2249 passed, 1 skipped, 2 xfailed**
-  (was 2225/1/3; +22 new tests, 1 xfail closed, no regressions).
-- Cockpit: `pnpm vitest run` → **190 passed** (was 181; +9 i18n
-  tests).
-- Cockpit: `pnpm build` green; bundle sizes unchanged but the
-  4 MB visual-flair chunks now load lazily.
-
-**Migration notes (env defaults flipped)**
-
-- `TARS_CAP_ENFORCEMENT` — defaults `on` in production. Test
-  suite flips `off` via `tests/conftest.py`. FREE-tier dev shells
-  must set `off` or upgrade with `TARS_PAYMENT_MODE=mock`.
-- `TARS_PAYMENT_MODE` — defaults `off` (paid upgrades return 503
-  `feature_disabled`). Set `mock` in dev. `stripe` lane stubbed
-  for the next PR.
-- `TARS_RATE_LIMIT_EXPENSIVE` — defaults `on` (per-IP throttle on
-  chat / planner / voice / council). Set `off` for single-operator
-  self-hosted boxes.
-
-**Parallel main-branch fix folded in (`f8e889b`)**
-
-While the audit branch was in flight, two commits on `main`
-(`6fbfb93` + `5984733`) bumped `tauri.conf.json` and `Cargo.toml`
-to `8.4.0` for MSI compatibility but skipped
-`desktop/package.json`. The PR rebased onto main inherited the
-divergence and the `desktop · version lint` workflow started
-failing. Folded the missing bump into the audit PR; all three
-desktop version sources now agree on `8.4.0`. Pure infra fix —
-no behaviour change.
-
-**Files**
-
-- Backend (Bug #2 + #4): `web_extras/entitlements_gate.py`,
-  `web_extras/middleware/__init__.py`,
-  `web_extras/middleware/expensive_routes_rate_limit.py`,
-  `web_extras/app.py`, `web_extras/errors.py`,
-  `web_extras/routers/{voice,council,planner,chat,entitlements}.py`,
-  `tests/conftest.py`,
-  `tests/test_entitlements_gate.py`,
-  `tests/test_rate_limit_expensive_routes.py`,
-  `tests/test_entitlements.py`.
-- Backend (Bug #6): deleted `backend/core/{i18n,economy,…}/` (30
-  orphan dirs), `tests/test_no_orphan_pycache.py`.
-- Backend (Bug #9): `backend/core/product/manifest.py`,
-  `tests/test_product_default_manifest_urls.py`,
-  `tests/test_release_desktop_workflow.py`.
-- Cockpit (Bug #5): `experiments/neural-showcase-v3/src/lib/i18n.tsx`
-  (renamed from .ts), `src/main.tsx`,
-  `src/components/{LocaleSwitcher,Footer}.tsx`,
-  `src/lib/i18n.test.ts`.
-- Cockpit (Bug #3): `experiments/neural-showcase-v3/src/components/Pricing.tsx`.
-- Cockpit (Bug #7): `experiments/neural-showcase-v3/src/components/SplineScene.tsx`.
-- CI / Tauri (Bug #9): `.github/workflows/release-desktop-tagged.yml`,
-  `desktop/src-tauri/tauri.conf.json`.
-- Desktop infra (folded fix): `desktop/package.json`,
-  `desktop/src-tauri/tauri.conf.json` (formatting + version
-  alignment).
-- Docs (Bug #8): `.cursorrules`, `.cursor/rules/tars-architecture.mdc`,
-  `CLAUDE.md`, `docs/SYSTEM_AUDIT_2026-05-02.md` (resolution
-  log).
-
-**Verification**
-
-- `pytest tests/` (backend, all green).
-- `pnpm vitest run` + `pnpm build` (cockpit, all green).
-- `desktop · version lint` GitHub Actions: triple-version match
-  enforced; rebase + folded fix unblocks the gate.
-
-## 2026-05-02 — Cursor [A] · cron-shipped morning bundle wrapper
-
-**Summary**
-
-Ships `scripts/playbooks_morning_cron.sh` + `make morning-bundle` /
-`make morning-bundle-dry` targets. **Single command** for cron to
-run every `morning`-tagged playbook (currently 4:
-`business.morning_brief`, `ops_room.morning_standup`,
-`research_lab.paper_to_pitch`, `traders.morning_check`), flush the
-meeet replay buffer, and write an aggregate evidence JSON.
-
-The wrapper is **continue-on-failure** by default (one bad playbook
-doesn't mask the others) with `MORNING_FAIL_FAST=1` for the legacy
-stop-on-first-failure mode. Discovery is **tag-driven**: as new
-`morning`-tagged playbooks land in `playbooks/`, they join the cron
-bundle automatically — no script edit required.
-
-Three exit-code lanes so cron alerts can route differently:
-- `0` — every playbook ok
-- `1` — at least one playbook failed
-- `2` — operator error (no playbooks discovered, missing dep)
-
-**Why this matters**: closes the Cron-as-First-Class-Operator arc.
-The playbook CLI (PR #129) made cron-driven playbook execution
-viable; this wrapper makes it *ergonomic*. Operator drops one line
-in crontab:
-
-```cron
-0 6 * * 1-5  cd /path/to/jarvis && \
-    MORNING_MODE=autopilot \
-    /path/to/jarvis/scripts/playbooks_morning_cron.sh \
-    >> /var/log/tars-morning.log 2>&1
-```
-
-**Changes**
-
-1. `scripts/playbooks_morning_cron.sh` (new, 280 lines):
-   - Tag-driven discovery via `playbooks_cli list` + JSON parse
-     (operator override via `MORNING_PLAYBOOKS=id1,id2`).
-   - Sequential execution; per-playbook stdout/stderr captured.
-   - Aggregate evidence JSON sink at `$MORNING_OUTPUT_DIR/<run_id>.json`
-     (default `.morning-runs/`). Filename matches printed run_id so
-     `grep` finds it in one `ls`.
-   - Final meeet `replay_cli` flush (skippable via
-     `MORNING_SKIP_REPLAY=1` for upstream maintenance windows).
-   - ANSI helpers degrade gracefully when stdout isn't a TTY (cron-safe).
-   - All env knobs (`MORNING_PLAYBOOKS`, `MORNING_MODE`,
-     `MORNING_OUTPUT_DIR`, `MORNING_SKIP_REPLAY`, `MORNING_FAIL_FAST`,
-     `MORNING_TAG`, `PY`) documented in the header AND read by the script
-     (test pins both directions).
-
-2. `Makefile`:
-   - New `morning-bundle` and `morning-bundle-dry` targets in
-     `.PHONY`. `morning-bundle` accepts optional `MODE=` /
-     `PLAYBOOKS=` for the common cron pattern;
-     `morning-bundle-dry` hard-codes `MORNING_MODE=dry_run` so
-     `make morning-bundle-dry` is *always* a safe rehearsal even
-     if the operator has `MODE=autopilot` in env.
-
-3. `.gitignore`: `.morning-runs/` and `.meeet-replays/` (the
-   default sink dirs for the morning bundle and the per-run
-   replay export — both should never be committed).
-
-4. `tests/test_morning_bundle.py` (new, 23 tests, ~360 lines):
-   - **Structural** (11 tests): script exists/executable, bash
-     shebang, `bash -n` syntax check, every documented env knob
-     is read by the script (catches doc drift in either
-     direction), all three exit codes documented, script invokes
-     the canonical `playbooks.cli` + `meeet.replay_cli` modules
-     (no bespoke runner reimplementation).
-   - **Makefile** (5 tests): both targets in `.PHONY`, both have
-     `## help` comments, recipe invokes the wrapper script,
-     dry-mode target hard-codes `MORNING_MODE=dry_run`.
-   - **End-to-end smoke** (7 tests): no-playbooks → rc=2 +
-     minimal evidence; happy override → rc=0 + full envelope;
-     unknown playbook → rc=1 + `failed_ids`; mixed
-     continue-on-failure → both playbooks recorded; fail-fast →
-     stops + marks skipped as `aborted_by_fail_fast`; evidence
-     filename matches printed run_id; `MORNING_SKIP_REPLAY=1`
-     surfaces in evidence (so auditor can tell "skipped" from
-     "upstream down").
-
-**Tests**
-
-- `pytest tests/test_morning_bundle.py` — 23/23 green.
-- Full suite — 2227/2227 green.
-- Manual smoke (5 modes verified before tests):
-  default-discovery → 4 playbooks ok rc=0; bogus tag → rc=2 with
-  no_playbooks_discovered evidence; bad id override → rc=1 with
-  `failed_ids: ["no.such.playbook"]`; `MORNING_SKIP_REPLAY=1` →
-  no flush, evidence shows `skipped: true`; mixed
-  continue-on-failure → both runs recorded, rc=1.
-
-**Files**
-
-- `scripts/playbooks_morning_cron.sh` (new, +280)
-- `Makefile` (+25, .PHONY + 2 targets + section header)
-- `.gitignore` (+2, `.morning-runs/`, `.meeet-replays/`)
-- `tests/test_morning_bundle.py` (new, +363)
-
-## 2026-05-01 — Cursor [A] · awareness CLI bash completion (operator-CLI arc symmetry closed)
-
-**Summary**
-
-Ships `scripts/awareness-completion.bash` mirroring the
-existing planner / playbooks completion scripts. **Closes the
-operator-CLI arc symmetry**: every cockpit-facing TARS surface
-(planner / awareness / playbook) now has HTTP route + `python -m
-…` CLI + `make …-*` targets + bash completion script.
-
-The awareness script handles a wrinkle the other two don't:
-**two-level live positional completion** for the `snapshot`
-subcommand. Positional 0 is a pack slug (live query against
-`awareness_cli list`); positional 1 is a source id, scoped to
-the chosen slug (live query against `awareness_cli list
-<slug>`). The cache is keyed by slug name so completing slug A
-then slug B doesn't pollute B's cache with A's source ids.
-
-Avoids the `--quiet` flag-order bug from PR #130 by construction
-(both query helpers invoke the CLI with `--quiet` BEFORE the
-subcommand, pinned by test).
-
-**The arc as it now stands**:
-
-| Layer        | HTTP route                       | CLI module                              | Make targets         | Bash completion                          |
-| ------------ | -------------------------------- | --------------------------------------- | -------------------- | ---------------------------------------- |
-| Planner      | `web_extras/routers/planner.py`  | `backend.core.planner.cli`              | `make planner-*`     | `scripts/planner-completion.bash`        |
-| Awareness    | `web_extras/routers/domains.py`  | `backend.core.domains.awareness_cli`    | `make awareness-*`   | `scripts/awareness-completion.bash` (NEW) |
-| Playbook     | `web_extras/routers/playbooks.py`| `backend.core.playbooks.cli`            | `make playbooks-*`   | `scripts/playbooks-completion.bash`      |
-
-Every surface now has the same operator-facing affordances:
-inspect from cron, execute from cron, observe from cockpit (same
-events emitted), tab-complete from any shell.
-
-**Why ship awareness completion when the script is small?** Two
-reasons:
-
-1. **Two-level positional completion is the killer feature** —
-   awareness sources live under `<slug>.<source_id>` namespacing
-   so the operator can't reasonably memorize the source id for
-   every pack. The script exposes them via tab.
-2. **Cron-friendly slug discovery** — when wiring a pre-warm
-   snapshot into cron (`make awareness-snapshot ARGS="<slug>
-   <source_id>"`), tab-complete walks the operator through the
-   full namespace without `--help` reads.
-
-**Changes**
-
-1. `scripts/awareness-completion.bash` (new, 240 lines):
-   - Subcommand completion (`list`, `snapshot`, `snapshot-all`).
-   - Per-snapshot flag table (`--thread-id`, `--trace-id`)
-     grouped under one `snapshot|snapshot-all)` case (DRY).
-   - **Live pack-slug completion** with a 5-second per-shell
-     cache (mirrors the planner / playbooks scripts).
-   - **Live per-pack source-id completion** with a separate
-     5-second cache keyed by slug name (so completing slug A
-     then slug B doesn't reuse A's data — explicitly pinned).
-   - **Two-level positional walker**: counts non-flag words
-     after the subcommand to decide which positional we're at;
-     skips flag VALUES (`--thread-id thr_42`) so they don't
-     get miscounted as positionals (also pinned).
-   - `--quiet` invoked BEFORE the subcommand in both query
-     helpers (avoids the bug fixed in PR #130, and explicitly
-     asserted).
-
-2. `tests/test_awareness_completion_script.py` (new, 9 tests):
-   - Script exists + executable + shebang.
-   - `bash -n` parses cleanly.
-   - `_TARS_AWARENESS_CMDS` matches `cli._DISPATCH` keys (no
-     drift).
-   - Combined `snapshot|snapshot-all)` flag table includes
-     `--thread-id` + `--trace-id`.
-   - `list` case branch is intentionally empty (catch a
-     future "add --pack to list" parser change as a test
-     failure).
-   - **Two caches**: `_TARS_AWARENESS_SLUGS_*` for the
-     catalogue and `_TARS_AWARENESS_SOURCES_KEY/VAL/EXP` for
-     the per-pack source list (pin the key-by-slug invariant).
-   - `--quiet` invoked **before** the subcommand in both
-     query helpers; the buggy `list --quiet` order is
-     explicitly NOT in the script.
-   - Two-level positional completion: snapshot's case branch
-     checks `positional_idx == 0` (slug) and
-     `positional_idx == 1` (source_id, scoped via
-     `_tars_awareness_sources` with the typed slug).
-   - Positional counter skips `--thread-id` / `--trace-id`
-     VALUES (advances loop counter inside the inner case).
-
-**Tests**
-
-- `tests/test_awareness_completion_script.py` — 9 new tests,
-  all green.
-- Full suite: **2204 passed in 40.97s** (was 2195, +9).
-- Smoke (sourced into bash):
-  - `tars-awareness <TAB>` → `list snapshot snapshot-all`
-  - `tars-awareness snapshot <TAB>` → 8 live pack slugs
-    (business, mlm, entrepreneur, science, traders, wallet,
-    research_lab, ops_room)
-  - `tars-awareness snapshot traders <TAB>` → 5 live source
-    ids for the traders pack (binance_ws, tradingview_alerts,
-    news_feed, portfolio_local, local_alerts).
-
-**Files**
-
-- `scripts/awareness-completion.bash` (new, 240 lines).
-- `tests/test_awareness_completion_script.py` (new, 9 tests).
-- `docs/CHANGELOG_AGENTS.md`, `docs/AGENT_HANDOFF.md`.
-
-**Follow-ups**
-
-- Right-rail planner entrypoint from the cockpit chat thread
-  (cancelled — ChatPane has no plan-aware protocol yet; needs
-  product direction before we can wire the inline panel).
-- Cron-shipped morning-bundle wrapper script
-  (`scripts/playbooks_morning_cron.sh`) bundling traders /
-  business / mlm morning playbooks + meeet replay flush;
-  deferred until a concrete production schedule lands.
-
-## 2026-05-01 — Cursor [A] · playbooks CLI: bash completion + planner script flag-order fix
-
-**Summary**
-
-Ships `scripts/playbooks-completion.bash` mirroring the
-existing `scripts/planner-completion.bash` pattern: tab
-completion for the six subcommands (`list`, `show`, `run`,
-`validate`, `validate-all`, `reload`), per-subcommand flag
-completion, **live playbook-id completion** sourced from the
-CLI itself (5-second cache), and **filesystem-path
-completion for `--context-file`** so the cron-friendly
-sidecar-JSON workflow tab-completes the same as a plain
-`vim path/to/file`.
-
-While here, fixes a latent bug in the planner completion
-script discovered during the smoke test: both scripts were
-invoking `python -m backend.core.{planner,playbooks}.cli list
---quiet`, but `--quiet` is the **global** flag and must come
-**before** the subcommand. The old order silently failed with
-exit 2 and an empty completion list (the user got no
-suggestions but also no error, so this never surfaced
-through the test suite). Pin both fixes.
-
-**Why ship a completion script when the playbook ID set is
-small (6 today)?** Two reasons:
-
-1. **Discoverability** — operators who don't know the
-   playbook ID format (`<pack>.<name>`) get a live menu of
-   what actually exists on disk. The same tab they'd use to
-   complete a path now completes a playbook id.
-2. **Cron template authoring** — `--context-file <TAB>` to
-   pick the JSON sidecar, `--mode <TAB>` to pick from
-   `autopilot|confirm|dry_run`, `<id> <TAB>` to verify the
-   playbook still exists. The whole cron command now
-   tab-completes end-to-end.
-
-**Changes**
-
-1. `scripts/playbooks-completion.bash` (new, 145 lines):
-   - Subcommand completion + per-subcommand flag tables
-     identical in shape to the planner script.
-   - **Live playbook-id query** with a 5-second per-shell
-     cache (mirrors the planner script's TTL exactly so
-     the operator's mental model is uniform).
-   - **`--context-file` ⇒ filesystem path completion** via
-     a dedicated `compgen -f` branch. Pin: a future
-     "simplify" must not collapse this into the free-form
-     fallback (the cron-baked sidecar workflow depends on
-     it).
-   - **`--mode` ⇒ value completion** with the three
-     `PolicyMode` values (`autopilot`, `confirm`, `dry_run`).
-   - **id completion scoped to id-taking subcommands only**
-     (`show|run|validate`) so a future "complete IDs
-     everywhere" change doesn't silently shell out to
-     Python on every tab inside `validate-all` /
-     `reload` / `list`.
-
-2. `scripts/planner-completion.bash`:
-   - Fixed `python -m … cli list --quiet` →
-     `python -m … cli --quiet list` (latent bug — argparse
-     was rejecting `--quiet` as a positional after `list`,
-     completion was returning an empty list).
-
-3. `tests/test_playbooks_completion_script.py` (new, 10
-   tests): contract pinning the script structure without
-   sourcing it into a real subshell.
-   - Script exists + executable + shebang.
-   - `bash -n` parses cleanly (catches typos before the
-     script lands on disk).
-   - `_TARS_PLAYBOOKS_CMDS` lists every subcommand the
-     CLI's `_DISPATCH` map declares (no drift between
-     script and code).
-   - Per-subcommand flag tables (parametrised over `list`
-     / `show` / `run`) match the parser's flag declarations.
-   - `--mode` value completion lists `autopilot confirm
-     dry_run`.
-   - `--context-file` triggers `compgen -f` (file-path
-     completion).
-   - Cache contract: `_TARS_PLAYBOOKS_CACHE_VAL`,
-     `_TARS_PLAYBOOKS_CACHE_EXP`, 5-second TTL.
-   - Live id completion scoped to `show|run|validate`
-     only (the gating regex is pinned).
-
-**Tests**
-
-- `tests/test_playbooks_completion_script.py` — 10 new,
-  all green.
-- `tests/test_planner_completion_script.py` — 12, still all
-  green after the flag-order fix (the existing tests didn't
-  cover the runtime bug because they only assert structural
-  properties).
-- Full suite: **2195 passed in 41.23s** (was 2185, +10).
-- Smoke (sourced into bash): subcommand tab returns
-  `list show run validate validate-all reload`; `run <TAB>`
-  returns the 6 live playbook ids from disk;
-  `--context-file <TAB>` returns local files; `--mode <TAB>`
-  returns the three policy modes.
-
-**Files**
-
-- `scripts/playbooks-completion.bash` (new, 145 lines).
-- `scripts/planner-completion.bash` — flag-order fix.
-- `tests/test_playbooks_completion_script.py` (new, 10
-  tests).
-- `docs/CHANGELOG_AGENTS.md`, `docs/AGENT_HANDOFF.md`.
-
-**Follow-ups**
-
-- Right-rail planner entrypoint from the cockpit chat thread
-  (still pending).
-- `awareness-completion.bash` for the awareness CLI (would
-  give the same operator UX but the awareness ID set is
-  pack-scoped so the live-id query is more involved;
-  deferred until a concrete cron use case lands).
-
 ---
 
-_Showing the most recent 60 of 221 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 231 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._

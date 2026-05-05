@@ -101,13 +101,22 @@ export function FAQ() {
         <ul className="divide-y divide-line">
           {FAQS.map((qa, i) => {
             const isOpen = open === i;
+            const buttonId = `faq-button-${i}`;
+            const panelId = `faq-panel-${i}`;
             return (
               <li key={i}>
                 <button
+                  id={buttonId}
                   type="button"
                   onClick={() => setOpen(isOpen ? null : i)}
                   aria-expanded={isOpen}
-                  aria-controls={`faq-panel-${i}`}
+                  aria-controls={panelId}
+                  // Terse action label — screen readers will already read the
+                  // visible question text inside the button (line 127-129),
+                  // so the label only needs to clarify what the affordance
+                  // *does*. Echoing `qa.q` here would make SR repeat the
+                  // question twice. WCAG 2.1 AA · 2.4.4 Link Purpose.
+                  aria-label={isOpen ? "Collapse answer" : "Expand answer"}
                   className="flex w-full items-center gap-5 px-6 py-5 text-left transition-colors duration-150 hover:bg-bg-2/40 md:px-10 md:py-6"
                 >
                   <span
@@ -139,7 +148,12 @@ export function FAQ() {
                 <AnimatePresence initial={false}>
                   {isOpen && (
                     <motion.div
-                      id={`faq-panel-${i}`}
+                      id={panelId}
+                      // `role="region"` + `aria-labelledby` ties the answer
+                      // panel to its question — assistive tech announces
+                      // "answer region for [question]" when focus enters.
+                      role="region"
+                      aria-labelledby={buttonId}
                       key="panel"
                       initial={{ height: 0, opacity: 0 }}
                       animate={{ height: "auto", opacity: 1 }}

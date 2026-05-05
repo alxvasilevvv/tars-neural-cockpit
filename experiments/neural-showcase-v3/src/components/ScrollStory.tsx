@@ -33,13 +33,14 @@ const SCROLL_ACCENTS = [
 
 /**
  * <ScrollStory /> — scroll-pinned storytelling section. Pattern:
- * Linear / Stripe / Apple. Four features unfold as the operator
+ * Linear / Apple-style scroll story. Four features unfold as the operator
  * scrolls through a 400vh tall container; the left column stays
  * sticky and crossfades headline + body, while the right column
  * cycles through a per-segment visual panel.
  *
  * Layout:
  *   Desktop  — sticky two-column. Left = headline, right = panel.
+ *              `top` clears the sticky site nav (~py-5 + blur bar).
  *   Mobile   — stacks: each segment gets its own card, 100vh tall,
  *              auto-revealed on viewport entry (no sticky behaviour
  *              since iOS Safari position:sticky inside scroll-snap
@@ -159,7 +160,7 @@ function PinnedTrack({ segments }: { segments: Segment[] }) {
       className="relative"
       style={{ height: `${SEG_COUNT * 100}vh` }}
     >
-      <div className="sticky top-[10vh] grid grid-cols-[1fr_1.1fr] gap-12 lg:gap-20">
+      <div className="sticky top-24 z-10 grid grid-cols-[1fr_1.1fr] gap-12 md:top-28 lg:gap-20">
         {/* Left — copy column with progress rail */}
         <div className="relative flex h-[80vh] flex-col">
           <ProgressRail

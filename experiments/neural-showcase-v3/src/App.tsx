@@ -90,11 +90,13 @@ const ComparePage = lazy(() =>
 // Default skeleton for routes that don't pin a specific layout shape.
 const Loading = () => <RouteSkeleton variant="default" />;
 
-// Master.md motion rule: clean opacity/y entrance, no blur (heavy + flickers).
+// Route entrance: opacity only. Avoid `transform` on this wrapper — any non-none
+// transform creates a containing block and breaks `position: sticky` deep in
+// marketing sections (e.g. ScrollStory pinned track).
 const variants = {
-  hidden: { opacity: 0, y: 12 },
-  show: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: -8 },
+  hidden: { opacity: 0 },
+  show: { opacity: 1 },
+  exit: { opacity: 0 },
 };
 
 function AppShell() {

@@ -57,9 +57,9 @@ you explicitly opt in.
   choice).
 - **Account metadata:** subscription tier, sign-up timestamp,
   preferred language, time zone.
-- **Billing info:** if you pay by card, our processor (Stripe) handles
-  card data — we see only last-4 digits and expiry. If you pay in
-  $MEEET / SOL, we see the wallet transaction.
+- **Billing info:** paid tiers are settled **on-chain in SOL and/or
+  $MEEET** on Solana. We see public transaction data (amounts,
+  addresses, signatures) as on any blockchain — not card numbers.
 - **OAuth tokens:** for skills you connect (Slack, GitHub, etc.) —
   scoped to that skill's permissions, encrypted at rest.
 
@@ -107,9 +107,8 @@ We use these third parties only when their feature is opted in:
 | **OpenAI** (US) | Cloud LLM voice (GPT) | Same. Governed by [OpenAI DPA](https://openai.com/policies/data-processing-agreement). |
 | **Google** (US) | Cloud LLM voice (Gemini) — opt-in | Same. Governed by Google Cloud DPA. |
 | **xAI**, **Mistral**, **DeepSeek**, **Together AI** | Optional cloud LLM voices | Same — selectable per voice; their respective DPAs apply. |
-| **Stripe** (US) | Card payment processing | Card data, billing address. Governed by [Stripe DPA](https://stripe.com/legal/dpa). |
 | **GitHub Releases / S3** (US) | Installer / .dmg distribution | None — anonymous downloads. |
-| **Solana network** (decentralised) | Solana memo anchoring (audit) + $MEEET | Hash digests of receipt batches; on-chain wallet transactions. |
+| **Solana network** (decentralised) | SPL transfers, $MEEET, memo anchoring (audit) | Wallet addresses, amounts, signatures — public ledger data. |
 | **Cloudflare** (US) | CDN, DDoS protection, marketing site | Server logs (IP, UA, path). |
 
 We do not engage any sub-processor not on this list. If we add one,

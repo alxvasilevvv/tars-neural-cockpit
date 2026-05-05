@@ -333,7 +333,7 @@ Status page at `status.meeet.world` adds a `tars.meeet.world` row.
 - `docs/SECURITY.md` § 9 — network surface (no inbound LAN; this
   subdomain is the only public face).
 - `docs/PRIVACY_POLICY.md` § 3 — sub-processor list (Cloudflare,
-  Stripe).
+  Solana / on-chain settlement).
 
 ---
 

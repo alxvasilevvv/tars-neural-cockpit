@@ -176,6 +176,7 @@ export function JumpPalette() {
   return (
     <motion.div
       role="dialog"
+      aria-modal="true"
       aria-label="jump"
       onKeyDown={onKeyDown}
       initial={{ opacity: 0 }}

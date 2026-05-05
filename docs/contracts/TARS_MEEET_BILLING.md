@@ -1,6 +1,8 @@
 # TARS ↔ meeet.world billing (authoritative operator plane)
 
 **Status:** contract for cross-stack integration.  
+**Prod reference (2026-05-05):** authoritative billing edge is live on meeet core Supabase project **`zujrmifaabkletgnpoyw`** — deploy **`tars-billing`** at `https://zujrmifaabkletgnpoyw.supabase.co/functions/v1/tars-billing`, table **`tars_billing_usage_dedupe`** for **`POST /operator/usage`** idempotency; operator smoke + anon RLS check passed (Lovable). TARS `remote` mode must use the same **`MEEET_BILLING_API_KEY`** as the function secret **`TARS_BILLING_API_KEY`**.
+
 **Principle:** **meeet.world** owns accounts, SOL / $MEEET settlement, tier state,
 and **authoritative consumption** for cloud capacity. TARS remains local-first:
 it mirrors that state for the cockpit and **must not** grant paid cloud capacity
@@ -15,6 +17,7 @@ when the remote plane is unreachable (fail closed for `cloud`).
 | `MEEET_BILLING_API_KEY` | `remote` | Shared secret; sent as `Authorization: Bearer <key>`. Must match Supabase secret `TARS_BILLING_API_KEY` or `MEEET_BILLING_API_KEY` on the billing function. |
 | `TARS_OPERATOR_ID` | optional | Opaque id for this seat (future multi-host); sent as `X-Tars-Operator-Id`. |
 | `MEEET_BILLING_MAX_DELTA_USD` | optional | When TARS mirrors cloud spend per `usage.tokens`, cap each POST body `delta_usd` at this value (default **50**). |
+| `MEEET_BILLING_USAGE_RETRIES` | optional | Attempts for `POST /operator/usage` on transient HTTP / transport errors (default **3**, clamped **1–8**). Exponential backoff between attempts. |
 
 ## HTTP — meeet.world implements
 
@@ -72,12 +75,17 @@ when the remote plane is unreachable (fail closed for `cloud`).
 **Body** (`application/json`)
 
 ```json
-{ "delta_usd": 0.012345 }
+{
+  "delta_usd": 0.012345,
+  "trace_id": "trc_…"
+}
 ```
 
 - `delta_usd` — positive finite USD increment for the rolling 24h window (server rejects non-positive or absurd values; per-request cap **500** USD on the edge; TARS may further cap via `MEEET_BILLING_MAX_DELTA_USD`).
+- `trace_id` (optional) — opaque string (≤256 chars after trim). When present, the billing edge records it in **`tars_billing_usage_dedupe`** before applying spend. A second POST with the same `trace_id` returns **200** with **`duplicate: true`** and the current `live`-style fields **without** incrementing spend again (idempotent retry safe).
+- `idempotency_key` (optional, edge alias) — same semantics as `trace_id` if the host accepts it; prefer **`trace_id`** for TARS ↔ meeet alignment with ingest traces.
 
-**Response 200**
+**Response 200** (applied)
 
 ```json
 {
@@ -89,11 +97,16 @@ when the remote plane is unreachable (fail closed for `cloud`).
   "cap_usd_daily": 0.333333,
   "remaining_usd": 0.283333,
   "allowed_cloud": true,
-  "reason": null
+  "reason": null,
+  "duplicate": false
 }
 ```
 
-**Errors** — `400` invalid body / delta, `401` bad Bearer, `5xx` DB. Failures on this POST **do not** roll back the local meeet event store (best-effort mirror).
+**Response 200** (dedupe hit — same `trace_id` / key as a prior successful apply)
+
+- Body includes **`"duplicate": true`** and current operator spend / gate fields; **`delta_usd`** in the response reflects the **original** request increment (for logging); **spent** counters are unchanged.
+
+**Errors** — `400` invalid body / delta, `401` bad Bearer, `5xx` DB. Failures on this POST **do not** roll back the local meeet event store (best-effort mirror). TARS retries transient codes (**408**, **425**, **429**, **500–504**) and URL / timeout-style errors per `MEEET_BILLING_USAGE_RETRIES`.
 
 ### Consumption & shared data
 
@@ -110,4 +123,4 @@ when the remote plane is unreachable (fail closed for `cloud`).
 
 ---
 
-**Version:** 1.1.0 — 2026-05-05 (`POST /operator/usage` + TARS mirror).
+**Version:** 1.2.0 — 2026-05-05 (`trace_id` dedupe on edge, client retries, TARS mirror passes trace).

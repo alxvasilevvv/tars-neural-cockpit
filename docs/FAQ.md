@@ -97,8 +97,7 @@ $MEEET dropped to your wallet at launch. We cap it at the first
 because the $MEEET allocation is immediate.
 
 ### 2.6 How do I pay?
-Card via Stripe (USD), or in $MEEET / SOL via the meeet.world wallet.
-Same price across rails. Crypto invoices arrive via email.
+In **SOL** and **$MEEET** on Solana via the meeet.world wallet flow (no card processor). Same price in token terms at launch; settlement is on-chain.
 
 ### 2.7 Can I cancel?
 Anytime, from the cockpit Settings → Billing → Cancel. Your data

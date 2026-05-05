@@ -10,7 +10,7 @@ import { BrandHairline } from "@/components/BrandHairline";
 /**
  * /status — internal status page. Reads the live local daemon
  * (`/health`) and the public manifest (`/api/product/downloads`) and
- * renders a Stripe/Vercel-style row of system pulses. Public uptime
+ * renders a Vercel-style row of system pulses. Public uptime
  * service (status.meeet.world) remains the source of truth for SLA;
  * this page is a quick local glance.
  */

@@ -98,13 +98,13 @@ const STRINGS_EN = {
   "pricing.tier.business.priceSub":"per seat / month",
   "pricing.tier.business.cta":     "Talk to sales",
   // Bug #3 from docs/SYSTEM_AUDIT_2026-05-02.md — payments not yet
-  // wired (no Stripe / wallet integration). Pricing page shows the
+  // wired (no on-chain SOL / $MEEET checkout yet). Pricing page shows the
   // tiers as a public commitment, but the paid CTAs surface
   // "Coming soon" instead of pretending checkout works. Backend
   // /api/entitlements/upgrade returns 503 feature_disabled in
-  // production unless TARS_PAYMENT_MODE=mock|stripe is set.
+  // production unless TARS_PAYMENT_MODE=mock|onchain|tokens is set.
   "pricing.comingSoon.badge":      "COMING SOON",
-  "pricing.comingSoon.tooltip":    "Paid tiers ship once Stripe + $MEEET wallet checkout land. Free tier is fully usable today; subscribe to be notified at launch.",
+  "pricing.comingSoon.tooltip":    "Paid tiers unlock once SOL / $MEEET on-chain checkout is live. Free tier is fully usable today; subscribe to be notified at launch.",
   "pricing.lifetime.comingSoon":   "Lifetime checkout opens at launch",
   "pricing.lifetime.tag":          "LIFETIME",
   "pricing.lifetime.badge":        "FOUNDERS",
@@ -828,7 +828,7 @@ export type TKey = keyof typeof STRINGS_EN;
  * Style guide:
  * - Polite "вы" (not the formal "Вы" — feels stiff in product copy).
  * - Latin product names stay Latin: TARS, $MEEET, Pro, Business,
- *   $MEEET, Solana, Stripe, arXiv, GitHub, Phantom, Backpack,
+ *   $MEEET, Solana, SPL, arXiv, GitHub, Phantom, Backpack,
  *   Cursor, Claude.
  * - "сloud" → "облако"; "cap"/"cap_hit" → "лимит" (cockpit-side
  *   banking copy already uses "лимит" for spend caps).
@@ -899,7 +899,7 @@ const STRINGS_RU: Partial<Record<TKey, string>> = {
   "pricing.tier.business.priceSub":"за место / месяц",
   "pricing.tier.business.cta":     "Связаться с продажами",
   "pricing.comingSoon.badge":      "СКОРО",
-  "pricing.comingSoon.tooltip":    "Платные тарифы открываются после интеграции Stripe + кошелька $MEEET. Free-тариф уже полностью работает; подпишитесь, чтобы узнать о запуске.",
+  "pricing.comingSoon.tooltip":    "Платные тарифы откроются после запуска оплаты в SOL / $MEEET в сети Solana. Free-тариф уже полностью работает; подпишитесь, чтобы узнать о запуске.",
   "pricing.lifetime.tag":          "LIFETIME",
   "pricing.lifetime.badge":        "FOUNDERS",
   "pricing.lifetime.priceSub":     "один платёж · навсегда",
