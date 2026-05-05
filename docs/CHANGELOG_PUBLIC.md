@@ -4,6 +4,12 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-05 — Claude · Wave 63: Desktop ownership pass — wrap-up summary
+
+>>> SYNC: Claude · 2026-05-05 · Wave 59-62 desktop pass closed. New `docs/DESKTOP_OWNERSHIP_PASS.md` consolidates everything (commits, files, surfaces, latent issues, verify-by-operator steps). Audited pyoxidizer.bzl + build.rs + sw.js — clean, but flagged: SW never registered (latent web-only), CI uses pyinstaller not pyoxidizer (out-of-scope rewrite). No code touched in this entry.
+
+**Files** — `docs/DESKTOP_OWNERSHIP_PASS.md` (new), `docs/CHANGELOG_AGENTS.md` (this entry).
+
 ## 2026-05-05 — Claude · Wave 62: /settings page + updater UI + Cmd+K palette entry
 
 >>> SYNC: Claude · 2026-05-05 · New standalone /settings route (About / Updater / Keyboard reference). tars://settings deep-link re-pointed from /cockpit?panel=settings to /settings. GlobalCommandPalette index gets a Settings entry. No backend touched.
@@ -1710,30 +1716,6 @@ for `tars:operator-palette-prefill`. ⌘K empty-state hints mention
 - `docs/CHANGELOG_AGENTS.md` (this entry)
 - `docs/CHANGELOG_PUBLIC.md` (regenerated)
 
-## 2026-05-03 — Cursor [D] · Clickable chunk citations in ChatPane
-
-**Summary**
-
-Assistant / system message bodies now turn `[citation_id]` tokens
-into inline pills when the id exists in persisted sources or live
-retrieval; click opens the sources footer and scrolls to the
-matching `<li id="tars-source-…">`. New pure helper
-`splitChunkCitations` in `src/lib/chunkCitations.ts` + Vitest
-suite. Makefile gains `cockpit-changelog-check` and
-`gate-control-tower` / `test-all` run it before Vitest (matches
-Cloudflare Pages CI).
-
-**Files**
-
-- `experiments/neural-showcase-v3/src/lib/chunkCitations.ts`
-- `experiments/neural-showcase-v3/src/lib/chunkCitations.test.ts`
-- `experiments/neural-showcase-v3/src/components/ChatPane.tsx`
-- `Makefile` (`cockpit-changelog-check`, wire `test-all` +
-  `gate-control-tower`)
-- `docs/IDEAS.md` (mark citation rendering shipped)
-- `docs/CHANGELOG_AGENTS.md` (this entry)
-- `docs/CHANGELOG_PUBLIC.md` (regenerated)
-
 ---
 
-_Showing the most recent 60 of 236 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 237 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
