@@ -4,6 +4,36 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-05 — Claude · Wave 60: Sidecar status indicator + DESKTOP.md operator guide
+
+>>> SYNC: Claude · 2026-05-05 · Cockpit listens to desktop.sidecar.{started,failed,exited} Tauri events via new `useSidecarStatus` hook + `SidecarStatusBadge` component (mounted in AppShell). Shows starting/ready/failed/exited states; browser builds skip entirely. Plus user-facing `docs/DESKTOP.md` operator guide.
+
+**Summary**
+
+Sidecar lifecycle events have been emitted by `desktop/src-tauri/src/sidecar.rs` since Phase L9 A1 (schema pinned at `sidecar-events.schema.json` v1.0.0), but the cockpit never listened. When the FastAPI sidecar failed to boot, the user saw nothing — silent failure, hard to diagnose.
+
+Wave 60 wires the cockpit-side listener:
+
+1. **`useSidecarStatus` hook** (`src/lib/useSidecarStatus.ts`) — listens to all three events, tracks state machine (`unknown` → `starting` → `ready` | `failed` | `exited`), 8-second cold-load timeout escalation if no `started` event arrives. Browser-build no-op gated by `__TAURI_INTERNALS__`.
+
+2. **`<SidecarStatusBadge />` component** (`src/components/SidecarStatusBadge.tsx`) — bottom-left fixed banner. UX:
+   - `starting` → small spinner pill ("Starting backend…")
+   - `ready` → green pill auto-dismissing after 2.5s
+   - `failed` → amber banner pinned with stage + error excerpt + troubleshooting link
+   - `exited` (mid-session crash) → red banner with exit code / signal
+   - User-dismissable; new failures re-surface
+
+3. **`docs/DESKTOP.md`** — new user-facing operator guide covering install, native features (window state / tray / global shortcut / deep links / sidecar status), updater, troubleshooting, and security model. References Wave 59 + Wave 60 features.
+
+Mounted in `<AppShell />` after `<ToastBus />`. Zero impact on browser builds.
+
+**Files** —
+`experiments/neural-showcase-v3/src/App.tsx`,
+`experiments/neural-showcase-v3/src/lib/useSidecarStatus.ts` (new),
+`experiments/neural-showcase-v3/src/components/SidecarStatusBadge.tsx` (new),
+`docs/DESKTOP.md` (new),
+`docs/CHANGELOG_AGENTS.md` (this entry).
+
 ## 2026-05-05 — Claude · Wave 59: Desktop native UX + ScrollStory fix
 
 >>> SYNC: Claude · 2026-05-05 · Tauri 2 desktop shell gets window-state persistence, tray icon (menu bar), global shortcut Cmd+Shift+Space, `tars://` deep-link routing, pre-flight build gate. Plus ScrollStory edge-segment opacity fix. Cargo.toml + tauri.conf.json + capabilities + main.rs + cockpit deep-link hook. No backend touched.
@@ -1702,41 +1732,6 @@ can pick up cleanly.
 - `docs/AGENT_HANDOFF.md` (added 2026-05-02/03 closeout block at
   the top of the running list)
 
-## 2026-05-03 — Cursor [B] · `/changelog` chunk -63% (PR #144)
-
-**Summary**
-
-The `/changelog` page bundled the entire `CHANGELOG_AGENTS.md`
-(551 KB, 172 entries) as a raw import — the resulting Changelog
-chunk was 560 KB raw / 188 KB gzip, larger than the entire
-cockpit shell. Worse, this grows every time any agent appends to
-the per-edit log.
-
-`scripts/generate_public_changelog.py` splits the source on
-`## ` headers and writes `docs/CHANGELOG_PUBLIC.md` with the
-most recent 60 entries plus a "view full history on GitHub"
-footer. The cockpit imports the public file instead. Wired into
-the cockpit lifecycle as `predev` / `prebuild` npm hooks (so
-both dev runs and production builds always see fresh content),
-with a `changelog:check` script (and a CLI `--check` flag) for
-optional CI guard against forgotten regenerations.
-
-**Build delta**
-
-- `Changelog-*.js` raw: 560 KB → 216 KB (-62%)
-- `Changelog-*.js` gzip: 188 KB → 69 KB (-63%)
-- All other chunks unchanged
-- Vitest: 328 passed (no regressions)
-
-**Files**
-
-- `scripts/generate_public_changelog.py` (new, 117 lines)
-- `docs/CHANGELOG_PUBLIC.md` (new, generated, 210 KB)
-- `experiments/neural-showcase-v3/package.json` (predev /
-  prebuild hooks + `changelog:check` script)
-- `experiments/neural-showcase-v3/src/pages/Changelog.tsx`
-  (import switched to `CHANGELOG_PUBLIC.md`)
-
 ---
 
-_Showing the most recent 60 of 233 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 234 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._

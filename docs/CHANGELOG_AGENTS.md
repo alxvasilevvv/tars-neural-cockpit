@@ -4,6 +4,36 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-05 — Claude · Wave 60: Sidecar status indicator + DESKTOP.md operator guide
+
+>>> SYNC: Claude · 2026-05-05 · Cockpit listens to desktop.sidecar.{started,failed,exited} Tauri events via new `useSidecarStatus` hook + `SidecarStatusBadge` component (mounted in AppShell). Shows starting/ready/failed/exited states; browser builds skip entirely. Plus user-facing `docs/DESKTOP.md` operator guide.
+
+**Summary**
+
+Sidecar lifecycle events have been emitted by `desktop/src-tauri/src/sidecar.rs` since Phase L9 A1 (schema pinned at `sidecar-events.schema.json` v1.0.0), but the cockpit never listened. When the FastAPI sidecar failed to boot, the user saw nothing — silent failure, hard to diagnose.
+
+Wave 60 wires the cockpit-side listener:
+
+1. **`useSidecarStatus` hook** (`src/lib/useSidecarStatus.ts`) — listens to all three events, tracks state machine (`unknown` → `starting` → `ready` | `failed` | `exited`), 8-second cold-load timeout escalation if no `started` event arrives. Browser-build no-op gated by `__TAURI_INTERNALS__`.
+
+2. **`<SidecarStatusBadge />` component** (`src/components/SidecarStatusBadge.tsx`) — bottom-left fixed banner. UX:
+   - `starting` → small spinner pill ("Starting backend…")
+   - `ready` → green pill auto-dismissing after 2.5s
+   - `failed` → amber banner pinned with stage + error excerpt + troubleshooting link
+   - `exited` (mid-session crash) → red banner with exit code / signal
+   - User-dismissable; new failures re-surface
+
+3. **`docs/DESKTOP.md`** — new user-facing operator guide covering install, native features (window state / tray / global shortcut / deep links / sidecar status), updater, troubleshooting, and security model. References Wave 59 + Wave 60 features.
+
+Mounted in `<AppShell />` after `<ToastBus />`. Zero impact on browser builds.
+
+**Files** —
+`experiments/neural-showcase-v3/src/App.tsx`,
+`experiments/neural-showcase-v3/src/lib/useSidecarStatus.ts` (new),
+`experiments/neural-showcase-v3/src/components/SidecarStatusBadge.tsx` (new),
+`docs/DESKTOP.md` (new),
+`docs/CHANGELOG_AGENTS.md` (this entry).
+
 ## 2026-05-05 — Claude · Wave 59: Desktop native UX + ScrollStory fix
 
 >>> SYNC: Claude · 2026-05-05 · Tauri 2 desktop shell gets window-state persistence, tray icon (menu bar), global shortcut Cmd+Shift+Space, `tars://` deep-link routing, pre-flight build gate. Plus ScrollStory edge-segment opacity fix. Cargo.toml + tauri.conf.json + capabilities + main.rs + cockpit deep-link hook. No backend touched.

@@ -17,6 +17,7 @@ import { RouteSkeleton } from "@/components/RouteSkeleton";
 import { StickyCTA } from "@/components/StickyCTA";
 import { ToastBus } from "@/components/ToastBus";
 import { KeyboardOverlay } from "@/components/KeyboardOverlay";
+import { SidecarStatusBadge } from "@/components/SidecarStatusBadge";
 
 const Landing = lazy(() =>
   import("@/pages/Landing").then((m) => ({ default: m.Landing })),
@@ -129,6 +130,7 @@ function AppShell() {
       <StickyCTA />
       <CookieConsent />
       <ToastBus />
+      <SidecarStatusBadge />
       {showScrollHint && <ScrollHint />}
       <AnimatePresence mode="wait">
         <motion.div
