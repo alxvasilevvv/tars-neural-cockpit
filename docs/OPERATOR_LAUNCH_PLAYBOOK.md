@@ -164,23 +164,36 @@ kill $(cat /tmp/tars-backend-8765.pid 2>/dev/null) 2>/dev/null
 
 **VERIFY:** у тебя файл `tars-codesign-windows.pfx` + пароль к нему.
 
-### 5c. Minisign release key (5 минут, локально, бесплатно)
+### 5c. Tauri release key (5 минут, локально, бесплатно)
 
 ```bash
 cd /Users/alien/Documents/Claude/Projects/Jarvis/jarvis
-brew install minisign  # если не установлен
+# Не нужно brew install — скрипт сам подтянет @tauri-apps/cli через npm
+# (Tauri 2 использует встроенный minisign-совместимый signer, не системный
+# minisign).
 bash desktop/scripts/generate-release-keys.sh --patch-tauri-conf
 ```
 
 Скрипт:
-- Генерирует `~/.tars/release/minisign.key` (защищённый паролем)
-- Генерирует `~/.tars/release/minisign.pub`
-- Автоматически вставляет публичный ключ в `desktop/src-tauri/tauri.conf.json` (заменяя `TODO_PUBLIC_KEY`)
+- Генерирует `~/.tars-release-keys/tars-desktop.key` (защищённый паролем,
+  права `0600`, директория `0700`).
+- Генерирует `~/.tars-release-keys/tars-desktop.key.pub`.
+- Автоматически вставляет публичный ключ в `desktop/src-tauri/tauri.conf.json`
+  (заменяя `TODO_PUBLIC_KEY`).
+
+> Если хочешь хранить ключ в другом месте: `--out
+> /path/to/key.file`. Скрипт откажется перезаписывать существующий
+> файл (`exit 3`) — гарантия что свежий запуск не уничтожит уже
+> зарегистрированный в production публичный ключ.
 
 **VERIFY:**
 ```bash
+ls -la ~/.tars-release-keys/
+# должны быть tars-desktop.key и tars-desktop.key.pub
+
 grep pubkey desktop/src-tauri/tauri.conf.json
 # не должно быть TODO_PUBLIC_KEY
+
 bash desktop/scripts/updater-pubkey-status.sh
 # → "updater_pubkey: patched (minisign pubkey present)"
 ```
@@ -192,7 +205,11 @@ git commit -m "chore(release): patch updater pubkey for v9.1.0"
 git push
 ```
 
-⚠️ **Никогда не коммить `~/.tars/release/minisign.key`** — он только локально и в GitHub Actions secrets.
+⚠️ **Никогда не коммить `~/.tars-release-keys/tars-desktop.key`** — он
+только локально и в GitHub Actions secrets. Бэкапь его в hardware
+token / 1Password / encrypted offline drive: потеря ключа = у всех
+существующих установок auto-updater отвергнет любые подписи и
+потребует ручного hard-reinstall.
 
 ---
 
@@ -207,8 +224,8 @@ git push
 
 | Name | Где взять | Когда нужно |
 |------|-----------|-------------|
-| `TAURI_SIGNING_PRIVATE_KEY` | base64 от `~/.tars/release/minisign.key` | Шаг 5c сделан |
-| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | пароль которым защитил minisign key | — |
+| `TAURI_SIGNING_PRIVATE_KEY` | base64 от `~/.tars-release-keys/tars-desktop.key` | Шаг 5c сделан |
+| `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` | пароль которым защитил Tauri key | — |
 | `APPLE_CERTIFICATE` | base64 от .p12 экспорта Developer ID | Шаг 5a сделан |
 | `APPLE_CERTIFICATE_PASSWORD` | пароль .p12 | — |
 | `APPLE_SIGNING_IDENTITY` | "Developer ID Application: <Your Name> (<TEAM_ID>)" | — |
@@ -220,23 +237,29 @@ git push
 | `BRIDGE_SHARED_SECRET` | сгенерируй: `openssl rand -hex 32` (синкни с братом!) | Брат должен использовать тот же |
 | `MEEET_BILLING_API_KEY` | сгенерируй: `openssl rand -hex 32` (синкни с братом!) | Брат должен использовать тот же |
 | `TARS_INGEST_API_KEY` | сгенерируй: `openssl rand -hex 32` | Используется ingest и бэкендом |
+| `GITHUB_RELEASE_TOKEN` | fine-grained PAT, repo `tars-neural-cockpit`, `Contents: Read-only` | B-017: дает Pages Function `/dl/[file]` качать private-repo релизы для анонимного `curl|bash`. **Кладётся не в GitHub repo secrets, а в Cloudflare Pages env** — см. `docs/TARS_MEEET_OPS_TODO.md` §5 |
 
 **Команды для генерации secret values:**
 ```bash
-# Для TAURI_SIGNING_PRIVATE_KEY:
-base64 -i ~/.tars/release/minisign.key | pbcopy
+# Для TAURI_SIGNING_PRIVATE_KEY (контракт tauri-action — base64):
+base64 < ~/.tars-release-keys/tars-desktop.key | pbcopy
 
 # Для APPLE_CERTIFICATE (после экспорта .p12 из Keychain):
-base64 -i ~/Downloads/DeveloperID.p12 | pbcopy
+base64 < ~/Downloads/DeveloperID.p12 | pbcopy
 
 # Для WINDOWS_CERTIFICATE:
-base64 -i ~/Downloads/tars-codesign-windows.pfx | pbcopy
+base64 < ~/Downloads/tars-codesign-windows.pfx | pbcopy
 
 # Для shared secrets:
 openssl rand -hex 32
+
+# Альтернатива pbcopy — пайпом сразу в gh secret set:
+base64 < ~/.tars-release-keys/tars-desktop.key \
+  | gh secret set TAURI_SIGNING_PRIVATE_KEY \
+      -R alxvasilevvv/tars-neural-cockpit
 ```
 
-**VERIFY:** в Settings → Secrets and variables → Actions у тебя видны все 13 secrets (значения скрыты).
+**VERIFY:** в Settings → Secrets and variables → Actions у тебя видны все 13 GitHub secrets (значения скрыты). `GITHUB_RELEASE_TOKEN` уже в Cloudflare Pages env (см. оп-чеклист §5).
 
 ---
 
@@ -290,8 +313,9 @@ TARS_BILLING_SOURCE=remote
 MEEET_BILLING_BASE_URL=https://zujrmifaabkletgnpoyw.supabase.co/functions/v1/tars-billing
 MEEET_BILLING_API_KEY=<тот же>
 
-# downloads
-TARS_DOWNLOAD_BASE_URL=https://github.com/alxvasilevvv/tars-neural-cockpit/releases/latest/download
+# downloads (B-017: same-origin proxy через Pages Function;
+# direct github.com URLs дают 404 пока репо приватное)
+TARS_DOWNLOAD_BASE_URL=https://tars.meeet.world/dl
 ```
 
 **VERIFY:**
@@ -393,7 +417,15 @@ curl -sI https://tars.meeet.world/ | head -3
 # Expect: HTTP/2 200
 ```
 
-Зайди в браузере на https://tars.meeet.world/ — должна открыться marketing страница. Кликни Download — должна вести на GitHub Releases.
+Зайди в браузере на https://tars.meeet.world/ — должна открыться marketing страница. Кликни Download — должна вести на `tars.meeet.world/dl/<filename>` (same-origin Pages Function проксирует через `GITHUB_RELEASE_TOKEN`, не на голый github.com — B-017). Для smoke-теста именно проксика:
+
+```bash
+curl -fsSL https://tars.meeet.world/install.sh | head -10
+# должен показать shebang + комментарий-заголовок install скрипта
+curl -sI https://tars.meeet.world/dl/TARS_9.1.0_aarch64.dmg | head -1
+# HTTP/2 200 — хорошо;
+# HTTP/2 503 — паста PAT в Pages env ещё не сделана (см. ops §5).
+```
 
 ---
 

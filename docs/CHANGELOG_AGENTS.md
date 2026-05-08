@@ -4,6 +4,66 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-08 — Cursor · operator playbook drift fix (Step 5c-onwards)
+
+**Summary**
+
+Walked the operator launch playbook end-to-end and found a cluster
+of factual drift between the doc and the scripts/workflow. Fixed
+each one and added a regression test so the next drift fails CI
+loudly. None of these are runtime bugs — they're "operator runs
+the documented command and gets `no such file` / wrong env var
+shape / triggers nothing" footguns.
+
+**Drifts patched**
+
+1. **Tauri release-key path.** Playbook said
+   `~/.tars/release/minisign.{key,pub}`; script
+   (`desktop/scripts/generate-release-keys.sh`) actually defaults
+   to `~/.tars-release-keys/tars-desktop.key{,.pub}`. Aligned the
+   playbook to the script (script is source of truth — moving the
+   default would break operators who already have a key minted at
+   the canonical path).
+
+2. **`TAURI_SIGNING_PRIVATE_KEY` encoding.** Both the script's
+   trailing operator hint and Step 6 of the playbook used to do
+   `gh secret set TAURI_SIGNING_PRIVATE_KEY < <key>` (raw bytes).
+   `tauri-apps/tauri-action@v0`'s contract expects base64. Changed
+   both to `base64 < <key> | gh secret set TAURI_SIGNING_PRIVATE_KEY`
+   so the operator gets a working signed installer first try.
+
+3. **Release workflow trigger language.** Script footer pointed at
+   `release-desktop.yml` with a `desktop-vX.Y.Z` tag suggestion;
+   `RELEASE_NOTES_v0.1.0-rc.1.md` claimed `workflow_dispatch only`.
+   The live workflow at `.github/workflows/release-desktop-tagged.yml`
+   is `on.push.tags: 'v*'`. Aligned both to reality (tag pattern
+   `v*`, no prefix; `git tag v9.1.1 && git push origin v9.1.1`).
+
+4. **Download base URL (B-017 carry-over).** Step 8 of the playbook
+   still set `TARS_DOWNLOAD_BASE_URL=https://github.com/.../releases/
+   latest/download` which 404s anonymously while the repo is
+   private. Switched to `https://tars.meeet.world/dl` (the
+   Pages-Function proxy from yesterday's PR #155).
+
+5. **`GITHUB_RELEASE_TOKEN` flagged in Step 6.** Added the new
+   secret to the operator's GH-secrets table with a clear note
+   that it's set in **Cloudflare Pages env**, not GitHub repo
+   secrets. Cross-references `docs/TARS_MEEET_OPS_TODO.md` §5.
+
+**Tests**
+
+`tests/test_operator_playbook_drift.py` — 9 assertions pinning the
+above contracts. All pass locally with the rest of the funnel
+suite (46/46 + 1 skipped + 2 documented xfails).
+
+**Files**
+
+- (mod) `desktop/scripts/generate-release-keys.sh`
+- (mod) `docs/OPERATOR_LAUNCH_PLAYBOOK.md`
+- (mod) `docs/RELEASE_NOTES_v0.1.0-rc.1.md`
+- (new) `tests/test_operator_playbook_drift.py`
+- (mod) `docs/CHANGELOG_AGENTS.md` — this entry
+
 ## 2026-05-08 — Cursor · B-017 fix: same-origin install funnel via Pages Function dl-proxy
 
 **Summary**
