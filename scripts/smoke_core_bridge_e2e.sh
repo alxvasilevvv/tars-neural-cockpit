@@ -7,7 +7,28 @@ ALLOWED_ORIGIN_CORE="${ALLOWED_ORIGIN_CORE:-https://meeet.world}"
 ALLOWED_ORIGIN_TARS="${ALLOWED_ORIGIN_TARS:-https://tars.meeet.world}"
 
 if [[ -z "${BRIDGE_SHARED_SECRET}" ]]; then
-  echo "ERROR: BRIDGE_SHARED_SECRET is required"
+  cat >&2 <<'EOF'
+ERROR: BRIDGE_SHARED_SECRET is required for the core-bridge smoke.
+
+Where to set it (pick the path that matches where you are):
+
+  • Operator on this machine, just paste the value into your local .env
+    and Cloudflare Pages prod env in one shot:
+
+        make ops-bridge-secret
+
+    (See docs/TARS_MEEET_OPS_TODO.md §1 for the full one-shot flow:
+     it stores the secret as Cloudflare Pages encrypted env + GitHub
+     repo secret + triggers a fresh Pages deploy + dispatches QA agent.)
+
+  • Just want to run THIS smoke once with an ad-hoc value:
+
+        BRIDGE_SHARED_SECRET=<value> bash scripts/smoke_core_bridge_e2e.sh
+
+  • The canonical value lives in Lovable's Supabase ->
+    project zujrmifaabkletgnpoyw -> Edge Functions -> Settings ->
+    Secrets, under the same name. Match it exactly.
+EOF
   exit 1
 fi
 
