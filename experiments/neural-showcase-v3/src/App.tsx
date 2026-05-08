@@ -1,4 +1,4 @@
-import { Routes, Route, Navigate, useLocation } from "react-router-dom";
+import { Routes, Route, useLocation } from "react-router-dom";
 import { Suspense, lazy, useEffect } from "react";
 import { trackPageView } from "@/lib/analytics";
 import { useTarsDeepLink } from "@/lib/useTarsDeepLink";
@@ -154,12 +154,74 @@ function AppShell() {
                 </Suspense>
               }
             />
-            {/* Wave 66 — Cockpit removed from public marketing site.
-                The cockpit is the desktop app's main UI; trying to
-                preview it on the web (without backend running) was
-                confusing users + producing empty-block regressions.
-                All /cockpit/* paths now redirect to /install. */}
-            <Route path="/cockpit/*" element={<Navigate to="/install" replace />} />
+            {/* Wave 66 — Cockpit removed from public marketing surface
+                (Nav link, StickyCTA, Landing's CockpitLive section all
+                gone), but routes remain functional. CockpitGate already
+                gates the cockpit: browser visitors see a Download CTA
+                instead of the real cockpit; only the Tauri desktop
+                shell + operators with a local daemon ever see the live
+                surface. So we don't need to redirect /cockpit/* — the
+                gate handles it correctly in both contexts. */}
+            <Route
+              path="/cockpit"
+              element={
+                <CockpitGate>
+                  <Suspense fallback={<RouteSkeleton variant="cockpit" />}>
+                    <Cockpit />
+                  </Suspense>
+                </CockpitGate>
+              }
+            />
+            <Route
+              path="/cockpit/planner"
+              element={
+                <CockpitGate>
+                  <Suspense fallback={<RouteSkeleton variant="cockpit" />}>
+                    <Planner />
+                  </Suspense>
+                </CockpitGate>
+              }
+            />
+            <Route
+              path="/cockpit/traces"
+              element={
+                <CockpitGate>
+                  <Suspense fallback={<RouteSkeleton variant="cockpit" />}>
+                    <Traces />
+                  </Suspense>
+                </CockpitGate>
+              }
+            />
+            <Route
+              path="/cockpit/policy"
+              element={
+                <CockpitGate>
+                  <Suspense fallback={<RouteSkeleton variant="cockpit" />}>
+                    <Policy />
+                  </Suspense>
+                </CockpitGate>
+              }
+            />
+            <Route
+              path="/cockpit/council"
+              element={
+                <CockpitGate>
+                  <Suspense fallback={<RouteSkeleton variant="cockpit" />}>
+                    <Council />
+                  </Suspense>
+                </CockpitGate>
+              }
+            />
+            <Route
+              path="/cockpit/awareness"
+              element={
+                <CockpitGate>
+                  <Suspense fallback={<RouteSkeleton variant="cockpit" />}>
+                    <Awareness />
+                  </Suspense>
+                </CockpitGate>
+              }
+            />
             <Route
               path="/install"
               element={
