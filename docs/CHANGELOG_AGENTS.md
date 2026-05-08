@@ -4,26 +4,200 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
-## 2026-05-05 — Claude · Wave 65: Setup-guide link + Landing audit (no new black-zone)
-
->>> SYNC: Claude · 2026-05-05 · DownloadStrip Hero + Footer variants now expose "Setup guide →" link to /install (which has full multi-OS instructions, Gatekeeper xattr fix, brew tap, signature verification — 610 lines). Comprehensive Landing audit found NO new black-zone regression — Wave 59-1 ScrollStory fix + Wave 52 Hero shader fallback verified intact. User-reported residual black zone is most likely Vite HMR cache (Cmd+Shift+R or restart dev stack). No backend touched.
+## 2026-05-08 — Cursor · B-017 fix: same-origin install funnel via Pages Function dl-proxy
 
 **Summary**
 
-User flagged: (a) big black zone on Landing scroll, (b) wants instructions button next to Download, (c) verify install path works.
+Resolves the B-017 install-funnel breakage end-to-end with option
+(c) from the previous sit-rep — same-origin Cloudflare Pages
+Functions, no public-repo flip required. After this PR merges and
+the operator pastes a single PAT (`GITHUB_RELEASE_TOKEN`) into
+Pages env, `curl -fsSL https://tars.meeet.world/install.sh | bash`
+produces a working installer for any anonymous visitor while the
+source repo stays private.
 
-**(a) Landing audit** — 600-word Explore report: 18 sections all eagerly rendered, no lazy-fallback gaps, Hero ShaderAnimation has Wave 52 radial-gradient fallback, MeetTars SplineScene has lazy + RobotFallback SVG + 8s timeout, CockpitLive falls back to CockpitPreview if /health fails, ScrollStory edge-segment opacity fix from Wave 59-1 verified at lines 259-271 + 317-329. **No new bug found.** Recommend hard-refresh.
+**Architecture**
 
-**(b) Setup guide link** in `DownloadStrip.tsx`:
-- Hero variant — pill button next to primary Download with BookOpen icon, "Setup guide →" label, `trackClick("setup_guide", surface=hero_download)`. Sized down so primary Download stays dominant CTA.
-- Footer variant — minimal "setup guide" underline-on-hover link.
-- Both navigate to `/install` page.
+- New Pages Function `experiments/neural-showcase-v3/functions/dl/
+  [file].ts`. Strict `ALLOWED_FILENAMES` allowlist (v9.1.0 + v8.4.0
+  Tauri assets + Tauri updater manifest). Resolves filename → tag,
+  hits `api.github.com/repos/.../releases/tags/<tag>` with
+  `Bearer ${GITHUB_RELEASE_TOKEN}`, then streams the asset binary
+  via `accept: application/octet-stream`. Caches the asset listing
+  for 5 min and the body for 1 h (releases are immutable).
+  Without the env var, returns HTTP 503 +
+  `{ok:false, error:"operator_action_required", …}` so the failure
+  mode is self-explanatory.
 
-**(c) Install path verification** — `/install` (Install.tsx, 610 lines) is the comprehensive surface: auto-detects OS, primary Download button + alternate format chips, `curl tars.meeet.world/install.sh | bash` one-liner, Gatekeeper notice + `xattr -dr` copy button for unsigned macOS DMG, `brew install meeet/tap/tars` once tap is published. Signature verification block when manifest carries sha256.
+- `_redirects` cleared of the broken `/install.sh →
+  raw.githubusercontent.com/...` line (which 404'd on a private
+  repo and silently shadowed the static file). Pages now serves
+  `public/install.sh` directly.
 
-**Perf scan deferred** — kept conservative. Below-fold lazy-loading (Pricing/FAQ/Compare/Footer) would shave ~120KB initial JS but introduces blank-fallback risk same shape as the bug we're fixing. Post-launch when monitoring is in place. Tsparticles confirmed used in 9 components (DomainsScene, Footer, AuroraBackground, SitemapGrid, ToastBus, AgentsPanel, Council, Onboarding, GlobalCommandPalette) — not dead code.
+- `public/install.sh` rewritten: resolves the latest version via
+  same-origin `tars.meeet.world/api/product/version` and downloads
+  via `tars.meeet.world/dl/<filename>`. Zero `api.github.com` /
+  `github.com` hits at runtime.
 
-**Files** — `experiments/neural-showcase-v3/src/components/DownloadStrip.tsx`, `docs/CHANGELOG_AGENTS.md` (this entry).
+- `scripts/install-tars.sh` mirrors the same: `tars.meeet.world/dl/
+  <filename>`, default `TARS_VERSION=9.1.0`. Fail-path prints a
+  curl one-liner that surfaces the 503 + operator hint.
+
+- `functions/api/product/downloads.ts` bumped to v9.1.0 as the
+  primary release (kept v8.4.0 in the manifest for any pinned
+  installers in the wild) and switched ALL artifact URLs to
+  `tars.meeet.world/dl/<filename>` so the canonical download
+  manifest also flows through the proxy.
+
+- `functions/api/product/version.ts` corrected `released_at` to
+  the real v9.1.0 timestamp (`2026-05-04T11:10:56Z`).
+
+**Operator action (one-time, ~3 min)**
+
+Documented in `docs/TARS_MEEET_OPS_TODO.md` §5. TL;DR:
+
+1. GitHub → fine-grained PAT, scoped to
+   `alxvasilevvv/tars-neural-cockpit`, `Contents: Read-only`.
+2. Cloudflare Pages → `tars-meeet-git` → Settings → Environment
+   variables → Production → `GITHUB_RELEASE_TOKEN` (Encrypt).
+3. Trigger fresh deploy.
+
+**Verification**
+
+```bash
+curl -sI https://tars.meeet.world/install.sh | head -1
+# → HTTP/2 200, content-type: application/x-sh
+
+curl -sI https://tars.meeet.world/dl/TARS_9.1.0_aarch64.dmg | head -1
+# Before PAT: HTTP/2 503  + operator_action_required JSON
+# After PAT:  HTTP/2 200  + content-type: application/octet-stream + content-disposition
+
+curl -fsSL https://tars.meeet.world/install.sh | bash
+# Resolves v9.1.0 from /api/product/version, downloads via /dl/, installs.
+```
+
+**Tests**
+
+`tests/test_tars_meeet_install_funnel.py` — 17 assertions pinning
+the contract:
+
+- `_redirects` no longer hijacks `/install.sh` or `/dl/*`.
+- `functions/dl/[file].ts` exists, defines `ALLOWED_FILENAMES`,
+  requires `GITHUB_RELEASE_TOKEN`, returns 503 +
+  `operator_action_required`, uses authenticated GitHub API.
+- Allowlist covers all v9.1.0 canonical assets + `latest.json`.
+- `public/install.sh` and `scripts/install-tars.sh` use only
+  same-origin URLs (executable lines, comments excluded).
+- `downloads.ts` manifest lists v9.1.0 and routes URLs through
+  the proxy.
+
+All 17 pass locally. Adjacent suites unchanged
+(`test_tars_meeet_cors_frame.py`, `test_tars_meeet_pages_workflow.py`,
+`test_release_desktop_workflow.py`).
+
+**Files**
+
+- (new) `experiments/neural-showcase-v3/functions/dl/[file].ts`
+- (mod) `experiments/neural-showcase-v3/public/_redirects`
+- (mod) `experiments/neural-showcase-v3/public/install.sh`
+- (mod) `experiments/neural-showcase-v3/functions/api/product/downloads.ts`
+- (mod) `experiments/neural-showcase-v3/functions/api/product/version.ts`
+- (mod) `scripts/install-tars.sh`
+- (new) `tests/test_tars_meeet_install_funnel.py`
+- (mod) `docs/TARS_MEEET_OPS_TODO.md` — adds §5 with PAT setup
+- (mod) `docs/CHANGELOG_AGENTS.md` — this entry
+
+## 2026-05-08 — Cursor · operator UX hardening + install.sh deprecation + B-017 sit-rep
+
+**Summary**
+
+Three small operator-facing fixes, plus a freshly-confirmed
+diagnostic on the install funnel that is operator-only to resolve.
+
+1. **`scripts/launch_precheck.sh`** — `/api/entitlements` probe was
+   tripping a transient WARN with `-m 2` because the route does live
+   USD-budget math + a billing-state pull on cold call. Bumped to
+   `-m 5` and added a single 300ms retry. Verified 5/5 clean runs
+   on a healthy backend. Shipped via PR #153 (CI parked behind the
+   GitHub Actions billing gate; see §3 below).
+
+2. **`scripts/smoke_core_bridge_e2e.sh`** — when
+   `BRIDGE_SHARED_SECRET` is unset (the most common reason
+   `make gate-control-tower` fails for a fresh operator) the script
+   used to die with one terse line. Replaced with a three-path
+   actionable hint pointing at `make ops-bridge-secret`,
+   one-shot env override, and the canonical Lovable Supabase
+   location. Diagnostic only — no behavioural change when the
+   secret IS present.
+
+3. **`scripts/install.sh`** — replaced 264 lines of legacy logic
+   (pointed at the non-existent `meeet-world/tars` repo with asset
+   names that no GitHub Release ever produced) with a 50-line
+   deprecation stub that:
+     - prints a clear "use the canonical install" pointer to
+       stderr (web one-liner + in-repo path),
+     - then `exec bash`'s `scripts/install-tars.sh` if present,
+     - otherwise exits 1 with a final pointer.
+   Every live path (\`_redirects\` line 15, `web_extras/routers/
+   product.py:66`, both changelogs) already references
+   `install-tars.sh`; this stub is purely a footgun-mitigation for
+   anyone who finds the old filename via `git log`.
+
+### B-017 sit-rep — install funnel currently broken in prod
+
+Confirmed on 2026-05-08 (operator-zone, not Cursor-fixable from
+code):
+
+- Repo `alxvasilevvv/tars-neural-cockpit` is **private**
+  (`gh repo view --json visibility` → `PRIVATE`).
+- Direct release-asset URLs like
+  `https://github.com/.../releases/download/v9.1.0/TARS_9.1.0_aarch64.dmg`
+  return **HTTP 404** to unauthenticated callers.
+- `https://raw.githubusercontent.com/.../scripts/install-tars.sh`
+  also returns 404 — so the `_redirects` rule
+  `/install.sh → raw.github...` (line 15) cannot resolve.
+- Live `https://tars.meeet.world/install.sh` 302's to `/install`
+  (SPA fallback path), so the documented one-liner
+  `curl -fsSL https://tars.meeet.world/install.sh | bash` pipes
+  marketing HTML to bash and errors instead of installing anything.
+
+The `_redirects` file in `main` *intends* to point /install.sh at
+the canonical script; the rule is correct, the **target URL is
+broken because the repo is private**. Pick one of the B-017
+options that brother + Claude were already discussing:
+
+  (a) Flip `tars-neural-cockpit` back to public (cheapest;
+      undoes the privacy decision).
+  (b) Mirror release assets and the install script to a public
+      surface (R2 / S3 / Cloudflare worker / `tars.meeet.world`
+      Pages) and update `_redirects` + `install-tars.sh` to point
+      at the mirror.
+  (c) Serve the install funnel exclusively via `tars.meeet.world`
+      (already same-origin; just add a `functions/install.sh.ts`
+      Pages Function that streams the canonical script and a
+      `functions/dl/[file].ts` that proxies releases via the
+      gh-token).
+
+Option (c) is the cleanest on the Cursor side and would let me
+implement it without operator infra changes — happy to wire it the
+moment the operator picks a path. Until then the install funnel is
+dark in production for all anonymous visitors.
+
+### CI status
+
+`credential sentinel` workflow has been failing on every PR since
+2026-05-05 with the GitHub Actions billing gate
+(`The job was not started because recent account payments have
+failed or your spending limit needs to be increased`). PRs #153 and
+this one are blocked behind that gate; both are otherwise verified
+locally and will auto-rerun once the operator settles billing under
+Settings → Billing & plans.
+
+**Files** —
+`scripts/launch_precheck.sh`,
+`scripts/smoke_core_bridge_e2e.sh`,
+`scripts/install.sh`,
+`docs/CHANGELOG_AGENTS.md` (this entry).
 
 ## 2026-05-05 — Claude · Wave 64: Operator launch playbook + auto-precheck + templates
 

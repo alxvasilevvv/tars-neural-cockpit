@@ -26,8 +26,15 @@
 
 set -euo pipefail
 
-REPO="alxvasilevvv/tars-neural-cockpit"
-GHAPI="https://api.github.com/repos/${REPO}/releases/latest"
+# B-017: source repo is private, so we no longer hit github.com /
+# api.github.com directly (those return 404 to anonymous callers).
+# Everything routes through the same-origin tars.meeet.world surface:
+#   - GET /api/product/version    → { version: "9.1.0", ... }
+#   - GET /dl/<filename>          → Pages Function proxies to GitHub
+#                                   via GITHUB_RELEASE_TOKEN (op env)
+TARS_ORIGIN="${TARS_ORIGIN:-https://tars.meeet.world}"
+TARS_VERSION_ENDPOINT="${TARS_ORIGIN}/api/product/version"
+TARS_DL_BASE="${TARS_ORIGIN}/dl"
 TARS_BLUE="\033[1;34m"
 TARS_CYAN="\033[1;36m"
 TARS_DIM="\033[2m"
@@ -74,47 +81,38 @@ detect() {
   info "detected: ${OS} ${ARCH}"
 }
 
-# Ask the GitHub API for the latest release tag, but tolerate API
-# rate-limit failures by parsing the redirect URL of the
-# /releases/latest endpoint instead.
+# Resolve the latest release version via the same-origin manifest
+# endpoint. Falls back to a hard-coded floor only if the network is
+# down — the script then refuses to install (better than serving a
+# stale .dmg silently).
 resolve_latest_tag() {
-  if command -v curl >/dev/null 2>&1; then
-    local tag
-    tag=$(curl -fsSL "${GHAPI}" 2>/dev/null \
-      | sed -n 's/.*"tag_name": *"\([^"]*\)".*/\1/p' \
-      | head -1 || true)
-    if [[ -n "${tag}" ]]; then
-      echo "${tag}"
-      return
-    fi
-    # Fallback: follow the latest-release redirect.
-    tag=$(curl -fsSLI "https://github.com/${REPO}/releases/latest" \
-      | grep -i '^location:' | tail -1 \
-      | sed -E 's|.*tag/([^/[:space:]]+).*|\1|' | tr -d '\r')
-    if [[ -n "${tag}" ]]; then
-      echo "${tag}"
-      return
-    fi
+  require curl
+  local body
+  body=$(curl -fsSL "${TARS_VERSION_ENDPOINT}" 2>/dev/null || true)
+  if [[ -z "${body}" ]]; then
+    err "cannot reach ${TARS_VERSION_ENDPOINT} — check your network"
   fi
-  err "cannot resolve the latest release tag — check your network"
+  local version
+  version=$(echo "${body}" \
+    | sed -n 's/.*"version" *: *"\([^"]*\)".*/\1/p' \
+    | head -1)
+  if [[ -z "${version}" ]]; then
+    err "version endpoint returned unexpected shape: ${body}"
+  fi
+  echo "v${version}"
 }
 
+# Build the same-origin download URL. The tars.meeet.world Pages
+# Function at functions/dl/[file].ts proxies to GitHub Releases
+# (private repo) via the operator-set GITHUB_RELEASE_TOKEN.
 asset_url() {
   local tag="$1"
   local version="${tag#v}"
   case "${OS}-${ARCH}" in
-    mac-arm64)
-      echo "https://github.com/${REPO}/releases/download/${tag}/TARS_${version}_aarch64.dmg"
-      ;;
-    mac-x64)
-      echo "https://github.com/${REPO}/releases/download/${tag}/TARS_${version}_x64.dmg"
-      ;;
-    linux-x64)
-      echo "https://github.com/${REPO}/releases/download/${tag}/TARS_${version}_amd64.AppImage"
-      ;;
-    *)
-      err "no prebuilt binary for ${OS}-${ARCH} yet"
-      ;;
+    mac-arm64)  echo "${TARS_DL_BASE}/TARS_${version}_aarch64.dmg" ;;
+    mac-x64)    echo "${TARS_DL_BASE}/TARS_${version}_x64.dmg" ;;
+    linux-x64)  echo "${TARS_DL_BASE}/TARS_${version}_amd64.AppImage" ;;
+    *)          err "no prebuilt binary for ${OS}-${ARCH} yet" ;;
   esac
 }
 

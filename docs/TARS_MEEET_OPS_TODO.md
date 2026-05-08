@@ -133,6 +133,52 @@ secret value:
    # expect: meeet.ingest_heartbeat → PASS
    ```
 
+5. **`GITHUB_RELEASE_TOKEN` on Pages production env (B-017
+   install funnel).** The source repo `alxvasilevvv/tars-neural-cockpit`
+   is private, so direct GitHub Releases URLs return HTTP 404 to
+   anonymous callers. The same-origin Pages Function
+   `experiments/neural-showcase-v3/functions/dl/[file].ts` proxies
+   binary downloads through this PAT while the repo stays private.
+
+   *One-time setup, ~3 minutes:*
+
+   1. GitHub → **Settings** → **Developer settings** → **Personal
+      access tokens** → **Fine-grained tokens** → **Generate new
+      token**.
+      - Token name: `tars-meeet-release-proxy`
+      - Resource owner: `alxvasilevvv`
+      - Repository access: **Only select repositories** →
+        `alxvasilevvv/tars-neural-cockpit`
+      - Permissions: **Repository permissions** → **Contents:
+        Read-only**. Leave everything else default.
+      - Expiration: 1 year (set a calendar reminder to rotate).
+   2. Copy the generated `github_pat_…` value.
+   3. Cloudflare dashboard → **Workers & Pages** → `tars-meeet-git`
+      → **Settings** → **Environment variables** → **Production**
+      → **Add variable**.
+      - Variable name: `GITHUB_RELEASE_TOKEN`
+      - Value: paste the PAT
+      - Type: **Encrypt** (NOT plain text)
+   4. Trigger a fresh production deploy (`gh workflow run
+      tars-meeet-cloudflare-pages.yml -R alxvasilevvv/tars-neural-cockpit`
+      or push an empty commit to `main`). Variables only attach to
+      *new* deployments.
+
+   *Verification:*
+
+   ```bash
+   # 503 + operator_action_required = PAT not yet attached.
+   # 200 + binary body            = funnel green.
+   curl -sI https://tars.meeet.world/dl/TARS_9.1.0_aarch64.dmg | head -1
+   curl -fsSL https://tars.meeet.world/install.sh | head -10
+   ```
+
+   Until this is set, the install funnel returns a clear 503 with
+   an `operator_action_required` JSON pointing here. The marketing
+   `/install` page still loads (it's static SPA HTML), but
+   `curl | bash` will fail with an actionable hint instead of an
+   opaque 500.
+
 After step 1 is done, run:
 ```
 BRIDGE_SHARED_SECRET="<value>" make qa-agent
