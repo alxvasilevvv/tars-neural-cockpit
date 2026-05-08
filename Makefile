@@ -16,7 +16,7 @@ DESKTOP   ?= desktop
         cockpit-changelog-check acceptance-tars-meeet qa-agent qa-agent-json qa-loop qa-loop-once \
         gate-release backend backend-dev desktop-dev desktop-build \
         smoke-core-bridge smoke-billing-tars backend-tars-up dev-tars-stack gate-control-tower ops-bridge-secret ops-billing-remote-wizard ops-cf-pages-token clean \
-        install-hooks check-python-version \
+        install-hooks check-python-version bootstrap \
         planner planner-stats planner-list planner-runs planner-show \
         planner-full planner-clone planner-rerun planner-replay-run \
         planner-repush-run planner-smoke \
@@ -24,6 +24,28 @@ DESKTOP   ?= desktop
         playbooks playbooks-list playbooks-show playbooks-run \
         playbooks-validate playbooks-validate-all playbooks-reload \
         morning-bundle morning-bundle-dry
+
+# Picks the highest-version python3 the operator has on PATH, falling
+# back to plain `python3`. Lets fresh-machine operators run
+# `make bootstrap` without first installing 3.12 — the runtime is
+# happy on 3.10+.
+PYTHON_BOOTSTRAP ?= $(shell command -v python3.12 2>/dev/null || command -v python3.11 2>/dev/null || command -v python3.10 2>/dev/null || command -v python3 2>/dev/null)
+
+bootstrap:           ## fresh-machine setup: create .venv + install requirements (no-op if already done)
+	@if [[ -x "./.venv/bin/python" ]]; then \
+	    echo "[bootstrap] .venv already exists at ./.venv — skipping create."; \
+	else \
+	    if [[ -z "$(PYTHON_BOOTSTRAP)" ]]; then \
+	        echo "[bootstrap] no python3 in PATH — install Python 3.10+ (e.g. brew install python@3.12) and re-run." >&2; \
+	        exit 2; \
+	    fi; \
+	    echo "[bootstrap] creating .venv with $(PYTHON_BOOTSTRAP)"; \
+	    "$(PYTHON_BOOTSTRAP)" -m venv .venv; \
+	fi
+	@./.venv/bin/python -m pip install --upgrade pip --quiet
+	@./.venv/bin/python -m pip install -r requirements.txt --quiet
+	@echo "[bootstrap] python ready at $$(./.venv/bin/python -V); $$(./.venv/bin/python -m pip list 2>/dev/null | wc -l | tr -d ' ') packages installed."
+	@echo "[bootstrap] next: 'cp .env.example .env' (fill secrets), then 'make dev-tars-stack' or 'make qa-agent'."
 
 install-hooks:       ## symlink scripts/git-hooks/* into .git/hooks (re-run after fresh clone)
 	@for hook in scripts/git-hooks/*; do \

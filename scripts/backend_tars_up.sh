@@ -17,14 +17,36 @@ PORT="${PORT:-8765}"
 LOG="/tmp/tars-backend-${PORT}.log"
 PIDFILE="/tmp/tars-backend-${PORT}.pid"
 
-need() { command -v "$1" >/dev/null 2>&1 || { echo "missing: $1" >&2; exit 2; }; }
+need() {
+  command -v "$1" >/dev/null 2>&1 || {
+    echo "missing: $1 (install via your package manager, e.g. 'brew install $1')" >&2
+    exit 2
+  }
+}
 need curl
 if ! command -v jq >/dev/null 2>&1; then
-  echo "missing: jq (brew install jq)" >&2
+  echo "missing: jq" >&2
+  echo "    install with:  brew install jq" >&2
   exit 2
 fi
 if [[ ! -x ./.venv/bin/python ]]; then
-  echo "missing: ./.venv/bin/python — create venv first" >&2
+  cat >&2 <<'EOF'
+missing: ./.venv/bin/python — virtualenv not yet bootstrapped.
+
+Create it once (matches README setup):
+
+    python3.12 -m venv .venv
+    ./.venv/bin/pip install --upgrade pip
+    ./.venv/bin/pip install -r requirements.txt
+
+Then re-run this script.
+
+If python3.12 isn't installed, any 3.10+ works — TARS pins 3.12 in CI
+but the runtime is happy on 3.10/3.11/3.13 too. Hint:
+    brew install python@3.12      # macOS
+    sudo apt install python3.12-venv   # Debian/Ubuntu
+
+EOF
   exit 2
 fi
 

@@ -125,6 +125,40 @@ both now emit the same multi-line quick-fix hint when the venv is
 missing — so even an operator who skipped Step 0a gets unblocked
 from any code path that hits Python.
 
+## 2026-05-08 — Cursor · `make bootstrap` + actionable venv-missing hints
+
+**Summary**
+
+Closes the "fresh-machine first command fails terse" gap surfaced by
+walking the operator playbook end-to-end. Every `make` target that
+shells into `$(PY)` (= `./.venv/bin/python`) used to die with
+`bash: ./.venv/bin/python: no such file or directory` for an
+operator coming from a fresh clone. Same with
+`scripts/backend_tars_up.sh` (`missing: ./.venv/bin/python — create
+venv first` — without showing HOW) and
+`scripts/smoke_billing_tars_backend.sh` (no guard at all).
+
+**The single golden command:**
+
+```bash
+make bootstrap
+```
+
+- Picks the highest Python on PATH (prefers 3.12 → 3.11 → 3.10 →
+  `python3`), so it works on any sane mac/linux without
+  pre-installing 3.12.
+- Idempotent: skips `python -m venv .venv` if `.venv/bin/python`
+  already exists; only re-runs `pip install --upgrade pip` and
+  `pip install -r requirements.txt` (both quiet).
+- Prints a "next" pointer so operators know the follow-up command
+  (`cp .env.example .env`, then `make dev-tars-stack` /
+  `make qa-agent`).
+
+`scripts/backend_tars_up.sh` and `scripts/smoke_billing_tars_backend.sh`
+both now emit the same multi-line quick-fix hint when the venv is
+missing — so even an operator who skipped Step 0a gets unblocked
+from any code path that hits Python.
+
 `docs/OPERATOR_LAUNCH_PLAYBOOK.md` Step 0a documents the bootstrap
 command + idempotency promise, so the operator hits one obvious
 fixed setup step instead of discovering venv-missing piecemeal in
