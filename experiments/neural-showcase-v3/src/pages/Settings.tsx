@@ -13,7 +13,8 @@ import {
 } from "lucide-react";
 import { useDocumentMeta } from "@/lib/meta";
 import { useT } from "@/lib/i18n";
-import { CornerFrame, StatusLozenge, BrandHairline } from "@/components/Glyphs";
+import { CornerFrame, StatusLozenge } from "@/components/Glyphs";
+import { BrandHairline } from "@/components/BrandHairline";
 import { useSidecarStatus } from "@/lib/useSidecarStatus";
 
 /**

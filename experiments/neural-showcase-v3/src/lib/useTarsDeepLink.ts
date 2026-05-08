@@ -42,7 +42,9 @@ export function useTarsDeepLink() {
 
     (async () => {
       try {
-        const { listen } = await import("@tauri-apps/api/event");
+        const { listen } = await import(
+          /* @vite-ignore */ "@tauri-apps/api/event"
+        );
         const off = await listen<string[]>("tars://deeplink", (event) => {
           const url = (event.payload || [])[0];
           if (!url) return;
