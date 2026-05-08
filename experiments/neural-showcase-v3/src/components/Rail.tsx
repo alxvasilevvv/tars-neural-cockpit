@@ -33,9 +33,9 @@ export function Rail() {
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.6, delay: 0.9, ease: [0.22, 1, 0.36, 1] }}
       aria-label={t("rail.aria")}
-      className="relative z-20 mt-10 border-y border-line bg-bg-1/60 backdrop-blur-md"
+      className="relative z-20 mt-16 border-y border-line bg-bg-1/60 backdrop-blur-md"
     >
-      <div className="mx-auto grid max-w-[1280px] grid-cols-1 items-center gap-6 px-8 py-3.5 font-mono-tech text-[11px] uppercase tracking-[2.6px] text-ink-2 md:grid-cols-[auto_1fr_auto] md:gap-8 md:px-14">
+      <div className="mx-auto grid max-w-[1280px] grid-cols-1 items-center gap-6 px-8 py-5 font-mono-tech text-[11px] uppercase tracking-[2.6px] text-ink-2 md:grid-cols-[auto_1fr_auto] md:gap-8 md:px-14">
         <div className="flex items-center gap-4 justify-self-center md:justify-self-start">
           <span className="inline-flex items-center gap-2 text-alert">
             <span

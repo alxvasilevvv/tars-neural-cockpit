@@ -670,18 +670,19 @@ const STRINGS_EN = {
 
   // ── audit-6 · remaining Landing (no Apple) ─────────────────────
   // Section dividers on `/` (between major blocks).
+  // Wave 66 — sections renumbered after cockpit removal.
+  // Old: 00..11 with 05="cockpit". New: 00..10 (sequential, no gaps).
   "landing.section.00":            "00 / persona",
   "landing.section.01":            "01 / awareness",
   "landing.section.02":            "02 / packs",
   "landing.section.03":            "03 / how",
   "landing.section.04":            "04 / flow",
-  "landing.section.05":            "05 / cockpit",
-  "landing.section.06":            "06 / meeet",
-  "landing.section.07":            "07 / council",
-  "landing.section.08":            "08 / vs",
-  "landing.section.09":            "09 / pricing",
-  "landing.section.10":            "10 / waitlist",
-  "landing.section.11":            "11 / faq",
+  "landing.section.05":            "05 / meeet",
+  "landing.section.06":            "06 / council",
+  "landing.section.07":            "07 / vs",
+  "landing.section.08":            "08 / pricing",
+  "landing.section.09":            "09 / waitlist",
+  "landing.section.10":            "10 / faq",
 
   // MeeetWorldStrip — issuer card + footer variant.
   "meeetStrip.footer.issuedBy":    "issued by",
@@ -1460,19 +1461,18 @@ const STRINGS_RU: Partial<Record<TKey, string>> = {
   "meeetSection.p3.statNum":       "92%",
   "meeetSection.p3.statLabel":     "сделок закрыто за <24ч",
 
-  // audit-6 · RU parity
+  // audit-6 · RU parity. Wave 66 — renumbered after cockpit removal.
   "landing.section.00":            "00 / персона",
   "landing.section.01":            "01 / осведомлённость",
   "landing.section.02":            "02 / паки",
   "landing.section.03":            "03 / процесс",
   "landing.section.04":            "04 / поток",
-  "landing.section.05":            "05 / кокпит",
-  "landing.section.06":            "06 / meeet",
-  "landing.section.07":            "07 / совет",
-  "landing.section.08":            "08 / сравнение",
-  "landing.section.09":            "09 / тарифы",
-  "landing.section.10":            "10 / лист ожидания",
-  "landing.section.11":            "11 / faq",
+  "landing.section.05":            "05 / meeet",
+  "landing.section.06":            "06 / совет",
+  "landing.section.07":            "07 / сравнение",
+  "landing.section.08":            "08 / тарифы",
+  "landing.section.09":            "09 / лист ожидания",
+  "landing.section.10":            "10 / faq",
 
   "meeetStrip.footer.issuedBy":    "выпущено",
   "meeetStrip.footer.contract":    "контракт {version}",

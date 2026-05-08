@@ -45,23 +45,24 @@ export function Landing() {
       <ScrollStory />
       <SectionDivider label={t("landing.section.04")} />
       <Steps />
-      <SectionDivider label={t("landing.section.06")} />
+      <SectionDivider label={t("landing.section.05")} />
       <MeeetSection />
       {/* meeet.world front-door card — sits between the brand pillars
           (MeeetSection) and the council demo. Reads /health for the
-          live daemon pill. */}
-      <div className="mx-auto -mt-6 mb-12 max-w-[1280px] px-8 md:px-14">
+          live daemon pill. -mt-2 (was -mt-6) avoids collision with the
+          SectionDivider's py-6 breathing room. */}
+      <div className="mx-auto -mt-2 mb-12 max-w-[1280px] px-8 md:px-14">
         <MeeetWorldStrip variant="card" />
       </div>
-      <SectionDivider label={t("landing.section.07")} />
+      <SectionDivider label={t("landing.section.06")} />
       <CouncilDemo />
-      <SectionDivider label={t("landing.section.08")} />
+      <SectionDivider label={t("landing.section.07")} />
       <Compare />
-      <SectionDivider label={t("landing.section.09")} />
+      <SectionDivider label={t("landing.section.08")} />
       <Pricing />
-      <SectionDivider label={t("landing.section.10")} />
+      <SectionDivider label={t("landing.section.09")} />
       <Waitlist />
-      <SectionDivider label={t("landing.section.11")} />
+      <SectionDivider label={t("landing.section.10")} />
       <FAQ />
       <Footer />
     </>

@@ -101,7 +101,7 @@ export function Hero() {
   const turn = PROMPTS_DEMO[idx];
 
   return (
-    <section className="relative z-20 overflow-hidden pb-24 pt-20 md:pt-28">
+    <section className="relative z-20 overflow-hidden pb-28 pt-20 md:pb-32 md:pt-28">
       {/* Shader-lines background — absolute, pointer-events: none.
           Master §6: "background sculpture, not the focal point."
           The radial mask keeps the centre dimmed so the headline
