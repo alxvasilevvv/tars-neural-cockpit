@@ -251,6 +251,41 @@ source repo stays private.
   via `tars.meeet.world/dl/<filename>`. Zero `api.github.com` /
   `github.com` hits at runtime.
 
+## 2026-05-08 — Cursor · B-017 fix: same-origin install funnel via Pages Function dl-proxy
+
+**Summary**
+
+Resolves the B-017 install-funnel breakage end-to-end with option
+(c) from the previous sit-rep — same-origin Cloudflare Pages
+Functions, no public-repo flip required. After this PR merges and
+the operator pastes a single PAT (`GITHUB_RELEASE_TOKEN`) into
+Pages env, `curl -fsSL https://tars.meeet.world/install.sh | bash`
+produces a working installer for any anonymous visitor while the
+source repo stays private.
+
+**Architecture**
+
+- New Pages Function `experiments/neural-showcase-v3/functions/dl/
+  [file].ts`. Strict `ALLOWED_FILENAMES` allowlist (v9.1.0 + v8.4.0
+  Tauri assets + Tauri updater manifest). Resolves filename → tag,
+  hits `api.github.com/repos/.../releases/tags/<tag>` with
+  `Bearer ${GITHUB_RELEASE_TOKEN}`, then streams the asset binary
+  via `accept: application/octet-stream`. Caches the asset listing
+  for 5 min and the body for 1 h (releases are immutable).
+  Without the env var, returns HTTP 503 +
+  `{ok:false, error:"operator_action_required", …}` so the failure
+  mode is self-explanatory.
+
+- `_redirects` cleared of the broken `/install.sh →
+  raw.githubusercontent.com/...` line (which 404'd on a private
+  repo and silently shadowed the static file). Pages now serves
+  `public/install.sh` directly.
+
+- `public/install.sh` rewritten: resolves the latest version via
+  same-origin `tars.meeet.world/api/product/version` and downloads
+  via `tars.meeet.world/dl/<filename>`. Zero `api.github.com` /
+  `github.com` hits at runtime.
+
 - `scripts/install-tars.sh` mirrors the same: `tars.meeet.world/dl/
   <filename>`, default `TARS_VERSION=9.1.0`. Fail-path prints a
   curl one-liner that surfaces the 503 + operator hint.

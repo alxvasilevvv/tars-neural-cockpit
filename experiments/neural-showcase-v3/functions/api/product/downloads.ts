@@ -56,41 +56,88 @@ interface DownloadsManifest {
   releases: Release[];
 }
 
-// Artifact URLs must point at real binaries (GitHub Releases), not
-// tars.meeet.world/* paths — static hosting serves SPA HTML for unknown
-// paths (B-001 / PB_19). Names match Tauri v8.4.0 assets on
-// alxvasilevvv/tars-neural-cockpit/releases/tag/v8.4.0.
-const GH_V840 =
-  "https://github.com/alxvasilevvv/tars-neural-cockpit/releases/download/v8.4.0";
+// Artifact URLs route through the same-origin Pages Function
+// `functions/dl/[file].ts` (B-017): the source repo is private, so
+// pointing at github.com/.../releases directly yields HTTP 404 to
+// anonymous callers. The Function holds the GITHUB_RELEASE_TOKEN
+// PAT and proxies the binary. Filenames match Tauri assets uploaded
+// by `.github/workflows/release-desktop-tagged.yml`.
+const DL_BASE = "https://tars.meeet.world/dl";
 
 const RELEASES: Release[] = [
   {
+    version: "9.1.0",
+    channel: "stable",
+    released_at: "2026-05-04T11:10:56Z",
+    notes:
+      "Audit pass — install funnel hardening, gatekeeper bypass, brand polish, trace coverage extended (voice + speech), release-resilience.",
+    artifacts: [
+      {
+        os: "macos",
+        arch: "arm64",
+        kind: "dmg",
+        filename: "TARS_9.1.0_aarch64.dmg",
+        url: `${DL_BASE}/TARS_9.1.0_aarch64.dmg`,
+      },
+      {
+        os: "macos",
+        arch: "x64",
+        kind: "dmg",
+        filename: "TARS_9.1.0_x64.dmg",
+        url: `${DL_BASE}/TARS_9.1.0_x64.dmg`,
+      },
+      {
+        os: "windows",
+        arch: "x64",
+        kind: "exe",
+        filename: "TARS_9.1.0_x64-setup.exe",
+        url: `${DL_BASE}/TARS_9.1.0_x64-setup.exe`,
+      },
+      {
+        os: "linux",
+        arch: "x64",
+        kind: "appimage",
+        filename: "TARS_9.1.0_amd64.AppImage",
+        url: `${DL_BASE}/TARS_9.1.0_amd64.AppImage`,
+      },
+      {
+        os: "linux",
+        arch: "x64",
+        kind: "deb",
+        filename: "TARS_9.1.0_amd64.deb",
+        url: `${DL_BASE}/TARS_9.1.0_amd64.deb`,
+      },
+    ],
+  },
+  {
+    // Kept around so older pinned installers still resolve via the
+    // same proxy (B-017 allowlist on the dl/ Function).
     version: "8.4.0",
     channel: "stable",
     released_at: "2026-04-22T00:00:00Z",
     notes:
-      "Stability + observability pass. Tauri shell SecurityError eliminated, x-trace-id propagated end-to-end; installers hosted on GitHub Releases (same tag).",
+      "Stability + observability pass. Tauri shell SecurityError eliminated, x-trace-id propagated end-to-end.",
     artifacts: [
       {
         os: "macos",
         arch: "arm64",
         kind: "dmg",
         filename: "TARS_8.4.0_aarch64.dmg",
-        url: `${GH_V840}/TARS_8.4.0_aarch64.dmg`,
+        url: `${DL_BASE}/TARS_8.4.0_aarch64.dmg`,
       },
       {
         os: "windows",
         arch: "x64",
         kind: "exe",
         filename: "TARS_8.4.0_x64-setup.exe",
-        url: `${GH_V840}/TARS_8.4.0_x64-setup.exe`,
+        url: `${DL_BASE}/TARS_8.4.0_x64-setup.exe`,
       },
       {
         os: "linux",
         arch: "x64",
         kind: "appimage",
         filename: "TARS_8.4.0_amd64.AppImage",
-        url: `${GH_V840}/TARS_8.4.0_amd64.AppImage`,
+        url: `${DL_BASE}/TARS_8.4.0_amd64.AppImage`,
       },
     ],
   },

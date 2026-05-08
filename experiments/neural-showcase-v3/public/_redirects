@@ -7,12 +7,21 @@
 /signup            /onboarding        301
 /get-started       /onboarding        301
 
-# ----- B-001 legacy installer URLs (302 → GitHub; same contract as meeet.world) -----
-# Human-friendly install page remains at /install (SPA). curl | sh MUST use /install.sh.
-/dl/TARS-8.4.0-arm64.dmg   https://github.com/alxvasilevvv/tars-neural-cockpit/releases/download/v8.4.0/TARS_8.4.0_aarch64.dmg   302
-/dl/TARS-8.4.0-setup.exe   https://github.com/alxvasilevvv/tars-neural-cockpit/releases/download/v8.4.0/TARS_8.4.0_x64-setup.exe   302
-/dl/TARS-8.4.0.AppImage    https://github.com/alxvasilevvv/tars-neural-cockpit/releases/download/v8.4.0/TARS_8.4.0_amd64.AppImage  302
-/install.sh                https://raw.githubusercontent.com/alxvasilevvv/tars-neural-cockpit/main/scripts/install-tars.sh          302
+# ----- B-017 install funnel — same-origin Pages Functions take over -----
+# - `/install.sh` is now served as a static file from `public/install.sh`
+#   (Cloudflare Pages serves the file when no _redirects rule matches).
+# - `/dl/<filename>` is handled by `functions/dl/[file].ts` which proxies
+#   GitHub Releases through GITHUB_RELEASE_TOKEN so the install funnel
+#   works while the source repo stays private.
+#
+# Legacy redirects below kept *intentionally non-matching* (the Function
+# at `/dl/[file]` wins) — listed here as breadcrumbs for anyone who
+# expected the old direct-to-GitHub flow.
+#
+# /dl/TARS-8.4.0-arm64.dmg → handled by functions/dl/[file].ts → GitHub via PAT
+# /dl/TARS-8.4.0-setup.exe → ditto
+# /dl/TARS-8.4.0.AppImage  → ditto
+# /install.sh             → public/install.sh (static file, served directly)
 
 # ----- Downloads manifest -----
 # `/api/product/downloads` and `/api/product/version` are served by
