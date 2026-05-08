@@ -127,10 +127,15 @@ if curl -sf -m 2 http://127.0.0.1:8765/health >/dev/null 2>&1; then
   else
     warn "/health returned non-ok: $HEALTH"
   fi
-  if curl -sf -m 2 http://127.0.0.1:8765/api/entitlements >/dev/null 2>&1; then
+  # /api/entitlements does live USD budget math + may pull billing
+  # state from Supabase, so the first call after a backend idle window
+  # can blow past 2s. One quick retry (300ms) kills the flake without
+  # losing the "is this thing alive?" semantics.
+  if curl -sf -m 5 http://127.0.0.1:8765/api/entitlements >/dev/null 2>&1 \
+     || (sleep 0.3 && curl -sf -m 5 http://127.0.0.1:8765/api/entitlements >/dev/null 2>&1); then
     ok "/api/entitlements returned 200"
   else
-    warn "/api/entitlements not responding (Cursor backend may need restart)"
+    warn "/api/entitlements not responding after retry (Cursor backend may need restart)"
   fi
 else
   warn "backend NOT reachable on :8765 (run 'make backend-tars-up' or 'make dev-tars-stack')"
