@@ -22,6 +22,27 @@ git status
 
 Если что-то другое — стоп, скажи мне (Claude), разберёмся.
 
+### Шаг 0a — bootstrap (только на свежей машине, 2 минуты)
+
+**TIME:** 2 минуты на чистом Mac/Linux; **0 секунд** если `.venv` уже есть.
+**DEPS:** Python 3.10+ (`brew install python@3.12` если нет).
+
+```bash
+make bootstrap
+```
+
+Скрипт идемпотентен:
+- Если `./.venv/bin/python` уже есть — пропускает создание venv.
+- В любом случае апгрейдит `pip` и `pip install -r requirements.txt`.
+- Печатает "next" подсказку.
+
+**VERIFY:** последняя строка вывода вида:
+```
+[bootstrap] next: 'cp .env.example .env' (fill secrets), then 'make dev-tars-stack' or 'make qa-agent'.
+```
+
+Все остальные `make`-команды в этом плейбуке (`make qa-agent`, `make dev-tars-stack`, `make smoke-billing-tars`, `make gate-control-tower`) предполагают что bootstrap прошёл — иначе получишь "missing: ./.venv/bin/python — virtualenv not bootstrapped" с инструкцией и упадёшь сюда же.
+
 ---
 
 ## Шаг 1 — пуш (1 минута) 🚦 BLOCKER
