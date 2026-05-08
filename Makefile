@@ -360,6 +360,12 @@ backend-tars-up:  ## kill :8765 if busy; start uvicorn+.env in bg; curl /api/ent
 dev-tars-stack:  ## backend-tars-up then neural-showcase-v3 dev (Ctrl+C = UI only)
 	bash scripts/dev_tars_stack.sh
 
+launch-precheck:  ## Wave 64: single-command verification before tagging v9.1.0
+	bash scripts/launch_precheck.sh
+
+launch-precheck-full:  ## launch-precheck + cargo check + smoke-billing-tars
+	bash scripts/launch_precheck.sh --full
+
 ops-cf-pages-token:  ## cf-operator.env (id+cfat_) → GitHub secret + run Pages deploy workflow
 	bash scripts/ops_push_cloudflare_pages_api_token.sh
 

@@ -4,6 +4,40 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-05 — Claude · Wave 64: Operator launch playbook + auto-precheck + templates
+
+>>> SYNC: Claude · 2026-05-05 · Pre-launch ops package — `docs/OPERATOR_LAUNCH_PLAYBOOK.md` (15-step launch playbook), `scripts/launch_precheck.sh` (auto-verifier with --desktop / --full modes), `make launch-precheck{,-full}` Makefile targets, three templates (`docs/templates/{BROTHER_HANDOFF_MESSAGE,MARKETING_ANNOUNCEMENT,GITHUB_RELEASE_NOTES_v9.1.0}.md`). Removed legacy `scripts/commit_wave_{51_56,58}.sh` (already pushed and superseded).
+
+**Summary**
+
+User request: do everything I can on my side, give clear step-by-step ТЗ for everything else. Result is a complete launch package.
+
+1. **`scripts/launch_precheck.sh`** (new, 7.2KB) — single-command verification. Three modes: default (working tree + critical docs + .env hygiene + dev stack probe), `--desktop` (also runs `cargo check` on Tauri shell), `--full` (also runs `make smoke-billing-tars`). Color output, summary line `passed/warned/failed`, exit 0 / 1.
+
+2. **`make launch-precheck`** + **`make launch-precheck-full`** — wraps the script for muscle-memory `make` users.
+
+3. **`docs/OPERATOR_LAUNCH_PLAYBOOK.md`** (new) — 15 steps from `git push` to launch tweet, each with TIME / DEPS / VERIFY tags and 🚦 BLOCKER markers. Covers: pushing, precheck, visual smoke, brother handoff, Apple Developer enrollment ($99), Authenticode cert ($200-400), minisign keys, GitHub Actions secrets matrix (13 entries with copy-paste base64 commands), .env sync, control-tower smoke, tag release, install smoke on clean Mac, production deploy, public announcement, monitoring, retro. Final cheat-sheet table tells operator exactly which step Claude can do vs which is theirs.
+
+4. **Three templates:**
+   - `docs/templates/BROTHER_HANDOFF_MESSAGE.md` — Telegram / email / voice-memo variants for handing the integration spec to brother. Plus security do-not list (don't ship secrets via email).
+   - `docs/templates/MARKETING_ANNOUNCEMENT.md` — 8-tweet Twitter thread, solo tweet, full blog post, Discord drop, Hacker News submission with pre-written first comment, Twitter reply hooks for common questions, video recording shot list, what NOT to publish.
+   - `docs/templates/GITHUB_RELEASE_NOTES_v9.1.0.md` — full release notes for the v9.1.0 GitHub Release page, with placeholders the CI workflow can fill (sha256 checksums, minisign pubkey fingerprint).
+
+5. **Cleanup** — removed `scripts/commit_wave_51_56.sh` and `scripts/commit_wave_58.sh` (legacy helpers from earlier sessions, already done their job).
+
+The playbook + scripts mean that for the next launch run, the operator literally doesn't have to think — just `git push`, then `make launch-precheck`, then walk down the 15 steps.
+
+**Files** —
+`scripts/launch_precheck.sh` (new),
+`scripts/commit_wave_51_56.sh` (deleted),
+`scripts/commit_wave_58.sh` (deleted),
+`Makefile` (2 new targets),
+`docs/OPERATOR_LAUNCH_PLAYBOOK.md` (new),
+`docs/templates/BROTHER_HANDOFF_MESSAGE.md` (new),
+`docs/templates/MARKETING_ANNOUNCEMENT.md` (new),
+`docs/templates/GITHUB_RELEASE_NOTES_v9.1.0.md` (new),
+`docs/CHANGELOG_AGENTS.md` (this entry).
+
 ## 2026-05-05 — Claude · Wave 63: Desktop ownership pass — wrap-up summary
 
 >>> SYNC: Claude · 2026-05-05 · Wave 59-62 desktop pass closed. New `docs/DESKTOP_OWNERSHIP_PASS.md` consolidates everything (commits, files, surfaces, latent issues, verify-by-operator steps). Audited pyoxidizer.bzl + build.rs + sw.js — clean, but flagged: SW never registered (latent web-only), CI uses pyinstaller not pyoxidizer (out-of-scope rewrite). No code touched in this entry.
@@ -1693,29 +1727,6 @@ for `tars:operator-palette-prefill`. ⌘K empty-state hints mention
 - `docs/CHANGELOG_AGENTS.md` (this entry)
 - `docs/CHANGELOG_PUBLIC.md` (regenerated)
 
-## 2026-05-03 — Cursor [E] · Release gate + downloads footer + voice doc
-
-**Summary**
-
-- `scripts/gate_release.sh` — new step **cockpit-changelog-check**
-  before cockpit-tsc (parity with Makefile / Cloudflare CI).
-- `DownloadStrip` footer variant — compact **✓ sha256** affordance
-  when the primary artifact carries a checksum (`data-sha256` on
-  the link unchanged).
-- New operator checklist `docs/VOICE_CLONING_OPERATOR.md`
-  (ElevenLabs IVC → `TARS_PERSONA_OPERATOR_ELEVENLABS_ID`).
-- `docs/IDEAS.md` — voice cloning item points at the doc;
-  verify-on-download marked shipped (hero + footer).
-
-**Files**
-
-- `scripts/gate_release.sh`
-- `experiments/neural-showcase-v3/src/components/DownloadStrip.tsx`
-- `docs/VOICE_CLONING_OPERATOR.md` (new)
-- `docs/IDEAS.md`
-- `docs/CHANGELOG_AGENTS.md` (this entry)
-- `docs/CHANGELOG_PUBLIC.md` (regenerated)
-
 ---
 
-_Showing the most recent 60 of 237 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 238 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
