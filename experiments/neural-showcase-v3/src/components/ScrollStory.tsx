@@ -436,8 +436,7 @@ function BriefingVisual({ accent }: { accent: string }) {
           <motion.li
             key={i}
             initial={{ opacity: 0, x: -6 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
+            animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.06 * i, duration: 0.4 }}
             className={`flex items-center gap-3 rounded-md border border-line/60 bg-bg-2/40 px-3 py-2.5 ${it.muted ? "opacity-65" : ""}`}
           >
@@ -503,8 +502,7 @@ function WatchVisual({ accent }: { accent: string }) {
           <motion.li
             key={i}
             initial={{ opacity: 0, y: 4 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
+            animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.08 * i, duration: 0.35 }}
             className="grid grid-cols-[80px_120px_1fr] items-baseline gap-3"
           >
@@ -631,8 +629,7 @@ function VaultVisual({ accent }: { accent: string }) {
           <motion.li
             key={l.label}
             initial={{ opacity: 0, x: -8 }}
-            whileInView={{ opacity: 1, x: 0 }}
-            viewport={{ once: true }}
+            animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.08 * i, duration: 0.4 }}
             className="grid grid-cols-[28px_1fr_auto] items-center gap-3 rounded-md border border-line/60 bg-bg-2/40 px-3 py-2.5"
           >

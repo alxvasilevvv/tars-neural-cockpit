@@ -96,16 +96,19 @@ export function StickyCTA() {
               <span>{t("stickyCTA.notify")}</span>
             </Link>
 
+            {/* Wave 66 — primary CTA flipped from "Open cockpit" to
+                "Download". Cockpit removed from public marketing site;
+                the install funnel is now the single conversion path. */}
             <Link
-              to="/cockpit"
-              onClick={() => trackClick("sticky_cta_cockpit")}
+              to="/install"
+              onClick={() => trackClick("sticky_cta_download")}
               className="inline-flex flex-1 shrink-0 items-center justify-center gap-2 rounded-full px-4 py-2.5 font-mono-tech text-[10.5px] uppercase tracking-[2.4px] text-white transition-all duration-150 hover:-translate-y-px sm:flex-initial"
               style={{
                 background: "var(--brand-cta-gradient)",
                 boxShadow: "var(--shadow-brand-cta)",
               }}
             >
-              <span>{t("stickyCTA.cockpit")}</span>
+              <span>Download TARS</span>
               <ArrowRight size={12} strokeWidth={1.8} aria-hidden />
             </Link>
 

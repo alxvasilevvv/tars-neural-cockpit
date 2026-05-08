@@ -9,7 +9,6 @@ import { Domains } from "@/components/Domains";
 import { Steps } from "@/components/Steps";
 import { MeeetSection } from "@/components/MeeetSection";
 import { MeeetWorldStrip } from "@/components/MeeetWorldStrip";
-import { CockpitLive } from "@/components/CockpitLive";
 import { CouncilDemo } from "@/components/CouncilDemo";
 import { Compare } from "@/components/Compare";
 import { Pricing } from "@/components/Pricing";
@@ -19,6 +18,15 @@ import { Footer } from "@/components/Footer";
 import { SectionDivider } from "@/components/SectionDivider";
 import { useT } from "@/lib/i18n";
 
+/**
+ * Landing — public marketing surface for tars.meeet.world.
+ *
+ * Wave 66 — Cockpit removed from public site (CockpitLive section
+ * deleted, /cockpit route redirected). The cockpit is the desktop
+ * app's main UI; trying to preview it on the marketing surface
+ * (without backend) was confusing users + producing the empty-block
+ * regression. Marketing focus: download → install → run locally.
+ */
 export function Landing() {
   const t = useT();
   return (
@@ -37,8 +45,6 @@ export function Landing() {
       <ScrollStory />
       <SectionDivider label={t("landing.section.04")} />
       <Steps />
-      <SectionDivider label={t("landing.section.05")} />
-      <CockpitLive />
       <SectionDivider label={t("landing.section.06")} />
       <MeeetSection />
       {/* meeet.world front-door card — sits between the brand pillars

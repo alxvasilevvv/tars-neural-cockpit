@@ -9,7 +9,7 @@ const links = [
   { label: "Domains", href: "/#domains" },
   { label: "Pricing", href: "/pricing" },
   { label: "FAQ", href: "/faq" },
-  { label: "Cockpit", href: "/cockpit" },
+  { label: "Install", href: "/install" },
 ];
 
 export function Nav() {
