@@ -3,6 +3,59 @@
 Pick this up if you are continuing the work in a fresh chat. Read this file
 plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 
+> **2026-05-09 — operator UX hardening + B-017/B-018 stack landed.**
+>
+> Five Cursor PRs were opened across 2026-05-08/09 and **all
+> merged to `main`** (CF Pages auto-deployed on each merge):
+>
+> - **#159** `cursor/unfreeze-prod-build` (B-018) — unblocked the
+>   Cloudflare Pages production build that had been silently
+>   failing since ≈Wave 65. Root cause: unguarded
+>   `@tauri-apps/api` dynamic imports + stale `BrandHairline`
+>   import + `tsc -b` in the `build:cf` script. Fix: marked
+>   Tauri runtime modules as Rollup `external`, fixed the import,
+>   aligned `build:cf` with the documented `vite build`-only
+>   recipe (typecheck still runs separately as `npm run
+>   typecheck` in the CI workflow).
+>
+> - **#155** `cursor/b017-install-funnel-fix` — same-origin
+>   install funnel via Pages Function `functions/dl/[file].ts`.
+>   `_redirects` no longer rewrites `/install.sh`; `public/
+>   install.sh` + `scripts/install-tars.sh` resolve via
+>   `tars.meeet.world/api/product/version` and download via
+>   `tars.meeet.world/dl/<filename>`.
+>
+> - **#160** `cursor/operator-playbook-drift-fix` (re-opened from
+>   closed #156 after rebase on `main`) — closes 5 factual drifts
+>   between `OPERATOR_LAUNCH_PLAYBOOK.md` and the live
+>   scripts/workflow (Tauri key path, `TAURI_SIGNING_PRIVATE_KEY`
+>   base64 encoding, release workflow trigger, download base URL,
+>   `GITHUB_RELEASE_TOKEN` table row).
+>
+> - **#157** `cursor/operator-misc-fixes` — `make bootstrap`
+>   single-command fresh-machine setup + actionable "venv
+>   missing" hints in `backend_tars_up.sh` +
+>   `smoke_billing_tars_backend.sh`; new playbook **Step 0a**.
+>
+> - **#158** `cursor/agent-handoff-2026-05-08` (this PR) —
+>   AGENT_HANDOFF pointer for next-chat pickup.
+>
+> **Operator action still owed (single remaining unblock):**
+> Paste `GITHUB_RELEASE_TOKEN` (fine-grained PAT, `Contents:
+> Read-only`) into Cloudflare Pages → `tars-meeet-git` →
+> Settings → Environment variables → Production. Detailed
+> recipe: `docs/TARS_MEEET_OPS_TODO.md` §5. Until that paste
+> happens, `tars.meeet.world/dl/<file>` returns a clean 503 +
+> `operator_action_required` JSON (verify with
+> `curl -sI https://tars.meeet.world/dl/TARS_9.1.0_aarch64.dmg
+> | head -1`). SPA marketing page + `tars.meeet.world/install.sh`
+> still load.
+>
+> GitHub Actions billing is still failing on every probe job
+> (see PR #153/#154 comment threads) but no longer blocks deploy
+> — branch protection is off on `main` and CF Pages auto-deploys
+> via its GitHub App, separate from Actions billing.
+
 > **2026-05-05 — Commercial-readiness tests (product surface, no marketing).**
 > `tests/test_commercial_readiness_chain.py` + `make test-commercial-readiness`
 > — ordered GET chain for domains / entitlements / usage / product / policy /
