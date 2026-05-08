@@ -24,6 +24,8 @@
  */
 
 import { useMemo } from "react";
+import { Link } from "react-router-dom";
+import { BookOpen } from "lucide-react";
 import {
   AppleMark,
   WindowsMark,
@@ -157,6 +159,14 @@ export function DownloadStrip({ variant = "hero" }: Props) {
             <span className="text-ink-3">sha256</span>
           </span>
         ) : null}
+        {/* Wave 65 — Footer Setup-guide link. Tiny by design; the
+            footer is a recurring affordance and not the primary CTA. */}
+        <Link
+          to="/install"
+          className="font-mono-tech text-[9.5px] uppercase tracking-[2px] text-ink-3 underline-offset-4 transition-colors hover:text-ink hover:underline"
+        >
+          setup guide
+        </Link>
       </span>
     );
   }
@@ -165,12 +175,32 @@ export function DownloadStrip({ variant = "hero" }: Props) {
   return (
     <div className="mt-7 flex w-full flex-col items-start gap-4">
       {primary && release ? (
-        <div className="flex w-full flex-col items-start gap-3 sm:flex-row sm:items-center">
+        <div className="flex w-full flex-col items-start gap-3 sm:flex-row sm:items-center sm:flex-wrap">
           <PrimaryButton
             artifact={primary}
             label={OS_LABELS[primary.os] ?? `Download for ${detected.label}`}
             version={release.version}
           />
+          {/* Wave 65 — Setup guide link. Detailed install instructions
+              for every OS live at /install (Gatekeeper xattr fix,
+              brew tap, .deb / .AppImage / .msi steps, signature
+              verification). Sized down so the primary Download remains
+              the dominant CTA, but visible enough that users know
+              there's a step-by-step guide if anything blocks them. */}
+          <Link
+            to="/install"
+            onClick={() =>
+              trackClick("setup_guide", {
+                version: release.version,
+                surface: "hero_download",
+              })
+            }
+            className="group inline-flex items-center gap-1.5 rounded-full border border-line bg-bg-1/40 px-3.5 py-2 font-mono-tech text-[10.5px] uppercase tracking-[1.8px] text-ink-2 backdrop-blur-sm transition-all hover:border-line-strong hover:bg-bg-2/60 hover:text-ink"
+          >
+            <BookOpen size={11} strokeWidth={1.7} aria-hidden />
+            <span>Setup guide</span>
+            <span aria-hidden className="opacity-50 transition-opacity group-hover:opacity-100">→</span>
+          </Link>
           <VersionPill release={release} fresh={isFresh} />
         </div>
       ) : (

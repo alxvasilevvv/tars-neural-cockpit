@@ -4,6 +4,27 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-05 — Claude · Wave 65: Setup-guide link + Landing audit (no new black-zone)
+
+>>> SYNC: Claude · 2026-05-05 · DownloadStrip Hero + Footer variants now expose "Setup guide →" link to /install (which has full multi-OS instructions, Gatekeeper xattr fix, brew tap, signature verification — 610 lines). Comprehensive Landing audit found NO new black-zone regression — Wave 59-1 ScrollStory fix + Wave 52 Hero shader fallback verified intact. User-reported residual black zone is most likely Vite HMR cache (Cmd+Shift+R or restart dev stack). No backend touched.
+
+**Summary**
+
+User flagged: (a) big black zone on Landing scroll, (b) wants instructions button next to Download, (c) verify install path works.
+
+**(a) Landing audit** — 600-word Explore report: 18 sections all eagerly rendered, no lazy-fallback gaps, Hero ShaderAnimation has Wave 52 radial-gradient fallback, MeetTars SplineScene has lazy + RobotFallback SVG + 8s timeout, CockpitLive falls back to CockpitPreview if /health fails, ScrollStory edge-segment opacity fix from Wave 59-1 verified at lines 259-271 + 317-329. **No new bug found.** Recommend hard-refresh.
+
+**(b) Setup guide link** in `DownloadStrip.tsx`:
+- Hero variant — pill button next to primary Download with BookOpen icon, "Setup guide →" label, `trackClick("setup_guide", surface=hero_download)`. Sized down so primary Download stays dominant CTA.
+- Footer variant — minimal "setup guide" underline-on-hover link.
+- Both navigate to `/install` page.
+
+**(c) Install path verification** — `/install` (Install.tsx, 610 lines) is the comprehensive surface: auto-detects OS, primary Download button + alternate format chips, `curl tars.meeet.world/install.sh | bash` one-liner, Gatekeeper notice + `xattr -dr` copy button for unsigned macOS DMG, `brew install meeet/tap/tars` once tap is published. Signature verification block when manifest carries sha256.
+
+**Perf scan deferred** — kept conservative. Below-fold lazy-loading (Pricing/FAQ/Compare/Footer) would shave ~120KB initial JS but introduces blank-fallback risk same shape as the bug we're fixing. Post-launch when monitoring is in place. Tsparticles confirmed used in 9 components (DomainsScene, Footer, AuroraBackground, SitemapGrid, ToastBus, AgentsPanel, Council, Onboarding, GlobalCommandPalette) — not dead code.
+
+**Files** — `experiments/neural-showcase-v3/src/components/DownloadStrip.tsx`, `docs/CHANGELOG_AGENTS.md` (this entry).
+
 ## 2026-05-05 — Claude · Wave 64: Operator launch playbook + auto-precheck + templates
 
 >>> SYNC: Claude · 2026-05-05 · Pre-launch ops package — `docs/OPERATOR_LAUNCH_PLAYBOOK.md` (15-step launch playbook), `scripts/launch_precheck.sh` (auto-verifier with --desktop / --full modes), `make launch-precheck{,-full}` Makefile targets, three templates (`docs/templates/{BROTHER_HANDOFF_MESSAGE,MARKETING_ANNOUNCEMENT,GITHUB_RELEASE_NOTES_v9.1.0}.md`). Removed legacy `scripts/commit_wave_{51_56,58}.sh` (already pushed and superseded).
