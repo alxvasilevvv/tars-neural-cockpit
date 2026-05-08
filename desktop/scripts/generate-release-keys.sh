@@ -25,7 +25,12 @@
 # After it finishes:
 #     - Commit the new public key into tauri.conf.json.
 #     - Add the printed GitHub secrets via:
-#           gh secret set TAURI_SIGNING_PRIVATE_KEY < tars-desktop.key
+#           # Tauri-action expects TAURI_SIGNING_PRIVATE_KEY as base64
+#           # (the tauri-signer wrapper auto-decodes). Piping the raw
+#           # key file works in some versions but explicitly base64'ing
+#           # is the documented contract — be explicit so CI never
+#           # surprises you.
+#           base64 < tars-desktop.key | gh secret set TAURI_SIGNING_PRIVATE_KEY
 #           gh secret set TAURI_SIGNING_PRIVATE_KEY_PASSWORD
 #
 # This script never uploads anything anywhere. Everything is local.
@@ -124,11 +129,15 @@ fi
 echo
 echo "  GitHub secrets to add (run this on the same machine):"
 echo
-echo "    gh secret set TAURI_SIGNING_PRIVATE_KEY < $SECRET_PATH"
-echo "    gh secret set TAURI_SIGNING_PRIVATE_KEY_PASSWORD"
+echo "    # tauri-signer expects the private key value to be base64."
+echo "    base64 < $SECRET_PATH | gh secret set TAURI_SIGNING_PRIVATE_KEY \\"
+echo "      -R alxvasilevvv/tars-neural-cockpit"
+echo "    gh secret set TAURI_SIGNING_PRIVATE_KEY_PASSWORD \\"
+echo "      -R alxvasilevvv/tars-neural-cockpit"
 echo
-echo "  Once both are set, push a tag like 'desktop-v1.0.0' to trigger"
-echo "  .github/workflows/release-desktop.yml."
+echo "  Once both are set, push a tag like 'v9.1.1' to trigger"
+echo "  .github/workflows/release-desktop-tagged.yml. The tag pattern is"
+echo "  'v*' (no 'desktop-' prefix); see the workflow's on.push.tags."
 echo
 echo "  Backup advice: copy '$SECRET_PATH' to a hardware token or"
 echo "  encrypted offline drive. Losing this key forces every existing"
