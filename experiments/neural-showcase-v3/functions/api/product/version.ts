@@ -10,7 +10,7 @@ const CHANNEL = "stable";
 const SOURCE = "tars.meeet.world/pages-functions";
 
 const LATEST_VERSION = "9.1.0";
-const LATEST_RELEASED_AT = "2026-04-22T00:00:00Z";
+const LATEST_RELEASED_AT = "2026-05-04T11:10:56Z";
 
 const CACHE_HEADERS: Record<string, string> = {
   "cache-control": "public, max-age=30, s-maxage=60, stale-while-revalidate=300",
