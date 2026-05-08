@@ -106,7 +106,9 @@ export function useSidecarStatus(): SidecarState {
 
     (async () => {
       try {
-        const { listen } = await import("@tauri-apps/api/event");
+        const { listen } = await import(
+          /* @vite-ignore */ "@tauri-apps/api/event"
+        );
 
         const offStarted = await listen<SidecarStartedPayload>(
           "desktop.sidecar.started",

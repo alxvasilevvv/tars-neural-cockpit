@@ -48,6 +48,20 @@ export default defineConfig({
     // its expected weight.
     chunkSizeWarningLimit: 2200,
     rollupOptions: {
+      // Tauri runtime modules (`@tauri-apps/api/*`,
+      // `@tauri-apps/plugin-*`) are deliberately NOT installed as
+      // cockpit dependencies — the cockpit ships as a static web app
+      // *and* gets bundled into the desktop shell where Tauri injects
+      // these modules into the page at runtime. Mark them external so
+      // Rollup doesn't try to resolve them at build time (the dynamic
+      // `import()` calls in `useTarsDeepLink.ts`, `useSidecarStatus.ts`,
+      // and `Settings.tsx` are guarded by `__TAURI_INTERNALS__` checks
+      // and a try/catch — they're effectively dead code in the web
+      // build and only execute inside the Tauri shell).
+      external: [
+        /^@tauri-apps\/api(\/.*)?$/,
+        /^@tauri-apps\/plugin-.*/,
+      ],
       output: {
         manualChunks(id) {
           if (id.includes("node_modules/three")) return "three-vendor";
