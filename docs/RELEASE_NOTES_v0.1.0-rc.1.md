@@ -76,10 +76,14 @@ desktop shell), and the meeet.world bridge integration.
 ## Operator checklist before release
 
 The release workflow (`.github/workflows/release-desktop-tagged.yml`)
-runs on `workflow_dispatch` only — tag-push triggers were retired
-upstream because GitHub fires phantom 0-second validation runs on every
-branch push that no `branches-ignore`/`if:` guard could silence. Before
-dispatching, confirm:
+is triggered by tag push (`on.push.tags: 'v*'`) per the live workflow
+file. The 2026-05-02 audit (Bug #9 in
+`docs/SYSTEM_AUDIT_2026-05-02.md`) re-evaluated the
+`workflow_dispatch`-only intent and reverted to tag-push because
+`tauri-apps/tauri-action@v0`'s release-flow assumes a tag context (it
+extracts the version from the ref). The phantom 0-second runs that
+motivated the original switch were silenced by tightening the
+ref pattern. Before tagging, confirm:
 
 - [ ] GitHub repo secrets present:
       - `APPLE_CERTIFICATE` (base64 of .p12)
@@ -107,19 +111,22 @@ unsigned for internal testing only.
 ## How to release once green
 
 ```bash
-# Triggered manually — no tag push required.
-gh workflow run release-desktop-tagged.yml \
-  --repo alxvasilevvv/tars-neural-cockpit \
-  --ref main \
-  -f version=0.1.0-rc.1
+# Tag-push trigger (matches on.push.tags: 'v*' in the workflow).
+git tag v0.1.0-rc.1
+git push origin v0.1.0-rc.1
 ```
 
 The workflow runs ~15 min on each of the four matrix targets
 (`aarch64-apple-darwin`, `x86_64-apple-darwin`, `x86_64-pc-windows-msvc`,
 `x86_64-unknown-linux-gnu`). Artefacts upload to the GitHub Release
-named `desktop-v0.1.0-rc.1`; Operator promotes to "published" after
-manual smoke (open the `.dmg`, confirm launch, confirm meeet.world
-event flows).
+named after the tag (`v0.1.0-rc.1`); Operator promotes to "published"
+after manual smoke (open the `.dmg`, confirm launch, confirm
+meeet.world event flows).
+
+> Stuck or want a re-run? `gh run rerun --repo
+> alxvasilevvv/tars-neural-cockpit <run-id>`. There's no
+> `workflow_dispatch` form on this workflow — re-tag with a fresh
+> patch (`v0.1.0-rc.1+1`) if you need a clean re-issue.
 
 After the workflow finishes, the version-lint guardrail
 (`.github/workflows/desktop-version-lint.yml`) keeps the
