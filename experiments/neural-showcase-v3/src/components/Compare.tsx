@@ -78,8 +78,8 @@ const ROWS: Row[] = [
     cells: ["yes", "no", "no"],
   },
   {
-    feature: "Code RAG (sqlite-vec)",
-    hint: "Index your repos, ask questions across files.",
+    feature: "Code RAG (SQLite FTS5 + cosine)",
+    hint: "Index your repos, ask questions across files. Native sqlite-vec extension on the v9.2 roadmap.",
     cells: ["yes", "yes", "partial"],
   },
   {
@@ -92,9 +92,9 @@ const ROWS: Row[] = [
     cells: ["yes", "no", "no"],
   },
   {
-    feature: "Solana magic-link login",
-    hint: "Sign in with wallet. No email, no password.",
-    cells: ["yes", "no", "no"],
+    feature: "Solana wallet + magic-link login",
+    hint: "Sign in with wallet today; email magic-link arrives in v9.1.1 (depends on meeet.world side).",
+    cells: ["partial", "no", "no"],
   },
 ];
 

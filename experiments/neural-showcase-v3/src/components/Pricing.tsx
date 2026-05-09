@@ -95,7 +95,7 @@ const TIERS: Tier[] = [
       { ok: true, text: "Shared agent sessions — multiplayer" },
       { ok: true, text: "Receipt-anchored audit + SSO + RBAC" },
       { ok: true, text: "Priority support + private Discord" },
-      { ok: true, text: "Custom skill SDK + private marketplace" },
+      { ok: true, text: "Custom skill SDK + private marketplace (v9.2)" },
     ],
     ctaKey: "pricing.tier.business.cta",
     href: "mailto:hello@meeet.world?subject=TARS%20Business%20enquiry",

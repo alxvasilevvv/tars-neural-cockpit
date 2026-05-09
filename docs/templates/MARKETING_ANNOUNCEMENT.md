@@ -31,9 +31,9 @@
 > Under the hood:
 > • FastAPI sidecar (CPython 3.12, embedded)
 > • Tauri 2 desktop shell (~25MB Mac binary)
-> • SQLite + sqlite-vec for memory
+> • SQLite FTS5 + cosine over BLOB embeddings (sqlite-vec on v9.2 roadmap)
 > • SOL on-chain settlement for $MEEET
-> • Apple Developer ID + Authenticode signed
+> • Apple Developer ID signed (Authenticode lands with Windows in v9.2)
 
 **Tweet 5 (open + brand):**
 > Built under @meeetworld brand. Open source on GitHub. Receipts anchored on Solana. No tracking, no telemetry leaks.
@@ -47,7 +47,7 @@
 > curl -fsSL tars.meeet.world/install.sh | sh
 > ```
 >
-> Or download .dmg / .msi / .AppImage:
+> macOS .dmg today. Windows .msi + Linux .AppImage / .deb in v9.2.
 > github.com/alxvasilevvv/tars-neural-cockpit/releases
 
 **Tweet 7 (demo):**
@@ -99,7 +99,7 @@ Today it ships v9.1.
 Tell TARS "sort my Downloads folder by type, summarize the PDFs, archive anything older than 30 days." It does it. Live. You watch every step in a console, every action gets a signed receipt anchored on Solana.
 
 ### Memory that compounds
-Every conversation, every file you drop, every action TARS takes — fed into a local SQLite + sqlite-vec memory store. Three weeks in, TARS knows your style. AI Clone draft suggestions are 80% there before you start typing.
+Every conversation, every file you drop, every action TARS takes — fed into a local SQLite store with FTS5 keyword search and cosine-similarity over BLOB embeddings (sqlite-vec on v9.2). Three weeks in, TARS knows your style. AI Clone draft suggestions are 80% there before you start typing.
 
 ### Multi-LLM Council
 For high-stakes decisions, TARS spawns a panel of LLMs that debate, vote, then surface the consensus + minority report. You see whose vote came from where.
@@ -152,8 +152,10 @@ Local-first. Cloud-mirroring. Zero-knowledge sync.
 curl -fsSL https://tars.meeet.world/install.sh | sh
 ```
 
-Or grab a signed `.dmg` / `.msi` / `.AppImage`:
+Or grab the signed macOS `.dmg`:
 https://github.com/alxvasilevvv/tars-neural-cockpit/releases/latest
+
+(Windows `.msi` + Linux `.AppImage` / `.deb` ship in v9.2 — pyoxidizer cross-target CI is in flight.)
 
 ## What's next
 
@@ -205,13 +207,13 @@ If it doesn't pay for itself before lunch — uninstall and pour me coffee in pe
 
 > Founder here, AMA. I built TARS because cloud AI subscriptions stopped paying for themselves around month four — context lost between sessions, four tools that didn't talk to each other, and someone else's server park making decisions about my data.
 >
-> TARS runs on your Mac. CPython 3.12 + the FastAPI backend embedded via pyoxidizer into a ~25MB universal binary, Tauri 2 shell, SQLite + sqlite-vec for memory.
+> TARS runs on your Mac. CPython 3.12 + the FastAPI backend embedded via pyoxidizer into a ~25MB universal binary, Tauri 2 shell, SQLite (FTS5 + cosine-over-BLOB embeddings) for memory.
 >
 > The interesting parts (happy to discuss any):
 >
 > - **Multi-LLM council** spawns Anthropic, OpenAI, Gemini in parallel for high-stakes decisions. Each votes; you see the minority report.
 >
-> - **Memory** is local SQLite, embeddings via sqlite-vec, AI Clone learns your style from week 1.
+> - **Memory** is local SQLite — FTS5 keyword index + cosine-similarity over BLOB embeddings computed in Python (sqlite-vec wiring on the v9.2 roadmap). AI Clone learns your style from week 1.
 >
 > - **Mac operator** — Watch-Me-Work mode shows TARS operating your machine in real time. Every action gets a signed receipt anchored on Solana. (Yes, you can audit what TARS did at 4am.)
 >
@@ -231,7 +233,7 @@ If it doesn't pay for itself before lunch — uninstall and pour me coffee in pe
 > No — TARS is a local agent + multi-LLM router. You bring your own keys (or use the meeet.world cloud allocation included in Pro tier). The agent intelligence is local; the LLM calls go to whichever provider you configure.
 
 **"How is memory different from ChatGPT memory?":**
-> Three things: (1) it's *yours* — SQLite file at `~/Library/Application Support/world.meeet.tars/memory.db`, you own it. (2) it's deep — every action TARS takes feeds the index, not just chat. (3) it's queryable — embeddings via sqlite-vec, not a black box.
+> Three things: (1) it's *yours* — SQLite file at `~/Library/Application Support/world.meeet.tars/memory.db`, you own it. (2) it's deep — every action TARS takes feeds the index, not just chat. (3) it's queryable — FTS5 keyword index + cosine over BLOB embeddings, plain SQL, no black box.
 
 **"What's $MEEET / why not Stripe?":**
 > Two answers. Practically: SOL settlement is faster + cheaper than Stripe at our volumes. Philosophically: the value users create (data, attention, model training) shouldn't extract through a payment processor that takes 3%. $MEEET is the closed loop — you earn it for participating, you spend it on agents.
@@ -240,7 +242,7 @@ If it doesn't pay for itself before lunch — uninstall and pour me coffee in pe
 > Apache 2.0 for the core. Plugins ship signed via ed25519, manifest-pinned. You can fork anything. We retain the meeet.world brand + the trademark.
 
 **"Windows / Linux?":**
-> Today: Mac universal (.dmg). Tomorrow (Phase M, ~6 weeks): Windows .msi (signed Authenticode), Linux .AppImage + .deb. Same codebase, Tauri 2 cross-compiles cleanly; just CI matrix work.
+> Today (v9.1.0): Mac universal (.dmg) only — that's all CI builds today. v9.2 (~6 weeks): Windows .msi (signed Authenticode), Linux .AppImage + .deb. Same codebase, Tauri 2 cross-compiles cleanly; pyoxidizer cross-target CI matrix is the gating work.
 
 ---
 

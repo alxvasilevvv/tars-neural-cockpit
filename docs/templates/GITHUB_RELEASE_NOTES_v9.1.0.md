@@ -43,7 +43,7 @@ https://github.com/alxvasilevvv/tars-neural-cockpit/releases/new?tag=v9.1.0
 
 ## Installation
 
-### macOS
+### macOS — only platform shipped in v9.1.0
 
 ```bash
 curl -fsSL https://tars.meeet.world/install.sh | sh
@@ -52,19 +52,13 @@ curl -fsSL https://tars.meeet.world/install.sh | sh
 Or grab signed `.dmg` directly:
 - **Universal (Apple Silicon + Intel):** `TARS-9.1.0-universal.dmg`
 
-### Windows
+### Windows / Linux — coming in v9.2
 
-Download `TARS-9.1.0-Setup.exe` and run. Windows SmartScreen may flag the first ~50 installs (we ship with OV Authenticode certificate; reputation builds with each install).
-
-### Linux
-
-```bash
-# AppImage (portable):
-chmod +x TARS-9.1.0-x86_64.AppImage && ./TARS-9.1.0-x86_64.AppImage
-
-# Debian/Ubuntu:
-sudo dpkg -i TARS-9.1.0-amd64.deb
-```
+Not built in v9.1.0 CI. The pyoxidizer cross-target matrix
+(Windows .msi with Authenticode, Linux .AppImage + .deb) is the
+single gating work item for v9.2 — same Tauri 2 codebase, just CI
+plumbing. Subscribe to releases or join the waitlist on
+https://tars.meeet.world to get pinged when they land.
 
 ## Verifying signatures
 
@@ -136,7 +130,7 @@ Or pull the signed `latest.json` from the release and verify with minisign as ab
 
 1. **Public key fingerprint** — после первого signed release, `minisign -F -p ~/.tars/release/minisign.pub` даст fingerprint, замени `<INSERT_AFTER_KEY_GENERATION>`.
 
-2. **SHA256 checksums** — каждый `.dmg / .msi / .AppImage / .deb` имеет sha256. CI кладёт их в `latest.json`. Скопируй в секцию Checksum reference.
+2. **SHA256 checksums** — `.dmg` имеет sha256 (только macOS в v9.1.0; Win/Linux артефакты появятся в v9.2). CI кладёт их в `latest.json`. Скопируй в секцию Checksum reference.
 
 3. **Discord invite** — если у тебя есть meeet.world community Discord, замени `[TBD ...]`.
 
