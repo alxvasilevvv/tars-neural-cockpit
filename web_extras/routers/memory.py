@@ -13,6 +13,7 @@ the registry membership is a separate concern.
 - ``POST   /api/packs/{slug}/memory/_purge_expired``  — TTL sweep
 - ``GET    /api/packs/{slug}/memory/_stats``          — pack stats
 - ``GET    /api/memory/stats``                        — global stats
+- ``POST   /api/memory/reflect``                      — Wave 73 weekly reflection
 
 TTL semantics: pass ``ttl_seconds`` (relative window) or
 ``ttl_until`` (absolute POSIX) on upsert. The list/get endpoints
@@ -28,10 +29,50 @@ from typing import Any
 from fastapi import APIRouter, Body, Header, HTTPException, Query
 
 from backend.core.memory import MemoryEntry, get_memory_store
+from backend.core.memory.reflection import run_reflection
 from backend.core.meeet import get_client as get_meeet_client, new_trace_id, trace_scope
 
 
 router = APIRouter(prefix="/api", tags=["memory"])
+
+
+@router.post("/memory/reflect")
+async def memory_reflect_endpoint(
+    payload: dict[str, Any] | None = Body(default=None),
+) -> dict[str, Any]:
+    """Wave 73 Feature 3 — manually trigger the weekly reflection.
+
+    Body (all optional):
+      ``{days: int = 7, force: bool = false}``
+
+    Force=true overwrites any existing row for the current ISO week.
+    """
+
+    body = payload or {}
+    try:
+        days = int(body.get("days") or 7)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="days_must_be_int")
+    days = max(1, min(days, 30))
+    force = bool(body.get("force"))
+
+    trace_id = new_trace_id()
+    meeet = get_meeet_client()
+    with trace_scope(trace_id):
+        await meeet.emit("memory.reflect.requested", {"days": days, "force": force})
+        out = await run_reflection(days=days, force=force)
+        await meeet.emit(
+            "memory.reflect.completed",
+            {
+                "ok": out.get("ok"),
+                "key": out.get("key"),
+                "skipped": out.get("skipped", False),
+                "message_count": out.get("message_count"),
+                "provider": out.get("provider"),
+            },
+        )
+    out["trace_id"] = trace_id
+    return out
 
 
 def _entry_dict(entry: MemoryEntry | None) -> dict[str, Any] | None:

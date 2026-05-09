@@ -39,6 +39,43 @@ from backend.core.meeet import get_client, trace_scope
 router = APIRouter(prefix="/api", tags=["agents"])
 
 
+# ---------- Wave 73 Feature 5 — smart router endpoint ----------------------
+
+
+@router.post("/agents/route")
+async def agents_route_intent_endpoint(
+    payload: dict[str, Any] | None = Body(default=None),
+) -> dict[str, Any]:
+    """LLM-based intent classifier; OFF by default.
+
+    Body: ``{text: str, packs?: [str]}``. When ``packs`` is omitted
+    the registered pack slugs are used. Honours ``TARS_SMART_ROUTER=1``
+    — when disabled, the response carries ``source="disabled"`` and a
+    regex-based best-effort routing decision.
+    """
+
+    from backend.core.agents.router import route_intent  # local import keeps cold-import light
+
+    body = payload or {}
+    text = str(body.get("text") or "").strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="text_required")
+    if len(text) > 4000:
+        raise HTTPException(status_code=400, detail="text_too_long")
+
+    packs_in = body.get("packs")
+    if isinstance(packs_in, list) and packs_in:
+        packs = [str(p).strip() for p in packs_in if isinstance(p, (str, int))]
+        packs = [p for p in packs if p]
+    else:
+        packs = sorted(p.manifest.slug for p in all_packs())
+
+    out = await route_intent(text, packs)
+    out["text_len"] = len(text)
+    out["pack_count"] = len(packs)
+    return out
+
+
 # ---------- request models ----------------------------------------------------
 
 

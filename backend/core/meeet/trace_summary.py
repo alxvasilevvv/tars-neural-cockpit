@@ -403,7 +403,18 @@ class TraceSummaryStore:
     async def rebuild(self, *, since: float | None = None) -> dict[str, Any]:
         if not self.enabled:
             return {"ok": False, "reason": "store_disabled"}
-        return await asyncio.to_thread(_rebuild_sync, self.db_path, since=since)
+        # Wave 73 F6 — wrap the rebuild in an OTel span so an OTLP
+        # backend sees the same trace_id propagation that meeet's own
+        # event store records. No-op when OTel isn't initialised.
+        try:
+            from backend.core.observability.otel import span_for_trace_summary
+            with span_for_trace_summary(None, kind="rebuild", since=float(since or 0)):
+                return await asyncio.to_thread(
+                    _rebuild_sync, self.db_path, since=since
+                )
+        except Exception:
+            # Never let observability wrap the real call.
+            return await asyncio.to_thread(_rebuild_sync, self.db_path, since=since)
 
     async def list_summaries(
         self,

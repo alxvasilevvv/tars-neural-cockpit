@@ -25,6 +25,7 @@ durable buffer.
 
 from __future__ import annotations
 
+import asyncio
 import json
 import time
 from typing import Any, AsyncIterator, Mapping, Sequence
@@ -137,6 +138,15 @@ class ChatOrchestrator:
         #    falls over.
         op_msg = Message.from_operator(thread.id, operator_text)
         await self.store.insert_message(op_msg)
+
+        # Wave 73 Feature 4 — feed the AI Clone v0.1 style store.
+        # Best-effort fire-and-forget; never raises, never blocks
+        # the chat write path.
+        try:
+            from backend.core.clone import record_message as _clone_record
+            asyncio.create_task(_clone_record(operator_text or ""))
+        except Exception:
+            pass
 
         with trace_scope(
             session=session_id or thread.last_session_id,

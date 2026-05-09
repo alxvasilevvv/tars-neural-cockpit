@@ -1,0 +1,17 @@
+{
+  "id": "_global.memory_reflection",
+  "name": "Weekly memory reflection",
+  "description": "Walk the operator's last 7 days of chat messages, summarise themes / blockers / wins via the council voice, and persist the result to the global memory pack as 'weekly_reflection_<iso_week>'. Trigger from POST /api/memory/reflect or via the optional Sunday 18:00 background poll.",
+  "tags": ["memory", "reflection", "weekly", "read-only", "_global"],
+  "pack": "_global",
+  "on_block": "stop",
+  "steps": [
+    {
+      "id": "reflect",
+      "action": "_global.memory.reflect",
+      "args": { "days": 7 },
+      "store_as": "reflection",
+      "on_error": "stop"
+    }
+  ]
+}

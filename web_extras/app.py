@@ -50,6 +50,8 @@ from web_extras.routers import vault as vault_router
 from web_extras.routers import speech as speech_router
 from web_extras.routers import voice as voice_router
 from web_extras.routers import wallet as wallet_router
+from web_extras.routers import github as github_router
+from web_extras.routers import clone as clone_router
 
 START_TS = time.time()
 log = logging.getLogger("tars.app")
@@ -515,6 +517,10 @@ async def _verify_fts_on_boot() -> None:
 @contextlib.asynccontextmanager
 async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     from backend.core.agents.autopilot import autopilot_loop
+    from backend.core.memory.reflection import reflection_loop
+    from backend.core.observability.otel import init_otel
+
+    init_otel()  # Wave 73 F6 — no-op unless OTEL_EXPORTER_OTLP_ENDPOINT set
 
     await _verify_fts_on_boot()
 
@@ -535,6 +541,9 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     policy_expire = asyncio.create_task(
         _policy_expire_loop(), name="policy-expire-loop"
     )
+    reflection = asyncio.create_task(
+        reflection_loop(), name="memory-reflection-loop"
+    )
     tasks = (
         replay,
         autopilot,
@@ -543,6 +552,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         saved_search_poll,
         memory_purge,
         policy_expire,
+        reflection,
     )
     try:
         yield
@@ -612,6 +622,8 @@ app.include_router(pairing_router.router)
 app.include_router(recovery_router.router)
 app.include_router(agents_router.router)
 app.include_router(wallet_router.router)
+app.include_router(github_router.router)
+app.include_router(clone_router.router)
 from web_extras.routers import entitlements as entitlements_router  # noqa: E402
 from web_extras.routers import roles as roles_router  # noqa: E402
 
