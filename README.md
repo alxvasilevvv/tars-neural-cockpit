@@ -1,16 +1,22 @@
 # TARS
 
 > Local-first **neural cockpit** released under [meeet.world](https://meeet.world).
-> Multi-model deliberation, multi-agent autopilot, self-custodial crypto
+> Multi-model deliberation, planner-driven agents, self-custodial crypto
 > wallets, X25519-paired mobile companions — all on your laptop, all
 > encrypted at rest, all auditable.
 
+[![version](https://img.shields.io/badge/version-9.1.0-blue)](docs/RELEASE_NOTES_v9.1.0.md)
+[![platform](https://img.shields.io/badge/platform-macOS-lightgrey)](docs/WHAT_WORKS.md#platform-support-v910)
 [![tests](https://img.shields.io/badge/pytest-595%20passed-brightgreen)](docs/LAUNCH_READINESS.md)
 [![vitest](https://img.shields.io/badge/vitest-50%20passed-brightgreen)](docs/LAUNCH_READINESS.md)
 [![tsc](https://img.shields.io/badge/tsc-clean-brightgreen)](docs/LAUNCH_READINESS.md)
 [![eval-suite](https://github.com/alxvasilevvv/tars-neural-cockpit/actions/workflows/eval-suite.yml/badge.svg?branch=main)](.github/workflows/eval-suite.yml)
 [![contract](https://img.shields.io/badge/meeet--contract-1.0.0-blue)](docs/contracts/)
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
+
+**Read in this order:** [`docs/WHAT_WORKS.md`](docs/WHAT_WORKS.md) (what
+ships) → [`docs/RELEASE_NOTES_v9.1.0.md`](docs/RELEASE_NOTES_v9.1.0.md)
+(what just changed) → [`docs/ROADMAP.md`](docs/ROADMAP.md) (what's coming).
 
 ---
 
@@ -25,20 +31,28 @@ Inside the cockpit you can:
 
 - **Talk to a council of models.** Two or more LLMs deliberate every
   turn. Disagreement, confidence, and the per-model votes are visible.
-- **Spawn agents and let them work.** Each agent has a personality, a
-  domain pack (research / ops / wallet / trader / business / mlm /
-  science / mobile / ...), and an optional autopilot loop. They emit
-  structured events you can replay.
+- **Plan and run agents across packs.** Six domain packs ship in v9.1.0
+  (wealth / health / family / product / brand / entrepreneur). The
+  planner chains them; playbooks make recipes deterministic; the smart
+  router (opt-in, Wave 73) picks the right pack from intent. Real
+  Watch-me-work timeline of structured events.
 - **Hold real crypto.** Solana, EVM, and TON wallets. BIP-39 seeds
   generated and re-imported locally, encrypted at rest with
   XChaCha20-Poly1305. Transactions signed on-device with `eth-account`,
   `solders`, and `tonsdk`. Phantom-compatible derivation supported.
 - **Pair your phone.** iOS and Android companions complete an X25519
-  handshake with the host so chat, traces, and (read-only) wallet state
-  stream over an encrypted channel that bypasses the cloud entirely.
+  handshake with the host (SQLite-persisted since Wave 72) so chat,
+  traces, and (read-only) wallet state stream over an encrypted channel
+  that bypasses the cloud entirely.
 - **Bridge to meeet.world.** Optional outbound stream of structured
   events with full trace context. Same pipe Claude / Cursor / external
   agents read from.
+
+> **Honest scope.** v9.1.0 is Mac-only, no marketplace, no live T2T,
+> no multi-tenant, AI Clone is v0.1 (style hint, not full clone),
+> magic-link auth depends on the meeet.world brother backend. Full
+> ledger: [`docs/WHAT_WORKS.md`](docs/WHAT_WORKS.md). What's coming:
+> [`docs/ROADMAP.md`](docs/ROADMAP.md).
 
 ---
 
@@ -46,7 +60,9 @@ Inside the cockpit you can:
 
 ### 1. Prereqs
 
-- macOS, Windows, or Linux.
+- **Backend / dev cockpit:** macOS, Windows, or Linux all work.
+- **Production installer (Tauri .dmg):** macOS only in v9.1.0. Windows
+  / Linux installers are scheduled for v9.2 — see [`docs/ROADMAP.md`](docs/ROADMAP.md).
 - **Python 3.12** (`uv` or stdlib `venv` both fine).
 - **Node 20+** for the cockpit bundle.
 - **Rust toolchain** (only if you want to build the Tauri binary).

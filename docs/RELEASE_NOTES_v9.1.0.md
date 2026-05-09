@@ -5,7 +5,15 @@
 **Platforms:** macOS only (Apple Silicon native, Intel via Rosetta-on-arm64-dmg)
 **Codename:** Phase L9 — production desktop
 
-This is the first production-grade installable. Local-first AI cockpit with native UX, hardened sidecar lifecycle, authoritative billing mirror, and an honest scope. See `docs/WHAT_WORKS.md` for the full capability ledger; this file just describes the v9.1.0 delta.
+This is the first production-grade installable. Local-first AI cockpit with
+native UX, hardened sidecar lifecycle, authoritative billing mirror, and an
+honest scope.
+
+- **Current capabilities:** [`docs/WHAT_WORKS.md`](WHAT_WORKS.md).
+- **What's coming next:** [`docs/ROADMAP.md`](ROADMAP.md).
+- **Wave-by-wave history:** [`CHANGELOG.md`](../CHANGELOG.md).
+
+This file describes the v9.1.0 delta only.
 
 ---
 
@@ -38,7 +46,7 @@ This is the first production-grade installable. Local-first AI cockpit with nati
 - New ops scripts: `ops_billing_remote_wizard.sh`, `smoke_billing_tars_backend.{sh,py}`, `backend_tars_up.sh`, `dev_tars_stack.sh`.
 - New Makefile gates: `smoke-billing-tars`, `backend-tars-up`, `dev-tars-stack`, `ops-billing-remote-wizard`, `test-commercial-readiness`.
 
-### Wave 72 launch hardening (this commit)
+### Wave 72 launch hardening
 - Sidecar binary name aligned with CI (`tars-sidecar-<triple>` via `bundle.externalBin`); legacy `tars-backend` resolution kept as a fallback.
 - `/api/product/downloads` defaults reduced to Mac-only artifacts so the manifest never advertises files the `/dl/<file>` proxy will 404.
 - Pairing store backed by SQLite at `~/.tars/pairings.sqlite` — paired devices survive app restart.
@@ -48,6 +56,22 @@ This is the first production-grade installable. Local-first AI cockpit with nati
 - `AttachmentChipStrip` wired into Cockpit chat composer.
 - `docs/WHAT_WORKS.md` — honest capability ledger created.
 - `docs/RELEASE_NOTES_v9.1.0.md` — this file.
+
+### Wave 73 — small real features
+Six bounded features (1–3 files each) that close audit gaps:
+
+- **STT** via OpenAI Whisper API — `POST /api/voice/transcribe` (multipart audio); 503 `stt_not_configured` when no key. `backend/core/voice/transcribe.py`.
+- **GitHub connector** (token-based) — `/api/connectors/github/health`, `/repos`, `/{owner}/{repo}/issues`, `/{owner}/{repo}/pulls`. 60s LRU cache. `web_extras/routers/github.py`.
+- **Memory reflection** — weekly ISO-week summary into `_global` pack. `POST /api/memory/reflect`; opt-in scheduled loop via `TARS_REFLECTION_AUTO=1`. `backend/core/memory/reflection.py`.
+- **AI Clone v0.1** — style traits skeleton (sentence length, exclamation/question rate, casual/formal lean, top-50 vocab). `GET /api/clone/profile`, `POST /api/clone/draft`. *Style hint, not full clone.* `backend/core/clone/style.py`.
+- **Smart Agent Router** — opt-in LLM-based intent routing (`TARS_SMART_ROUTER=1`); regex parser remains the fallback. `POST /api/agents/route`. `backend/core/agents/router.py`.
+- **OpenTelemetry exporter wrapper** — no-op unless `OTEL_EXPORTER_OTLP_ENDPOINT` is set AND deps importable. `backend/core/observability/otel.py`.
+
+### Wave 74 — final launch docs
+- New [`docs/ROADMAP.md`](ROADMAP.md) — honest, dated, scope-tagged forward roadmap (v9.1.1 / v9.2 / v9.3+ / v10.0) with explicit "What's NOT planned" section.
+- Doc cross-references synced — `README.md` ↔ `WHAT_WORKS.md` ↔ `RELEASE_NOTES_v9.1.0.md` ↔ `ROADMAP.md` ↔ `CHANGELOG.md`.
+- New [`CHANGELOG.md`](../CHANGELOG.md) at repo root summarizing Waves 65 → 74.
+- README.md aligned with reality — over-claims removed, badges + roadmap pointers added.
 
 ---
 
@@ -82,12 +106,12 @@ See `docs/WHAT_WORKS.md` for the full FULLY-IMPLEMENTED / PARTIAL / NOT-IMPLEMEN
 
 ## Roadmap pointer
 
-- **v9.2** — Windows + Linux installers (pyoxidizer cross-target), STT (Whisper), Slack connector v1.
-- **v9.3** — Wake-word, marketplace v1, live T2T handshake.
-- **v9.4** — RBAC, webhooks, Gmail send-side.
-- **v9.5** — Shared agent sessions (multiplayer), public skill ratings.
+- **v9.1.1** (~2 weeks) — Magic-link auth, real Slack/Gmail/Calendar connectors, web wake-word, iMessage + Telegram bridges.
+- **v9.2** (~1 month) — Windows + Linux installers, sqlite-vec wired, AI Clone v0.5, XTTS-v2 cloning, Marketplace MVP, Skill SDK, headless daemon.
+- **v9.3+** — T2T live + Solana escrow, unified receipt stream, Reputation Graph UI, marketplace 70/30 + payouts, webhooks, MCP server bridge.
+- **v10.0** — Multi-tenant + JWT, Orgs/Teams/RBAC, Shared Agent Sessions, TARS Handoff, edge voice adapter.
 
-Authoritative roadmap: `docs/ROADMAP_TO_RELEASE.md` and `docs/PHASE_L_ROADMAP.md`.
+Authoritative forward roadmap: [`docs/ROADMAP.md`](ROADMAP.md). Design-phase context: [`docs/PHASE_L_ROADMAP.md`](PHASE_L_ROADMAP.md).
 
 ---
 
