@@ -83,7 +83,7 @@ Public key fingerprint: `<INSERT_AFTER_KEY_GENERATION>`
 - **Cockpit** — React 18 + Vite 5 + Tailwind v4 (~3MB built dist).
 - **Sidecar** — CPython 3.12 + FastAPI + 14 pinned dependencies, embedded via pyoxidizer into a single binary (`tars-backend`), bundled into the Tauri app resource directory.
 - **Shell** — Tauri 2.0 with plugins: shell, notification, updater, window-state, global-shortcut, deep-link, plus core `tray-icon` feature.
-- **Memory** — SQLite + sqlite-vec for embeddings.
+- **Memory** — SQLite with FTS5 full-text search plus cosine-similarity over BLOB embeddings computed in Python (no native vector extension; sqlite-vec wiring is on the v9.2 roadmap).
 - **Sync** — encrypted via X25519 + XChaCha20-Poly1305 envelope (L5 Pairing); meeet.world cloud sees only ciphertext.
 - **Billing** — authoritative on meeet.world Supabase via idempotent POST `/operator/usage` with `trace_id` dedupe.
 - **Settlement** — SOL on-chain for $MEEET payments.

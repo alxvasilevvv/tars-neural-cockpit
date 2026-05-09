@@ -47,13 +47,14 @@ const BODY_CACHE_SECONDS = 3600; // 1 h for binary body (release immutable).
 // `release-desktop-tagged.yml` workflow for known release tags. New
 // release? Add the assets here in the same PR that bumps the tag.
 const ALLOWED_FILENAMES = new Set<string>([
-  // v9.1.0 — current stable
+  // v9.1.0 — current stable. Mac-only: the GitHub Actions
+  // `release-desktop-tagged.yml` pipeline currently builds darwin
+  // (.dmg + Tauri .app.tar.gz) only. Win/Linux pyoxidizer cross-targets
+  // are postponed to v9.2 — see Wave 71-A backend reality pass.
+  // TODO(v9.2): reinstate Win (.exe / .msi) + Linux (.AppImage / .deb)
+  // entries once the cross-target CI matrix lands.
   "TARS_9.1.0_aarch64.dmg",
   "TARS_9.1.0_x64.dmg",
-  "TARS_9.1.0_x64-setup.exe",
-  "TARS_9.1.0_x64_en-US.msi",
-  "TARS_9.1.0_amd64.AppImage",
-  "TARS_9.1.0_amd64.deb",
   "TARS_aarch64.app.tar.gz",
   "latest.json", // Tauri updater channel manifest
   "latest.json.sig",

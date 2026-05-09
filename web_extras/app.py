@@ -557,7 +557,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
 app = FastAPI(
     title="TARS",
     description="Local-first neural cockpit released under meeet.world.",
-    version="0.9.0",
+    version="9.1.0",
     lifespan=_lifespan,
 )
 
