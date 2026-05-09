@@ -4,6 +4,61 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-09 — Cursor · B-019 diagnosis: prod custom domain points at wrong CF project
+
+**Summary**
+
+After landing the entire 2026-05-08/09 PR stack (#159 unfreeze →
+#155 B-017 → #160 playbook drift → #157 bootstrap → #158
+AGENT_HANDOFF → #153 precheck → #154 bridge secret hint), all
+seven builds succeeded on the `tars-meeet-git` Cloudflare Pages
+project (Plan B / Git integration). But probing
+`tars.meeet.world` showed the legacy 8.4.0 build still served:
+
+```bash
+curl -s https://tars.meeet.world/api/product/version          | jq .version  # → "8.4.0"   ← stale
+curl -s https://tars-meeet-git.pages.dev/api/product/version | jq .version  # → "9.1.0"   ← latest
+curl -s https://tars-meeet.pages.dev/api/product/version     | jq .version  # → "8.4.0"   ← matches prod
+curl -sI https://tars.meeet.world/install.sh                 | head -1      # → 302 to /install (still old _redirects)
+curl -sI https://tars-meeet-git.pages.dev/install.sh         | head -1      # → 200 application/x-sh ✓
+```
+
+**Diagnosis**
+
+`tars.meeet.world` custom domain is bound to the **legacy
+`tars-meeet`** project (Plan A / wrangler-deploy via GitHub
+Actions, currently blocked by GitHub Actions billing) instead of
+the documented `tars-meeet-git` project (Plan B / Git
+integration, healthy and auto-building every push). The OPS_TODO
+text claimed the migration happened but the actual binding was
+never moved. Result: every code change merged to `main`
+ships to `tars-meeet-git.pages.dev` but `tars.meeet.world`
+stays frozen on the last `tars-meeet` deploy (≈2026-05-04).
+
+**Operator action (one-click in CF dashboard, ~30 seconds)**
+
+Documented in `docs/TARS_MEEET_OPS_TODO.md` (search "B-019"):
+
+1. CF Pages → `tars-meeet` → Custom domains → **Remove**
+   `tars.meeet.world`.
+2. CF Pages → `tars-meeet-git` → Custom domains → **Set up
+   custom domain** → `tars.meeet.world` → Activate.
+3. `curl -s https://tars.meeet.world/api/product/version | jq
+   .version` should now return `"9.1.0"`.
+
+After that, B-017 install funnel goes live (still gated on the
+separate `GITHUB_RELEASE_TOKEN` paste in `tars-meeet-git`'s env
+for `/dl/*` to return binaries instead of 503).
+
+**Files**
+
+- (mod) `docs/TARS_MEEET_OPS_TODO.md` — adds B-019 block at the
+  top with diagnosis + one-click fix recipe + verification.
+- (mod) `docs/AGENT_HANDOFF.md` — promotes B-019 to "operator
+  action #1" so the next chat / next operator catches it before
+  the `GITHUB_RELEASE_TOKEN` paste.
+- (mod) `docs/CHANGELOG_AGENTS.md` — this entry.
+
 ## 2026-05-09 — Cursor · unfreeze prod CF Pages build (B-018)
 
 **Summary**
@@ -90,40 +145,6 @@ content from Wave 67 + everything queued behind it.
 - (mod) `experiments/neural-showcase-v3/src/lib/useSidecarStatus.ts`
 - (mod) `experiments/neural-showcase-v3/src/pages/Settings.tsx`
 - (mod) `docs/CHANGELOG_AGENTS.md` — this entry
-
-## 2026-05-08 — Cursor · `make bootstrap` + actionable venv-missing hints
-
-**Summary**
-
-Closes the "fresh-machine first command fails terse" gap surfaced by
-walking the operator playbook end-to-end. Every `make` target that
-shells into `$(PY)` (= `./.venv/bin/python`) used to die with
-`bash: ./.venv/bin/python: no such file or directory` for an
-operator coming from a fresh clone. Same with
-`scripts/backend_tars_up.sh` (`missing: ./.venv/bin/python — create
-venv first` — without showing HOW) and
-`scripts/smoke_billing_tars_backend.sh` (no guard at all).
-
-**The single golden command:**
-
-```bash
-make bootstrap
-```
-
-- Picks the highest Python on PATH (prefers 3.12 → 3.11 → 3.10 →
-  `python3`), so it works on any sane mac/linux without
-  pre-installing 3.12.
-- Idempotent: skips `python -m venv .venv` if `.venv/bin/python`
-  already exists; only re-runs `pip install --upgrade pip` and
-  `pip install -r requirements.txt` (both quiet).
-- Prints a "next" pointer so operators know the follow-up command
-  (`cp .env.example .env`, then `make dev-tars-stack` /
-  `make qa-agent`).
-
-`scripts/backend_tars_up.sh` and `scripts/smoke_billing_tars_backend.sh`
-both now emit the same multi-line quick-fix hint when the venv is
-missing — so even an operator who skipped Step 0a gets unblocked
-from any code path that hits Python.
 
 ## 2026-05-08 — Cursor · `make bootstrap` + actionable venv-missing hints
 
@@ -249,41 +270,6 @@ suite (46/46 + 1 skipped + 2 documented xfails).
 - (mod) `docs/RELEASE_NOTES_v0.1.0-rc.1.md`
 - (new) `tests/test_operator_playbook_drift.py`
 - (mod) `docs/CHANGELOG_AGENTS.md` — this entry
-
-## 2026-05-08 — Cursor · B-017 fix: same-origin install funnel via Pages Function dl-proxy
-
-**Summary**
-
-Resolves the B-017 install-funnel breakage end-to-end with option
-(c) from the previous sit-rep — same-origin Cloudflare Pages
-Functions, no public-repo flip required. After this PR merges and
-the operator pastes a single PAT (`GITHUB_RELEASE_TOKEN`) into
-Pages env, `curl -fsSL https://tars.meeet.world/install.sh | bash`
-produces a working installer for any anonymous visitor while the
-source repo stays private.
-
-**Architecture**
-
-- New Pages Function `experiments/neural-showcase-v3/functions/dl/
-  [file].ts`. Strict `ALLOWED_FILENAMES` allowlist (v9.1.0 + v8.4.0
-  Tauri assets + Tauri updater manifest). Resolves filename → tag,
-  hits `api.github.com/repos/.../releases/tags/<tag>` with
-  `Bearer ${GITHUB_RELEASE_TOKEN}`, then streams the asset binary
-  via `accept: application/octet-stream`. Caches the asset listing
-  for 5 min and the body for 1 h (releases are immutable).
-  Without the env var, returns HTTP 503 +
-  `{ok:false, error:"operator_action_required", …}` so the failure
-  mode is self-explanatory.
-
-- `_redirects` cleared of the broken `/install.sh →
-  raw.githubusercontent.com/...` line (which 404'd on a private
-  repo and silently shadowed the static file). Pages now serves
-  `public/install.sh` directly.
-
-- `public/install.sh` rewritten: resolves the latest version via
-  same-origin `tars.meeet.world/api/product/version` and downloads
-  via `tars.meeet.world/dl/<filename>`. Zero `api.github.com` /
-  `github.com` hits at runtime.
 
 ## 2026-05-08 — Cursor · B-017 fix: same-origin install funnel via Pages Function dl-proxy
 
@@ -2075,6 +2061,19 @@ subprocess), plus **`wranglerVersion: "4.14.4"`** to avoid npm 10+ npx
 - `.github/workflows/tars-meeet-cloudflare-pages.yml`
 - `docs/CHANGELOG_AGENTS.md` (this entry)
 
+## 2026-05-03 — Cursor · CHANGELOG_PUBLIC sync for Pages CI gate
+
+**Summary**
+
+Regenerated and committed **`docs/CHANGELOG_PUBLIC.md`** via
+`python3 scripts/generate_public_changelog.py` so the “Changelog public
+artefact in sync” step passes on push to `main`.
+
+**Files**
+
+- `docs/CHANGELOG_PUBLIC.md`
+- `docs/CHANGELOG_AGENTS.md` (this entry)
+
 ---
 
-_Showing the most recent 60 of 245 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 244 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._

@@ -22,6 +22,46 @@ output `dist`, env `NODE_VERSION=20`, `VITE_TARS_API=https://tars.meeet.world`).
 project (Direct Upload via wrangler) is retained for history but has no custom
 domain attached anymore.
 
+> **2026-05-09 — outstanding operator action required (B-019).** Live
+> probe shows the custom domain `tars.meeet.world` is **still bound to
+> the legacy `tars-meeet` project** instead of `tars-meeet-git`. Compare:
+>
+> ```bash
+> curl -s https://tars.meeet.world/api/product/version          | jq .version
+> # → "8.4.0"   ← stale (legacy tars-meeet, last deploy ≈2026-05-04)
+>
+> curl -s https://tars-meeet-git.pages.dev/api/product/version | jq .version
+> # → "9.1.0"   ← latest, built from current main on every push
+>
+> curl -s https://tars-meeet.pages.dev/api/product/version     | jq .version
+> # → "8.4.0"   ← matches what tars.meeet.world serves
+> ```
+>
+> The `tars-meeet-git` project auto-builds and succeeds on every push
+> (verified: 7 of 7 recent commits → CF Pages build = success), but the
+> custom domain still routes to `tars-meeet`. Result: every code change
+> merged to `main` ships to `tars-meeet-git.pages.dev` but **`tars.meeet.world`
+> stays frozen on the last `tars-meeet` deploy** (B-017 install funnel
+> + B-018 build unfreeze + Wave 67 landing fixes are all stuck behind
+> this binding).
+>
+> **One-click fix (Cloudflare dashboard, ~30 seconds):**
+>
+> 1. Cloudflare → Workers & Pages → **`tars-meeet`** → **Custom domains**
+>    → next to `tars.meeet.world` click **Remove**.
+> 2. Cloudflare → Workers & Pages → **`tars-meeet-git`** → **Custom domains**
+>    → **Set up a custom domain** → enter `tars.meeet.world` → **Activate**.
+>    DNS already points at `*.pages.dev` so propagation is instant.
+> 3. Verify: `curl -s https://tars.meeet.world/api/product/version | jq .version`
+>    should now return `9.1.0`. `/install.sh` should return HTTP 200 with
+>    `content-type: application/x-sh` (no longer 302 → /install).
+>
+> Without this binding swap, the install funnel + B-017 dl-proxy + every
+> future merge to `main` is invisible to anonymous visitors hitting
+> `tars.meeet.world`. Everything else (Plan B build, GitHub merges,
+> autobuilds) is healthy — only the custom-domain-to-project link is
+> stuck on the wrong project.
+
 **Optional fallback (Plan A):**
 `cp cf-operator.env.example cf-operator.env` → вставь **Account ID** и **`cfat_…`** (Cloudflare → Account → Cloudflare Pages → **Edit**) → `make ops-cf-pages-token`.
 
