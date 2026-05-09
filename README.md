@@ -8,6 +8,7 @@
 [![tests](https://img.shields.io/badge/pytest-595%20passed-brightgreen)](docs/LAUNCH_READINESS.md)
 [![vitest](https://img.shields.io/badge/vitest-50%20passed-brightgreen)](docs/LAUNCH_READINESS.md)
 [![tsc](https://img.shields.io/badge/tsc-clean-brightgreen)](docs/LAUNCH_READINESS.md)
+[![eval-suite](https://github.com/alxvasilevvv/tars-neural-cockpit/actions/workflows/eval-suite.yml/badge.svg?branch=main)](.github/workflows/eval-suite.yml)
 [![contract](https://img.shields.io/badge/meeet--contract-1.0.0-blue)](docs/contracts/)
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 

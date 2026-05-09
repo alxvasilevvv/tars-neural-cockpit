@@ -51,8 +51,7 @@ const ALLOWED_FILENAMES = new Set<string>([
   // `release-desktop-tagged.yml` pipeline currently builds darwin
   // (.dmg + Tauri .app.tar.gz) only. Win/Linux pyoxidizer cross-targets
   // are postponed to v9.2 — see Wave 71-A backend reality pass.
-  // TODO(v9.2): reinstate Win (.exe / .msi) + Linux (.AppImage / .deb)
-  // entries once the cross-target CI matrix lands.
+  // v9.2 — re-add Win/Linux when pyoxidizer pipelines land.
   "TARS_9.1.0_aarch64.dmg",
   "TARS_9.1.0_x64.dmg",
   "TARS_aarch64.app.tar.gz",

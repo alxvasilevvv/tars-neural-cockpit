@@ -27,7 +27,11 @@
 //
 // Binary resolution order:
 //   1. `TARS_BACKEND_BIN` — explicit override (CI / dev).
-//   2. `<resource_dir>/tars-backend(.exe)` — bundled pyoxidizer build.
+//   2. `<resource_dir>/tars-sidecar(.exe)` — bundled PyInstaller build,
+//      registered via `bundle.externalBin` in `tauri.conf.json`. The
+//      Tauri build pipeline injects the binary as `tars-sidecar-<triple>`
+//      (CI naming, e.g. `tars-sidecar-aarch64-apple-darwin`) and renames
+//      to plain `tars-sidecar` at install time, so we probe both forms.
 //   3. `python3 serve.py` — fallback for local dev when the operator
 //      is running the repo directly.
 
@@ -322,14 +326,37 @@ fn base_cmd(bin: &Path, port: u16) -> Command {
 }
 
 fn bundled_backend(app: &tauri::AppHandle<tauri::Wry>) -> Option<PathBuf> {
-    let exe_name = if cfg!(windows) { "tars-backend.exe" } else { "tars-backend" };
+    // Wave 72: align with CI naming (`tars-sidecar-<triple>`) and the
+    // `bundle.externalBin = ["binaries/tars-sidecar"]` entry in
+    // tauri.conf.json. We probe (in order):
+    //   1. plain `tars-sidecar(.exe)` — name after Tauri strips the
+    //      target-triple suffix at bundle time.
+    //   2. `tars-sidecar-<triple>(.exe)` — name as PyInstaller produces
+    //      it in CI (used during dev / non-bundled runs).
+    //   3. legacy `tars-backend(.exe)` — pre-Wave-72 builds; kept so
+    //      a stale install can still launch.
+    let ext = if cfg!(windows) { ".exe" } else { "" };
+    let triple = std::env::consts::ARCH.to_string()
+        + "-"
+        + match std::env::consts::OS {
+            "macos" => "apple-darwin",
+            "linux" => "unknown-linux-gnu",
+            "windows" => "pc-windows-msvc",
+            other => other,
+        };
+    let candidates = [
+        format!("tars-sidecar{ext}"),
+        format!("tars-sidecar-{triple}{ext}"),
+        format!("tars-backend{ext}"),
+    ];
     let resource_dir = app.path().resource_dir().ok()?;
-    let candidate = resource_dir.join(exe_name);
-    if candidate.exists() {
-        Some(candidate)
-    } else {
-        None
+    for name in &candidates {
+        let candidate = resource_dir.join(name);
+        if candidate.exists() {
+            return Some(candidate);
+        }
     }
+    None
 }
 
 fn repo_root_guess(_app: &tauri::AppHandle<tauri::Wry>) -> Option<PathBuf> {

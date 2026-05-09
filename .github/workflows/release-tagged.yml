@@ -1,6 +1,15 @@
+# Wave 72 — workflow boundary clarification.
+#
+# This pipeline is **manual-dispatch only** — it does NOT trigger on
+# tag push, so there is NO race with ``release-desktop-tagged.yml``
+# (which is the authoritative tag-push pipeline for the Tauri app).
+#
+# Use this workflow when you also want a backend CLI tarball + a
+# Homebrew tap bump for an existing tag. Run via the Actions UI or
+# ``gh workflow run release.yml --ref vX.Y.Z`` AFTER the desktop
+# release has landed.
 name: release
 
-# Triggered by pushing a tag like v9.0.0 or v9.0.0-rc1.
 # Builds release tarballs for macOS (arm64+x64) and Linux (arm64+x64),
 # notarizes the macOS .dmg, ships everything to the GH Release, and bumps
 # the Homebrew tap formula in meeet-world/homebrew-tap.

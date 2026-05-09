@@ -180,42 +180,36 @@ def _placeholder_url(version: str, filename: str) -> str:
     return f"{GITHUB_RELEASES_BASE}/v{version}/{filename}"
 
 
-_DEFAULT_VERSION = "0.1.0-alpha.2"
+# v9.2 — re-add Win/Linux when pyoxidizer pipelines land. For v9.1.0
+# only Mac binaries actually ship from `release-desktop-tagged.yml`,
+# and the `/dl/<file>` Cloudflare proxy allowlist (after Wave 71-A)
+# only accepts Mac filenames. Listing Win/Linux entries here would
+# advertise downloads that 404 in the proxy. Keep the wire-shape
+# strict: Mac-only until the cross-target CI matrix lands.
+_DEFAULT_VERSION = "9.1.0"
 _DEFAULT_NOTES = (
-    "Phase M backbone — wallets, council agents, entitlements and roles, "
-    "vision (OCR), entrepreneur pack replaces legacy 'mlm'. "
-    "Desktop track matches 0.1.0-alpha.2; signed installers ship via CI once "
-    "the operator replaces TODO_PUBLIC_KEY with generate-release-keys.sh."
+    "v9.1.0 — Mac-only desktop release. Wallets, council agents, "
+    "entitlements/roles, OCR vision, Entrepreneur pack. Win/Linux "
+    "installers postponed to v9.2 (pyoxidizer cross-target pipelines)."
 )
+# CI artifact filenames are `TARS_<version>_<arch>.dmg` (underscore +
+# raw arch like `aarch64`). Mirror exactly so /dl/<file> redirects work.
 _DEFAULT_ARTIFACTS: tuple[ReleaseArtifact, ...] = (
     ReleaseArtifact(
         os="macos",
         arch="arm64",
         kind="dmg",
-        filename=f"TARS-{_DEFAULT_VERSION}-arm64.dmg",
-        url=_placeholder_url(_DEFAULT_VERSION, f"TARS-{_DEFAULT_VERSION}-arm64.dmg"),
+        filename=f"TARS_{_DEFAULT_VERSION}_aarch64.dmg",
+        url=_placeholder_url(_DEFAULT_VERSION, f"TARS_{_DEFAULT_VERSION}_aarch64.dmg"),
     ),
     ReleaseArtifact(
         os="macos",
         arch="x64",
         kind="dmg",
-        filename=f"TARS-{_DEFAULT_VERSION}-x64.dmg",
-        url=_placeholder_url(_DEFAULT_VERSION, f"TARS-{_DEFAULT_VERSION}-x64.dmg"),
+        filename=f"TARS_{_DEFAULT_VERSION}_x64.dmg",
+        url=_placeholder_url(_DEFAULT_VERSION, f"TARS_{_DEFAULT_VERSION}_x64.dmg"),
     ),
-    ReleaseArtifact(
-        os="windows",
-        arch="x64",
-        kind="exe",
-        filename=f"TARS-{_DEFAULT_VERSION}-Setup.exe",
-        url=_placeholder_url(_DEFAULT_VERSION, f"TARS-{_DEFAULT_VERSION}-Setup.exe"),
-    ),
-    ReleaseArtifact(
-        os="linux",
-        arch="x64",
-        kind="appimage",
-        filename=f"TARS-{_DEFAULT_VERSION}-x64.AppImage",
-        url=_placeholder_url(_DEFAULT_VERSION, f"TARS-{_DEFAULT_VERSION}-x64.AppImage"),
-    ),
+    # v9.2 — re-add Win/Linux when pyoxidizer pipelines land.
 )
 
 
@@ -223,12 +217,12 @@ DEFAULT_MANIFEST = DownloadManifest(
     product="tars",
     contract_version=CONTRACT_VERSION,
     channel="stable",
-    released_at="2026-04-29T00:00:00Z",
+    released_at="2026-05-09T00:00:00Z",
     releases=(
         ReleaseEntry(
             version=_DEFAULT_VERSION,
             channel="stable",
-            released_at="2026-04-29T00:00:00Z",
+            released_at="2026-05-09T00:00:00Z",
             notes=_DEFAULT_NOTES,
             artifacts=_DEFAULT_ARTIFACTS,
         ),

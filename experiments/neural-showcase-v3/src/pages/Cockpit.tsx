@@ -381,6 +381,10 @@ export function Cockpit() {
         <AwarenessTicker />
       </div>
 
+      {/* Wave 72 — AttachmentChipStrip is rendered inside <ChatPane>
+          (see components/ChatPane.tsx → AttachmentChipStrip import).
+          Wired to the active threads attachment hook so file drops
+          into the composer surface as chips above the message stream. */}
       <ChatPane defaultPackSlug={activeSlug ?? undefined} />
 
       <div id="ops" className="mb-8 grid grid-cols-1 gap-4 xl:grid-cols-2">

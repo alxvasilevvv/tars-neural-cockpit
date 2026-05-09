@@ -1,0 +1,91 @@
+# Wave 72 — eval suite CI workflow.
+#
+# Task #78 (v8.5) shipped scaffolding intent; this workflow finally
+# wires a runnable evaluator into PR + nightly. The runner
+# (``scripts/eval/run_eval_suite.py``) is intentionally lightweight
+# and DOES NOT load models or hit external APIs — it walks
+# ``scripts/eval/cases/*.jsonl`` and runs deterministic checks.
+#
+# The workflow is **non-blocking** for now (``continue-on-error: true``)
+# so a failing eval never kills a PR. It posts a comment summarising
+# results so reviewers can spot regressions. Once the suite stabilises
+# the ``continue-on-error`` flag can be flipped off.
+
+name: eval-suite
+
+on:
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+  schedule:
+    # Nightly at 04:00 UTC — gives the operator a fresh report every
+    # morning without colliding with peak release pushes.
+    - cron: "0 4 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  eval:
+    name: TARS eval suite
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      # No deps required for the deterministic baseline runner. Once
+      # real LLM-graded cases land, install requirements here.
+      - name: Run eval suite
+        id: run
+        run: |
+          set +e
+          python3 scripts/eval/run_eval_suite.py
+          echo "exit=$?" >> "$GITHUB_OUTPUT"
+
+      - name: Upload eval-results.json
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: eval-results
+          path: eval-results.json
+          if-no-files-found: warn
+
+      - name: Comment on PR with summary
+        if: always() && github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            let summary = { discovered: 0, passed: 0, failed: 0 };
+            try {
+              summary = JSON.parse(fs.readFileSync('eval-results.json', 'utf8'));
+            } catch (e) {
+              summary = { error: String(e) };
+            }
+            const body = [
+              '### TARS eval suite — Wave 72',
+              '',
+              '| metric | value |',
+              '| --- | --- |',
+              `| discovered | ${summary.discovered ?? 0} |`,
+              `| passed | ${summary.passed ?? 0} |`,
+              `| failed | ${summary.failed ?? 0} |`,
+              '',
+              '_Non-blocking; flip `continue-on-error: false` in `.github/workflows/eval-suite.yml` once the suite stabilises._',
+            ].join('\n');
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body,
+            });

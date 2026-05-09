@@ -1,0 +1,3 @@
+{"name":"hero_copy_present","kind":"deterministic_substring","input":"Your AI. Your machine. Your terms.","expected_contains":["Your AI","Your machine","Your terms"]}
+{"name":"voice_intent_play","kind":"deterministic_substring","input":"play music","expected_contains":["play"]}
+{"name":"council_pack_wealth_keyword","kind":"deterministic_substring","input":"the wealth pack tracks portfolio risk","expected_contains":["wealth","portfolio"]}

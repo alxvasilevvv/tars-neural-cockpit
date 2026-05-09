@@ -1,8 +1,13 @@
-"""In-memory pairing store.
+"""Pairing store (SQLite-backed paired devices, in-memory pending records).
 
-Phase L5 v0 keeps state in-process — same approach the policy gate
-took before SQLite-backed persistence. The interface is async so the
-real persistent store can be swapped in without changing callers.
+Wave 72: paired devices now persist to ``~/.tars/pairings.sqlite`` so
+restarting the desktop app no longer drops every linked device. The
+pending ``PairingRecord`` table (begin → accept) is intentionally still
+in-memory because pairing handshakes have a 120s TTL and finalised ones
+are written to the device table.
+
+The interface remains async; persistence runs through ``asyncio.to_thread``
+to avoid blocking the event loop on SQLite WAL fsync.
 
 Phase L5 v1 (this revision) plumbs **real X25519 keys** through the
 flow:
@@ -35,6 +40,56 @@ from typing import Literal
 from backend.core.crypto import DeviceKey, generate_device_key
 from backend.core.crypto.envelope import PUBLICKEYBYTES
 from backend.core.vault import KeyringVault, StoredHostIdentity, VaultCorruptError
+
+import logging
+import sqlite3
+from pathlib import Path
+
+log = logging.getLogger("tars.pairing.store")
+
+# Wave 72 — paired-device persistence. Schema mirrors the audit spec:
+#   pairings(device_id PK, pubkey BLOB, name TEXT, paired_at INTEGER,
+#            revoked_at INTEGER NULL, epoch INTEGER)
+# `name` is reused for the device kind (`desktop_macos`, etc.) since
+# the runtime model only carries kind today; a future migration can
+# split it into (kind, friendly_name) without breaking this column.
+_PAIRINGS_SCHEMA = """
+CREATE TABLE IF NOT EXISTS pairings (
+    device_id TEXT PRIMARY KEY,
+    pubkey BLOB NOT NULL,
+    name TEXT NOT NULL,
+    paired_at INTEGER NOT NULL,
+    revoked_at INTEGER,
+    epoch INTEGER NOT NULL DEFAULT 0
+);
+CREATE INDEX IF NOT EXISTS idx_pairings_active
+    ON pairings(revoked_at) WHERE revoked_at IS NULL;
+"""
+
+_DEFAULT_PAIRINGS_DB = Path.home() / ".tars" / "pairings.sqlite"
+
+
+def _is_pairings_disabled() -> bool:
+    raw = (os.getenv("TARS_PAIRINGS_DB") or "").strip().lower()
+    return raw in {"disabled", "off", "0", "no", "false"}
+
+
+def _resolve_pairings_db_path() -> Path | None:
+    if _is_pairings_disabled():
+        return None
+    override = os.getenv("TARS_PAIRINGS_DB_PATH")
+    return Path(override).expanduser() if override else _DEFAULT_PAIRINGS_DB
+
+
+def _connect_pairings_db(path: Path) -> sqlite3.Connection:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(path), check_same_thread=False, timeout=30.0)
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA busy_timeout=5000")
+    conn.executescript(_PAIRINGS_SCHEMA)
+    conn.commit()
+    return conn
+
 
 
 PairingState = Literal["pending", "accepted", "rejected", "expired", "linked"]
@@ -163,6 +218,91 @@ class PairingStore:
         # Cache of paired-device public keys keyed by device_id so the
         # crypto layer can encrypt to all paired devices in one pass.
         self._device_keys: dict[str, DeviceKey] = {}
+
+        # Wave 72 — open the SQLite store and rehydrate previously
+        # paired devices so a desktop restart doesn't lose them.
+        self._db_path: Path | None = _resolve_pairings_db_path()
+        self._db: sqlite3.Connection | None = None
+        if self._db_path is not None:
+            try:
+                self._db = _connect_pairings_db(self._db_path)
+                self._load_devices_from_db()
+            except sqlite3.Error as exc:
+                log.warning(
+                    "pairing.db_init_failed path=%s err=%s — "
+                    "falling back to in-memory only",
+                    self._db_path,
+                    exc,
+                )
+                self._db = None
+
+    def _load_devices_from_db(self) -> None:
+        """One-shot rehydration of paired devices on construction."""
+
+        if self._db is None:
+            return
+        cur = self._db.execute(
+            "SELECT device_id, pubkey, name, paired_at "
+            "FROM pairings WHERE revoked_at IS NULL"
+        )
+        for row in cur.fetchall():
+            device_id, pubkey, name, paired_at = row
+            kind = name if name in {
+                "desktop_macos", "desktop_windows",
+                "mobile_ios", "mobile_android",
+            } else "desktop_macos"
+            try:
+                pub_b64 = base64.b64encode(pubkey).decode("ascii")
+            except Exception:  # noqa: BLE001 — corrupted row, skip
+                log.warning("pairing.db_skip_row device_id=%s", device_id)
+                continue
+            self._devices[device_id] = PairedDevice(
+                device_id=device_id,
+                kind=kind,  # type: ignore[arg-type]
+                linked_at=float(paired_at),
+                last_seen_at=float(paired_at),
+                pair_id="",  # unknown after restart
+                public_key=pub_b64,
+            )
+            self._device_keys[device_id] = DeviceKey(
+                device_id=device_id,
+                public_key=pubkey,
+            )
+        log.info("pairing.db_loaded devices=%d path=%s",
+                 len(self._devices), self._db_path)
+
+    def _persist_device(self, device: PairedDevice, pubkey_bytes: bytes) -> None:
+        if self._db is None:
+            return
+        try:
+            self._db.execute(
+                "INSERT OR REPLACE INTO pairings "
+                "(device_id, pubkey, name, paired_at, revoked_at, epoch) "
+                "VALUES (?, ?, ?, ?, NULL, 0)",
+                (
+                    device.device_id,
+                    pubkey_bytes,
+                    device.kind,
+                    int(device.linked_at),
+                ),
+            )
+            self._db.commit()
+        except sqlite3.Error as exc:
+            log.warning("pairing.db_insert_failed device=%s err=%s",
+                        device.device_id, exc)
+
+    def _persist_revoke(self, device_id: str) -> None:
+        if self._db is None:
+            return
+        try:
+            self._db.execute(
+                "UPDATE pairings SET revoked_at = ? WHERE device_id = ?",
+                (int(time.time()), device_id),
+            )
+            self._db.commit()
+        except sqlite3.Error as exc:
+            log.warning("pairing.db_revoke_failed device=%s err=%s",
+                        device_id, exc)
 
     @property
     def vault(self) -> KeyringVault | None:
@@ -310,7 +450,7 @@ class PairingStore:
             )
             self._device_keys[device_id] = device_key
 
-            self._devices[device_id] = PairedDevice(
+            paired = PairedDevice(
                 device_id=device_id,
                 kind=rec.client_kind,
                 linked_at=rec.linked_at,
@@ -318,6 +458,11 @@ class PairingStore:
                 pair_id=pid,
                 public_key=rec.client_epk,
             )
+            self._devices[device_id] = paired
+            # Wave 72 — persist before returning so a crash between
+            # `accept` and the next event loop tick still keeps the
+            # device on disk.
+            self._persist_device(paired, client_pub_bytes)
             return rec
 
     async def reject(self, *, token: str, reason: str = "operator_declined") -> PairingRecord:
@@ -344,6 +489,10 @@ class PairingStore:
         async with self._lock:
             removed = self._devices.pop(device_id, None) is not None
             self._device_keys.pop(device_id, None)
+            # Wave 72 — soft-delete via revoked_at so the audit trail
+            # survives. The :func:`reset` test hook still wipes rows.
+            if removed:
+                self._persist_revoke(device_id)
             return removed
 
     async def list_devices(self) -> list[PairedDevice]:
@@ -367,6 +516,12 @@ class PairingStore:
             self._by_token.clear()
             self._devices.clear()
             self._device_keys.clear()
+            if self._db is not None:
+                try:
+                    self._db.execute("DELETE FROM pairings")
+                    self._db.commit()
+                except sqlite3.Error as exc:
+                    log.warning("pairing.db_reset_failed err=%s", exc)
 
 
 _singleton: PairingStore | None = None

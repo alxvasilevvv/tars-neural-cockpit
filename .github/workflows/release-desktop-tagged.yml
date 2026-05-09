@@ -1,3 +1,15 @@
+# Wave 72 — workflow boundary clarification.
+#
+# This is the AUTHORITATIVE release pipeline for the v9.x desktop
+# product (Tauri app + sidecar). Triggers automatically on every tag
+# matching ``v*``. Builds .dmg / .app / .exe / .deb / .AppImage and
+# publishes to the GitHub Release with the Tauri updater channel JSON.
+#
+# Sister workflow ``release-tagged.yml`` is the backend-tarball /
+# Homebrew-tap pipeline. It is **manual-dispatch only** (``on:
+# workflow_dispatch``) so it does NOT race with this one on tag push.
+# Run it after ``release-desktop`` lands the dmg if you also need the
+# CLI tarball + Homebrew tap bump.
 name: release-desktop
 
 on:

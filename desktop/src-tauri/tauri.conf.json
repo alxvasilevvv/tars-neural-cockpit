@@ -34,6 +34,7 @@
   "bundle": {
     "active": true,
     "targets": ["dmg", "app", "msi", "nsis", "deb", "appimage"],
+    "externalBin": ["binaries/tars-sidecar"],
     "category": "Productivity",
     "shortDescription": "Local-first neural cockpit",
     "longDescription": "TARS — local-first neural cockpit released under meeet.world. Threads, voice, automations, files, full observability.",

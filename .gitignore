@@ -20,3 +20,7 @@ cf-operator.env
 .morning-runs/
 .meeet-replays/
 
+
+# Wave 72 — eval suite runtime artefacts (recreated on each CI run)
+eval-results.json
+
