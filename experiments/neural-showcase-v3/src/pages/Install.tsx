@@ -1,5 +1,6 @@
 import { motion } from "framer-motion";
 import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   Apple,
   Terminal,
@@ -12,9 +13,11 @@ import {
   Download,
   AlertTriangle,
   ChevronDown,
+  Sparkles,
 } from "lucide-react";
 import { CornerFrame, StatusLozenge } from "@/components/Glyphs";
 import { useDocumentMeta } from "@/lib/meta";
+import { INSTALLERS_READY, INSTALLER_ETA } from "@/lib/launchFlags";
 import { trackClick } from "@/lib/analytics";
 import { useDownloads } from "@/lib/downloads";
 import { useT } from "@/lib/i18n";
@@ -206,6 +209,68 @@ export function Install() {
       />
 
       <section className="relative z-10 mx-auto max-w-[1080px] px-8 pt-20 pb-12 md:px-14 md:pt-28">
+        {/* Wave 68 — pre-launch banner. Shown when INSTALLERS_READY=false
+            (signed installers not yet shipping). Sits ABOVE the page
+            content so visitors who came via "Setup guide" link
+            immediately see the status, then can scroll down to the
+            curl one-liner / build-from-source guide for the
+            adventurous. */}
+        {!INSTALLERS_READY && (
+          <motion.div
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+            className="relative mb-10 overflow-hidden rounded-[14px] border border-line-strong bg-bg-1 p-5 md:p-6"
+          >
+            <div
+              aria-hidden
+              className="absolute inset-x-0 top-0 h-px"
+              style={{
+                background:
+                  "linear-gradient(90deg, transparent 0%, var(--brand-indigo) 30%, var(--brand-violet) 50%, var(--brand-cyan) 70%, transparent 100%)",
+              }}
+            />
+            <div className="flex items-start gap-4 md:items-center">
+              <span
+                className="grid h-8 w-8 shrink-0 place-items-center rounded-md"
+                style={{
+                  background: "color-mix(in srgb, var(--brand-violet) 14%, transparent)",
+                  color: "var(--brand-violet)",
+                }}
+                aria-hidden
+              >
+                <Sparkles size={14} strokeWidth={1.7} />
+              </span>
+              <div className="flex-1 min-w-0">
+                <div className="mb-1 font-mono-tech text-[10px] uppercase tracking-[2.4px]" style={{ color: "var(--brand-violet)" }}>
+                  installers · {INSTALLER_ETA}
+                </div>
+                <p className="font-display text-[15px] leading-[1.55] text-ink">
+                  Signed `.dmg`, `.msi`, and `.AppImage` drop on launch. Until
+                  then this page is read-only — join the waitlist and we'll
+                  email a one-line installer the moment it's verified.
+                </p>
+              </div>
+              <Link
+                to="/#waitlist"
+                onClick={() =>
+                  trackClick("notify_me", {
+                    surface: "install_page_banner",
+                    reason: "coming_soon",
+                  })
+                }
+                className="shrink-0 rounded-full px-4 py-2 font-mono-tech text-[10.5px] uppercase tracking-[2.4px] text-white transition-all hover:-translate-y-px"
+                style={{
+                  background: "var(--brand-cta-gradient)",
+                  boxShadow: "var(--shadow-brand-cta)",
+                }}
+              >
+                Notify me →
+              </Link>
+            </div>
+          </motion.div>
+        )}
+
         <motion.div
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}

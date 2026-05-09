@@ -25,7 +25,7 @@
 
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
-import { BookOpen } from "lucide-react";
+import { BookOpen, Mail, Sparkles } from "lucide-react";
 import {
   AppleMark,
   WindowsMark,
@@ -33,6 +33,7 @@ import {
   IOSMark,
   AndroidMark,
 } from "@/components/BrandLogos";
+import { INSTALLERS_READY, INSTALLER_ETA } from "@/lib/launchFlags";
 import {
   useDownloads,
   type ArtifactOS,
@@ -88,6 +89,15 @@ export function DownloadStrip({ variant = "hero" }: Props) {
   const { primary, detected, loading, error, artifacts, manifest } = useDownloads();
   const release = manifest?.releases?.[0];
   const isFresh = useMemo(() => daysSince(release?.released_at) < 7, [release]);
+
+  // Wave 68 — until INSTALLERS_READY flips to true (signed installers
+  // live + Tauri updater pubkey patched + dl-proxy GitHub PAT set),
+  // every download surface shows "Coming soon · Notify me" instead of
+  // a Download button. Prevents users from hitting 503s on dl-proxy
+  // or downloading unsigned binaries that fail Apple Gatekeeper.
+  if (!INSTALLERS_READY) {
+    return <ComingSoonStrip variant={variant} />;
+  }
 
   if (loading) {
     return (
@@ -365,6 +375,74 @@ function VersionPill({ release, fresh }: { release: ReleaseEntry; fresh: boolean
       <span>v{release.version}</span>
       {beta && <span>· {release.channel}</span>}
       {fresh && !beta && <span className="text-ink-2">· new</span>}
+    </div>
+  );
+}
+
+/* ─── Wave 68 — Coming soon (download surface gated until installers
+   are signed + dl-proxy PAT is set). Two variants matching the live
+   DownloadStrip layout so the page doesn't reflow when the flag
+   flips back. ─────────────────────────────────────────────────── */
+
+function ComingSoonStrip({ variant }: { variant: "hero" | "footer" }) {
+  if (variant === "footer") {
+    return (
+      <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1 font-mono-tech text-[10.5px] uppercase tracking-[1.8px]">
+        <span className="inline-flex items-center gap-1.5 text-ink-2">
+          <Sparkles size={11} strokeWidth={1.7} aria-hidden style={{ color: "var(--brand-violet)" }} />
+          <span>installers · {INSTALLER_ETA}</span>
+        </span>
+        <Link
+          to="/#waitlist"
+          onClick={() => trackClick("notify_me", { surface: "footer", reason: "coming_soon" })}
+          className="text-ink-3 underline-offset-4 transition-colors hover:text-ink hover:underline"
+        >
+          notify me
+        </Link>
+      </span>
+    );
+  }
+
+  // Hero variant — full-width pill row. Mirrors the size/rhythm of
+  // the live PrimaryButton + VersionPill so the layout stays stable
+  // when the flag flips back to INSTALLERS_READY=true.
+  return (
+    <div className="mt-7 flex w-full flex-col items-start gap-4">
+      <div className="flex w-full flex-col items-start gap-3 sm:flex-row sm:items-center sm:flex-wrap">
+        <Link
+          to="/#waitlist"
+          onClick={() => trackClick("notify_me", { surface: "hero_download", reason: "coming_soon" })}
+          className="group inline-flex items-center gap-2.5 rounded-full px-5 py-3 font-mono-tech text-[11px] uppercase tracking-[2.4px] text-white transition-all hover:-translate-y-px"
+          style={{
+            background: "var(--brand-cta-gradient)",
+            boxShadow: "var(--shadow-brand-cta)",
+          }}
+        >
+          <Mail size={13} strokeWidth={1.8} aria-hidden />
+          <span>Notify me when it ships</span>
+          <span aria-hidden className="opacity-70 transition-opacity group-hover:opacity-100">→</span>
+        </Link>
+        <span className="inline-flex items-center gap-2 rounded-full border border-line bg-bg-1/60 px-3 py-1.5 font-mono-tech text-[10px] uppercase tracking-[2px] text-ink-2 backdrop-blur-sm">
+          <Sparkles size={11} strokeWidth={1.7} aria-hidden style={{ color: "var(--brand-violet)" }} />
+          <span>installers — {INSTALLER_ETA}</span>
+        </span>
+        {/* Setup guide stays available for power users / curious
+            visitors. /install page renders the curl one-liner and
+            full instructions; the page itself shows a "Coming soon"
+            banner so nobody runs the script before binaries exist. */}
+        <Link
+          to="/install"
+          onClick={() => trackClick("setup_guide", { surface: "hero_download", reason: "coming_soon_link" })}
+          className="group inline-flex items-center gap-1.5 rounded-full border border-line bg-bg-1/40 px-3.5 py-2 font-mono-tech text-[10.5px] uppercase tracking-[1.8px] text-ink-2 backdrop-blur-sm transition-all hover:border-line-strong hover:bg-bg-2/60 hover:text-ink"
+        >
+          <BookOpen size={11} strokeWidth={1.7} aria-hidden />
+          <span>Setup guide</span>
+          <span aria-hidden className="opacity-50 transition-opacity group-hover:opacity-100">→</span>
+        </Link>
+      </div>
+      <p className="max-w-[44ch] font-mono-tech text-[10.5px] uppercase tracking-[1.8px] text-ink-3">
+        signed `.dmg` / `.msi` / `.AppImage` drop on launch · join the list, get a one-line install when ready
+      </p>
     </div>
   );
 }
