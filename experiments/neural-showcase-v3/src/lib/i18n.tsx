@@ -1614,18 +1614,11 @@ export const SUPPORTED_LOCALES: readonly Locale[] = Object.keys(
 const STORAGE_KEY = "tars.locale";
 
 function detectInitialLocale(): Locale {
-  if (typeof window === "undefined") return "en";
-  try {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
-    if (stored && (SUPPORTED_LOCALES as string[]).includes(stored)) {
-      return stored as Locale;
-    }
-  } catch {
-    // localStorage may throw in private mode / cross-origin
-    // contexts; default to English silently.
-  }
-  const nav = (typeof navigator !== "undefined" ? navigator.language : "") || "";
-  if (nav.toLowerCase().startsWith("ru")) return "ru";
+  // Wave 70 — force EN regardless of navigator.language. Russian (and any
+  // other locale) dictionaries still exist for future re-enable, but the
+  // public surface is EN-only per Wave 36 spec. Auto-detection was leaking
+  // Russian to all macOS-RU users (including the operator), causing a
+  // mixed RU/EN landing that broke trust.
   return "en";
 }
 

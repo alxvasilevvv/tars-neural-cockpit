@@ -158,7 +158,13 @@ function PinnedTrack({ segments }: { segments: Segment[] }) {
     <div
       ref={trackRef}
       className="relative"
-      style={{ height: `${SEG_COUNT * 100}vh` }}
+      // Wave 70 — was SEG_COUNT * 100vh = 400vh, leaving ~80vh of "dead
+      // tail" inside container after scrollYProgress hit 1 (visible as a
+      // black void below the briefing card before next section). Tightened
+      // to SEG_COUNT * 75vh = 300vh: scroll-progress range is 300-100=200vh,
+      // sticky pin range is 300-80-24px ≈ 217vh; near-zero dead tail and
+      // each segment still gets ~50vh of active scroll which feels right.
+      style={{ height: `${SEG_COUNT * 75}vh` }}
     >
       <div className="sticky top-24 z-10 grid grid-cols-[1fr_1.1fr] gap-12 md:top-28 lg:gap-20">
         {/* Left — copy column with progress rail */}
