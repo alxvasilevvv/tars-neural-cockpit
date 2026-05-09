@@ -40,16 +40,29 @@ plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 > - **#158** `cursor/agent-handoff-2026-05-08` (this PR) —
 >   AGENT_HANDOFF pointer for next-chat pickup.
 >
-> **Operator action still owed (single remaining unblock):**
-> Paste `GITHUB_RELEASE_TOKEN` (fine-grained PAT, `Contents:
-> Read-only`) into Cloudflare Pages → `tars-meeet-git` →
-> Settings → Environment variables → Production. Detailed
-> recipe: `docs/TARS_MEEET_OPS_TODO.md` §5. Until that paste
-> happens, `tars.meeet.world/dl/<file>` returns a clean 503 +
-> `operator_action_required` JSON (verify with
-> `curl -sI https://tars.meeet.world/dl/TARS_9.1.0_aarch64.dmg
-> | head -1`). SPA marketing page + `tars.meeet.world/install.sh`
-> still load.
+> **Operator actions still owed (two unblocks, both ~30 sec each):**
+>
+> 1. **B-019 — switch custom-domain binding** (THIS IS THE BIG ONE).
+>    `tars.meeet.world` is currently bound to the legacy
+>    `tars-meeet` Pages project; every deploy lands on
+>    `tars-meeet-git` instead. Result: 7 successful builds on
+>    `tars-meeet-git` since 2026-05-08 (B-018, B-017, playbook
+>    drift, bootstrap, AGENT_HANDOFF, precheck retry, bridge
+>    secret hint) are stuck on `tars-meeet-git.pages.dev` and
+>    invisible to anonymous visitors at `tars.meeet.world`. Fix:
+>    Cloudflare dashboard → Pages → `tars-meeet` → Custom domains
+>    → Remove `tars.meeet.world`; Pages → `tars-meeet-git` →
+>    Custom domains → Set up `tars.meeet.world`. Detailed recipe
+>    + verification curl in `docs/TARS_MEEET_OPS_TODO.md` (search
+>    "B-019").
+>
+> 2. **`GITHUB_RELEASE_TOKEN` paste** (only matters AFTER B-019).
+>    Fine-grained PAT, `Contents: Read-only` → Cloudflare Pages
+>    → `tars-meeet-git` → Settings → Environment variables →
+>    Production. Detailed recipe: `docs/TARS_MEEET_OPS_TODO.md`
+>    §5. Until pasted, `tars.meeet.world/dl/<file>` returns a
+>    clean 503 + `operator_action_required` JSON (the install
+>    funnel is fully implemented, just blocked on the PAT).
 >
 > GitHub Actions billing is still failing on every probe job
 > (see PR #153/#154 comment threads) but no longer blocks deploy
