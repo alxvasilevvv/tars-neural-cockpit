@@ -435,7 +435,10 @@ function BriefingVisual({ accent }: { accent: string }) {
         {items.map((it, i) => (
           <motion.li
             key={i}
-            initial={{ opacity: 0, x: -6 }}
+            // Wave 69 — defensive initial state. Motion only animates a tiny
+            // slide-in; content starts visible so a broken framer-motion init
+            // (CSP block, race with sticky-pin, etc.) still renders the brief.
+            initial={{ opacity: 1, x: 0 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.06 * i, duration: 0.4 }}
             className={`flex items-center gap-3 rounded-md border border-line/60 bg-bg-2/40 px-3 py-2.5 ${it.muted ? "opacity-65" : ""}`}
@@ -501,7 +504,8 @@ function WatchVisual({ accent }: { accent: string }) {
         {lines.map((l, i) => (
           <motion.li
             key={i}
-            initial={{ opacity: 0, y: 4 }}
+            // Wave 69 — defensive initial state (see BriefingVisual note).
+            initial={{ opacity: 1, y: 0 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.08 * i, duration: 0.35 }}
             className="grid grid-cols-[80px_120px_1fr] items-baseline gap-3"
@@ -628,7 +632,8 @@ function VaultVisual({ accent }: { accent: string }) {
         {layers.map((l, i) => (
           <motion.li
             key={l.label}
-            initial={{ opacity: 0, x: -8 }}
+            // Wave 69 — defensive initial state (see BriefingVisual note).
+            initial={{ opacity: 1, x: 0 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ delay: 0.08 * i, duration: 0.4 }}
             className="grid grid-cols-[28px_1fr_auto] items-center gap-3 rounded-md border border-line/60 bg-bg-2/40 px-3 py-2.5"

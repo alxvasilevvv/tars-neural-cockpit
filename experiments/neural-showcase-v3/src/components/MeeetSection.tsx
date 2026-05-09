@@ -62,9 +62,11 @@ export function MeeetSection() {
     >
       {/* Section eyebrow + title */}
       <motion.div
+        // Wave 69 — was whileInView, switched to plain animate. Same root
+        // cause as Steps: IntersectionObserver mis-fires after the 400vh
+        // pinned ScrollStory above, leaving section invisible.
         initial={{ opacity: 0, y: 12 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, margin: "-100px" }}
+        animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.7, ease: [0.22, 1, 0.36, 1] }}
         className="mb-12 flex flex-col items-start gap-3 md:flex-row md:items-end md:justify-between"
       >
@@ -107,9 +109,9 @@ export function MeeetSection() {
           <motion.a
             key={p.tagKey}
             href={p.href}
+            // Wave 69 — same fix as parent eyebrow.
             initial={{ opacity: 0, y: 16 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-60px" }}
+            animate={{ opacity: 1, y: 0 }}
             transition={{
               duration: 0.7,
               delay: 0.1 + i * 0.08,

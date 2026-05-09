@@ -73,9 +73,13 @@ export function Steps() {
           {STEPS.map((s, i) => (
             <motion.li
               key={s.num}
+              // Wave 69 — was whileInView with initial opacity:0. After the
+              // 400vh pinned ScrollStory section IntersectionObserver often
+              // misses the trigger on fast scroll, leaving Steps invisible
+              // ("2 screens of black" bug). Switch to plain animate so it
+              // always renders on mount; entrance still has the slide-in.
               initial={{ opacity: 0, y: 36 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true, margin: "-80px" }}
+              animate={{ opacity: 1, y: 0 }}
               transition={{
                 duration: 0.7,
                 delay: i * 0.12,
@@ -88,13 +92,13 @@ export function Steps() {
               {/* Massive kinetic numeral */}
               <motion.span
                 aria-hidden
+                // Wave 69 — same fix as parent <li>: drop whileInView.
                 initial={{ opacity: 0, y: 24, letterSpacing: "0.2em" }}
-                whileInView={{
+                animate={{
                   opacity: 1,
                   y: 0,
                   letterSpacing: "-0.04em",
                 }}
-                viewport={{ once: true, margin: "-80px" }}
                 transition={{ duration: 0.9, delay: i * 0.12 + 0.18 }}
                 className="block font-display text-[clamp(5rem,12vw,9rem)] font-medium leading-[0.9] text-accent opacity-90"
                 style={{

@@ -136,9 +136,11 @@ export function CouncilDemo() {
       className="relative z-20 mx-auto max-w-[1280px] overflow-hidden px-6 py-24 md:px-12 md:py-32"
     >
       <motion.div
+        // Wave 69 — was whileInView, switched to plain animate (same root
+        // cause as Steps/MeeetSection — IntersectionObserver mis-fires
+        // after long pinned ScrollStory section above).
         initial={{ opacity: 0, y: 16 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true, margin: "-100px" }}
+        animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.9, ease: [0.22, 1, 0.36, 1] }}
         className="mb-12"
       >
