@@ -33,6 +33,15 @@ import {
 } from "lucide-react";
 import { API_BASE } from "@/lib/api";
 import { setAutopilot } from "@/lib/agents";
+// Wave 97 — promote schedule editor from mock to real validate +
+// persist via the scheduler engine. Recent runs swap from MOCK_RUNS
+// to scheduler history when at least one schedule exists.
+import {
+  fetchHistory,
+  listSchedules,
+  schedulePlaybook,
+  validateCron,
+} from "@/lib/scheduler";
 
 interface PhaseDeployProps {
   agentId: string | null;
@@ -113,9 +122,35 @@ export function PhaseDeploy({ agentId, onComplete }: PhaseDeployProps) {
   const [scheduleBusy, setScheduleBusy] = useState(false);
   const [scheduleSavedAt, setScheduleSavedAt] = useState<string | null>(null);
   const [scheduleErr, setScheduleErr] = useState<string | null>(null);
+  // Wave 97 — server-side cron validation + next-5 preview.
+  const [cronValid, setCronValid] = useState<boolean>(true);
+  const [cronError, setCronError] = useState<string | null>(null);
+  const [next5, setNext5] = useState<string[]>([]);
 
   const [runs, setRuns] = useState<RunRow[]>([]);
   const [runsPending, setRunsPending] = useState(false);
+
+  // Debounced cron validation against /api/scheduler/validate-cron.
+  useEffect(() => {
+    let cancelled = false;
+    const handle = setTimeout(async () => {
+      const out = await validateCron(cron);
+      if (cancelled) return;
+      if (out.valid) {
+        setCronValid(true);
+        setCronError(null);
+        setNext5(out.next_5_runs ?? []);
+      } else {
+        setCronValid(false);
+        setCronError(out.error ?? "invalid");
+        setNext5([]);
+      }
+    }, 250);
+    return () => {
+      cancelled = true;
+      clearTimeout(handle);
+    };
+  }, [cron]);
 
   // Pull recent runs once the agent is known. Failures (no agent /
   // 404 / network) drop us into mock-mode.
@@ -208,26 +243,57 @@ export function PhaseDeploy({ agentId, onComplete }: PhaseDeployProps) {
       setScheduleErr("Finish phase 02 (Design) first.");
       return;
     }
+    if (!cronValid) {
+      setScheduleErr(`cron error: ${cronError ?? "invalid"}`);
+      return;
+    }
     setScheduleBusy(true);
     setScheduleErr(null);
     try {
-      const r = await fetch(
-        `${API_BASE}/api/playbooks/${encodeURIComponent(agentId)}/schedule`,
-        {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ cron }),
-        },
-      );
-      if (r.status === 404) {
-        setScheduleSavedAt(new Date().toISOString());
-        setPendingNote("Backend WIP — Cursor shipping schedule route.");
-        return;
-      }
-      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      // Wave 97 — POST /api/playbooks/{id}/schedule via the typed
+      // scheduler client. The backend persists, computes next_run_at,
+      // and the lifespan loop fires it on the cron cadence (opt-in
+      // via TARS_SCHEDULER_ENABLED=1).
+      await schedulePlaybook(agentId, { cron });
       setScheduleSavedAt(new Date().toISOString());
+      // Refresh recent-runs from history so the table reflects the
+      // newly-attached schedule on the next tick.
+      try {
+        const sched = await listSchedules(agentId);
+        if (sched.length > 0) {
+          const hist = await fetchHistory(sched[0].id, 10);
+          if (hist.length > 0) {
+            setRuns(
+              hist.map((r) => ({
+                id: r.id,
+                ts: r.started_at * 1000,
+                status:
+                  r.status === "ok"
+                    ? "ok"
+                    : r.status === "failed"
+                      ? "fail"
+                      : "warn",
+                summary: r.output_summary ?? r.status,
+              })),
+            );
+            setRunsPending(false);
+          }
+        }
+      } catch {
+        // Best-effort — leave existing rows alone.
+      }
     } catch (e) {
-      setScheduleErr((e as Error).message);
+      const msg = (e as Error).message;
+      if (msg.includes("404") || msg.includes("503")) {
+        setScheduleSavedAt(new Date().toISOString());
+        setPendingNote(
+          msg.includes("503")
+            ? "Scheduler disabled — set TARS_SCHEDULER_ENABLED=1."
+            : "Backend WIP — scheduler route unavailable.",
+        );
+      } else {
+        setScheduleErr(msg);
+      }
     } finally {
       setScheduleBusy(false);
     }
@@ -350,7 +416,22 @@ export function PhaseDeploy({ agentId, onComplete }: PhaseDeployProps) {
           <p className="mt-1.5 inline-flex items-center gap-1.5 font-mono-tech text-[10.5px] uppercase tracking-[1.6px] text-ink-3">
             <Clock size={11} strokeWidth={1.7} aria-hidden />
             <span>{cronToHuman(cron)}</span>
+            {!cronValid && (
+              <span className="text-rose-200">· {cronError ?? "invalid"}</span>
+            )}
           </p>
+
+          {/* Wave 97 — server-side next-5 preview. Only renders when
+              the cron parses; degrades silently for invalid input. */}
+          {cronValid && next5.length > 0 && (
+            <ul className="mt-2 space-y-0.5 font-mono-tech text-[10px] text-ink-3">
+              {next5.slice(0, 5).map((iso) => (
+                <li key={iso}>
+                  · {new Date(iso).toLocaleString()}
+                </li>
+              ))}
+            </ul>
+          )}
 
           <div className="mt-3 flex flex-wrap gap-1.5">
             {[

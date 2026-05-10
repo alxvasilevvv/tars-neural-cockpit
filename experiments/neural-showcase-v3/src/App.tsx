@@ -129,6 +129,10 @@ const WorkshopCohort = lazy(() =>
 const Dashboard = lazy(() =>
   import("@/pages/Dashboard").then((m) => ({ default: m.Dashboard })),
 );
+// Wave 97 - Scheduler page. Default variant (table + detail panel).
+const Schedules = lazy(() =>
+  import("@/pages/Schedules").then((m) => ({ default: m.Schedules })),
+);
 
 // Default skeleton for routes that don't pin a specific layout shape.
 const Loading = () => <RouteSkeleton variant="default" />;
@@ -473,6 +477,16 @@ function AppShell() {
               element={
                 <Suspense fallback={<RouteSkeleton variant="wide" />}>
                   <Dashboard />
+                </Suspense>
+              }
+            />
+            {/* Wave 97 - Schedules page. Default variant: table +
+                detail panel + new-schedule dialog. */}
+            <Route
+              path="/schedules"
+              element={
+                <Suspense fallback={<Loading />}>
+                  <Schedules />
                 </Suspense>
               }
             />

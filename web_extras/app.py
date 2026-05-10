@@ -56,6 +56,7 @@ from web_extras.routers import connectors as connectors_router
 from web_extras.routers import clone as clone_router
 from web_extras.routers import cohort as cohort_router
 from web_extras.routers import receipts as receipts_router
+from web_extras.routers import scheduler as scheduler_router
 
 START_TS = time.time()
 log = logging.getLogger("tars.app")
@@ -656,6 +657,17 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     merkle_loop = asyncio.create_task(
         _merkle_root_loop(), name="receipts-merkle-root-loop"
     )
+    # Wave 97 — playbook scheduler engine. Opt-in via
+    # ``TARS_SCHEDULER_ENABLED=1``; the loop self-disables when the
+    # flag is unset, so this create_task is a no-cost no-op for the
+    # default cockpit configuration. On boot the scheduler also runs
+    # ``recover_state`` so post-restart ``next_run_at`` is fresh and
+    # no scheduled fires get dropped.
+    from backend.core.scheduler import scheduler_loop as _scheduler_loop
+
+    scheduler_task = asyncio.create_task(
+        _scheduler_loop(), name="scheduler-tick-loop"
+    )
     tasks = (
         replay,
         autopilot,
@@ -667,6 +679,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         reflection,
         webhooks_loop,
         merkle_loop,
+        scheduler_task,
     )
     try:
         yield
@@ -742,6 +755,7 @@ app.include_router(connectors_router.router)
 app.include_router(clone_router.router)
 app.include_router(cohort_router.router)
 app.include_router(receipts_router.router)
+app.include_router(scheduler_router.router)
 from web_extras.routers import entitlements as entitlements_router  # noqa: E402
 from web_extras.routers import roles as roles_router  # noqa: E402
 

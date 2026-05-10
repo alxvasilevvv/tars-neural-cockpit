@@ -146,3 +146,70 @@ async def run(
     )
     with trace_scope(parent=x_meeet_trace_id):
         return await run_playbook(pb, context=context, mode=mode)
+
+
+# ---------- Wave 97 — scheduler convenience endpoints --------------------
+#
+# These delegate to the scheduler module so the FE doesn't need to
+# hop between two REST namespaces just to wire a cron up to a known
+# playbook id. The scheduler-side endpoints under ``/api/scheduler``
+# remain the source of truth.
+
+
+@router.post("/{playbook_id}/schedule")
+async def schedule_playbook(
+    playbook_id: str,
+    payload: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Create a schedule for ``playbook_id``.
+
+    Body: ``{cron, timezone?, args?, max_concurrent?, enabled?}``.
+    """
+
+    pb = get_playbook(playbook_id)
+    if pb is None:
+        raise HTTPException(status_code=404, detail="playbook_not_found")
+    from backend.core.scheduler import get_store as _get_sched_store
+
+    store = _get_sched_store()
+    if not store.enabled:
+        raise HTTPException(status_code=503, detail="scheduler_store_disabled")
+    cron = str(payload.get("cron") or payload.get("cron_expression") or "").strip()
+    if not cron:
+        raise HTTPException(status_code=400, detail="cron_required")
+    args = payload.get("args") or {}
+    if not isinstance(args, dict):
+        raise HTTPException(status_code=400, detail="args_must_be_object")
+    try:
+        sched = await store.create_schedule(
+            playbook_id=playbook_id,
+            cron_expression=cron,
+            timezone=str(payload.get("timezone") or "UTC"),
+            args=args,
+            max_concurrent=int(payload.get("max_concurrent") or 1),
+            enabled=bool(payload.get("enabled", True)),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {"ok": True, "schedule": sched.to_dict()}
+
+
+@router.get("/{playbook_id}/schedules")
+async def list_schedules_for_playbook(playbook_id: str) -> dict[str, Any]:
+    """List every schedule attached to ``playbook_id``."""
+
+    pb = get_playbook(playbook_id)
+    if pb is None:
+        raise HTTPException(status_code=404, detail="playbook_not_found")
+    from backend.core.scheduler import get_store as _get_sched_store
+
+    store = _get_sched_store()
+    if not store.enabled:
+        return {"ok": True, "playbook_id": playbook_id, "count": 0, "schedules": []}
+    schedules = await store.list_schedules(playbook_id=playbook_id)
+    return {
+        "ok": True,
+        "playbook_id": playbook_id,
+        "count": len(schedules),
+        "schedules": [s.to_dict() for s in schedules],
+    }
