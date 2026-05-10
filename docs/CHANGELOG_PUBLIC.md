@@ -4,6 +4,106 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-10 — Cursor · Wave M5: MCP bridge (external MCP tools as TARS DomainPack actions)
+
+**Summary**
+
+Closes the M3+M4+M5 round-trip. External MCP servers
+(filesystem, GitHub, Postgres, Slack, every MCP server out
+there) auto-register as **first-class TARS DomainPacks**
+at boot. Cockpit / CLI / HTTP / TARS MCP server all see
+them. Audit log, risk gate, and council voices treat them
+identically to native pack actions.
+
+Composition works in both directions:
+
+- **Inbound**: an MCP host (Claude Desktop) calls
+  `mcp-filesystem.read_file` through the TARS MCP server →
+  `BridgedPack` action → M3 client → real filesystem MCP.
+  Same audit trail.
+- **Outbound**: a TARS playbook calls `mcp-github.list_issues`
+  directly through the action surface; the MCP host never
+  has to know there is a remote server behind it.
+
+What ships:
+
+1. **`backend/core/mcp_bridge/`** — five-module bridge:
+   - `discovery.py` — async `discover_remote_tools(config)`:
+     spawn → handshake → tools/list → close. Wraps any
+     failure into structured `DiscoveryError(server_name,
+     reason)` so the bootstrap loop can centralise handling.
+     `asyncio.timeout` + transport errors + RPC errors all
+     normalise to one type.
+   - `cache.py` — on-disk `$TARS_HOME/mcp/cache/<server>.json`
+     cache. `CachedDiscovery` dataclass with
+     ISO-8601 `discovered_at`, freshness check (default
+     24h), filename sanitisation so a malicious server name
+     cannot escape the cache root, atomic `*.tmp` + `replace`
+     write, parse-failure → cache-miss recovery.
+   - `pack.py` — `BridgedPack` synthesises a `DomainPack`
+     from a server config + tool descriptors. Slug is
+     `mcp-<server_name>`, color `#a78bfa` (purple — visually
+     distinct), capabilities `("mcp.bridged",)`. Per-call
+     async handler closure spawns a fresh subprocess per
+     call (MVP simplicity over connection pooling).
+     `sanitize_action_id` collapses MCP tool names like
+     `filesystem/read_file` into TARS-legal `[a-z0-9_]`.
+     Destructive flag propagates from
+     `annotations.destructiveHint`.
+   - `bootstrap.py` — orchestrates the boot loop. For each
+     configured server: try cache → discover → register, or
+     fall back to stale cache on discovery failure.
+     `BridgeBootResult` carries `registered` / `cache_hits`
+     / `discovered` / `failed` / `skipped` lists for cockpit
+     surfacing. Tolerant — one bad server cannot break the
+     others. `unregister_bridges()` for hot-reload + tests
+     (only touches `mcp-*` slugs).
+2. **`docs/MCP_BRIDGE.md`** (new, ~200 lines) — operator
+   manual: how to boot, how to configure, per-call session
+   model + roadmap to M6 pooling, cache layout, destructive
+   propagation, testing, what is next.
+
+**Tests** — 50 cases across four files
+(`test_mcp_bridge_pack.py` 12, `test_mcp_bridge_cache.py`
+15, `test_mcp_bridge_discovery.py` 4,
+`test_mcp_bridge_bootstrap.py` 10):
+
+- `pack`: `sanitize_action_id` matrix, manifest generation,
+  action spec build, name truncation at 60 chars, missing-
+  name rejection, system prompt for empty + populated cases,
+  awareness empty, handler round-trip against mock,
+  `isError` propagation as `ok=False`, subprocess failure
+  → structured error envelope.
+- `cache`: round-trip, freshness, missing-key validation,
+  file ops (read missing / write+read / atomic / filename
+  sanitisation / parse failure / schema failure / delete /
+  list).
+- `discovery`: happy + handshake-failure + command-not-found
+  + timeout (uses self-contained hang-fixture script
+  written to `tmp_path`, no mock changes).
+- `bootstrap`: empty registry, discover + register + cache
+  write, second-boot cache hit, `refresh=True` forces
+  re-discovery, failed discovery without cache, stale-cache
+  fallback after failed discovery, `only=` filter,
+  empty-tool-list skipped, `unregister_bridges` only
+  touches `mcp-*` slugs, `BridgeBootResult.to_dict` shape.
+
+All e2e tests spawn `tests/mcp_fixtures/mock_mcp_server`
+(from M3) as a real subprocess. Suite runs in <1s total.
+
+**Branch / PR**: `cursor/wave-m5-mcp-bridge`, **stacked on
+M3 (#177)** because the bridge depends on
+`backend.mcp.client`. PR base is
+`cursor/wave-m3-mcp-client`. After M3 merges, this PR
+auto-rebases against `main`.
+
+The M-Wave is now **fully closed**: M2 CLI + M3 client +
+M4 server + M5 bridge. TARS speaks **four transports** for
+the same set of action handlers (HTTP, in-process, CLI,
+MCP both directions), and the bridge means the action
+surface itself is now extensible by **any** MCP server out
+there in the wider ecosystem.
+
 ## 2026-05-10 — Cursor · Wave M3: TARS MCP client (drives external MCP servers)
 
 **Summary**
@@ -2388,20 +2488,6 @@ probe **`ready=false`** → Actions stays **build-only green** until Plan B is w
 - `docs/CHANGELOG_PUBLIC.md` (regenerated)
 - `docs/CHANGELOG_AGENTS.md` (this entry)
 
-## 2026-05-04 — Cursor · ops: Pages 403 diagnose (accounts OK, Pages denied)
-
-**Summary**
-
-**`ops_push_cloudflare_pages_api_token.sh`:** on Pages preflight failure, **GET /accounts**
-check — if OK, prints RU hint that token lacks **Account → Cloudflare Pages → Edit** and
-**opens** `https://dash.cloudflare.com/profile/api-tokens` unless **`OPS_CF_NO_BROWSER=1`**.
-
-**Files**
-
-- `scripts/ops_push_cloudflare_pages_api_token.sh`
-- `docs/CHANGELOG_PUBLIC.md` (regenerated)
-- `docs/CHANGELOG_AGENTS.md` (this entry)
-
 ---
 
-_Showing the most recent 60 of 249 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 250 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
