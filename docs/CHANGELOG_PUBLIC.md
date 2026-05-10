@@ -4,6 +4,63 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-10 — Cursor · Wave M5b: `tars mcp` CLI verbs (servers + bridge management)
+
+**Summary**
+
+Operator-facing CLI surface for the M3 client config and
+the M5 bridge. Without it, operators had to hand-edit
+`$TARS_HOME/mcp/servers.json` and call
+`boot_mcp_bridges()` from a Python REPL. Now everything is
+a one-liner.
+
+What ships (extending `backend/mcp/client/__main__.py`):
+
+- `servers-add <name> --command CMD [--arg=A]... [--env K=V]... [--cwd C] [--description D]`
+- `servers-remove <name>`
+- `servers-show <name>`
+- `bridge-bootstrap [--refresh] [--only S]... [--discovery-timeout T]`
+- `bridge-list` — list currently-registered `mcp-<server>` packs.
+- `bridge-unregister` — remove every bridge pack from the registry.
+- `bridge-cache-list [--show-tools]` — inspect on-disk
+  cache freshness and per-server tool counts.
+- `bridge-cache-delete <name>` — drop one server's cache
+  entry, forcing re-discovery on next boot.
+
+`bridge-bootstrap` exits `1` if at least one server failed,
+`0` otherwise. All other verbs follow the same JSON-stdout
++ structured-error-stderr contract the existing M3 verbs use.
+
+`docs/MCP_CLIENT.md` extended with the new verb matrix +
+a tip about argparse `--arg=-x` syntax (since MCP tools
+often need flag-style args).
+
+**Tests** — 13 new cases (23 total in the CLI suite):
+
+- servers-add then servers-show round-trip
+- servers-add invalid env pair → rc=1
+- servers-remove missing → rc=1
+- servers-remove round-trip
+- servers-show unknown → rc=1
+- bridge-bootstrap registers packs (against M3 mock fixture)
+- bridge-list after bootstrap shows packs
+- bridge-unregister clears packs
+- bridge-bootstrap with one bad + one good server → rc=1, good still registers
+- bridge-bootstrap `--only` filter restricts attempts
+- bridge-cache-list after bootstrap
+- bridge-cache-list `--show-tools` includes per-server counts
+- bridge-cache-delete round-trip + missing → rc=1
+
+All e2e tests use the M3 mock fixture as a real subprocess.
+Suite runs in <500ms.
+
+**Branch / PR**: `cursor/wave-m5b-mcp-cli`, **stacked on
+M5 (#178)** which is stacked on M3 (#177). After both
+merge, this PR auto-rebases against `main`.
+
+This finishes the M-Wave operator surface — MCP infra
+(M3+M4+M5) now has a complete CLI for day-to-day ops.
+
 ## 2026-05-10 — Cursor · Wave M5: MCP bridge (external MCP tools as TARS DomainPack actions)
 
 **Summary**
@@ -2465,29 +2522,6 @@ top «token → GitHub» blurb.
 - `docs/CHANGELOG_PUBLIC.md` (regenerated)
 - `docs/CHANGELOG_AGENTS.md` (this entry)
 
-## 2026-05-04 — Cursor · Pages Plan B: Git build (`build:cf`) + drop broken CF API secret
-
-**Summary**
-
-**Problem:** Operator cannot mint **Cloudflare Pages → Edit** API tokens; wrangler
-preflight **403** blocked CI.
-
-**Fix:** **`npm run build:cf`** in **`experiments/neural-showcase-v3/package.json`**
-(`tsc -b && vite build`, no Python — uses committed **`CHANGELOG_PUBLIC.md`**).
-**`docs/TARS_MEEET_OPS_TODO.md` — Step 2bis:** Cloudflare Pages **Connect to Git**,
-build `npm ci && npm run build:cf`, output `dist`, env `NODE_VERSION=20`,
-`VITE_TARS_API`. Removed repo secret **`CLOUDFLARE_API_TOKEN`** on GitHub so
-probe **`ready=false`** → Actions stays **build-only green** until Plan B is wired.
-**Workflow** header documents deploy path **A|B**.
-
-**Files**
-
-- `experiments/neural-showcase-v3/package.json` (`build:cf`, `engines.node`)
-- `.github/workflows/tars-meeet-cloudflare-pages.yml`
-- `docs/TARS_MEEET_OPS_TODO.md` (CURRENT STATE + Step 2bis)
-- `docs/CHANGELOG_PUBLIC.md` (regenerated)
-- `docs/CHANGELOG_AGENTS.md` (this entry)
-
 ---
 
-_Showing the most recent 60 of 250 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 251 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._

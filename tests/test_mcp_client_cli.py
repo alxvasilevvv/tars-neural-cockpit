@@ -157,3 +157,191 @@ def test_ping_against_mock_server(capsys, isolated_registry) -> None:
     assert out["ok"] is True
     assert isinstance(out["ping_ms"], (int, float))
     assert out["server_info"]["name"] == "mock-mcp"
+
+
+# ---------------------------------------------------------------------
+# servers add / remove / show
+# ---------------------------------------------------------------------
+
+
+def test_servers_add_then_show(capsys, isolated_registry) -> None:
+    rc = main([
+        "servers-add", "demo",
+        "--command", "/usr/bin/true",
+        # `--arg=-x` form so argparse does not eat the leading dash
+        # as the next flag. Operators hit the same constraint.
+        "--arg=-x",
+        "--arg", "value",
+        "--env", "API=key",
+        "--description", "demo entry",
+    ])
+    assert rc == 0
+    body = json.loads(capsys.readouterr().out)
+    assert body["added"]["name"] == "demo"
+    assert body["added"]["args"] == ["-x", "value"]
+    assert body["added"]["env"] == {"API": "key"}
+    assert body["added"]["description"] == "demo entry"
+
+    rc = main(["servers-show", "demo"])
+    assert rc == 0
+    body = json.loads(capsys.readouterr().out)
+    assert body["server"]["command"] == "/usr/bin/true"
+
+
+def test_servers_add_rejects_invalid_env_pair(capsys, isolated_registry) -> None:
+    rc = main(["servers-add", "x", "--command", "y", "--env", "no-equals"])
+    err = json.loads(capsys.readouterr().err)
+    assert rc == 1
+    assert err["error"] == "invalid_env_pair"
+
+
+def test_servers_remove_returns_1_when_missing(capsys, isolated_registry) -> None:
+    rc = main(["servers-remove", "ghost"])
+    err = json.loads(capsys.readouterr().err)
+    assert rc == 1
+    assert err["error"] == "server_not_in_registry"
+
+
+def test_servers_remove_round_trip(capsys, isolated_registry) -> None:
+    _seed_mock_server(isolated_registry)
+    rc = main(["servers-remove", "mock"])
+    assert rc == 0
+    out = json.loads(capsys.readouterr().out)
+    assert out["removed"] == "mock"
+    rc = main(["list-servers"])
+    listed = json.loads(capsys.readouterr().out)
+    assert listed["count"] == 0
+
+
+def test_servers_show_unknown_returns_1(capsys, isolated_registry) -> None:
+    rc = main(["servers-show", "ghost"])
+    err = json.loads(capsys.readouterr().err)
+    assert rc == 1
+    assert err["error"] == "server_not_in_registry"
+
+
+# ---------------------------------------------------------------------
+# bridge-bootstrap / bridge-list / bridge-unregister
+# ---------------------------------------------------------------------
+
+
+def test_bridge_bootstrap_registers_packs(capsys, isolated_registry) -> None:
+    _seed_mock_server(isolated_registry)
+    rc = main(["bridge-bootstrap", "--discovery-timeout", "10"])
+    out = json.loads(capsys.readouterr().out)
+    assert rc == 0
+    assert out["result"]["registered"] == ["mcp-mock"]
+    assert out["result"]["discovered"] == ["mock"]
+
+
+def test_bridge_list_after_bootstrap_shows_packs(
+    capsys, isolated_registry
+) -> None:
+    _seed_mock_server(isolated_registry)
+    main(["bridge-bootstrap", "--discovery-timeout", "10"])
+    capsys.readouterr()  # discard bootstrap output
+    rc = main(["bridge-list"])
+    out = json.loads(capsys.readouterr().out)
+    assert rc == 0
+    assert out["count"] == 1
+    assert out["packs"][0]["slug"] == "mcp-mock"
+    assert sorted(out["packs"][0]["actions"]) == ["boom", "echo"]
+
+
+def test_bridge_unregister_clears_packs(capsys, isolated_registry) -> None:
+    _seed_mock_server(isolated_registry)
+    main(["bridge-bootstrap", "--discovery-timeout", "10"])
+    capsys.readouterr()
+    rc = main(["bridge-unregister"])
+    out = json.loads(capsys.readouterr().out)
+    assert rc == 0
+    assert out["removed"] == 1
+    rc = main(["bridge-list"])
+    listing = json.loads(capsys.readouterr().out)
+    assert listing["count"] == 0
+
+
+def test_bridge_bootstrap_with_failed_server_returns_rc1(
+    capsys, isolated_registry
+) -> None:
+    """Configure one good server and one bad — bootstrap returns
+    rc=1 because at least one server failed, but the good one
+    still registers."""
+
+    _seed_mock_server(isolated_registry)
+    main([
+        "servers-add", "ghost",
+        "--command", "/no/such/binary-please",
+    ])
+    capsys.readouterr()
+    rc = main(["bridge-bootstrap", "--discovery-timeout", "2"])
+    out = json.loads(capsys.readouterr().out)
+    assert rc == 1
+    assert out["result"]["registered"] == ["mcp-mock"]
+    failed_names = [f["server"] for f in out["result"]["failed"]]
+    assert failed_names == ["ghost"]
+
+
+def test_bridge_bootstrap_only_filter_restricts(
+    capsys, isolated_registry
+) -> None:
+    main([
+        "servers-add", "alpha",
+        "--command", "/usr/bin/true",
+    ])
+    main([
+        "servers-add", "beta",
+        "--command", "/usr/bin/true",
+    ])
+    capsys.readouterr()
+    rc = main(["bridge-bootstrap", "--only", "alpha", "--discovery-timeout", "2"])
+    out = json.loads(capsys.readouterr().out)
+    # Both will fail (binaries are not MCP servers), but we should
+    # only see attempts for alpha.
+    seen = {f["server"] for f in out["result"]["failed"]}
+    assert seen == {"alpha"}
+
+
+# ---------------------------------------------------------------------
+# bridge-cache list / delete
+# ---------------------------------------------------------------------
+
+
+def test_bridge_cache_list_after_bootstrap(
+    capsys, isolated_registry
+) -> None:
+    _seed_mock_server(isolated_registry)
+    main(["bridge-bootstrap", "--discovery-timeout", "10"])
+    capsys.readouterr()
+    rc = main(["bridge-cache-list"])
+    out = json.loads(capsys.readouterr().out)
+    assert rc == 0
+    assert out["count"] == 1
+    assert out["cache"][0]["server"] == "mock"
+    assert out["cache"][0]["fresh"] is True
+
+
+def test_bridge_cache_list_show_tools(capsys, isolated_registry) -> None:
+    _seed_mock_server(isolated_registry)
+    main(["bridge-bootstrap", "--discovery-timeout", "10"])
+    capsys.readouterr()
+    rc = main(["bridge-cache-list", "--show-tools"])
+    out = json.loads(capsys.readouterr().out)
+    assert rc == 0
+    row = out["cache"][0]
+    assert row["tool_count"] == 2
+    assert sorted(row["tool_names"]) == ["boom", "echo"]
+
+
+def test_bridge_cache_delete_round_trip(capsys, isolated_registry) -> None:
+    _seed_mock_server(isolated_registry)
+    main(["bridge-bootstrap", "--discovery-timeout", "10"])
+    capsys.readouterr()
+    rc = main(["bridge-cache-delete", "mock"])
+    out = json.loads(capsys.readouterr().out)
+    assert rc == 0
+    assert out["deleted"] == "mock"
+    rc = main(["bridge-cache-delete", "mock"])
+    err = json.loads(capsys.readouterr().err)
+    assert rc == 1
+    assert err["error"] == "cache_entry_not_found"

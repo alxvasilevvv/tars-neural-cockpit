@@ -42,8 +42,10 @@ def _build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog="tars-mcp-client",
         description=(
-            "Inspect + call tools on remote MCP servers configured "
-            "in $TARS_HOME/mcp/servers.json."
+            "Inspect + call tools on remote MCP servers configured in "
+            "$TARS_HOME/mcp/servers.json. Also manage server config "
+            "and the M5 bridge that auto-registers remote MCP tools "
+            "as TARS DomainPack actions."
         ),
     )
     sub = p.add_subparsers(dest="command", metavar="<verb>")
@@ -76,6 +78,99 @@ def _build_parser() -> argparse.ArgumentParser:
 
     pn = sub.add_parser("ping", help="Connect, ping, return latency-ish.")
     pn.add_argument("server")
+
+    # ------------------------------------------------------------------
+    # servers add / remove / show — live-edit servers.json
+    # ------------------------------------------------------------------
+
+    sa = sub.add_parser(
+        "servers-add",
+        help="Add or overwrite a remote server entry in servers.json.",
+    )
+    sa.add_argument("name")
+    sa.add_argument("--command", required=True, dest="cmd")
+    sa.add_argument(
+        "--arg",
+        action="append",
+        default=[],
+        help="Append one CLI argument (repeat for each).",
+    )
+    sa.add_argument(
+        "--env",
+        action="append",
+        default=[],
+        metavar="KEY=VALUE",
+        help="Append one env var (repeat for each).",
+    )
+    sa.add_argument("--cwd", default=None)
+    sa.add_argument("--description", default="")
+
+    sr = sub.add_parser(
+        "servers-remove",
+        help="Remove a remote server entry from servers.json.",
+    )
+    sr.add_argument("name")
+
+    ss = sub.add_parser(
+        "servers-show",
+        help="Print the full ServerConfig for one entry.",
+    )
+    ss.add_argument("name")
+
+    # ------------------------------------------------------------------
+    # bridge bootstrap / refresh / list / unregister / cache
+    # ------------------------------------------------------------------
+
+    bb = sub.add_parser(
+        "bridge-bootstrap",
+        help=(
+            "Discover or cache-hit every configured server, register "
+            "each as a `mcp-<server>` DomainPack."
+        ),
+    )
+    bb.add_argument(
+        "--refresh",
+        action="store_true",
+        help="Force re-discovery even when a fresh cache exists.",
+    )
+    bb.add_argument(
+        "--only",
+        action="append",
+        default=None,
+        help="Restrict to a subset of server names (repeat).",
+    )
+    bb.add_argument(
+        "--discovery-timeout",
+        type=float,
+        default=10.0,
+        help="Per-server discovery timeout in seconds (default: 10).",
+    )
+
+    sub.add_parser(
+        "bridge-list",
+        help="List currently registered `mcp-<server>` packs.",
+    )
+
+    sub.add_parser(
+        "bridge-unregister",
+        help="Remove every `mcp-<server>` pack from the registry.",
+    )
+
+    bcl = sub.add_parser(
+        "bridge-cache-list",
+        help="List cached tool descriptors on disk.",
+    )
+    bcl.add_argument(
+        "--show-tools",
+        action="store_true",
+        help="Include the per-server tool count in the output.",
+    )
+
+    bcd = sub.add_parser(
+        "bridge-cache-delete",
+        help="Delete the cached tool descriptors for one server.",
+    )
+    bcd.add_argument("name")
 
     return p
 
@@ -208,9 +303,151 @@ def main(argv: list[str] | None = None) -> int:
             )
         if args.command == "ping":
             return asyncio.run(_ping(args.server))
+        if args.command == "servers-add":
+            return _servers_add(args)
+        if args.command == "servers-remove":
+            return _servers_remove(args.name)
+        if args.command == "servers-show":
+            return _servers_show(args.name)
+        if args.command == "bridge-bootstrap":
+            return _bridge_bootstrap(
+                refresh=args.refresh,
+                only=args.only,
+                discovery_timeout=args.discovery_timeout,
+            )
+        if args.command == "bridge-list":
+            return _bridge_list()
+        if args.command == "bridge-unregister":
+            return _bridge_unregister()
+        if args.command == "bridge-cache-list":
+            return _bridge_cache_list(show_tools=args.show_tools)
+        if args.command == "bridge-cache-delete":
+            return _bridge_cache_delete(args.name)
     except KeyboardInterrupt:
         return 130
     return 2
+
+
+# ---------------------------------------------------------------------
+# servers-add / servers-remove / servers-show
+# ---------------------------------------------------------------------
+
+
+def _servers_add(args) -> int:
+    env: dict[str, str] = {}
+    for raw in args.env:
+        if "=" not in raw:
+            return _err("invalid_env_pair", f"missing '=': {raw!r}")
+        k, _, v = raw.partition("=")
+        if not k:
+            return _err("invalid_env_pair", f"empty key: {raw!r}")
+        env[k] = v
+    cfg = ServerConfig(
+        name=args.name,
+        command=args.cmd,
+        args=tuple(args.arg),
+        env=env,
+        cwd=args.cwd,
+        description=args.description,
+    )
+    get_client_registry().add(cfg)
+    _print({"ok": True, "added": cfg.to_dict()})
+    return 0
+
+
+def _servers_remove(name: str) -> int:
+    removed = get_client_registry().remove(name)
+    if not removed:
+        return _err("server_not_in_registry", name)
+    _print({"ok": True, "removed": name})
+    return 0
+
+
+def _servers_show(name: str) -> int:
+    cfg = get_client_registry().get(name)
+    if cfg is None:
+        return _err("server_not_in_registry", name)
+    _print({"ok": True, "server": cfg.to_dict()})
+    return 0
+
+
+# ---------------------------------------------------------------------
+# bridge-* verbs
+# ---------------------------------------------------------------------
+
+
+def _bridge_bootstrap(
+    *, refresh: bool, only: list[str] | None, discovery_timeout: float
+) -> int:
+    from backend.core.mcp_bridge import boot_mcp_bridges
+
+    result = boot_mcp_bridges(
+        refresh=refresh,
+        only=only,
+        discovery_timeout=discovery_timeout,
+    )
+    _print({"ok": True, "result": result.to_dict()})
+    return 0 if not result.failed else 1
+
+
+def _bridge_list() -> int:
+    from backend.core.domains.registry import all_packs
+
+    packs = [
+        {
+            "slug": p.manifest.slug,
+            "name": p.manifest.name,
+            "actions": [a.id for a in p.actions()],
+        }
+        for p in all_packs()
+        if p.manifest.slug.startswith("mcp-")
+    ]
+    _print({"ok": True, "packs": packs, "count": len(packs)})
+    return 0
+
+
+def _bridge_unregister() -> int:
+    from backend.core.mcp_bridge import unregister_bridges
+
+    removed = unregister_bridges()
+    _print({"ok": True, "removed": removed})
+    return 0
+
+
+def _bridge_cache_list(*, show_tools: bool) -> int:
+    from backend.core.mcp_bridge import ToolCache
+    from backend.core.mcp_bridge.bootstrap import _default_cache_root
+
+    cache = ToolCache(_default_cache_root())
+    rows: list[dict[str, Any]] = []
+    for name in cache.list_servers():
+        entry = cache.read(name)
+        if entry is None:
+            rows.append({"server": name, "status": "unreadable"})
+            continue
+        row: dict[str, Any] = {
+            "server": name,
+            "discovered_at": entry.discovered_at,
+            "age_seconds": round(entry.age_seconds(), 1),
+            "fresh": entry.is_fresh(),
+        }
+        if show_tools:
+            row["tool_count"] = len(entry.tools)
+            row["tool_names"] = [t.get("name") for t in entry.tools]
+        rows.append(row)
+    _print({"ok": True, "cache": rows, "count": len(rows)})
+    return 0
+
+
+def _bridge_cache_delete(name: str) -> int:
+    from backend.core.mcp_bridge import ToolCache
+    from backend.core.mcp_bridge.bootstrap import _default_cache_root
+
+    deleted = ToolCache(_default_cache_root()).delete(name)
+    if not deleted:
+        return _err("cache_entry_not_found", name)
+    _print({"ok": True, "deleted": name})
+    return 0
 
 
 if __name__ == "__main__":

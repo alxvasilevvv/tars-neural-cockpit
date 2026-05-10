@@ -45,6 +45,8 @@ file, save, the next call picks it up. No daemon restart.
 
 ## CLI verbs
 
+### Inspect / call
+
 ```bash
 # List configured remote servers.
 python3 -m backend.mcp.client list-servers
@@ -59,6 +61,58 @@ python3 -m backend.mcp.client call-tool tars-self \
 # Health-check a server.
 python3 -m backend.mcp.client ping tars-self
 ```
+
+### Manage server config (live edits to `servers.json`)
+
+```bash
+# Add or overwrite a server.
+python3 -m backend.mcp.client servers-add filesystem \
+    --command npx \
+    --arg=-y \
+    --arg @modelcontextprotocol/server-filesystem \
+    --arg /Users/me/Documents \
+    --description "Anthropic reference filesystem MCP"
+
+# Show one entry's full config.
+python3 -m backend.mcp.client servers-show filesystem
+
+# Remove an entry.
+python3 -m backend.mcp.client servers-remove filesystem
+```
+
+> Tip: argparse eats values starting with `-` as the next
+> flag unless you use the `--arg=value` form. Use `--arg=-y`
+> rather than `--arg -y`.
+
+### M5 bridge — auto-register remote tools as TARS actions
+
+```bash
+# Boot the bridge — discover or cache-hit each configured
+# server, register each as `mcp-<server>` DomainPack.
+python3 -m backend.mcp.client bridge-bootstrap
+
+# Force re-discovery (ignore fresh cache).
+python3 -m backend.mcp.client bridge-bootstrap --refresh
+
+# Restrict to a subset of servers.
+python3 -m backend.mcp.client bridge-bootstrap --only filesystem
+
+# List what's currently registered.
+python3 -m backend.mcp.client bridge-list
+
+# Unregister all `mcp-*` packs (e.g. before re-bootstrap).
+python3 -m backend.mcp.client bridge-unregister
+
+# Inspect the on-disk tool cache.
+python3 -m backend.mcp.client bridge-cache-list --show-tools
+
+# Drop one server's cache entry (forces re-discovery next boot).
+python3 -m backend.mcp.client bridge-cache-delete filesystem
+```
+
+`bridge-bootstrap` exits `0` when every configured server
+either succeeded or was skipped; `1` when at least one
+server failed.
 
 Output is always JSON on stdout (machine-readable). Errors
 land on stderr with `{"ok": false, "error": "...", "detail": "..."}`
