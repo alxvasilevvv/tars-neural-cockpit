@@ -1,0 +1,67 @@
+{
+  "_meta": {
+    "vertical": "algotrade",
+    "workshop_phase": "design",
+    "teaches": "How to design a momentum trend-follower (MA crossover with trailing stop), backtest it on BTC/USDT 1h candles, and promote to a 7-day paper session under a hardened risk policy.",
+    "estimated_runtime_seconds": 45,
+    "owner": "claude+cursor"
+  },
+  "id": "_workshop.algotrade.momentum_breakout_strategy",
+  "name": "Momentum trend follower (MA cross + trailing)",
+  "description": "Workshop walk-through: register the trailing_runner recipe (MA crossover with a 5% trailing stop), run a Binance BTCUSDT 1h backtest, then start a paper session under the workshop strict policy. Use this as the second design-phase playbook on Day 1.",
+  "tags": ["algotrade", "workshop", "momentum", "trend", "btc", "design"],
+  "pack": "algotrade",
+  "on_block": "stop",
+  "steps": [
+    {
+      "id": "register",
+      "action": "algotrade.register_strategy",
+      "args": {
+        "recipe": "trailing_runner",
+        "author": "${env.USER}",
+        "metadata": {
+          "source": "workshop:momentum_breakout",
+          "vertical": "algotrade"
+        }
+      },
+      "store_as": "strategy"
+    },
+    {
+      "id": "backtest",
+      "action": "algotrade.backtest",
+      "args": {
+        "fingerprint": "${steps.strategy.fingerprint}",
+        "binance": { "symbol": "BTCUSDT", "interval": "1h", "limit": 500 },
+        "equity_down_sample": 200
+      },
+      "store_as": "report",
+      "on_error": "stop"
+    },
+    {
+      "id": "paper",
+      "action": "algotrade.start_paper_session",
+      "args": {
+        "fingerprint": "${steps.strategy.fingerprint}",
+        "instrument": "BINANCE:BTCUSDT",
+        "sandbox_id": "${env.WORKSHOP_SANDBOX_ID}",
+        "notes": "Day 1: momentum trend paper run.",
+        "config": {
+          "commission_bps": 1.0,
+          "slippage_bps": 2.0,
+          "starting_cash": 100000.0
+        },
+        "policy": {
+          "kill_switch": false,
+          "max_order_qty": 0.5,
+          "max_position_notional": 25000.0,
+          "max_open_positions": 1,
+          "allow_short": false,
+          "allowed_instruments": ["BINANCE:BTCUSDT", "BINANCE:ETHUSDT"],
+          "notes": "Workshop strict v1 — Day 1 momentum."
+        }
+      },
+      "store_as": "session",
+      "on_error": "stop"
+    }
+  ]
+}
