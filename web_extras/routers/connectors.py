@@ -1,0 +1,242 @@
+"""Connectors HTTP surface (Wave 91).
+
+Endpoints:
+
+    GET    /api/connectors                                   status of all
+    GET    /api/connectors/{name}/auth-url                   start OAuth
+    POST   /api/connectors/{name}/callback   {code,state}    finish OAuth
+    POST   /api/connectors/{name}/disconnect                 revoke + delete
+    GET    /api/connectors/{name}/health                     ping API
+
+    GET    /api/connectors/slack/channels
+    GET    /api/connectors/slack/channels/{id}/messages
+    GET    /api/connectors/gmail/threads
+    GET    /api/connectors/gmail/threads/{id}
+    GET    /api/connectors/calendar/today
+    GET    /api/connectors/calendar/upcoming?days=7
+
+503 ``connector_not_configured`` when env vars are missing -- with the
+exact env var names in the ``hint`` so the operator can fix it without
+reading docs.
+
+Note: ``/api/connectors/github/*`` is owned by
+``web_extras/routers/github.py`` (Wave 73) -- this router intentionally
+does NOT collide with that prefix.
+"""
+
+from __future__ import annotations
+
+import logging
+from datetime import datetime, timedelta, timezone
+from typing import Any
+
+from fastapi import APIRouter, Body, HTTPException, Query
+
+from backend.core.connectors import (
+    ConnectorAuthError,
+    ConnectorNotConfigured,
+    ConnectorTransportError,
+)
+from backend.core.connectors import calendar as calendar_conn
+from backend.core.connectors import gmail as gmail_conn
+from backend.core.connectors import registry
+from backend.core.connectors import slack as slack_conn
+
+
+log = logging.getLogger("tars.connectors")
+
+router = APIRouter(prefix="/api/connectors", tags=["connectors"])
+
+
+# -- helpers -------------------------------------------------------------
+
+
+def _get_spec(name: str) -> registry.ConnectorSpec:
+    try:
+        return registry.get(name)
+    except KeyError:
+        raise HTTPException(
+            status_code=404,
+            detail={"error": "unknown_connector", "name": name},
+        )
+
+
+def _not_configured(spec: registry.ConnectorSpec) -> HTTPException:
+    return HTTPException(
+        status_code=503,
+        detail={
+            "error": "connector_not_configured",
+            "name": spec.name,
+            "hint": f"set {', '.join(spec.env_vars)}",
+        },
+    )
+
+
+def _wrap(spec: registry.ConnectorSpec, fn, *args, **kwargs):
+    try:
+        return fn(*args, **kwargs)
+    except ConnectorNotConfigured:
+        raise _not_configured(spec)
+    except ConnectorAuthError as exc:
+        raise HTTPException(
+            status_code=401,
+            detail={"error": "connector_auth_error", "message": str(exc)},
+        )
+    except ConnectorTransportError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail={"error": "connector_upstream_error", "message": str(exc)},
+        )
+
+
+# -- generic endpoints ---------------------------------------------------
+
+
+@router.get("")
+async def status_all() -> dict[str, Any]:
+    return registry.get_status()
+
+
+@router.get("/{name}/auth-url")
+async def auth_url(name: str, state: str | None = Query(default=None)) -> dict[str, Any]:
+    spec = _get_spec(name)
+    if not spec.is_configured():
+        raise _not_configured(spec)
+    url = _wrap(spec, spec.get_auth_url, state=state)
+    return {"ok": True, "name": spec.name, "auth_url": url}
+
+
+@router.post("/{name}/callback")
+async def callback(
+    name: str,
+    payload: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    spec = _get_spec(name)
+    if not spec.is_configured():
+        raise _not_configured(spec)
+    code = payload.get("code")
+    if not isinstance(code, str) or not code:
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "missing_code", "hint": "POST {code, state}"},
+        )
+    blob = _wrap(spec, spec.exchange_code, code)
+    # Don't surface raw access_token in the response. Confirm-only.
+    return {
+        "ok": True,
+        "name": spec.name,
+        "connected": True,
+        "scope": blob.get("scope"),
+        "team_id": (blob.get("team") or {}).get("id") if isinstance(blob.get("team"), dict) else None,
+    }
+
+
+@router.post("/{name}/disconnect")
+async def disconnect(name: str) -> dict[str, Any]:
+    spec = _get_spec(name)
+    deleted = _wrap(spec, spec.disconnect)
+    return {"ok": True, "name": spec.name, "deleted": bool(deleted)}
+
+
+@router.get("/{name}/health")
+async def health(name: str) -> dict[str, Any]:
+    spec = _get_spec(name)
+    return {"ok": True, "name": spec.name, "result": spec.health_check()}
+
+
+# -- Slack reads ---------------------------------------------------------
+
+
+@router.get("/slack/channels")
+async def slack_channels(
+    types: str = Query(default="public_channel,private_channel,im"),
+    limit: int = Query(default=200, ge=1, le=1000),
+) -> dict[str, Any]:
+    spec = _get_spec("slack")
+    if not spec.is_configured():
+        raise _not_configured(spec)
+    client = _wrap(spec, slack_conn.SlackClient.from_stored_token)
+    channels = _wrap(spec, client.list_channels, types=types, limit=limit)
+    return {"ok": True, "count": len(channels), "channels": channels}
+
+
+@router.get("/slack/channels/{channel_id}/messages")
+async def slack_messages(
+    channel_id: str,
+    limit: int = Query(default=20, ge=1, le=200),
+) -> dict[str, Any]:
+    spec = _get_spec("slack")
+    if not spec.is_configured():
+        raise _not_configured(spec)
+    client = _wrap(spec, slack_conn.SlackClient.from_stored_token)
+    msgs = _wrap(spec, client.recent_messages, channel_id, limit=limit)
+    return {"ok": True, "channel_id": channel_id, "count": len(msgs), "messages": msgs}
+
+
+# -- Gmail reads ---------------------------------------------------------
+
+
+@router.get("/gmail/threads")
+async def gmail_threads(
+    query: str = Query(default="is:unread"),
+    max: int = Query(default=20, ge=1, le=100),
+) -> dict[str, Any]:
+    spec = _get_spec("gmail")
+    if not spec.is_configured():
+        raise _not_configured(spec)
+    client = _wrap(spec, gmail_conn.GmailClient.from_stored_token)
+    threads = _wrap(spec, client.list_threads, query=query, max_results=max)
+    return {"ok": True, "query": query, "count": len(threads), "threads": threads}
+
+
+@router.get("/gmail/threads/{thread_id}")
+async def gmail_read_thread(thread_id: str) -> dict[str, Any]:
+    spec = _get_spec("gmail")
+    if not spec.is_configured():
+        raise _not_configured(spec)
+    client = _wrap(spec, gmail_conn.GmailClient.from_stored_token)
+    thread = _wrap(spec, client.read_thread, thread_id)
+    return {"ok": True, "thread_id": thread_id, "thread": thread}
+
+
+# -- Calendar reads ------------------------------------------------------
+
+
+@router.get("/calendar/today")
+async def calendar_today(
+    calendar_id: str = Query(default="primary"),
+) -> dict[str, Any]:
+    spec = _get_spec("calendar")
+    if not spec.is_configured():
+        raise _not_configured(spec)
+    client = _wrap(spec, calendar_conn.CalendarClient.from_stored_token)
+    return _wrap(spec, client.today_summary, calendar_id=calendar_id)
+
+
+@router.get("/calendar/upcoming")
+async def calendar_upcoming(
+    days: int = Query(default=7, ge=1, le=60),
+    calendar_id: str = Query(default="primary"),
+) -> dict[str, Any]:
+    spec = _get_spec("calendar")
+    if not spec.is_configured():
+        raise _not_configured(spec)
+    client = _wrap(spec, calendar_conn.CalendarClient.from_stored_token)
+    now = datetime.now(timezone.utc)
+    events = _wrap(
+        spec,
+        client.list_events,
+        now,
+        now + timedelta(days=days),
+        calendar_id=calendar_id,
+    )
+    return {
+        "ok": True,
+        "days": days,
+        "calendar_id": calendar_id,
+        "count": len(events),
+        "events": events,
+    }
+
+
+__all__ = ["router"]

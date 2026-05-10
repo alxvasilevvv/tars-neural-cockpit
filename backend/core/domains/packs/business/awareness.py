@@ -40,16 +40,37 @@ def _read_json_or_none(path: Path) -> Any | None:
 
 
 async def _fetch_gmail(_args: Mapping[str, Any]) -> Mapping[str, Any]:
+    # Wave 91: try the real Gmail connector first, fall back to stub.
+    try:
+        from backend.core.connectors import gmail as _gmail
+
+        if _gmail.is_configured() and _gmail.has_token():
+            client = _gmail.GmailClient.from_stored_token()
+            return client.summarize_unread(max_results=5)
+    except Exception:
+        # Fall through to stub on any error -- dev/local must keep
+        # working without Google OAuth credentials.
+        pass
     return {
         "ok": True,
         "kind": "stub",
         "as_of": datetime.now(timezone.utc).isoformat(),
         "messages": [],
-        "hint": "wire IMAP/JMAP credentials to make this live",
+        "hint": "configure Gmail connector via /api/connectors/gmail/auth-url",
     }
 
 
 async def _fetch_calendar(args: Mapping[str, Any]) -> Mapping[str, Any]:
+    # Wave 91: try the real Google Calendar connector first.
+    try:
+        from backend.core.connectors import calendar as _cal
+
+        if _cal.is_configured() and _cal.has_token():
+            client = _cal.CalendarClient.from_stored_token()
+            cal_id = str(args.get("calendar") or "primary")
+            return client.today_summary(calendar_id=cal_id)
+    except Exception:
+        pass
     path = Path(str(args.get("path") or os.getenv("CALENDAR_PATH") or _CALENDAR_PATH))
     data = _read_json_or_none(path)
     if data is None:
