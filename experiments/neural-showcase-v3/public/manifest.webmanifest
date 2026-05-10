@@ -37,6 +37,12 @@
       "short_name": "Pitch",
       "url": "/pitch",
       "description": "12-slide product overview"
+    },
+    {
+      "name": "Workshop materials",
+      "short_name": "Materials",
+      "url": "/workshop/materials",
+      "description": "Decks, recipes, videos, community for the Algorithmic Edge cohort"
     }
   ]
 }

@@ -22,9 +22,13 @@
  * blobs. Bump on every visual/content change of the precache set.
  */
 
-// Bumped 2026-04-30 (Wave 52) to bust stale precache after Cursor's
-// desktop-mode refactor stranded some users on a void-black hero.
-const VERSION = "tars-v9.0.1";
+// Bumped 2026-05-10 (Wave 85) — workshop materials hub + offline
+// precache for the four /workshop/* routes. Bumping VERSION here
+// busts the previous SW's caches in user browsers so the new
+// precache list (with /workshop, /workshop/cresco, /workshop/roi,
+// /workshop/materials) is what they end up with after the next
+// activate cycle.
+const VERSION = "tars-v9.0.2";
 const PRECACHE = `${VERSION}-precache`;
 const RUNTIME = `${VERSION}-runtime`;
 
@@ -38,13 +42,42 @@ const PRECACHE_URLS = [
   "/og-pitch.svg",
   "/og-install.svg",
   "/og-cockpit.svg",
+  "/og-workshop.svg",
+  "/og-cresco.svg",
   "/badge/built-with-tars.svg",
   "/badge/built-with-tars-light.svg",
   "/badge/built-with-tars-compact.svg",
   "/badge/built-with-tars-compact-light.svg",
   "/robots.txt",
   "/sitemap.xml",
+  // Wave 85 — workshop surface offline-first. These four routes are
+  // the top of every cohort's bookmark bar; we precache the document
+  // shell so attendees can read decks/recipes/handouts on a flaky
+  // conference-WiFi connection.
+  "/workshop",
+  "/workshop/cresco",
+  "/workshop/roi",
+  "/workshop/materials",
 ];
+
+// Wave 85 — runtime caching escape hatches.
+//
+// Embedded video iframes (Loom + YouTube) and the Cal.com office-hours
+// widget MUST NOT be cached:
+//   - The video bytes themselves are huge.
+//   - The hosts already CDN-edge globally.
+//   - Caching their HTML breaks Loom's cookie-bound auth check and
+//     the Cal.com slot-availability roundtrip.
+const VIDEO_HOST_PATTERNS = [
+  /(^|\.)loom\.com$/i,
+  /(^|\.)youtube\.com$/i,
+  /(^|\.)youtu\.be$/i,
+  /(^|\.)cal\.com$/i,
+];
+
+function isSkippedHost(url) {
+  return VIDEO_HOST_PATTERNS.some((re) => re.test(url.hostname));
+}
 
 // On install — open the precache and pull every static URL. We use
 // `addAll` with `cache: "reload"` so dev iteration doesn't serve a
@@ -87,6 +120,13 @@ self.addEventListener("fetch", event => {
 
   const url = new URL(req.url);
 
+  // Wave 85 — explicit skip for video / calendar embed origins. Their
+  // requests are cross-origin so the next check would already pass
+  // through, but we keep this short-circuit at the top so future
+  // refactors that flip the cross-origin gate don't accidentally
+  // start caching Loom bytes.
+  if (isSkippedHost(url)) return;
+
   // Don't touch cross-origin requests (fonts.googleapis.com etc.)
   if (url.origin !== self.location.origin) return;
 
@@ -103,6 +143,18 @@ self.addEventListener("fetch", event => {
   // Live download manifest — network-first with 2.5s timeout fallback.
   if (url.pathname === "/api/product/downloads") {
     event.respondWith(networkFirstWithTimeout(req, 2500));
+    return;
+  }
+
+  // Wave 85 — workshop materials assets (PDFs + SVGs under /assets/).
+  // Pure stale-while-revalidate: large, immutable-ish files (decks,
+  // handouts, diagrams) where the brand reads instantly from cache
+  // and the SW silently picks up new versions in the background.
+  if (
+    url.pathname.startsWith("/assets/") &&
+    /\.(?:pdf|svg)$/i.test(url.pathname)
+  ) {
+    event.respondWith(staleWhileRevalidate(req));
     return;
   }
 
@@ -130,8 +182,17 @@ async function navigationStrategy(req) {
     cache.put(req, fresh.clone()).catch(() => undefined);
     return fresh;
   } catch {
-    const cache = await caches.open(PRECACHE);
-    const cached = await cache.match("/");
+    // Wave 85 — if the failed navigation was a precached workshop
+    // route, serve the cached document directly (don't fall through
+    // to the generic root). This means /workshop/materials still
+    // shows the materials hub when offline, not the landing page.
+    const url = new URL(req.url);
+    const precache = await caches.open(PRECACHE);
+    if (PRECACHE_URLS.includes(url.pathname)) {
+      const exact = await precache.match(url.pathname);
+      if (exact) return exact;
+    }
+    const cached = await precache.match("/");
     if (cached) return cached;
     return new Response(
       "<!doctype html><meta charset=utf-8><title>TARS · offline</title>" +
