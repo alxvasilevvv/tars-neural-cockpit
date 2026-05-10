@@ -106,6 +106,33 @@ export function Settings() {
       {/* ─── HIL approval policy (Wave 101) ────────────────────────── */}
       <HilPolicyCard />
 
+      {/* ─── Workspaces (Wave 110) ─────────────────────────────────── */}
+      <SettingsCard eyebrow="05 · workspaces" title="Multi-tenant workspaces">
+        <BrandHairline />
+        <p className="mt-4 text-[12.5px] leading-[1.65] text-ink-2">
+          v9.1.0 ships single-tenant: workspaces register but the backend
+          stores stay per-deployment. The schema, RBAC matrix, and invite
+          flow are wired today; data fencing across every TARS store
+          arrives in v9.3 once the JWT integration with meeet.world lands.
+        </p>
+        <div className="mt-4 flex items-center gap-3">
+          <Link
+            to="/workspaces"
+            className="inline-flex items-center gap-1.5 rounded-md border border-line/60 px-3 py-1.5 font-mono-tech text-[10.5px] uppercase tracking-[1.5px] text-ink-2 hover:border-[color:var(--brand-indigo)]/60"
+          >
+            Open /workspaces
+          </Link>
+          <a
+            href="https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/contracts/WORKSPACES.md"
+            target="_blank"
+            rel="noreferrer noopener"
+            className="inline-flex items-center gap-1.5 font-mono-tech text-[10.5px] uppercase tracking-[1.5px] text-ink-3 hover:text-ink"
+          >
+            v9.3 migration plan <ExternalLink size={10} />
+          </a>
+        </div>
+      </SettingsCard>
+
       {/* ─── Keyboard Shortcuts ────────────────────────────────────── */}
       <SettingsCard eyebrow="04 · keyboard" title="Shortcuts">
         <BrandHairline />

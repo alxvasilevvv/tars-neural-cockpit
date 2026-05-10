@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { SoundToggle } from "@/components/SoundToggle";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { LocaleSwitcher } from "@/components/LocaleSwitcher";
+import { WorkspaceSwitcher } from "@/components/workspaces/WorkspaceSwitcher";
 
 const links = [
   { label: "Domains", href: "/#domains" },
@@ -58,6 +59,27 @@ export function Nav() {
       setOrgSetupNeeded(false);
     }
   }, [loc.pathname]);
+
+  // Wave 110 — workspaces fetched once for the WorkspaceSwitcher.
+  // Hidden when only the default "personal" row exists, so no extra
+  // visual noise in single-tenant deployments.
+  const [workspaces, setWorkspaces] = useState<{ id: string; slug: string; name: string }[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    async function load() {
+      try {
+        const r = await fetch("/api/workspaces");
+        if (!r.ok) return;
+        const data = await r.json() as { workspaces?: { id: string; slug: string; name: string }[] };
+        if (!cancelled && Array.isArray(data.workspaces)) {
+          setWorkspaces(data.workspaces.map((w) => ({ id: w.id, slug: w.slug, name: w.name })));
+        }
+      } catch {
+        /* offline / endpoint missing → switcher stays hidden */
+      }
+    }
+    void load();
+  }, []);
 
   // Wave 101 — pending-count badge for the Inbox link. Polls
   // /api/policy/queue?count_only=true every 30s; never throws (404 →
@@ -207,6 +229,12 @@ export function Nav() {
           </li>
           <li className="hidden lg:inline-flex">
             <LocaleSwitcher />
+          </li>
+          {/* Wave 110 — workspace switcher. Hidden when only the
+              default "personal" workspace exists; appears once
+              another workspace has been created via /workspaces. */}
+          <li className="hidden md:inline-flex">
+            <WorkspaceSwitcher workspaces={workspaces} />
           </li>
           <li>
             <ThemeToggle />

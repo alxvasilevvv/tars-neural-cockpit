@@ -144,6 +144,10 @@ const ITEMS: CmdItem[] = [
   // Wave 108 — Performance / admin dashboard.
   { id: "perf",         kind: "route", title: "Performance dashboard", hint: "Latency, connector health, webhook deliveries, receipts, jobs", Icon: Activity, href: "/admin/perf", group: "Pages", keywords: "perf performance admin dashboard latency p50 p95 p99 connector health webhook receipt jobs scheduler reflection autopilot psutil cpu memory disk" },
   { id: "perf-test-all", kind: "action", title: "Test all connectors",   hint: "Fire health_check on every registered connector", Icon: Activity, group: "Actions", keywords: "perf admin connector test all health check ping refresh", run: () => { try { window.location.assign("/admin/perf"); } catch { /* noop */ } } },
+  // Wave 110 — Workspaces multi-tenant management. Single-tenant in
+  // v9.1.0; data fencing wires in v9.3.
+  { id: "workspaces", kind: "route", title: "Workspaces", hint: "Multi-tenant teams, members, invites, roles", Icon: Compass, href: "/workspaces", group: "Pages", keywords: "workspaces tenant team members invite role rbac owner admin designer analyst viewer multi tenant personal switcher organization" },
+  { id: "workspaces-invite", kind: "action", title: "Invite to workspace", hint: "Open /workspaces ready to invite a member", Icon: Sparkles, group: "Actions", keywords: "invite workspace member email role designer admin analyst viewer", run: () => { try { window.location.assign("/workspaces?invite=1"); } catch { /* noop */ } } },
 
   // Sections (anchor on /)
   { id: "domains",   kind: "anchor", title: "Domain packs",    hint: "Traders / Entrepreneur / Researcher / Science", Icon: Hash, href: "/#domains", group: "Sections" },

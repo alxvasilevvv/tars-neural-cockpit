@@ -221,4 +221,16 @@
     <changefreq>weekly</changefreq>
     <priority>0.4</priority>
   </url>
+
+  <!--
+    Wave 110 - Workspaces multi-tenant management. Schema-only foundation
+    in v9.1.0; data fencing across stores wires in v9.3. Internal
+    surface, low priority.
+  -->
+  <url>
+    <loc>https://tars.meeet.world/workspaces</loc>
+    <lastmod>2026-05-10</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.4</priority>
+  </url>
 </urlset>

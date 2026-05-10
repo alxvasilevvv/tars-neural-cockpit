@@ -149,3 +149,92 @@ tenant-scoped route. Its responsibilities:
   per-seat split.
 - Cross-workspace skill installs: ship workspace-scoped only;
   marketplace SDK already supports this.
+
+
+---
+
+## Wave 110 — what shipped (v9.1.0) vs what's deferred (v9.3)
+
+The Wave 110 implementation is intentionally **additive only**. The
+existing per-store SQLite databases (chat / agents / memory / planner
+/ attachments / wallet / receipts / etc.) stay single-tenant; nothing
+in those stores changes. The Workspaces module ships as a new module
+that registers tenants and members but does not yet fence reads or
+writes anywhere else in the codebase.
+
+### Shipped in Wave 110 (v9.1.0)
+
+- **Module**: `backend/core/workspaces/` (`models.py`, `store.py`,
+  `roles.py`, `middleware.py`, `__init__.py`).
+- **Schema**: SQLite at `~/.tars/workspaces.sqlite` with three tables
+  (`workspaces`, `memberships`, `invites`). Auto-creates a "personal"
+  workspace on first call so existing single-tenant code implicitly
+  lives in one row without any migration.
+- **RBAC**: 5 roles (`owner`, `admin`, `designer`, `analyst`,
+  `viewer`) and 13 permissions. `can()` and `roles_with()` helpers
+  are pure / sync / no I/O.
+- **Invite flow**: `secrets.token_urlsafe(32)` tokens, 7-day default
+  expiry, lazy expiry on read, accept-via-token endpoint.
+- **HTTP**: `web_extras/routers/workspaces.py` with the full CRUD +
+  invite surface listed in the *Endpoints* section above. `POST` on
+  `/api/workspaces` and `/api/workspaces/{id}/archive` are HIL-gated
+  via `policy_gate.require_confirm`.
+- **Middleware**: `extract_workspace_id(request)` reads the
+  `X-Workspace-Id` header (or `?workspace=` query param) and falls
+  back to the `"personal"` id. `record_requested_workspace` mutates
+  request state for downstream code that wants to opt in. **No
+  existing endpoint is changed.**
+- **FE**: `/workspaces` page (list + detail panel + invite modal +
+  archive HIL confirm), `/workspaces/invite/:token` accept route,
+  `<WorkspaceSwitcher />` in the nav (hidden when only the personal
+  workspace exists), Cmd+K entries, Settings card pointing here.
+- **Tests**: `tests/test_workspaces_store.py` and
+  `tests/test_workspaces_roles.py` — 42 cases covering CRUD,
+  membership, invites, RBAC matrix correctness.
+
+### NOT yet wired (deferred to v9.3)
+
+- **Data fencing**: existing stores keep their current per-deployment
+  layout. No `workspace_id` column has been added to any other table.
+- **Middleware enforcement**: `workspace_context_middleware` records
+  the requested workspace but does not 403 missing / unauthorised
+  values. The middleware is not yet mounted in `app.py`.
+- **JWT integration**: claims (`workspace_id`, `role`, `tier`) are
+  still designed-only. The brother backend (meeet.world) needs to
+  mint scoped tokens before TARS can switch from `record_*` to
+  `enforce_*`.
+- **Multiple owners + ownership transfer**: today every workspace
+  has exactly one owner and the store refuses to revoke them.
+  Ownership transfer is a v9.3 deliverable.
+- **Per-workspace billing**: plan column is informational only; the
+  meeet.world billing surface still bills per-user. Wave 9.3 wires
+  per-workspace invoicing.
+
+### Migration plan for v9.3
+
+The v9.3 cutover will be a one-shot, reversible migration. The shape
+is intentionally identical to the design in this doc — Wave 110 is
+the schema-only foundation; v9.3 just turns on the gates one store
+at a time.
+
+1. Add nullable `workspace_id` to every tenant-scoped table
+   (playbooks, playbook_runs, receipts, memory_*, connector_creds,
+   agent_sessions, skill_installs, files, outreach_*).
+2. Backfill: every existing row gets
+   `workspace_id = personal_workspace_for(user_id)`. For local
+   single-tenant deployments that's just the `"personal"` row seeded
+   by Wave 110 — no operator action required.
+3. Make `workspace_id` NOT NULL.
+4. Promote `workspace_context_middleware` to enforce mode: 403 on
+   missing `workspace_id` for tenant-scoped routes.
+5. Wire JWT claims (brother backend ships the new token format
+   alongside).
+6. Six-week compatibility shim: missing claims resolve to
+   `workspace_id = "personal"` + `role = "owner"` so the existing
+   single-tenant install keeps working through the migration window.
+7. Delete the shim once telemetry shows zero requests without
+   workspace claims.
+
+Each step is independently reversible: a TARS_FENCE_WORKSPACE=0 env
+flag at the middleware layer keeps the gate dormant if v9.3 ships
+with bugs.

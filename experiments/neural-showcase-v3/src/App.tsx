@@ -168,6 +168,17 @@ const Bundles = lazy(() =>
 const PerfDashboard = lazy(() =>
   import("@/pages/PerfDashboard").then((m) => ({ default: m.PerfDashboard })),
 );
+// Wave 110 — /workspaces multi-tenant Workspaces management surface.
+// Wide variant: list + detail panel. Schema-only foundation; fencing
+// arrives in v9.3.
+const Workspaces = lazy(() =>
+  import("@/pages/Workspaces").then((m) => ({ default: m.Workspaces })),
+);
+const WorkspaceInviteAccept = lazy(() =>
+  import("@/pages/Workspaces").then((m) => ({
+    default: m.WorkspaceInviteAccept,
+  })),
+);
 
 // Default skeleton for routes that don't pin a specific layout shape.
 const Loading = () => <RouteSkeleton variant="default" />;
@@ -605,6 +616,25 @@ function AppShell() {
               element={
                 <Suspense fallback={<RouteSkeleton variant="wide" />}>
                   <PerfDashboard />
+                </Suspense>
+              }
+            />
+            {/* Wave 110 — Workspaces multi-tenant management. Wide
+                variant for the 320 / fluid two-column list + detail
+                layout. Plus a public token-auth invite-accept route. */}
+            <Route
+              path="/workspaces"
+              element={
+                <Suspense fallback={<RouteSkeleton variant="wide" />}>
+                  <Workspaces />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/workspaces/invite/:token"
+              element={
+                <Suspense fallback={<RouteSkeleton variant="narrow" />}>
+                  <WorkspaceInviteAccept />
                 </Suspense>
               }
             />
