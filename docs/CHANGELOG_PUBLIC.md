@@ -4,6 +4,98 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-11 — Cursor · Wave M6 (E2E): full-cycle algotrade demo playbook + deterministic OHLCV generator
+
+**Summary**
+
+The W1 algotrade pack on `main` ships eight verbs
+(`list_recipes`, `load_recipe`, `parse_strategy`,
+`list_strategies`, `get_strategy`, `register_strategy`,
+`fork_strategy`, `backtest`) but no canonical end-to-end
+demo that exercises every one of them in sequence.
+Workshop facilitators were copy-pasting Python REPL snippets
+to show the loop; that's slow, fragile, and gives the
+audience a "here be dragons" feel.
+
+This wave adds a **deterministic offline demo playbook**
+that runs the full cycle in 3-5ms and reproduces the same
+fingerprint every time — the opening exercise for workshop
+attendees + the smoke test for the algotrade pack.
+
+What ships:
+
+1. **`backend/core/algotrade/backtest/synthetic.py`** — new
+   stdlib-only OHLCV generator with three regimes
+   (`trending`, `mean_reverting`, `choppy`). Pure `math`,
+   no `random` — same args produce byte-identical output
+   every time. Each regime maps to a recognisable price
+   pattern so the facilitator can tell at a glance which
+   regime is which. Output shape matches what `run_backtest`
+   accepts directly — chains zero-cost.
+2. **`backend/core/domains/packs/algotrade/actions.py`** —
+   new `algotrade.synthetic_bars` action wrapping the
+   generator. Schema with `regime` enum, count bounds
+   `[1, 5000]`, `start_price > 0`. Non-destructive,
+   bypasses the policy gate. Operators see it next to
+   `list_recipes` in the action surface.
+3. **`playbooks/_workshop/quant/full_cycle_demo.json`** —
+   the canonical demo: `list_recipes` → `load_recipe` →
+   `synthetic_bars` → `backtest` → `register_strategy` →
+   `backtest` (by fingerprint, prove round-trip) →
+   `list_strategies`. Seven steps, runs offline, completes
+   in ~3ms on a laptop. Validator-clean (zero errors, only
+   the standard `_meta` warning every workshop playbook
+   has).
+4. **`tests/test_algotrade_synthetic_bars.py`** — 17 cases
+   covering generator basics (count zero, default 200,
+   field shape, monotone hourly timestamps), determinism
+   (same args → same bytes; different regimes → different
+   output), regime semantics (trending drifts up,
+   mean_reverting averages near baseline), validation,
+   action wrapper (defaults, custom args, count rejects,
+   regime rejects, registration), and the chaining smoke
+   that proves `synthetic_bars` output feeds `backtest`
+   directly with stable fingerprints across runs.
+5. **`tests/test_workshop_full_cycle_demo_playbook.py`** —
+   8 cases covering discoverability, expected step IDs,
+   the main-only allowlist guard (so we never accidentally
+   reintroduce a Wave-W2+ action like
+   `algotrade.session.start` that doesn't exist on `main`),
+   end-to-end execution under autopilot mode, fingerprint
+   stability across all four touchpoints (recipe, register,
+   1st backtest, 2nd backtest), byte-for-byte metrics
+   match between the two backtests, registry isolation
+   per test home, and the <1s runtime budget.
+6. **`docs/ALGOTRADE.md`** — new "Synthetic generator"
+   section under "4. Data loaders" with usage examples
+   and a pointer to the demo playbook.
+
+End-to-end smoke against the playbook on a clean
+`$TARS_HOME`:
+
+- 7 steps, 3.1ms total wall time
+- recipe fingerprint == register fingerprint == bt1
+  fingerprint == bt2 fingerprint
+- 1st backtest sharpe = 2.003, final equity 10442.32
+- 2nd backtest sharpe = 2.003, final equity 10442.32
+  (byte-identical → round-trip proven)
+- registry contains 1 strategy authored by
+  `workshop_full_cycle_demo`
+
+Independent of the M-Wave stack — branched off `main`,
+no dependencies on M3/M4/M5/M5b/M6 PRs.
+
+**Files**
+
+- `backend/core/algotrade/backtest/synthetic.py` — new (115 LOC)
+- `backend/core/domains/packs/algotrade/actions.py` — new
+  `synthetic_bars_action` + `ActionSpec` registration, three
+  imports added.
+- `playbooks/_workshop/quant/full_cycle_demo.json` — new (7 steps)
+- `tests/test_algotrade_synthetic_bars.py` — new (17 tests)
+- `tests/test_workshop_full_cycle_demo_playbook.py` — new (8 tests)
+- `docs/ALGOTRADE.md` — synthetic generator section.
+
 ## 2026-05-10 — Cursor · Phase W4-PR1: workshop quant playbooks + recursive playbook loader
 
 **Summary**
@@ -2332,26 +2424,6 @@ check — if OK, prints RU hint that token lacks **Account → Cloudflare Pages 
 - `docs/CHANGELOG_PUBLIC.md` (regenerated)
 - `docs/CHANGELOG_AGENTS.md` (this entry)
 
-## 2026-05-04 — Cursor · ops: cf-operator.env paste + Cloudflare → GitHub Pages deploy
-
-**Summary**
-
-**Operator flow:** copy **`cf-operator.env.example`** → **`cf-operator.env`** (gitignored),
-paste **`CLOUDFLARE_ACCOUNT_ID`** + **`CLOUDFLARE_API_TOKEN`**, run **`make ops-cf-pages-token`**.
-**`scripts/ops_push_cloudflare_pages_api_token.sh`** preflights **GET …/pages/projects/tars-meeet**,
-then **`gh secret set CLOUDFLARE_API_TOKEN`** + **`gh workflow run`** (dashboard token must have
-**Account → Cloudflare Pages → Edit**). **`cf-operator.env.example`** / локальный **`cf-operator.env`**
-— пошаговые подсказки где взять ID и token.
-
-**Files**
-
-- `cf-operator.env.example` (paste template + hints)
-- `.gitignore` (`cf-operator.env`)
-- `scripts/ops_push_cloudflare_pages_api_token.sh`
-- `Makefile` (`ops-cf-pages-token`)
-- `docs/CHANGELOG_PUBLIC.md` (regenerated)
-- `docs/CHANGELOG_AGENTS.md` (this entry)
-
 ---
 
-_Showing the most recent 60 of 248 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 249 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._

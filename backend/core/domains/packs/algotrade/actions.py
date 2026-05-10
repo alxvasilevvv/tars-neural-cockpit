@@ -36,6 +36,10 @@ from backend.core.algotrade.backtest.harness import (
     BacktestError,
     run_backtest,
 )
+from backend.core.algotrade.backtest.synthetic import (
+    Regime,
+    generate_bars,
+)
 from backend.core.algotrade.recipes import list_recipes, load_recipe
 
 
@@ -89,6 +93,45 @@ def _strategy_from_args(args: Mapping[str, Any]) -> tuple[Strategy | None, dict[
 
 async def list_recipes_action(_args: Mapping[str, Any]) -> dict[str, Any]:
     return _ok(recipes=list_recipes())
+
+
+async def synthetic_bars_action(args: Mapping[str, Any]) -> dict[str, Any]:
+    """Return deterministic OHLCV bars for a teaching regime.
+
+    Workshop attendees can chain this into ``backtest`` without
+    needing a CSV file or a network connection to Binance.
+    The output is byte-identical for the same arguments — safe
+    to cache, hash, replay.
+
+    ``regime`` ∈ {"trending", "mean_reverting", "choppy"} —
+    each preset reproduces a recognisable price pattern so the
+    facilitator can tell at a glance which regime is which.
+    """
+
+    regime = str(args.get("regime") or "trending")
+    raw_count = args.get("count")
+    count = 200 if raw_count is None else int(raw_count)
+    raw_price = args.get("start_price")
+    start_price = 100.0 if raw_price is None else float(raw_price)
+    if count <= 0 or count > 5000:
+        return _err(
+            "invalid_count",
+            detail="count must be in [1, 5000]",
+            count=count,
+        )
+    try:
+        bars = generate_bars(
+            regime=regime,  # type: ignore[arg-type]
+            count=count,
+            start_price=start_price,
+        )
+    except ValueError as exc:
+        return _err("invalid_args", detail=str(exc))
+    return _ok(
+        regime=regime,
+        count=len(bars),
+        bars=bars,
+    )
 
 
 async def load_recipe_action(args: Mapping[str, Any]) -> dict[str, Any]:
@@ -407,6 +450,33 @@ ACTIONS: tuple[ActionSpec, ...] = (
         ),
         handler=list_recipes_action,
         schema={"type": "object", "properties": {}},
+    ),
+    ActionSpec(
+        id="synthetic_bars",
+        name="Synthesise OHLCV bars",
+        description=(
+            "Deterministic OHLCV generator for workshop / demo "
+            "use. Pick a regime ('trending', 'mean_reverting', "
+            "'choppy'), get back N bars in the same shape "
+            "backtest accepts. No network, byte-identical output "
+            "for the same args."
+        ),
+        handler=synthetic_bars_action,
+        schema={
+            "type": "object",
+            "properties": {
+                "regime": {
+                    "type": "string",
+                    "enum": [
+                        "trending",
+                        "mean_reverting",
+                        "choppy",
+                    ],
+                },
+                "count": {"type": "integer", "minimum": 1, "maximum": 5000},
+                "start_price": {"type": "number", "exclusiveMinimum": 0},
+            },
+        },
     ),
     ActionSpec(
         id="load_recipe",

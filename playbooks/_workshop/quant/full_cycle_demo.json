@@ -1,0 +1,93 @@
+{
+  "_meta": {
+    "vertical": "quant",
+    "workshop_phase": "demo",
+    "teaches": "The full W1 algotrade story in one playbook: list recipes, load one, generate a deterministic price tape, backtest it, register the strategy in the local registry, re-backtest by fingerprint to prove the round-trip, then list the registry to confirm the new entry. Runs offline (no Binance, no CSV file). Designed for the first 60 seconds of a workshop session — facilitator can hit run and the attendee sees the full cycle work end-to-end.",
+    "estimated_runtime_seconds": 5
+  },
+  "id": "_workshop.quant.full_cycle_demo",
+  "name": "Algotrade full cycle (offline demo)",
+  "description": "End-to-end demo of every W1 algotrade verb — list_recipes → load_recipe → synthetic_bars → backtest → register_strategy → re-backtest by fingerprint → list_strategies. Runs against in-memory deterministic data so it works offline and the same run produces the same fingerprint every time. Used as the opening exercise for workshop attendees + the smoke test for the algotrade pack.",
+  "tags": ["algotrade", "workshop", "demo", "smoke", "offline"],
+  "pack": "workshop",
+  "on_block": "stop",
+  "steps": [
+    {
+      "id": "recipes",
+      "action": "algotrade.list_recipes",
+      "args": {},
+      "store_as": "recipes"
+    },
+    {
+      "id": "recipe",
+      "action": "algotrade.load_recipe",
+      "args": { "name": "ma_cross" },
+      "store_as": "recipe",
+      "on_error": "stop"
+    },
+    {
+      "id": "tape",
+      "action": "algotrade.synthetic_bars",
+      "args": {
+        "regime": "trending",
+        "count": 200,
+        "start_price": 100
+      },
+      "store_as": "tape",
+      "on_error": "stop"
+    },
+    {
+      "id": "first_backtest",
+      "action": "algotrade.backtest",
+      "args": {
+        "recipe": "ma_cross",
+        "bars": "${steps.tape.bars}",
+        "config": {
+          "initial_equity": 10000,
+          "commission_bp": 5,
+          "slippage_bp": 2,
+          "seed": 42
+        }
+      },
+      "store_as": "report_initial",
+      "on_error": "stop"
+    },
+    {
+      "id": "registered",
+      "action": "algotrade.register_strategy",
+      "args": {
+        "recipe": "ma_cross",
+        "author": "workshop_full_cycle_demo",
+        "metadata": {
+          "source": "_workshop.quant.full_cycle_demo",
+          "regime": "${steps.tape.regime}",
+          "bars": "${steps.tape.count}"
+        }
+      },
+      "store_as": "registered",
+      "on_error": "stop"
+    },
+    {
+      "id": "second_backtest",
+      "action": "algotrade.backtest",
+      "args": {
+        "fingerprint": "${steps.registered.fingerprint}",
+        "bars": "${steps.tape.bars}",
+        "config": {
+          "initial_equity": 10000,
+          "commission_bp": 5,
+          "slippage_bp": 2,
+          "seed": 42
+        }
+      },
+      "store_as": "report_round_trip",
+      "on_error": "stop"
+    },
+    {
+      "id": "registry",
+      "action": "algotrade.list_strategies",
+      "args": { "author": "workshop_full_cycle_demo" },
+      "store_as": "registry_snapshot"
+    }
+  ]
+}

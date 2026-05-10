@@ -202,6 +202,35 @@ bars = await load_binance_klines("BTCUSDT", interval="4h", limit=500)
 CSV header MUST be `ts,open,high,low,close,volume`. `ts` is epoch
 seconds (close time).
 
+### Synthetic generator (Wave M6 — workshop / demo / smoke)
+
+For workshop attendees who don't yet have a CSV file or
+network access to Binance, the algotrade pack ships a
+**deterministic OHLCV generator**:
+
+```python
+from backend.core.algotrade.backtest.synthetic import generate_bars
+
+bars = generate_bars(regime="trending", count=200, start_price=100.0)
+# Same args → byte-identical output every time. Pure stdlib,
+# safe to cache, hash, replay.
+```
+
+Three regimes:
+
+- `trending` — gentle uptrend. Suitable for `ma_cross` and
+  `trailing_runner`. Backtests should produce positive Sharpe.
+- `mean_reverting` — sinusoid around the baseline. Suitable
+  for `bollinger_reversion` and `rsi_oversold`.
+- `choppy` — high-frequency noise around a slow drift. The
+  kind of regime that breaks naïve trend systems.
+
+Available as the `algotrade.synthetic_bars` action so it
+chains directly into `algotrade.backtest` from a playbook
+without touching disk or the network — see
+`playbooks/_workshop/quant/full_cycle_demo.json` for the
+canonical end-to-end usage.
+
 ## 5. Recipes
 
 ```python
