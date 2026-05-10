@@ -1169,3 +1169,276 @@ def probe_meeet_ingest_heartbeat(ctx: Context) -> Probe:
 
     return _timed(run)
 
+
+# ---------- Wave 117: comprehensive route + bundle probes ----------
+
+
+# Critical SPA routes — every entry must HTTP 200, render the SPA shell,
+# and not contain hard error markers. Title/heading hints in the second
+# tuple slot are matched against the first 5 KB of the response body
+# (case-insensitive); the probe still passes if the SPA shell is intact
+# even when the title hint is absent (the SPA renders titles via JS
+# after hydration). Hints exist mainly to flag wholesale page swaps.
+WAVE117_ROUTES: list[tuple[str, list[str]]] = [
+    ("/", ["TARS", "your machine"]),
+    ("/install", ["install"]),
+    ("/cockpit", ["cockpit"]),
+    ("/pricing", ["pricing"]),
+    ("/compare", ["TARS"]),
+    ("/faq", ["faq"]),
+    ("/workshop", ["workshop"]),
+    ("/workshop/enterprise", ["workshop"]),
+    ("/workshop/roi", ["roi"]),
+    ("/workshop/materials", ["materials"]),
+    ("/workshop/assess", ["assess"]),
+    ("/workshop/cohort", ["cohort"]),
+    ("/dashboard", ["dashboard"]),
+    ("/onboard/org", ["onboard"]),
+    ("/inbox", ["inbox"]),
+    ("/files", ["files"]),
+    ("/reports", ["reports"]),
+    ("/marketplace", ["marketplace"]),
+    ("/compliance", ["compliance"]),
+    ("/workspaces", ["workspaces"]),
+    ("/bundles", ["bundles"]),
+    ("/admin/perf", ["perf"]),
+    ("/schedules", ["schedules"]),
+    ("/outreach", ["outreach"]),
+]
+
+
+# JS runtime / build-time error markers that should never appear in the
+# initial HTML response. If they do, prod is serving a broken bundle.
+_HTML_ERROR_MARKERS = (
+    b"is not defined",
+    b"RENDER ERROR",
+    b"Application error",
+    b"Internal Server Error",
+    b"<title>500</title>",
+    b"<title>Error</title>",
+    b"Cannot GET",
+)
+
+
+def probe_route_renders(
+    ctx: Context,
+    route: str,
+    expected_titles: list[str] | None = None,
+) -> Probe:
+    """Verify a single route returns 200 + SPA shell, no error markers.
+
+    The SPA boots client-side so JS runtime errors won't show up here —
+    that's what the Wave 116 vitest smoke-render covers. This probe
+    catches the strictly-server-observable failure mode: 5xx, totally
+    wrong body, or markers leaking through the build.
+    """
+
+    name = f"http.route_v117{route.replace('/', '_') or '_root'}"
+
+    def run() -> Probe:
+        if ctx.skip_subdomain:
+            return _skip(name, "routes", "DNS not live yet")
+        url = ctx.tars_base + route
+        status, hdrs, body = _open("GET", url, timeout=ctx.timeout_s)
+        if _looks_like_lovable_redirect(status, hdrs):
+            return _warn(name, "routes", "Lovable redirect (pre-cutover)", url=url)
+        if status != 200:
+            return _fail(
+                name,
+                "routes",
+                f"expected 200, got {status}",
+                url=url,
+                status=status,
+            )
+        if b"<div id=\"root\"></div>" not in body:
+            return _fail(
+                name,
+                "routes",
+                "SPA shell (`<div id=\"root\"></div>`) missing — wrong build?",
+                url=url,
+            )
+        for marker in _HTML_ERROR_MARKERS:
+            if marker in body:
+                return _fail(
+                    name,
+                    "routes",
+                    f"error marker present in HTML: {marker.decode('utf-8', 'replace')!r}",
+                    url=url,
+                )
+        if expected_titles:
+            head = body[:5120].lower()
+            hits = [t for t in expected_titles if t.lower().encode("utf-8") in head]
+            if not hits:
+                # Soft signal — the SPA fills <title> on hydration, so the
+                # initial HTML may not contain the route-specific phrase.
+                # WARN, don't FAIL.
+                return _warn(
+                    name,
+                    "routes",
+                    f"no expected_titles hit in first 5KB (looked for {expected_titles})",
+                    url=url,
+                )
+        return _pass(name, "routes", f"200 OK, {len(body)}B, shell ok", url=url)
+
+    return _timed(run)
+
+
+def probe_all_routes(ctx: Context) -> list[Probe]:
+    """Run probe_route_renders for every WAVE117_ROUTES entry."""
+    return [probe_route_renders(ctx, route, hints) for route, hints in WAVE117_ROUTES]
+
+
+_SW_VERSION_RE = re.compile(rb"VERSION\s*=\s*[\"']([^\"']+)[\"']")
+_SW_EXPECTED_PREFIX_RE = re.compile(r"^(?:tars-)?v?9\.\d+\.\d+")
+
+
+def probe_sw_version(ctx: Context) -> Probe:
+    """Fetch /sw.js and surface the VERSION constant.
+
+    Used to correlate user reports with SW state (a stale SW serving
+    pre-Wave-114 cached HTML is the exact failure mode that drove
+    Waves 114/115). We don't fail on a particular value — we fail
+    only when sw.js is missing or VERSION can't be parsed; we WARN
+    when VERSION doesn't match the expected v9.x.y pattern.
+    """
+
+    def run() -> Probe:
+        if ctx.skip_subdomain:
+            return _skip("pwa.sw_version", "pwa", "DNS not live yet")
+        url = ctx.tars_base + "/sw.js"
+        status, hdrs, body = _open("GET", url, timeout=ctx.timeout_s)
+        if _looks_like_lovable_redirect(status, hdrs):
+            return _warn("pwa.sw_version", "pwa", "Lovable redirect", url=url)
+        if status != 200:
+            return _fail(
+                "pwa.sw_version",
+                "pwa",
+                f"expected 200, got {status}",
+                url=url,
+            )
+        m = _SW_VERSION_RE.search(body)
+        if not m:
+            return _fail(
+                "pwa.sw_version",
+                "pwa",
+                "VERSION constant not found in /sw.js — SW shape changed?",
+                url=url,
+            )
+        version = m.group(1).decode("utf-8", errors="replace")
+        normalized = version.replace("tars-", "")
+        if not _SW_EXPECTED_PREFIX_RE.match(normalized):
+            return _warn(
+                "pwa.sw_version",
+                "pwa",
+                f"SW VERSION {version!r} doesn't match v9.x.y pattern",
+                url=url,
+                version=version,
+            )
+        return _pass(
+            "pwa.sw_version",
+            "pwa",
+            f"VERSION={version}",
+            url=url,
+            version=version,
+        )
+
+    return _timed(run)
+
+
+_SCRIPT_SRC_RE = re.compile(
+    rb"<script[^>]*\bsrc=[\"']([^\"']+\.js)[\"'][^>]*>",
+    re.IGNORECASE,
+)
+
+
+def probe_bundle_imports(ctx: Context) -> Probe:
+    """Fetch the main JS bundle from index.html and verify it's healthy.
+
+    Checks:
+      * bundle is referenced from index.html (one or more <script src=...>)
+      * bundle is >100 KB (a chunked-out router.js is fine; we check the
+        largest JS reference)
+      * bundle contains the literal string ``Workshop`` (proves Workshop
+        page is in the build — direct prevention against the Wave 114
+        500 caused by a missing Workshop lazy import)
+      * bundle has roughly balanced parens (sanity check against a
+        truncated download / partial deploy)
+    """
+
+    def run() -> Probe:
+        if ctx.skip_subdomain:
+            return _skip("bundle.imports", "bundle", "DNS not live yet")
+        # Fetch index.html
+        idx_url = ctx.tars_base + "/"
+        status, hdrs, body = _open("GET", idx_url, timeout=ctx.timeout_s)
+        if _looks_like_lovable_redirect(status, hdrs):
+            return _warn("bundle.imports", "bundle", "Lovable redirect", url=idx_url)
+        if status != 200:
+            return _fail(
+                "bundle.imports",
+                "bundle",
+                f"index.html status {status}",
+                url=idx_url,
+            )
+        scripts = _SCRIPT_SRC_RE.findall(body)
+        if not scripts:
+            return _fail(
+                "bundle.imports",
+                "bundle",
+                "no <script src=*.js> in index.html — build broken?",
+                url=idx_url,
+            )
+        # Pick the largest plausible bundle URL — Vite's hashed
+        # `assets/index-*.js` is what we want.
+        candidates = [s.decode("utf-8", "replace") for s in scripts]
+        # Resolve to absolute URL.
+        bundles: list[str] = []
+        for src in candidates:
+            if src.startswith("http"):
+                bundles.append(src)
+            else:
+                bundles.append(ctx.tars_base.rstrip("/") + "/" + src.lstrip("/"))
+        # Try each candidate; first one that's >100KB wins.
+        chosen_url = ""
+        chosen_body = b""
+        for u in bundles:
+            s2, _h2, b2 = _open("GET", u, timeout=ctx.timeout_s)
+            if s2 == 200 and len(b2) > 100 * 1024:
+                chosen_url = u
+                chosen_body = b2
+                break
+        if not chosen_body:
+            return _fail(
+                "bundle.imports",
+                "bundle",
+                f"no JS bundle >100KB among {len(bundles)} <script> tag(s)",
+                url=idx_url,
+                candidates=bundles[:5],
+            )
+        if b"Workshop" not in chosen_body:
+            return _fail(
+                "bundle.imports",
+                "bundle",
+                "bundle missing 'Workshop' literal — Wave 114 regression",
+                url=chosen_url,
+            )
+        opens = chosen_body.count(b"(")
+        closes = chosen_body.count(b")")
+        # Allow up to 2% drift from string literals containing parens.
+        drift = abs(opens - closes)
+        ceiling = max(50, opens // 50)
+        if drift > ceiling:
+            return _fail(
+                "bundle.imports",
+                "bundle",
+                f"paren imbalance: {opens} open vs {closes} close (drift {drift} > {ceiling})",
+                url=chosen_url,
+            )
+        return _pass(
+            "bundle.imports",
+            "bundle",
+            f"{len(chosen_body) // 1024}KB, has Workshop, parens ok",
+            url=chosen_url,
+        )
+
+    return _timed(run)

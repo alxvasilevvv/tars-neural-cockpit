@@ -4,7 +4,7 @@ name: TARS QA Agent
 # Runs:
 #   - on every push that touches the agent or related infra
 #   - on every PR
-#   - every 30 minutes via cron (independent of synthetic monitor)
+#   - every 5 minutes via cron (Wave 117 — synthetic monitor in-band)
 #
 # Stdlib-only: no `pip install` step. Probes are tolerant of pre-DNS
 # state (subdomain probes skip cleanly).
@@ -31,7 +31,7 @@ on:
       - "experiments/neural-showcase-v3/src/App.tsx"
       - "experiments/neural-showcase-v3/src/pages/**"
   schedule:
-    - cron: "*/30 * * * *"
+    - cron: "*/5 * * * *"
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
@@ -56,10 +56,33 @@ jobs:
         with:
           python-version: "3.11"
 
+      - name: Restore prior alert history
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        uses: actions/download-artifact@v4
+        continue-on-error: true
+        with:
+          name: qa-agent-history
+          path: .qa-agent-history
+
+      - name: Stage history.json into ~/.tars/qa-agent
+        if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+        run: |
+          mkdir -p "$HOME/.tars/qa-agent"
+          if [ -f .qa-agent-history/history.json ]; then
+            cp .qa-agent-history/history.json "$HOME/.tars/qa-agent/history.json"
+            echo "restored prior history.json"
+          else
+            echo "no prior history.json — fresh start"
+          fi
+
       - name: Run QA agent (text)
         env:
           BRIDGE_SHARED_SECRET: ${{ secrets.BRIDGE_SHARED_SECRET }}
           TARS_INGEST_API_KEY: ${{ secrets.TARS_INGEST_API_KEY }}
+          # Wave 117 — Telegram escalation when 3+ consecutive failures.
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_OPERATOR_CHAT_ID: ${{ secrets.TELEGRAM_OPERATOR_CHAT_ID }}
+          QA_AGENT_ESCALATE_ALERTS: "1"
           # Wave 75 — soft-fail during the B-019 cutover. tars.meeet.world's
           # custom domain is bound to the wrong CF Pages project (LEGACY
           # tars-meeet, stuck on 8.4.0) instead of tars-meeet-git (healthy,
@@ -67,7 +90,7 @@ jobs:
           # /api/product/* and core-bridge legitimately FAILs through no
           # fault of this repo. Soft-fail surfaces the FAILs in the report
           # (and the artefact upload below) without turning the workflow red
-          # every 30 minutes. REMOVE this env once B-019 is closed.
+          # every 5 minutes. REMOVE this env once B-019 is closed.
           QA_AGENT_SOFT_FAIL: "1"
         run: |
           python -m scripts.qa_agent --no-color | tee qa-report.txt
@@ -75,11 +98,32 @@ jobs:
           echo "qa_agent_exit=$rc" >> "$GITHUB_ENV"
           exit $rc
 
+      - name: Persist alert history
+        if: always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+        run: |
+          mkdir -p .qa-agent-history
+          if [ -f "$HOME/.tars/qa-agent/history.json" ]; then
+            cp "$HOME/.tars/qa-agent/history.json" .qa-agent-history/history.json
+          else
+            echo '{}' > .qa-agent-history/history.json
+          fi
+
+      - name: Upload alert history artifact
+        if: always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+        uses: actions/upload-artifact@v4
+        with:
+          name: qa-agent-history
+          path: .qa-agent-history/history.json
+          retention-days: 7
+          overwrite: true
+
       - name: Run QA agent (json artifact)
         if: always()
         env:
           BRIDGE_SHARED_SECRET: ${{ secrets.BRIDGE_SHARED_SECRET }}
           TARS_INGEST_API_KEY: ${{ secrets.TARS_INGEST_API_KEY }}
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_OPERATOR_CHAT_ID: ${{ secrets.TELEGRAM_OPERATOR_CHAT_ID }}
         run: |
           python -m scripts.qa_agent --json --no-color > qa-report.json || true
 

@@ -21,11 +21,25 @@ import sys
 from collections import Counter
 from dataclasses import asdict
 from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any
 
+from .alerts import (
+    DEFAULT_HISTORY_PATH,
+    DEFAULT_THRESHOLD,
+    KNOWN_FLAKY,
+    load_history,
+    record_run,
+    save_history,
+    send_alert,
+    should_alert,
+)
 from .env_resolve import resolved_ingest_api_key
 from .probes import (
     Context,
     Probe,
+    probe_all_routes,
+    probe_bundle_imports,
     probe_client_error_endpoint,
     probe_core_bridge_health,
     probe_core_bridge_relay_roundtrip,
@@ -43,6 +57,7 @@ from .probes import (
     probe_sitemap,
     probe_spa_root,
     probe_spa_routes,
+    probe_sw_version,
     probe_tokenomics_invariants,
     probe_version_subdomain,
 )
@@ -71,6 +86,11 @@ def run_all(ctx: Context) -> list[Probe]:
     probes.append(probe_security_headers(ctx))
     probes.append(probe_session_cookie(ctx))
     probes.append(probe_root_ttfb(ctx))
+
+    # 2b. Wave 117 — comprehensive route + bundle + SW probes
+    probes.extend(probe_all_routes(ctx))
+    probes.append(probe_sw_version(ctx))
+    probes.append(probe_bundle_imports(ctx))
 
     # 3. schema (sitemap / robots)
     probes.append(probe_sitemap(ctx))
@@ -159,6 +179,38 @@ def render_json(probes: list[Probe], ctx: Context) -> str:
     return json.dumps(data, indent=2, default=str)
 
 
+
+
+def maybe_escalate_alerts(
+    probes: list[Probe],
+    *,
+    history_path: Path | str = DEFAULT_HISTORY_PATH,
+    threshold: int = DEFAULT_THRESHOLD,
+    enabled: bool = True,
+) -> dict[str, Any]:
+    """Wave 117 — update history.json and fire alerts on streaks.
+
+    For every probe in this run we append the status to its rolling
+    history. After updating, any probe with ``threshold`` consecutive
+    fails (and not in ``KNOWN_FLAKY``) gets a ``send_alert`` call.
+    """
+
+    history = load_history(history_path)
+    fired: dict[str, Any] = {}
+    for p in probes:
+        record_run(history, p.name, p.status)
+        series = history.get("probes", {}).get(p.name, [])
+        if (
+            enabled
+            and p.is_red()
+            and p.name not in KNOWN_FLAKY
+            and should_alert(series, threshold=threshold)
+        ):
+            fired[p.name] = send_alert(p.name, p.detail or "(no detail)")
+    save_history(history, history_path)
+    return {"history_path": str(history_path), "fired": fired}
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="qa_agent",
@@ -221,8 +273,25 @@ def main(argv: list[str] | None = None) -> int:
             "complete and B-019 is resolved. Set via env QA_AGENT_SOFT_FAIL=1."
         ),
     )
+    parser.add_argument(
+        "--escalate-alerts", action="store_true",
+        help=(
+            "Wave 117: persist run history to ~/.tars/qa-agent/history.json "
+            "and call send_alert() for any probe with N consecutive fails. "
+            "Set via env QA_AGENT_ESCALATE_ALERTS=1."
+        ),
+    )
+    parser.add_argument(
+        "--alert-threshold", type=int, default=DEFAULT_THRESHOLD,
+        help=f"Consecutive-failure threshold for alerting (default {DEFAULT_THRESHOLD}).",
+    )
+    parser.add_argument(
+        "--history-path", default=str(DEFAULT_HISTORY_PATH),
+        help="Path to history.json for alert dedup (default: ~/.tars/qa-agent/history.json).",
+    )
     args = parser.parse_args(argv)
     soft_fail = args.soft_fail or os.environ.get("QA_AGENT_SOFT_FAIL") in ("1", "true", "yes")
+    escalate = args.escalate_alerts or os.environ.get("QA_AGENT_ESCALATE_ALERTS") in ("1", "true", "yes")
     ingest_key = resolved_ingest_api_key(args.ingest_api_key)
 
     ctx = Context(
@@ -241,6 +310,20 @@ def main(argv: list[str] | None = None) -> int:
     else:
         color = not args.no_color and sys.stdout.isatty()
         print(render_text(probes, ctx, color))
+
+    if escalate:
+        alert_outcome = maybe_escalate_alerts(
+            probes,
+            history_path=args.history_path,
+            threshold=args.alert_threshold,
+            enabled=True,
+        )
+        if alert_outcome.get("fired"):
+            print(
+                f"::warning::qa_agent: alerts fired for {len(alert_outcome['fired'])} probe(s): "
+                f"{','.join(alert_outcome['fired'].keys())}",
+                file=sys.stderr,
+            )
 
     fails = sum(1 for p in probes if p.status == "fail")
     if fails == 0:
