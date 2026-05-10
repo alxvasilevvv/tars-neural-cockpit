@@ -60,6 +60,15 @@ jobs:
         env:
           BRIDGE_SHARED_SECRET: ${{ secrets.BRIDGE_SHARED_SECRET }}
           TARS_INGEST_API_KEY: ${{ secrets.TARS_INGEST_API_KEY }}
+          # Wave 75 — soft-fail during the B-019 cutover. tars.meeet.world's
+          # custom domain is bound to the wrong CF Pages project (LEGACY
+          # tars-meeet, stuck on 8.4.0) instead of tars-meeet-git (healthy,
+          # 9.1.0). Until the operator re-binds the domain, every probe of
+          # /api/product/* and core-bridge legitimately FAILs through no
+          # fault of this repo. Soft-fail surfaces the FAILs in the report
+          # (and the artefact upload below) without turning the workflow red
+          # every 30 minutes. REMOVE this env once B-019 is closed.
+          QA_AGENT_SOFT_FAIL: "1"
         run: |
           python -m scripts.qa_agent --no-color | tee qa-report.txt
           rc=${PIPESTATUS[0]}

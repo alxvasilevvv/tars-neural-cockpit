@@ -210,7 +210,19 @@ def main(argv: list[str] | None = None) -> int:
         "--allow-warnings", action="store_true",
         help="Exit 0 if all FAILs are clean even if WARNs are present (default: WARN→0, FAIL→1)",
     )
+    parser.add_argument(
+        "--soft-fail", action="store_true",
+        help=(
+            "Always exit 0, even when probes FAIL. The report is still printed "
+            "(and uploaded as an artefact in CI), so failures are visible to "
+            "operators without turning the workflow red on upstream brokenness "
+            "outside this repo (e.g. CF custom-domain bound to wrong project). "
+            "Promote back to hard-fail once tars.meeet.world prod cutover is "
+            "complete and B-019 is resolved. Set via env QA_AGENT_SOFT_FAIL=1."
+        ),
+    )
     args = parser.parse_args(argv)
+    soft_fail = args.soft_fail or os.environ.get("QA_AGENT_SOFT_FAIL") in ("1", "true", "yes")
     ingest_key = resolved_ingest_api_key(args.ingest_api_key)
 
     ctx = Context(
@@ -231,7 +243,21 @@ def main(argv: list[str] | None = None) -> int:
         print(render_text(probes, ctx, color))
 
     fails = sum(1 for p in probes if p.status == "fail")
-    return 0 if fails == 0 else 1
+    if fails == 0:
+        return 0
+    if soft_fail:
+        # Print the verdict but do not fail the process. Operators see the
+        # FAIL annotations in the report; CI workflows pick the report up
+        # as an artefact for triage. Used during the B-019 cutover where
+        # prod tars.meeet.world is bound to the wrong CF Pages project.
+        print(
+            f"::warning::qa_agent: {fails} FAIL(s) suppressed by --soft-fail "
+            "(see report for details — workflow stays green on upstream "
+            "brokenness, must be removed once B-019 is resolved).",
+            file=sys.stderr,
+        )
+        return 0
+    return 1
 
 
 if __name__ == "__main__":
