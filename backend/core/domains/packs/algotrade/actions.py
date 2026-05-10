@@ -26,6 +26,7 @@ from backend.core.algotrade import (
     get_registry,
 )
 from .exec_actions import EXEC_ACTIONS
+from .lab_actions import LAB_ACTIONS
 from backend.core.algotrade.backtest.data import (
     DataError,
     load_binance_klines,
@@ -556,4 +557,4 @@ ACTIONS: tuple[ActionSpec, ...] = (
             },
         },
     ),
-) + EXEC_ACTIONS
+) + EXEC_ACTIONS + LAB_ACTIONS

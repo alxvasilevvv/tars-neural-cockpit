@@ -352,7 +352,7 @@ Run them as:
 | **W3-PR2** | Markdown session report renderer (`session_report` action, ASCII PnL sparkline)         | shipped (PR #169)                 |
 | **W3-PR3** | Trading council voices (RiskAnalyst / ExecutionTrader / PnLAuditor commentary)          | this PR                           |
 | **W4-PR1** | Workshop quant playbooks + recursive playbook loader (5 quant recipes, derived-pack chain) | shipped (PR #167)              |
-| **W4-PR2** | Workshop lab mode (multi-attendee sandbox + leaderboard) + cockpit handbook              | follow-up                         |
+| **W4-PR2** | Workshop lab mode (multi-attendee sandbox + leaderboard) + cockpit handbook              | this PR                           |
 
 See [SYNC issue #163](https://github.com/alxvasilevvv/tars-neural-cockpit/issues/163) for the lane split with Claude.
 
@@ -616,3 +616,100 @@ Response includes:
   4. Re-submit the test intent; verify the order reaches Binance
      and `status` returns FILLED.
   5. Loosen caps as you build confidence.
+
+## 14. Workshop lab mode (W4-PR2)
+
+The W4-PR2 lab gives a facilitator the plumbing to run a
+30-person room without bespoke ops. **No new sub-API** — the
+lab reuses the existing `sandbox_id` field on every session,
+so attendees use the same algotrade verbs they already know.
+
+### Architecture
+
+```text
+backend/core/algotrade/lab/
+├─ Workshop          # id, name, facilitator, status, attendee_ids
+├─ Attendee          # id, display_name, sandbox_id, workshop_id
+├─ LabStore          # one JSON doc per workshop on disk
+└─ Leaderboard       # fans W3-PR1 metrics across attendee sandboxes
+```
+
+`LabStore` persists at
+`$TARS_HOME/algotrade/lab/<workshop_id>/roster.json` — pure
+JSON, no sqlite, no migrations. A facilitator can `cat` the
+file mid-workshop to audit who's enrolled and which
+`sandbox_id` they got.
+
+### Sandbox minting
+
+When `lab_enroll_attendee` runs, the lab mints:
+
+```
+sandbox_id = lab:<workshop_id>:<attendee_id>
+```
+
+Every downstream verb (`start_paper_session`,
+`start_live_session`, `submit_intent`, `feed_bar`,
+`session_report`, `council_review`) accepts a `sandbox_id`
+arg already, so the lab integration is opt-in: the attendee
+just passes the lab-minted id to their normal flow.
+
+### Leaderboard
+
+`compute_leaderboard(workshop_id)` walks every attendee in the
+workshop, lists every session that carries their `sandbox_id`,
+replays the W2-PR1 audit log via the W3-PR1
+`compute_session_metrics` for each session, sums the totals,
+and ranks by net edge:
+
+```
+score = realized_pnl - fees_total - slippage_cost
+```
+
+Tie-breakers (in order):
+1. Higher `acceptance_rate` — well-formed intents > spam.
+2. More fills — more activity = more learning.
+3. Earlier `joined_at` — stable, deterministic.
+
+The leaderboard is **always recomputed from disk** — no
+caching. Restart the worker mid-workshop and the next
+`lab_leaderboard` call returns the same ranking that matches
+every attendee's audit log byte-for-byte. This is the same
+property the W3-PR3 trading council voices rely on, so the
+lab + council pair perfectly for post-workshop debriefs.
+
+### Actions
+
+| Action ID                     | What it does                                                                                       |
+| ----------------------------- | -------------------------------------------------------------------------------------------------- |
+| `lab_create_workshop`         | Mint a workshop bucket. Persists roster.json on disk.                                              |
+| `lab_list_workshops`          | List workshops (newest first). Optional `status` filter.                                           |
+| `lab_set_workshop_status`     | Pause / close a workshop. Closed workshops reject new enrollments.                                 |
+| `lab_enroll_attendee`         | Mint an attendee + their `sandbox_id`. Returns a `usage_hint` the cockpit can copy-paste.          |
+| `lab_list_attendees`          | List attendees in a workshop, in join order.                                                       |
+| `lab_leaderboard`             | Compute the ranking. Pure stdlib, deterministic, no caching.                                       |
+| `lab_attendee_snapshot`       | Per-attendee handout: workshop + attendee + sessions + rank.                                       |
+
+### Facilitator workflow
+
+See `docs/COCKPIT_HANDBOOK.md` for the full operator runbook.
+TL;DR:
+
+1. `lab_create_workshop` → save `workshop_id`.
+2. For each attendee: `lab_enroll_attendee` → hand them the
+   minted `sandbox_id` + the
+   `_workshop.quant.recipe_to_paper` playbook.
+3. Attendees run their normal algotrade flow with their
+   `sandbox_id`.
+4. `lab_leaderboard` whenever you want to publish standings.
+5. `lab_attendee_snapshot` per attendee for the post-workshop
+   debrief.
+6. `lab_set_workshop_status({status: "closed"})` to archive.
+
+### Bundled playbook
+
+`playbooks/_workshop/quant/lab_kickoff.json` — three steps
+(`lab_create_workshop` → `lab_enroll_attendee` →
+`lab_leaderboard`) parameterised by `WORKSHOP_NAME` /
+`WORKSHOP_FACILITATOR` / `ATTENDEE_NAME` env vars so a shell
+loop can fan it across a roster.

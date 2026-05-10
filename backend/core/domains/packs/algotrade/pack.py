@@ -67,9 +67,15 @@ class AlgotradePack(DomainPack):
             "reproducible and transparent. **W2-PR2** ships the "
             "Binance Spot REST adapter (testnet by default; live "
             "behind kill_switch=ON), closing the paper → testnet → "
-            "live cycle without any third-party dependency. **W4** "
-            "workshop lab mode + quant playbooks (W4-PR1 shipped 5 "
-            "quant playbooks + recursive loader)."
+            "live cycle without any third-party dependency. **W4-PR1** "
+            "shipped 5 quant playbooks + recursive loader. **W4-PR2** "
+            "ships the workshop lab mode: file-backed roster + "
+            "deterministic leaderboard that fans the W3 session "
+            "metrics across every attendee's sandbox so a facilitator "
+            "can drive a 30-person workshop with a single `cat` "
+            "audit trail. Pure stdlib — leaderboard always recomputed "
+            "from disk so the ranking matches the audit log "
+            "byte-for-byte after a worker restart."
         ),
         color="#f97316",
         capabilities=(
@@ -91,6 +97,8 @@ class AlgotradePack(DomainPack):
             "trading_council_voices",
             "binance_spot_live",
             "binance_spot_testnet",
+            "workshop_lab_roster",
+            "workshop_leaderboard",
         ),
         audience="quant traders, analysts, fund operators, workshop attendees",
     )

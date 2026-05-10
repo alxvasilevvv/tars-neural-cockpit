@@ -1,0 +1,47 @@
+{
+  "_meta": {
+    "vertical": "quant",
+    "workshop_phase": "facilitation",
+    "teaches": "How a facilitator opens a workshop, enrolls a single attendee, and immediately publishes the empty leaderboard. Demonstrates the W4-PR2 lab mode end-to-end: workshop creation → enrollment → leaderboard fanout — all under the same algotrade pack so the attendee can drop into recipe_to_paper next with their freshly-minted sandbox_id.",
+    "estimated_runtime_seconds": 5,
+    "owner": "cursor"
+  },
+  "id": "_workshop.quant.lab_kickoff",
+  "name": "Workshop lab kickoff",
+  "description": "Facilitator one-liner. Creates a workshop, enrolls a single attendee (parameterised by env var so a script can fan it across a roster), and renders the leaderboard. After this playbook, the attendee runs recipe_to_paper with `WORKSHOP_SANDBOX_ID` set to the value the lab returns.",
+  "tags": ["quant", "workshop", "algotrade", "lab", "facilitation"],
+  "pack": "algotrade",
+  "on_block": "stop",
+  "steps": [
+    {
+      "id": "create",
+      "action": "algotrade.lab_create_workshop",
+      "args": {
+        "name": "${env.WORKSHOP_NAME}",
+        "facilitator": "${env.WORKSHOP_FACILITATOR}",
+        "notes": "Auto-created via workshop.lab_kickoff playbook."
+      },
+      "store_as": "workshop"
+    },
+    {
+      "id": "enroll",
+      "action": "algotrade.lab_enroll_attendee",
+      "args": {
+        "workshop_id": "${steps.workshop.workshop.workshop_id}",
+        "display_name": "${env.ATTENDEE_NAME}",
+        "metadata": {
+          "source": "workshop:lab_kickoff"
+        }
+      },
+      "store_as": "attendee"
+    },
+    {
+      "id": "leaderboard",
+      "action": "algotrade.lab_leaderboard",
+      "args": {
+        "workshop_id": "${steps.workshop.workshop.workshop_id}"
+      },
+      "store_as": "leaderboard"
+    }
+  ]
+}

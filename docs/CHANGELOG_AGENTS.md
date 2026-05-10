@@ -4,6 +4,114 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-10 — Cursor · Phase W4-PR2: workshop lab mode (multi-attendee sandbox + leaderboard) + cockpit handbook
+
+**Summary**
+
+Closes the workshop's facilitation surface. The W2 + W3 + W4-PR1
+stack already gave attendees everything to design / backtest /
+paper-trade / debrief; W4-PR2 gives the *facilitator* the
+plumbing to run a 30-person room without a bespoke ops layer.
+Reuses the existing `sandbox_id` field on every session — no
+new sub-API, just a thin file-backed roster + a deterministic
+leaderboard that fans the W3-PR1 metrics across every
+attendee's sandbox.
+
+What ships:
+
+1. **Lab module** — `backend/core/algotrade/lab/`:
+   - `Workshop` (id, name, facilitator, started_at, closed_at,
+     status ∈ open|paused|closed, attendee_ids, metadata).
+   - `Attendee` (id, display_name, sandbox_id, workshop_id,
+     joined_at, metadata). The lab mints a deterministic
+     `sandbox_id` of the form
+     `lab:<workshop_id>:<attendee_id>` so every downstream
+     session, audit log, position book, and council review is
+     scoped to the attendee without any new API surface.
+   - `LabStore` — file-backed roster, one JSON document per
+     workshop at `$TARS_HOME/algotrade/lab/<workshop_id>/
+     roster.json`. A facilitator can `cat` it mid-workshop to
+     audit who's enrolled.
+   - `Leaderboard` + `LeaderboardEntry` — fans the W3-PR1
+     `compute_session_metrics` across every attendee's
+     sandbox, ranks by net edge:
+     `score = realized_pnl - fees_total - slippage_cost`.
+     Deterministic tie-breakers: acceptance_rate → fills →
+     joined_at. **Always recomputed from disk** (no caching)
+     so a worker restart yields the same ranking as the audit
+     log byte-for-byte.
+2. **Lab actions** — `backend/core/domains/packs/algotrade/
+   lab_actions.py`. Seven HTTP-exposed verbs:
+   - `lab_create_workshop` (destructive)
+   - `lab_list_workshops` (read; optional status filter)
+   - `lab_set_workshop_status` (destructive; pause/close)
+   - `lab_enroll_attendee` (destructive)
+   - `lab_list_attendees` (read)
+   - `lab_leaderboard` (read; recomputed every call)
+   - `lab_attendee_snapshot` (read; full per-attendee handout)
+3. **Workshop lab kickoff playbook** — `playbooks/_workshop/
+   quant/lab_kickoff.json`. Three-step facilitator playbook
+   (`lab_create_workshop` → `lab_enroll_attendee` →
+   `lab_leaderboard`) parameterised by `WORKSHOP_NAME` /
+   `WORKSHOP_FACILITATOR` / `ATTENDEE_NAME` env vars so a
+   shell loop can enroll a roster.
+4. **Cockpit handbook** — `docs/COCKPIT_HANDBOOK.md`. The
+   operator-facing runbook: open the lab → enroll attendees →
+   run the workshop → publish the leaderboard → debrief →
+   close. Includes the scoring formula, tie-breakers,
+   troubleshooting matrix, and a pre-workshop checklist.
+5. **Manifest + pack** — bumped to `0.7.0` / phase `W4-PR2`,
+   added `workshop_lab_roster` + `workshop_leaderboard`
+   capabilities, registered all 7 lab actions.
+
+**Tests**
+
+- `tests/test_algotrade_lab.py` (20 tests):
+  - LabStore: workshop creation persistence, deterministic
+    workshop_id, duplicate rejection, sandbox_id minting,
+    enroll-into-unknown / enroll-into-closed / duplicate
+    attendee rejection, status mutation, list filters,
+    roster reload from disk after `reset_lab_store`.
+  - Leaderboard: empty workshop returns join-order entries,
+    real paper sessions ranked by net edge (Alice profits →
+    Carol breakeven → Bob loses), score correctly subtracts
+    fees + slippage, recompute-from-disk after both runtime
+    and lab store reset yields identical ranking, running
+    session counter, tie-breaker prefers higher
+    acceptance_rate.
+- `tests/test_algotrade_lab_actions.py` (20 tests):
+  - Action surface: registry order matches manifest,
+    destructive flag set on the three mutating actions.
+  - Per-handler validation, error envelopes, success
+    payloads (workshop dict, attendee dict + usage hint,
+    leaderboard dict, snapshot dict).
+
+Total algotrade regression after this PR: **172 passing**
+(W1 + W2-PR1 + W3-PR1 + W3-PR2 + W3-PR3 + W4-PR1 + W2-PR2 +
+W4-PR2).
+
+**Files**
+
+- `backend/core/algotrade/lab/__init__.py` (new, ~30 lines)
+- `backend/core/algotrade/lab/lab.py` (new, ~470 lines)
+- `backend/core/domains/packs/algotrade/lab_actions.py`
+  (new, ~370 lines)
+- `backend/core/domains/packs/algotrade/actions.py`
+  (LAB_ACTIONS appended to ACTIONS)
+- `backend/core/domains/packs/algotrade/manifest.json`
+  (0.7.0, W4-PR2, +2 capabilities, +7 actions)
+- `backend/core/domains/packs/algotrade/pack.py`
+  (description + capabilities)
+- `playbooks/_workshop/quant/lab_kickoff.json` (new)
+- `tests/test_algotrade_lab.py` (new, ~440 lines, 20 tests)
+- `tests/test_algotrade_lab_actions.py` (new, ~290 lines,
+  20 tests)
+- `docs/COCKPIT_HANDBOOK.md` (new — operator runbook)
+- `docs/ALGOTRADE.md` (W4-PR2 section + roadmap update)
+
+**Branch / PR**: `cursor/algotrade-w4-pr2-lab-mode`,
+stacked on top of W2-PR2 (#171).
+
 ## 2026-05-10 — Cursor · Phase W2-PR2: Binance Spot REST adapter (live + testnet)
 
 **Summary**
