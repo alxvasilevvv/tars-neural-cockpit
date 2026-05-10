@@ -4,6 +4,94 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-10 — Cursor · Wave M2: `tars` CLI (operator + workshop power-user surface)
+
+**Summary**
+
+Stdlib-only argparse wrapper around the same action handlers
+the cockpit / domain router / MCP clients call. No new
+dependency, no new audit path, no new business logic — the
+CLI is the *terminal* surface for the verbs the cockpit
+already exposes through HTTP. Workshop power-users (quants,
+facilitators), CI smoke tests, and post-workshop email
+mailers all get a single binary they can pipe through `jq`.
+
+What ships:
+
+1. **`backend/cli/`** — five-module CLI:
+   - `main.py` — top-level argparse parser, dispatcher, exit-
+     code contract (0 success, 1 ok=False, 2 usage, 3 uncaught,
+     130 SIGINT). Two output modes: `--json` (machine-
+     readable) and `--human` (Markdown / table layout). TTY
+     detection picks the default.
+   - `output.py` — pure-stdlib renderer. Pretty-prints
+     recipes / strategies / sessions / workshops / attendees /
+     leaderboards / playbooks / version payloads; falls back
+     to JSON for unknown shapes so the user always sees
+     something readable. Hand-rolled column-aligned table
+     primitive (no `tabulate`, no `rich`).
+   - `commands/algotrade.py` — 10 verbs (`list-recipes`,
+     `load-recipe`, `list-strategies`, `get-strategy`,
+     `register-strategy`, `backtest`, `list-sessions`,
+     `get-session`, `session-report`, `council-review`).
+   - `commands/lab.py` — 8 verbs covering the entire W4-PR2
+     + W4-PR3 facilitator surface (`create-workshop`,
+     `list-workshops`, `set-workshop-status`, `enroll`,
+     `list-attendees`, `leaderboard`, `snapshot`,
+     `debrief`). The `debrief` verb has an `--output PATH`
+     flag that writes the markdown bundle to disk and prints
+     a one-line confirmation instead of dumping the bundle
+     to stdout — designed for the "email this at end of
+     workshop" workflow.
+   - `commands/playbooks.py` — 3 verbs (`list`, `show`, `run`)
+     against the W4-PR1 recursive loader + the existing
+     PlaybookRunner. `--mode dry_run|confirm|auto` +
+     `--context KEY=VALUE` (repeatable).
+   - `commands/version.py` — CLI version, Python, platform,
+     `TARS_HOME`, and a best-effort pack inventory that loads
+     each pack's JSON manifest from disk for version + phase.
+2. **`bin/tars`** — bash shim that auto-detects the repo root
+   from its own location and `exec`s
+   `python -m backend.cli "$@"`. Honours `TARS_PYTHON` env
+   var. Single chmod +x install: link onto $PATH.
+3. **`docs/CLI.md`** (new, ~150 lines) — operator manual:
+   install, output modes, exit codes, every verb with its
+   flags, env var matrix, and a "why argparse + stdlib?"
+   section.
+
+**Tests** — `tests/test_cli_main.py` (25 cases). Parser
+structure (top-level commands, missing-command help, unknown
+command), output modes (--json forces JSON, --human forces
+pretty, default JSON for non-TTY), every verb has at least
+one error-path assertion and one success-path assertion,
+end-to-end lab flow (create → enroll → leaderboard → debrief
+to file). All tests call `main(argv)` directly and capture
+stdout via `capsys` — no subprocess spawning, suite runs in
+<500ms.
+
+Total regression after this PR: **207 passing** (algotrade
+182 + CLI 25).
+
+**Files**
+
+- `backend/cli/__init__.py` (new)
+- `backend/cli/__main__.py` (new — `python -m backend.cli`)
+- `backend/cli/main.py` (new, ~140 lines)
+- `backend/cli/output.py` (new, ~280 lines)
+- `backend/cli/commands/__init__.py` (new)
+- `backend/cli/commands/algotrade.py` (new, ~310 lines, 10 verbs)
+- `backend/cli/commands/lab.py` (new, ~210 lines, 8 verbs)
+- `backend/cli/commands/playbooks.py` (new, ~140 lines, 3 verbs)
+- `backend/cli/commands/version.py` (new, ~75 lines)
+- `bin/tars` (new — shell shim, chmod +x)
+- `tests/test_cli_main.py` (new, ~330 lines, 25 tests)
+- `docs/CLI.md` (new — operator manual)
+
+**Branch / PR**: `cursor/wave-m2-tars-cli`, stacked on top
+of W4-PR3 (#173). Delivers the deferred Wave M2 milestone
+from `docs/AGENT_HANDOFF.md`. Wave M3 / M4 (MCP client +
+server) will reuse the same action surface the CLI hits today.
+
 ## 2026-05-10 — Cursor · Phase W4-PR3: workshop debrief markdown bundle
 
 **Summary**

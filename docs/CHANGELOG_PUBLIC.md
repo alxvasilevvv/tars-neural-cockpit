@@ -4,6 +4,94 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-10 — Cursor · Wave M2: `tars` CLI (operator + workshop power-user surface)
+
+**Summary**
+
+Stdlib-only argparse wrapper around the same action handlers
+the cockpit / domain router / MCP clients call. No new
+dependency, no new audit path, no new business logic — the
+CLI is the *terminal* surface for the verbs the cockpit
+already exposes through HTTP. Workshop power-users (quants,
+facilitators), CI smoke tests, and post-workshop email
+mailers all get a single binary they can pipe through `jq`.
+
+What ships:
+
+1. **`backend/cli/`** — five-module CLI:
+   - `main.py` — top-level argparse parser, dispatcher, exit-
+     code contract (0 success, 1 ok=False, 2 usage, 3 uncaught,
+     130 SIGINT). Two output modes: `--json` (machine-
+     readable) and `--human` (Markdown / table layout). TTY
+     detection picks the default.
+   - `output.py` — pure-stdlib renderer. Pretty-prints
+     recipes / strategies / sessions / workshops / attendees /
+     leaderboards / playbooks / version payloads; falls back
+     to JSON for unknown shapes so the user always sees
+     something readable. Hand-rolled column-aligned table
+     primitive (no `tabulate`, no `rich`).
+   - `commands/algotrade.py` — 10 verbs (`list-recipes`,
+     `load-recipe`, `list-strategies`, `get-strategy`,
+     `register-strategy`, `backtest`, `list-sessions`,
+     `get-session`, `session-report`, `council-review`).
+   - `commands/lab.py` — 8 verbs covering the entire W4-PR2
+     + W4-PR3 facilitator surface (`create-workshop`,
+     `list-workshops`, `set-workshop-status`, `enroll`,
+     `list-attendees`, `leaderboard`, `snapshot`,
+     `debrief`). The `debrief` verb has an `--output PATH`
+     flag that writes the markdown bundle to disk and prints
+     a one-line confirmation instead of dumping the bundle
+     to stdout — designed for the "email this at end of
+     workshop" workflow.
+   - `commands/playbooks.py` — 3 verbs (`list`, `show`, `run`)
+     against the W4-PR1 recursive loader + the existing
+     PlaybookRunner. `--mode dry_run|confirm|auto` +
+     `--context KEY=VALUE` (repeatable).
+   - `commands/version.py` — CLI version, Python, platform,
+     `TARS_HOME`, and a best-effort pack inventory that loads
+     each pack's JSON manifest from disk for version + phase.
+2. **`bin/tars`** — bash shim that auto-detects the repo root
+   from its own location and `exec`s
+   `python -m backend.cli "$@"`. Honours `TARS_PYTHON` env
+   var. Single chmod +x install: link onto $PATH.
+3. **`docs/CLI.md`** (new, ~150 lines) — operator manual:
+   install, output modes, exit codes, every verb with its
+   flags, env var matrix, and a "why argparse + stdlib?"
+   section.
+
+**Tests** — `tests/test_cli_main.py` (25 cases). Parser
+structure (top-level commands, missing-command help, unknown
+command), output modes (--json forces JSON, --human forces
+pretty, default JSON for non-TTY), every verb has at least
+one error-path assertion and one success-path assertion,
+end-to-end lab flow (create → enroll → leaderboard → debrief
+to file). All tests call `main(argv)` directly and capture
+stdout via `capsys` — no subprocess spawning, suite runs in
+<500ms.
+
+Total regression after this PR: **207 passing** (algotrade
+182 + CLI 25).
+
+**Files**
+
+- `backend/cli/__init__.py` (new)
+- `backend/cli/__main__.py` (new — `python -m backend.cli`)
+- `backend/cli/main.py` (new, ~140 lines)
+- `backend/cli/output.py` (new, ~280 lines)
+- `backend/cli/commands/__init__.py` (new)
+- `backend/cli/commands/algotrade.py` (new, ~310 lines, 10 verbs)
+- `backend/cli/commands/lab.py` (new, ~210 lines, 8 verbs)
+- `backend/cli/commands/playbooks.py` (new, ~140 lines, 3 verbs)
+- `backend/cli/commands/version.py` (new, ~75 lines)
+- `bin/tars` (new — shell shim, chmod +x)
+- `tests/test_cli_main.py` (new, ~330 lines, 25 tests)
+- `docs/CLI.md` (new — operator manual)
+
+**Branch / PR**: `cursor/wave-m2-tars-cli`, stacked on top
+of W4-PR3 (#173). Delivers the deferred Wave M2 milestone
+from `docs/AGENT_HANDOFF.md`. Wave M3 / M4 (MCP client +
+server) will reuse the same action surface the CLI hits today.
+
 ## 2026-05-10 — Cursor · Phase W4-PR3: workshop debrief markdown bundle
 
 **Summary**
@@ -2737,63 +2825,6 @@ paint the workflow red anymore.
 
 `>>> SYNC: Cursor · 2026-05-04 · Pages workflow fail-soft against bad CF token`
 
-## 2026-05-04 — Cursor · launch readiness: green CI + Plan B sealed + Node 24 opt-in
-
-**Summary**
-
-Closing out the deploy lane after the operator wired Plan B
-(`tars-meeet-git` on Cloudflare Pages Git integration). Three things
-fixed in this batch:
-
-1. **Removed broken `CLOUDFLARE_API_TOKEN`** from `alxvasilevvv/tars-neural-cockpit`
-   GitHub Actions secrets (it was reseeded somewhere — likely via the
-   Cloudflare Git App handshake — with a value the Pages API rejected
-   as `9106 Authentication failed`). With the secret gone, the Pages
-   workflow's "Probe deploy credentials" gate flips to `ready=false`,
-   the deploy step is skipped cleanly with a `::warning::` pointing at
-   `docs/TARS_MEEET_OPS_TODO.md` Step 2bis, and the workflow ends
-   **green** (build + typecheck + 335 unit tests + changelog parity
-   check still run on every push). Re-dispatched run **25291442109**:
-   conclusion **success**.
-2. **Opted every workflow into Node 24 for JS actions** by setting
-   `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"` at workflow `env:`.
-   GitHub flips the default on **2026-06-02** and removes Node 20
-   from runners on **2026-09-16**; this kills the deprecation
-   annotation that was showing on every successful run.
-3. **Deleted local `cf-operator.env`** (was holding a real but
-   already-revoked Cloudflare API token). Template
-   `cf-operator.env.example` stays for any future local Plan A run.
-
-**Verification (all run on `main` against prod)**
-
-| Gate | Result |
-| --- | --- |
-| `pytest -q` | **2315 passed**, 1 skipped, 2 xfailed |
-| `tests/test_tars_meeet_pages_workflow.py + meeet + domains` | 22/22 |
-| Cockpit `npm run typecheck` | clean |
-| Cockpit `npm test` | **335/335** |
-| `bash scripts/acceptance_tars_meeet.sh` | 5/5 reachable gates GREEN (2 SKIP — operator-only secrets) |
-| `python -m scripts.qa_agent` against prod | **27 PASS · 0 FAIL · 2 WARN · 3 SKIP** |
-| `tars.meeet.world — Cloudflare Pages` workflow #25291442109 | success |
-
-The 2 WARN / 3 SKIP are not regressions; they're the documented
-operator-only paste-ins (`BRIDGE_SHARED_SECRET` on Pages prod env +
-`TARS_INGEST_API_KEY` on `MEEET_INGEST_URL`). `docs/TARS_MEEET_OPS_TODO.md`
-§Outstanding items 1 + 4 already calls them out.
-
-**Files**
-
-- `.github/workflows/tars-meeet-cloudflare-pages.yml` (`FORCE_JAVASCRIPT_ACTIONS_TO_NODE24`)
-- `.github/workflows/qa-agent.yml`, `credential-sentinel.yml`,
-  `desktop-version-lint.yml`, `release-desktop-tagged.yml`,
-  `release-tagged.yml` (same env opt-in)
-- `cf-operator.env` — **deleted** (template `.example` retained)
-- `docs/AGENT_HANDOFF.md` — launch-ready summary
-- `docs/TARS_MEEET_OPS_TODO.md` — Plan B confirmed as production
-- `docs/CHANGELOG_AGENTS.md`, `docs/CHANGELOG_PUBLIC.md` — this entry
-
-`>>> SYNC: Cursor · 2026-05-04 · launch-ready (CI green, Plan B sealed, Node 24 opt-in)`
-
 ---
 
-_Showing the most recent 60 of 254 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 255 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._

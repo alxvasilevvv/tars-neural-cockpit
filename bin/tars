@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# TARS CLI shim — finds the repo root from this script's location
+# and delegates to `python -m backend.cli`. Stdlib-only host
+# requirement: a Python 3.11+ interpreter on PATH (or pinned via
+# the TARS_PYTHON env var).
+#
+# Install:
+#   ln -s "$(pwd)/bin/tars" /usr/local/bin/tars
+# or add `bin/` to your $PATH.
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+
+PYTHON_BIN="${TARS_PYTHON:-python3}"
+
+cd "${REPO_ROOT}"
+exec "${PYTHON_BIN}" -m backend.cli "$@"
