@@ -1,0 +1,59 @@
+{
+  "_meta": {
+    "vertical": "quant",
+    "workshop_phase": "onboarding",
+    "teaches": "The full lifecycle hello-world: load a starter recipe, register it in the local strategy library, then spin up a paper-trading session so attendees see end-to-end orchestration on day one.",
+    "estimated_runtime_seconds": 15,
+    "owner": "cursor"
+  },
+  "id": "_workshop.quant.recipe_to_paper",
+  "name": "Recipe → register → paper session",
+  "description": "Workshop hello-world. Pulls the ma_cross starter recipe, persists it in the local strategy registry, and starts a paper-trading session under a per-attendee sandbox. Use as the first hands-on playbook in the workshop.",
+  "tags": ["quant", "workshop", "algotrade", "onboarding"],
+  "pack": "algotrade",
+  "on_block": "stop",
+  "steps": [
+    {
+      "id": "load",
+      "action": "algotrade.load_recipe",
+      "args": { "name": "ma_cross" },
+      "store_as": "recipe"
+    },
+    {
+      "id": "register",
+      "action": "algotrade.register_strategy",
+      "args": {
+        "recipe": "ma_cross",
+        "author": "${env.USER}",
+        "metadata": {
+          "source": "workshop:onboarding",
+          "vertical": "quant"
+        }
+      },
+      "store_as": "registered"
+    },
+    {
+      "id": "start",
+      "action": "algotrade.start_paper_session",
+      "args": {
+        "fingerprint": "${steps.registered.fingerprint}",
+        "sandbox_id": "${env.WORKSHOP_SANDBOX_ID}",
+        "notes": "First paper session — workshop onboarding.",
+        "config": {
+          "commission_bps": 1.0,
+          "slippage_bps": 2.0,
+          "starting_cash": 100000.0
+        },
+        "policy": {
+          "max_order_qty": 1.0,
+          "max_position_notional": 25000.0,
+          "max_open_positions": 2,
+          "allow_short": false,
+          "kill_switch": false,
+          "notes": "Workshop default — conservative caps."
+        }
+      },
+      "store_as": "session"
+    }
+  ]
+}

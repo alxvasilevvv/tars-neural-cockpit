@@ -259,6 +259,33 @@ Run them as:
 | **W1b** | `algotrade` domain pack — `generate_strategy`, `backtest`, `register`, `fork`, `refine`     | next                              |
 | **W2**  | Paper executor + Binance live adapter + risk gate + order router + position store           | follow-up                         |
 | **W3**  | PnL attribution + slippage ledger + session report + trading council voices                 | follow-up                         |
-| **W4**  | Workshop lab mode (multi-attendee sandbox + leaderboard) + cockpit handbook                 | follow-up                         |
+| **W4-PR1** | Workshop quant playbooks + recursive playbook loader (5 quant recipes, derived-pack chain) | this PR                          |
+| **W4-PR2** | Workshop lab mode (multi-attendee sandbox + leaderboard) + cockpit handbook              | follow-up                         |
 
 See [SYNC issue #163](https://github.com/alxvasilevvv/tars-neural-cockpit/issues/163) for the lane split with Claude.
+
+## 9. Workshop quant playbooks (W4-PR1)
+
+The 10 W2-PR1 execution actions (`start_paper_session`,
+`submit_intent`, `feed_bar`, `set_policy`, `audit_tail`, …) are
+composed into 5 runnable recipes for the Cresco workshop, living
+under `playbooks/_workshop/quant/` and discovered automatically by
+the recursive `discover()` loader. Run via the playbooks runner
+(`backend/core/playbooks/runner.py`) or the cockpit's lab mode.
+
+| Playbook id                            | What it does                                                                                  | Pack       |
+| -------------------------------------- | --------------------------------------------------------------------------------------------- | ---------- |
+| `_workshop.quant.recipe_to_paper`      | Pick a recipe → backtest → start paper session → seed bars → tail audit. The "first day" loop. | `algotrade` |
+| `_workshop.quant.backtest_compare`     | Run two recipes against the same bar series; surface metrics for council debate.              | `algotrade` |
+| `_workshop.quant.morning_pnl`          | Daily ops: list sessions → snapshot → audit_tail → log to memory.                             | `algotrade` |
+| `_workshop.quant.risk_review`          | Pull current `RiskPolicy`, summarise audit breaches, propose tightened policy (no auto-apply).| `algotrade` |
+| `_workshop.quant.strategy_lab`         | Design / mutate a `Strategy` IR, re-register, immediately backtest. Drives the lab UI loop.   | `algotrade` |
+
+The recursive loader derives the `pack` field from the directory
+chain (`_workshop.quant`) but the JSON's own `pack` field still
+wins, so existing playbooks like
+`_workshop/fund/portfolio_monitoring.json` — which declares
+`"pack": "workshop"` — keep their explicit binding. New workshop
+verticals can drop a `playbooks/_workshop/<vertical>/*.json`
+directory in and get picked up on next `reset_loader_cache()`
+without code changes.

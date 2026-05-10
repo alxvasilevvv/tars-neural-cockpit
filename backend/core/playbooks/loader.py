@@ -1,6 +1,7 @@
 """Disk-backed playbook discovery.
 
-Layout: ``playbooks/<pack>/<name>.json``. Each file is a single
+Layout: ``playbooks/<pack>/<name>.json`` or
+``playbooks/<group>/<vertical>/<name>.json``. Each file is a single
 :class:`Playbook` definition. Names must be unique. The loader caches
 the result of a scan; call :func:`reset_loader_cache` to re-read.
 """
@@ -82,12 +83,18 @@ def _from_dict(blob: Mapping[str, Any], *, pack: str | None) -> Playbook:
     steps = blob.get("steps") or []
     if not isinstance(steps, list) or not steps:
         raise ValueError(f"playbook {pid} has no steps")
+    explicit_pack = blob.get("pack")
+    resolved_pack = (
+        str(explicit_pack)
+        if explicit_pack
+        else (pack if pack else None)
+    )
     return Playbook(
         id=pid,
         name=str(blob.get("name") or pid),
         description=str(blob.get("description") or ""),
         steps=tuple(_step_from_dict(s) for s in steps),
-        pack=pack or (str(blob.get("pack")) if blob.get("pack") else None),
+        pack=resolved_pack,
         tags=tuple(str(t) for t in (blob.get("tags") or [])),
         on_block=str(blob.get("on_block") or "stop"),
     )
@@ -101,6 +108,13 @@ def discover(root: Path | str | None = None) -> dict[str, Playbook]:
 
     Reads from ``$TARS_PLAYBOOKS_DIR`` first if set, else the project-
     relative ``playbooks/`` directory.
+
+    Walks the tree **recursively**: ``playbooks/<a>/<b>/foo.json``
+    becomes ``pack="a.b"`` (mirrors the dotted convention used by
+    workshop playbook ids like ``_workshop.quant.morning_pnl``). The
+    JSON's own ``pack`` field still wins if present, so existing
+    files like ``_workshop/fund/portfolio_monitoring.json`` (which
+    declares ``"pack": "workshop"``) keep their explicit binding.
     """
 
     if root is None:
@@ -110,24 +124,28 @@ def discover(root: Path | str | None = None) -> dict[str, Playbook]:
     out: dict[str, Playbook] = {}
     if not root.exists():
         return out
-    for pack_dir in sorted(root.iterdir()):
-        if not pack_dir.is_dir():
+    for path in sorted(root.rglob("*.json")):
+        try:
+            relative = path.relative_to(root)
+        except ValueError:
             continue
-        for path in sorted(pack_dir.glob("*.json")):
-            try:
-                with path.open("r", encoding="utf-8") as fh:
-                    blob = json.load(fh)
-            except json.JSONDecodeError as exc:
-                raise ValueError(f"invalid json in {path}: {exc}") from exc
-            try:
-                pb = _from_dict(blob, pack=pack_dir.name)
-            except ValueError as exc:
-                raise ValueError(f"invalid playbook in {path}: {exc}") from exc
-            if pb.id in out:
-                raise ValueError(
-                    f"duplicate playbook id {pb.id!r} (existing: {path})"
-                )
-            out[pb.id] = pb
+        if len(relative.parts) < 2:
+            continue
+        pack_dir_chain = ".".join(relative.parts[:-1])
+        try:
+            with path.open("r", encoding="utf-8") as fh:
+                blob = json.load(fh)
+        except json.JSONDecodeError as exc:
+            raise ValueError(f"invalid json in {path}: {exc}") from exc
+        try:
+            pb = _from_dict(blob, pack=pack_dir_chain)
+        except ValueError as exc:
+            raise ValueError(f"invalid playbook in {path}: {exc}") from exc
+        if pb.id in out:
+            raise ValueError(
+                f"duplicate playbook id {pb.id!r} (existing: {path})"
+            )
+        out[pb.id] = pb
     return out
 
 
