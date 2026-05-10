@@ -124,6 +124,11 @@ const WorkshopCohort = lazy(() =>
     default: m.WorkshopCohort,
   })),
 );
+// Wave 96 - Reporting dashboard. Wide variant so the 12-col widget
+// grid gets the full marketing-bleed width.
+const Dashboard = lazy(() =>
+  import("@/pages/Dashboard").then((m) => ({ default: m.Dashboard })),
+);
 
 // Default skeleton for routes that don't pin a specific layout shape.
 const Loading = () => <RouteSkeleton variant="default" />;
@@ -458,6 +463,16 @@ function AppShell() {
               element={
                 <Suspense fallback={<RouteSkeleton variant="wide" />}>
                   <WorkshopCohort />
+                </Suspense>
+              }
+            />
+            {/* Wave 96 - Reporting dashboard. Wide variant for the
+                12-col widget grid. */}
+            <Route
+              path="/dashboard"
+              element={
+                <Suspense fallback={<RouteSkeleton variant="wide" />}>
+                  <Dashboard />
                 </Suspense>
               }
             />

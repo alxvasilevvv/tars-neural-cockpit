@@ -103,6 +103,9 @@ const ITEMS: CmdItem[] = [
   // workshop runners need it, but Cmd+K is the fastest path. Keep it
   // out of the public Nav.
   { id: "workshop-cohort", kind: "route", title: "Cohort dashboard", hint: "Live facilitator view of every attendee", Icon: FlaskRound, href: "/workshop/cohort", group: "Pages", keywords: "workshop cohort dashboard facilitator attendees live activity broadcast risk alerts intake design test deploy" },
+  // Wave 96 - Reporting dashboard. Personal /dashboard with 10
+  // configurable widgets pulling from every TARS surface.
+  { id: "dashboard", kind: "route", title: "Dashboard", hint: "Your day at a glance - calendar, mentions, PRs, receipts", Icon: Compass, href: "/dashboard", group: "Pages", keywords: "dashboard widgets calendar slack gmail github pr wallet receipts backtest cohort hil playbook home overview report personal workspace" },
 
   // Sections (anchor on /)
   { id: "domains",   kind: "anchor", title: "Domain packs",    hint: "Traders / Entrepreneur / Researcher / Science", Icon: Hash, href: "/#domains", group: "Sections" },
@@ -114,6 +117,11 @@ const ITEMS: CmdItem[] = [
 
   // Actions
   { id: "copy-install",     kind: "copy",   title: "Copy install command", hint: "Download signed DMG via curl (macOS)", Icon: Download, payload: "curl -fLO https://github.com/alxvasilevvv/tars-neural-cockpit/releases/download/v8.4.0/TARS_8.4.0_aarch64.dmg && open TARS_8.4.0_aarch64.dmg", group: "Actions" },
+  // Wave 96 - Dashboard add/reset shortcuts. Both run inline; the
+  // Dashboard page reacts via the localStorage key (next render
+  // re-reads the layout).
+  { id: "dashboard-add",   kind: "action", title: "Dashboard: add widget", hint: "Open the widget palette on /dashboard", Icon: Sparkles, group: "Actions", keywords: "dashboard add widget palette", run: () => { try { window.location.assign("/dashboard?add=1"); } catch { /* noop */ } } },
+  { id: "dashboard-reset", kind: "action", title: "Dashboard: reset layout", hint: "Restore the generic default widget set", Icon: Settings2, group: "Actions", keywords: "dashboard reset clear layout default", run: () => { try { localStorage.removeItem("tars.dashboard.layout"); window.location.assign("/dashboard"); } catch { /* noop */ } } },
   // Wave 92 — Restart any first-run workshop tutorial overlay. Wipes
   // the localStorage flag for /workshop, /workshop/cohort, and
   // /workshop/enterprise, then dispatches the imperative restart event

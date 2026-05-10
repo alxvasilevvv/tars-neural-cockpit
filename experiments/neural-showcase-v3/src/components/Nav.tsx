@@ -9,6 +9,10 @@ const links = [
   { label: "Domains", href: "/#domains" },
   { label: "Pricing", href: "/pricing" },
   { label: "FAQ", href: "/faq" },
+  // Wave 96 - Dashboard surface. Public link sits next to FAQ so an
+  // operator landing on the marketing surface can jump into their
+  // configurable workspace without hunting through Cmd+K.
+  { label: "Dashboard", href: "/dashboard" },
   { label: "Install", href: "/install" },
 ];
 
