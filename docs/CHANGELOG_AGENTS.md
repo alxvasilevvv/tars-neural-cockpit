@@ -4,6 +4,90 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-11 — Cursor · Wave M6 (cockpit): MCP bridge status panel + HTTP surface
+
+**Summary**
+
+Operator-facing cockpit visibility for the M5 MCP bridge.
+Until now the only way to inspect what the bridge had loaded
+was the CLI (`tars-mcp-client bridge-list`); the cockpit
+treated the entire MCP stack as a black box. This wave wires
+a read-only HTTP surface and a dashboard panel that
+together let facilitators see at a glance which remote
+servers are configured, which are registered, which cache
+entries are stale, and (when Wave M6 pool is loaded) which
+sessions are warm.
+
+What ships:
+
+1. **`web_extras/routers/mcp_bridge.py`** — new router
+   mounted at `/api/mcp/bridge`:
+   - `GET /status` — full snapshot (servers + registered
+     packs + cache rows + pool stats + as_of timestamp).
+   - `GET /servers` — just the configured remote servers
+     from `$TARS_HOME/mcp/servers.json`.
+   - `POST /refresh` — re-bootstraps every server (or a
+     subset via `only=["server"]`), threads in the
+     SessionPool when M6 is available, returns the
+     structured `BridgeBootResult`.
+   - All endpoints **degrade gracefully** when the M3/M5/M6
+     modules aren't installed — return
+     `{ok: true, available: false, reason: ...}` instead
+     of crashing. Ships safely on plain `main` even before
+     PRs #176-180 land.
+2. **`web_extras/app.py`** — registers the router and
+   wires `shutdown_pool_if_active()` into the FastAPI
+   lifespan teardown so any pooled MCP sessions are closed
+   when the host stops (no zombie subprocesses on shutdown).
+3. **`experiments/neural-showcase-v3/src/components/perf/MCPBridgePanel.tsx`** —
+   new dashboard panel that fetches `/api/mcp/bridge/status`,
+   renders three columns:
+   - **Counters**: configured servers, registered packs (with
+     pooled flag chip per pack), live pool sessions (with
+     per-session age and idle).
+   - **Discovery cache table**: server name, age, tool
+     count, freshness badge (fresh / stale).
+   - **Refresh button** that calls `POST /api/mcp/bridge/refresh`
+     and re-fetches.
+   - Empty state: a single line of guidance pointing at
+     `$TARS_HOME/mcp/servers.json` so operators know
+     where to start.
+4. **`experiments/neural-showcase-v3/src/components/perf/types.ts`** —
+   six new exported types
+   (`MCPBridgeServerRow`, `MCPBridgeRegisteredPack`,
+    `MCPBridgeCacheRow`, `MCPBridgePoolSession`,
+    `MCPBridgePoolStats`, `MCPBridgeStatusEnvelope`)
+   that mirror the router shape exactly.
+5. **`experiments/neural-showcase-v3/src/pages/PerfDashboard.tsx`** —
+   mounts the new panel under the existing `/admin/perf`
+   page with its own fetch + refresh button so a missing
+   bridge module never breaks the rest of the dashboard.
+6. **`tests/test_mcp_bridge_router.py`** — 7 cases:
+   degradation tests run on every branch (router mounted,
+   status returns envelope, servers returns envelope,
+   refresh 503s when modules missing, refresh rejects
+   too-high timeout); happy-path tests auto-skip when M3+
+   modules aren't importable so the suite goes green on
+   plain `main` and lights up automatically once M3 lands.
+7. **`experiments/neural-showcase-v3/src/components/perf/MCPBridgePanel.test.tsx`** —
+   4 vitest smoke cases (export shape, envelope-type matrix
+   for unavailable + populated states, function arity).
+
+Independent of the M-Wave stack — branched off `main`, no
+dependencies on PRs #176-180. The router auto-detects M3/M5/M6
+when those PRs land and starts surfacing real data without
+any further changes here.
+
+**Files**
+
+- `web_extras/routers/mcp_bridge.py` — new (220 LOC)
+- `web_extras/app.py` — import + include_router + shutdown hook
+- `experiments/neural-showcase-v3/src/components/perf/MCPBridgePanel.tsx` — new
+- `experiments/neural-showcase-v3/src/components/perf/MCPBridgePanel.test.tsx` — new
+- `experiments/neural-showcase-v3/src/components/perf/types.ts` — six new types
+- `experiments/neural-showcase-v3/src/pages/PerfDashboard.tsx` — mount the panel
+- `tests/test_mcp_bridge_router.py` — new (7 tests)
+
 ## 2026-05-10 — Cursor · Phase W4-PR1: workshop quant playbooks + recursive playbook loader
 
 **Summary**

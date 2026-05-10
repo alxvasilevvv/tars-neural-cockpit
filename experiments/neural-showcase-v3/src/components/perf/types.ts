@@ -104,3 +104,57 @@ export interface PerfSummaryEnvelope {
   jobs: JobsEnvelope;
   resources: ResourceUsageEnvelope;
 }
+
+// SYNC: cursor-wave-m6-cockpit
+// /api/mcp/bridge/status — Wave M6 cockpit panel.
+
+export interface MCPBridgeServerRow {
+  name: string;
+  command: string;
+  args?: string[];
+  env?: Record<string, string>;
+  cwd?: string | null;
+  description?: string | null;
+}
+
+export interface MCPBridgeRegisteredPack {
+  slug: string;
+  name: string;
+  tool_count: number;
+  pooled: boolean;
+}
+
+export interface MCPBridgeCacheRow {
+  server: string;
+  status?: string; // "unreadable" when the cache file can't be parsed
+  discovered_at?: string;
+  age_seconds?: number;
+  fresh?: boolean;
+  tool_count?: number;
+}
+
+export interface MCPBridgePoolSession {
+  name: string;
+  age_seconds: number;
+  idle_seconds: number;
+  server_info: { name?: string; version?: string };
+  tool_count?: number | string;
+}
+
+export interface MCPBridgePoolStats {
+  count: number;
+  sessions: MCPBridgePoolSession[];
+  // Surfaced as `{error: ...}` if pool stats lookup blew up.
+  error?: string;
+}
+
+export interface MCPBridgeStatusEnvelope {
+  ok: boolean;
+  available: boolean;
+  reason?: string;
+  as_of: number;
+  servers?: MCPBridgeServerRow[];
+  registered?: MCPBridgeRegisteredPack[];
+  cache?: MCPBridgeCacheRow[];
+  pool?: MCPBridgePoolStats | null;
+}

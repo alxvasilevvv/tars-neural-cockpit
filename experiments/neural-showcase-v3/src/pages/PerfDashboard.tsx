@@ -27,7 +27,11 @@ import { WebhookStatsPanel } from "@/components/perf/WebhookStatsPanel";
 import { ReceiptIntegrityCard } from "@/components/perf/ReceiptIntegrityCard";
 import { JobsStatusPanel } from "@/components/perf/JobsStatusPanel";
 import { ResourceUsageCard } from "@/components/perf/ResourceUsageCard";
-import type { PerfSummaryEnvelope } from "@/components/perf/types";
+import { MCPBridgePanel } from "@/components/perf/MCPBridgePanel";
+import type {
+  MCPBridgeStatusEnvelope,
+  PerfSummaryEnvelope,
+} from "@/components/perf/types";
 
 export function PerfDashboard() {
   const t = useT();
@@ -39,6 +43,7 @@ export function PerfDashboard() {
   });
 
   const [summary, setSummary] = useState<PerfSummaryEnvelope | null>(null);
+  const [bridge, setBridge] = useState<MCPBridgeStatusEnvelope | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -57,7 +62,29 @@ export function PerfDashboard() {
     } finally {
       setLoading(false);
     }
+    // MCP bridge snapshot — separate fetch so a missing bridge
+    // module never breaks the rest of the dashboard.
+    try {
+      const res = await fetch("/api/mcp/bridge/status");
+      const json = (await res.json()) as MCPBridgeStatusEnvelope;
+      setBridge(json);
+    } catch {
+      setBridge(null);
+    }
   }, []);
+
+  async function handleBridgeRefresh() {
+    try {
+      await fetch("/api/mcp/bridge/refresh", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({}),
+      });
+    } catch {
+      /* swallow — UI just refetches */
+    }
+    await refresh();
+  }
 
   useEffect(() => {
     void refresh();
@@ -135,9 +162,15 @@ export function PerfDashboard() {
         <ReceiptIntegrityCard data={summary?.receipts} />
       </section>
 
-      <section className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+      <section className="mb-6 grid grid-cols-1 gap-3 lg:grid-cols-2">
         <JobsStatusPanel data={summary?.jobs} />
         <ResourceUsageCard data={summary?.resources} />
+      </section>
+
+      {/* Wave M6 — MCP bridge status (degrades gracefully when
+          the bridge module isn't installed). */}
+      <section className="mb-6">
+        <MCPBridgePanel data={bridge ?? undefined} onRefresh={handleBridgeRefresh} />
       </section>
     </div>
   );

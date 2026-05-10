@@ -70,6 +70,7 @@ from web_extras.routers import marketplace as marketplace_router
 # Wave 107 — /api/bundles per-org-type vertical bundle installer.
 from web_extras.routers import bundles as bundles_router
 # Wave 108 — /api/perf operational health + latency aggregator.
+from web_extras.routers import mcp_bridge as mcp_bridge_router
 from web_extras.routers import perf as perf_router
 # Wave 110 — /api/workspaces multi-tenant Workspaces MVP (additive).
 # Schema-only foundation; v9.3 wires data fencing on existing stores.
@@ -706,6 +707,11 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         for task in tasks:
             with contextlib.suppress(asyncio.CancelledError, Exception):
                 await task
+        # Wave M6 — close any pooled MCP bridge sessions so no
+        # subprocesses leak after host shutdown. No-op when M6
+        # isn't installed or no pool was ever populated.
+        with contextlib.suppress(Exception):
+            await mcp_bridge_router.shutdown_pool_if_active()
 
 
 app = FastAPI(
@@ -781,6 +787,7 @@ app.include_router(compliance_export_router.router)
 app.include_router(marketplace_router.router)
 app.include_router(bundles_router.router)
 app.include_router(perf_router.router)
+app.include_router(mcp_bridge_router.router)
 # Wave 110 — Workspaces backend MVP. New router only; existing
 # stores stay single-tenant in v9.1.0. Workspaces register, do NOT
 # fence data yet — v9.3 wires the cross-store enforcement.
