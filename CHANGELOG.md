@@ -9,6 +9,69 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
+## v9.1.0 — Workshop Suite addendum (2026-05-10)
+
+A two-week post-launch sprint that landed the B2B Workshop surface,
+the Webhooks module, real OAuth connectors, and a comprehensive
+hardening pass. Honest scope: workshop cohort SSE is mock; webhook
+`receipt.*` emit-sites land in v9.3; Slack/Gmail/Calendar Quick
+Connect Chrome flow lands in v9.1.1.
+
+Full release notes: [`docs/RELEASE_NOTES_v9.1.0.md`](docs/RELEASE_NOTES_v9.1.0.md#workshop-suite-waves-80-92--addendum-2026-05-10).
+
+### Added — Workshop FE
+- **Wave 80:** `/workshop` 4-phase wizard + AgentDesigner + Backtest + `/compliance` Console (FE complete).
+- **Wave 81:** algotrade workshop pack + branded landing + Cursor SYNC handshake.
+- **Wave 82:** B2B workshop visible from marketing landing (Hero CTA + Pricing Business tier + workshop pillar).
+- **Wave 83:** workshop FE tests + a11y audit + sitemap/OG polish.
+- **Wave 84:** `/workshop/roi` interactive ROI calculator.
+- **Wave 85:** `/workshop/materials` hub + PWA offline support for workshop routes.
+- **Wave 88:** `/workshop/assess` pre-workshop self-assessment quiz (12 Q × 4 categories).
+- **Wave 89:** `/workshop/cohort` facilitator dashboard with mock SSE.
+- **Wave 92:** in-app interactive tutorial overlay across all workshop pages.
+
+### Added — Workshop content
+- **Phase W1 / W4-PR1:** algotrade foundations (Strategy IR + registry + backtest engine + recipes) + Cursor's quant pack + recursive playbook loader.
+- 20+ starter playbooks across 5 verticals under `playbooks/_workshop/{fund,saas,dao,family-office,algotrade,quant}/`.
+- **Wave 86:** 8 enterprise-template handouts under `docs/workshop/enterprise-template/` (5 emails + facilitator runbook + feedback survey + README).
+- Contracts: [`docs/B2B_WORKSHOP.md`](docs/B2B_WORKSHOP.md), [`docs/contracts/WORKSPACES.md`](docs/contracts/WORKSPACES.md), [`docs/contracts/SKILL_SDK.md`](docs/contracts/SKILL_SDK.md).
+
+### Added — Backend
+- **Wave 90:** webhooks module — outgoing dispatcher + signed delivery + inbound playbook trigger + dead-letter queue + inbox. Contract v1.0 (HMAC, retry). `backend/core/webhooks/`, `web_extras/routers/webhooks.py`.
+- **Wave 91:** real Slack / Gmail / Google Calendar connectors (OAuth + read). Env-gated on `OAUTH_BRIDGE_*`. `backend/core/connectors/{slack,gmail,calendar}.py`, `web_extras/routers/connectors.py`.
+
+### Added — Hardening
+- **Wave 75:** repaired 4 failing GitHub workflows.
+- **Wave 76:** release pipeline hardened — verified v9.1.0 tag will build signed dmg.
+- **Wave 77:** pre-staged launch flag flip + launch announcement copy.
+- **Wave 78:** brother handoff doc (meeet.world side ops).
+- **Wave 79:** final security audit + production hardening — rate limits on `/voice/transcribe`, `/agents/route`, `/clone/draft`; wallet `sign_message` policy gate. Audit doc at `docs/security/AUDIT_2026-05-09.md`.
+- Real minisign updater pubkey patched into release pipeline.
+
+### Changed — Cleanup
+- **Wave 87:** stripped ALL named-customer / regulatory-acronym branding (Cresco / CARF / 3V / Crypto Fund) from docs and code → fully generic B2B. `/workshop/cresco` renamed to `/workshop/enterprise`.
+- Workshop content reads as generic enterprise B2B everywhere.
+
+### Honesty caveats
+- `/workshop/cohort` SSE is **mock**; no live attendee tracking yet.
+- Webhooks contract + dispatcher ship, but `receipt.*` event emission is wired only in algotrade pack today; broader emit-site coverage is v9.3.
+- Slack / Gmail / Calendar OAuth is the URL-redirect flow only. The "Quick Connect" Chrome extension flow is v9.1.1.
+
+### Operator-blocked (still pending after Wave 92)
+- Apple Developer .p12 → CI signed .dmg (notarization).
+- `GITHUB_RELEASE_TOKEN` in CF Pages env.
+- `BRIDGE_SHARED_SECRET` in CF Pages env.
+
+### Brother-blocked
+- Magic-link auth (live token mint) — v9.1.1.
+- $MEEET enterprise invoice path — v9.2.
+
+### Credits
+- Operator: alienram@icloud.com
+- Waves 80-92 + Wave 93 docs sync: Claude (assistant)
+
+---
+
 ## v9.1.0 — 2026-05-09
 
 First production-grade installable. Local-first AI cockpit with native
