@@ -1,0 +1,50 @@
+{
+  "_meta": {
+    "vertical": "quant",
+    "workshop_phase": "research",
+    "teaches": "Mid-workshop strategy lab: fork a recipe, override a parameter (instrument or timeframe), backtest the variant, and persist it back as a child of the parent in the registry.",
+    "estimated_runtime_seconds": 25,
+    "owner": "cursor"
+  },
+  "id": "_workshop.quant.strategy_lab",
+  "name": "Strategy lab — fork → backtest → register",
+  "description": "Workshop research module. Fork the bollinger_reversion recipe to a new instrument (default ETH), backtest it on 500 1h klines, and persist the registered result with parent_fingerprint set so the registry tells the lineage story.",
+  "tags": ["quant", "workshop", "algotrade", "research"],
+  "pack": "algotrade",
+  "on_block": "stop",
+  "steps": [
+    {
+      "id": "register_parent",
+      "action": "algotrade.register_strategy",
+      "args": {
+        "recipe": "bollinger_reversion",
+        "author": "${env.USER}"
+      },
+      "store_as": "parent"
+    },
+    {
+      "id": "fork",
+      "action": "algotrade.fork_strategy",
+      "args": {
+        "fingerprint": "${steps.parent.fingerprint}",
+        "new_name": "BB Reversion (ETH 1h variant)",
+        "overrides": {
+          "instrument": "BINANCE:ETHUSDT",
+          "timeframe": "1h"
+        },
+        "author": "${env.USER}"
+      },
+      "store_as": "child"
+    },
+    {
+      "id": "backtest",
+      "action": "algotrade.backtest",
+      "args": {
+        "fingerprint": "${steps.child.fingerprint}",
+        "binance": { "symbol": "ETHUSDT", "interval": "1h", "limit": 500 },
+        "equity_down_sample": 200
+      },
+      "store_as": "result"
+    }
+  ]
+}

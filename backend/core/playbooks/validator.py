@@ -38,10 +38,12 @@ from typing import Any, Iterable, Mapping
 
 # Action handler shape: <slug>.<action_id> OR
 # <slug>.awareness.<source_id>.snapshot. Slugs are lowercase
-# alphanumerics + underscores. Action ids use the same alphabet
-# plus dots (sub-namespacing like ``pack.memory.set``).
-_SLUG_RE = re.compile(r"^[a-z][a-z0-9_]*$")
-_ACTION_ID_RE = re.compile(r"^[a-z][a-z0-9_.]*$")
+# alphanumerics + underscores; a leading ``_`` is reserved for
+# meta-packs that aren't a domain pack (``_global``, ``_workshop``).
+# Action ids use the same alphabet plus dots (sub-namespacing
+# like ``pack.memory.set``).
+_SLUG_RE = re.compile(r"^_?[a-z][a-z0-9_]*$")
+_ACTION_ID_RE = re.compile(r"^_?[a-z][a-z0-9_.]*$")
 _AWARENESS_SUFFIX = ".snapshot"
 
 ALLOWED_TOP_LEVEL_KEYS: frozenset[str] = frozenset(

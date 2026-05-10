@@ -1,0 +1,68 @@
+{
+  "_meta": {
+    "vertical": "quant",
+    "workshop_phase": "iteration",
+    "teaches": "How to A/B two strategy variants on the same data so attendees see deterministic backtests, side-by-side metrics, and the registry's parent-fingerprint lineage.",
+    "estimated_runtime_seconds": 35,
+    "owner": "cursor"
+  },
+  "id": "_workshop.quant.backtest_compare",
+  "name": "Backtest A/B compare",
+  "description": "Loads the ma_cross recipe, forks it with different SMA periods, then runs both variants through the deterministic backtest engine on the same Binance kline window. Returns the two metric dicts side-by-side so attendees can see how a tiny IR change moves Sharpe / drawdown / win-rate.",
+  "tags": ["quant", "workshop", "algotrade", "backtest"],
+  "pack": "algotrade",
+  "on_block": "stop",
+  "steps": [
+    {
+      "id": "register_base",
+      "action": "algotrade.register_strategy",
+      "args": { "recipe": "ma_cross", "author": "${env.USER}" },
+      "store_as": "base"
+    },
+    {
+      "id": "fork_fast",
+      "action": "algotrade.fork_strategy",
+      "args": {
+        "fingerprint": "${steps.base.fingerprint}",
+        "new_name": "MA Cross 8/21 (fast)",
+        "overrides": {
+          "entry": {
+            "op": "crosses_above",
+            "args": [
+              {"indicator": "sma", "params": {"period": 8}},
+              {"indicator": "sma", "params": {"period": 21}}
+            ]
+          },
+          "exit": {
+            "op": "crosses_below",
+            "args": [
+              {"indicator": "sma", "params": {"period": 8}},
+              {"indicator": "sma", "params": {"period": 21}}
+            ]
+          }
+        }
+      },
+      "store_as": "fast"
+    },
+    {
+      "id": "backtest_base",
+      "action": "algotrade.backtest",
+      "args": {
+        "fingerprint": "${steps.base.fingerprint}",
+        "binance": { "symbol": "BTCUSDT", "interval": "1h", "limit": 500 },
+        "equity_down_sample": 200
+      },
+      "store_as": "base_result"
+    },
+    {
+      "id": "backtest_fast",
+      "action": "algotrade.backtest",
+      "args": {
+        "fingerprint": "${steps.fast.fingerprint}",
+        "binance": { "symbol": "BTCUSDT", "interval": "1h", "limit": 500 },
+        "equity_down_sample": 200
+      },
+      "store_as": "fast_result"
+    }
+  ]
+}

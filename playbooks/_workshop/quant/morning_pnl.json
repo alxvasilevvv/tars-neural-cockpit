@@ -1,0 +1,33 @@
+{
+  "_meta": {
+    "vertical": "quant",
+    "workshop_phase": "operations",
+    "teaches": "Daily quant ops: how to pull a live PnL strip across every paper session, surface anything close to a risk threshold, and decide whether to flip a kill-switch.",
+    "estimated_runtime_seconds": 12,
+    "owner": "cursor",
+    "schedule": "0 7 * * 1-5"
+  },
+  "id": "_workshop.quant.morning_pnl",
+  "name": "Morning PnL sweep (07:00 weekdays)",
+  "description": "Every weekday at 07:00 local: pull the live_sessions awareness snapshot, grab the per-session list, and surface the day's PnL strip the operator reviews before market open.",
+  "tags": ["quant", "workshop", "algotrade", "ops", "pnl"],
+  "pack": "algotrade",
+  "on_block": "continue",
+  "steps": [
+    {
+      "id": "snapshot",
+      "action": "algotrade.awareness.live_sessions.snapshot",
+      "args": { "sandbox_id": "${env.WORKSHOP_SANDBOX_ID}" },
+      "store_as": "live"
+    },
+    {
+      "id": "list",
+      "action": "algotrade.list_sessions",
+      "args": {
+        "mode": "paper",
+        "sandbox_id": "${env.WORKSHOP_SANDBOX_ID}"
+      },
+      "store_as": "sessions"
+    }
+  ]
+}

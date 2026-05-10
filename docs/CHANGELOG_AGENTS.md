@@ -4,6 +4,88 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-10 — Cursor · Phase W4-PR1: workshop quant playbooks + recursive playbook loader
+
+**Summary**
+
+Plugs the Cresco workshop's "playbooks for quants" gap. The 10
+W2-PR1 execution actions (`start_paper_session`, `submit_intent`,
+`feed_bar`, `set_policy`, `audit_tail`, …) now have **runnable
+multi-step recipes** that compose `algotrade.recipes` →
+`algotrade.backtest.run` → `algotrade.start_paper_session` →
+`algotrade.feed_bar` → `algotrade.audit_tail`, plus daily/weekly
+ops loops on top of the same wire contract.
+
+What ships:
+
+1. **Recursive playbook loader** —
+   `backend/core/playbooks/loader.py`. `discover()` now walks the
+   `playbooks/` tree with `rglob("*.json")`. Sub-directory names
+   (`_workshop/quant/`) become a dotted derived `pack` so workshop
+   verticals can live next to each other without name clashes;
+   the JSON's own `pack` field still wins, so existing playbooks
+   like `_workshop/fund/portfolio_monitoring.json` (declared
+   `"pack": "workshop"`) keep their explicit binding.
+2. **Validator slug fix** —
+   `backend/core/playbooks/validator.py`. `_SLUG_RE` /
+   `_ACTION_ID_RE` now allow a single leading `_` for meta-pack
+   namespaces (`_global`, `_workshop`, `_workshop.quant`). Closes
+   the long-standing `_global.memory_reflection` and
+   `_workshop.*` validation noise.
+3. **5 quant-vertical playbooks** under
+   `playbooks/_workshop/quant/`:
+   - `recipe_to_paper.json` — pick a recipe → backtest gate →
+     start paper session → seed bars → tail audit. The reference
+     "first-day workshop" loop.
+   - `backtest_compare.json` — run two recipes against the same
+     bars, surface side-by-side metrics for council debate.
+   - `morning_pnl.json` — daily ops snapshot: list sessions →
+     pick the active one → audit_tail → log to memory.
+   - `risk_review.json` — pull current `RiskPolicy`, summarise
+     breaches from audit, propose a tightened policy (no
+     auto-apply — destructive `set_policy` stays human-in-loop).
+   - `strategy_lab.json` — design / mutate / re-fingerprint a
+     `Strategy` IR via `algotrade.strategies.upsert` then
+     immediately backtest it; the loop the lab UI will drive.
+4. **Recursive loader test** —
+   `tests/test_playbooks_recursive_loader.py` (6 tests). Asserts
+   nested discovery, derived pack chain, explicit-pack precedence,
+   id uniqueness across sub-trees, env override
+   (`TARS_PLAYBOOKS_DIR`), and graceful empty-tree behaviour.
+
+**Why this matters for the Cresco cohort**
+
+A workshop attendee can now run a single playbook and walk the
+full strategy → backtest → paper-session → audit loop without
+hand-rolling 10 HTTP calls. The same JSON template is what the
+cockpit's lab mode will dispatch, so when the UI catches up the
+backend is already proven.
+
+**Tests**
+
+`pytest tests/test_playbooks_recursive_loader.py
+tests/test_playbooks.py tests/test_playbook_validator.py
+tests/test_playbooks_cli.py tests/test_algotrade_exec.py
+tests/test_algotrade_exec_actions.py` → **135 passed**. End-to-end
+`discover()` returns 32 playbooks, 0 validation errors across the
+whole tree (including the 5 new quant playbooks and the 7 algotrade
+playbooks Claude staged in Wave 81-A).
+
+**Files**
+
+- `backend/core/playbooks/loader.py` — recursive `rglob` +
+  derived-pack chain + explicit-pack precedence in `_from_dict`.
+- `backend/core/playbooks/validator.py` — `_SLUG_RE` /
+  `_ACTION_ID_RE` allow leading `_`.
+- `playbooks/_workshop/quant/recipe_to_paper.json` (new).
+- `playbooks/_workshop/quant/backtest_compare.json` (new).
+- `playbooks/_workshop/quant/morning_pnl.json` (new).
+- `playbooks/_workshop/quant/risk_review.json` (new).
+- `playbooks/_workshop/quant/strategy_lab.json` (new).
+- `tests/test_playbooks_recursive_loader.py` (new).
+
+>>> SYNC: Cursor · 2026-05-10 · W4-PR1 quant playbooks + recursive loader.
+
 ## 2026-05-10 — Cursor · Phase W2-PR1: paper executor + risk gate + order router + session manager
 
 **Summary**

@@ -1,0 +1,41 @@
+{
+  "_meta": {
+    "vertical": "quant",
+    "workshop_phase": "compliance",
+    "teaches": "How to audit a session: pull its risk policy + recent audit ledger, look for triggered-rule patterns, and tighten or loosen the gate accordingly.",
+    "estimated_runtime_seconds": 10,
+    "owner": "cursor"
+  },
+  "id": "_workshop.quant.risk_review",
+  "name": "Risk review (per session)",
+  "description": "Pulls the session snapshot (positions, orders, audit tail) plus the active risk policy. Used in the workshop's compliance module so attendees see how every order maps back to an immutable verdict + audit row.",
+  "tags": ["quant", "workshop", "algotrade", "risk", "audit"],
+  "pack": "algotrade",
+  "on_block": "stop",
+  "steps": [
+    {
+      "id": "snapshot",
+      "action": "algotrade.get_session",
+      "args": {
+        "session_id": "${env.WORKSHOP_SESSION_ID}",
+        "audit_tail": 200
+      },
+      "store_as": "session"
+    },
+    {
+      "id": "policy",
+      "action": "algotrade.get_policy",
+      "args": { "session_id": "${env.WORKSHOP_SESSION_ID}" },
+      "store_as": "policy"
+    },
+    {
+      "id": "audit",
+      "action": "algotrade.audit_tail",
+      "args": {
+        "session_id": "${env.WORKSHOP_SESSION_ID}",
+        "limit": 200
+      },
+      "store_as": "audit"
+    }
+  ]
+}
