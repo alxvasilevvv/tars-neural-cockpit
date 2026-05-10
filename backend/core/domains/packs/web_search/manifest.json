@@ -1,0 +1,20 @@
+{
+  "slug": "web_search",
+  "name": "Web search",
+  "short": "Outbound web access via Brave / SearXNG / DDG.",
+  "description": "Live search adapter with three backends: Brave (preferred, free 2k/month), SearXNG (self-host, max privacy), and DuckDuckGo (keyless fallback). Returns title / url / snippet rows the council can cite.",
+  "color": "#34d399",
+  "capabilities": [
+    "web_search_brave",
+    "web_search_searxng",
+    "web_search_ddg",
+    "adapter_health"
+  ],
+  "audience": "everyone — recency-sensitive Q&A, fact-checking, citation",
+  "auth_keys": [
+    "BRAVE_SEARCH_API_KEY"
+  ],
+  "env_keys": [
+    "TARS_SEARXNG_URL"
+  ]
+}

@@ -4,6 +4,71 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-10 — Cursor · Wave M1: web-search domain pack (Brave · SearXNG · DDG)
+
+**Summary**
+
+Ship the first "Phase M — universal platform" pack: outbound web
+search for the council. Three adapters dispatched in priority order
+so the cockpit works on day-1 with zero config:
+
+1. **Brave** (`BRAVE_SEARCH_API_KEY`) — preferred path, free tier
+   2 000 q/month, single-header auth.
+2. **SearXNG** (`TARS_SEARXNG_URL=…`) — self-host, max privacy.
+3. **DuckDuckGo** (no key) — keyless fallback so a fresh install
+   without any secrets still returns useful hits.
+
+The `search` action returns a normalised envelope
+`{ok, query, adapter, tried[], count, results[]}`; every attempted
+backend is logged in `tried[]` so the cockpit can show what was
+consulted and why each succeeded / failed. A separate `health`
+action snapshots adapter availability without burning a quota.
+
+Why now: TARS used to be search-blind unless the operator opened
+the science pack (arXiv only). Real assistants — Claude, Cursor,
+ChatGPT — all have outbound web access. Without it, TARS can't
+answer "latest pandas version" without lying. This unblocks the
+council's `cite this` discipline and lays the groundwork for Wave
+M2 (CLI `tars`) and M3/M4 (MCP client/server).
+
+**Files**
+
+- NEW `backend/core/domains/packs/web_search/` — full pack:
+  `pack.py`, `actions.py` (search + health + dispatcher),
+  `awareness.py`, `prompts.py`, `manifest.json`,
+  `adapters/{_base, brave, ddg, searxng}.py`.
+- MOD `backend/core/domains/packs/__init__.py` — register pack.
+- MOD `backend/core/vault/keychain.py` — add
+  `BRAVE_SEARCH_API_KEY` to `KNOWN_KEYS` (cockpit secrets panel +
+  vault status_for_keys).
+- NEW `tests/test_web_search_pack.py` — 27 assertions: registration,
+  dispatcher priority chain (`auto`/pin/no-config), per-adapter
+  parser fixtures (Brave JSON, DDG HTML w/ uddg-redirect unwrap,
+  SearXNG JSON), error paths (network / 4xx / rate-limit / anomaly),
+  helper utilities (`trim`, `dedupe`), top-level action
+  (query-required, fall-through, all-fail envelope, pinned
+  adapter, limit clamp), health is no-network.
+
+**Verification**
+
+```bash
+.venv/bin/python -m pytest tests/test_web_search_pack.py -q   # 27 passed
+.venv/bin/python -m pytest \
+  tests/test_real_adapters.py tests/test_memory_actions.py \
+  tests/test_domains.py tests/test_domains_health.py \
+  tests/test_composite_packs.py tests/test_vault_router.py \
+  tests/test_vault_file.py tests/test_vault_write_back.py \
+  tests/test_entrepreneur_pack.py tests/test_wallet_pack.py \
+  tests/test_web_search_pack.py -q                            # 145 passed
+```
+
+Operator action required: none for the keyless DDG path. To prefer
+Brave: `security add-generic-password -a tars -s
+BRAVE_SEARCH_API_KEY -w <token> -U` (or
+`export BRAVE_SEARCH_API_KEY=…`). To prefer SearXNG:
+`export TARS_SEARXNG_URL=http://127.0.0.1:8080`. The `health`
+action shows the resolved priority chain.
+
 ## 2026-05-09 — Cursor · B-019 diagnosis: prod custom domain points at wrong CF project
 
 **Summary**
@@ -2061,19 +2126,6 @@ subprocess), plus **`wranglerVersion: "4.14.4"`** to avoid npm 10+ npx
 - `.github/workflows/tars-meeet-cloudflare-pages.yml`
 - `docs/CHANGELOG_AGENTS.md` (this entry)
 
-## 2026-05-03 — Cursor · CHANGELOG_PUBLIC sync for Pages CI gate
-
-**Summary**
-
-Regenerated and committed **`docs/CHANGELOG_PUBLIC.md`** via
-`python3 scripts/generate_public_changelog.py` so the “Changelog public
-artefact in sync” step passes on push to `main`.
-
-**Files**
-
-- `docs/CHANGELOG_PUBLIC.md`
-- `docs/CHANGELOG_AGENTS.md` (this entry)
-
 ---
 
-_Showing the most recent 60 of 244 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 245 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
