@@ -61,6 +61,14 @@ RUNTIME_REQUIREMENTS = [
     "tonsdk>=1.0,<2.0",
     # Phase N5 — Solana transaction signing.
     "solders>=0.21,<1.0",
+    # Phase O / observability — OpenTelemetry traces shipped from
+    # `backend/core/observability/otel.py`. The SDK degrades gracefully
+    # at runtime when missing, but shipping it in the sidecar avoids
+    # the "trace export silently disabled in installed app" footgun
+    # operators hit when comparing dev (venv) vs prod (pyoxidizer).
+    "opentelemetry-api>=1.27,<2",
+    "opentelemetry-sdk>=1.27,<2",
+    "opentelemetry-exporter-otlp-proto-http>=1.27,<2",
 ]
 
 def make_dist():

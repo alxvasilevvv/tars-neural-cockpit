@@ -47,13 +47,20 @@ const BODY_CACHE_SECONDS = 3600; // 1 h for binary body (release immutable).
 // `release-desktop-tagged.yml` workflow for known release tags. New
 // release? Add the assets here in the same PR that bumps the tag.
 const ALLOWED_FILENAMES = new Set<string>([
-  // v9.1.0 — current stable. Mac-only: the GitHub Actions
-  // `release-desktop-tagged.yml` pipeline currently builds darwin
-  // (.dmg + Tauri .app.tar.gz) only. Win/Linux pyoxidizer cross-targets
-  // are postponed to v9.2 — see Wave 71-A backend reality pass.
-  // v9.2 — re-add Win/Linux when pyoxidizer pipelines land.
+  // v9.1.0 — current stable. macOS ships from the
+  // `release-desktop-tagged.yml` darwin matrix (.dmg + Tauri
+  // .app.tar.gz). Windows + Linux assets land via the cross-target
+  // pipeline added in Wave 71-C; the allowlist must include them so
+  // the install funnel proxy serves them once the workflow uploads
+  // them. If a target is temporarily missing on a release the proxy
+  // returns `asset_not_found_in_release` (404) with a hint, which
+  // keeps the funnel honest without dropping the entry from the
+  // allowlist.
   "TARS_9.1.0_aarch64.dmg",
   "TARS_9.1.0_x64.dmg",
+  "TARS_9.1.0_x64-setup.exe",
+  "TARS_9.1.0_amd64.AppImage",
+  "TARS_9.1.0_amd64.deb",
   "TARS_aarch64.app.tar.gz",
   "latest.json", // Tauri updater channel manifest
   "latest.json.sig",

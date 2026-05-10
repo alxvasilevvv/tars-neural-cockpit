@@ -180,20 +180,26 @@ def _placeholder_url(version: str, filename: str) -> str:
     return f"{GITHUB_RELEASES_BASE}/v{version}/{filename}"
 
 
-# v9.2 — re-add Win/Linux when pyoxidizer pipelines land. For v9.1.0
-# only Mac binaries actually ship from `release-desktop-tagged.yml`,
-# and the `/dl/<file>` Cloudflare proxy allowlist (after Wave 71-A)
-# only accepts Mac filenames. Listing Win/Linux entries here would
-# advertise downloads that 404 in the proxy. Keep the wire-shape
-# strict: Mac-only until the cross-target CI matrix lands.
+# Wave 71-C — cross-target install funnel. v9.1.0 advertises macOS
+# (.dmg, both archs), Windows (NSIS .exe), and Linux (.AppImage +
+# .deb). The pyoxidizer cross-target pipeline (`desktop/pyoxidizer.bzl`
+# + `release-desktop-tagged.yml`) builds these from the same matrix,
+# the `/dl/<file>` Cloudflare proxy allowlist accepts them, and the
+# install funnel (`tars.meeet.world/install.sh`) routes by `uname`.
+# If a release is missing one target the proxy returns
+# `asset_not_found_in_release` (404) instead of an opaque 500 — keeps
+# the funnel honest without dropping the entry from the manifest.
 _DEFAULT_VERSION = "9.1.0"
 _DEFAULT_NOTES = (
-    "v9.1.0 — Mac-only desktop release. Wallets, council agents, "
-    "entitlements/roles, OCR vision, Entrepreneur pack. Win/Linux "
-    "installers postponed to v9.2 (pyoxidizer cross-target pipelines)."
+    "v9.1.0 — desktop release across macOS / Windows / Linux. "
+    "Wallets, council agents, entitlements/roles, OCR vision, "
+    "Entrepreneur pack. Cross-target installers built from the "
+    "pyoxidizer matrix (Wave 71-C)."
 )
-# CI artifact filenames are `TARS_<version>_<arch>.dmg` (underscore +
-# raw arch like `aarch64`). Mirror exactly so /dl/<file> redirects work.
+# CI artifact filenames are `TARS_<version>_<arch>.<ext>` (underscore
+# + raw arch like `aarch64` / `x64` / `amd64`). Mirror exactly so
+# /dl/<file> redirects + `release-desktop-tagged.yml` upload paths
+# match byte-for-byte.
 _DEFAULT_ARTIFACTS: tuple[ReleaseArtifact, ...] = (
     ReleaseArtifact(
         os="macos",
@@ -209,7 +215,33 @@ _DEFAULT_ARTIFACTS: tuple[ReleaseArtifact, ...] = (
         filename=f"TARS_{_DEFAULT_VERSION}_x64.dmg",
         url=_placeholder_url(_DEFAULT_VERSION, f"TARS_{_DEFAULT_VERSION}_x64.dmg"),
     ),
-    # v9.2 — re-add Win/Linux when pyoxidizer pipelines land.
+    ReleaseArtifact(
+        os="windows",
+        arch="x64",
+        kind="exe",
+        filename=f"TARS_{_DEFAULT_VERSION}_x64-setup.exe",
+        url=_placeholder_url(
+            _DEFAULT_VERSION, f"TARS_{_DEFAULT_VERSION}_x64-setup.exe"
+        ),
+    ),
+    ReleaseArtifact(
+        os="linux",
+        arch="x64",
+        kind="appimage",
+        filename=f"TARS_{_DEFAULT_VERSION}_amd64.AppImage",
+        url=_placeholder_url(
+            _DEFAULT_VERSION, f"TARS_{_DEFAULT_VERSION}_amd64.AppImage"
+        ),
+    ),
+    ReleaseArtifact(
+        os="linux",
+        arch="x64",
+        kind="deb",
+        filename=f"TARS_{_DEFAULT_VERSION}_amd64.deb",
+        url=_placeholder_url(
+            _DEFAULT_VERSION, f"TARS_{_DEFAULT_VERSION}_amd64.deb"
+        ),
+    ),
 )
 
 
