@@ -1,4 +1,4 @@
-import { Routes, Route, useLocation } from "react-router-dom";
+import { Routes, Route, Navigate, useLocation } from "react-router-dom";
 import { Suspense, lazy, useEffect } from "react";
 import { trackPageView } from "@/lib/analytics";
 import { useTarsDeepLink } from "@/lib/useTarsDeepLink";
@@ -91,8 +91,10 @@ const ComparePage = lazy(() =>
 const SettingsPage = lazy(() =>
   import("@/pages/Settings").then((m) => ({ default: m.Settings })),
 );
-const CrescoWorkshop = lazy(() =>
-  import("@/pages/CrescoWorkshop").then((m) => ({ default: m.CrescoWorkshop })),
+const EnterpriseWorkshop = lazy(() =>
+  import("@/pages/EnterpriseWorkshop").then((m) => ({
+    default: m.EnterpriseWorkshop,
+  })),
 );
 // Wave 84 — Workshop ROI calculator. Lazy-loaded to keep the main
 // landing bundle tight; the calculator only ships when fund partners
@@ -383,12 +385,20 @@ function AppShell() {
               }
             />
             <Route
-              path="/workshop/cresco"
+              path="/workshop/enterprise"
               element={
                 <Suspense fallback={<RouteSkeleton variant="wide" />}>
-                  <CrescoWorkshop />
+                  <EnterpriseWorkshop />
                 </Suspense>
               }
+            />
+            {/* Wave 87 — backward-compat redirect. The legacy
+                /workshop/cresco URL was used as a workshop example;
+                preserve external links by redirecting to the generic
+                /workshop/enterprise surface. */}
+            <Route
+              path="/workshop/cresco"
+              element={<Navigate to="/workshop/enterprise" replace />}
             />
             {/* Wave 84 — Workshop ROI calculator. Lives under /workshop/*
                 so the breadcrumb (Home → Workshop → ROI calculator) and

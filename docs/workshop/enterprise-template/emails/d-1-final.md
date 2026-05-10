@@ -1,6 +1,6 @@
 # D-1 — final logistics
 
-**Subject:** Tomorrow: The Algorithmic Edge — final logistics
+**Subject:** Tomorrow: The {WORKSHOP_NAME} — final logistics
 
 ---
 
@@ -13,7 +13,7 @@ Tomorrow's the day. Quick rundown of everything you need.
 - **Start:** {START_TIME} sharp. Doors at {DOORS_OPEN_TIME} for
   coffee and any last-minute install help.
 - **Location:** {LOCATION}. Building entry is via {ENTRY_NOTES}.
-  Ask for the Cresco workshop at reception.
+  Ask for the {COMPANY_NAME} workshop at reception.
 - **Dial-in (record-only):** {ZOOM_URL}. We don't expect remote
   attendees but the link is there if you have to step out.
 
@@ -31,7 +31,7 @@ Tomorrow's the day. Quick rundown of everything you need.
 
 ## Pre-flight check (5 min, do this tonight)
 
-1. Open `http://localhost:{TARS_PORT}/workshop/cresco` in your
+1. Open `http://localhost:{TARS_PORT}/workshop/enterprise` in your
    browser. You should see the cohort landing page.
 2. Check `http://localhost:{TARS_PORT}/health` — the response
    block should be all green. If anything is amber or red, ping
@@ -60,7 +60,7 @@ deeper questions for Slack — we read it through the evening.
 
 ## Slack channel
 
-`#cresco-workshop-{COHORT_TAG}` is live. Use it for in-room
+`#{WORKSHOP_SLUG}-workshop-{COHORT_TAG}` is live. Use it for in-room
 questions you don't want to interrupt the room with — the floor
 person watches it on a side monitor and will come find you.
 

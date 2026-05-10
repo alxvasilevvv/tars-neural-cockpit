@@ -1,9 +1,9 @@
 # Algotrade vertical — workshop starter pack
 
-Five playbooks built for the **Cresco Capital "Algorithmic Edge"
-workshop** (CARF / 3V / Crypto Fund quant teams). Together they cover
-the full quant loop: design a Strategy IR, backtest, gate through risk
-review, paper trade, and promote to live with a human approval.
+Five playbooks built for the **algorithmic workshop** (fund partners,
+quant teams, research desks). Together they cover the full quant loop:
+design a Strategy IR, backtest, gate through risk review, paper trade,
+and promote to live with a human approval.
 
 ## Coming from QuantConnect / Zipline / Backtrader?
 
@@ -39,9 +39,9 @@ yourself".
 ## Fork instructions
 
 1. Copy a file out of `_workshop/algotrade/` into your own pack
-   directory, e.g. `playbooks/cresco/mean_reversion_strategy.json`.
+   directory, e.g. `playbooks/<your-fund>/mean_reversion_strategy.json`.
 2. Replace the `id` prefix with your fund slug
-   (e.g. `cresco.mean_reversion_strategy`).
+   (e.g. `<your-fund>.mean_reversion_strategy`).
 3. Adjust strategy params (SMA / RSI / Bollinger periods) and the
    backtest range to match your asset universe.
 4. Replace placeholder env keys (`COMPLIANCE_EMAIL`,
@@ -82,4 +82,4 @@ Every promotion to live trading goes through:
   `kill_switch`) enforced *inside* the session loop, not in a wrapper.
 
 If any of those five gates flips red, the session refuses to escalate.
-That's the contract Cresco compliance signed off on.
+That's the contract compliance teams sign off on.

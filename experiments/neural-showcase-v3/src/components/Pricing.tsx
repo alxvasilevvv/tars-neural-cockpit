@@ -110,9 +110,9 @@ const TIERS: Tier[] = [
     color: "#8B5CF6",
     comingSoon: true,
     // Wave 82 — surface the B2B workshop landing alongside "Talk to
-    // sales". Cresco Capital is the FIRST cohort, not the 500th.
+    // sales". First cohort partner is private — copy stays generic.
     secondaryCtaKey: "pricing.tier.business.cta.workshop",
-    secondaryHref: "/workshop/cresco",
+    secondaryHref: "/workshop/enterprise",
   },
 ];
 

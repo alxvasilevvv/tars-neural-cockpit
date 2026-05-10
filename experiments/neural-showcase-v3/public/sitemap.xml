@@ -98,8 +98,8 @@
 
   <!--
     Wave 84 — Workshop ROI calculator. Live page that fund partners
-    use during the Algorithmic Edge workshop. Sibling routes /workshop
-    and /workshop/cresco are listed in adjacent waves' sitemap edits;
+    use during the algorithmic workshop. Sibling routes /workshop
+    and /workshop/enterprise are listed in adjacent waves' sitemap edits;
     we append rather than re-templating the file to avoid touching
     untouched URLs in Cursor's branches mid-flight.
   -->
@@ -113,7 +113,7 @@
   <!--
     Wave 85 — Workshop materials hub. Central page for cohort
     attendees: decks, handouts, the 10-recipe library, video
-    walkthroughs, Cresco Slack, and office hours. Precached by the
+    walkthroughs, cohort Slack, and office hours. Precached by the
     SW (see public/sw.js) so it survives flaky conference-WiFi.
   -->
   <url>

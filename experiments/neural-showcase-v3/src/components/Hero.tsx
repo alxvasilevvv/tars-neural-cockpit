@@ -312,7 +312,7 @@ export function Hero() {
           {/* Wave 82 — secondary workshop CTA. Same visual weight as
               "Explore domains" so it doesn't compete with the primary
               download/notify path. The hint text below names the
-              early-access partners (Cresco / CARF / 3V / Crypto Fund) so
+              early-access fund partners + research desks so
               visitors landing from those rooms recognise they're in the
               right place. */}
           <a

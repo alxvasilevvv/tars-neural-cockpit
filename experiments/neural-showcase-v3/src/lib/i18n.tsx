@@ -33,11 +33,12 @@ const STRINGS_EN = {
   "hero.cta.cockpit":     "Open cockpit",
   "hero.cta.domains":     "Explore domains",
   // Wave 82 — B2B workshop entry. Honest framing: workshop UI shipped,
-  // Cresco is the FIRST cohort (not "battle-tested at 500 funds"). Hint
-  // names the early-access partners — CARF / 3V / Crypto Fund — so
+  // The first cohort partner is private; naming them publicly is
+  // forbidden in marketing copy until they explicitly opt in. Hint
+  // describes the audience generically so
   // visitors landing from those rooms recognise the surface.
   "hero.cta.workshop":      "Workshop for funds →",
-  "hero.cta.workshop.hint": "B2B onboarding · Cresco Capital · CARF · 3V · Crypto Fund",
+  "hero.cta.workshop.hint": "B2B onboarding · funds · quant teams · research desks",
 
   // Sticky CTA bar
   "stickyCTA.notify":     "Notify me",
@@ -92,11 +93,11 @@ const STRINGS_EN = {
   "pricing.tier.pro.meeetPrice":   "or 200 $MEEET / mo",
   "pricing.tier.pro.cta":          "Notify me at launch",
   "pricing.tier.business.name":    "Business",
-  // Wave 82 — refocused on funds + workshop cohorts. Cresco / CARF / 3V /
-  // Crypto Fund are live early-access partners; not battle-tested at scale.
+  // Wave 82 — refocused on funds + workshop cohorts. First cohort
+  // partner is private; copy stays generic until they opt in.
   "pricing.tier.business.tagline": "Funds, teams, workshops.",
   "pricing.tier.business.priceSub":"per seat / month",
-  "pricing.tier.business.body":    "Per-seat licensing for quant/research teams. Includes the Algorithmic Edge workshop curriculum + private deployment + audit-grade receipt ledger. Talk to sales.",
+  "pricing.tier.business.body":    "Per-seat licensing for quant/research teams. Includes the structured onboarding workshop curriculum + private deployment + audit-grade receipt ledger. Talk to sales.",
   "pricing.tier.business.cta":     "Talk to sales",
   "pricing.tier.business.cta.workshop": "Book a workshop",
   // Bug #3 from docs/SYSTEM_AUDIT_2026-05-02.md — payments not yet
@@ -669,13 +670,13 @@ const STRINGS_EN = {
   "meeetSection.p3.body":          "Agent-to-agent marketplace with escrow + Solana memo anchoring. Send a handshake, lock $MEEET, deliver work, receive payment automatically.",
   "meeetSection.p3.statNum":       "92%",
   "meeetSection.p3.statLabel":     "deals settled in <24h",
-  // Wave 82 — fourth pillar: workshop surface. Cresco Capital is the
-  // FIRST cohort; CARF / 3V / Crypto Fund are confirmed early-access.
+  // Wave 82 — fourth pillar: workshop surface. First cohort partner
+  // is private; copy describes the audience generically.
   // Don't claim "battle-tested at 500 funds" — workshop UI just shipped,
   // backend is in flight on Cursor's side.
   "meeetSection.p4.tag":           "WORKSHOPS",
   "meeetSection.p4.title":         "Onboarding for funds + teams",
-  "meeetSection.p4.body":          "Cresco Capital, CARF, 3V, Crypto Fund — quant teams ship live strategies in 2 days. Bring your data, leave with a deployed agent.",
+  "meeetSection.p4.body":          "Quant teams, research desks, fund partners — ship live strategies in 2 days. Bring your data, leave with a deployed agent.",
   "meeetSection.p4.cta":           "See workshop →",
 
   // ── audit-6 · remaining Landing (no Apple) ─────────────────────
@@ -853,14 +854,14 @@ const STRINGS_EN = {
   // only on the heading-line text — body copy is colocated with the
   // page so the diff stays inside one file.
   "materials.title":
-    "Everything you need from the Algorithmic Edge workshop, in one page.",
+    "Everything you need from the algorithmic workshop, in one page.",
   "materials.subtitle":
-    "Decks, handouts, the playbook recipe library, video walkthroughs, the Cresco Slack channel, and the recurring office hours. Bookmark this page — it works offline (PWA cache).",
+    "Decks, handouts, the playbook recipe library, video walkthroughs, the cohort Slack channel, and the recurring office hours. Bookmark this page — it works offline (PWA cache).",
   "materials.section.decks":      "Slide decks",
   "materials.section.handouts":   "One-pagers",
   "materials.section.recipes":    "Recipe library",
   "materials.section.videos":     "Recorded walkthroughs",
-  "materials.section.community":  "Cresco channel",
+  "materials.section.community":  "Cohort channel",
   "materials.section.office":     "Recurring office hours",
   "materials.recipe.algotrade":   "ALGOTRADE pack",
   "materials.recipe.quant":       "QUANT pack",

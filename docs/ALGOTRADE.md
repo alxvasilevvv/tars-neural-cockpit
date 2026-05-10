@@ -1,7 +1,7 @@
 # Algotrade module — Phase W1 reference
 
-> Foundations for the **Cresco workshop** (\"The Algorithmic Edge\").
-> See `docs/CRESCO_WORKSHOP.md` (operator) for the audience-facing
+> Foundations for the **algorithmic workshop** (\"The algorithmic workshop\").
+> See `docs/WORKSHOP_OPERATOR_GUIDE.md` (operator) for the audience-facing
 > guide and SYNC issue **#163** for the full Phase W plan.
 
 The `backend/core/algotrade/` module gives TARS:
@@ -268,7 +268,7 @@ See [SYNC issue #163](https://github.com/alxvasilevvv/tars-neural-cockpit/issues
 
 The 10 W2-PR1 execution actions (`start_paper_session`,
 `submit_intent`, `feed_bar`, `set_policy`, `audit_tail`, …) are
-composed into 5 runnable recipes for the Cresco workshop, living
+composed into 5 runnable recipes for the algorithmic workshop, living
 under `playbooks/_workshop/quant/` and discovered automatically by
 the recursive `discover()` loader. Run via the playbooks runner
 (`backend/core/playbooks/runner.py`) or the cockpit's lab mode.

@@ -1,7 +1,23 @@
-# Cresco Capital — "Algorithmic Edge" workshop kit
+# Enterprise workshop template — "{WORKSHOP_NAME}" kit
 
-This folder is the operational package for the Cresco Capital
-"Algorithmic Edge" workshop: a two-day in-person session bracketed
+> **This is a TEMPLATE for any B2B client.** Fork this directory into
+> `docs/workshop/<your-client>/`, replace the placeholders below, and
+> customize for your cohort. Originally built as the meeet.world
+> reference enterprise workshop kit and genericized in Wave 87.
+>
+> **Placeholders to replace** (find/replace across the whole folder):
+> - `{COMPANY_NAME}` — the partner / fund name
+> - `{WORKSHOP_NAME}` — the workshop's marketed title
+> - `{WORKSHOP_SLUG}` — short slug used in Slack channel names
+> - `{WORKSHOP_PACK}` — the playbook pack identifier (e.g. `algotrade`)
+> - `{COHORT_GROUP_1}` / `{COHORT_GROUP_2}` / `{COHORT_GROUP_3}` —
+>   sub-cohort names if you split attendees into groups
+> - `{COHORT_GROUP_2_FULL}` — long form for group 2
+> - `{COHORT_TAG}`, `{TARS_PORT}`, `{FACILITATOR_EMAIL}`,
+>   `{NEXT_COHORT_DATES}` — scheduling + contact placeholders
+
+This folder is the operational package for an enterprise
+"{WORKSHOP_NAME}" workshop: a two-day in-person session bracketed
 by a five-day attendee journey (D-7 invite through D+7 follow-up).
 Everything an attendee receives by email and everything the
 facilitator runs from lives in this folder.
@@ -9,7 +25,7 @@ facilitator runs from lives in this folder.
 The workshop sits one layer above the generic B2B engagement
 described in `docs/B2B_WORKSHOP.md`. Where that doc covers the
 four-vertical starter pack and the install-to-deploy arc, this kit
-is the Cresco-specific cohort: quant operators bringing live or
+is the {COMPANY_NAME}-specific cohort: quant operators bringing live or
 soon-to-be-live strategies into TARS, with backtest + risk policy +
 paper-trade + audit as the spine of the curriculum.
 
@@ -28,15 +44,15 @@ a strategy from sandbox to a paper-traded signal feed.
 
 ## Audience
 
-The cohort is drawn from three Cresco-adjacent communities:
+The cohort is drawn from three {COMPANY_NAME}-adjacent communities:
 
-- **CARF** — Cresco Algorithmic Research Fellows. Mostly junior
+- **{COHORT_GROUP_1}** — {COMPANY_NAME} Research Fellows. Mostly junior
   quants with one or two strategies they want to harden into a
   research-grade workflow.
-- **3V** — Cresco's "Three Verticals" group: discretionary PMs who
+- **{COHORT_GROUP_2}** — {COMPANY_NAME}'s "{COHORT_GROUP_2_FULL}" group: discretionary PMs who
   are starting to systematize a piece of their book and need
   guardrails (risk policy, kill switch, audit) before they ship.
-- **Crypto Fund quants** — operators running 24/7 mandates who care
+- **{COHORT_GROUP_3} quants** — operators running 24/7 mandates who care
   most about paper-trade telemetry, on-chain anchoring of receipts,
   and a defensible compliance trail.
 

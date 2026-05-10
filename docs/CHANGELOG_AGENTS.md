@@ -8,7 +8,7 @@ factual; prose belongs in `AGENT_HANDOFF.md`.
 
 **Summary**
 
-Plugs the Cresco workshop's "playbooks for quants" gap. The 10
+Plugs the algorithmic workshop's "playbooks for quants" gap. The 10
 W2-PR1 execution actions (`start_paper_session`, `submit_intent`,
 `feed_bar`, `set_policy`, `audit_tail`, …) now have **runnable
 multi-step recipes** that compose `algotrade.recipes` →
@@ -53,7 +53,7 @@ What ships:
    id uniqueness across sub-trees, env override
    (`TARS_PLAYBOOKS_DIR`), and graceful empty-tree behaviour.
 
-**Why this matters for the Cresco cohort**
+**Why this matters for the early-access cohort**
 
 A workshop attendee can now run a single playbook and walk the
 full strategy → backtest → paper-session → audit loop without
@@ -90,7 +90,7 @@ playbooks Claude staged in Wave 81-A).
 
 **Summary**
 
-Closes the Cresco workshop's "send a real (paper) order" gap.
+Closes the algorithmic workshop's "send a real (paper) order" gap.
 The `algotrade` domain pack went from "design / persist / backtest"
 to "design / persist / backtest **/ execute**" — same Strategy IR,
 same `Bar` type, same fingerprint. Two-PR plan: this is **W2-PR1
@@ -154,7 +154,7 @@ What ships:
 
 **Why this shape**
 
-Workshop attendees (CARF / 3V / Crypto Fund quants) need to
+Workshop attendees (quant teams) need to
 audit every layer. Stdlib-only, dataclass-only, JSON-everywhere.
 The router is the **single funnel** — one place to point at and
 say "here's where the intent gates and audits". Risk policy is
@@ -188,8 +188,8 @@ tests/test_algotrade_exec_actions.py           (NEW, 18)
 
 **Summary**
 
-Foundations for the Cresco Capital workshop ("The Algorithmic Edge",
-audience CARF / 3V / Crypto Fund quant teams, declared outcome
+Foundations for the algorithmic workshop ("the algorithmic workshop",
+audience quant teams, declared outcome
 "production-ready toolkit"). See SYNC issue #163 for the full Phase W
 plan and the lane split with Claude.
 
@@ -228,7 +228,7 @@ will build on:
 
 **Why now**
 
-Cresco workshop is on a deadline (slide 1 says "v1.0", date TBD).
+algorithmic workshop is on a deadline (slide 1 says "v1.0", date TBD).
 TARS used to be trade-blind beyond simple Binance awareness; the
 `traders` pack ships fetch_quote / pull_klines / summarize_market
 but no execution surface. To close the full algo-trading cycle
@@ -277,7 +277,7 @@ re-enter the story.
 
 **SYNC**
 
-Coordination: SYNC issue #163 ("[SYNC] Cresco Capital workshop —
+Coordination: SYNC issue #163 ("[SYNC] algorithmic workshop —
 full algo-trading cycle in TARS (Phase W)"). Lane split with Claude
 documented there. Branch convention: `cursor/algotrade-w<N>-<topic>`,
 `claude/algotrade-w<N>-<topic>`. Handoff row will be appended to

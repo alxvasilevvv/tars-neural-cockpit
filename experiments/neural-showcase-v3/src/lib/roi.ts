@@ -95,7 +95,7 @@ export function computeRoi(raw: Partial<RoiInput>): RoiResult {
 
 /**
  * Three preset scenarios surfaced as one-click buttons. Numbers are
- * realistic for the early-access cohort (Cresco / CARF / 3V / Crypto
+ * realistic for the early-access cohort (fund partners + research desks
  * Fund) — small / mid / large quant teams. All produce positive ROI
  * inside year 1 (the verification spec requires this).
  */

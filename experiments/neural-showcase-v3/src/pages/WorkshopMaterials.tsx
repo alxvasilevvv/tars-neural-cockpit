@@ -2,7 +2,7 @@
  * <WorkshopMaterials /> — Wave 85.
  *
  * Central hub at /workshop/materials for everything attendees need
- * during and after the Algorithmic Edge cohort:
+ * during and after the algorithmic workshop cohort:
  *
  *   - Slide decks (PDFs)
  *   - Handouts (1-page PDFs)
@@ -11,7 +11,7 @@
  *     in sync without hardcoding here)
  *   - Video walkthroughs — Loom / YouTube embed slots (URL TODOs left
  *     for the post-cohort recording pass)
- *   - Community — Cresco-specific Slack invite
+ *   - Community — cohort Slack invite
  *   - Office hours — Cal.com calendar embed slot
  *
  * Asset URLs are placeholders today (decks + handouts not yet
@@ -55,12 +55,12 @@ interface DeckLink {
 
 const SLIDE_DECKS: DeckLink[] = [
   {
-    title: "Algorithmic Edge — Day 1",
+    title: "Algorithmic Workshop — Day 1",
     href: "/assets/decks/algorithmic-edge-day1.pdf",
     pages: "PDF · 42 slides",
   },
   {
-    title: "Algorithmic Edge — Day 2",
+    title: "Algorithmic Workshop — Day 2",
     href: "/assets/decks/algorithmic-edge-day2.pdf",
     pages: "PDF · 38 slides",
   },
@@ -111,10 +111,10 @@ const VIDEOS: VideoEmbed[] = [
   { title: "Risk gate + paper trade demo", duration: "15 min" },
 ];
 
-// Cresco Slack invite — placeholder. Brother will swap once the
+// Cohort Slack invite — placeholder. Brother will swap once the
 // channel is live. 30-day rotating link per Slack ToS.
-const CRESCO_SLACK_INVITE =
-  "https://join.slack.com/t/cresco-tars/shared_invite/PLACEHOLDER";
+const COHORT_SLACK_INVITE =
+  "https://join.slack.com/t/tars-workshop/shared_invite/PLACEHOLDER";
 
 // Office hours via Cal.com — placeholder. Real URL lands once the
 // ops team books the recurring slot.
@@ -149,7 +149,7 @@ export function WorkshopMaterials() {
   useDocumentMeta({
     title: "Workshop materials — decks, recipes, videos",
     description:
-      "Everything Algorithmic Edge attendees need: slide decks, handouts, the 10-playbook recipe library, video walkthroughs, Slack community, and office hours.",
+      "Everything algorithmic workshop attendees need: slide decks, handouts, the 10-playbook recipe library, video walkthroughs, Slack community, and office hours.",
     ogImage: "https://tars.meeet.world/og-workshop.svg",
   });
 
@@ -211,13 +211,13 @@ export function WorkshopMaterials() {
                   "linear-gradient(95deg, var(--brand-indigo) 0%, var(--brand-violet) 50%, var(--brand-cyan) 100%)",
               }}
             >
-              Algorithmic Edge
+              Algorithmic Workshop
             </span>{" "}
             workshop, in one page.
           </h1>
           <p className="mt-2 max-w-[64ch] text-[15px] leading-[1.65] text-ink-2">
             Decks, handouts, the {RECIPE_LIBRARY.length}-playbook recipe
-            library, video walkthroughs, the Cresco Slack channel, and
+            library, video walkthroughs, the cohort Slack channel, and
             the recurring office hours. Bookmark this page — it works
             offline (PWA cache) and updates whenever new material
             ships.
@@ -231,10 +231,10 @@ export function WorkshopMaterials() {
               Back to workshop
             </Link>
             <Link
-              to="/workshop/cresco"
+              to="/workshop/enterprise"
               className="inline-flex items-center gap-2 rounded-sm border border-line px-3 py-1.5 font-mono-tech text-[11px] uppercase tracking-[2px] text-ink-2 transition-colors hover:border-[var(--brand-indigo)] hover:text-ink"
             >
-              Cresco landing
+              Workshop landing
             </Link>
           </div>
         </motion.header>
@@ -490,12 +490,12 @@ export function WorkshopMaterials() {
           <SectionHeading
             id="materials-community-heading"
             eyebrow="05 · Community"
-            title="Cresco channel"
+            title="Cohort channel"
             blurb="A private Slack workspace for cohort attendees — peer questions, ops escalations, post-workshop strategy reviews."
           />
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <a
-              href={CRESCO_SLACK_INVITE}
+              href={COHORT_SLACK_INVITE}
               target="_blank"
               rel="noopener noreferrer"
               className="group flex items-start gap-4 rounded-md border border-line bg-bg-1/50 p-5 backdrop-blur-sm transition-colors hover:border-[var(--brand-indigo)]"
@@ -508,19 +508,19 @@ export function WorkshopMaterials() {
               />
               <div className="flex-1">
                 <div className="font-medium text-ink">
-                  Join the Cresco TARS Slack
+                  Join the TARS workshop Slack
                 </div>
                 <p className="mt-1 text-[13.5px] leading-[1.55] text-ink-2">
                   30-day rotating invite. Channels: #strategy-review,
                   #risk-questions, #ops-pager.
                 </p>
                 <div className="mt-3 font-mono-tech text-[10.5px] uppercase tracking-[2px] text-ink-3 transition-colors group-hover:text-[var(--brand-indigo)]">
-                  cresco-tars.slack.com →
+                  tars-workshop.slack.com →
                 </div>
               </div>
             </a>
             <Link
-              to="/workshop/cresco"
+              to="/workshop/enterprise"
               className="group flex items-start gap-4 rounded-md border border-line bg-bg-1/50 p-5 backdrop-blur-sm transition-colors hover:border-[var(--brand-violet)]"
             >
               <MessageCircle
@@ -530,13 +530,13 @@ export function WorkshopMaterials() {
                 aria-hidden
               />
               <div className="flex-1">
-                <div className="font-medium text-ink">Cresco landing</div>
+                <div className="font-medium text-ink">Workshop landing</div>
                 <p className="mt-1 text-[13.5px] leading-[1.55] text-ink-2">
                   Workshop overview, three-step demo, the five Day 1
                   algotrade playbooks.
                 </p>
                 <div className="mt-3 font-mono-tech text-[10.5px] uppercase tracking-[2px] text-ink-3 transition-colors group-hover:text-[var(--brand-violet)]">
-                  /workshop/cresco →
+                  /workshop/enterprise →
                 </div>
               </div>
             </Link>

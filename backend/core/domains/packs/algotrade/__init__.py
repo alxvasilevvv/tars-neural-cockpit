@@ -1,7 +1,7 @@
 """Algotrade domain pack — exposes the W1a foundations as actions.
 
-Cresco workshop ("The Algorithmic Edge", CARF / 3V / Crypto Fund
-quant teams) — Phase W1b.
+Algorithmic workshop (Strategy IR + backtest + paper exec for quant
+workshops, fund partners, research desks) — Phase W1b.
 
 The pack wraps :mod:`backend.core.algotrade` (Strategy IR, registry,
 backtest engine, recipe gallery) into the standard TARS domain

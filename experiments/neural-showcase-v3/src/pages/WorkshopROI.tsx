@@ -215,7 +215,7 @@ export function WorkshopROI() {
   useDocumentMeta({
     title: "Workshop ROI calculator · TARS",
     description:
-      "Compute time + dollars saved by automating with TARS. Live calculator built for fund partners during the Algorithmic Edge workshop.",
+      "Compute time + dollars saved by automating with TARS. Live calculator built for fund partners during the algorithmic workshop.",
   });
 
   const [input, setInput] = useState<RoiInput>(() => loadInitial());
@@ -273,7 +273,7 @@ export function WorkshopROI() {
 
   return (
     <div className="relative min-h-[calc(100vh-72px)] overflow-hidden bg-bg-0 text-ink">
-      {/* Ambient backdrop — same triad as Cresco landing */}
+      {/* Ambient backdrop — same triad as Enterprise workshop landing */}
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 -z-10"

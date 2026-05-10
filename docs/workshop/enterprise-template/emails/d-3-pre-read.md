@@ -1,6 +1,6 @@
 # D-3 — pre-read
 
-**Subject:** Algorithmic Edge — pre-read (15 min)
+**Subject:** {WORKSHOP_NAME} — pre-read (15 min)
 
 ---
 

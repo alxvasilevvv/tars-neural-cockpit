@@ -1,7 +1,7 @@
 /**
  * Breadcrumbs — structural smoke tests.
  *
- * The full DOM render is exercised live in /workshop/cresco; here we
+ * The full DOM render is exercised live in /workshop/enterprise; here we
  * lock the public surface (export shape + interface contract) so any
  * accidental rename or signature drift from a future a11y refactor
  * trips CI before it reaches the cockpit.
@@ -32,7 +32,7 @@ describe("Breadcrumbs (smoke)", () => {
     const items: BreadcrumbItem[] = [
       { label: "Home", to: "/" },
       { label: "Workshop", to: "/workshop" },
-      { label: "Cresco Capital" },
+      { label: "Enterprise" },
     ];
     const result = Breadcrumbs({ items });
     expect(result).not.toBeNull();

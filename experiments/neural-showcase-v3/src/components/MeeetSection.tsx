@@ -6,7 +6,7 @@ import { useT, type TKey } from "@/lib/i18n";
  * MeeetSection — bridge to meeet.world economy.
  *
  * Wave 82: now four pillars — Wallet, $MEEET earnings, T2T agent-to-agent
- * commerce, and Workshops (B2B onboarding for funds + quant teams). Cresco
+ * commerce, and Workshops (B2B onboarding for funds + quant teams). The
  * Capital is the FIRST cohort partner, not the 500th — copy must not
  * overclaim. The fourth pillar uses a fourth accent (success-green) so the
  * visual rhythm stays distinct from the existing three brand colours.
@@ -64,8 +64,8 @@ const PILLARS: Pillar[] = [
     accent: "#06B6D4",
     href: "/cockpit#t2t",
   },
-  // Wave 82 — fourth pillar: B2B workshop entry. Cresco Capital is the
-  // FIRST cohort; CARF / 3V / Crypto Fund are confirmed early-access
+  // Wave 82 — fourth pillar: B2B workshop entry. First cohort partner
+  // is private; copy describes the audience generically (funds, quant
   // partners. Honest framing: workshop UI shipped, backend is in flight.
   // Don't claim "battle-tested at 500 funds".
   {

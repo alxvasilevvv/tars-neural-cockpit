@@ -22,7 +22,7 @@ them tomorrow:
   please re-run `tars sidecar restart` before tomorrow morning.
 
 If your name was on a blocker that didn't make this list, ping
-`#cresco-workshop-{COHORT_TAG}` and we'll address it at the
+`#{WORKSHOP_SLUG}-workshop-{COHORT_TAG}` and we'll address it at the
 morning standup.
 
 ## Day 2 morning

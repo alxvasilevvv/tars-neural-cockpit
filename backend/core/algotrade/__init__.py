@@ -1,6 +1,6 @@
 """TARS algotrade — Strategy IR, backtest, registry.
 
-Phase W (Cresco workshop). The submodules are deliberately
+Phase W (algorithmic workshop). The submodules are deliberately
 stdlib-only so a fresh `make bootstrap` machine can run a backtest
 without an extra `pip install`. Numpy/pandas remain optional for
 the heavy paths (vectorised metrics on huge bar sets); the default

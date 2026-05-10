@@ -14,14 +14,13 @@ import { useDocumentMeta } from "@/lib/meta";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
 
 /**
- * /workshop/cresco — branded landing for the Cresco Capital "Algorithmic
- * Edge" workshop (CARF / 3V / Crypto Fund quant teams).
+ * /workshop/enterprise — generic B2B workshop landing for fund
+ * partners, quant teams, and research desks.
  *
  * Distinct from /workshop (the generic 4-phase wizard). This page is
- * the marketing surface fund attendees land on after the calendar
- * invite — it sets context for Day 1, surfaces the 5 algotrade
- * playbooks, and frames the risk-first posture quants will actually
- * scrutinise.
+ * the marketing surface attendees land on after the calendar invite —
+ * it sets context for Day 1, surfaces the 5 algotrade playbooks, and
+ * frames the risk-first posture quants will actually scrutinise.
  *
  * Defensive `initial: { opacity: 1 }` on motion wrappers — if the
  * lazy chunk's framer dependency is slow to hydrate, the page is still
@@ -79,14 +78,15 @@ const PHASE_COLOR: Record<PlaybookCard["phase"], string> = {
   deploy: "var(--brand-violet)",
 };
 
-export function CrescoWorkshop() {
+export function EnterpriseWorkshop() {
   useDocumentMeta({
-    // Wave 83 — per-route OG SVG variant. og-cresco.svg is shipped in
-    // public/ alongside the other per-route OG cards (see Wave 11/44).
-    title: "The Algorithmic Edge — Cresco Capital workshop",
+    // Wave 83 — per-route OG SVG variant. og-workshop-enterprise.svg
+    // is shipped in public/ alongside the other per-route OG cards
+    // (see Wave 11/44).
+    title: "Algorithmic Workshop — Enterprise B2B onboarding",
     description:
-      "Workshop landing for Cresco Capital, CARF, 3V, and Crypto Fund quant teams. Strategy IR → backtest → risk gate → paper → live, all running on TARS.",
-    ogImage: "https://tars.meeet.world/og-cresco.svg",
+      "Workshop landing for fund partners, quant teams, and research desks. Strategy IR → backtest → risk gate → paper → live, all running on TARS.",
+    ogImage: "https://tars.meeet.world/og-workshop-enterprise.svg",
   });
 
   return (
@@ -106,7 +106,7 @@ export function CrescoWorkshop() {
 
       <article className="mx-auto max-w-[1100px] px-6 pb-28 pt-14 md:px-12 md:pt-20">
         {/* Wave 83 — breadcrumbs replace ad-hoc Back link.
-            Provides Home → Workshop → Cresco Capital trail with proper
+            Provides Home → Workshop → Enterprise trail with proper
             <nav aria-label="Breadcrumb"> + aria-current="page" semantics. */}
         <motion.div
           initial={{ opacity: 1, y: 0 }}
@@ -118,7 +118,7 @@ export function CrescoWorkshop() {
             items={[
               { label: "Home", to: "/" },
               { label: "Workshop", to: "/workshop" },
-              { label: "Cresco Capital" },
+              { label: "Enterprise" },
             ]}
           />
         </motion.div>
@@ -132,13 +132,13 @@ export function CrescoWorkshop() {
         >
           <div className="flex items-center gap-3 font-mono-tech text-[11px] uppercase tracking-[3px] text-ink-2">
             <span style={{ color: "var(--brand-indigo)" }}>W81</span>
-            <span>Workshop · Cresco Capital</span>
+            <span>Workshop · Enterprise</span>
           </div>
           <h1
             className="max-w-[24ch] font-display font-medium leading-[0.96] tracking-[-0.02em] text-ink"
             style={{ fontSize: "clamp(2.4rem, 5.4vw, 4.4rem)" }}
           >
-            The Algorithmic Edge —{" "}
+            Algorithmic workshop —{" "}
             <span
               className="bg-clip-text text-transparent"
               style={{
@@ -146,9 +146,9 @@ export function CrescoWorkshop() {
                   "linear-gradient(95deg, var(--brand-indigo) 0%, var(--brand-violet) 50%, var(--brand-cyan) 100%)",
               }}
             >
-              built for Cresco Capital,
+              built for fund partners,
             </span>{" "}
-            CARF, 3V, Crypto Fund teams.
+            quant teams, and research desks.
           </h1>
           <p className="mt-2 max-w-[64ch] text-[15px] leading-[1.65] text-ink-2">
             One day. Five playbooks. By the end of Day 1 you have a
@@ -165,12 +165,12 @@ export function CrescoWorkshop() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.55, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
           className="mb-16 grid grid-cols-1 gap-4 md:grid-cols-3"
-          aria-labelledby="cresco-steps-heading"
+          aria-labelledby="workshop-steps-heading"
         >
           {/* Visually hidden heading keeps the h1→h2→h3 order correct
               for screen readers. The aria-labelledby above pairs the
               region with this title. */}
-          <h2 id="cresco-steps-heading" className="sr-only">
+          <h2 id="workshop-steps-heading" className="sr-only">
             How the workshop runs in three steps
           </h2>
           {[
@@ -240,10 +240,10 @@ export function CrescoWorkshop() {
             className="font-display text-[18px] leading-[1.45] text-ink"
             style={{ fontStyle: "italic" }}
           >
-            "Cresco Capital runs the Algorithmic Edge workshop for the
-            in-house quant teams of CARF, 3V, and Crypto Fund. One day. From
-            Strategy IR to a paper session under a real risk policy. By the
-            end of Day 1 every attendee leaves with five playbooks running on
+            "The algorithmic workshop runs for in-house quant teams,
+            research desks, and fund partners. One day. From Strategy IR
+            to a paper session under a real risk policy. By the end of
+            Day 1 every attendee leaves with five playbooks running on
             their machine."
           </p>
           <p className="mt-3 font-mono-tech text-[10.5px] uppercase tracking-[2.4px] text-ink-3">
@@ -257,11 +257,11 @@ export function CrescoWorkshop() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.55, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
           className="mb-16"
-          aria-labelledby="cresco-playbooks-heading"
+          aria-labelledby="workshop-playbooks-heading"
         >
           <header className="mb-7 flex items-baseline justify-between border-b border-line pb-4">
             <h2
-              id="cresco-playbooks-heading"
+              id="workshop-playbooks-heading"
               className="font-display text-[26px] leading-[1.05] tracking-[-0.01em] text-ink"
             >
               What you'll have at the end of Day 1
@@ -314,7 +314,7 @@ export function CrescoWorkshop() {
             background:
               "linear-gradient(150deg, rgba(139,92,246,0.05), rgba(6,182,212,0.04))",
           }}
-          aria-labelledby="cresco-risk-heading"
+          aria-labelledby="workshop-risk-heading"
         >
           <header className="mb-5 flex items-center gap-3">
             <ShieldCheck
@@ -324,7 +324,7 @@ export function CrescoWorkshop() {
               style={{ color: "var(--brand-violet)" }}
             />
             <h2
-              id="cresco-risk-heading"
+              id="workshop-risk-heading"
               className="font-display text-[22px] leading-[1.05] tracking-[-0.01em] text-ink"
             >
               Live = vault-key + multi-sig confirm + daily caps
@@ -402,7 +402,7 @@ export function CrescoWorkshop() {
           className="flex flex-col items-start justify-between gap-4 border-t border-line pt-6 md:flex-row md:items-center"
         >
           <p className="font-mono-tech text-[10.5px] uppercase tracking-[2.4px] text-ink-3">
-            Not a Cresco Capital attendee?
+            Need the generic onboarding?
           </p>
           <div className="flex flex-wrap items-center gap-3">
             {/* Wave 84 — pill link to ROI calculator. Quant teams ask

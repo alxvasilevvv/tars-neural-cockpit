@@ -1,6 +1,6 @@
 /**
  * Breadcrumbs — small inline navigation strip rendered at the top of
- * deep-linked pages (workshop / cresco / compliance). Uses the same
+ * deep-linked pages (workshop / enterprise / compliance). Uses the same
  * mono-tech tracking as the rest of the marketing surface so it sits
  * visually under the global nav without competing for attention.
  *

@@ -39,7 +39,7 @@ class AlgotradePack(DomainPack):
     manifest = DomainManifest(
         slug="algotrade",
         name="Algotrade",
-        short="Strategy IR + backtest + registry — Cresco workshop foundations.",
+        short="Strategy IR + backtest + registry — quant workshop foundations.",
         description=(
             "Algorithmic trading toolkit for quant teams: a JSON "
             "Strategy IR, a versioned file-backed registry, a "

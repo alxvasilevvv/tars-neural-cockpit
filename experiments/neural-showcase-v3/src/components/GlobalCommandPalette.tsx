@@ -86,12 +86,12 @@ const ITEMS: CmdItem[] = [
   { id: "buildwith", kind: "route", title: "Built with TARS",  hint: "Embed badge for your repo / site", Icon: Stamp,    href: "/build-with", group: "Pages", keywords: "badge embed widget viral share" },
   { id: "settings",  kind: "route", title: "Settings",          hint: "Updates · keyboard · about",         Icon: Settings2, href: "/settings",   group: "Pages", keywords: "preferences updater shortcuts version about" },
   // Wave 84 — Workshop ROI calculator entry. Surfaces during the
-  // Algorithmic Edge workshop so fund partners can compute live
+  // structured onboarding workshop so fund partners can compute live
   // savings via Cmd+K instead of hunting for the URL.
   { id: "workshop-roi", kind: "route", title: "Calculate workshop ROI", hint: "Live time + dollar saving estimator", Icon: FlaskRound, href: "/workshop/roi", group: "Pages", keywords: "workshop roi calculator savings hours dollars business pricing tarsbusiness fund" },
   // Wave 85 — Workshop materials hub. Decks, recipes, videos,
   // community. Top-of-bookmark-bar for cohort attendees.
-  { id: "workshop-materials", kind: "route", title: "Workshop materials", hint: "Decks · recipes · videos · community", Icon: FlaskRound, href: "/workshop/materials", group: "Pages", keywords: "workshop materials decks slides handouts pdf videos loom recipe library playbook slack office hours cresco cohort" },
+  { id: "workshop-materials", kind: "route", title: "Workshop materials", hint: "Decks · recipes · videos · community", Icon: FlaskRound, href: "/workshop/materials", group: "Pages", keywords: "workshop materials decks slides handouts pdf videos loom recipe library playbook slack office hours enterprise cohort" },
 
   // Sections (anchor on /)
   { id: "domains",   kind: "anchor", title: "Domain packs",    hint: "Traders / Entrepreneur / Researcher / Science", Icon: Hash, href: "/#domains", group: "Sections" },

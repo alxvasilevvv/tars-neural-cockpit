@@ -1,7 +1,7 @@
-# Cresco "Algorithmic Edge" — facilitator runbook
+# {COMPANY_NAME} "{WORKSHOP_NAME}" — facilitator runbook
 
-This is the internal runbook for whoever is running a Cresco
-"Algorithmic Edge" cohort. It covers everything from T-7 days
+This is the internal runbook for whoever is running a {COMPANY_NAME}
+"{WORKSHOP_NAME}" cohort. It covers everything from T-7 days
 through D+7, plus the common questions and the failure modes
 we've hit before. Read it once before your first cohort and skim
 it again the morning of D-7.
@@ -18,7 +18,7 @@ pass — you'll need the time elsewhere.
   unusually sensitive about their email being on a visible list
   of attendees.
 - **Confirm Slack workspace and cohort channel** are created.
-  Channel naming convention: `#cresco-workshop-{COHORT_TAG}`
+  Channel naming convention: `#{WORKSHOP_SLUG}-workshop-{COHORT_TAG}`
   where `{COHORT_TAG}` is `YYYY-MM` of Day 1.
 - **Confirm Zoom link** is generated and recording is set to
   cloud + auto-transcript. Test the dial-in from a phone — at
@@ -38,7 +38,7 @@ pass — you'll need the time elsewhere.
   this takes will save you twice that on the day. The demo
   matrix is: Intake CSV → Strategy IR → Backtest → Risk policy
   configure → Paper trade start → Audit anchor.
-- **Verify CF Pages green** at `tars.meeet.world/workshop/cresco`.
+- **Verify CF Pages green** at `tars.meeet.world/workshop/enterprise`.
   If it's not, kick the build and watch it land before you stop
   paying attention.
 - **Verify backend reachable**: `/health` returns green from your
@@ -65,7 +65,7 @@ pass — you'll need the time elsewhere.
 
 - **Arrive 30 minutes before doors.** Coffee setup, name tags
   on the table, projector on, Slack pinned on the side monitor.
-- **Network check.** Run `tars workshop precheck --pack cresco`
+- **Network check.** Run `tars workshop precheck --pack {WORKSHOP_PACK}`
   on the facilitator laptop on the venue Wi-Fi. If anything is
   amber, switch the room to the hotspot before doors open.
 - **Attendee laptop checks during coffee.** Walk the room with
@@ -142,7 +142,7 @@ not let the wrap run long; people are tired.
   1 recap" as the morning-after summary of the whole prior day.
   Pick one and stick to it — don't switch mid-cohort.
 - **Post Day-1 highlights to Slack.** A short message in
-  `#cresco-workshop-{COHORT_TAG}`: total backtests run, a few
+  `#{WORKSHOP_SLUG}-workshop-{COHORT_TAG}`: total backtests run, a few
   named call-outs (with permission), and the link to office
   hours.
 - **Schedule individual office hours.** Default to 30 minutes

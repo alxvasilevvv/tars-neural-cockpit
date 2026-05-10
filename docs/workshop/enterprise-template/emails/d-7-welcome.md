@@ -1,12 +1,12 @@
 # D-7 — welcome + pre-work
 
-**Subject:** You're in: The Algorithmic Edge — your prep + setup
+**Subject:** You're in: The {WORKSHOP_NAME} — your prep + setup
 
 ---
 
 Hi {FIRST_NAME},
 
-You're confirmed for the Cresco Capital "Algorithmic Edge"
+You're confirmed for the {COMPANY_NAME} "{WORKSHOP_NAME}"
 workshop. This email has everything you need to show up ready on
 day one.
 
@@ -53,7 +53,7 @@ asynchronously instead of burning your morning on day one.
 3. Run one canned backtest end-to-end so the path is warm:
 
    ```
-   tars workshop precheck --pack cresco
+   tars workshop precheck --pack {WORKSHOP_PACK}
    ```
 
    If that command exits 0, you're set.
@@ -83,4 +83,4 @@ Reply to this email with any questions, or drop them in
 `#workshop-questions` on Slack.
 
 — {FACILITATOR_NAME}
-{FACILITATOR_EMAIL} · Cresco Capital "Algorithmic Edge"
+{FACILITATOR_EMAIL} · {COMPANY_NAME} "{WORKSHOP_NAME}"

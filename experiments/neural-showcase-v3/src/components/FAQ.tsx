@@ -69,12 +69,12 @@ const FAQS: QA[] = [
     q: "Can I cancel? Is there a refund?",
     a: "Yes to both. Cancel anytime from the cockpit Settings → Billing — your data stays on-device since it was always there. 14-day no-questions refund on Pro and Business. Lifetime is non-refundable after 14 days because the founders' $MEEET allocation drops immediately.",
   },
-  // Wave 82 — workshop FAQ pair. Copy stays honest: Cresco is the FIRST
+  // Wave 82 — workshop FAQ pair. Copy stays generic: the first cohort
   // cohort partner, multi-seat is roadmap (~2 weeks after v9.1.0), today
   // is single-tenant on the partner's machine.
   {
     q: "Do you run workshops for funds and teams?",
-    a: "Yes — the Algorithmic Edge program with Cresco Capital is live. Quant teams from CARF, 3V, and Crypto Fund are first cohort. 2-day format, you ship a deployed strategy.",
+    a: "Yes — TARS ships with a complete workshop curriculum (4-phase: Intake → Design → Test → Deploy) for quant teams, research desks, and fund partners. 2-day format, you ship a deployed strategy. Talk to sales for a cohort fit.",
   },
   {
     q: "Can our analysts use the same TARS as the partner?",

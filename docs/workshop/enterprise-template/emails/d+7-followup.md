@@ -27,12 +27,12 @@ parked itself, exactly as designed).
 
 We run a recurring office hour every {OFFICE_HOURS_DAY} at
 {OFFICE_HOURS_TIME} on the cohort Zoom ({ZOOM_URL}). It's open
-to all "Algorithmic Edge" alumni — drop in if you're stuck or
+to all "{WORKSHOP_NAME}" alumni — drop in if you're stuck or
 just want a second pair of eyes on a backtest.
 
 ## Next cohort
 
-The next "Algorithmic Edge" cohort runs {NEXT_COHORT_DATES}. If
+The next "{WORKSHOP_NAME}" cohort runs {NEXT_COHORT_DATES}. If
 you have a colleague who'd benefit, forward them
 {NEXT_COHORT_SIGNUP_URL}. Cohort size is capped at 12, so
 earlier sign-ups get a seat.
@@ -40,7 +40,7 @@ earlier sign-ups get a seat.
 ## Slack community
 
 The cohort Slack stays open indefinitely — `{SLACK_URL}`. The
-"Algorithmic Edge" alumni channel is `#alumni-algo-edge`. Most
+"{WORKSHOP_NAME}" alumni channel is `#alumni-algo-edge`. Most
 of the useful conversation happens there: people sharing
 strategies that broke in interesting ways, risk policy patterns
 they refined after the workshop, and the occasional war story.
@@ -48,7 +48,7 @@ they refined after the workshop, and the occasional war story.
 ## One small ask
 
 If the workshop was useful, would you write us two sentences we
-can put on `/workshop/cresco` as a quote? Just reply to this
+can put on `/workshop/enterprise` as a quote? Just reply to this
 email with the text and the name + title you'd like attached. If
 the workshop wasn't useful, I'd rather hear that too — reply
 with what fell short and we'll fix it before the next cohort.

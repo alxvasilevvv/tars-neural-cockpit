@@ -1,4 +1,4 @@
-# "Algorithmic Edge" — feedback survey
+# "{WORKSHOP_NAME}" — feedback survey
 
 Please fill this out before you leave the room on Day 2 — paper
 copies are on the facilitator's table — or reply to the D+7

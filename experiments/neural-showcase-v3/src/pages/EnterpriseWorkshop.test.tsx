@@ -1,5 +1,5 @@
 /**
- * CrescoWorkshop — smoke contract test for the /workshop/cresco surface.
+ * EnterpriseWorkshop — smoke contract test for the /workshop/enterprise surface.
  *
  * Wave 83 — the v3 surface ships without @testing-library/react (see
  * package.json devDependencies + Wave 83 task brief). We therefore
@@ -15,18 +15,18 @@
 
 import { describe, expect, it } from "vitest";
 
-import { CrescoWorkshop } from "@/pages/CrescoWorkshop";
+import { EnterpriseWorkshop } from "@/pages/EnterpriseWorkshop";
 
-describe("CrescoWorkshop (smoke)", () => {
-  it("exports a callable React component named CrescoWorkshop", () => {
-    expect(CrescoWorkshop).toBeTypeOf("function");
-    expect(CrescoWorkshop.name).toBe("CrescoWorkshop");
+describe("EnterpriseWorkshop (smoke)", () => {
+  it("exports a callable React component named EnterpriseWorkshop", () => {
+    expect(EnterpriseWorkshop).toBeTypeOf("function");
+    expect(EnterpriseWorkshop.name).toBe("EnterpriseWorkshop");
   });
 
   it("module path matches the App.tsx lazy import (regression pin)", () => {
-    // App.tsx wires `/workshop/cresco` via `lazy(() => import('@/pages/CrescoWorkshop'))`
+    // App.tsx wires `/workshop/enterprise` via `lazy(() => import('@/pages/EnterpriseWorkshop'))`
     // — if the named export is renamed/removed, the route silently 500s
     // and our smoke pin trips first.
-    expect(CrescoWorkshop).toBeDefined();
+    expect(EnterpriseWorkshop).toBeDefined();
   });
 });

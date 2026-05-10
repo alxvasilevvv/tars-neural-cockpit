@@ -3660,7 +3660,7 @@ that's purely additive and doesn't alter the manifest contract.
 
 ### What I shipped (Wave 80-D + Wave 81-A FE)
 - /workshop generic 4-phase wizard (Intake → Design → Test → Deploy)
-- /workshop/cresco branded landing for Cresco Capital workshop
+- /workshop/enterprise branded landing for the enterprise/B2B workshop
 - Workshop FE components: AgentDesigner, BacktestPanel, PhaseDeploy, OutputSchemaBuilder, RetuneDialog
 - Compliance console at /compliance + ReceiptVerifier
 - 20 starter playbooks across 5 verticals (fund / saas / dao / family-office / algotrade)
@@ -3681,7 +3681,7 @@ My BacktestPanel.tsx (in components/workshop/) is wired with mock fallback — w
 
 ### Lane discipline
 - I don't touch backend/core/algotrade/ or backend/core/domains/packs/algotrade/
-- You don't touch experiments/neural-showcase-v3/src/components/workshop/ or pages/Workshop.tsx | CrescoWorkshop.tsx | Compliance.tsx
+- You don't touch experiments/neural-showcase-v3/src/components/workshop/ or pages/Workshop.tsx | EnterpriseWorkshop.tsx | Compliance.tsx
 - Shared: docs/AGENT_HANDOFF.md (append-only), docs/contracts/* (gated — comment in doc which agent owns active edit)
 
 ### Pending operator (Alien) actions blocking the launch
