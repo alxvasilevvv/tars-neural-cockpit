@@ -91,6 +91,9 @@ const ComparePage = lazy(() =>
 const SettingsPage = lazy(() =>
   import("@/pages/Settings").then((m) => ({ default: m.Settings })),
 );
+const CrescoWorkshop = lazy(() =>
+  import("@/pages/CrescoWorkshop").then((m) => ({ default: m.CrescoWorkshop })),
+);
 
 // Default skeleton for routes that don't pin a specific layout shape.
 const Loading = () => <RouteSkeleton variant="default" />;
@@ -347,6 +350,14 @@ function AppShell() {
               element={
                 <Suspense fallback={<RouteSkeleton variant="legal" />}>
                   <SettingsPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/workshop/cresco"
+              element={
+                <Suspense fallback={<RouteSkeleton variant="wide" />}>
+                  <CrescoWorkshop />
                 </Suspense>
               }
             />

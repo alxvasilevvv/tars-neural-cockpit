@@ -1,0 +1,101 @@
+{
+  "_meta": {
+    "vertical": "algotrade",
+    "workshop_phase": "deploy",
+    "teaches": "End-to-end promotion pipeline: pick a registered strategy, re-backtest it, gate on Sharpe > 1.5, run 30 days of paper, require a human approval, then ship to live (mocked behind the Binance v9.2 adapter).",
+    "estimated_runtime_seconds": 300
+  },
+  "id": "_workshop.algotrade.backtest_to_live_pipeline",
+  "name": "Backtest → paper → live promotion",
+  "description": "Pick a strategy from the registry, re-backtest on the most recent 6 months of BTC/USDT, only continue if Sharpe > 1.5, promote to a 30-day paper session, require a human approval gate after 30 green days, then ship to live (mocked behind the Binance v9.2 adapter — the live submit is a stub for the workshop).",
+  "tags": ["algotrade", "workshop", "pipeline", "promotion", "live", "deploy"],
+  "pack": "workshop",
+  "on_block": "stop",
+  "steps": [
+    {
+      "id": "pick",
+      "action": "algotrade.strategy.get",
+      "args": { "fingerprint": "${input.strategy_fingerprint}" },
+      "store_as": "strategy"
+    },
+    {
+      "id": "rebacktest",
+      "action": "algotrade.backtest.run",
+      "args": {
+        "fingerprint": "${steps.strategy.fingerprint}",
+        "instrument": "${steps.strategy.instrument}",
+        "range": { "from": "${date.minus_months:6}", "to": "${date.iso}" },
+        "capital_usd": 10000
+      },
+      "store_as": "report",
+      "on_error": "stop"
+    },
+    {
+      "id": "sharpe_gate",
+      "action": "algotrade.risk.review",
+      "args": {
+        "report": "${steps.rebacktest}",
+        "min_sharpe": 1.5,
+        "max_drawdown_pct": 20
+      },
+      "store_as": "gate",
+      "on_error": "stop"
+    },
+    {
+      "id": "paper_30d",
+      "action": "algotrade.session.start",
+      "args": {
+        "strategy_fingerprint": "${steps.strategy.fingerprint}",
+        "instrument": "${steps.strategy.instrument}",
+        "mode": "paper",
+        "duration_days": 30,
+        "risk_policy_name": "workshop_strict_v1"
+      },
+      "store_as": "paper",
+      "requires": "${steps.sharpe_gate.approved}"
+    },
+    {
+      "id": "paper_review",
+      "action": "algotrade.session.summary",
+      "args": { "session_id": "${steps.paper.id}" },
+      "store_as": "paper_summary"
+    },
+    {
+      "id": "human_approval",
+      "action": "business.hil_approve",
+      "args": {
+        "title": "Promote ${steps.strategy.name} to LIVE?",
+        "context": "${steps.paper_summary}",
+        "approvers": ["${env.HEAD_OF_TRADING_EMAIL}"],
+        "channel": "email"
+      },
+      "store_as": "approval",
+      "on_error": "stop"
+    },
+    {
+      "id": "live",
+      "action": "algotrade.session.start",
+      "args": {
+        "strategy_fingerprint": "${steps.strategy.fingerprint}",
+        "instrument": "${steps.strategy.instrument}",
+        "mode": "live",
+        "adapter": "binance_v9_2_mock",
+        "risk_policy_name": "workshop_strict_v1"
+      },
+      "store_as": "live_session",
+      "requires": "${steps.human_approval.approved}",
+      "on_error": "stop"
+    },
+    {
+      "id": "anchor",
+      "action": "wallet.anchor_memo",
+      "args": {
+        "memo": "algotrade_promotion:${steps.strategy.fingerprint}",
+        "chain": "solana",
+        "tag": "algotrade.live"
+      },
+      "store_as": "anchor",
+      "on_error": "continue"
+    }
+  ]
+}

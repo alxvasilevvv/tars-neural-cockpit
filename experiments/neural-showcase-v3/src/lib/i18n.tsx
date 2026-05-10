@@ -32,6 +32,12 @@ const STRINGS_EN = {
   "hero.demo.label":      "live demo · cycles every 4s",
   "hero.cta.cockpit":     "Open cockpit",
   "hero.cta.domains":     "Explore domains",
+  // Wave 82 — B2B workshop entry. Honest framing: workshop UI shipped,
+  // Cresco is the FIRST cohort (not "battle-tested at 500 funds"). Hint
+  // names the early-access partners — CARF / 3V / Crypto Fund — so
+  // visitors landing from those rooms recognise the surface.
+  "hero.cta.workshop":      "Workshop for funds →",
+  "hero.cta.workshop.hint": "B2B onboarding · Cresco Capital · CARF · 3V · Crypto Fund",
 
   // Sticky CTA bar
   "stickyCTA.notify":     "Notify me",
@@ -86,9 +92,13 @@ const STRINGS_EN = {
   "pricing.tier.pro.meeetPrice":   "or 200 $MEEET / mo",
   "pricing.tier.pro.cta":          "Notify me at launch",
   "pricing.tier.business.name":    "Business",
-  "pricing.tier.business.tagline": "Teams, audit, control.",
+  // Wave 82 — refocused on funds + workshop cohorts. Cresco / CARF / 3V /
+  // Crypto Fund are live early-access partners; not battle-tested at scale.
+  "pricing.tier.business.tagline": "Funds, teams, workshops.",
   "pricing.tier.business.priceSub":"per seat / month",
+  "pricing.tier.business.body":    "Per-seat licensing for quant/research teams. Includes the Algorithmic Edge workshop curriculum + private deployment + audit-grade receipt ledger. Talk to sales.",
   "pricing.tier.business.cta":     "Talk to sales",
+  "pricing.tier.business.cta.workshop": "Book a workshop",
   // Bug #3 from docs/SYSTEM_AUDIT_2026-05-02.md — payments not yet
   // wired (no on-chain SOL / $MEEET checkout yet). Pricing page shows the
   // tiers as a public commitment, but the paid CTAs surface
@@ -659,6 +669,14 @@ const STRINGS_EN = {
   "meeetSection.p3.body":          "Agent-to-agent marketplace with escrow + Solana memo anchoring. Send a handshake, lock $MEEET, deliver work, receive payment automatically.",
   "meeetSection.p3.statNum":       "92%",
   "meeetSection.p3.statLabel":     "deals settled in <24h",
+  // Wave 82 — fourth pillar: workshop surface. Cresco Capital is the
+  // FIRST cohort; CARF / 3V / Crypto Fund are confirmed early-access.
+  // Don't claim "battle-tested at 500 funds" — workshop UI just shipped,
+  // backend is in flight on Cursor's side.
+  "meeetSection.p4.tag":           "WORKSHOPS",
+  "meeetSection.p4.title":         "Onboarding for funds + teams",
+  "meeetSection.p4.body":          "Cresco Capital, CARF, 3V, Crypto Fund — quant teams ship live strategies in 2 days. Bring your data, leave with a deployed agent.",
+  "meeetSection.p4.cta":           "See workshop →",
 
   // ── audit-6 · remaining Landing (no Apple) ─────────────────────
   // Section dividers on `/` (between major blocks).
