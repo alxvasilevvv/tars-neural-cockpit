@@ -18,6 +18,8 @@ const links = [
   // Wave 101 - Unified HIL approval inbox. Badge with pending count
   // rendered next to the link below.
   { label: "Inbox", href: "/inbox" },
+  // Wave 102 — Files browser (PDFs, decks, contracts, reports).
+  { label: "Files", href: "/files" },
   { label: "Install", href: "/install" },
 ];
 

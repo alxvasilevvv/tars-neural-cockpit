@@ -38,6 +38,20 @@ _ATTACHMENTS_MIGRATIONS: tuple[str, ...] = (
     "ALTER TABLE attachments ADD COLUMN error TEXT",
     "ALTER TABLE attachments ADD COLUMN meta_json TEXT",
     "ALTER TABLE attachments ADD COLUMN char_count INTEGER NOT NULL DEFAULT 0",
+    # Wave 102 — file management UI columns. All additive with safe
+    # defaults so existing rows stay valid; ALTER ... ADD COLUMN is
+    # idempotent-by-failure (we swallow OperationalError below).
+    "ALTER TABLE attachments ADD COLUMN tags_json TEXT NOT NULL DEFAULT '[]'",
+    "ALTER TABLE attachments ADD COLUMN category TEXT NOT NULL DEFAULT 'uncategorized'",
+    "ALTER TABLE attachments ADD COLUMN pinned INTEGER NOT NULL DEFAULT 0",
+    "ALTER TABLE attachments ADD COLUMN deleted_at REAL",
+)
+
+_ATTACHMENTS_INDEXES: tuple[str, ...] = (
+    "CREATE INDEX IF NOT EXISTS idx_attachments_category ON attachments (category)",
+    "CREATE INDEX IF NOT EXISTS idx_attachments_pinned ON attachments (pinned)",
+    "CREATE INDEX IF NOT EXISTS idx_attachments_deleted ON attachments (deleted_at)",
+    "CREATE INDEX IF NOT EXISTS idx_attachments_created ON attachments (created_at)",
 )
 
 _CHUNK_TABLE = """
@@ -91,6 +105,11 @@ class AttachmentRecord:
     error: str | None
     meta: Mapping[str, Any]
     char_count: int
+    # Wave 102 file management additions.
+    tags: tuple[str, ...] = ()
+    category: str = "uncategorized"
+    pinned: bool = False
+    deleted_at: float | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -107,6 +126,11 @@ class AttachmentRecord:
             "content_hash": self.content_hash,
             "created_at": self.created_at,
             "meta": dict(self.meta),
+            # Wave 102.
+            "tags": list(self.tags),
+            "category": self.category,
+            "pinned": bool(self.pinned),
+            "deleted_at": self.deleted_at,
         }
 
 
@@ -176,6 +200,11 @@ class AttachmentStore:
         conn = self._connect()
         try:
             for stmt in _ATTACHMENTS_MIGRATIONS:
+                try:
+                    conn.execute(stmt)
+                except sqlite3.OperationalError:
+                    continue
+            for stmt in _ATTACHMENTS_INDEXES:
                 try:
                     conn.execute(stmt)
                 except sqlite3.OperationalError:
@@ -305,6 +334,270 @@ class AttachmentStore:
             return cur.rowcount > 0
         finally:
             conn.close()
+
+    # -- Wave 102 file-management helpers ------------------------------
+
+    async def query_files(
+        self,
+        *,
+        category: str | None = None,
+        tag: str | None = None,
+        since: float | None = None,
+        until: float | None = None,
+        pinned: bool | None = None,
+        thread_id: str | None = None,
+        include_deleted: bool = False,
+        sort: str = "created_desc",
+        limit: int = 200,
+        offset: int = 0,
+    ) -> list[AttachmentRecord]:
+        """List attachments across all threads with file-browser filters.
+
+        ``sort`` accepts ``created_desc`` (default), ``created_asc``,
+        ``size_desc``, ``size_asc``, ``filename_asc``, ``filename_desc``.
+        """
+
+        if not self.chat.enabled:
+            return []
+        return await asyncio.to_thread(
+            self._query_files_sync,
+            category=category,
+            tag=tag,
+            since=since,
+            until=until,
+            pinned=pinned,
+            thread_id=thread_id,
+            include_deleted=include_deleted,
+            sort=sort,
+            limit=int(limit),
+            offset=int(offset),
+        )
+
+    def _query_files_sync(
+        self,
+        *,
+        category: str | None,
+        tag: str | None,
+        since: float | None,
+        until: float | None,
+        pinned: bool | None,
+        thread_id: str | None,
+        include_deleted: bool,
+        sort: str,
+        limit: int,
+        offset: int,
+    ) -> list[AttachmentRecord]:
+        clauses: list[str] = []
+        params: list[Any] = []
+        if not include_deleted:
+            clauses.append("(deleted_at IS NULL)")
+        if category:
+            clauses.append("category = ?")
+            params.append(category)
+        if pinned is not None:
+            clauses.append("pinned = ?")
+            params.append(1 if pinned else 0)
+        if since is not None:
+            clauses.append("created_at >= ?")
+            params.append(float(since))
+        if until is not None:
+            clauses.append("created_at <= ?")
+            params.append(float(until))
+        if thread_id:
+            clauses.append("thread_id = ?")
+            params.append(thread_id)
+        if tag:
+            # JSON membership probe — works on stock SQLite without
+            # JSON1 by string-matching the encoded literal. Tags are
+            # stored as a JSON array of strings.
+            clauses.append("tags_json LIKE ?")
+            params.append(f'%"{tag}"%')
+
+        order_map = {
+            "created_desc": "created_at DESC",
+            "created_asc": "created_at ASC",
+            "size_desc": "bytes_total DESC",
+            "size_asc": "bytes_total ASC",
+            "filename_asc": "filename ASC",
+            "filename_desc": "filename DESC",
+        }
+        order_sql = order_map.get(sort, "created_at DESC")
+
+        where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
+        sql = (
+            f"SELECT * FROM attachments{where} "
+            f"ORDER BY {order_sql} LIMIT ? OFFSET ?"
+        )
+        params.append(max(1, min(int(limit), 1000)))
+        params.append(max(0, int(offset)))
+
+        conn = self._connect()
+        try:
+            rows = conn.execute(sql, params).fetchall()
+        finally:
+            conn.close()
+        return [_row_to_record(r) for r in rows]
+
+    async def update_file_metadata(
+        self,
+        attachment_id: str,
+        *,
+        tags: Sequence[str] | None = None,
+        category: str | None = None,
+        pinned: bool | None = None,
+        filename: str | None = None,
+    ) -> AttachmentRecord | None:
+        """Patch tags / category / pinned / filename on a single file."""
+
+        if not self.chat.enabled:
+            return None
+        return await asyncio.to_thread(
+            self._update_file_metadata_sync,
+            attachment_id,
+            tags=tags,
+            category=category,
+            pinned=pinned,
+            filename=filename,
+        )
+
+    def _update_file_metadata_sync(
+        self,
+        attachment_id: str,
+        *,
+        tags: Sequence[str] | None,
+        category: str | None,
+        pinned: bool | None,
+        filename: str | None,
+    ) -> AttachmentRecord | None:
+        sets: list[str] = []
+        params: list[Any] = []
+        if tags is not None:
+            cleaned = _normalise_tags(tags)
+            sets.append("tags_json = ?")
+            params.append(json.dumps(cleaned, separators=(",", ":")))
+        if category is not None:
+            sets.append("category = ?")
+            params.append(str(category)[:64])
+        if pinned is not None:
+            sets.append("pinned = ?")
+            params.append(1 if pinned else 0)
+        if filename is not None:
+            sets.append("filename = ?")
+            params.append(str(filename)[:512])
+        if not sets:
+            return self._get_attachment_sync(attachment_id)
+        params.append(attachment_id)
+        conn = self._connect()
+        try:
+            conn.execute(
+                f"UPDATE attachments SET {', '.join(sets)} WHERE id = ?",
+                params,
+            )
+        finally:
+            conn.close()
+        return self._get_attachment_sync(attachment_id)
+
+    async def soft_delete_attachment(
+        self, attachment_id: str
+    ) -> AttachmentRecord | None:
+        """Mark file as deleted (deleted_at = now). Reversible."""
+
+        if not self.chat.enabled:
+            return None
+        return await asyncio.to_thread(
+            self._soft_delete_sync, attachment_id
+        )
+
+    def _soft_delete_sync(
+        self, attachment_id: str
+    ) -> AttachmentRecord | None:
+        conn = self._connect()
+        try:
+            conn.execute(
+                "UPDATE attachments SET deleted_at = ? WHERE id = ?",
+                (time.time(), attachment_id),
+            )
+        finally:
+            conn.close()
+        return self._get_attachment_sync(attachment_id)
+
+    async def restore_attachment(
+        self, attachment_id: str
+    ) -> AttachmentRecord | None:
+        """Undo a soft-delete."""
+
+        if not self.chat.enabled:
+            return None
+
+        def _run() -> AttachmentRecord | None:
+            conn = self._connect()
+            try:
+                conn.execute(
+                    "UPDATE attachments SET deleted_at = NULL WHERE id = ?",
+                    (attachment_id,),
+                )
+            finally:
+                conn.close()
+            return self._get_attachment_sync(attachment_id)
+
+        return await asyncio.to_thread(_run)
+
+    async def file_stats(self) -> dict[str, Any]:
+        """Aggregate counts + sizes for the file browser header strip.
+
+        Returns ``{total_count, total_bytes, by_category, by_extension,
+        deleted_count, pinned_count}``. Cheap — single DB pass.
+        """
+
+        if not self.chat.enabled:
+            return {
+                "total_count": 0,
+                "total_bytes": 0,
+                "by_category": {},
+                "by_extension": {},
+                "deleted_count": 0,
+                "pinned_count": 0,
+            }
+        return await asyncio.to_thread(self._file_stats_sync)
+
+    def _file_stats_sync(self) -> dict[str, Any]:
+        conn = self._connect()
+        try:
+            totals = conn.execute(
+                "SELECT COUNT(*), COALESCE(SUM(bytes_total), 0) "
+                "FROM attachments WHERE deleted_at IS NULL"
+            ).fetchone()
+            cat_rows = conn.execute(
+                "SELECT category, COUNT(*) FROM attachments "
+                "WHERE deleted_at IS NULL GROUP BY category"
+            ).fetchall()
+            file_rows = conn.execute(
+                "SELECT filename FROM attachments WHERE deleted_at IS NULL"
+            ).fetchall()
+            deleted = conn.execute(
+                "SELECT COUNT(*) FROM attachments WHERE deleted_at IS NOT NULL"
+            ).fetchone()
+            pinned = conn.execute(
+                "SELECT COUNT(*) FROM attachments "
+                "WHERE pinned = 1 AND deleted_at IS NULL"
+            ).fetchone()
+        finally:
+            conn.close()
+
+        by_ext: dict[str, int] = {}
+        for (filename,) in file_rows:
+            ext = _extension_of(filename)
+            by_ext[ext] = by_ext.get(ext, 0) + 1
+
+        by_cat = {row[0] or "uncategorized": int(row[1]) for row in cat_rows}
+        return {
+            "total_count": int(totals[0]) if totals else 0,
+            "total_bytes": int(totals[1]) if totals else 0,
+            "by_category": by_cat,
+            "by_extension": by_ext,
+            "deleted_count": int(deleted[0]) if deleted else 0,
+            "pinned_count": int(pinned[0]) if pinned else 0,
+        }
 
     # -- chunks --------------------------------------------------------
 
@@ -685,6 +978,19 @@ def _row_to_record(row: sqlite3.Row) -> AttachmentRecord:
         meta = json.loads(meta_raw) if meta_raw else {}
     except (TypeError, json.JSONDecodeError):
         meta = {}
+
+    tags_raw = _safe(row, "tags_json")
+    try:
+        tags_list = json.loads(tags_raw) if tags_raw else []
+        if not isinstance(tags_list, list):
+            tags_list = []
+    except (TypeError, json.JSONDecodeError):
+        tags_list = []
+    tags_tuple = tuple(str(t) for t in tags_list)
+
+    pinned_raw = _safe(row, "pinned")
+    deleted_at_raw = _safe(row, "deleted_at")
+
     return AttachmentRecord(
         id=row["id"],
         thread_id=row["thread_id"],
@@ -701,6 +1007,10 @@ def _row_to_record(row: sqlite3.Row) -> AttachmentRecord:
         error=_safe(row, "error"),
         meta=meta,
         char_count=int(_safe(row, "char_count") or 0),
+        tags=tags_tuple,
+        category=_safe(row, "category") or "uncategorized",
+        pinned=bool(int(pinned_raw or 0)),
+        deleted_at=float(deleted_at_raw) if deleted_at_raw is not None else None,
     )
 
 
@@ -732,6 +1042,42 @@ def _safe(row: sqlite3.Row, key: str) -> Any:
         return row[key]
     except (IndexError, KeyError):
         return None
+
+
+def _normalise_tags(tags: Iterable[Any]) -> list[str]:
+    """Strip / dedup / cap tag list per the public contract.
+
+    Rules: each tag is a string of length 1..32, lowercase-folded
+    only on whitespace. Order preserved (operator-meaningful).
+    """
+
+    seen: set[str] = set()
+    out: list[str] = []
+    for raw in tags or ():
+        if raw is None:
+            continue
+        t = str(raw).strip()
+        if not t:
+            continue
+        if len(t) > 32:
+            t = t[:32]
+        key = t.lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(t)
+        if len(out) >= 64:
+            break
+    return out
+
+
+def _extension_of(filename: str | None) -> str:
+    if not filename:
+        return ""
+    name = str(filename).rsplit("/", 1)[-1]
+    if "." not in name:
+        return ""
+    return name.rsplit(".", 1)[-1].lower()[:16]
 
 
 # ---------------------------------------------------------------------

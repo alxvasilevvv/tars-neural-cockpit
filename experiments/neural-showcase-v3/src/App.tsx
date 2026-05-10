@@ -148,6 +148,10 @@ const OrgOnboarding = lazy(() =>
 const Inbox = lazy(() =>
   import("@/pages/Inbox").then((m) => ({ default: m.Inbox })),
 );
+// Wave 102 — /files document & file management surface.
+const Files = lazy(() =>
+  import("@/pages/Files").then((m) => ({ default: m.Files })),
+);
 
 // Default skeleton for routes that don't pin a specific layout shape.
 const Loading = () => <RouteSkeleton variant="default" />;
@@ -532,6 +536,15 @@ function AppShell() {
               element={
                 <Suspense fallback={<RouteSkeleton variant="wide" />}>
                   <Inbox />
+                </Suspense>
+              }
+            />
+            {/* Wave 102 — /files document & file management surface. */}
+            <Route
+              path="/files"
+              element={
+                <Suspense fallback={<RouteSkeleton variant="wide" />}>
+                  <Files />
                 </Suspense>
               }
             />

@@ -15,6 +15,8 @@ import {
   Briefcase,
   Image,
   Stamp,
+  FolderOpen,
+  Upload,
   Settings2,
   Search,
   Hash,
@@ -117,6 +119,12 @@ const ITEMS: CmdItem[] = [
   // for wallet sigs, outreach sends, code edits, paper→live promotions,
   // deletions — anything that fired policy_gate.require_confirm().
   { id: "inbox", kind: "route", title: "Inbox / approvals", hint: "Resolve every pending HIL confirmation", Icon: Stamp, href: "/inbox", group: "Pages", keywords: "inbox hil approve approval queue policy gate confirm deny pending wallet outreach code live trading bulk staged action token" },
+  // Wave 102 — file browser. Single surface for every PDF / deck /
+  // contract ingested by the attachment pipeline. "Files browser"
+  // matches the spec keyword.
+  { id: "files",  kind: "route", title: "Files browser", hint: "All PDFs, decks, contracts in one place", Icon: FolderOpen, href: "/files", group: "Pages", keywords: "files browser document attachments pdf deck contract report upload tag category bulk" },
+  { id: "files-upload", kind: "action", title: "Upload file", hint: "Open /files with the upload picker focused", Icon: Upload, group: "Actions", keywords: "upload file document attach drag drop import multipart bulk", run: () => { try { window.location.assign("/files?upload=1"); } catch { /* noop */ } } },
+  { id: "files-search", kind: "action", title: "Search files", hint: "Full-text search over every ingested attachment", Icon: FolderOpen, group: "Actions", keywords: "search files documents attachments fts5 query find", run: () => { try { window.location.assign("/files?focus=search"); } catch { /* noop */ } } },
 
   // Sections (anchor on /)
   { id: "domains",   kind: "anchor", title: "Domain packs",    hint: "Traders / Entrepreneur / Researcher / Science", Icon: Hash, href: "/#domains", group: "Sections" },
