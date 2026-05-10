@@ -55,6 +55,7 @@ from web_extras.routers import github as github_router
 from web_extras.routers import connectors as connectors_router
 from web_extras.routers import clone as clone_router
 from web_extras.routers import cohort as cohort_router
+from web_extras.routers import org as org_router
 from web_extras.routers import outreach as outreach_router
 from web_extras.routers import receipts as receipts_router
 from web_extras.routers import scheduler as scheduler_router
@@ -755,6 +756,7 @@ app.include_router(github_router.router)
 app.include_router(connectors_router.router)
 app.include_router(clone_router.router)
 app.include_router(cohort_router.router)
+app.include_router(org_router.router)
 app.include_router(outreach_router.router)
 app.include_router(receipts_router.router)
 app.include_router(scheduler_router.router)

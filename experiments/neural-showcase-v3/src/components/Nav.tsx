@@ -32,6 +32,18 @@ export function Nav() {
   }, []);
   const insideCockpit = loc.pathname.startsWith("/cockpit");
 
+  // Wave 99 — only render the "Set up org" link if the wizard hasn't
+  // been completed yet. Read directly from localStorage to avoid an
+  // import cycle into the page chunk; cheap one-shot read on render.
+  const [orgSetupNeeded, setOrgSetupNeeded] = useState(false);
+  useEffect(() => {
+    try {
+      setOrgSetupNeeded(!window.localStorage.getItem("tars.onboard.org.completed"));
+    } catch {
+      setOrgSetupNeeded(false);
+    }
+  }, [loc.pathname]);
+
   return (
     <>
       {/* Top scroll-progress line */}
@@ -115,6 +127,17 @@ export function Nav() {
                 <kbd className="font-mono-tech">{mac ? "⌘" : "Ctrl"}</kbd>
                 <kbd className="font-mono-tech">K</kbd>
               </button>
+            </li>
+          )}
+          {orgSetupNeeded && !insideCockpit && (
+            <li className="hidden md:inline-flex">
+              <Link
+                to="/onboard/org"
+                className="ml-1 inline-block cursor-pointer rounded-md border border-line bg-bg-1/50 px-3.5 py-2 font-mono-tech text-[11px] uppercase tracking-[2.4px] text-ink-2 transition-colors duration-200 hover:border-accent/40 hover:text-accent"
+                title="5-step setup wizard for new fund / company"
+              >
+                Set up org
+              </Link>
             </li>
           )}
           <li>

@@ -110,6 +110,9 @@ const ITEMS: CmdItem[] = [
   // welcome touches). Drafted in the operator's voice via AI Clone +
   // Gmail send is HIL-gated.
   { id: "outreach", kind: "route", title: "Outreach", hint: "Draft + send LP updates, intros, follow-ups in your voice", Icon: Compass, href: "/outreach", group: "Pages", keywords: "outreach email gmail draft send lp update founder dd intro follow up welcome ai clone hil approve send batch campaign" },
+  // Wave 99 - Org onboarding wizard. Top-of-list for any new fund or
+  // company that just downloaded TARS.
+  { id: "onboard-org", kind: "route", title: "Set up your organization", hint: "5-step wizard for new fund / company", Icon: Sparkles, href: "/onboard/org", group: "Pages", keywords: "onboard onboarding org organization fund company setup wizard new install first run team invites playbooks step 1 2 3 4 5" },
 
   // Sections (anchor on /)
   { id: "domains",   kind: "anchor", title: "Domain packs",    hint: "Traders / Entrepreneur / Researcher / Science", Icon: Hash, href: "/#domains", group: "Sections" },

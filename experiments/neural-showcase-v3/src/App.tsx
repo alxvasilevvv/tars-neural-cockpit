@@ -138,6 +138,11 @@ const Schedules = lazy(() =>
 const Outreach = lazy(() =>
   import("@/pages/Outreach").then((m) => ({ default: m.Outreach })),
 );
+// Wave 99 - Org onboarding wizard. Narrow variant: 5-step single-column
+// wizard for new fund/company setup.
+const OrgOnboarding = lazy(() =>
+  import("@/pages/OrgOnboarding").then((m) => ({ default: m.OrgOnboarding })),
+);
 
 // Default skeleton for routes that don't pin a specific layout shape.
 const Loading = () => <RouteSkeleton variant="default" />;
@@ -502,6 +507,16 @@ function AppShell() {
               element={
                 <Suspense fallback={<RouteSkeleton variant="wide" />}>
                   <Outreach />
+                </Suspense>
+              }
+            />
+            {/* Wave 99 - Org onboarding wizard. Narrow variant: 5-step
+                single-column wizard from /onboard/org. */}
+            <Route
+              path="/onboard/org"
+              element={
+                <Suspense fallback={<RouteSkeleton variant="narrow" />}>
+                  <OrgOnboarding />
                 </Suspense>
               }
             />

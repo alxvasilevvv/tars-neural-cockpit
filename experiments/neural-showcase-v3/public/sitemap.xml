@@ -32,6 +32,12 @@
     <changefreq>weekly</changefreq>
     <priority>0.8</priority>
   </url>
+  <!-- Wave 99 - Org onboarding wizard. 5-step setup for new fund / company. -->
+  <url>
+    <loc>https://tars.meeet.world/onboard/org</loc>
+    <changefreq>monthly</changefreq>
+    <priority>0.7</priority>
+  </url>
   <url>
     <loc>https://tars.meeet.world/onboarding</loc>
     <changefreq>monthly</changefreq>
