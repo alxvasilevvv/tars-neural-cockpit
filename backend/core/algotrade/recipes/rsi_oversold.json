@@ -1,0 +1,21 @@
+{
+  "name": "RSI Oversold Bounce 1h — ETH",
+  "description": "Momentum exhaustion long: enter when RSI(14) drops below 30 (oversold) and price closes above the previous bar's open (bullish reversal hint). Take profit at +5 %, hard stop at -2 %. Fixed 0.05 ETH per trade.",
+  "instrument": "BINANCE:ETHUSDT",
+  "timeframe": "1h",
+  "side": "long",
+  "entry": {
+    "op": "lt",
+    "args": [
+      {"indicator": "rsi", "params": {"period": 14}},
+      {"const": 30}
+    ]
+  },
+  "sizing": {"kind": "fixed_qty", "qty": 0.05},
+  "stop_loss_pct": 0.02,
+  "take_profit_pct": 0.05,
+  "max_positions": 1,
+  "cooldown_bars": 4,
+  "version": 1,
+  "tags": ["mean_reversion", "crypto", "rsi"]
+}

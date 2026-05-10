@@ -1,0 +1,32 @@
+{
+  "slug": "algotrade",
+  "name": "Algotrade",
+  "version": "0.1.0",
+  "phase": "W1b",
+  "stage": "alpha",
+  "homepage": "https://meeet.world/tars/packs/algotrade",
+  "docs": "docs/ALGOTRADE.md",
+  "audience": "quant traders, analysts, fund operators, workshop attendees",
+  "capabilities": [
+    "strategy_ir",
+    "strategy_registry",
+    "backtest_deterministic",
+    "indicators_sma_ema_rsi_atr_bollinger",
+    "recipe_gallery",
+    "binance_klines_data"
+  ],
+  "auth_keys": [],
+  "actions": [
+    "list_recipes",
+    "load_recipe",
+    "parse_strategy",
+    "list_strategies",
+    "get_strategy",
+    "register_strategy",
+    "fork_strategy",
+    "backtest"
+  ],
+  "awareness": ["strategy_registry"],
+  "depends_on": ["backend.core.algotrade"],
+  "license": "Apache-2.0"
+}
