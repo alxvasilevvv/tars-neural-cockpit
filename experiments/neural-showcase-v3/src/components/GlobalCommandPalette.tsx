@@ -113,6 +113,10 @@ const ITEMS: CmdItem[] = [
   // Wave 99 - Org onboarding wizard. Top-of-list for any new fund or
   // company that just downloaded TARS.
   { id: "onboard-org", kind: "route", title: "Set up your organization", hint: "5-step wizard for new fund / company", Icon: Sparkles, href: "/onboard/org", group: "Pages", keywords: "onboard onboarding org organization fund company setup wizard new install first run team invites playbooks step 1 2 3 4 5" },
+  // Wave 101 - Unified HIL approval inbox. Single resolve-all surface
+  // for wallet sigs, outreach sends, code edits, paper→live promotions,
+  // deletions — anything that fired policy_gate.require_confirm().
+  { id: "inbox", kind: "route", title: "Inbox / approvals", hint: "Resolve every pending HIL confirmation", Icon: Stamp, href: "/inbox", group: "Pages", keywords: "inbox hil approve approval queue policy gate confirm deny pending wallet outreach code live trading bulk staged action token" },
 
   // Sections (anchor on /)
   { id: "domains",   kind: "anchor", title: "Domain packs",    hint: "Traders / Entrepreneur / Researcher / Science", Icon: Hash, href: "/#domains", group: "Sections" },
@@ -137,6 +141,12 @@ const ITEMS: CmdItem[] = [
   // /workshop/enterprise, then dispatches the imperative restart event
   // so an already-mounted tour pops back open immediately.
   { id: "restart-workshop-tutorial", kind: "action", title: "Restart workshop tutorial", hint: "Replay the first-run walkthrough on every workshop page", Icon: FlaskRound, group: "Actions", keywords: "workshop tutorial restart reset tour overlay walkthrough onboarding help replay", run: () => { resetWorkshopTutorials(); dispatchRestartTutorial(); } },
+  // Wave 101 - Bulk approve from /inbox via Cmd+K. Lands on /inbox?bulk=1
+  // which the page reads on mount (the dialog opens after the initial
+  // queue fetch completes). Operator still has to double-confirm in the
+  // dialog so this never auto-fires.
+  { id: "inbox-bulk-approve", kind: "action", title: "Bulk approve all pending", hint: "Open /inbox with the bulk approve dialog ready", Icon: Stamp, group: "Actions", keywords: "inbox hil approve approval bulk queue all pending resolve clear", run: () => { try { window.location.assign("/inbox?bulk=1"); } catch { /* noop */ } } },
+  { id: "inbox-pending-count", kind: "action", title: "Show pending HIL count", hint: "Refresh nav badge with current pending approvals", Icon: Stamp, group: "Actions", keywords: "inbox hil pending count badge refresh", run: () => { try { window.location.assign("/inbox"); } catch { /* noop */ } } },
 
   // External
   { id: "github",    kind: "external", title: "GitHub repo",      hint: "meeet-world/tars",        Icon: Image, href: "https://github.com/meeet-world/tars",        group: "External" },

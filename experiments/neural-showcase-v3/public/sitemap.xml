@@ -167,4 +167,17 @@
     <changefreq>daily</changefreq>
     <priority>0.5</priority>
   </url>
+
+  <!--
+    Wave 101 — Unified HIL approval inbox. Single resolve-all surface
+    for every staged confirmation (wallet sigs, outreach sends, code
+    edits, paper→live promotions, deletions). Operator-facing,
+    indexed for Cmd+K + nav badge.
+  -->
+  <url>
+    <loc>https://tars.meeet.world/inbox</loc>
+    <lastmod>2026-05-10</lastmod>
+    <changefreq>hourly</changefreq>
+    <priority>0.85</priority>
+  </url>
 </urlset>

@@ -15,6 +15,9 @@ const links = [
   { label: "Dashboard", href: "/dashboard" },
   // Wave 98 - Outreach surface (LP updates + founder DD drafting).
   { label: "Outreach", href: "/outreach" },
+  // Wave 101 - Unified HIL approval inbox. Badge with pending count
+  // rendered next to the link below.
+  { label: "Inbox", href: "/inbox" },
   { label: "Install", href: "/install" },
 ];
 
@@ -43,6 +46,30 @@ export function Nav() {
       setOrgSetupNeeded(false);
     }
   }, [loc.pathname]);
+
+  // Wave 101 — pending-count badge for the Inbox link. Polls
+  // /api/policy/queue?count_only=true every 30s; never throws (404 →
+  // 0). This is intentionally a noisy 30s vs the page's 5s loop —
+  // the nav badge is decorative, not a precise count.
+  const [hilPending, setHilPending] = useState<number>(0);
+  useEffect(() => {
+    let cancelled = false;
+    async function poll() {
+      try {
+        const r = await fetch("/api/policy/queue?count_only=true&status=pending", {
+          headers: { "content-type": "application/json" },
+        });
+        if (!r.ok) return;
+        const body = await r.json() as { count?: number };
+        if (!cancelled) setHilPending(typeof body.count === "number" ? body.count : 0);
+      } catch {
+        /* offline / endpoint missing → leave count as-is */
+      }
+    }
+    void poll();
+    const id = window.setInterval(() => { void poll(); }, 30_000);
+    return () => { cancelled = true; window.clearInterval(id); };
+  }, []);
 
   return (
     <>
@@ -91,15 +118,33 @@ export function Nav() {
             const cls = `inline-block cursor-pointer rounded-md px-3.5 py-2 font-mono-tech text-[11px] uppercase tracking-[2.4px] transition-colors duration-200 ${
               active ? "text-accent" : "text-ink-2 hover:bg-line hover:text-ink"
             }`;
+            // Wave 101 — Inbox link gets a pending-count badge from
+            // the 30s poll above. Hidden when zero so the nav stays
+            // calm in the steady state.
+            const showBadge = l.href === "/inbox" && hilPending > 0;
+            const inner = (
+              <span className="relative inline-flex items-center gap-1.5">
+                {l.label}
+                {showBadge && (
+                  <span
+                    aria-label={`${hilPending} pending approval${hilPending === 1 ? "" : "s"}`}
+                    className="inline-flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 font-mono-tech text-[9px] tracking-normal"
+                    style={{ backgroundColor: "var(--brand-indigo, #6366f1)", color: "#fff" }}
+                  >
+                    {hilPending > 99 ? "99+" : hilPending}
+                  </span>
+                )}
+              </span>
+            );
             return (
               <li key={l.href} className="hidden md:inline-flex">
                 {isExternal ? (
                   <a href={l.href} className={cls}>
-                    {l.label}
+                    {inner}
                   </a>
                 ) : (
                   <Link to={l.href} className={cls}>
-                    {l.label}
+                    {inner}
                   </Link>
                 )}
               </li>

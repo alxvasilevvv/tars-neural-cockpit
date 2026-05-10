@@ -143,6 +143,11 @@ const Outreach = lazy(() =>
 const OrgOnboarding = lazy(() =>
   import("@/pages/OrgOnboarding").then((m) => ({ default: m.OrgOnboarding })),
 );
+// Wave 101 - Unified HIL approval inbox. Wide variant for the table
+// + side panel layout.
+const Inbox = lazy(() =>
+  import("@/pages/Inbox").then((m) => ({ default: m.Inbox })),
+);
 
 // Default skeleton for routes that don't pin a specific layout shape.
 const Loading = () => <RouteSkeleton variant="default" />;
@@ -517,6 +522,16 @@ function AppShell() {
               element={
                 <Suspense fallback={<RouteSkeleton variant="narrow" />}>
                   <OrgOnboarding />
+                </Suspense>
+              }
+            />
+            {/* Wave 101 - Unified HIL approval inbox. Wide variant
+                for the table + side panel layout. */}
+            <Route
+              path="/inbox"
+              element={
+                <Suspense fallback={<RouteSkeleton variant="wide" />}>
+                  <Inbox />
                 </Suspense>
               }
             />

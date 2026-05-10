@@ -103,6 +103,9 @@ export function Settings() {
       {/* ─── Workshop tutorial reset (Wave 92) ─────────────────────── */}
       <WorkshopTutorialResetCard />
 
+      {/* ─── HIL approval policy (Wave 101) ────────────────────────── */}
+      <HilPolicyCard />
+
       {/* ─── Keyboard Shortcuts ────────────────────────────────────── */}
       <SettingsCard eyebrow="04 · keyboard" title="Shortcuts">
         <BrandHairline />
@@ -207,6 +210,130 @@ function WorkshopTutorialResetCard() {
             Reset · tours will play again
           </span>
         )}
+      </div>
+    </SettingsCard>
+  );
+}
+
+/**
+ * <HilPolicyCard /> — Wave 101.
+ *
+ * Operator-facing toggles for the unified /inbox HIL queue:
+ *
+ *   - Auto-approve dollar threshold (POST /api/policy/auto-approve-threshold)
+ *   - Slack notification on new HIL request (Wave 91 connector + Wave 90 webhooks)
+ *   - Email daily digest of approved/denied actions
+ *
+ * The threshold value persists server-side (env var); the two
+ * notification toggles persist in localStorage and are read by the
+ * Wave 90 webhook router on emit.
+ */
+function HilPolicyCard() {
+  const [threshold, setThreshold] = useState<number>(0);
+  const [thresholdLoaded, setThresholdLoaded] = useState(false);
+  const [thresholdSaved, setThresholdSaved] = useState(false);
+  const [slack, setSlack] = useState<boolean>(() => {
+    try { return window.localStorage.getItem("tars.hil.slack") === "1"; } catch { return false; }
+  });
+  const [email, setEmail] = useState<boolean>(() => {
+    try { return window.localStorage.getItem("tars.hil.email_digest") === "1"; } catch { return false; }
+  });
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await fetch("/api/policy/auto-approve-threshold");
+        if (!r.ok) { setThresholdLoaded(true); return; }
+        const body = await r.json() as { threshold_usd?: number };
+        if (!cancelled) {
+          setThreshold(typeof body.threshold_usd === "number" ? body.threshold_usd : 0);
+          setThresholdLoaded(true);
+        }
+      } catch {
+        if (!cancelled) setThresholdLoaded(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
+  const onSave = async () => {
+    try {
+      await fetch("/api/policy/auto-approve-threshold", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ threshold_usd: threshold }),
+      });
+      setThresholdSaved(true);
+      window.setTimeout(() => setThresholdSaved(false), 1600);
+    } catch {
+      /* swallow — UI keeps the local value so the operator can retry */
+    }
+  };
+
+  const onSlack = (next: boolean) => {
+    setSlack(next);
+    try { window.localStorage.setItem("tars.hil.slack", next ? "1" : "0"); } catch { /* */ }
+  };
+  const onEmail = (next: boolean) => {
+    setEmail(next);
+    try { window.localStorage.setItem("tars.hil.email_digest", next ? "1" : "0"); } catch { /* */ }
+  };
+
+  return (
+    <SettingsCard eyebrow="04 · approvals" title="HIL approval policy">
+      <BrandHairline />
+      <p className="mt-5 max-w-[60ch] text-[12.5px] leading-[1.6] text-ink-2">
+        Configure when TARS auto-resolves staged confirmations versus parking them
+        in <code className="rounded bg-bg-2/60 px-1 py-0.5 font-mono-tech text-[11px]">/inbox</code>.
+      </p>
+
+      <div className="mt-5 grid gap-4">
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="flex flex-col gap-1.5">
+            <span className="font-mono-tech text-[10px] uppercase tracking-[2px] text-ink-3">
+              Auto-approve actions under ($)
+            </span>
+            <input
+              type="number"
+              min={0}
+              step={50}
+              value={threshold}
+              disabled={!thresholdLoaded}
+              onChange={(e) => setThreshold(Number(e.target.value) || 0)}
+              className="w-40 rounded-md border border-line bg-bg-2/40 px-3 py-2 font-mono-tech text-[12px] text-ink focus:border-line-strong focus:outline-none"
+            />
+          </label>
+          <button
+            type="button"
+            disabled={!thresholdLoaded}
+            onClick={onSave}
+            className="inline-flex h-10 items-center rounded-md border border-line-hot bg-accent-deep px-4 font-mono-tech text-[10.5px] uppercase tracking-[2.2px] text-accent hover:bg-accent/15 disabled:opacity-40"
+          >
+            Save threshold
+          </button>
+          {thresholdSaved && (
+            <span
+              role="status"
+              aria-live="polite"
+              className="inline-flex items-center gap-1.5 font-mono-tech text-[10.5px] uppercase tracking-[2.2px]"
+              style={{ color: "var(--color-success)" }}
+            >
+              <CheckCircle2 size={12} strokeWidth={1.8} aria-hidden />
+              Saved
+            </span>
+          )}
+        </div>
+        <p className="text-[11.5px] text-ink-3">Set to $0 to disable auto-approve entirely.</p>
+
+        <label className="mt-2 flex items-center gap-3 text-[12.5px] text-ink-2">
+          <input type="checkbox" checked={slack} onChange={(e) => onSlack(e.target.checked)} />
+          Send Slack notification on new HIL request
+        </label>
+        <label className="flex items-center gap-3 text-[12.5px] text-ink-2">
+          <input type="checkbox" checked={email} onChange={(e) => onEmail(e.target.checked)} />
+          Email me a daily digest of approved/denied actions
+        </label>
       </div>
     </SettingsCard>
   );
