@@ -25,6 +25,8 @@ import {
 } from "lucide-react";
 import { BrandHairline } from "@/components/BrandHairline";
 import { useFocusTrap } from "@/lib/useFocusTrap";
+import { reset as resetWorkshopTutorials } from "@/lib/tutorial";
+import { dispatchRestartTutorial } from "@/components/WorkshopTutorial";
 
 // Docs MD pulled at build time via Vite ?raw — pre-indexed below.
 // When adding a new legal/info markdown, register it here so it
@@ -50,7 +52,7 @@ import faqMd from "@docs/FAQ.md?raw";
  * collide.
  */
 
-type CmdKind = "route" | "anchor" | "copy" | "external";
+type CmdKind = "route" | "anchor" | "copy" | "external" | "action";
 
 interface CmdItem {
   id: string;
@@ -62,6 +64,8 @@ interface CmdItem {
   href?: string;
   /** for kind=copy */
   payload?: string;
+  /** for kind=action — fire-and-forget callback (Wave 92). */
+  run?: () => void;
   /** group label */
   group: "Pages" | "Sections" | "Actions" | "External" | "Docs";
   /** keywords for fuzzy match */
@@ -110,6 +114,11 @@ const ITEMS: CmdItem[] = [
 
   // Actions
   { id: "copy-install",     kind: "copy",   title: "Copy install command", hint: "Download signed DMG via curl (macOS)", Icon: Download, payload: "curl -fLO https://github.com/alxvasilevvv/tars-neural-cockpit/releases/download/v8.4.0/TARS_8.4.0_aarch64.dmg && open TARS_8.4.0_aarch64.dmg", group: "Actions" },
+  // Wave 92 — Restart any first-run workshop tutorial overlay. Wipes
+  // the localStorage flag for /workshop, /workshop/cohort, and
+  // /workshop/enterprise, then dispatches the imperative restart event
+  // so an already-mounted tour pops back open immediately.
+  { id: "restart-workshop-tutorial", kind: "action", title: "Restart workshop tutorial", hint: "Replay the first-run walkthrough on every workshop page", Icon: FlaskRound, group: "Actions", keywords: "workshop tutorial restart reset tour overlay walkthrough onboarding help replay", run: () => { resetWorkshopTutorials(); dispatchRestartTutorial(); } },
 
   // External
   { id: "github",    kind: "external", title: "GitHub repo",      hint: "meeet-world/tars",        Icon: Image, href: "https://github.com/meeet-world/tars",        group: "External" },
@@ -319,6 +328,20 @@ export function GlobalCommandPalette() {
         }, 600);
         return;
       }
+      if (item.kind === "action" && item.run) {
+        // Wave 92 — fire-and-forget callback (e.g. restart tutorial).
+        try {
+          item.run();
+        } catch {
+          /* swallow — keep palette UX snappy */
+        }
+        setQuery("✓ done");
+        setTimeout(() => {
+          setQuery("");
+          setOpen(false);
+        }, 600);
+        return;
+      }
       if (item.kind === "external" && item.href) {
         window.open(item.href, "_blank", "noopener,noreferrer");
         close();
@@ -449,7 +472,7 @@ export function GlobalCommandPalette() {
                                 </span>
                               </span>
                               <span className="font-mono-tech text-[9.5px] uppercase tracking-[1.8px] text-ink-3">
-                                {it.kind === "copy" ? "copy" : it.kind === "external" ? "↗" : "→"}
+                                {it.kind === "copy" ? "copy" : it.kind === "external" ? "↗" : it.kind === "action" ? "run" : "→"}
                               </span>
                             </button>
                           </li>

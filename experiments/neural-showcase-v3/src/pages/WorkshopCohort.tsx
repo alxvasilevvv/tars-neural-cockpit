@@ -33,6 +33,7 @@ import { useDocumentMeta } from "@/lib/meta";
 import { useT } from "@/lib/i18n";
 import type { TKey } from "@/lib/i18n";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
+import { WorkshopTutorial } from "@/components/WorkshopTutorial";
 import { AttendeeDetail } from "@/components/cohort/AttendeeDetail";
 import {
   ACTIVE_THRESHOLD_MIN,
@@ -332,7 +333,10 @@ export function WorkshopCohort() {
             </div>
 
             {/* Attendee table */}
-            <div className="overflow-hidden rounded-md border border-line bg-bg-1/40 backdrop-blur-sm">
+            <div
+              data-tutorial-id="cohort-table"
+              className="overflow-hidden rounded-md border border-line bg-bg-1/40 backdrop-blur-sm"
+            >
               <div className="overflow-x-auto">
                 <table className="w-full border-collapse text-left">
                   <thead className="bg-bg-2/40">
@@ -458,7 +462,10 @@ export function WorkshopCohort() {
             </div>
 
             {/* Bottom: CSV export */}
-            <div className="flex items-center justify-between gap-3 pt-2">
+            <div
+              data-tutorial-id="cohort-export"
+              className="flex items-center justify-between gap-3 pt-2"
+            >
               <p className="font-mono-tech text-[10.5px] uppercase tracking-[2px] text-ink-3">
                 {t("cohort.export.note")}
               </p>
@@ -476,7 +483,10 @@ export function WorkshopCohort() {
           {/* Right rail */}
           <aside className="space-y-4">
             {/* Broadcast composer */}
-            <div className="rounded-md border border-line bg-bg-1/40 p-4 backdrop-blur-sm">
+            <div
+              data-tutorial-id="cohort-broadcast"
+              className="rounded-md border border-line bg-bg-1/40 p-4 backdrop-blur-sm"
+            >
               <h3 className="mb-2 flex items-center gap-2 font-mono-tech text-[10.5px] uppercase tracking-[2.4px] text-ink-2">
                 <Send size={11} aria-hidden />
                 {t("cohort.broadcast.title")}
@@ -514,7 +524,10 @@ export function WorkshopCohort() {
             </div>
 
             {/* Risk alerts */}
-            <div className="rounded-md border border-line bg-bg-1/40 p-4 backdrop-blur-sm">
+            <div
+              data-tutorial-id="cohort-risk"
+              className="rounded-md border border-line bg-bg-1/40 p-4 backdrop-blur-sm"
+            >
               <h3 className="mb-2 flex items-center gap-2 font-mono-tech text-[10.5px] uppercase tracking-[2.4px] text-ink-2">
                 <TriangleAlert
                   size={11}
@@ -584,7 +597,19 @@ export function WorkshopCohort() {
         </section>
       </article>
 
+      {/* Wave 92 — anchor for the cohort tutorial step that points at the
+          attendee detail panel. The detail itself only mounts when an
+          attendee is picked, so we expose a marker on the page so the
+          tour always has something to highlight. */}
+      <span
+        data-tutorial-id="cohort-detail"
+        aria-hidden
+        className="pointer-events-none fixed bottom-4 right-4 inline-block h-2 w-2 rounded-full opacity-0"
+      />
       <AttendeeDetail attendee={selected} onClose={() => setSelected(null)} />
+
+      {/* Wave 92 — first-run interactive tour for facilitators (5 steps). */}
+      <WorkshopTutorial pageKey="workshop-cohort" />
     </div>
   );
 }

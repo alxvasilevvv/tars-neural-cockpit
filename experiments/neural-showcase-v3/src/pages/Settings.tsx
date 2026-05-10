@@ -10,12 +10,15 @@ import {
   CheckCircle2,
   AlertTriangle,
   ExternalLink,
+  RotateCcw,
 } from "lucide-react";
 import { useDocumentMeta } from "@/lib/meta";
 import { useT } from "@/lib/i18n";
 import { CornerFrame, StatusLozenge } from "@/components/Glyphs";
 import { BrandHairline } from "@/components/BrandHairline";
 import { useSidecarStatus } from "@/lib/useSidecarStatus";
+import { reset as resetWorkshopTutorials } from "@/lib/tutorial";
+import { dispatchRestartTutorial } from "@/components/WorkshopTutorial";
 
 /**
  * <Settings /> — slim user-facing surface for the few settings TARS
@@ -97,8 +100,11 @@ export function Settings() {
       {/* ─── Updates ───────────────────────────────────────────────── */}
       <UpdatesCard />
 
+      {/* ─── Workshop tutorial reset (Wave 92) ─────────────────────── */}
+      <WorkshopTutorialResetCard />
+
       {/* ─── Keyboard Shortcuts ────────────────────────────────────── */}
-      <SettingsCard eyebrow="03 · keyboard" title="Shortcuts">
+      <SettingsCard eyebrow="04 · keyboard" title="Shortcuts">
         <BrandHairline />
         <ul className="mt-5 grid gap-2.5 text-[12.5px]">
           {SHORTCUTS.map((s) => (
@@ -151,6 +157,58 @@ function SettingsCard({
       <h2 className="font-display text-[20px] leading-[1.25] text-ink">{title}</h2>
       {children}
     </motion.section>
+  );
+}
+
+/**
+ * <WorkshopTutorialResetCard /> — Wave 92.
+ *
+ * Lets the operator wipe every workshop tutorial completion flag so
+ * the overlay surfaces again on /workshop, /workshop/cohort, and
+ * /workshop/enterprise. Useful when training new staff or for QA
+ * verification. Shows a confirmation chip for 1.6s after click so
+ * the user knows the action took effect.
+ */
+function WorkshopTutorialResetCard() {
+  const [done, setDone] = useState(false);
+  const onReset = () => {
+    resetWorkshopTutorials();
+    // If a tour is mounted right now (e.g. user clicked from inside a
+    // workshop page in another tab), poke it to restart immediately.
+    dispatchRestartTutorial();
+    setDone(true);
+    setTimeout(() => setDone(false), 1600);
+  };
+  return (
+    <SettingsCard eyebrow="03 · workshop" title="Workshop tutorials">
+      <BrandHairline />
+      <p className="mt-5 max-w-[60ch] text-[12.5px] leading-[1.6] text-ink-2">
+        Reset the in-app walkthroughs for the workshop, cohort dashboard, and
+        enterprise landing. The next time you visit any of those pages, the
+        first-run overlay starts again from step one.
+      </p>
+      <div className="mt-5 flex items-center gap-3">
+        <button
+          type="button"
+          onClick={onReset}
+          className="inline-flex h-11 items-center gap-2 rounded-md border border-line bg-bg-2/50 px-4 font-mono-tech text-[10.5px] uppercase tracking-[2.2px] text-ink-2 transition-colors hover:border-line-strong hover:text-ink"
+        >
+          <RotateCcw size={12} strokeWidth={1.8} aria-hidden />
+          Reset workshop tutorials
+        </button>
+        {done && (
+          <span
+            role="status"
+            aria-live="polite"
+            className="inline-flex items-center gap-1.5 font-mono-tech text-[10.5px] uppercase tracking-[2.2px]"
+            style={{ color: "var(--color-success)" }}
+          >
+            <CheckCircle2 size={12} strokeWidth={1.8} aria-hidden />
+            Reset · tours will play again
+          </span>
+        )}
+      </div>
+    </SettingsCard>
   );
 }
 

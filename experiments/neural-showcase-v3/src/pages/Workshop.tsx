@@ -36,6 +36,7 @@ import { PhaseIntake } from "@/components/workshop/PhaseIntake";
 import { PhaseDesign } from "@/components/workshop/PhaseDesign";
 import { PhaseTest } from "@/components/workshop/PhaseTest";
 import { PhaseDeploy } from "@/components/workshop/PhaseDeploy";
+import { WorkshopTutorial } from "@/components/WorkshopTutorial";
 import type { Agent } from "@/lib/agents";
 import type { BacktestResult } from "@/lib/workshop";
 
@@ -180,36 +181,61 @@ export function Workshop() {
         transition={{ duration: 0.3 }}
         className="mt-8 grid gap-8 md:grid-cols-[260px_1fr]"
       >
-        <WorkshopRail active={phase} completed={completed} />
+        {/* Wave 92 — `data-tutorial-id` anchors for the workshop tour overlay. */}
+        <div data-tutorial-id="workshop-rail">
+          <WorkshopRail active={phase} completed={completed} />
+        </div>
 
         <div className="min-w-0">
           {phase === "intake" && (
-            <PhaseIntake onComplete={() => markComplete("intake", "design")} />
+            <div data-tutorial-id="phase-intake">
+              <PhaseIntake onComplete={() => markComplete("intake", "design")} />
+            </div>
           )}
           {phase === "design" && (
-            <PhaseDesign
-              onComplete={(agent: Agent) => {
-                setAgentId(agent.id);
-                markComplete("design", "test");
-              }}
-            />
+            <div data-tutorial-id="phase-design">
+              <PhaseDesign
+                onComplete={(agent: Agent) => {
+                  setAgentId(agent.id);
+                  markComplete("design", "test");
+                }}
+              />
+            </div>
           )}
           {phase === "test" && (
-            <PhaseTest
-              agentId={agentId}
-              onComplete={(_r: BacktestResult) =>
-                markComplete("test", "deploy")
-              }
-            />
+            <div data-tutorial-id="phase-test">
+              <PhaseTest
+                agentId={agentId}
+                onComplete={(_r: BacktestResult) =>
+                  markComplete("test", "deploy")
+                }
+              />
+            </div>
           )}
           {phase === "deploy" && (
-            <PhaseDeploy
-              agentId={agentId}
-              onComplete={() => markComplete("deploy", null)}
-            />
+            <div data-tutorial-id="phase-deploy">
+              <PhaseDeploy
+                agentId={agentId}
+                onComplete={() => markComplete("deploy", null)}
+              />
+            </div>
           )}
         </div>
       </motion.div>
+
+      {/* Wave 92 — invisible cmd+K hint anchor for the tour. The
+          GlobalCommandPalette itself is mounted at the App root; this
+          marker just anchors step 7 of the walkthrough. */}
+      <span
+        data-tutorial-id="cmdk-hint"
+        aria-hidden
+        className="pointer-events-none absolute right-6 top-32 inline-flex items-center gap-1 rounded-md border border-line/60 bg-bg-2/40 px-2 py-1 font-mono-tech text-[9.5px] uppercase tracking-[2px] text-ink-3 opacity-60"
+      >
+        <kbd className="font-mono-tech">⌘K</kbd>
+      </span>
+
+      {/* Wave 92 — first-run interactive tutorial overlay (8 steps). */}
+      <WorkshopTutorial pageKey="workshop-generic" />
     </section>
   );
 }

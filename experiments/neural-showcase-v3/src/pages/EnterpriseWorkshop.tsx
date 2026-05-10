@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { useDocumentMeta } from "@/lib/meta";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
+import { WorkshopTutorial } from "@/components/WorkshopTutorial";
 
 /**
  * /workshop/enterprise — generic B2B workshop landing for fund
@@ -258,6 +259,7 @@ export function EnterpriseWorkshop() {
           transition={{ duration: 0.55, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
           className="mb-16"
           aria-labelledby="workshop-playbooks-heading"
+          data-tutorial-id="enterprise-playbooks"
         >
           <header className="mb-7 flex items-baseline justify-between border-b border-line pb-4">
             <h2
@@ -315,6 +317,7 @@ export function EnterpriseWorkshop() {
               "linear-gradient(150deg, rgba(139,92,246,0.05), rgba(6,182,212,0.04))",
           }}
           aria-labelledby="workshop-risk-heading"
+          data-tutorial-id="enterprise-risk"
         >
           <header className="mb-5 flex items-center gap-3">
             <ShieldCheck
@@ -400,6 +403,7 @@ export function EnterpriseWorkshop() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.45, delay: 0.3, ease: [0.22, 1, 0.36, 1] }}
           className="flex flex-col items-start justify-between gap-4 border-t border-line pt-6 md:flex-row md:items-center"
+          data-tutorial-id="enterprise-cta"
         >
           <p className="font-mono-tech text-[10.5px] uppercase tracking-[2.4px] text-ink-3">
             Need the generic onboarding?
@@ -425,6 +429,9 @@ export function EnterpriseWorkshop() {
           </div>
         </motion.footer>
       </article>
+
+      {/* Wave 92 — first-run interactive tour for enterprise visitors (5 steps). */}
+      <WorkshopTutorial pageKey="workshop-enterprise" />
     </div>
   );
 }
