@@ -1,4 +1,5 @@
 # Wave 72 — workflow boundary clarification.
+# Wave 76 — release pipeline harden + Apple-secret graceful-degrade docs.
 #
 # This is the AUTHORITATIVE release pipeline for the v9.x desktop
 # product (Tauri app + sidecar). Triggers automatically on every tag
@@ -10,6 +11,43 @@
 # workflow_dispatch``) so it does NOT race with this one on tag push.
 # Run it after ``release-desktop`` lands the dmg if you also need the
 # CLI tarball + Homebrew tap bump.
+#
+# ─────────────────────────────────────────────────────────────────────
+# Required GitHub Actions secrets (Settings → Secrets → Actions)
+# ─────────────────────────────────────────────────────────────────────
+#
+# Tauri updater (REQUIRED for ``includeUpdaterJson: true`` to publish
+# ``latest.json`` with a real signature; without these the dmg still
+# builds but the in-app auto-updater can't verify it):
+#
+#   TAURI_SIGNING_PRIVATE_KEY            base64 of minisign private key
+#   TAURI_SIGNING_PRIVATE_KEY_PASSWORD   passphrase for the key
+#
+# Apple Developer notarization (OPTIONAL — when missing, the build
+# falls back to ad-hoc codesigning so the .dmg still ships, just with
+# the Gatekeeper "unidentified developer" warning that the install.sh
+# xattr command already mitigates). Setting all four enables real
+# notarized signing automatically via tauri-action's built-in path:
+#
+#   APPLE_CERTIFICATE                    base64-encoded .p12 cert
+#   APPLE_CERTIFICATE_PASSWORD           .p12 export password
+#   APPLE_SIGNING_IDENTITY               e.g. "Developer ID Application: …"
+#   APPLE_ID                             Apple ID email for notarytool
+#   APPLE_PASSWORD                       app-specific password (NOT the AppleID one)
+#   APPLE_TEAM_ID                        10-char team ID from developer.apple.com
+#
+# Asset filenames produced (must match dl-proxy ALLOWED_FILENAMES at
+# experiments/neural-showcase-v3/functions/dl/[file].ts):
+#
+#   TARS_<version>_aarch64.dmg           macOS arm64
+#   TARS_<version>_x64.dmg               macOS Intel (best-effort)
+#   TARS_aarch64.app.tar.gz              Tauri updater app bundle (arm64)
+#   latest.json                          Tauri updater channel manifest
+#
+# Note: Tauri 2.x embeds the minisign signature INSIDE latest.json
+# (no separate latest.json.sig file is emitted). The dl-proxy allowlist
+# entry for ``latest.json.sig`` is harmless — Tauri updater client never
+# requests it.
 name: release-desktop
 
 on:
@@ -163,8 +201,22 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Tauri updater signing — when secrets are blank, tauri-action
+          # publishes the dmg without `latest.json` (the workflow
+          # gracefully degrades; auto-updates simply won't fire until
+          # the operator wires real keys via desktop/scripts/generate-release-keys.sh).
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          # Apple Developer notarization — tauri-action 2.x reads these
+          # env vars natively. When all six are blank the action skips
+          # notarization and we fall back to the ad-hoc codesign step
+          # below, so the unsigned .dmg still completes and uploads.
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
           projectPath: desktop
           tagName: ${{ github.ref_name }}
@@ -207,18 +259,32 @@ jobs:
       # zero-cost AND lets users Right-click → Open without the
       # "damaged" modal (only "Unidentified developer" remains, which
       # the install.sh xattr command also clears).
-      - name: Ad-hoc codesign macOS app bundle
+      #
+      # Wave 76: gate this step on APPLE_CERTIFICATE being EMPTY. When
+      # the operator has wired the real Developer ID cert, tauri-action
+      # already produced a notarized signature in the previous step —
+      # running ad-hoc codesign on top of it would invalidate the
+      # Developer ID signature and turn a notarized .app back into an
+      # unidentified one. Only run the fallback when no real cert is set.
+      - name: Ad-hoc codesign macOS app bundle (fallback when no Apple cert)
         if: runner.os == 'macOS'
         shell: bash
+        env:
+          HAS_APPLE_CERT: ${{ secrets.APPLE_CERTIFICATE != '' }}
         run: |
           set -e
+          if [ "${HAS_APPLE_CERT}" = "true" ]; then
+            echo "Apple Developer cert detected — tauri-action already produced a notarized signature."
+            echo "Skipping ad-hoc codesign so we don't invalidate the Developer ID signature."
+            exit 0
+          fi
           BUNDLE="desktop/src-tauri/target/${{ matrix.target }}/release/bundle/macos/TARS.app"
           if [ -d "${BUNDLE}" ]; then
-            echo "Ad-hoc signing ${BUNDLE}…"
+            echo "No APPLE_CERTIFICATE secret — falling back to ad-hoc sign on ${BUNDLE}"
             codesign --force --deep --sign - "${BUNDLE}"
             codesign --verify --deep --strict --verbose=2 "${BUNDLE}" || true
             xattr -cr "${BUNDLE}" || true
-            echo "✓ ad-hoc codesigned"
+            echo "ad-hoc codesigned (operator: wire APPLE_CERTIFICATE secret to enable real notarization)"
           else
             echo "warn: macOS bundle not at ${BUNDLE} — skipping ad-hoc sign"
           fi
