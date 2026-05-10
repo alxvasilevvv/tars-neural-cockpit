@@ -1,0 +1,58 @@
+{
+  "_meta": {
+    "vertical": "dao",
+    "workshop_phase": "deploy",
+    "teaches": "How to compute a wallet balance delta, anchor the diff hash on Solana via memo, and ship the alert to a Discord webhook for treasury transparency.",
+    "estimated_runtime_seconds": 60,
+    "schedule": "*/30 * * * *"
+  },
+  "id": "_workshop.dao.treasury_diff",
+  "name": "Treasury delta + anchor",
+  "description": "Compute the delta between current and prior wallet balances, anchor the diff hash via Solana memo for verifiability, and post the human-readable summary to Discord.",
+  "tags": ["dao", "workshop", "treasury", "anchor"],
+  "pack": "workshop",
+  "on_block": "stop",
+  "steps": [
+    {
+      "id": "balances",
+      "action": "wallet.balance_snapshot",
+      "args": {
+        "wallets": "${env.TREASURY_WALLETS}"
+      },
+      "store_as": "balances"
+    },
+    {
+      "id": "delta",
+      "action": "wallet.balance_delta",
+      "args": {
+        "current": "${steps.balances}",
+        "since": "previous"
+      },
+      "store_as": "delta"
+    },
+    {
+      "id": "anchor",
+      "action": "wallet.anchor_memo",
+      "args": {
+        "memo": "treasury_delta:${steps.delta.summary_hash}",
+        "chain": "solana",
+        "tag": "dao.treasury"
+      },
+      "store_as": "anchor",
+      "on_error": "continue"
+    },
+    {
+      "id": "notify",
+      "action": "business.outgoing_webhook",
+      "args": {
+        "url": "${env.DISCORD_TREASURY_WEBHOOK}",
+        "body": {
+          "content": "Treasury diff",
+          "delta": "${steps.delta}",
+          "anchor": "${steps.anchor}"
+        }
+      },
+      "store_as": "notify"
+    }
+  ]
+}

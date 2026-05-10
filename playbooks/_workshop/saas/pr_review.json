@@ -1,0 +1,50 @@
+{
+  "_meta": {
+    "vertical": "saas",
+    "workshop_phase": "build",
+    "teaches": "How to wrap the GitHub connector with the operator's AI Clone style so PR comments sound on-brand without manual editing.",
+    "estimated_runtime_seconds": 90
+  },
+  "id": "_workshop.saas.pr_review",
+  "name": "PR review with operator voice",
+  "description": "Fetch the open PR diff, run the AI Clone style transformer over the draft review, then post the styled review back as a GitHub PR comment.",
+  "tags": ["saas", "workshop", "github", "ai_clone"],
+  "pack": "workshop",
+  "on_block": "stop",
+  "steps": [
+    {
+      "id": "diff",
+      "action": "business.github.pr_diff",
+      "args": { "pr_url": "${input.pr_url}" },
+      "store_as": "diff"
+    },
+    {
+      "id": "review",
+      "action": "business.code_review",
+      "args": {
+        "diff": "${steps.diff}",
+        "guidelines": "default"
+      },
+      "store_as": "review"
+    },
+    {
+      "id": "styled",
+      "action": "business.ai_clone.restyle",
+      "args": {
+        "draft": "${steps.review}",
+        "voice": "operator"
+      },
+      "store_as": "styled"
+    },
+    {
+      "id": "post",
+      "action": "business.github.pr_comment",
+      "args": {
+        "pr_url": "${input.pr_url}",
+        "body": "${steps.styled}"
+      },
+      "store_as": "posted",
+      "on_error": "stop"
+    }
+  ]
+}

@@ -1,0 +1,44 @@
+{
+  "_meta": {
+    "vertical": "fund",
+    "workshop_phase": "deploy",
+    "teaches": "How to schedule a daily KPI sweep across portfolio companies and raise alerts when deltas exceed a tolerated threshold.",
+    "estimated_runtime_seconds": 75,
+    "schedule": "0 7 * * *"
+  },
+  "id": "_workshop.fund.portfolio_monitoring",
+  "name": "Portfolio monitoring (daily 7am)",
+  "description": "Every morning at 07:00: pull a HubSpot snapshot per portfolio company, diff against yesterday's recorded KPI, and emit alerts for any delta beyond the configured threshold.",
+  "tags": ["fund", "workshop", "monitoring", "alert"],
+  "pack": "workshop",
+  "on_block": "continue",
+  "steps": [
+    {
+      "id": "portco",
+      "action": "business.awareness.hubspot.snapshot",
+      "args": { "filter_tag": "portfolio" },
+      "store_as": "portco"
+    },
+    {
+      "id": "diff",
+      "action": "business.kpi_delta",
+      "args": {
+        "today": "${steps.portco}",
+        "threshold_pct": 15
+      },
+      "store_as": "diff"
+    },
+    {
+      "id": "alert",
+      "action": "business.alert",
+      "args": {
+        "channel": "email",
+        "to": "${env.PARTNER_EMAIL}",
+        "subject": "Portfolio KPI alerts — ${date.iso}",
+        "body": "${steps.diff.alerts}",
+        "skip_if_empty": true
+      },
+      "store_as": "alert"
+    }
+  ]
+}

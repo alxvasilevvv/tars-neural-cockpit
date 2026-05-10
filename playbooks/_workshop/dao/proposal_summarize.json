@@ -1,0 +1,42 @@
+{
+  "_meta": {
+    "vertical": "dao",
+    "workshop_phase": "build",
+    "teaches": "How to ingest a forum proposal URL, summarise it through the science pipeline, and draft a vote rationale for the council.",
+    "estimated_runtime_seconds": 120
+  },
+  "id": "_workshop.dao.proposal_summarize",
+  "name": "Proposal summary + vote rationale",
+  "description": "Fetch a governance forum URL, run science.summarise to compress the proposal into a one-page brief, and draft a council-style vote rationale (yes / no / abstain).",
+  "tags": ["dao", "workshop", "proposal", "summarize"],
+  "pack": "workshop",
+  "on_block": "stop",
+  "steps": [
+    {
+      "id": "fetch",
+      "action": "business.fetch_url",
+      "args": { "url": "${input.proposal_url}" },
+      "store_as": "raw"
+    },
+    {
+      "id": "summary",
+      "action": "science.summarise",
+      "args": {
+        "input": "${steps.fetch}",
+        "max_words": 350
+      },
+      "store_as": "summary"
+    },
+    {
+      "id": "rationale",
+      "action": "business.draft_rationale",
+      "args": {
+        "title": "${input.proposal_url}",
+        "summary": "${steps.summary}",
+        "voices": ["council"],
+        "options": ["yes", "no", "abstain"]
+      },
+      "store_as": "rationale"
+    }
+  ]
+}
