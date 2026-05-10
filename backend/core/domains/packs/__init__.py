@@ -9,6 +9,7 @@ reference the leaves through the registry.
 """
 
 from . import (  # noqa: F401
+    algotrade,
     business,
     entrepreneur,
     mlm,
@@ -22,6 +23,7 @@ from .composites import register_default_composites
 register_default_composites()
 
 __all__ = [
+    "algotrade",
     "business",
     "entrepreneur",
     "mlm",
