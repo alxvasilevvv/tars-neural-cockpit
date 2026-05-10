@@ -24,6 +24,8 @@ const links = [
   { label: "Reports", href: "/reports" },
   // Wave 106 — Marketplace (community registry + browse + install).
   { label: "Market", href: "/marketplace" },
+  // Wave 107 — Bundles (one-click vertical templates).
+  { label: "Bundles", href: "/bundles" },
   { label: "Install", href: "/install" },
 ];
 

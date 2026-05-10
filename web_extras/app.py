@@ -67,6 +67,8 @@ from web_extras.routers import reports as reports_router
 from web_extras.routers import compliance_export as compliance_export_router
 # Wave 106 — /api/marketplace community registry + browse + install.
 from web_extras.routers import marketplace as marketplace_router
+# Wave 107 — /api/bundles per-org-type vertical bundle installer.
+from web_extras.routers import bundles as bundles_router
 
 START_TS = time.time()
 log = logging.getLogger("tars.app")
@@ -772,6 +774,7 @@ app.include_router(files_router.router)
 app.include_router(reports_router.router)
 app.include_router(compliance_export_router.router)
 app.include_router(marketplace_router.router)
+app.include_router(bundles_router.router)
 from web_extras.routers import entitlements as entitlements_router  # noqa: E402
 from web_extras.routers import roles as roles_router  # noqa: E402
 

@@ -985,6 +985,17 @@ function Step4({
     <section aria-labelledby="step4-h">
       <SectionHeader id="step4-h" title={COPY.step4Heading} icon={<Rocket className="h-4 w-4" />} />
       <p className="mb-4 text-[13px] text-ink-2">{COPY.step4Hint}</p>
+      {/* Wave 107 — bundle install shortcut. */}
+      <a
+        href="/bundles"
+        className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-accent/40 bg-accent/5 px-4 py-3 text-[13px] text-ink no-underline hover:border-accent/60"
+      >
+        <span>
+          <strong className="font-display">Install vertical bundle (recommended)</strong>{" "}
+          — playbooks + schedules + dashboard + outreach in one click.
+        </span>
+        <span aria-hidden className="font-mono-tech text-accent">→</span>
+      </a>
       <div className="grid gap-3 sm:grid-cols-2">
         {recs.map((rec) => {
           const checked = draft.selectedPlaybooks.includes(rec.slug);

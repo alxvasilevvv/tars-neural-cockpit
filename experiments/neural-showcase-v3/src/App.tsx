@@ -160,6 +160,10 @@ const Reports = lazy(() =>
 const Marketplace = lazy(() =>
   import("@/pages/Marketplace").then((m) => ({ default: m.Marketplace })),
 );
+// Wave 107 — /bundles per-org-type vertical bundle installer.
+const Bundles = lazy(() =>
+  import("@/pages/Bundles").then((m) => ({ default: m.Bundles })),
+);
 
 // Default skeleton for routes that don't pin a specific layout shape.
 const Loading = () => <RouteSkeleton variant="default" />;
@@ -571,6 +575,23 @@ function AppShell() {
               element={
                 <Suspense fallback={<RouteSkeleton variant="wide" />}>
                   <Marketplace />
+                </Suspense>
+              }
+            />
+            {/* Wave 107 — /bundles vertical templates. */}
+            <Route
+              path="/bundles"
+              element={
+                <Suspense fallback={<RouteSkeleton variant="wide" />}>
+                  <Bundles />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/bundles/:bundleId"
+              element={
+                <Suspense fallback={<RouteSkeleton variant="wide" />}>
+                  <Bundles />
                 </Suspense>
               }
             />
