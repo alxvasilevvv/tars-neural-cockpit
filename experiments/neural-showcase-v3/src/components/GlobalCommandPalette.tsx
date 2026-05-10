@@ -129,6 +129,10 @@ const ITEMS: CmdItem[] = [
   { id: "reports", kind: "route", title: "Reports", hint: "Generate PDF / PPTX / XLSX from templates + your data", Icon: Compass, href: "/reports", group: "Pages", keywords: "reports report pdf pptx xlsx docx lp update board pack kpi dashboard portfolio audit deal screen incident postmortem template render generate export" },
   { id: "reports-new", kind: "action", title: "Generate report", hint: "Open /reports with the templates tab focused", Icon: Sparkles, group: "Actions", keywords: "report generate render export pdf pptx xlsx docx new", run: () => { try { window.location.assign("/reports"); } catch { /* noop */ } } },
   { id: "reports-runs", kind: "action", title: "View report runs", hint: "Open /reports runs tab", Icon: Compass, group: "Actions", keywords: "reports runs history download recent generated", run: () => { try { window.location.assign("/reports?tab=runs"); } catch { /* noop */ } } },
+  // Wave 106 — Marketplace surface.
+  { id: "marketplace", kind: "route", title: "Marketplace", hint: "Browse + install community playbooks, skills, templates", Icon: Compass, href: "/marketplace", group: "Pages", keywords: "marketplace market store registry community playbook skill template install browse rate" },
+  { id: "marketplace-refresh", kind: "action", title: "Refresh marketplace registry", hint: "Re-fetch the registry manifest", Icon: Sparkles, group: "Actions", keywords: "marketplace registry refresh reload sync update fetch listings", run: () => { try { void fetch("/api/marketplace/registry/refresh", { method: "POST" }); window.location.assign("/marketplace"); } catch { /* noop */ } } },
+  { id: "marketplace-library", kind: "action", title: "View installed packs", hint: "Open /marketplace My library tab", Icon: Compass, group: "Actions", keywords: "marketplace library installed packs my", run: () => { try { window.location.assign("/marketplace"); } catch { /* noop */ } } },
 
   // Sections (anchor on /)
   { id: "domains",   kind: "anchor", title: "Domain packs",    hint: "Traders / Entrepreneur / Researcher / Science", Icon: Hash, href: "/#domains", group: "Sections" },

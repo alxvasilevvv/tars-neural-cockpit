@@ -156,6 +156,10 @@ const Files = lazy(() =>
 const Reports = lazy(() =>
   import("@/pages/Reports").then((m) => ({ default: m.Reports })),
 );
+// Wave 106 — /marketplace community registry + browse + install.
+const Marketplace = lazy(() =>
+  import("@/pages/Marketplace").then((m) => ({ default: m.Marketplace })),
+);
 
 // Default skeleton for routes that don't pin a specific layout shape.
 const Loading = () => <RouteSkeleton variant="default" />;
@@ -558,6 +562,15 @@ function AppShell() {
               element={
                 <Suspense fallback={<RouteSkeleton variant="wide" />}>
                   <Reports />
+                </Suspense>
+              }
+            />
+            {/* Wave 106 — /marketplace community registry. */}
+            <Route
+              path="/marketplace"
+              element={
+                <Suspense fallback={<RouteSkeleton variant="wide" />}>
+                  <Marketplace />
                 </Suspense>
               }
             />

@@ -22,6 +22,8 @@ const links = [
   { label: "Files", href: "/files" },
   // Wave 103 — Reports surface (LP updates, board packs, KPIs).
   { label: "Reports", href: "/reports" },
+  // Wave 106 — Marketplace (community registry + browse + install).
+  { label: "Market", href: "/marketplace" },
   { label: "Install", href: "/install" },
 ];
 

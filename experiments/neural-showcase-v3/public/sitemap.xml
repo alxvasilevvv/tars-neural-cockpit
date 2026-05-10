@@ -194,4 +194,18 @@
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
+
+  <!--
+    Wave 106 — Marketplace v0. Discovery surface for community
+    playbooks, skills, templates and report templates. Source-of-
+    truth is a JSON manifest fetched from a public GitHub raw URL
+    (with bundled seed fallback). v0 is local-only ratings; v9.3
+    will land payouts.
+  -->
+  <url>
+    <loc>https://tars.meeet.world/marketplace</loc>
+    <lastmod>2026-05-10</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.78</priority>
+  </url>
 </urlset>
