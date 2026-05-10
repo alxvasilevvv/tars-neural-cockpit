@@ -17,7 +17,7 @@ import { BrandHairline } from "@/components/BrandHairline";
  * inlined here — no global keyframe additions, no JS.
  */
 
-type Variant = "default" | "legal" | "hero" | "cockpit" | "wide";
+type Variant = "default" | "legal" | "hero" | "cockpit" | "wide" | "narrow";
 
 const styles = (
   <style>{`
@@ -149,6 +149,26 @@ export function RouteSkeleton({ variant = "default" }: { variant?: Variant }) {
             <Bar w="100%" h={120} />
             <Bar w="100%" h={120} />
             <Bar w="100%" h={120} />
+          </div>
+        </div>
+      )}
+
+      {variant === "narrow" && (
+        <div className="mx-auto max-w-[640px] px-6 pb-28 pt-14 md:px-12 md:pt-20">
+          <Bar w="120px" h={11} />
+          <div className="mt-4" />
+          <Bar w="92%" h={6} className="rounded-full" />
+          <div className="mt-10 space-y-4">
+            <Bar w="68%" h={32} />
+            <Bar w="100%" h={14} />
+            <Bar w="86%" h={14} />
+          </div>
+          <div className="mt-12 grid grid-cols-5 gap-3">
+            <Bar w="100%" h={56} />
+            <Bar w="100%" h={56} />
+            <Bar w="100%" h={56} />
+            <Bar w="100%" h={56} />
+            <Bar w="100%" h={56} />
           </div>
         </div>
       )}

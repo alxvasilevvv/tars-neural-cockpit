@@ -236,6 +236,15 @@ export function WorkshopMaterials() {
             >
               Workshop landing
             </Link>
+            {/* Wave 88 — pre-workshop self-assessment. Sits in the hero
+                CTA row so cohort attendees see it the moment they land
+                here, before they binge the decks. */}
+            <Link
+              to="/workshop/assess"
+              className="inline-flex items-center gap-2 rounded-sm border border-line px-3 py-1.5 font-mono-tech text-[11px] uppercase tracking-[2px] text-ink-2 transition-colors hover:border-[var(--brand-violet)] hover:text-ink"
+            >
+              Pre-workshop self-assessment →
+            </Link>
           </div>
         </motion.header>
 

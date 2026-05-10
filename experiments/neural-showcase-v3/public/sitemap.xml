@@ -122,4 +122,17 @@
     <changefreq>weekly</changefreq>
     <priority>0.78</priority>
   </url>
+
+  <!--
+    Wave 88 — Workshop pre-flight self-assessment. 12 Likert questions
+    across LLM / Python / Trading / Audit. Linked from the Cmd+K
+    palette and the Workshop materials hub so attendees can take it
+    before Day 1.
+  -->
+  <url>
+    <loc>https://tars.meeet.world/workshop/assess</loc>
+    <lastmod>2026-05-10</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.72</priority>
+  </url>
 </urlset>

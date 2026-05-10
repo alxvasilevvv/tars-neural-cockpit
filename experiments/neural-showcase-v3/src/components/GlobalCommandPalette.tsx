@@ -92,6 +92,9 @@ const ITEMS: CmdItem[] = [
   // Wave 85 — Workshop materials hub. Decks, recipes, videos,
   // community. Top-of-bookmark-bar for cohort attendees.
   { id: "workshop-materials", kind: "route", title: "Workshop materials", hint: "Decks · recipes · videos · community", Icon: FlaskRound, href: "/workshop/materials", group: "Pages", keywords: "workshop materials decks slides handouts pdf videos loom recipe library playbook slack office hours enterprise cohort" },
+  // Wave 88 — Pre-workshop self-assessment quiz. Sits next to the
+  // materials hub so attendees take it before they binge the decks.
+  { id: "workshop-assess", kind: "route", title: "Workshop self-assessment", hint: "12-question pre-flight quiz", Icon: FlaskRound, href: "/workshop/assess", group: "Pages", keywords: "workshop assess assessment quiz pre-flight pre-work llm python trading audit likert score self evaluation cohort" },
 
   // Sections (anchor on /)
   { id: "domains",   kind: "anchor", title: "Domain packs",    hint: "Traders / Entrepreneur / Researcher / Science", Icon: Hash, href: "/#domains", group: "Sections" },

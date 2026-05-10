@@ -870,6 +870,77 @@ const STRINGS_EN = {
   "materials.cta.book":           "Book a slot",
   "materials.placeholder.video":  "Recording pending",
   "materials.placeholder.cal":    "Calendar embed pending",
+
+  // Wave 88 — Workshop self-assessment quiz (/workshop/assess). 12
+  // questions × 4 categories (LLM / Python / Trading / Audit), each
+  // a Likert 1-5. Final screen tailors recommendations from the four
+  // sub-scores. EN-only, persisted in localStorage so attendees can
+  // resume mid-quiz without losing progress.
+  "assess.eyebrow":                  "workshop · pre-flight assessment",
+  "assess.title":                    "Where are you on day 0?",
+  "assess.subtitle":
+    "Twelve quick questions, ~3 minutes. We use your scores to tell you what to skim before Day 1 — and to flag the fast-track if you're already advanced.",
+  "assess.crumb":                    "Self-assessment",
+  "assess.progress":                 "Question {n} of {total}",
+  "assess.scale.never":              "never heard",
+  "assess.scale.teach":              "could teach it",
+  "assess.skip":                     "Skip this question",
+  "assess.back":                     "Back",
+  "assess.next":                     "Next",
+  "assess.start":                    "Start the assessment",
+  "assess.resume":                   "Resume where you left off",
+  "assess.reset":                    "Start over",
+  "assess.results.title":            "Your pre-workshop snapshot",
+  "assess.results.subtitle":
+    "Four category scores out of 15, plus a recommended pre-read so you arrive on Day 1 ready to ship.",
+  "assess.results.total":            "Overall · {score} / 60",
+  "assess.results.recommendations":  "Recommended pre-work",
+  "assess.cta.email":                "Email me my results",
+  "assess.cta.start":                "Start the workshop",
+  "assess.cta.materials":            "Open workshop materials",
+  // Categories
+  "assess.cat.llm.label":            "LLM / AI familiarity",
+  "assess.cat.python.label":         "Python / scripting",
+  "assess.cat.trading.label":        "Trading / quant",
+  "assess.cat.audit.label":          "Audit / compliance",
+  // Recommendations (shown when category < 8 / 15, or total > 48)
+  "assess.rec.llm":
+    "Start with our 'LLMs in 30 minutes' video before Day 1.",
+  "assess.rec.python":
+    "Pre-read: 'Python for non-developers' handout.",
+  "assess.rec.trading":
+    "Pre-watch: 'Backtesting fundamentals' walkthrough.",
+  "assess.rec.audit":
+    "Read: 'Audit-grade receipts intro' before Day 2.",
+  "assess.rec.fasttrack":
+    "You're advanced — skip to Day 2 fast-track.",
+  "assess.rec.balanced":
+    "Solid baseline across the board — show up on Day 1, no pre-read required.",
+  // 12 questions
+  "assess.q.llm.1":
+    "I can explain the difference between pre-training, fine-tuning, and prompting.",
+  "assess.q.llm.2":
+    "I've used Claude / GPT / Gemini APIs to build something.",
+  "assess.q.llm.3":
+    "I understand context windows, tokens, and why LLMs hallucinate.",
+  "assess.q.python.1":
+    "I can write a Python script that reads a CSV and computes summary stats.",
+  "assess.q.python.2":
+    "I'm comfortable with virtualenvs, pip, and reading stack traces.",
+  "assess.q.python.3":
+    "I've shipped at least one CLI tool or web service.",
+  "assess.q.trading.1":
+    "I can read a backtest report (Sharpe, max-drawdown, win rate) without googling.",
+  "assess.q.trading.2":
+    "I've designed at least one strategy (any asset class, any timeframe).",
+  "assess.q.trading.3":
+    "I understand position sizing, stop-loss, and risk-of-ruin math.",
+  "assess.q.audit.1":
+    "I work with auditors / compliance / regulators in my day job.",
+  "assess.q.audit.2":
+    "I understand HMAC signatures and append-only ledgers.",
+  "assess.q.audit.3":
+    "Our org has a documented incident-response playbook.",
 } as const;
 
 /** Pre-typed key namespace export so consumers get autocomplete. */

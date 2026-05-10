@@ -108,6 +108,14 @@ const WorkshopMaterials = lazy(() =>
     default: m.WorkshopMaterials,
   })),
 );
+// Wave 88 — Workshop pre-flight self-assessment quiz. Twelve Likert
+// questions across LLM/Python/Trading/Audit, lazy so the chunk only
+// ships when an attendee actually opens the URL.
+const WorkshopAssess = lazy(() =>
+  import("@/pages/WorkshopAssess").then((m) => ({
+    default: m.WorkshopAssess,
+  })),
+);
 
 // Default skeleton for routes that don't pin a specific layout shape.
 const Loading = () => <RouteSkeleton variant="default" />;
@@ -418,6 +426,18 @@ function AppShell() {
               element={
                 <Suspense fallback={<RouteSkeleton variant="wide" />}>
                   <WorkshopMaterials />
+                </Suspense>
+              }
+            />
+            {/* Wave 88 — Workshop self-assessment quiz. Narrow column
+                layout — one question per screen, so the skeleton uses
+                the new `narrow` variant which mirrors the 640px
+                article width + Likert row. */}
+            <Route
+              path="/workshop/assess"
+              element={
+                <Suspense fallback={<RouteSkeleton variant="narrow" />}>
+                  <WorkshopAssess />
                 </Suspense>
               }
             />
