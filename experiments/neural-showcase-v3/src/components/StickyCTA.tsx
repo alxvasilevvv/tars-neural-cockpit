@@ -96,6 +96,18 @@ export function StickyCTA() {
               <span>{t("stickyCTA.notify")}</span>
             </Link>
 
+            {/* Wave 82 — small workshop pill, hidden on tiny mobile so the
+                two-CTA layout stays readable. Subordinate visual weight:
+                no fill, smaller text, sits between waitlist & primary. */}
+            <Link
+              to="/workshop"
+              onClick={() => trackClick("sticky_cta_workshop")}
+              className="hidden shrink-0 items-center justify-center gap-1.5 rounded-full border border-line bg-white/[0.02] px-3 py-2.5 font-mono-tech text-[10px] uppercase tracking-[2.2px] text-ink-2 transition-all duration-150 hover:-translate-y-px hover:border-line-strong hover:text-ink sm:inline-flex"
+            >
+              <span>Workshop</span>
+              <span aria-hidden>↗</span>
+            </Link>
+
             {/* Wave 68 — primary CTA gated by INSTALLERS_READY:
                 pre-launch we only ask people to join the waitlist;
                 post-launch (signed installers) it'll flip back to

@@ -28,6 +28,14 @@ interface Tier {
   color: string;
   recommended?: boolean;
   /**
+   * Wave 82 — optional secondary CTA used by the Business tier to
+   * surface the B2B workshop entry. Renders as an outlined pill below
+   * the primary "Talk to sales" button so it never competes for
+   * visual weight with the recommended Pro tier.
+   */
+  secondaryCtaKey?: TKey;
+  secondaryHref?: string;
+  /**
    * Bug #3 from docs/SYSTEM_AUDIT_2026-05-02.md — paid tiers display
    * a "Coming soon" overlay instead of pretending checkout works.
    * The Pro/Business CTAs deep-link to the waitlist anchor; the
@@ -101,6 +109,10 @@ const TIERS: Tier[] = [
     href: "mailto:hello@meeet.world?subject=TARS%20Business%20enquiry",
     color: "#8B5CF6",
     comingSoon: true,
+    // Wave 82 — surface the B2B workshop landing alongside "Talk to
+    // sales". Cresco Capital is the FIRST cohort, not the 500th.
+    secondaryCtaKey: "pricing.tier.business.cta.workshop",
+    secondaryHref: "/workshop/cresco",
   },
 ];
 
@@ -228,6 +240,18 @@ export function Pricing() {
               {t(tier.ctaKey)}
               <span className="transition-transform duration-200 group-hover:translate-x-0.5">→</span>
             </a>
+            {/* Wave 82 — secondary workshop CTA on Business tier. Outlined
+                pill, never solid, so it stays subordinate to "Talk to
+                sales" and to the recommended Pro tier above. */}
+            {tier.secondaryCtaKey && tier.secondaryHref && (
+              <a
+                href={tier.secondaryHref}
+                className="group mt-2.5 inline-flex w-full items-center justify-center gap-2 rounded-md border border-line bg-transparent px-4 py-2.5 font-mono-tech text-[10.5px] uppercase tracking-[2.4px] text-ink-2 transition-colors duration-200 hover:border-line-strong hover:text-ink"
+              >
+                {t(tier.secondaryCtaKey)}
+                <span className="transition-transform duration-200 group-hover:translate-x-0.5">→</span>
+              </a>
+            )}
             {tier.comingSoon && (
               <p
                 id={`${tier.slug}-coming-soon`}

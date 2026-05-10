@@ -309,7 +309,24 @@ export function Hero() {
           >
             {t("hero.cta.domains")}
           </a>
+          {/* Wave 82 — secondary workshop CTA. Same visual weight as
+              "Explore domains" so it doesn't compete with the primary
+              download/notify path. The hint text below names the
+              early-access partners (Cresco / CARF / 3V / Crypto Fund) so
+              visitors landing from those rooms recognise they're in the
+              right place. */}
+          <a
+            href="/workshop"
+            className="inline-flex cursor-pointer items-center gap-2.5 rounded-md border border-line bg-white/[0.02] px-5 py-3.5 font-display text-[12.5px] uppercase tracking-[0.18em] text-ink transition-all duration-200 hover:-translate-y-0.5 hover:border-line-strong hover:bg-white/[0.04]"
+          >
+            {t("hero.cta.workshop")}
+          </a>
         </div>
+        {/* Workshop hint — small caption under the CTA row; names the
+            early-access partners without overselling. */}
+        <p className="mt-4 text-center font-mono-tech text-[10.5px] uppercase tracking-[2.4px] text-ink-3">
+          {t("hero.cta.workshop.hint")}
+        </p>
       </motion.div>
     </section>
   );

@@ -1,12 +1,20 @@
 import { motion } from "framer-motion";
-import { Wallet, Network, Coins, ArrowRight } from "lucide-react";
+import { Wallet, Network, Coins, GraduationCap, ArrowRight } from "lucide-react";
 import { useT, type TKey } from "@/lib/i18n";
 
 /**
  * MeeetSection — bridge to meeet.world economy.
  *
- * Three-up pillars: Wallet, $MEEET earnings, T2T agent-to-agent commerce.
- * Each pillar is a substantial card with concrete copy + signature mini-stat.
+ * Wave 82: now four pillars — Wallet, $MEEET earnings, T2T agent-to-agent
+ * commerce, and Workshops (B2B onboarding for funds + quant teams). Cresco
+ * Capital is the FIRST cohort partner, not the 500th — copy must not
+ * overclaim. The fourth pillar uses a fourth accent (success-green) so the
+ * visual rhythm stays distinct from the existing three brand colours.
+ *
+ * Each pillar is a substantial card with concrete copy + signature mini-stat
+ * (or, for the workshop pillar, a CTA in place of the stat number — we don't
+ * have a "deals settled" number for an early-access cohort and faking one
+ * would defeat the honest-framing principle from Wave 71-B / 74).
  */
 
 interface Pillar {
@@ -14,8 +22,13 @@ interface Pillar {
   tagKey: TKey;
   titleKey: TKey;
   bodyKey: TKey;
-  statNumKey: TKey;
-  statLabelKey: TKey;
+  /**
+   * Either a stat (existing 3 pillars) OR a CTA label (workshop pillar).
+   * Stat tuple: [statNumKey, statLabelKey]. CTA: ctaKey.
+   */
+  statNumKey?: TKey;
+  statLabelKey?: TKey;
+  ctaKey?: TKey;
   accent: string;
   href: string;
 }
@@ -50,6 +63,19 @@ const PILLARS: Pillar[] = [
     statLabelKey: "meeetSection.p3.statLabel",
     accent: "#06B6D4",
     href: "/cockpit#t2t",
+  },
+  // Wave 82 — fourth pillar: B2B workshop entry. Cresco Capital is the
+  // FIRST cohort; CARF / 3V / Crypto Fund are confirmed early-access
+  // partners. Honest framing: workshop UI shipped, backend is in flight.
+  // Don't claim "battle-tested at 500 funds".
+  {
+    Icon: GraduationCap,
+    tagKey: "meeetSection.p4.tag",
+    titleKey: "meeetSection.p4.title",
+    bodyKey: "meeetSection.p4.body",
+    ctaKey: "meeetSection.p4.cta",
+    accent: "#34D399", // success-green — distinct from indigo/violet/cyan trio
+    href: "/workshop",
   },
 ];
 
@@ -103,8 +129,11 @@ export function MeeetSection() {
         </p>
       </motion.div>
 
-      {/* Three-up pillar cards */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      {/* Pillar cards — Wave 82: 4 pillars. Mobile: 1-col. md: 2-col
+          (so the workshop card always pairs visually with one of the
+          economy cards). lg: 4-col so all four read at a glance on
+          desktop without breaking the existing visual rhythm. */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
         {PILLARS.map((p, i) => (
           <motion.a
             key={p.tagKey}
@@ -156,22 +185,34 @@ export function MeeetSection() {
               {t(p.bodyKey)}
             </p>
 
-            {/* Stat — bottom band */}
+            {/* Bottom band — stat (existing 3) or CTA (workshop pillar).
+                Workshop card uses CTA copy in place of a fake metric;
+                we won't fabricate a "deals settled" number for an
+                early-access cohort (Wave 71-B / 74 honesty principle). */}
             <div className="flex items-end justify-between border-t border-line pt-5">
-              <div>
+              {p.statNumKey && p.statLabelKey ? (
+                <div>
+                  <div
+                    className="font-display tabular-nums leading-none"
+                    style={{
+                      fontSize: "clamp(1.6rem, 2.6vw, 2.2rem)",
+                      color: p.accent,
+                    }}
+                  >
+                    {t(p.statNumKey)}
+                  </div>
+                  <div className="mt-1.5 font-mono-tech text-[10px] uppercase tracking-[1.6px] text-ink-3">
+                    {t(p.statLabelKey)}
+                  </div>
+                </div>
+              ) : p.ctaKey ? (
                 <div
-                  className="font-display tabular-nums leading-none"
-                  style={{
-                    fontSize: "clamp(1.6rem, 2.6vw, 2.2rem)",
-                    color: p.accent,
-                  }}
+                  className="font-mono-tech text-[11px] uppercase tracking-[2.6px]"
+                  style={{ color: p.accent }}
                 >
-                  {t(p.statNumKey)}
+                  {t(p.ctaKey)}
                 </div>
-                <div className="mt-1.5 font-mono-tech text-[10px] uppercase tracking-[1.6px] text-ink-3">
-                  {t(p.statLabelKey)}
-                </div>
-              </div>
+              ) : null}
               <ArrowRight
                 size={16}
                 strokeWidth={1.6}
