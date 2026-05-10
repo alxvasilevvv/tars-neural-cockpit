@@ -1,0 +1,42 @@
+{
+  "_meta": {
+    "vertical": "fund",
+    "workshop_phase": "test",
+    "teaches": "How to chain a science-backed citation lookup into a lead-scoring routine and a business-style summary for fast founder due diligence.",
+    "estimated_runtime_seconds": 60
+  },
+  "id": "_workshop.fund.founder_dd",
+  "name": "Founder DD pack",
+  "description": "Pull crossref papers authored by the founder, run an entrepreneur lead-score on their public profile, then summarise the combined picture into a one-page DD memo.",
+  "tags": ["fund", "workshop", "dd", "founder"],
+  "pack": "workshop",
+  "on_block": "continue",
+  "steps": [
+    {
+      "id": "papers",
+      "action": "science.crossref",
+      "args": { "query": "${input.founder_name}", "rows": 25 },
+      "store_as": "papers"
+    },
+    {
+      "id": "score",
+      "action": "entrepreneur.lead_score",
+      "args": {
+        "subject": "${input.founder_name}",
+        "signals": "${steps.papers}"
+      },
+      "store_as": "lead_score",
+      "parallel": true
+    },
+    {
+      "id": "memo",
+      "action": "business.summarize",
+      "args": {
+        "title": "DD: ${input.founder_name}",
+        "sources": ["${steps.papers}", "${steps.score}"],
+        "max_words": 500
+      },
+      "store_as": "memo"
+    }
+  ]
+}

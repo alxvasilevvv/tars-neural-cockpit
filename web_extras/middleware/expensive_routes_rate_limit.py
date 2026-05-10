@@ -126,6 +126,39 @@ EXPENSIVE_ROUTES: tuple[ExpensiveRoute, ...] = (
         capacity_default=12.0,
         rate_per_minute_default=4.0,
     ),
+    # Wave 79 security audit — Whisper STT is one of the most
+    # expensive cloud surfaces (~$0.006/min against OpenAI). Without
+    # a throttle a single client could push thousands of audio
+    # uploads through the loopback before the operator notices the
+    # bill. 20/min sustained matches a chatty dictation session;
+    # 30/min burst absorbs short retry storms.
+    _make_route(
+        bucket_id="voice.transcribe",
+        method="POST",
+        pattern=r"^/api/voice/transcribe/?$",
+        capacity_default=30.0,
+        rate_per_minute_default=20.0,
+    ),
+    # Wave 79 — smart-router LLM classifier. Each call hits the
+    # configured chat provider with a small prompt; cheap per-call
+    # but trivial to weaponise from a tab full of cockpit clones.
+    _make_route(
+        bucket_id="agents.route",
+        method="POST",
+        pattern=r"^/api/agents/route/?$",
+        capacity_default=30.0,
+        rate_per_minute_default=15.0,
+    ),
+    # Wave 79 — AI Clone draft endpoint also hits the cloud LLM
+    # with the operator's style examples appended. Same bucket
+    # shape as agents.route.
+    _make_route(
+        bucket_id="clone.draft",
+        method="POST",
+        pattern=r"^/api/clone/draft/?$",
+        capacity_default=20.0,
+        rate_per_minute_default=10.0,
+    ),
 )
 
 

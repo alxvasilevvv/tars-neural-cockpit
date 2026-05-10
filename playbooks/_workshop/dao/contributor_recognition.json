@@ -1,0 +1,50 @@
+{
+  "_meta": {
+    "vertical": "dao",
+    "workshop_phase": "deploy",
+    "teaches": "How to build a contributor leaderboard from receipts and dispatch the payout list to a multisig via outgoing webhook.",
+    "estimated_runtime_seconds": 90,
+    "schedule": "0 18 * * SUN"
+  },
+  "id": "_workshop.dao.contributor_recognition",
+  "name": "Contributor recognition payout",
+  "description": "Weekly Sunday 6pm: query contributor receipts, build a weighted leaderboard, then post the payout proposal to the multisig automation webhook for human signers.",
+  "tags": ["dao", "workshop", "contributors", "payout"],
+  "pack": "workshop",
+  "on_block": "stop",
+  "steps": [
+    {
+      "id": "receipts",
+      "action": "business.receipts.query",
+      "args": {
+        "tag": "dao.contribution",
+        "since": "${date.iso_minus_7d}"
+      },
+      "store_as": "receipts"
+    },
+    {
+      "id": "leaderboard",
+      "action": "business.receipts.leaderboard",
+      "args": {
+        "rows": "${steps.receipts}",
+        "weight_field": "impact_score",
+        "top_n": 25
+      },
+      "store_as": "leaderboard"
+    },
+    {
+      "id": "payout",
+      "action": "business.outgoing_webhook",
+      "args": {
+        "url": "${env.MULTISIG_WEBHOOK}",
+        "body": {
+          "kind": "payout_proposal",
+          "leaderboard": "${steps.leaderboard}",
+          "period": "weekly"
+        }
+      },
+      "store_as": "payout",
+      "on_error": "stop"
+    }
+  ]
+}

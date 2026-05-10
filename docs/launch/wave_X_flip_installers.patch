@@ -1,0 +1,18 @@
+diff --git a/experiments/neural-showcase-v3/src/lib/launchFlags.ts b/experiments/neural-showcase-v3/src/lib/launchFlags.ts
+index aa3ad04..361eeed 100644
+--- a/experiments/neural-showcase-v3/src/lib/launchFlags.ts
++++ b/experiments/neural-showcase-v3/src/lib/launchFlags.ts
+@@ -21,11 +21,11 @@
+  * "Download TARS" surfacing of broken artefacts during ops drift.
+  */
+ 
+-export const INSTALLERS_READY = false as const;
++export const INSTALLERS_READY = true as const;
+ 
+ /**
+  * Approximate launch ETA shown next to "Coming soon" UI. Keep loose
+  * — operators care about week, not date. Update when there's a
+  * confirmed CI release on a tag.
+  */
+-export const INSTALLER_ETA = "soon" as const;
++export const INSTALLER_ETA = "live" as const;

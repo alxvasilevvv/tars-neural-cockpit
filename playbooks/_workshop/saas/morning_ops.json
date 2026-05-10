@@ -1,0 +1,45 @@
+{
+  "_meta": {
+    "vertical": "saas",
+    "workshop_phase": "deploy",
+    "teaches": "How to compose a daily 8:30am stand-up that pulls calendar, GitHub activity, and Slack digest into a single Jarvis trace.",
+    "estimated_runtime_seconds": 75,
+    "schedule": "30 8 * * *"
+  },
+  "id": "_workshop.saas.morning_ops",
+  "name": "SaaS morning ops",
+  "description": "Daily at 08:30 — calendar pull, GitHub stand-up summary, and Slack digest run in parallel so a SaaS founder opens the cockpit with one merged briefing.",
+  "tags": ["saas", "workshop", "morning", "standup"],
+  "pack": "workshop",
+  "on_block": "continue",
+  "steps": [
+    {
+      "id": "calendar",
+      "action": "business.awareness.gcalendar.snapshot",
+      "args": {},
+      "store_as": "calendar"
+    },
+    {
+      "id": "github",
+      "action": "business.awareness.github.snapshot",
+      "args": { "scope": "standup" },
+      "store_as": "github",
+      "parallel": true
+    },
+    {
+      "id": "slack",
+      "action": "business.awareness.slack.snapshot",
+      "args": { "format": "digest" },
+      "store_as": "slack",
+      "parallel": true
+    },
+    {
+      "id": "brief",
+      "action": "business.daily_brief",
+      "args": {
+        "sources": ["${steps.calendar}", "${steps.github}", "${steps.slack}"]
+      },
+      "store_as": "brief"
+    }
+  ]
+}

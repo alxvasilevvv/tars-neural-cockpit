@@ -270,9 +270,22 @@ async def delete_wallet(
 @router.post("/{wallet_id}/sign")
 async def sign(
     wallet_id: str,
+    request: Request,
     body: SignRequest = Body(...),
     x_meeet_trace_id: str | None = Header(default=None),
 ) -> dict[str, Any]:
+    # Wave 79 security audit — `/sign` was the only wallet signing
+    # endpoint that bypassed the policy gate. Arbitrary message
+    # signing is destructive (an attacker on the loopback could
+    # forge auth tokens, sign permits, etc.), so it now requires a
+    # confirm token whenever ``TARS_REQUIRE_OPERATOR_CONFIRM=1``,
+    # the same as the chain-specific transfer endpoints.
+    await policy_gate.require_confirm(
+        request,
+        wallet_id=wallet_id,
+        action="wallet.sign_message",
+        params=body.model_dump(exclude_none=True),
+    )
     svc = get_wallet_service()
     if body.message_b64:
         try:

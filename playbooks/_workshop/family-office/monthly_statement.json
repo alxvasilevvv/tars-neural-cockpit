@@ -1,0 +1,56 @@
+{
+  "_meta": {
+    "vertical": "family-office",
+    "workshop_phase": "deploy",
+    "teaches": "How to merge wallet snapshots across SOL, EVM, and TON into a consolidated monthly statement and render it as a PDF using the `pdf` skill.",
+    "estimated_runtime_seconds": 150,
+    "schedule": "0 9 1 * *"
+  },
+  "id": "_workshop.family_office.monthly_statement",
+  "name": "Monthly consolidated statement",
+  "description": "On the first of the month: snapshot wallets across Solana, EVM (Ethereum + L2s), and TON, consolidate into one statement, and render a portable PDF for the principal.",
+  "tags": ["family-office", "workshop", "statement", "pdf"],
+  "pack": "workshop",
+  "on_block": "stop",
+  "steps": [
+    {
+      "id": "sol",
+      "action": "wallet.balance_snapshot",
+      "args": { "chain": "solana" },
+      "store_as": "sol"
+    },
+    {
+      "id": "evm",
+      "action": "wallet.balance_snapshot",
+      "args": { "chain": "evm" },
+      "store_as": "evm",
+      "parallel": true
+    },
+    {
+      "id": "ton",
+      "action": "wallet.balance_snapshot",
+      "args": { "chain": "ton" },
+      "store_as": "ton",
+      "parallel": true
+    },
+    {
+      "id": "consolidate",
+      "action": "business.consolidate_statement",
+      "args": {
+        "sources": ["${steps.sol}", "${steps.evm}", "${steps.ton}"],
+        "fx_base": "USD"
+      },
+      "store_as": "statement"
+    },
+    {
+      "id": "render",
+      "action": "business.render_pdf",
+      "args": {
+        "skill": "pdf",
+        "template": "family_office_statement_v1",
+        "data": "${steps.consolidate}"
+      },
+      "store_as": "pdf"
+    }
+  ]
+}

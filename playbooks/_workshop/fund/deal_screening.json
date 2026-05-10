@@ -1,0 +1,66 @@
+{
+  "_meta": {
+    "vertical": "fund",
+    "workshop_phase": "build",
+    "teaches": "How to drive an agent to score a pitch deck PDF across 12 dimensions, draft founder questions, and anchor the verdict on-chain via wallet.anchor_memo.",
+    "estimated_runtime_seconds": 180
+  },
+  "id": "_workshop.fund.deal_screening",
+  "name": "Deal screening (12-dim score)",
+  "description": "Agent-based playbook: ingest the latest PDF deck attachment, score it across team, market, product, traction, moat, economics, timing, competition, risk, fit, exit, and conviction, draft three founder follow-up questions, and anchor the verdict memo via wallet.anchor_memo.",
+  "tags": ["fund", "workshop", "agent", "screening", "pdf"],
+  "pack": "workshop",
+  "on_block": "stop",
+  "steps": [
+    {
+      "id": "ingest",
+      "action": "business.attachments.read_pdf",
+      "args": { "kind": "pitch_deck", "latest": true },
+      "store_as": "deck"
+    },
+    {
+      "id": "score",
+      "action": "business.agent_score",
+      "args": {
+        "input": "${steps.ingest}",
+        "dimensions": [
+          "team",
+          "market",
+          "product",
+          "traction",
+          "moat",
+          "economics",
+          "timing",
+          "competition",
+          "risk",
+          "fit",
+          "exit",
+          "conviction"
+        ],
+        "scale": "0-10"
+      },
+      "store_as": "score",
+      "on_error": "stop"
+    },
+    {
+      "id": "questions",
+      "action": "business.agent_followup",
+      "args": {
+        "score": "${steps.score}",
+        "max_questions": 3
+      },
+      "store_as": "questions"
+    },
+    {
+      "id": "verdict",
+      "action": "wallet.anchor_memo",
+      "args": {
+        "memo": "deal_screening:${steps.score.summary_hash}",
+        "chain": "solana",
+        "tag": "fund.dd"
+      },
+      "store_as": "anchor",
+      "on_error": "continue"
+    }
+  ]
+}
