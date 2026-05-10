@@ -106,6 +106,10 @@ const ITEMS: CmdItem[] = [
   // Wave 96 - Reporting dashboard. Personal /dashboard with 10
   // configurable widgets pulling from every TARS surface.
   { id: "dashboard", kind: "route", title: "Dashboard", hint: "Your day at a glance - calendar, mentions, PRs, receipts", Icon: Compass, href: "/dashboard", group: "Pages", keywords: "dashboard widgets calendar slack gmail github pr wallet receipts backtest cohort hil playbook home overview report personal workspace" },
+  // Wave 98 - Outreach (LP updates, founder DD, intros, follow-ups,
+  // welcome touches). Drafted in the operator's voice via AI Clone +
+  // Gmail send is HIL-gated.
+  { id: "outreach", kind: "route", title: "Outreach", hint: "Draft + send LP updates, intros, follow-ups in your voice", Icon: Compass, href: "/outreach", group: "Pages", keywords: "outreach email gmail draft send lp update founder dd intro follow up welcome ai clone hil approve send batch campaign" },
 
   // Sections (anchor on /)
   { id: "domains",   kind: "anchor", title: "Domain packs",    hint: "Traders / Entrepreneur / Researcher / Science", Icon: Hash, href: "/#domains", group: "Sections" },
@@ -121,6 +125,9 @@ const ITEMS: CmdItem[] = [
   // Dashboard page reacts via the localStorage key (next render
   // re-reads the layout).
   { id: "dashboard-add",   kind: "action", title: "Dashboard: add widget", hint: "Open the widget palette on /dashboard", Icon: Sparkles, group: "Actions", keywords: "dashboard add widget palette", run: () => { try { window.location.assign("/dashboard?add=1"); } catch { /* noop */ } } },
+  // Wave 98 - Quick draft action. Lands on /outreach where the
+  // operator picks a template + recipient.
+  { id: "outreach-new", kind: "action", title: "New email draft", hint: "Open /outreach to draft an LP update, intro, or follow-up", Icon: Sparkles, group: "Actions", keywords: "outreach new email draft compose lp update intro follow up gmail send", run: () => { try { window.location.assign("/outreach"); } catch { /* noop */ } } },
   { id: "dashboard-reset", kind: "action", title: "Dashboard: reset layout", hint: "Restore the generic default widget set", Icon: Settings2, group: "Actions", keywords: "dashboard reset clear layout default", run: () => { try { localStorage.removeItem("tars.dashboard.layout"); window.location.assign("/dashboard"); } catch { /* noop */ } } },
   // Wave 92 — Restart any first-run workshop tutorial overlay. Wipes
   // the localStorage flag for /workshop, /workshop/cohort, and

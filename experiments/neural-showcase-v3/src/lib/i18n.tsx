@@ -1073,6 +1073,18 @@ const STRINGS_EN = {
   "dashboard.palette.added":      "added",
   "dashboard.palette.requires":   "requires {req}",
   "dashboard.error.backend":      "Can't reach backend - check connector.",
+  // Wave 98 - Outreach. Six keys covering page chrome + section labels +
+  // the New campaign CTA. Body text + draft cards stay literal so the
+  // regen prompt remains unambiguous for the LLM.
+  "outreach.eyebrow":             "Wave 98",
+  "outreach.crumb":               "Outreach",
+  "outreach.title":               "Outreach",
+  "outreach.cta.new":             "New campaign",
+  "outreach.col.drafts":          "Drafts",
+  "outreach.col.approved":        "Awaiting send",
+  "outreach.col.sent":            "Recent sends (7d)",
+  "outreach.section.templates":   "Templates",
+  "outreach.section.campaigns":   "Campaigns",
   "dashboard.empty.calendar":     "No events today.",
   "dashboard.empty.slack":        "No unread mentions.",
   "dashboard.empty.gmail":        "Inbox zero.",

@@ -159,6 +159,31 @@ EXPENSIVE_ROUTES: tuple[ExpensiveRoute, ...] = (
         capacity_default=20.0,
         rate_per_minute_default=10.0,
     ),
+    # Wave 98 -- outreach drafting also hits the cloud LLM (per-recipient
+    # email body generation in the operator's voice). 30/min burst,
+    # 20/min sustained matches a thoughtful ops session (one campaign
+    # of ~20 LPs in a single sitting) without leaking budget on a
+    # tab-spam scenario.
+    _make_route(
+        bucket_id="outreach.draft",
+        method="POST",
+        pattern=r"^/api/outreach/drafts/?$",
+        capacity_default=30.0,
+        rate_per_minute_default=20.0,
+    ),
+    # Wave 98 -- outreach send is the cumulative daily-cap. The bucket
+    # capacity is the daily budget (50 sends / day default; the safety
+    # layer enforces this independently against the SQLite store, the
+    # bucket is the second line of defence at the HTTP edge). Per-
+    # minute drip is set so a normal one-by-one approval pace
+    # (5 s between sends in the campaign loop) flows through.
+    _make_route(
+        bucket_id="outreach.send",
+        method="POST",
+        pattern=r"^/api/outreach/drafts/[^/]+/send/?$",
+        capacity_default=50.0,
+        rate_per_minute_default=12.0,
+    ),
 )
 
 

@@ -133,6 +133,11 @@ const Dashboard = lazy(() =>
 const Schedules = lazy(() =>
   import("@/pages/Schedules").then((m) => ({ default: m.Schedules })),
 );
+// Wave 98 - Outreach (email drafting + Gmail send + HIL gate). Wide variant
+// for the three-column drafts/approved/sent layout.
+const Outreach = lazy(() =>
+  import("@/pages/Outreach").then((m) => ({ default: m.Outreach })),
+);
 
 // Default skeleton for routes that don't pin a specific layout shape.
 const Loading = () => <RouteSkeleton variant="default" />;
@@ -487,6 +492,16 @@ function AppShell() {
               element={
                 <Suspense fallback={<Loading />}>
                   <Schedules />
+                </Suspense>
+              }
+            />
+            {/* Wave 98 - Outreach. Wide variant: three columns + templates +
+                campaigns. */}
+            <Route
+              path="/outreach"
+              element={
+                <Suspense fallback={<RouteSkeleton variant="wide" />}>
+                  <Outreach />
                 </Suspense>
               }
             />

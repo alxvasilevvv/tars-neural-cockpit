@@ -26,6 +26,12 @@
     <changefreq>weekly</changefreq>
     <priority>0.85</priority>
   </url>
+  <!-- Wave 98 - Outreach (LP updates / founder DD / intros / follow-ups). -->
+  <url>
+    <loc>https://tars.meeet.world/outreach</loc>
+    <changefreq>weekly</changefreq>
+    <priority>0.8</priority>
+  </url>
   <url>
     <loc>https://tars.meeet.world/onboarding</loc>
     <changefreq>monthly</changefreq>

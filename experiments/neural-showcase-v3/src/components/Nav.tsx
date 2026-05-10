@@ -13,6 +13,8 @@ const links = [
   // operator landing on the marketing surface can jump into their
   // configurable workspace without hunting through Cmd+K.
   { label: "Dashboard", href: "/dashboard" },
+  // Wave 98 - Outreach surface (LP updates + founder DD drafting).
+  { label: "Outreach", href: "/outreach" },
   { label: "Install", href: "/install" },
 ];
 
