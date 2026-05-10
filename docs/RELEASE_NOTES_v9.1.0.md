@@ -2,6 +2,7 @@
 
 **Released:** 2026-05-09
 **Workshop suite addendum:** 2026-05-10 (Waves 80-92)
+**B2B production suite addendum:** 2026-05-10 (Waves 94-108)
 **Channel:** stable
 **Platforms:** macOS only (Apple Silicon native, Intel via Rosetta-on-arm64-dmg)
 **Codename:** Phase L9 — production desktop
@@ -131,6 +132,143 @@ Connect" Chrome extension flow is v9.1.1.
 
 ---
 
+## B2B production suite addendum (Waves 94-108) — 2026-05-10
+
+A two-week post-Workshop sprint that landed the full B2B operational
+stack on top of the Workshop surface. Funds, SaaS, DAOs,
+family-offices, agencies, and nonprofits can now be onboarded in a
+single sitting and run productively from day one.
+
+### Workshop completion (Waves 94, 101)
+
+- **Wave 94 — Cohort backend.** Real attendee tracking + live SSE
+  replaces the Wave 89 mock fallback. `/workshop/cohort` is now
+  authoritative. `backend/core/cohort/`, `web_extras/routers/cohort.py`,
+  `docs/contracts/COHORT.md`.
+- **Wave 101 — HIL inbox.** New `/inbox` route for human-in-the-loop
+  approvals — bulk approve, policy thresholds, per-tenant queues.
+  `experiments/neural-showcase-v3/src/pages/Inbox.tsx`,
+  `backend/core/hil/`, `web_extras/routers/hil.py`.
+
+### Compliance suite (Waves 95, 104)
+
+- **Wave 95 — Receipt ledger unified.** Hash-chained receipts +
+  Merkle root + Solana memo anchor. The Wave 67 per-event ed25519
+  ledger is preserved; Wave 95 layers a unified, append-only,
+  tamper-evident stream on top with cross-receipt integrity proofs.
+  `backend/core/receipts/{ledger,chain,merkle,anchor}.py`,
+  `web_extras/routers/receipts.py`, `docs/contracts/RECEIPTS.md`.
+- **Wave 104 — Compliance export bundle.** Audit-grade export —
+  receipts + ledger + Merkle proofs + verifier script + GDPR data-out
+  + PII redaction. Verifier runs offline against the bundle.
+  `backend/core/compliance/{bundle,verifier,gdpr,redact}.py`,
+  `web_extras/routers/compliance.py`,
+  `docs/contracts/COMPLIANCE_EXPORT.md`.
+
+### B2B operational tools (Waves 96, 97, 98, 99, 102, 103, 106, 107, 108)
+
+- **Wave 96 — Reporting dashboard.** `/dashboard` with 10
+  configurable widgets, 5 default layouts (LP / board / ops / dev /
+  founder), drag-resize.
+  `experiments/neural-showcase-v3/src/pages/Dashboard.tsx`,
+  `src/components/dashboard/widgets/*`.
+- **Wave 97 — Playbook scheduler.** Cron-based, persisted,
+  restart-safe. Replaces the autopilot tick. `/schedules` UI.
+  `backend/core/scheduler/`, `web_extras/routers/scheduler.py`,
+  `docs/contracts/SCHEDULER.md`.
+- **Wave 98 — Email outreach.** Gmail send + AI Clone drafting + HIL
+  gate + 5 starter templates. `/outreach`.
+  `backend/core/outreach/`, `web_extras/routers/outreach.py`,
+  `docs/contracts/OUTREACH.md`.
+- **Wave 99 — Org onboarding wizard.** `/onboard/org` 5-step (org
+  type / size / pillars / connectors / first playbook) for new
+  fund/company in <10 min.
+  `experiments/neural-showcase-v3/src/pages/OrgOnboarding.tsx`,
+  `backend/core/onboarding/org.py`.
+- **Wave 102 — Files management.** `/files` document UI + bulk ops +
+  8 categories + tagging. Drag-drop ingest.
+  `experiments/neural-showcase-v3/src/pages/Files.tsx`,
+  `backend/core/files/`, `web_extras/routers/files.py`,
+  `docs/contracts/FILES.md`.
+- **Wave 103 — Reports module.** `/reports` 6 templates (LP, board,
+  weekly digest, compliance, KPI, postmortem) + scheduling +
+  PDF/PPTX/XLSX delivery.
+  `experiments/neural-showcase-v3/src/pages/Reports.tsx`,
+  `backend/core/reports/`, `web_extras/routers/reports.py`,
+  `docs/contracts/REPORTS.md`.
+- **Wave 106 — Marketplace v0.** In-process registry + `/marketplace`
+  browse + install + local ratings + 12 seed listings.
+  `backend/core/marketplace/`, `web_extras/routers/marketplace.py`,
+  `experiments/neural-showcase-v3/src/pages/Marketplace.tsx`,
+  `docs/contracts/MARKETPLACE.md`. *Honest scope: payouts and
+  third-party publishing are v9.2/v9.3.*
+- **Wave 107 — Vertical bundles.** 7 org-type ready-to-demo packs
+  (fund / saas / dao / family-office / agency / enterprise /
+  nonprofit) at `/bundles`. One-click install seeds playbooks +
+  dashboards + reports + outreach templates.
+  `backend/core/bundles/`, `web_extras/routers/bundles.py`,
+  `experiments/neural-showcase-v3/src/pages/Bundles.tsx`,
+  `docs/contracts/BUNDLES.md`.
+- **Wave 108 — Performance dashboard.** `/admin/perf` ops monitoring
+  — latency p50/p95/p99 + throughput + error rate + active sessions.
+  `experiments/neural-showcase-v3/src/pages/PerfDashboard.tsx`,
+  `backend/core/observability/perf.py`,
+  `web_extras/routers/perf.py`, `docs/contracts/PERF_DASHBOARD.md`.
+
+### Onboarding (Waves 99, 107)
+
+Two flavors of onboarding, paired with the workshop suite:
+
+- **`/onboard/org`** — operator-led wizard for a single new
+  organization (Wave 99).
+- **`/bundles`** — vertical-pack picker for a known org-type with
+  pre-baked playbooks/dashboards/reports (Wave 107).
+
+### File management (Wave 102)
+
+`/files` ships document upload + bulk ops + 8 categories
+(contracts, decks, reports, receipts, comms, research, legal,
+misc) + tagging + provenance. Backed by `backend/core/files/`.
+
+### Reports (Wave 103)
+
+6 starter templates with PDF/PPTX/XLSX renderers + scheduled
+delivery (one-shot or recurring via the Wave 97 scheduler) + email
+or webhook drop-off. LP updates, board reports, weekly digests,
+compliance attestations, KPI snapshots, postmortems.
+
+### Marketplace v0 (Wave 106)
+
+In-process registry with 12 seed listings across 5 categories
+(playbooks, skills, dashboards, report templates, connectors).
+Browse + install + per-tenant ratings ship today. Payouts (70/30
+revenue share) and third-party publishing (ed25519-signed bundles)
+are v9.2/v9.3.
+
+### Connectors (Wave 108)
+
+- **Telegram bridge.** Bot bridge with long-poll + webhook + outbound
+  message. Requires `TELEGRAM_BOT_TOKEN`. Promotes the v9.1.1 PARTIAL
+  row to FULLY IMPLEMENTED. `backend/core/connectors/telegram.py`,
+  `web_extras/routers/connectors.py`,
+  `docs/contracts/CONNECTORS.md`.
+
+### Performance dashboard (Wave 108)
+
+`/admin/perf` aggregates the OpenTelemetry counters/histograms shipped
+in Wave 73 + the supervisor budget/rate-limit signals from Wave 76
+into a single ops-grade view. p50 / p95 / p99 latency, throughput,
+error rate, active SSE sessions, queue depth.
+
+### Cross-module testing (Wave 105)
+
+10 cross-module E2E scenarios (12 pass + 1 skip) covering:
+onboarding → bundle install → cohort → outreach → HIL → reports →
+compliance export → verifier round-trip. `tests/e2e/`,
+`docs/testing/E2E_SUITE.md`.
+
+---
+
 ## What's changed
 
 - Default `_DEFAULT_VERSION` in `backend/core/product/manifest.py` bumped from `0.1.0-alpha.2` → `9.1.0`.
@@ -156,13 +294,14 @@ None for end users. For integrators:
 - **macOS only.** Windows + Linux pyoxidizer cross-target builds are scheduled for **v9.2** — the Tauri code path is identical, only the CI matrix is missing.
 - **No notarization.** Ad-hoc codesigned only (Apple Developer Program at $99/yr is post-launch). First-run `xattr -dr com.apple.quarantine` documented in install.sh.
 - **STT is API-only.** `POST /api/voice/transcribe` calls OpenAI Whisper API; on-device pipeline still pending. Returns 503 `stt_not_configured` when no key.
-- **No marketplace.** Third-party skill registry is scaffolded (Wave 49, 96–97) but not live; install via filesystem only. **MVP in v9.2, payouts in v9.3.**
-- **No multi-tenant Workspaces.** `WORKSPACES.md` contract published; multi-tenant + JWT auth is **v9.3** (initial) → **v10.0** (full Orgs/Teams/RBAC).
+- **Marketplace v0 ships browse + install + ratings (Wave 106), but payouts and third-party publishing are NOT live.** 70/30 revenue share + per-jurisdiction payout rails land in **v9.3**. Third-party publishing with ed25519-signed bundles lands in **v9.2** alongside the Skill SDK.
+- **No multi-tenant Workspaces.** `WORKSPACES.md` contract published; backend MVP (additive, schema-only) in flight. Multi-tenant + JWT auth is **v9.2** (initial) → **v10.0** (full Orgs/Teams/RBAC).
 - **No T2T live.** TARS-to-TARS handshake exists in mock-escrow form (Wave 81); live counterparty discovery + Solana escrow scheduled for **v9.3**.
-- **Workshop cohort is mock SSE.** `/workshop/cohort` ships the facilitator dashboard UI; live attendee tracking is mock data only.
-- **Webhooks `receipt.*` events not yet emitted.** Dispatcher + contract v1.0 ship in Wave 90, but live emit sites are wired only in algotrade today. Broader receipt emit-site coverage is **v9.3**.
+- **Webhooks `receipt.*` event coverage is incremental.** Dispatcher + contract v1.0 ship in Wave 90; the unified ledger emits `receipt.*` (Wave 95). Per-feature emit sites (outreach, scheduler, files, reports) wire incrementally — full coverage **v9.3**.
 - **Slack / Gmail / Calendar Quick Connect.** URL-redirect OAuth flow ships (Wave 91); the one-click Chrome extension flow is **v9.1.1**.
+- **Telegram ships as a bot bridge (Wave 108); iMessage is still a Mac-only stub** — v9.1.1 promotes it to the Messages.app DB read flow.
 - **Magic-link auth.** Onboarding wizard UI ships; live token mint depends on brother's meeet.world backend — **v9.1.1**.
+- **AI Clone is v0.1** (style-hint heuristic). Wave 98 outreach uses it for first-draft generation under HIL gate. Real fine-tuned per-user clone is **v9.2**.
 - **Mac-x64 dmg may fall back to arm64+Rosetta.** When the macos-13 GitHub runner pool is queue-starved, the Intel dmg is missing and the `/dl/TARS_9.1.0_x64.dmg` proxy redirects to the arm64 dmg, which Rosetta runs cleanly.
 - **No Windows SmartScreen reputation yet.** First ~50 Windows users (once v9.2 ships) will hit "More info → Run anyway".
 
@@ -172,9 +311,9 @@ See [`docs/WHAT_WORKS.md`](WHAT_WORKS.md) for the full FULLY-IMPLEMENTED / PARTI
 
 ## Roadmap pointer
 
-- **v9.1.1** (~2 weeks) — Magic-link auth, Slack/Gmail/Calendar Quick Connect (Chrome flow), web wake-word, iMessage + Telegram bridges.
-- **v9.2** (~1 month) — Multi-tenant Workspaces (initial), Windows + Linux installers, sqlite-vec wired, AI Clone v1, XTTS-v2 cloning, Marketplace MVP, Skill SDK, headless daemon.
-- **v9.3+** — T2T live + Solana escrow, unified receipt-ledger stream, Reputation Graph UI, marketplace 70/30 + payouts, webhooks `receipt.*` emission everywhere, MCP server bridge.
+- **v9.1.1** (~2 weeks) — Magic-link auth, Slack/Gmail/Calendar Quick Connect (Chrome flow), web wake-word (PWA / wasm Picovoice), iMessage bridge.
+- **v9.2** (~1 month) — Multi-tenant Workspaces (initial), Windows + Linux installers, sqlite-vec wired, AI Clone v1 (real fine-tune), XTTS-v2 cloning, Marketplace 70/30 payouts, Skill SDK third-party publishing, headless daemon.
+- **v9.3+** — T2T live + Solana escrow, Reputation Graph UI, webhooks `receipt.*` emission everywhere, MCP server bridge, webhooks central registry (cross-tenant).
 - **v10.0** — Multi-tenant full + Orgs/Teams/RBAC, Shared Agent Sessions, TARS Handoff, edge voice adapter.
 
 Authoritative forward roadmap: [`docs/ROADMAP.md`](ROADMAP.md). Design-phase context: [`docs/PHASE_L_ROADMAP.md`](PHASE_L_ROADMAP.md).
@@ -217,5 +356,7 @@ curl -s https://github.com/alxvasilevvv/tars-neural-cockpit/releases/latest/down
 
 Wave 72 launch hardening: alienram@icloud.com (operator), Claude (assistant).
 Waves 80-92 Workshop suite + webhooks + connectors + Wave 93 docs sync: Claude (assistant).
+Waves 94-108 B2B production suite + Wave 109 docs sync: Claude (assistant).
 Backend & desktop: brother-of-meeet.world.
 Marketing & cockpit: meeet.world team + Lovable.
+Cursor parallel: algotrade W1/W2/W3/W4 (their lane).

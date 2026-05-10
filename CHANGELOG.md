@@ -9,6 +9,70 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
+## v9.1.0 — B2B Production Suite addendum (2026-05-10)
+
+A two-week post-Workshop sprint that landed the full B2B operational
+stack on top of the Wave 80-92 workshop surface. 15 waves shipped on
+the protected branch `claude/wave-87-onwards`. Funds, SaaS, DAOs,
+family-offices, agencies, and nonprofits can now be onboarded in a
+single sitting and run productively from day one.
+
+Full release notes: [`docs/RELEASE_NOTES_v9.1.0.md`](docs/RELEASE_NOTES_v9.1.0.md#b2b-production-suite-addendum-waves-94-108--2026-05-10).
+Wake-up handoff for operator: [`docs/HANDOFF_WAKE_UP.md`](docs/HANDOFF_WAKE_UP.md).
+
+### Workshop suite completed
+- **Wave 94 — Cohort backend.** Real attendee tracking + live SSE; replaces the Wave 89 mock fallback. `/workshop/cohort` is now authoritative. `backend/core/cohort/`, `web_extras/routers/cohort.py`, `docs/contracts/COHORT.md`.
+- **Wave 101 — HIL inbox.** New `/inbox` route — bulk approve, policy thresholds, per-tenant queues. `experiments/neural-showcase-v3/src/pages/Inbox.tsx`, `backend/core/hil/`, `web_extras/routers/hil.py`.
+
+### Compliance + audit
+- **Wave 95 — Receipt ledger unified.** Hash chain + Merkle root + Solana memo anchor on top of the Wave 67 per-event ed25519 ledger. `backend/core/receipts/{ledger,chain,merkle,anchor}.py`, `docs/contracts/RECEIPTS.md`.
+- **Wave 104 — Compliance export bundle.** Audit-grade — receipts + ledger + Merkle proofs + offline verifier script + GDPR data-out + PII redaction. `backend/core/compliance/`, `docs/contracts/COMPLIANCE_EXPORT.md`.
+
+### B2B operational tools
+- **Wave 96 — Reporting dashboard.** `/dashboard` with 10 configurable widgets, 5 default layouts, drag-resize. `experiments/neural-showcase-v3/src/pages/Dashboard.tsx`.
+- **Wave 97 — Playbook scheduler.** Cron-based, persisted, restart-safe. Replaces the autopilot tick. `/schedules`. `backend/core/scheduler/`, `docs/contracts/SCHEDULER.md`.
+- **Wave 98 — Email outreach.** Gmail send + AI Clone drafting + HIL gate + 5 starter templates. `/outreach`. `backend/core/outreach/`, `docs/contracts/OUTREACH.md`.
+- **Wave 99 — Org onboarding wizard.** `/onboard/org` 5-step (org type / size / pillars / connectors / first playbook). `experiments/neural-showcase-v3/src/pages/OrgOnboarding.tsx`, `backend/core/onboarding/org.py`.
+- **Wave 102 — Files management.** `/files` document UI + bulk ops + 8 categories + tagging. `backend/core/files/`, `docs/contracts/FILES.md`.
+- **Wave 103 — Reports module.** `/reports` 6 templates (LP, board, weekly digest, compliance, KPI, postmortem) + scheduling + PDF/PPTX/XLSX delivery. `backend/core/reports/`, `docs/contracts/REPORTS.md`.
+- **Wave 106 — Marketplace v0.** In-process registry + `/marketplace` browse + install + local ratings + 12 seed listings. `backend/core/marketplace/`, `docs/contracts/MARKETPLACE.md`. *Honest scope: payouts and third-party publishing are v9.2/v9.3.*
+- **Wave 107 — Vertical bundles.** 7 org-type ready-to-demo packs (fund / saas / dao / family-office / agency / enterprise / nonprofit) at `/bundles`. `backend/core/bundles/`, `docs/contracts/BUNDLES.md`.
+- **Wave 108 — Performance dashboard.** `/admin/perf` p50/p95/p99 + throughput + error rate + active sessions. `backend/core/observability/perf.py`, `docs/contracts/PERF_DASHBOARD.md`.
+
+### Connectors
+- **Wave 108 — Telegram bridge.** Bot bridge with long-poll + webhook + outbound. `TELEGRAM_BOT_TOKEN` env-gated. Promotes the v9.1.1 PARTIAL row to FULLY IMPLEMENTED. `backend/core/connectors/telegram.py`.
+- Slack/Gmail/Calendar (Wave 91) and Telegram (Wave 108) are now all real connectors. Quick Connect Chrome extension flow remains v9.1.1.
+
+### Cross-module testing
+- **Wave 105 — E2E test suite.** 10 cross-module scenarios (12 pass + 1 skip) covering onboarding → bundle install → cohort → outreach → HIL → reports → compliance export → verifier round-trip. `tests/e2e/`, `docs/testing/E2E_SUITE.md`.
+
+### Cursor parallel — algotrade lane
+- W1/W2/W3/W4 algotrade work continued on `cursor/algotrade-w*` branches in parallel. Some of Cursor's W2-W4 stuff merged to `origin/main` while Claude worked on the Workshop + B2B production suite on `claude/wave-87-onwards`. Wave 100 audit verified the integration. The Wave 4-PR1 quant playbooks landed in Claude's branch via cherry-pick.
+
+### Honesty caveats
+- Marketplace v0 ships browse + install + local ratings. Payouts (70/30 revenue share) and third-party publishing (ed25519-signed bundles) are v9.2/v9.3.
+- Webhooks emit `receipt.*` from the unified ledger (Wave 95); per-feature emit sites (outreach, scheduler, files, reports) wire incrementally — full coverage v9.3.
+- AI Clone is still v0.1 (style-hint heuristic). Wave 98 outreach uses it for first-draft generation under HIL gate. Real fine-tuned per-user clone is v9.2.
+- Multi-tenant Workspaces backend MVP (Wave 110) is in flight; runtime impl pending v9.2.
+
+### Operator-blocked (still pending after Wave 108)
+- Apple Developer .p12 → CI signed .dmg (notarization).
+- `GITHUB_RELEASE_TOKEN` in CF Pages env.
+- `BRIDGE_SHARED_SECRET` in CF Pages env.
+- Tag `v9.1.0` to trigger signed .dmg build.
+- Flip `INSTALLERS_READY = true` after .dmg ships.
+
+### Brother-blocked
+- Magic-link auth (live token mint) — v9.1.1.
+- $MEEET enterprise invoice path — v9.2.
+
+### Credits
+- Operator: alienram@icloud.com
+- Waves 94-108 + Wave 109 docs sync + wake-up handoff: Claude (assistant)
+- Cursor parallel (algotrade W1-W4): Cursor (their lane)
+
+---
+
 ## v9.1.0 — Workshop Suite addendum (2026-05-10)
 
 A two-week post-launch sprint that landed the B2B Workshop surface,

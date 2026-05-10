@@ -5,7 +5,7 @@
 > capabilities) and [`docs/RELEASE_NOTES_v9.1.0.md`](RELEASE_NOTES_v9.1.0.md)
 > (what just shipped).
 >
-> **Last updated:** 2026-05-10 (Wave 93 sync after Workshop suite Waves 80-92).
+> **Last updated:** 2026-05-10 (Wave 109 sync after B2B production suite Waves 94-108).
 >
 > Scope estimate legend: **S** = ≤3 days, **M** = ~1–2 weeks, **L** = 3+ weeks.
 
@@ -52,7 +52,7 @@ One-line each — full detail in [`WHAT_WORKS.md`](WHAT_WORKS.md).
 - **`/workshop/roi`** — interactive ROI calculator (Wave 84).
 - **`/workshop/materials`** — handouts + recipe library + PWA offline (Wave 85).
 - **`/workshop/assess`** — pre-workshop self-assessment quiz, 12 Q × 4 categories (Wave 88).
-- **`/workshop/cohort`** — facilitator dashboard with **mock SSE** (Wave 89).
+- **`/workshop/cohort`** — facilitator dashboard with **real SSE + attendee tracking** (Wave 89 UI → Wave 94 backend).
 - **`/compliance`** — receipts feed + filters + CSV export + ReceiptVerifier.
 - **In-app tutorial overlay** across all workshop pages (Wave 92).
 - **20+ workshop playbooks** under `playbooks/_workshop/` (fund / saas / dao / family-office / algotrade / quant).
@@ -62,13 +62,31 @@ One-line each — full detail in [`WHAT_WORKS.md`](WHAT_WORKS.md).
 ### Webhooks (Wave 90)
 - **Webhooks module** — outgoing dispatcher + signed delivery + inbound playbook trigger + dead-letter queue + inbox.
 - **Webhook contract v1.0** (HMAC, retry).
-- *(Honest scope: `receipt.*` event emission is wired only in algotrade today; broader emit-site coverage is v9.3.)*
+- *(Honest scope: the unified receipt ledger emits `receipt.*` (Wave 95); per-feature emit sites wire incrementally.)*
 
-### Real connectors (Wave 91)
-- **Slack** — real OAuth + read channels/DMs.
-- **Gmail** — real OAuth + read threads.
-- **Google Calendar** — real OAuth + events read.
-- All env-gated on `OAUTH_BRIDGE_*`.
+### Real connectors (Waves 91, 108)
+- **Slack** — real OAuth + read channels/DMs (Wave 91).
+- **Gmail** — real OAuth + read threads (Wave 91).
+- **Google Calendar** — real OAuth + events read (Wave 91).
+- **Telegram** — bot bridge with long-poll + webhook + outbound (Wave 108).
+- Slack/Gmail/Calendar env-gated on `OAUTH_BRIDGE_*`. Telegram env-gated on `TELEGRAM_BOT_TOKEN`.
+
+### B2B production suite (Waves 94-108, addendum 2026-05-10)
+- **Wave 94 — Cohort backend** — real attendee tracking + SSE for `/workshop/cohort` (replaces Wave 89 mock).
+- **Wave 95 — Receipt ledger unified** — hash chain + Merkle root + Solana memo anchor.
+- **Wave 96 — Reporting dashboard** — `/dashboard` with 10 widgets, 5 default layouts.
+- **Wave 97 — Playbook scheduler** — cron-based, persisted, restart-safe. `/schedules`.
+- **Wave 98 — Email outreach** — Gmail send + AI Clone drafting + HIL gate + 5 starter templates. `/outreach`.
+- **Wave 99 — Org onboarding wizard** — `/onboard/org` 5-step.
+- **Wave 101 — HIL inbox** — `/inbox` approval queue + bulk approve + policy thresholds.
+- **Wave 102 — Files management** — `/files` document UI + bulk ops + 8 categories + tagging.
+- **Wave 103 — Reports module** — `/reports` 6 templates + scheduling + PDF/PPTX/XLSX.
+- **Wave 104 — Compliance export** — audit-grade bundle + verifier + GDPR + PII redaction.
+- **Wave 105 — E2E test suite** — 10 cross-module scenarios (12 pass + 1 skip).
+- **Wave 106 — Marketplace v0** — registry + browse + install + ratings + 12 seed listings (payouts + third-party publish are v9.2/v9.3).
+- **Wave 107 — Vertical bundles** — 7 org-type ready-to-demo packs at `/bundles`.
+- **Wave 108 — Telegram bridge** — bot connector with long-poll + webhook.
+- **Wave 108 — Performance dashboard** — `/admin/perf` p50/p95/p99 + throughput + error rate + active sessions.
 
 ### Hardening (Waves 75-79)
 - 4 failing CI workflows repaired (Wave 75).
@@ -85,11 +103,8 @@ One-line each — full detail in [`WHAT_WORKS.md`](WHAT_WORKS.md).
 | Item | Scope | Blocked by | Audit promise it fulfills |
 | --- | --- | --- | --- |
 | **Magic-link auth** (real, end-to-end) | M | meeet.world brother backend (token mint endpoint) | Onboarding wizard claims magic-link; today it's UI-only. |
-| **Slack/Gmail/Calendar Quick Connect** (Chrome extension flow) | S | Chrome extension publish | URL-redirect flow shipped Wave 91; one-click flow promised. |
-| **Wake-word agent (web variant via wasm Picovoice)** | S | none — design + perf budget | Wake-word listed NOT IMPLEMENTED in WHAT_WORKS. |
+| **Wake-word web (PWA / wasm Picovoice)** | S | none — design + perf budget | Wake-word listed NOT IMPLEMENTED in WHAT_WORKS. |
 | **iMessage bridge** (AppleScript + Messages.app DB read) | S | macOS Full-Disk-Access prompt UX | NOT IMPLEMENTED today (Mac-only stub). |
-| **Telegram bridge** (telegram-bot-api framework) | S | operator config (bot token) | NOT IMPLEMENTED today (operator config only). |
-| **Connector status badges in Cockpit** for Slack/Gmail/Calendar | S | none | UI surface for the real connectors that shipped Wave 91. |
 
 ---
 
@@ -97,15 +112,14 @@ One-line each — full detail in [`WHAT_WORKS.md`](WHAT_WORKS.md).
 
 | Item | Scope | Blocked by | Audit promise it fulfills |
 | --- | --- | --- | --- |
-| **Multi-tenant Workspaces (initial)** | L | brother backend (workspace API) + design (workspace switcher UI) | `WORKSPACES.md` contract published; runtime impl pending. |
+| **Multi-tenant Workspaces (initial)** | L | brother backend (workspace API) + design (workspace switcher UI) | Plan agent's risk-flagged 7-day work; backend MVP in flight (Wave 110, additive schema-only). |
 | **Windows installer** (.msi via pyoxidizer + Authenticode) | L | infra (Windows CI runner + cert purchase) | RELEASE_NOTES known limitation: Mac-only. |
 | **Linux installer** (.AppImage + .deb) | M | infra (Linux CI runner) | Same as above. |
 | **`sqlite-vec` extension wired** (replace cosine in Python) | M | none — implementation only | Memory KV today does cosine in Python; promised as native. |
-| **AI Clone v1** (heuristic per-user style learning + draft suggestions) | L | infra (storage budget) + design (training UX) | v0.1 ships in Wave 73 (style hint only); explicit promise to upgrade. |
+| **AI Clone v1** (real fine-tune per-user) | L | infra (storage budget + GPU pool) + design (training UX) | v0.1 ships Wave 73 (style hint); Wave 98 outreach uses style-hint draft. Real fine-tune still pending. |
 | **XTTS-v2 voice cloning** (separate sidecar bundle) | L | infra (model bundle size + licensing) | TTS works; cloning UI was promised in older waves. |
-| **Marketplace MVP** (registry + browse + ratings table, no payouts yet) | L | brother backend (registry API) + design (browse page) | WHAT_WORKS: Marketplace listed NOT IMPLEMENTED. |
-| **Skill SDK** (third-party packaging spec + signing) | M | none — spec writing + ed25519 already shipped | Wave 95 shipped scaffolding; `docs/SKILL_SDK.md` contract published. |
-| **Background daemon proper** (headless mode without uvicorn / Tauri) | M | none — CLI shell + plist | Background TARS exists; promised standalone. |
+| **Marketplace 70/30 payouts** | L | brother (payout rails) + legal (per-jurisdiction) | Wave 106 ships browse + install + ratings; payouts pending. |
+| **Skill SDK third-party publishing** (packaging spec + ed25519 signing flow) | M | none — spec writing + ed25519 already shipped | Wave 106 marketplace uses in-process registry; third-party publish flow promised. |
 
 ---
 
@@ -114,12 +128,10 @@ One-line each — full detail in [`WHAT_WORKS.md`](WHAT_WORKS.md).
 | Item | Scope | Blocked by | Audit promise it fulfills |
 | --- | --- | --- | --- |
 | **T2T (TARS-to-TARS) live + Solana escrow** | L | brother (escrow program) + infra (Solana program deploy) | Mock escrow today; live counterparty discovery promised. |
-| **Receipt-ledger unified signed-events stream** | M | none — ed25519 already shipped per-event | Receipt ledger is per-event; unified stream promised. |
 | **Reputation Graph + leaderboard (public UI)** | M | T2T + receipt ledger | Wave 80 shipped aggregator; UI / public leaderboard pending. |
-| **Marketplace 70/30 revenue share + payouts** | L | brother (payout rails) + legal (per-jurisdiction) | Wave 96 scaffolding; payout rails missing. |
-| **Webhooks `receipt.*` event emission everywhere** | M | none — wire emit sites in core receipt path | Wave 90 ships dispatcher + contract; algotrade-only emit today. |
+| **Webhooks `receipt.*` event emission everywhere** | M | none — wire emit sites in core receipt path | Unified ledger emits (Wave 95); per-feature emit sites incremental. Full coverage promised. |
 | **MCP server bridge** (canonical productized form) | M | none — reference shipped Wave 85, productize | Wave 85 reference; needs canonical bridge. |
-| **Public skill ratings + reviews aggregation** | M | marketplace MVP | Tables exist, no submission flow. |
+| **Webhooks central registry (cross-tenant)** | M | multi-tenant Workspaces (v9.2) | Per-instance registry today. |
 | **GitHub connector — write side** (PR creation + issue write) | M | webhooks `receipt.*` + Wave 91 OAuth refresh | Read shipped Wave 73; write side promised. |
 
 ---
