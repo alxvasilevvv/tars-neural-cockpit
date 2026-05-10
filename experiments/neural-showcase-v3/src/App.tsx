@@ -91,6 +91,15 @@ const ComparePage = lazy(() =>
 const SettingsPage = lazy(() =>
   import("@/pages/Settings").then((m) => ({ default: m.Settings })),
 );
+// Wave 80-D — Generic 4-phase workshop wizard. Lazy so the heavy
+// composer/designer/backtest panels only ship when the operator opens
+// /workshop. Wave 113 — fix: this lazy import was missing, causing
+// "Workshop is not defined" 500 on production /workshop and any page
+// embedding the WorkshopTutorial (which had Workshop in its component
+// stack via the / route's error boundary).
+const Workshop = lazy(() =>
+  import("@/pages/Workshop").then((m) => ({ default: m.Workshop })),
+);
 const EnterpriseWorkshop = lazy(() =>
   import("@/pages/EnterpriseWorkshop").then((m) => ({
     default: m.EnterpriseWorkshop,
