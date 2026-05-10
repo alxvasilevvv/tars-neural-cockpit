@@ -63,6 +63,8 @@ from web_extras.routers import scheduler as scheduler_router
 from web_extras.routers import files as files_router
 # Wave 103 — /api/reports report export module (PDF/PPTX/XLSX).
 from web_extras.routers import reports as reports_router
+# Wave 104 — /api/compliance audit-grade export bundle.
+from web_extras.routers import compliance_export as compliance_export_router
 
 START_TS = time.time()
 log = logging.getLogger("tars.app")
@@ -766,6 +768,7 @@ app.include_router(receipts_router.router)
 app.include_router(scheduler_router.router)
 app.include_router(files_router.router)
 app.include_router(reports_router.router)
+app.include_router(compliance_export_router.router)
 from web_extras.routers import entitlements as entitlements_router  # noqa: E402
 from web_extras.routers import roles as roles_router  # noqa: E402
 
