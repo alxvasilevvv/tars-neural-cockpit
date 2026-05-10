@@ -4,6 +4,105 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-10 — Cursor · Phase W1a: algotrade foundations (Strategy IR + registry + backtest engine)
+
+**Summary**
+
+Foundations for the Cresco Capital workshop ("The Algorithmic Edge",
+audience CARF / 3V / Crypto Fund quant teams, declared outcome
+"production-ready toolkit"). See SYNC issue #163 for the full Phase W
+plan and the lane split with Claude.
+
+This PR ships **all four ground-floor pieces** that every later phase
+(paper exec, live exec, risk gate, council voices, workshop lab)
+will build on:
+
+1. **Strategy IR** — `backend/core/algotrade/strategy/ir.py`. JSON
+   intermediate representation. Closed-world enums (Operator,
+   Indicator, Sizing, Side, Timeframe). Round-trippable, hash-stable
+   `sha256:…` fingerprint over canonical JSON. Validation rejects
+   look-ahead-prone constructs at parse time (no exit + no stops →
+   error; risk_pct sizing without stop_loss_pct → error; etc.).
+2. **Strategy registry** — `backend/core/algotrade/strategy/registry.py`.
+   File-backed under `$TARS_HOME/algotrade/strategies/` (default
+   `~/.tars/algotrade/strategies/`). Three layouts: `by-fingerprint/`
+   for canonical IR, `by-name/<slug>.jsonl` for version history,
+   `index.jsonl` for global append-only audit. Idempotent on
+   fingerprint, version-bumps on any IR change, supports parent
+   tracking for forks/refines.
+3. **Backtest engine** — `backend/core/algotrade/backtest/` with
+   `harness.py` (event loop), `indicators.py` (incremental SMA / EMA
+   / RSI / ATR / Bollinger), `metrics.py` (Sharpe / Sortino /
+   max_drawdown / win_rate / profit_factor / expectancy / exposure /
+   CAGR), `data.py` (CSV loader + Binance klines async fetcher).
+   Hard guarantees: no look-ahead (signals at bar t fill at t+1
+   open), realistic costs (per-side commission + 3 slippage models),
+   bit-deterministic (same data → same equity curve), JSON-
+   serialisable result.
+4. **Recipe gallery** — `backend/core/algotrade/recipes/` with 4
+   diverse starter strategies (ma_cross, bollinger_reversion,
+   rsi_oversold, trailing_runner) covering trend-following, mean-
+   reversion, momentum-exhaustion, and trailing-stop trend models.
+   Each recipe is a complete validated `Strategy` IR; attendees
+   fork from these in W1b's vibe-coding pipeline.
+
+**Why now**
+
+Cresco workshop is on a deadline (slide 1 says "v1.0", date TBD).
+TARS used to be trade-blind beyond simple Binance awareness; the
+`traders` pack ships fetch_quote / pull_klines / summarize_market
+but no execution surface. To close the full algo-trading cycle
+end-to-end (idea → backtest → paper → live → analytics) we need
+the IR + harness + registry as a stable foundation **before** the
+domain pack actions, exec adapters, risk gate, and trading council
+voices land in W1b → W4.
+
+**Files**
+
+- NEW `backend/core/algotrade/__init__.py` — re-exports.
+- NEW `backend/core/algotrade/strategy/{__init__,ir,registry}.py`.
+- NEW `backend/core/algotrade/backtest/{__init__,harness,indicators,metrics,data}.py`.
+- NEW `backend/core/algotrade/recipes/{__init__,ma_cross,bollinger_reversion,rsi_oversold,trailing_runner}.json`.
+- NEW `tests/test_algotrade_strategy_ir.py` — 24 assertions.
+- NEW `tests/test_algotrade_registry.py` — 10 assertions.
+- NEW `tests/test_algotrade_indicators.py` — 15 assertions.
+- NEW `tests/test_algotrade_backtest.py` — 15 assertions
+  (deterministic-result, no-look-ahead, stop-loss / take-profit
+  fire intra-bar, sizing modes, max_positions guardrail, EOD
+  forced exit, metrics edge cases).
+- NEW `docs/ALGOTRADE.md` — module reference (IR, registry,
+  backtest, indicators, recipes, roadmap).
+
+**Verification**
+
+```bash
+.venv/bin/python -m pytest tests/test_algotrade_*.py -q
+# 64 passed in 0.11s
+
+.venv/bin/python -m pytest \
+  tests/test_real_adapters.py tests/test_domains.py \
+  tests/test_domains_health.py tests/test_composite_packs.py \
+  tests/test_vault_router.py tests/test_vault_file.py \
+  tests/test_web_search_pack.py tests/test_algotrade_*.py -q
+# 149 passed → 0 regressions in pack neighbours.
+```
+
+**Operator action**
+
+None — this is pure foundations, no env / no secrets. Wave W1b
+(domain pack actions) will surface these via `POST /api/domains/
+algotrade/actions/{generate_strategy,backtest,register,fork,refine}/
+invoke`. Wave W2+ wires live execution; that's where API keys
+re-enter the story.
+
+**SYNC**
+
+Coordination: SYNC issue #163 ("[SYNC] Cresco Capital workshop —
+full algo-trading cycle in TARS (Phase W)"). Lane split with Claude
+documented there. Branch convention: `cursor/algotrade-w<N>-<topic>`,
+`claude/algotrade-w<N>-<topic>`. Handoff row will be appended to
+`docs/SYNC.md §6` once this PR merges.
+
 ## 2026-05-10 — Cursor · Wave M1: web-search domain pack (Brave · SearXNG · DDG)
 
 **Summary**

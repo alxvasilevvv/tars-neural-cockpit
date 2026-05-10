@@ -1,0 +1,27 @@
+{
+  "name": "Bollinger Reversion 4h — BTC",
+  "description": "Mean-reversion: enter long when close punches below the lower 2σ Bollinger band; exit at the SMA midline (mean reversion target). Hard 3 % stop-loss. Sized to risk 1 % of equity per trade.",
+  "instrument": "BINANCE:BTCUSDT",
+  "timeframe": "4h",
+  "side": "long",
+  "entry": {
+    "op": "lt",
+    "args": [
+      {"indicator": "close"},
+      {"indicator": "bb_lower", "params": {"period": 20, "k": 2}}
+    ]
+  },
+  "exit": {
+    "op": "gt",
+    "args": [
+      {"indicator": "close"},
+      {"indicator": "sma", "params": {"period": 20}}
+    ]
+  },
+  "sizing": {"kind": "risk_pct", "risk_pct": 0.01},
+  "stop_loss_pct": 0.03,
+  "max_positions": 1,
+  "cooldown_bars": 0,
+  "version": 1,
+  "tags": ["mean_reversion", "crypto", "bollinger"]
+}

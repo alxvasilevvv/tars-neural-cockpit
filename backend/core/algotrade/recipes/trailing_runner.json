@@ -1,0 +1,21 @@
+{
+  "name": "Trailing Runner — EMA(50) trend",
+  "description": "Trend follower: enter long when close crosses above the EMA(50). No fixed take-profit — instead a 5 % trailing stop lets winners run. Hard 4 % stop-loss as floor. Sized to risk 1 % of equity per trade.",
+  "instrument": "BINANCE:BTCUSDT",
+  "timeframe": "4h",
+  "side": "long",
+  "entry": {
+    "op": "crosses_above",
+    "args": [
+      {"indicator": "close"},
+      {"indicator": "ema", "params": {"period": 50}}
+    ]
+  },
+  "sizing": {"kind": "risk_pct", "risk_pct": 0.01},
+  "stop_loss_pct": 0.04,
+  "trailing_stop_pct": 0.05,
+  "max_positions": 1,
+  "cooldown_bars": 2,
+  "version": 1,
+  "tags": ["trend_following", "crypto", "trailing_stop"]
+}
