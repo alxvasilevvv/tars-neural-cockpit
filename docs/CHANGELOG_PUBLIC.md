@@ -4,6 +4,81 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-10 — Cursor · Wave M4: TARS MCP server (Anthropic / Cursor / any MCP host)
+
+**Summary**
+
+Stdlib-only **Model Context Protocol** server that exposes
+every TARS action handler as an MCP tool. Same handlers the
+cockpit / HTTP layer / `tars` CLI call, so the audit log,
+risk gate, and council voices stay unified across **four**
+transports now (HTTP, CLI, MCP, in-process). With this PR
+TARS becomes a first-class participant in the AI host
+ecosystem — Claude Desktop, Cursor, Continue, and any custom
+MCP client can drive every TARS verb natively.
+
+What ships:
+
+1. **`backend/mcp/`** — five-module MCP server:
+   - `protocol.py` — JSON-RPC 2.0 + MCP message types.
+     `Tool` / `ToolCallResult` dataclasses with proper
+     destructive / read-only annotations so well-behaved
+     hosts surface confirm dialogs for destructive verbs.
+     MCP spec version pinned at `2025-06-18`.
+   - `server.py` — transport-agnostic dispatcher. Honours
+     `initialize`, `notifications/initialized`, `ping`,
+     `tools/list`, `tools/call`, plus empty `prompts/list`
+     / `resources/list` / `resources/templates/list` /
+     `logging/setLevel`. Never raises — every error path
+     translates into a structured envelope.
+   - `tools.py` — `ActionSpec → Tool` bridge. Walks the
+     domain pack registry, mints tool names as
+     `<pack>.<action_id>`, forwards the JSON-Schema
+     `schema` as `inputSchema` (no translation needed —
+     formats already align). `invoke_tool` handles async +
+     sync handlers, uncaught exceptions, and contract-
+     violating non-mapping returns.
+   - `stdio.py` — line-delimited JSON-RPC over stdin /
+     stdout. Bytes-level write keeps framing portable on
+     Windows hosts (text-mode stdout would rewrite
+     `\n` → `\r\n` and break MCP framing). EOF on stdin
+     = clean shutdown, rc=0.
+   - `__main__.py` — `python -m backend.mcp` entry point.
+     Stderr logging (MCP hosts treat stderr as out-of-band).
+     `TARS_MCP_LOG_LEVEL` env var.
+2. **`docs/MCP.md`** (new, ~200 lines) — operator manual:
+   what is MCP, install + Claude Desktop / Cursor JSON
+   config snippets, full method matrix, error envelope, env
+   var matrix, smoke-test recipe (`python -m backend.mcp
+   <<EOF`), what is next.
+
+**Tests** — 53 cases across four files
+(`tests/test_mcp_protocol.py`, `tests/test_mcp_tools.py`,
+`tests/test_mcp_server.py`, `tests/test_mcp_stdio.py`).
+Protocol layer (22): JSON-RPC envelope parsing, Tool
+serialization (destructive / read-only annotation flip,
+empty-schema fallback). Tool bridge (10): registry build
+over real pack roster, destructive flag propagation, async
++ sync handlers, uncaught exception capture. Dispatcher
+(16): handshake, ping, METHOD_NOT_FOUND, tools/list, every
+tools/call error branch, end-to-end strategy flow over MCP
+only. stdio transport (5): line dispatcher, parse error
+envelope, three-frame dialog with EOF shutdown.
+
+All tests drive the dispatcher in-process (no subprocess
+spawn). Suite runs in <500ms total.
+
+**Branch / PR**: `cursor/wave-m4-mcp-server`, **independent
+of the algotrade / CLI stack** so it can land directly into
+`main` regardless of where #166–#175 are in the review
+queue. The dispatcher walks whatever pack roster is
+registered at boot, so stacked PRs add 30+ more verbs to the
+`tools/list` automatically — no test edit needed.
+
+Wave M3 (MCP client — TARS connects to external MCP
+servers) is next; this server will be its natural smoke
+fixture.
+
 ## 2026-05-10 — Cursor · Phase W4-PR1: workshop quant playbooks + recursive playbook loader
 
 **Summary**
@@ -2332,26 +2407,6 @@ check — if OK, prints RU hint that token lacks **Account → Cloudflare Pages 
 - `docs/CHANGELOG_PUBLIC.md` (regenerated)
 - `docs/CHANGELOG_AGENTS.md` (this entry)
 
-## 2026-05-04 — Cursor · ops: cf-operator.env paste + Cloudflare → GitHub Pages deploy
-
-**Summary**
-
-**Operator flow:** copy **`cf-operator.env.example`** → **`cf-operator.env`** (gitignored),
-paste **`CLOUDFLARE_ACCOUNT_ID`** + **`CLOUDFLARE_API_TOKEN`**, run **`make ops-cf-pages-token`**.
-**`scripts/ops_push_cloudflare_pages_api_token.sh`** preflights **GET …/pages/projects/tars-meeet**,
-then **`gh secret set CLOUDFLARE_API_TOKEN`** + **`gh workflow run`** (dashboard token must have
-**Account → Cloudflare Pages → Edit**). **`cf-operator.env.example`** / локальный **`cf-operator.env`**
-— пошаговые подсказки где взять ID и token.
-
-**Files**
-
-- `cf-operator.env.example` (paste template + hints)
-- `.gitignore` (`cf-operator.env`)
-- `scripts/ops_push_cloudflare_pages_api_token.sh`
-- `Makefile` (`ops-cf-pages-token`)
-- `docs/CHANGELOG_PUBLIC.md` (regenerated)
-- `docs/CHANGELOG_AGENTS.md` (this entry)
-
 ---
 
-_Showing the most recent 60 of 248 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 249 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
