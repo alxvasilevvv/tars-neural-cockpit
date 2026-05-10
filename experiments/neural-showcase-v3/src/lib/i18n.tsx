@@ -1206,6 +1206,17 @@ const STRINGS_EN = {
   "perf.op.backtest":        "Backtest",
   "perf.op.webhook":         "Webhook delivery",
   "perf.op.connector":       "Connector call",
+
+  // Wave 113 — Coming-soon download strip. Honest, time-bound copy
+  // shown while INSTALLERS_READY=false. Mac signed .dmg ships in
+  // 1–2 days (operator runs through docs/APPLE_SIGNING_NEXT_TIME.md);
+  // until then the waitlist captures emails for the day-of blast.
+  "installer.coming_soon.label":      "installers — this week",
+  "installer.coming_soon.notify":     "Notify me when it ships",
+  "installer.coming_soon.eta_short":  "this week",
+  "installer.coming_soon.detail":     "Mac signed .dmg ships in 1–2 days. Web cockpit + waitlist live now — sign up to be notified day-of.",
+  "installer.coming_soon.footer":     "installers · this week",
+  "installer.coming_soon.notify_short":"notify me",
 } as const;
 
 /** Pre-typed key namespace export so consumers get autocomplete. */

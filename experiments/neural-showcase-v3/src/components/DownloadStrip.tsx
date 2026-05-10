@@ -33,7 +33,8 @@ import {
   IOSMark,
   AndroidMark,
 } from "@/components/BrandLogos";
-import { INSTALLERS_READY, INSTALLER_ETA } from "@/lib/launchFlags";
+import { INSTALLERS_READY } from "@/lib/launchFlags";
+import { useT } from "@/lib/i18n";
 import {
   useDownloads,
   type ArtifactOS,
@@ -385,19 +386,20 @@ function VersionPill({ release, fresh }: { release: ReleaseEntry; fresh: boolean
    flips back. ─────────────────────────────────────────────────── */
 
 function ComingSoonStrip({ variant }: { variant: "hero" | "footer" }) {
+  const t = useT();
   if (variant === "footer") {
     return (
       <span className="inline-flex flex-wrap items-center gap-x-2 gap-y-1 font-mono-tech text-[10.5px] uppercase tracking-[1.8px]">
         <span className="inline-flex items-center gap-1.5 text-ink-2">
           <Sparkles size={11} strokeWidth={1.7} aria-hidden style={{ color: "var(--brand-violet)" }} />
-          <span>installers · {INSTALLER_ETA}</span>
+          <span>{t("installer.coming_soon.footer")}</span>
         </span>
         <Link
           to="/#waitlist"
           onClick={() => trackClick("notify_me", { surface: "footer", reason: "coming_soon" })}
           className="text-ink-3 underline-offset-4 transition-colors hover:text-ink hover:underline"
         >
-          notify me
+          {t("installer.coming_soon.notify_short")}
         </Link>
       </span>
     );
@@ -406,6 +408,10 @@ function ComingSoonStrip({ variant }: { variant: "hero" | "footer" }) {
   // Hero variant — full-width pill row. Mirrors the size/rhythm of
   // the live PrimaryButton + VersionPill so the layout stays stable
   // when the flag flips back to INSTALLERS_READY=true.
+  //
+  // Wave 113 — copy tightened to "this week" (was generic "soon") +
+  // small detail line under the Notify CTA explains the 1-2 day Mac
+  // .dmg ETA so visitors know the waitlist is honest, not vapor.
   return (
     <div className="mt-7 flex w-full flex-col items-start gap-4">
       <div className="flex w-full flex-col items-start gap-3 sm:flex-row sm:items-center sm:flex-wrap">
@@ -419,12 +425,12 @@ function ComingSoonStrip({ variant }: { variant: "hero" | "footer" }) {
           }}
         >
           <Mail size={13} strokeWidth={1.8} aria-hidden />
-          <span>Notify me when it ships</span>
+          <span>{t("installer.coming_soon.notify")}</span>
           <span aria-hidden className="opacity-70 transition-opacity group-hover:opacity-100">→</span>
         </Link>
         <span className="inline-flex items-center gap-2 rounded-full border border-line bg-bg-1/60 px-3 py-1.5 font-mono-tech text-[10px] uppercase tracking-[2px] text-ink-2 backdrop-blur-sm">
           <Sparkles size={11} strokeWidth={1.7} aria-hidden style={{ color: "var(--brand-violet)" }} />
-          <span>installers — {INSTALLER_ETA}</span>
+          <span>{t("installer.coming_soon.label")}</span>
         </span>
         {/* Setup guide stays available for power users / curious
             visitors. /install page renders the curl one-liner and
@@ -440,8 +446,10 @@ function ComingSoonStrip({ variant }: { variant: "hero" | "footer" }) {
           <span aria-hidden className="opacity-50 transition-opacity group-hover:opacity-100">→</span>
         </Link>
       </div>
-      <p className="max-w-[44ch] font-mono-tech text-[10.5px] uppercase tracking-[1.8px] text-ink-3">
-        signed `.dmg` / `.msi` / `.AppImage` drop on launch · join the list, get a one-line install when ready
+      {/* Wave 113 — honest, time-bound detail line. Web cockpit +
+          waitlist live now; Mac signed .dmg ships day-of-Apple-cert. */}
+      <p className="max-w-[52ch] font-mono-tech text-[10.5px] normal-case tracking-[0.2px] text-ink-3">
+        {t("installer.coming_soon.detail")}
       </p>
     </div>
   );

@@ -27,5 +27,9 @@ export const INSTALLERS_READY = false as const;
  * Approximate launch ETA shown next to "Coming soon" UI. Keep loose
  * — operators care about week, not date. Update when there's a
  * confirmed CI release on a tag.
+ *
+ * Wave 113 — tightened from "soon" → "this week". Web cockpit + waitlist
+ * are LIVE now; signed Mac .dmg ships in 1–2 days once operator runs the
+ * 15-minute Apple cert export from `docs/APPLE_SIGNING_NEXT_TIME.md`.
  */
-export const INSTALLER_ETA = "soon" as const;
+export const INSTALLER_ETA = "this week" as const;

@@ -3,9 +3,33 @@
 **Released:** 2026-05-09
 **Workshop suite addendum:** 2026-05-10 (Waves 80-92)
 **B2B production suite addendum:** 2026-05-10 (Waves 94-108)
+**Soft-launch addendum:** 2026-05-11 (Wave 113)
 **Channel:** stable
 **Platforms:** macOS only (Apple Silicon native, Intel via Rosetta-on-arm64-dmg)
 **Codename:** Phase L9 — production desktop
+
+## Build status (2026-05-10)
+
+**Web cockpit + waitlist:** ✅ LIVE at [tars.meeet.world](https://tars.meeet.world)
+- Full B2B suite: `/dashboard`, `/onboard/org`, `/workshop`, `/files`,
+  `/reports`, `/marketplace`, `/inbox`, `/compliance`, `/workspaces`,
+  `/admin/perf`
+- Real Slack/Gmail/Calendar/Telegram OAuth connectors
+- Webhooks (signed delivery + inbox)
+- Receipt ledger (hash chain + Merkle + Solana anchor)
+- Scheduler (cron, restart-safe)
+- Email outreach (Gmail + AI Clone)
+- Cohort tracking
+- 7 vertical bundles for one-click setup
+
+**Mac signed `.dmg`:** ⏳ Coming in v9.1.1 (1–2 days)
+- Code complete, awaiting Apple Developer cert export from operator
+- See [`docs/APPLE_SIGNING_NEXT_TIME.md`](APPLE_SIGNING_NEXT_TIME.md) for the
+  15-min completion path
+- Until then: tars.meeet.world Hero shows **"Coming Soon · Notify me when it
+  ships"** — waitlist captures emails for the day-of email blast
+
+---
 
 This is the first production-grade installable. Local-first AI cockpit with
 native UX, hardened sidecar lifecycle, authoritative billing mirror, and an
