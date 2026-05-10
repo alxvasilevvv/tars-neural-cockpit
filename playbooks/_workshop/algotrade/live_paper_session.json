@@ -1,0 +1,61 @@
+{
+  "_meta": {
+    "vertical": "algotrade",
+    "workshop_phase": "test",
+    "teaches": "How to start a paper trading session under a strict risk policy (kill_switch on, $1k position cap, $50 daily loss cap) and schedule an auto-monitor that emits health pings every 15 minutes.",
+    "estimated_runtime_seconds": 60,
+    "schedule": "*/15 * * * *"
+  },
+  "id": "_workshop.algotrade.live_paper_session",
+  "name": "Live paper session (strict risk)",
+  "description": "Open a paper trading session under a hardened risk policy and schedule a 15-minute auto-monitor: on each tick the monitor pulls the session status, emits a health summary, and pages compliance if the kill switch trips or the daily loss cap is hit.",
+  "tags": ["algotrade", "workshop", "paper", "risk", "monitor"],
+  "pack": "workshop",
+  "on_block": "continue",
+  "steps": [
+    {
+      "id": "policy",
+      "action": "algotrade.risk.policy.save",
+      "args": {
+        "name": "workshop_strict_v1",
+        "kill_switch": true,
+        "max_position_usd": 1000,
+        "daily_loss_cap_usd": 50,
+        "max_open_positions": 1,
+        "allowed_instruments": ["BTC/USDT", "ETH/USDT"]
+      },
+      "store_as": "policy"
+    },
+    {
+      "id": "session",
+      "action": "algotrade.session.start",
+      "args": {
+        "strategy_fingerprint": "${input.strategy_fingerprint}",
+        "instrument": "${input.instrument}",
+        "mode": "paper",
+        "risk_policy_name": "workshop_strict_v1"
+      },
+      "store_as": "session",
+      "on_error": "stop"
+    },
+    {
+      "id": "monitor",
+      "action": "algotrade.session.health",
+      "args": { "session_id": "${steps.session.id}" },
+      "store_as": "health"
+    },
+    {
+      "id": "alert",
+      "action": "business.alert",
+      "args": {
+        "channel": "email",
+        "to": "${env.COMPLIANCE_EMAIL}",
+        "subject": "Algotrade paper session ${steps.session.id} — ${steps.health.status}",
+        "body": "${steps.health.summary}",
+        "skip_if_empty": true,
+        "only_on": ["kill_switch_tripped", "daily_loss_cap_hit"]
+      },
+      "store_as": "alert"
+    }
+  ]
+}

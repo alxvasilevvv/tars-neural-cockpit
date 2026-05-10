@@ -1,0 +1,64 @@
+{
+  "_meta": {
+    "vertical": "algotrade",
+    "workshop_phase": "deploy",
+    "teaches": "How to run a weekly compliance audit across every algotrade session: read the JSONL audit logs from ~/.tars/algotrade/sessions/*.jsonl, aggregate fills / drawdown / kill-switch trips, and email the compliance officer.",
+    "estimated_runtime_seconds": 90,
+    "schedule": "0 18 * * FRI"
+  },
+  "id": "_workshop.algotrade.risk_audit_weekly",
+  "name": "Risk audit (weekly)",
+  "description": "Every Friday at 18:00: pull every algotrade audit log under ~/.tars/algotrade/sessions/*.jsonl for the past 7 days, aggregate total fills, max drawdown, kill_switch trips, and SMTP-send the report to the compliance officer.",
+  "tags": ["algotrade", "workshop", "audit", "compliance", "weekly"],
+  "pack": "workshop",
+  "on_block": "stop",
+  "steps": [
+    {
+      "id": "logs",
+      "action": "algotrade.audit.read",
+      "args": {
+        "glob": "~/.tars/algotrade/sessions/*.jsonl",
+        "since": "${date.minus_days:7}"
+      },
+      "store_as": "logs"
+    },
+    {
+      "id": "aggregate",
+      "action": "algotrade.audit.aggregate",
+      "args": {
+        "events": "${steps.logs}",
+        "metrics": [
+          "total_fills",
+          "max_drawdown_pct",
+          "kill_switch_trips",
+          "daily_loss_cap_hits",
+          "sessions_count"
+        ]
+      },
+      "store_as": "summary"
+    },
+    {
+      "id": "send",
+      "action": "business.smtp_send",
+      "args": {
+        "to_list": "${env.COMPLIANCE_EMAIL}",
+        "subject": "Algotrade weekly risk audit — ${date.iso}",
+        "body_template": "algotrade_audit_weekly_v1",
+        "summary": "${steps.aggregate}"
+      },
+      "store_as": "send",
+      "on_error": "stop"
+    },
+    {
+      "id": "anchor",
+      "action": "wallet.anchor_memo",
+      "args": {
+        "memo": "algotrade_audit:${steps.aggregate.summary_hash}",
+        "chain": "solana",
+        "tag": "algotrade.audit"
+      },
+      "store_as": "anchor",
+      "on_error": "continue"
+    }
+  ]
+}

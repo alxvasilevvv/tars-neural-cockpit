@@ -91,12 +91,8 @@ const ComparePage = lazy(() =>
 const SettingsPage = lazy(() =>
   import("@/pages/Settings").then((m) => ({ default: m.Settings })),
 );
-// Wave 80-D — Workshop (B2B onboarding) + Compliance (signed receipts feed).
-const Workshop = lazy(() =>
-  import("@/pages/Workshop").then((m) => ({ default: m.Workshop })),
-);
-const Compliance = lazy(() =>
-  import("@/pages/Compliance").then((m) => ({ default: m.Compliance })),
+const CrescoWorkshop = lazy(() =>
+  import("@/pages/CrescoWorkshop").then((m) => ({ default: m.CrescoWorkshop })),
 );
 
 // Default skeleton for routes that don't pin a specific layout shape.
@@ -371,6 +367,14 @@ function AppShell() {
               element={
                 <Suspense fallback={<RouteSkeleton variant="wide" />}>
                   <Compliance />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/workshop/cresco"
+              element={
+                <Suspense fallback={<RouteSkeleton variant="wide" />}>
+                  <CrescoWorkshop />
                 </Suspense>
               }
             />

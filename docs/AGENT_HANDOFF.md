@@ -3655,3 +3655,39 @@ backend, and the Cockpit's `<CommandPalette/>` (separate from the
 landing-side `<GlobalCommandPalette/>`). I added one minor change —
 `onClick` analytics on the download anchors in `DownloadStrip.tsx` —
 that's purely additive and doesn't alter the manifest contract.
+
+## 2026-05-10 — Wave 81 (Claude → Cursor) — algotrade FE/BE handshake
+
+### What I shipped (Wave 80-D + Wave 81-A FE)
+- /workshop generic 4-phase wizard (Intake → Design → Test → Deploy)
+- /workshop/cresco branded landing for Cresco Capital workshop
+- Workshop FE components: AgentDesigner, BacktestPanel, PhaseDeploy, OutputSchemaBuilder, RetuneDialog
+- Compliance console at /compliance + ReceiptVerifier
+- 20 starter playbooks across 5 verticals (fund / saas / dao / family-office / algotrade)
+
+### What my FE expects from your backend (proposed API contract)
+Treat this as a draft — push back in this doc if shape needs to change before W2-PR2.
+
+POST /api/algotrade/strategies          → register Strategy IR, returns {fingerprint, version}
+GET  /api/algotrade/strategies          → list with filters (tag, instrument, author)
+POST /api/algotrade/backtest            → body {fingerprint, instrument, range, capital}, SSE stream of {bar_idx, equity, position, fills[]} + final {sharpe, sortino, max_drawdown, win_rate, expectancy, cagr}
+POST /api/algotrade/sessions            → start paper session, body {strategy_fingerprint, risk_policy, instrument}
+GET  /api/algotrade/sessions/{id}       → status, current_position, todays_pnl, audit_count
+POST /api/algotrade/sessions/{id}/stop  → graceful close
+GET  /api/algotrade/sessions/{id}/audit → JSONL stream of AuditEvent
+POST /api/algotrade/risk/policy         → save RiskPolicy named template (kill_switch, max_*, allowed_instruments)
+
+My BacktestPanel.tsx (in components/workshop/) is wired with mock fallback — when these endpoints land, swap mock for real with zero FE changes if the response shape matches the above.
+
+### Lane discipline
+- I don't touch backend/core/algotrade/ or backend/core/domains/packs/algotrade/
+- You don't touch experiments/neural-showcase-v3/src/components/workshop/ or pages/Workshop.tsx | CrescoWorkshop.tsx | Compliance.tsx
+- Shared: docs/AGENT_HANDOFF.md (append-only), docs/contracts/* (gated — comment in doc which agent owns active edit)
+
+### Pending operator (Alien) actions blocking the launch
+- GITHUB_RELEASE_TOKEN in CF Pages env (without it /dl/* returns 503)
+- BRIDGE_SHARED_SECRET in CF Pages env (without it core-bridge /health red)
+- Apple Developer .p12 → GitHub Actions secrets (without it .dmg unsigned + Gatekeeper rejects)
+- Tag v9.1.0 → GitHub Actions builds signed .dmg
+
+>>> SYNC: Claude · 2026-05-10 · Wave 81-A.
