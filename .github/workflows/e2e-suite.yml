@@ -1,0 +1,55 @@
+# Wave 105 — comprehensive B2B E2E test suite CI workflow.
+#
+# Runs ``tests/test_b2b_e2e.py`` (10 cross-module integration cases)
+# on every PR + nightly. Unlike the eval-suite this one is BLOCKING —
+# any failure kills the workflow so cross-module regressions never
+# slip into main.
+#
+# The test file uses stdlib unittest only; it self-skips individual
+# scenarios where a sandbox dep (e.g. ``pynacl``) is missing, so the
+# CI runner doesn't need extra requirements beyond the minimum the
+# rest of the backend already pulls in.
+
+name: e2e-suite
+
+on:
+  pull_request:
+    branches: [main]
+    paths-ignore:
+      - "docs/**"
+      - "**/*.md"
+      - "frontend/**"
+  schedule:
+    # Nightly at 05:00 UTC -- one hour after eval-suite so they don't
+    # clobber each other on the GitHub Actions queue.
+    - cron: "0 5 * * *"
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    name: TARS B2B E2E suite (Wave 105)
+    runs-on: ubuntu-latest
+    # IMPORTANT: blocking. Do not add `continue-on-error: true` here.
+    timeout-minutes: 15
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install minimal runtime deps
+        run: |
+          python -m pip install --upgrade pip
+          # The receipts/compliance modules need cryptography for ed25519
+          # signatures. Everything else in the E2E suite is stdlib-only
+          # or skips out cleanly when its dep is missing.
+          pip install cryptography
+
+      - name: Run Wave 105 E2E suite
+        run: |
+          python -m unittest tests.test_b2b_e2e -v
