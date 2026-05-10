@@ -208,4 +208,17 @@
     <changefreq>weekly</changefreq>
     <priority>0.78</priority>
   </url>
+
+  <!--
+    Wave 108 — /admin/perf operational health dashboard. Single-tenant
+    cockpit so the route is public; future multi-tenant gating reads
+    a role flag here. Indexed at low priority because the page is
+    operator-facing rather than marketing.
+  -->
+  <url>
+    <loc>https://tars.meeet.world/admin/perf</loc>
+    <lastmod>2026-05-10</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.4</priority>
+  </url>
 </urlset>

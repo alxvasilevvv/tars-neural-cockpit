@@ -164,6 +164,10 @@ const Marketplace = lazy(() =>
 const Bundles = lazy(() =>
   import("@/pages/Bundles").then((m) => ({ default: m.Bundles })),
 );
+// Wave 108 — /admin/perf operational health dashboard.
+const PerfDashboard = lazy(() =>
+  import("@/pages/PerfDashboard").then((m) => ({ default: m.PerfDashboard })),
+);
 
 // Default skeleton for routes that don't pin a specific layout shape.
 const Loading = () => <RouteSkeleton variant="default" />;
@@ -592,6 +596,15 @@ function AppShell() {
               element={
                 <Suspense fallback={<RouteSkeleton variant="wide" />}>
                   <Bundles />
+                </Suspense>
+              }
+            />
+            {/* Wave 108 — /admin/perf operational health dashboard. */}
+            <Route
+              path="/admin/perf"
+              element={
+                <Suspense fallback={<RouteSkeleton variant="wide" />}>
+                  <PerfDashboard />
                 </Suspense>
               }
             />

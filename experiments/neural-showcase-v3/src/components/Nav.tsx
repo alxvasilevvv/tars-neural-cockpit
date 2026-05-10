@@ -26,6 +26,10 @@ const links = [
   { label: "Market", href: "/marketplace" },
   // Wave 107 — Bundles (one-click vertical templates).
   { label: "Bundles", href: "/bundles" },
+  // Wave 108 — Admin perf dashboard. Single-tenant cockpit so the
+  // link is always visible; future multi-tenant gating reads a
+  // role flag here.
+  { label: "Perf", href: "/admin/perf" },
   { label: "Install", href: "/install" },
 ];
 

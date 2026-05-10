@@ -106,9 +106,37 @@ back to the legacy stub so existing dashboards keep rendering.
 | Version | Connector              |
 |---------|------------------------|
 | v9.1    | GitHub (shipped)       |
-| v9.2    | Slack / Gmail / Calendar (this wave) |
+| v9.2    | Slack / Gmail / Calendar (Wave 91) |
+| v9.2    | Telegram bridge (Wave 108) |
 | v9.3    | Notion, Linear         |
 | v9.4    | Jira, Asana            |
+
+## Telegram bridge (Wave 108)
+
+Bot-API-based delivery channel. Operator creates a bot via
+[@BotFather](https://t.me/BotFather), copies the token, drops it into
+`TELEGRAM_BOT_TOKEN` (env) or POSTs it to
+`/api/connectors/telegram/callback {code: "<bot_token>"}`. There is
+no OAuth -- `get_auth_url` returns the BotFather URL so the FE can
+render the same "connect" button shape as Slack/Gmail/Calendar.
+
+* `TELEGRAM_BOT_TOKEN`         -- bot token (required)
+* `TELEGRAM_OPERATOR_CHAT_ID`  -- optional; takes precedence over
+  the saved blob field. Use to wire CI / sandbox bots.
+
+Endpoints:
+
+* `GET    /api/connectors/telegram/bot-info`   -- getMe identity
+* `GET    /api/connectors/telegram/chats`      -- recent updates
+* `POST   /api/connectors/telegram/save-self`  -- `{chat_id}` -> store
+* `POST   /api/connectors/telegram/send-self`  -- `{text, parse_mode?}`
+
+Webhook integration: outgoing webhook URLs may use the
+`telegram://self` or `telegram://chat/{chat_id}` schemes. The
+dispatcher recognises both and routes the JSON envelope through
+`backend.core.webhooks.dispatcher.deliver_telegram` instead of an
+HTTP POST -- payloads render as Markdown code blocks (Telegram has
+no rich envelope).
 
 ## Notes
 

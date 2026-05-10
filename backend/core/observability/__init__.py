@@ -19,9 +19,13 @@ from .otel import (
     start_span,
 )
 
+# Wave 108 — local in-process latency recorder (perf dashboard).
+from . import latency
+
 __all__ = [
     "init_otel",
     "is_initialized",
+    "latency",
     "span_for_trace_summary",
     "start_span",
 ]

@@ -1188,6 +1188,24 @@ const STRINGS_EN = {
   "marketplace.price.subscription":"Subscription",
   "marketplace.installed.badge":  "Installed",
   "marketplace.author.by":        "by {handle}",
+
+  // Wave 108 — Performance / admin dashboard. ~15 keys covering page
+  // chrome + section labels + the four tracked latency operations.
+  "perf.title":              "Performance dashboard",
+  "perf.subtitle":           "Latency, connector health, webhook deliveries, receipts and background jobs in one view.",
+  "perf.as_of":              "As of",
+  "perf.loading":            "Loading performance data…",
+  "perf.error":              "Failed to load",
+  "perf.section.latency":    "Latency · last 24h",
+  "perf.section.connectors": "Connector health",
+  "perf.section.webhooks":   "Webhook deliveries",
+  "perf.section.receipts":   "Receipt chain integrity",
+  "perf.section.jobs":       "Background jobs",
+  "perf.section.resources":  "Host resource usage",
+  "perf.op.council":         "Council LLM",
+  "perf.op.backtest":        "Backtest",
+  "perf.op.webhook":         "Webhook delivery",
+  "perf.op.connector":       "Connector call",
 } as const;
 
 /** Pre-typed key namespace export so consumers get autocomplete. */

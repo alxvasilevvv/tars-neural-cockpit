@@ -41,6 +41,7 @@ from backend.core.connectors import calendar as calendar_conn
 from backend.core.connectors import gmail as gmail_conn
 from backend.core.connectors import registry
 from backend.core.connectors import slack as slack_conn
+from backend.core.connectors import telegram as telegram_conn
 
 
 log = logging.getLogger("tars.connectors")
@@ -237,6 +238,94 @@ async def calendar_upcoming(
         "count": len(events),
         "events": events,
     }
+
+
+# -- Telegram (Wave 108) -------------------------------------------------
+
+
+@router.get("/telegram/bot-info")
+async def telegram_bot_info() -> dict[str, Any]:
+    """Returns the bot identity (getMe) when configured."""
+
+    spec = _get_spec("telegram")
+    if not spec.is_configured():
+        raise _not_configured(spec)
+    info = _wrap(spec, telegram_conn.get_bot_info)
+    return {
+        "ok": True,
+        "bot_id": info.get("id"),
+        "bot_username": info.get("username"),
+        "bot_first_name": info.get("first_name"),
+        "self_chat_id": telegram_conn.get_self_chat_id(),
+    }
+
+
+@router.post("/telegram/send-self")
+async def telegram_send_self(
+    payload: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Body ``{text, parse_mode?}`` -- sends to operator's saved chat."""
+
+    spec = _get_spec("telegram")
+    if not spec.is_configured():
+        raise _not_configured(spec)
+    text = payload.get("text")
+    if not isinstance(text, str) or not text.strip():
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "missing_text", "hint": "POST {text, parse_mode?}"},
+        )
+    parse_mode = payload.get("parse_mode") or "Markdown"
+    client = _wrap(spec, telegram_conn.TelegramClient.from_stored_token)
+    result = _wrap(spec, client.send_message_to_self, text, parse_mode=parse_mode)
+    return {
+        "ok": True,
+        "message_id": result.get("message_id"),
+        "chat_id": (result.get("chat") or {}).get("id") if isinstance(result.get("chat"), dict) else None,
+    }
+
+
+@router.post("/telegram/save-self")
+async def telegram_save_self(
+    payload: dict[str, Any] = Body(default_factory=dict),
+) -> dict[str, Any]:
+    """Body ``{chat_id}`` -- stores the operator's chat ID for send-self."""
+
+    spec = _get_spec("telegram")
+    if not spec.is_configured():
+        raise _not_configured(spec)
+    raw = payload.get("chat_id")
+    chat_id: int
+    try:
+        chat_id = int(raw) if raw is not None else 0
+    except (TypeError, ValueError):
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "bad_chat_id", "hint": "POST {chat_id: <int>}"},
+        )
+    if chat_id == 0:
+        raise HTTPException(
+            status_code=400,
+            detail={"error": "bad_chat_id", "hint": "chat_id must be non-zero"},
+        )
+    try:
+        return telegram_conn.save_self_chat_id(chat_id)
+    except ConnectorNotConfigured:
+        raise _not_configured(spec)
+
+
+@router.get("/telegram/chats")
+async def telegram_chats(
+    limit: int = Query(default=20, ge=1, le=50),
+) -> dict[str, Any]:
+    """Recent chats via getUpdates."""
+
+    spec = _get_spec("telegram")
+    if not spec.is_configured():
+        raise _not_configured(spec)
+    client = _wrap(spec, telegram_conn.TelegramClient.from_stored_token)
+    chats = _wrap(spec, client.list_recent_chats, limit=limit)
+    return {"ok": True, "count": len(chats), "chats": chats}
 
 
 __all__ = ["router"]

@@ -26,6 +26,7 @@ from . import _storage
 from . import calendar as _calendar
 from . import gmail as _gmail
 from . import slack as _slack
+from . import telegram as _telegram
 
 
 @dataclass(frozen=True)
@@ -126,6 +127,20 @@ CONNECTORS: dict[str, ConnectorSpec] = {
         exchange_code=_calendar.exchange_code,
         disconnect=_calendar.disconnect,
         health_check=_calendar_health,
+    ),
+    # Wave 108 — Telegram bridge connector. Bot-API based (no OAuth);
+    # ``get_auth_url`` returns the BotFather bootstrap URL and
+    # ``exchange_code`` accepts a bot token in the ``code`` slot.
+    "telegram": ConnectorSpec(
+        name="telegram",
+        label="Telegram",
+        env_vars=("TELEGRAM_BOT_TOKEN",),
+        is_configured=_telegram.is_configured,
+        has_token=_telegram.has_token,
+        get_auth_url=_telegram.get_auth_url,
+        exchange_code=_telegram.exchange_code,
+        disconnect=_telegram.disconnect,
+        health_check=_telegram.health_check,
     ),
 }
 

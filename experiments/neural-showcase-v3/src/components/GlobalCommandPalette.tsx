@@ -141,6 +141,9 @@ const ITEMS: CmdItem[] = [
   { id: "bundles-saas",   kind: "action", title: "Install SaaS bundle",          hint: "Preview the SaaS founder template", Icon: Sparkles, group: "Actions", keywords: "saas founder bundle template install preview pr churn morning", run: () => { try { window.location.assign("/bundles/saas_bundle"); } catch { /* noop */ } } },
   { id: "bundles-dao",    kind: "action", title: "Install DAO bundle",           hint: "Preview the DAO ops template", Icon: Sparkles, group: "Actions", keywords: "dao bundle template install preview treasury proposal contributor", run: () => { try { window.location.assign("/bundles/dao_bundle"); } catch { /* noop */ } } },
   { id: "bundles-lab",    kind: "action", title: "Install research lab bundle",  hint: "Preview the research lab template", Icon: Sparkles, group: "Actions", keywords: "research lab bundle template install preview academic industrial", run: () => { try { window.location.assign("/bundles/research_lab_bundle"); } catch { /* noop */ } } },
+  // Wave 108 — Performance / admin dashboard.
+  { id: "perf",         kind: "route", title: "Performance dashboard", hint: "Latency, connector health, webhook deliveries, receipts, jobs", Icon: Activity, href: "/admin/perf", group: "Pages", keywords: "perf performance admin dashboard latency p50 p95 p99 connector health webhook receipt jobs scheduler reflection autopilot psutil cpu memory disk" },
+  { id: "perf-test-all", kind: "action", title: "Test all connectors",   hint: "Fire health_check on every registered connector", Icon: Activity, group: "Actions", keywords: "perf admin connector test all health check ping refresh", run: () => { try { window.location.assign("/admin/perf"); } catch { /* noop */ } } },
 
   // Sections (anchor on /)
   { id: "domains",   kind: "anchor", title: "Domain packs",    hint: "Traders / Entrepreneur / Researcher / Science", Icon: Hash, href: "/#domains", group: "Sections" },

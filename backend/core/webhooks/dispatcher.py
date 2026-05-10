@@ -114,6 +114,66 @@ def _post_sync(
         return 0, None, f"{type(exc).__name__}: {exc}"
 
 
+def deliver_telegram(webhook: OutgoingWebhook, payload: bytes) -> tuple[int, str | None, str | None]:
+    """Wave 108 — internal "delivery channel" for ``telegram://`` URLs.
+
+    Recognised forms (parsed from ``webhook.url``):
+
+    * ``telegram://self``           -> route to the operator's saved chat id
+    * ``telegram://chat/{chat_id}`` -> route to an explicit chat id
+
+    Returns ``(status_code, retry_after_header, error)`` mirroring the
+    HTTP path shape so :func:`fire_delivery` can branch uniformly. We
+    surface the JSON envelope as a Markdown code block in the message
+    body -- Telegram has no rich payload, so this is the most useful
+    rendering for human eyes.
+    """
+
+    from backend.core.connectors import (
+        ConnectorAuthError,
+        ConnectorNotConfigured,
+        ConnectorTransportError,
+    )
+    from backend.core.connectors import telegram as _tg
+
+    url = (webhook.url or "").strip()
+    target: str | int
+    if url == "telegram://self":
+        chat_id = _tg.get_self_chat_id()
+        if chat_id is None:
+            return 0, None, "telegram self chat_id not configured"
+        target = chat_id
+    elif url.startswith("telegram://chat/"):
+        suffix = url[len("telegram://chat/"):].strip()
+        if not suffix:
+            return 0, None, "telegram chat path missing chat_id"
+        try:
+            target = int(suffix)
+        except ValueError:
+            target = suffix  # username form, e.g. "@channel_name"
+    else:
+        return 0, None, f"unrecognised telegram URL: {url!r}"
+
+    try:
+        body_str = payload.decode("utf-8")
+    except UnicodeDecodeError:
+        body_str = "<binary payload>"
+    # Telegram message limit is 4096 chars; trim conservatively.
+    snippet = body_str if len(body_str) <= 3500 else body_str[:3500] + "\n…(truncated)"
+    text = f"*TARS · {webhook.name or 'webhook'}*\n```\n{snippet}\n```"
+
+    try:
+        client = _tg.TelegramClient.from_stored_token()
+        client.send_message(target, text, parse_mode="Markdown")
+        return 200, None, None
+    except (ConnectorNotConfigured, ConnectorAuthError) as exc:
+        return 0, None, f"telegram auth: {exc}"
+    except ConnectorTransportError as exc:
+        return 0, None, f"telegram transport: {exc}"
+    except Exception as exc:  # pragma: no cover -- belt-and-suspenders
+        return 0, None, f"{type(exc).__name__}: {exc}"
+
+
 async def fire_delivery(
     delivery: Delivery,
     *,
@@ -144,13 +204,22 @@ async def fire_delivery(
         "X-TARS-Delivery-Id": delivery.id,
     }
 
-    code, retry_after_hdr, transport_err = await asyncio.to_thread(
-        _post_sync,
-        url=webhook.url,
-        body=payload_bytes,
-        headers=headers,
-        timeout=timeout_s,
-    )
+    # Wave 108 — `telegram://...` URLs are dispatched through the
+    # Telegram Bot API instead of an HTTP POST. The signature header
+    # is still computed (for receipt-chain provenance) but not sent
+    # over the wire; Telegram has its own delivery semantics.
+    if (webhook.url or "").startswith("telegram://"):
+        code, retry_after_hdr, transport_err = await asyncio.to_thread(
+            deliver_telegram, webhook, payload_bytes
+        )
+    else:
+        code, retry_after_hdr, transport_err = await asyncio.to_thread(
+            _post_sync,
+            url=webhook.url,
+            body=payload_bytes,
+            headers=headers,
+            timeout=timeout_s,
+        )
 
     attempts = delivery.attempts + 1
     last_attempt_at = float(timestamp)

@@ -24,6 +24,7 @@ from backend.core.connectors import (
     gmail as gmail_conn,
     registry,
     slack as slack_conn,
+    telegram as telegram_conn,
 )
 
 
@@ -58,9 +59,10 @@ def _restore_env(saved: dict[str, str | None]) -> None:
 
 
 class TestRegistryStructure(unittest.TestCase):
-    def test_three_connectors_registered(self):
+    def test_four_connectors_registered(self):
+        # Wave 108 — Telegram joins slack/gmail/calendar.
         names = registry.list_connectors()
-        self.assertEqual(set(names), {"slack", "gmail", "calendar"})
+        self.assertEqual(set(names), {"slack", "gmail", "calendar", "telegram"})
 
     def test_each_spec_has_required_fields(self):
         for name in registry.list_connectors():
@@ -98,13 +100,14 @@ class TestStatusShape(unittest.TestCase):
         saved = _clear_env(
             "SLACK_CLIENT_ID", "SLACK_CLIENT_SECRET", "SLACK_REDIRECT_URI",
             "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_REDIRECT_URI",
+            "TELEGRAM_BOT_TOKEN", "TELEGRAM_OPERATOR_CHAT_ID",
         )
         try:
             with _IsolateStorage():
                 status = registry.get_status()
             self.assertTrue(status["ok"])
             self.assertIsInstance(status["as_of"], int)
-            self.assertEqual(len(status["connectors"]), 3)
+            self.assertEqual(len(status["connectors"]), 4)
             for entry in status["connectors"]:
                 self.assertIn("name", entry)
                 self.assertIn("label", entry)
@@ -122,12 +125,14 @@ class TestHealthCheckUnconfigured(unittest.TestCase):
         saved = _clear_env(
             "SLACK_CLIENT_ID", "SLACK_CLIENT_SECRET", "SLACK_REDIRECT_URI",
             "GOOGLE_CLIENT_ID", "GOOGLE_CLIENT_SECRET", "GOOGLE_REDIRECT_URI",
+            "TELEGRAM_BOT_TOKEN", "TELEGRAM_OPERATOR_CHAT_ID",
         )
         try:
-            for name in ("slack", "gmail", "calendar"):
-                result = registry.health_check(name)
-                self.assertFalse(result["ok"])
-                self.assertEqual(result["error"], "not_configured")
+            with _IsolateStorage():
+                for name in ("slack", "gmail", "calendar", "telegram"):
+                    result = registry.health_check(name)
+                    self.assertFalse(result["ok"])
+                    self.assertEqual(result["error"], "not_configured")
         finally:
             _restore_env(saved)
 
@@ -230,6 +235,76 @@ class TestIcsParser(unittest.TestCase):
         self.assertEqual(evt["summary"], "Test Event")
         self.assertEqual(evt["location"], "Office")
         self.assertTrue(evt["start"].startswith("2026-05-10"))
+
+
+class TestTelegramConnector(unittest.TestCase):
+    """Wave 108 -- TelegramClient + save-self + send-self surface."""
+
+    def test_not_configured_when_env_and_blob_missing(self):
+        saved = _clear_env("TELEGRAM_BOT_TOKEN", "TELEGRAM_OPERATOR_CHAT_ID")
+        try:
+            with _IsolateStorage():
+                self.assertFalse(telegram_conn.is_configured())
+                self.assertFalse(telegram_conn.has_token())
+                # health_check stays well-formed even when not configured.
+                hc = telegram_conn.health_check()
+                self.assertFalse(hc["ok"])
+                self.assertEqual(hc["error"], "not_configured")
+                # get_auth_url returns the BotFather bootstrap URL.
+                self.assertEqual(
+                    telegram_conn.get_auth_url(state="x"),
+                    "https://t.me/BotFather",
+                )
+                # send_message_to_self raises ConnectorNotConfigured when
+                # the operator hasn't saved a chat id.
+                client = telegram_conn.TelegramClient("test-tok")
+                # No env / blob chat_id -> raises.
+                with self.assertRaises(ConnectorNotConfigured):
+                    client.send_message_to_self("hi")
+        finally:
+            _restore_env(saved)
+
+    def test_save_self_chat_id_persists(self):
+        saved = _clear_env("TELEGRAM_BOT_TOKEN", "TELEGRAM_OPERATOR_CHAT_ID")
+        try:
+            with _IsolateStorage():
+                # Need a token first to anchor the blob.
+                os.environ["TELEGRAM_BOT_TOKEN"] = "12345:ABC"
+                self.assertTrue(telegram_conn.is_configured())
+                self.assertIsNone(telegram_conn.get_self_chat_id())
+                result = telegram_conn.save_self_chat_id(987654)
+                self.assertTrue(result["ok"])
+                self.assertEqual(result["self_chat_id"], 987654)
+                self.assertEqual(telegram_conn.get_self_chat_id(), 987654)
+                # Env override wins over blob.
+                os.environ["TELEGRAM_OPERATOR_CHAT_ID"] = "111"
+                self.assertEqual(telegram_conn.get_self_chat_id(), 111)
+        finally:
+            _restore_env(saved)
+
+    def test_send_message_to_self_calls_send_message(self):
+        """send_message_to_self resolves chat_id and forwards to send_message."""
+
+        saved = _clear_env("TELEGRAM_BOT_TOKEN", "TELEGRAM_OPERATOR_CHAT_ID")
+        try:
+            with _IsolateStorage():
+                os.environ["TELEGRAM_BOT_TOKEN"] = "12345:ABC"
+                telegram_conn.save_self_chat_id(42)
+
+                client = telegram_conn.TelegramClient("12345:ABC")
+                with mock.patch.object(
+                    client, "send_message", return_value={"message_id": 7, "chat": {"id": 42}}
+                ) as patched:
+                    out = client.send_message_to_self("hello world")
+                self.assertEqual(out["message_id"], 7)
+                patched.assert_called_once()
+                # Positional chat_id should be the saved 42.
+                args, kwargs = patched.call_args
+                self.assertEqual(args[0], 42)
+                self.assertEqual(args[1], "hello world")
+                self.assertEqual(kwargs.get("parse_mode"), "Markdown")
+        finally:
+            _restore_env(saved)
 
 
 if __name__ == "__main__":
