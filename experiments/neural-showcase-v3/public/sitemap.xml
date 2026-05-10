@@ -135,4 +135,18 @@
     <changefreq>weekly</changefreq>
     <priority>0.72</priority>
   </url>
+
+  <!--
+    Wave 89 — Facilitator cohort dashboard. Internal surface used by
+    the meeet.world workshop runners during a live cohort. Listed at
+    a low priority (and omitted from the public Nav) because it's
+    not a marketing page — but indexed so internal Cmd+K + bookmarks
+    resolve.
+  -->
+  <url>
+    <loc>https://tars.meeet.world/workshop/cohort</loc>
+    <lastmod>2026-05-10</lastmod>
+    <changefreq>daily</changefreq>
+    <priority>0.5</priority>
+  </url>
 </urlset>

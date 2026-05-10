@@ -95,6 +95,10 @@ const ITEMS: CmdItem[] = [
   // Wave 88 — Pre-workshop self-assessment quiz. Sits next to the
   // materials hub so attendees take it before they binge the decks.
   { id: "workshop-assess", kind: "route", title: "Workshop self-assessment", hint: "12-question pre-flight quiz", Icon: FlaskRound, href: "/workshop/assess", group: "Pages", keywords: "workshop assess assessment quiz pre-flight pre-work llm python trading audit likert score self evaluation cohort" },
+  // Wave 89 — Facilitator cohort dashboard. Internal surface — only
+  // workshop runners need it, but Cmd+K is the fastest path. Keep it
+  // out of the public Nav.
+  { id: "workshop-cohort", kind: "route", title: "Cohort dashboard", hint: "Live facilitator view of every attendee", Icon: FlaskRound, href: "/workshop/cohort", group: "Pages", keywords: "workshop cohort dashboard facilitator attendees live activity broadcast risk alerts intake design test deploy" },
 
   // Sections (anchor on /)
   { id: "domains",   kind: "anchor", title: "Domain packs",    hint: "Traders / Entrepreneur / Researcher / Science", Icon: Hash, href: "/#domains", group: "Sections" },

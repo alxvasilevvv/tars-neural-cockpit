@@ -116,6 +116,14 @@ const WorkshopAssess = lazy(() =>
     default: m.WorkshopAssess,
   })),
 );
+// Wave 89 — Facilitator cohort dashboard. Internal-facing surface
+// (the meeet.world team running a workshop). Lazy + wide variant so
+// the dense table + right rail get the full marketing-bleed width.
+const WorkshopCohort = lazy(() =>
+  import("@/pages/WorkshopCohort").then((m) => ({
+    default: m.WorkshopCohort,
+  })),
+);
 
 // Default skeleton for routes that don't pin a specific layout shape.
 const Loading = () => <RouteSkeleton variant="default" />;
@@ -438,6 +446,18 @@ function AppShell() {
               element={
                 <Suspense fallback={<RouteSkeleton variant="narrow" />}>
                   <WorkshopAssess />
+                </Suspense>
+              }
+            />
+            {/* Wave 89 — Facilitator cohort dashboard. Wide variant so
+                the table + right rail share the full marketing-bleed
+                width. Internal surface — not linked from the public
+                Nav, only from Cmd+K and the Workshop materials hub. */}
+            <Route
+              path="/workshop/cohort"
+              element={
+                <Suspense fallback={<RouteSkeleton variant="wide" />}>
+                  <WorkshopCohort />
                 </Suspense>
               }
             />
