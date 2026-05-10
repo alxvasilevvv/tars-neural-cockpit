@@ -56,11 +56,13 @@ class AlgotradePack(DomainPack):
             "and strategy_fingerprint with a round-trip ledger and "
             "cumulative PnL curve, slippage ledger (fill price vs "
             "intended reference in basis points + cost), and a "
-            "session metrics summary. **W2-PR2** will add the live "
-            "Binance adapter; **W3-PR2/3** session reports + trading "
-            "council voices; **W4** workshop lab mode + quant "
-            "playbooks (W4-PR1 shipped 5 quant playbooks + recursive "
-            "loader)."
+            "session metrics summary. **W3-PR2** renders an "
+            "attendee-grade Markdown session report with a tiny "
+            "ASCII PnL sparkline so the cockpit / Slack / e-mail "
+            "all consume the same handout. **W2-PR2** will add the "
+            "live Binance adapter; **W3-PR3** trading council "
+            "voices; **W4** workshop lab mode + quant playbooks "
+            "(W4-PR1 shipped 5 quant playbooks + recursive loader)."
         ),
         color="#f97316",
         capabilities=(
@@ -77,6 +79,7 @@ class AlgotradePack(DomainPack):
             "session_manager",
             "pnl_attribution",
             "slippage_ledger",
+            "session_report_markdown",
             "session_metrics",
         ),
         audience="quant traders, analysts, fund operators, workshop attendees",

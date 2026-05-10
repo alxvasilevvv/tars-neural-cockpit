@@ -4,6 +4,85 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-10 — Cursor · Phase W3-PR2: markdown session report renderer
+
+**Summary**
+
+Turns the W3-PR1 dataclasses (`PnLAttribution`, `SlippageReport`,
+`SessionMetrics`) into the **human-readable handout** an
+attendee shows their PM at end-of-day: one self-contained
+Markdown document with session metadata, headline metrics, PnL
+by instrument and strategy, top winners + detractors, slippage
+stats, the active risk policy, and a tiny ASCII PnL sparkline.
+
+What ships:
+
+1. **Renderer** — `backend/core/algotrade/exec/report.py`.
+   `render_session_report(...)` takes plain dataclasses (not a
+   runtime handle) so a saved JSONL audit can produce a report
+   long after the session is gone. Pure stdlib, deterministic
+   (UTC timestamps via `datetime.fromtimestamp(..., tz=utc)`).
+   Section headings are fixed text (`## Session`,
+   `## Headline metrics`, `## PnL attribution`,
+   `## Top trades`, `## Slippage`, `## Risk policy`,
+   `## Open positions`) so downstream tools can search by
+   heading. Sparkline uses ``▁▂▃▄▅▆▇█`` — safe for
+   Markdown / Slack / e-mail; cockpit can re-render the same
+   data as a proper chart from `PnLAttribution.pnl_curve`.
+2. **`SessionReport` dataclass** — bundles `markdown` +
+   structured `payload` (mirror of every section so council
+   voices and chart layers consume the same numbers without
+   re-parsing markdown).
+3. **`session_report` action** —
+   `backend/core/domains/packs/algotrade/exec_actions.py`.
+   Read-only. Schema accepts `session_id`, optional
+   `top_n_trades` (default 5), optional `title` override.
+   Returns `markdown` + `payload`.
+4. **Manifest 0.3.0 → 0.4.0**, phase advances to W3-PR2;
+   capabilities tuple gains `session_report_markdown`;
+   `pack.py` description refreshed.
+5. **12 new tests** — `tests/test_algotrade_session_report.py`.
+   Cover all required section headings, default + custom title,
+   payload mirroring, PnL/slippage numbers reflected in markdown,
+   determinism (same audit log → same bytes), empty-session safety,
+   open-positions section appears only when present, sparkline
+   only when curve has ≥ 2 samples, and end-to-end action
+   round-trip through the runtime singleton.
+
+**Why this matters for the Cresco cohort**
+
+After paper trading wraps, an attendee runs ONE action
+(`session_report`) and gets a Markdown handout they can paste
+into Notion, e-mail to their PM, or render to PDF. No SQL, no
+spreadsheet, no design work — straight from the audit log into
+slide-ready prose. Same JSON `payload` powers the cockpit's
+report viewer.
+
+**Tests**
+
+`pytest tests/test_algotrade_session_report.py
+tests/test_algotrade_analytics.py tests/test_algotrade_exec.py
+tests/test_algotrade_exec_actions.py tests/test_algotrade_pack.py`
+→ **103 passed**. End-to-end action smoke confirms the report
+markdown carries every required section + the payload's metrics
+match the position store's live state.
+
+**Files**
+
+- `backend/core/algotrade/exec/report.py` (new, ~370 lines).
+- `backend/core/algotrade/exec/__init__.py` — re-export
+  `SessionReport`, `render_session_report`.
+- `backend/core/domains/packs/algotrade/exec_actions.py` —
+  `session_report_action` + `ActionSpec`.
+- `backend/core/domains/packs/algotrade/manifest.json` — bump
+  version 0.3.0 → 0.4.0, phase W3-PR1 → W3-PR2, add
+  `session_report_markdown` capability + `session_report` action.
+- `backend/core/domains/packs/algotrade/pack.py` — refresh
+  manifest description + capabilities tuple.
+- `tests/test_algotrade_session_report.py` (new, 12 tests).
+
+>>> SYNC: Cursor · 2026-05-10 · W3-PR2 markdown session report renderer.
+
 ## 2026-05-10 — Cursor · Phase W3-PR1: PnL attribution + slippage ledger + session metrics
 
 **Summary**

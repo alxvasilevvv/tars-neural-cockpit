@@ -337,8 +337,8 @@ Run them as:
 | **W1b** | `algotrade` domain pack — `parse`, `register`, `fork`, `backtest`, recipe + registry verbs  | shipped (PR #165)                 |
 | **W2-PR1** | Paper executor + risk gate + order router + position store + session manager + 10 HTTP actions | this PR                           |
 | **W2-PR2** | Live Binance adapter behind vault key + market-data poller                              | follow-up                         |
-| **W3-PR1** | PnL attribution (by-instrument + by-strategy + trade ledger + curve) + slippage ledger + session metrics | this PR                |
-| **W3-PR2** | Markdown session report (assemble + render to attendee handout)                         | follow-up                         |
+| **W3-PR1** | PnL attribution (by-instrument + by-strategy + trade ledger + curve) + slippage ledger + session metrics | shipped (PR #168)      |
+| **W3-PR2** | Markdown session report renderer (`session_report` action, ASCII PnL sparkline)         | this PR                           |
 | **W3-PR3** | Trading council voices (RiskAnalyst / ExecutionTrader / PnLAuditor commentary)          | follow-up                         |
 | **W4-PR1** | Workshop quant playbooks + recursive playbook loader (5 quant recipes, derived-pack chain) | shipped (PR #167)              |
 | **W4-PR2** | Workshop lab mode (multi-attendee sandbox + leaderboard) + cockpit handbook              | follow-up                         |
@@ -397,7 +397,46 @@ pnl_report →
   trades_count=1, realized_total=9.895, by_strategy={fp_test: {realized:9.895,...}}
 ```
 
-## 10. Workshop quant playbooks (W4-PR1)
+## 10. Markdown session report (W3-PR2)
+
+`backend/core/algotrade/exec/report.py` turns the W3-PR1
+dataclasses into a self-contained Markdown handout — the
+artefact a workshop attendee paste into Notion, e-mails to
+their PM, or renders to PDF. `render_session_report(...)`
+takes plain dataclasses (not a runtime handle) so a saved
+JSONL audit can produce a report long after the session is
+gone. Pure stdlib, deterministic.
+
+Sections (fixed headings, search-stable):
+
+1. `## Session` — id / mode / status / strategy fingerprint /
+   instrument / started + closed timestamps / sandbox / notes.
+2. `## Headline metrics` — realised + unrealised PnL, fees,
+   slippage cost, avg slippage, intents accepted/total +
+   acceptance rate, intents rejected, orders / fills /
+   cancels, bars consumed, open positions, duration.
+3. `## PnL attribution` — totals + cumulative PnL sparkline +
+   by-instrument table + by-strategy table.
+4. `## Top trades` — top-N winners + top-N detractors from
+   the round-trip ledger.
+5. `## Slippage` — total cost + avg / p50 / p95 / worst bps +
+   coverage line + by-instrument table.
+6. `## Risk policy` — kill switch, allow_short, all caps, and
+   the allowlist.
+7. `## Open positions` — only when present (otherwise omitted).
+
+The action handler `algotrade.session_report` returns both the
+rendered `markdown` and a structured `payload` (mirror of
+every section), so the cockpit's chart layer + W3-PR3 council
+voices reason over the same numbers without re-parsing
+markdown.
+
+The PnL sparkline uses Unicode block characters
+(``▁▂▃▄▅▆▇█``) so it embeds safely in Markdown, Slack, and
+e-mail; the cockpit can re-render the same data as a proper
+chart from `PnLAttribution.pnl_curve`.
+
+## 11. Workshop quant playbooks (W4-PR1)
 
 The 10 W2-PR1 execution actions (`start_paper_session`,
 `submit_intent`, `feed_bar`, `set_policy`, `audit_tail`, …) are

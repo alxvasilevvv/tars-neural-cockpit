@@ -47,6 +47,7 @@ from .analytics import (
     compute_session_metrics,
     compute_slippage,
 )
+from .report import SessionReport, render_session_report
 from .base import (
     AuditEvent,
     ExecAdapter,
@@ -87,6 +88,7 @@ __all__ = [
     "RoundTrip",
     "Session",
     "SessionMetrics",
+    "SessionReport",
     "SessionStatus",
     "SessionStore",
     "Side",
@@ -96,5 +98,6 @@ __all__ = [
     "compute_session_metrics",
     "compute_slippage",
     "get_runtime",
+    "render_session_report",
     "reset_runtime",
 ]

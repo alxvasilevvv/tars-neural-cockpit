@@ -43,6 +43,7 @@ from backend.core.algotrade.exec import (
     compute_session_metrics,
     compute_slippage,
     get_runtime,
+    render_session_report,
 )
 
 
@@ -391,6 +392,48 @@ async def session_summary_action(args: Mapping[str, Any]) -> dict[str, Any]:
     )
 
 
+async def session_report_action(args: Mapping[str, Any]) -> dict[str, Any]:
+    sid = args.get("session_id")
+    if not sid:
+        return _err("missing_session_id")
+    runtime = get_runtime()
+    wiring = runtime.get(str(sid))
+    if wiring is None:
+        return _err("session_not_found", session_id=sid)
+
+    events = wiring.audit.read_all()
+    marks = _collect_mark_prices(wiring)
+    attribution = compute_attribution(events, mark_prices=marks)
+    slippage = compute_slippage(events)
+    metrics = compute_session_metrics(
+        events,
+        open_positions=wiring.positions.open_count(),
+        realized_pnl=wiring.positions.total_realized(),
+        unrealized_pnl=wiring.positions.total_unrealized(),
+        mark_prices=marks,
+    )
+    top_n = int(args.get("top_n_trades") or 5)
+    title = args.get("title")
+    title_str = str(title) if title else None
+    open_positions = [p.to_dict() for p in wiring.positions.all() if not p.is_flat()]
+
+    report = render_session_report(
+        session=wiring.session,
+        policy=wiring.gate.policy,
+        metrics=metrics,
+        attribution=attribution,
+        slippage=slippage,
+        open_positions=open_positions,
+        top_n_trades=top_n,
+        title=title_str,
+    )
+    return _ok(
+        session_id=sid,
+        markdown=report.markdown,
+        payload=report.payload,
+    )
+
+
 # --------------------------------------------------------- specs
 
 
@@ -675,6 +718,44 @@ EXEC_ACTIONS: tuple[ActionSpec, ...] = (
             "type": "object",
             "properties": {
                 "session_id": {"type": "string"},
+            },
+            "required": ["session_id"],
+        },
+    ),
+    ActionSpec(
+        id="session_report",
+        name="Session report (markdown)",
+        description=(
+            "Render an attendee-grade Markdown report for a "
+            "session: metadata block, headline metrics table, "
+            "PnL attribution (totals + by-instrument + "
+            "by-strategy), top-N winners + detractors from the "
+            "trade ledger, slippage stats, active risk policy, "
+            "and (when present) open positions. Returns both "
+            "the rendered `markdown` and the structured "
+            "`payload` so council voices and chart layers can "
+            "consume the same numbers."
+        ),
+        handler=session_report_action,
+        schema={
+            "type": "object",
+            "properties": {
+                "session_id": {"type": "string"},
+                "top_n_trades": {
+                    "type": "integer",
+                    "description": (
+                        "Number of winners + detractors to "
+                        "list. Defaults to 5."
+                    ),
+                },
+                "title": {
+                    "type": "string",
+                    "description": (
+                        "Optional override for the level-1 "
+                        "heading. Default is `Session "
+                        "<session_id> — <fingerprint[:16]>`."
+                    ),
+                },
             },
             "required": ["session_id"],
         },
