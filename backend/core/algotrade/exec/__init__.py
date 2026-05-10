@@ -23,7 +23,14 @@ W2-PR1 ships:
 - :class:`SessionStore` — lightweight session metadata
   (id, mode, strategy fingerprint, started_at, status).
 
-W2-PR2 will add the Binance live adapter behind a vault key.
+W2-PR2 ships the live adapter:
+
+- :class:`BinanceAdapter` — Spot REST adapter with HMAC-SHA256
+  signing. Defaults to Binance Spot Testnet so workshops never
+  risk real funds; flip ``BinanceConfig.testnet=False`` for
+  production. Stdlib-only (``urllib.request`` + ``hmac`` +
+  ``hashlib``); fills are derived from order responses + status
+  polling rather than websockets.
 
 W3-PR1 ships analytics on top of the audit log:
 
@@ -46,6 +53,13 @@ from .analytics import (
     compute_attribution,
     compute_session_metrics,
     compute_slippage,
+)
+from .binance import (
+    BinanceAdapter,
+    BinanceAPIError,
+    BinanceClient,
+    BinanceConfig,
+    BinanceTransportError,
 )
 from .report import SessionReport, render_session_report
 from .voices import (
@@ -77,6 +91,12 @@ from .sessions import Session, SessionStatus, SessionStore
 __all__ = [
     "AuditEvent",
     "AuditLog",
+    "BinanceAPIError",
+    "BinanceAdapter",
+    "BinanceClient",
+    "BinanceConfig",
+    "BinanceTransportError",
+    "CouncilReview",
     "ExecAdapter",
     "ExecRuntime",
     "Fill",
@@ -94,7 +114,6 @@ __all__ = [
     "RiskGate",
     "RiskPolicy",
     "RoundTrip",
-    "CouncilReview",
     "Session",
     "SessionMetrics",
     "SessionReport",

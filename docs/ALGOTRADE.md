@@ -1,4 +1,4 @@
-# Algotrade module — Phase W1 + W2-PR1 reference
+# Algotrade module — Phase W1 + W2 + W3 + W4-PR1 reference
 
 > Foundations for the **Cresco workshop** (\"The Algorithmic Edge\").
 > See `docs/CRESCO_WORKSHOP.md` (operator) for the audience-facing
@@ -17,12 +17,23 @@ The `backend/core/algotrade/` module gives TARS:
 5. **(W2-PR1)** A **paper-trading execution layer**
    (`algotrade.exec`): order router → risk gate → adapter → audit
    log → position book → session manager. Same dataclasses the
-   live Binance adapter (W2-PR2) will plug into; same `Bar` type
-   the backtest engine consumes.
+   live Binance adapter (W2-PR2) plugs into; same `Bar` type the
+   backtest engine consumes.
+6. **(W2-PR2)** A **Binance Spot REST adapter**
+   (`algotrade.exec.binance`) wired into the same router /
+   audit / position pipeline. Defaults to Spot Testnet so
+   workshop attendees never risk real funds; real-money mode
+   requires kill_switch=OFF flip after manual verification.
+7. **(W3-PR1 → W3-PR3)** PnL attribution + slippage ledger +
+   session metrics + Markdown session report + trading council
+   voices — all stdlib-only, deterministic, no LLM calls in the
+   audit path.
+8. **(W4-PR1)** Workshop quant playbooks + recursive
+   playbook loader (5 quant recipes covering paper-trading,
+   backtest comparison, morning PnL, risk review, strategy lab).
 
-W2-PR2 will add the Binance live adapter behind a vault key. W3
-brings PnL attribution and the trading council. W4 the
-workshop-lab multi-attendee mode.
+W4-PR2 is next: workshop lab mode (multi-attendee sandbox +
+leaderboard) + cockpit handbook.
 
 ## 1. Strategy IR
 
@@ -335,8 +346,8 @@ Run them as:
 | ------- | ------------------------------------------------------------------------------------------- | --------------------------------- |
 | **W1a** | Strategy IR + registry + backtest + indicators + recipes                                    | shipped (PR #165)                 |
 | **W1b** | `algotrade` domain pack — `parse`, `register`, `fork`, `backtest`, recipe + registry verbs  | shipped (PR #165)                 |
-| **W2-PR1** | Paper executor + risk gate + order router + position store + session manager + 10 HTTP actions | this PR                           |
-| **W2-PR2** | Live Binance adapter behind vault key + market-data poller                              | follow-up                         |
+| **W2-PR1** | Paper executor + risk gate + order router + position store + session manager + 10 HTTP actions | shipped (PR #166)                |
+| **W2-PR2** | Binance Spot REST adapter (testnet by default; live behind kill_switch=ON) + `start_live_session` action | this PR        |
 | **W3-PR1** | PnL attribution (by-instrument + by-strategy + trade ledger + curve) + slippage ledger + session metrics | shipped (PR #168)      |
 | **W3-PR2** | Markdown session report renderer (`session_report` action, ASCII PnL sparkline)         | shipped (PR #169)                 |
 | **W3-PR3** | Trading council voices (RiskAnalyst / ExecutionTrader / PnLAuditor commentary)          | this PR                           |
@@ -492,3 +503,116 @@ wins, so existing playbooks like
 verticals can drop a `playbooks/_workshop/<vertical>/*.json`
 directory in and get picked up on next `reset_loader_cache()`
 without code changes.
+
+## 13. Live Binance adapter (W2-PR2)
+
+Closes the workshop's "paper → testnet → live" cycle. Stdlib
+only — `urllib.request` for HTTP, `hmac` + `hashlib` for
+SHA-256 signing — so deploying live trading on a Cresco
+workstation needs no new dependency, no docker network, no key
+service. Three pieces:
+
+```text
+backend/core/algotrade/exec/binance.py
+├─ BinanceConfig    # api_key, api_secret, testnet, recv_window_ms
+├─ BinanceClient    # signed REST wrapper (server_time, account, new_order, query_order, cancel_order)
+└─ BinanceAdapter   # ExecAdapter — submit / cancel / status, fills via response + status polling
+```
+
+### Testnet vs production
+
+`BinanceConfig.testnet` defaults to **True**. Workshop attendees
+mint a free key at https://testnet.binance.vision/ and the
+adapter swings to `https://testnet.binance.vision`. The endpoint
+shape is identical to production, so the same playbooks and
+strategies that work on testnet translate to live with a single
+flag.
+
+| `testnet` | Base URL                          | Default policy on `start_live_session`               |
+| --------- | --------------------------------- | ---------------------------------------------------- |
+| `True`    | `https://testnet.binance.vision`  | `RiskPolicy(allow_short=False)` — runnable as-is     |
+| `False`   | `https://api.binance.com`         | `RiskPolicy(kill_switch=True, allow_short=False)` — gate blocks every intent until the operator explicitly disables `kill_switch` via `set_policy` after manual verification |
+
+### Wire contract (same as paper)
+
+The adapter implements the same `ExecAdapter` ABC the paper
+adapter does, so the router / risk gate / position book / audit
+log / analytics / council voices all see live sessions exactly
+like paper sessions. The only differences are:
+
+- Fills are derived from Binance's `payload.fills` array on
+  market orders (instant fills) and synthesised from
+  `executedQty` + `cummulativeQuoteQty` if the response carries
+  execution but no `fills` array. On open limit orders, the
+  next `status()` poll observes the executed quantity and emits
+  the gap as a single fill. The router's `order.fills` loop
+  handles submit-time fills; the adapter pushes status-time
+  fills directly to `on_fill`.
+- `Fill.reference_price` is set to `intent.price` for limit
+  orders and `None` for market orders (Binance doesn't surface
+  a "would-have-been" price). This means the W3-PR1 slippage
+  ledger reports `fills_missing_reference > 0` for every market
+  order — the cockpit / council voices already handle this case.
+
+### Action: `start_live_session`
+
+```jsonc
+{
+  "action": "algotrade.start_live_session",
+  "args": {
+    "fingerprint": "sha256:…",         // strategy registry fingerprint
+    "instrument": "BINANCE:BTCUSDT",   // optional override
+    "binance": {
+      "api_key": "<testnet or production key>",
+      "api_secret": "<testnet or production secret>",
+      "testnet": true                  // DEFAULT — never sends real money
+    },
+    "policy": { "max_position_qty": 1.0 }  // optional; overrides defaults
+  }
+}
+```
+
+Response includes:
+
+```jsonc
+{
+  "ok": true,
+  "session": { "session_id": "sess_…", "mode": "live", "adapter": "binance", … },
+  "policy":  { "kill_switch": true, "allow_short": false, … },
+  "binance": {
+    "name": "binance",
+    "testnet": false,
+    "base_url": "https://api.binance.com",
+    "api_key_prefix": "abcdef",        // never the secret
+    "recv_window_ms": 5000,
+    "timeout_seconds": 10.0
+  },
+  "warning": "Live mode wired with kill_switch=ON by default…"  // null on testnet
+}
+```
+
+### Security posture
+
+- API key + secret are kept **in-memory only** for the lifetime
+  of the worker. They are **never** written to
+  `sessions.jsonl`, `audit/`, or `policies/`.
+- `metadata.binance` on the persisted session row uses the
+  `to_safe_dict()` projection — base URL, key prefix, testnet
+  flag, recv_window. The cockpit can render
+  `binance:abcdef…(testnet)` without touching the secret.
+- After a worker restart, `ExecRuntime.get(session_id)` returns
+  `None` for any live session — the historical row stays in
+  `sessions.jsonl` for audit / council replay, but the operator
+  must call `start_live_session` again to re-authenticate.
+  Paper sessions still rehydrate transparently from disk.
+- Real-money mode boots with `kill_switch=ON`. The operator has
+  to issue an explicit `set_policy` call to disable it. The
+  recommended workflow is:
+  1. Start live session (kill switch ON, no orders flow).
+  2. Use `submit_intent` with a tiny test quantity; observe the
+     `verdict.rejected` reason.
+  3. `set_policy` with `kill_switch=False` AND a tight
+     `max_notional_per_intent` cap.
+  4. Re-submit the test intent; verify the order reaches Binance
+     and `status` returns FILLED.
+  5. Loosen caps as you build confidence.

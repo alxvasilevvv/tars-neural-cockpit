@@ -35,6 +35,7 @@ from backend.core.algotrade import (
     get_registry,
 )
 from backend.core.algotrade.exec import (
+    BinanceConfig,
     OrderIntent,
     OrderType,
     RiskPolicy,
@@ -104,6 +105,70 @@ async def start_paper_session_action(args: Mapping[str, Any]) -> dict[str, Any]:
     return _ok(
         session=wiring.session.to_dict(),
         policy=wiring.gate.policy.to_dict(),
+    )
+
+
+async def start_live_session_action(args: Mapping[str, Any]) -> dict[str, Any]:
+    strategy, err = _resolve_strategy(args)
+    if err is not None:
+        return err
+    assert strategy is not None
+
+    binance_raw = args.get("binance") or {}
+    if not isinstance(binance_raw, Mapping):
+        return _err("invalid_binance", detail="`binance` must be an object")
+    api_key = str(binance_raw.get("api_key") or "")
+    api_secret = str(binance_raw.get("api_secret") or "")
+    if not api_key or not api_secret:
+        return _err(
+            "missing_binance_credentials",
+            detail=(
+                "`binance.api_key` and `binance.api_secret` are required. "
+                "Cresco attendees: mint a free testnet key at "
+                "https://testnet.binance.vision/."
+            ),
+        )
+    testnet = bool(binance_raw.get("testnet", True))
+
+    binance_config = BinanceConfig(
+        api_key=api_key,
+        api_secret=api_secret,
+        testnet=testnet,
+        recv_window_ms=int(binance_raw.get("recv_window_ms") or 5_000),
+        timeout_seconds=float(binance_raw.get("timeout_seconds") or 10.0),
+    )
+
+    instrument = args.get("instrument") or strategy.instrument
+    policy_raw = args.get("policy") or {}
+    if policy_raw and not isinstance(policy_raw, Mapping):
+        return _err("invalid_policy", detail="`policy` must be an object")
+    metadata = args.get("metadata") or {}
+    if not isinstance(metadata, Mapping):
+        return _err("invalid_metadata", detail="`metadata` must be an object")
+
+    runtime = get_runtime()
+    wiring = runtime.start_live_session(
+        strategy_fingerprint=args["fingerprint"],
+        instrument=str(instrument),
+        binance_config=binance_config,
+        sandbox_id=(str(args["sandbox_id"]) if args.get("sandbox_id") else None),
+        notes=str(args.get("notes") or ""),
+        metadata=dict(metadata),
+        policy=dict(policy_raw) if policy_raw else None,
+    )
+    return _ok(
+        session=wiring.session.to_dict(),
+        policy=wiring.gate.policy.to_dict(),
+        binance=binance_config.to_safe_dict(),
+        warning=(
+            None
+            if testnet
+            else (
+                "Live mode wired with kill_switch=ON by default. "
+                "Call `set_policy` to disable the kill switch only "
+                "after validating the wiring on a small order."
+            )
+        ),
     )
 
 
@@ -530,6 +595,50 @@ EXEC_ACTIONS: tuple[ActionSpec, ...] = (
                 "policy": _POLICY_SCHEMA,
             },
             "required": ["fingerprint"],
+        },
+        destructive=True,
+    ),
+    ActionSpec(
+        id="start_live_session",
+        name="Start live (or testnet) Binance session",
+        description=(
+            "Spin up a live Binance Spot session bound to a "
+            "registered strategy. `binance.testnet` defaults to "
+            "True so workshop attendees never risk real funds — "
+            "they mint a free key at "
+            "https://testnet.binance.vision/. Live (testnet=False) "
+            "wires the risk gate with `kill_switch=ON` by default; "
+            "operator must call `set_policy` to disable the kill "
+            "switch after validating the wiring on a small order. "
+            "Credentials are kept in-memory only (never persisted). "
+            "After a worker restart, the session row is preserved "
+            "but `get_session` returns null until the operator "
+            "re-authenticates with another `start_live_session` "
+            "call."
+        ),
+        handler=start_live_session_action,
+        schema={
+            "type": "object",
+            "properties": {
+                "fingerprint": {"type": "string"},
+                "instrument": {"type": "string"},
+                "sandbox_id": {"type": "string"},
+                "notes": {"type": "string"},
+                "metadata": {"type": "object"},
+                "binance": {
+                    "type": "object",
+                    "properties": {
+                        "api_key": {"type": "string"},
+                        "api_secret": {"type": "string"},
+                        "testnet": {"type": "boolean"},
+                        "recv_window_ms": {"type": "integer"},
+                        "timeout_seconds": {"type": "number"},
+                    },
+                    "required": ["api_key", "api_secret"],
+                },
+                "policy": _POLICY_SCHEMA,
+            },
+            "required": ["fingerprint", "binance"],
         },
         destructive=True,
     ),

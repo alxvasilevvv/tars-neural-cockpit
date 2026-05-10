@@ -12,9 +12,14 @@ where it left off:
 - ``$TARS_HOME/algotrade/audit/<session_id>.jsonl`` — per-session ledger
 - ``$TARS_HOME/algotrade/policies/<session_id>.json`` — risk policy
 
-Live (Binance) adapters are added in W2-PR2; the runtime wires
-``adapter="paper"`` today and treats anything else as not-yet-
-implemented (returns a structured error).
+W2-PR2 adds live Binance Spot sessions
+(:meth:`ExecRuntime.start_live_session`). Live wirings are
+**memory-only** — the API key + secret are never written to
+disk. After a worker restart, any live session row in
+``sessions.jsonl`` is left at its last known status; calling
+:meth:`get` against it returns ``None`` until the operator
+re-authenticates with a fresh ``start_live_session`` (the
+session row is preserved as historical context).
 """
 
 from __future__ import annotations
@@ -27,7 +32,8 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any, Mapping
 
-from .base import OrderIntent, Side, OrderType
+from .base import ExecAdapter, OrderIntent, Side, OrderType
+from .binance import BinanceAdapter, BinanceConfig
 from .paper import PaperAdapter, PaperConfig
 from .positions import PositionStore
 from .risk import RiskGate, RiskPolicy
@@ -49,7 +55,7 @@ def _root() -> Path:
 @dataclass
 class _Wiring:
     session: Session
-    adapter: PaperAdapter
+    adapter: ExecAdapter
     router: OrderRouter
     audit: AuditLog
     positions: PositionStore
@@ -83,6 +89,10 @@ class ExecRuntime:
             if session is None:
                 return None
             wiring = self._rehydrate(session)
+            if wiring is None:
+                # Live sessions can't be rehydrated post-restart;
+                # caller must re-authenticate via start_live_session.
+                return None
             self._wirings[session_id] = wiring
             return wiring
 
@@ -114,6 +124,52 @@ class ExecRuntime:
             )
             wiring = self._wire_paper(session, config or {}, policy)
             self._sessions.update_status(session.session_id, SessionStatus.RUNNING)
+            wiring.session.status = SessionStatus.RUNNING
+            self._wirings[session.session_id] = wiring
+            return wiring
+
+    def start_live_session(
+        self,
+        *,
+        strategy_fingerprint: str,
+        instrument: str,
+        binance_config: BinanceConfig,
+        client: Any | None = None,
+        sandbox_id: str | None = None,
+        notes: str = "",
+        metadata: Mapping[str, Any] | None = None,
+        policy: Mapping[str, Any] | None = None,
+    ) -> _Wiring:
+        """Spin up a live (or testnet) Binance Spot session.
+
+        ``binance_config.testnet`` defaults to ``True`` so
+        workshops never accidentally route real funds. Pass
+        ``client=`` to inject a fake :class:`BinanceClient` for
+        tests.
+        """
+
+        with self._lock:
+            session = self._sessions.create(
+                mode="live",
+                strategy_fingerprint=str(strategy_fingerprint),
+                instrument=str(instrument),
+                adapter=binance_config.name,
+                sandbox_id=sandbox_id,
+                notes=notes,
+                metadata={
+                    **dict(metadata or {}),
+                    "binance": binance_config.to_safe_dict(),
+                },
+            )
+            wiring = self._wire_live(
+                session=session,
+                binance_config=binance_config,
+                client=client,
+                policy=policy,
+            )
+            self._sessions.update_status(
+                session.session_id, SessionStatus.RUNNING
+            )
             wiring.session.status = SessionStatus.RUNNING
             self._wirings[session.session_id] = wiring
             return wiring
@@ -189,8 +245,76 @@ class ExecRuntime:
             policy_path=policy_path,
         )
 
-    def _rehydrate(self, session: Session) -> _Wiring:
-        # Best-effort rehydration: read policy from disk if present.
+    def _wire_live(
+        self,
+        *,
+        session: Session,
+        binance_config: BinanceConfig,
+        client: Any | None,
+        policy: Mapping[str, Any] | None,
+    ) -> _Wiring:
+        positions_path = self.root / "positions" / f"{session.session_id}.json"
+        audit_path = self.root / "audit" / f"{session.session_id}.jsonl"
+        policy_path = self.root / "policies" / f"{session.session_id}.json"
+        for p in (positions_path.parent, audit_path.parent, policy_path.parent):
+            p.mkdir(parents=True, exist_ok=True)
+
+        positions = PositionStore(path=positions_path)
+        audit = AuditLog(audit_path)
+
+        # Live defaults: tighter than paper. Operator can widen via
+        # ``set_policy`` once they've validated the wiring.
+        if policy:
+            risk_policy = RiskPolicy.from_dict(dict(policy))
+        elif binance_config.testnet:
+            risk_policy = RiskPolicy(
+                allow_short=False,
+                notes="testnet defaults — adjust before going live",
+            )
+        else:
+            risk_policy = RiskPolicy(
+                kill_switch=True,
+                allow_short=False,
+                notes=(
+                    "live trading default: kill_switch=ON. Operator "
+                    "must explicitly disable via set_policy after "
+                    "validating the wiring."
+                ),
+            )
+        policy_path.write_text(json.dumps(risk_policy.to_dict(), indent=2))
+
+        gate = RiskGate(policy=risk_policy, positions=positions)
+        adapter = BinanceAdapter(binance_config, client=client)
+        router = OrderRouter(
+            adapter=adapter,
+            gate=gate,
+            positions=positions,
+            audit=audit,
+            session_id=session.session_id,
+        )
+        return _Wiring(
+            session=session,
+            adapter=adapter,
+            router=router,
+            audit=audit,
+            positions=positions,
+            gate=gate,
+            policy_path=policy_path,
+        )
+
+    def _rehydrate(self, session: Session) -> _Wiring | None:
+        """Best-effort rehydration after a worker restart.
+
+        Paper sessions can be rebuilt from disk because their
+        adapter is stateless (the position store + audit log
+        are durable). Live sessions cannot be rehydrated
+        without re-supplying credentials, so we return ``None``
+        and the operator must call ``start_live_session`` again
+        to reconnect.
+        """
+
+        if session.mode == "live":
+            return None
         policy_path = self.root / "policies" / f"{session.session_id}.json"
         policy_dict = None
         if policy_path.exists():

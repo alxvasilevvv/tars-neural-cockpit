@@ -64,10 +64,12 @@ class AlgotradePack(DomainPack):
             "ExecutionTrader, PnLAuditor) that read the analytics "
             "and emit structured commentary with a consensus "
             "severity — pure stdlib, no LLM, so workshops are "
-            "reproducible and transparent. **W2-PR2** will add "
-            "the live Binance adapter; **W4** workshop lab mode + "
-            "quant playbooks (W4-PR1 shipped 5 quant playbooks + "
-            "recursive loader)."
+            "reproducible and transparent. **W2-PR2** ships the "
+            "Binance Spot REST adapter (testnet by default; live "
+            "behind kill_switch=ON), closing the paper → testnet → "
+            "live cycle without any third-party dependency. **W4** "
+            "workshop lab mode + quant playbooks (W4-PR1 shipped 5 "
+            "quant playbooks + recursive loader)."
         ),
         color="#f97316",
         capabilities=(
@@ -87,6 +89,8 @@ class AlgotradePack(DomainPack):
             "session_metrics",
             "session_report_markdown",
             "trading_council_voices",
+            "binance_spot_live",
+            "binance_spot_testnet",
         ),
         audience="quant traders, analysts, fund operators, workshop attendees",
     )

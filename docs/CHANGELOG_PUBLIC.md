@@ -4,6 +4,113 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-10 — Cursor · Phase W2-PR2: Binance Spot REST adapter (live + testnet)
+
+**Summary**
+
+Closes the workshop's "paper → testnet → live" cycle with a
+stdlib-only Binance Spot REST adapter. No third-party
+dependency (`urllib.request` for HTTP, `hmac`/`hashlib` for
+SHA-256 signing). Defaults to the public Binance Spot Testnet
+so workshop attendees can mint a free key at
+https://testnet.binance.vision/ and trade against the same
+endpoint shape as production without ever risking real funds.
+
+What ships:
+
+1. **`backend/core/algotrade/exec/binance.py`** — three pieces:
+   - `BinanceConfig` (api_key, api_secret, testnet flag,
+     recv_window_ms, timeout_seconds). `to_safe_dict()` returns
+     a serialisable view that **never** includes the secret —
+     used in session metadata + action responses so the cockpit
+     can show `binance:abcdef…` without leaking credentials.
+   - `BinanceClient` — minimal signed REST wrapper around four
+     endpoints (`/api/v3/time`, `/account`, `/order` POST/GET/
+     DELETE). Computes the HMAC-SHA256 over the canonical query
+     string and appends `&signature=…`. Pluggable `opener=` so
+     tests inject a fake `urlopen`-shaped callable.
+   - `BinanceAdapter(ExecAdapter)` — implements the same
+     `submit / cancel / status` contract paper does. Fills are
+     derived two ways:
+     - **on submit**: parses `payload["fills"]` if present
+       (typical for instant market fills) AND synthesises a fill
+       from `executedQty` + `cummulativeQuoteQty` if the response
+       reports execution but no `fills` array (which Binance
+       sometimes does on certain order types).
+     - **on status poll**: same `_absorb_response` machinery,
+       but the adapter pushes new fills to `on_fill` directly
+       since the router only iterates `order.fills` once at
+       submit time. This was the source of the only bug found
+       in dev — fixed before the suite went green.
+2. **Runtime wiring** — `ExecRuntime.start_live_session(...)`:
+   - Creates a `mode="live"` session row with
+     `metadata.binance` populated from `to_safe_dict()`.
+     Credentials are kept **in-memory only** — never written to
+     disk.
+   - **Testnet sessions** wire a `RiskPolicy(allow_short=False)`
+     with kill_switch=OFF — workshops have to be runnable out
+     of the box.
+   - **Real-money sessions** (`testnet=False`) wire a
+     `RiskPolicy(kill_switch=True, allow_short=False)` so no
+     order can possibly leave the gate until the operator
+     explicitly disables the kill switch via `set_policy` after
+     validating the wiring on a small order.
+   - **Rehydration** of live sessions returns `None` after a
+     worker restart — the session row is preserved as historical
+     context but the operator must re-authenticate with another
+     `start_live_session` call. Paper sessions still rehydrate
+     transparently from disk.
+3. **`start_live_session` action** — exposed by the
+   `algotrade` pack with `destructive=True`. Schema validates
+   `binance.{api_key, api_secret}`, defaults
+   `binance.testnet=True`. Response includes the safe binance
+   block + a `warning` field that's set only when wiring real
+   money (`testnet=False`) so the cockpit can render a banner
+   reminding the operator to disable the kill switch only after
+   manual verification.
+4. **Tests** — `tests/test_algotrade_binance.py` (19 cases):
+   - Client signing: HMAC-SHA256 against the canonical query;
+     timestamp + recvWindow appended; API key in header; typed
+     `BinanceAPIError` on 4xx; `BinanceTransportError` on
+     `URLError`.
+   - Adapter: market fills from `fills[]`; synthetic fills from
+     `executedQty`; idempotent re-submit returns cached order;
+     submit failure marks REJECTED; status poll updates OPEN →
+     FILLED; cancel marks CANCELED.
+   - Router integration: end-to-end intent → verdict → order →
+     fill flows through the live adapter without double-counting
+     fills (regression for the dev-time bug).
+   - Runtime + action: live mode kill_switch=ON by default;
+     testnet mode kill_switch=OFF; live sessions are not
+     rehydrated post-restart; action requires credentials;
+     response never leaks the secret; warning surfaces only on
+     real money.
+5. **Manifest + pack** — bumped to `0.6.0` / phase `W2-PR2`,
+   added `binance_spot_live` + `binance_spot_testnet`
+   capabilities, registered the `start_live_session` action.
+
+Total algotrade regression after this PR: **132 passing**
+(W1 + W2-PR1 + W3-PR1 + W3-PR2 + W3-PR3 + W4-PR1 + W2-PR2).
+
+**Files**
+
+- `backend/core/algotrade/exec/binance.py` (new, ~400 lines)
+- `backend/core/algotrade/exec/runtime.py` (live wiring +
+  rehydration logic)
+- `backend/core/algotrade/exec/__init__.py` (re-export +
+  docstring update)
+- `backend/core/domains/packs/algotrade/exec_actions.py`
+  (`start_live_session_action` + spec)
+- `backend/core/domains/packs/algotrade/manifest.json` (0.6.0,
+  W2-PR2, +2 capabilities, +1 action)
+- `backend/core/domains/packs/algotrade/pack.py` (description +
+  capabilities)
+- `tests/test_algotrade_binance.py` (new, ~430 lines, 19 tests)
+- `docs/ALGOTRADE.md` (W2-PR2 section)
+
+**Branch / PR**: `cursor/algotrade-w2-pr2-binance-live`,
+stacked on top of W3-PR3 (#170).
+
 ## 2026-05-10 — Cursor · Phase W3-PR3: trading council voices
 
 **Summary**
@@ -2545,23 +2652,6 @@ characters like **`$`** in API tokens no longer truncate/break the value (repeat
 - `docs/CHANGELOG_PUBLIC.md` (regenerated)
 - `docs/CHANGELOG_AGENTS.md` (this entry)
 
-## 2026-05-04 — Cursor · ops: shorten CF token path (cf-operator + script header)
-
-**Summary**
-
-Minimal **3-line** `cf-operator.env.example`, one-line Makefile/help + script banner; **TARS_MEEET_OPS_TODO**
-top «token → GitHub» blurb.
-
-**Files**
-
-- `cf-operator.env.example`
-- `cf-operator.env` (comment only; local)
-- `scripts/ops_push_cloudflare_pages_api_token.sh`
-- `Makefile`
-- `docs/TARS_MEEET_OPS_TODO.md`
-- `docs/CHANGELOG_PUBLIC.md` (regenerated)
-- `docs/CHANGELOG_AGENTS.md` (this entry)
-
 ---
 
-_Showing the most recent 60 of 251 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 252 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._

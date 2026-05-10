@@ -1,8 +1,8 @@
 {
   "slug": "algotrade",
   "name": "Algotrade",
-  "version": "0.5.0",
-  "phase": "W3-PR3",
+  "version": "0.6.0",
+  "phase": "W2-PR2",
   "stage": "alpha",
   "homepage": "https://meeet.world/tars/packs/algotrade",
   "docs": "docs/ALGOTRADE.md",
@@ -23,7 +23,9 @@
     "slippage_ledger",
     "session_metrics",
     "session_report_markdown",
-    "trading_council_voices"
+    "trading_council_voices",
+    "binance_spot_live",
+    "binance_spot_testnet"
   ],
   "auth_keys": [],
   "actions": [
@@ -36,6 +38,7 @@
     "fork_strategy",
     "backtest",
     "start_paper_session",
+    "start_live_session",
     "stop_session",
     "list_sessions",
     "get_session",
