@@ -39,18 +39,22 @@ class AlgotradePack(DomainPack):
     manifest = DomainManifest(
         slug="algotrade",
         name="Algotrade",
-        short="Strategy IR + backtest + registry — Cresco workshop foundations.",
+        short="Strategy IR + backtest + paper executor — Cresco workshop full cycle.",
         description=(
-            "Algorithmic trading toolkit for quant teams: a JSON "
-            "Strategy IR, a versioned file-backed registry, a "
-            "deterministic stdlib-only backtest engine with "
-            "incremental indicators (SMA/EMA/RSI/ATR/Bollinger), "
-            "and a 4-strategy starter recipe gallery (trend, "
-            "mean-reversion, momentum, trailing-stop). Phase W1b "
-            "exposes generate/parse/fork/register/backtest verbs; "
-            "W2 adds paper + live Binance execution behind a risk "
-            "gate; W3 brings PnL attribution and the trading "
-            "council; W4 the workshop lab mode."
+            "Algorithmic trading toolkit for quant teams. "
+            "**W1** ships a JSON Strategy IR, versioned file-backed "
+            "registry, deterministic stdlib-only backtest engine with "
+            "incremental indicators (SMA/EMA/RSI/ATR/Bollinger), and a "
+            "4-strategy starter recipe gallery. **W2-PR1** adds the "
+            "paper-trading execution layer: order router with "
+            "intent → verdict → order → fill audit, risk gate "
+            "(per-order qty cap, position notional cap, max open "
+            "positions, no-short toggle, daily-loss kill-switch, "
+            "instrument allowlist), in-process session manager, and "
+            "JSONL audit log per session. **W2-PR2** adds the live "
+            "Binance adapter; **W3** brings PnL attribution + slippage "
+            "ledger + trading council voices; **W4** the workshop lab "
+            "mode + quant playbooks."
         ),
         color="#f97316",
         capabilities=(
@@ -60,6 +64,11 @@ class AlgotradePack(DomainPack):
             "indicators_sma_ema_rsi_atr_bollinger",
             "recipe_gallery",
             "binance_klines_data",
+            "paper_executor",
+            "risk_gate_policy",
+            "order_router_audit",
+            "position_pnl_book",
+            "session_manager",
         ),
         audience="quant traders, analysts, fund operators, workshop attendees",
     )

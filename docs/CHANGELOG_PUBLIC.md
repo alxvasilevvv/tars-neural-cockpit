@@ -4,6 +4,104 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-10 — Cursor · Phase W2-PR1: paper executor + risk gate + order router + session manager
+
+**Summary**
+
+Closes the Cresco workshop's "send a real (paper) order" gap.
+The `algotrade` domain pack went from "design / persist / backtest"
+to "design / persist / backtest **/ execute**" — same Strategy IR,
+same `Bar` type, same fingerprint. Two-PR plan: this is **W2-PR1
+(paper)**; **W2-PR2** will plug the live Binance adapter into the
+identical wire contract behind a vault key.
+
+What ships:
+
+1. **Execution layer base** — `backend/core/algotrade/exec/base.py`.
+   `OrderIntent` (idempotent intent_id, sandbox_id for workshop
+   multi-tenancy), `Order` (lifecycle envelope with derived
+   `status`, `filled_qty`, `avg_fill_price`, `total_fees`),
+   `Fill`, `Position`, `AuditEvent`, `ExecAdapter` ABC. All
+   JSON-roundtrippable.
+2. **Paper adapter** — `paper.py`. Bar-driven simulator: market
+   orders fill at next bar's open with configurable slippage +
+   commission; limit orders fill when the bar's range crosses
+   the price. Idempotent submit (same `intent_id` → same order).
+3. **Position store** — `positions.py`. Instrument-keyed,
+   thread-safe. Realises PnL on closing legs; rolls residual qty
+   on long↔short flips. JSON-persisted so restarts pick up cleanly.
+4. **Risk gate** — `risk.py`. `RiskPolicy(kill_switch,
+   max_order_qty, max_position_notional, max_open_positions,
+   max_daily_loss, allow_short, allowed_instruments)` evaluated
+   per intent → `GateVerdict(accepted, reason, triggered_rules)`.
+5. **Order router + audit** — `router.py`. Single funnel:
+   `intent → verdict → order → fill`. Per-session JSONL
+   `AuditLog`, listener subscribers (cockpit SSE plug-point),
+   LRU-bounded intent index for O(1) idempotency.
+6. **Session store + runtime** — `sessions.py` + `runtime.py`.
+   `SessionStore` is JSONL-persisted; `ExecRuntime` is the
+   process-singleton that owns `session_id → wiring` and
+   rehydrates from disk. Roots under `$TARS_ALGOTRADE_HOME` →
+   `$TARS_HOME` → `~/.tars`.
+7. **10 new domain pack actions** —
+   `backend/core/domains/packs/algotrade/exec_actions.py`:
+   `start_paper_session`, `stop_session`, `list_sessions`,
+   `get_session`, `submit_intent`, `cancel_order`, `feed_bar`,
+   `get_policy`, `set_policy`, `audit_tail`. Writes flagged
+   `destructive=True` so they route through the policy gate.
+8. **`live_sessions` awareness source** — compact roll-up
+   (`session_id`, `status`, `positions_open`, `realized_pnl`,
+   `unrealized_pnl`, `kill_switch`) for the cockpit dashboard.
+
+**Tests**
+
+- `tests/test_algotrade_exec.py` — 32 assertions covering
+  intent roundtrip, paper adapter (market + limit + cancel +
+  reject + idempotency), position store (open / close / pyramid /
+  flip / persistence / mark), risk gate (every rule), router
+  (audit chain + idempotency + subscribers), session store
+  (filter + status + persistence), audit log (append + tail).
+- `tests/test_algotrade_exec_actions.py` — 18 assertions
+  covering pack registration of the 10 verbs, destructive
+  flags, end-to-end `start → submit → feed_bar → get_session`
+  with non-zero unrealised PnL, policy hot-swap blocks the
+  next intent, awareness `live_sessions` filtering by sandbox.
+- Total algotrade suite: **140 assertions, 0 network**, 0.20s.
+- Full repo suite: 2607 passed (18 pre-existing failures
+  unrelated to algotrade — install funnel, pairing, playbooks).
+
+**Why this shape**
+
+Workshop attendees (CARF / 3V / Crypto Fund quants) need to
+audit every layer. Stdlib-only, dataclass-only, JSON-everywhere.
+The router is the **single funnel** — one place to point at and
+say "here's where the intent gates and audits". Risk policy is
+declarative + roundtrippable so a workshop facilitator can hand
+out per-attendee policies as JSON. Sessions are sandbox-keyed so
+multi-attendee labs (Phase W4) drop in.
+
+**Files**
+
+```
+backend/core/algotrade/exec/__init__.py        (NEW, exports)
+backend/core/algotrade/exec/base.py            (NEW)
+backend/core/algotrade/exec/paper.py           (NEW)
+backend/core/algotrade/exec/positions.py       (NEW)
+backend/core/algotrade/exec/risk.py            (NEW)
+backend/core/algotrade/exec/router.py          (NEW)
+backend/core/algotrade/exec/runtime.py         (NEW)
+backend/core/algotrade/exec/sessions.py        (NEW)
+backend/core/domains/packs/algotrade/exec_actions.py (NEW)
+backend/core/domains/packs/algotrade/actions.py  (modified — appends EXEC_ACTIONS)
+backend/core/domains/packs/algotrade/awareness.py (modified — adds live_sessions)
+backend/core/domains/packs/algotrade/manifest.json (bumped 0.1.0 → 0.2.0, phase W2-PR1)
+backend/core/domains/packs/algotrade/pack.py     (caps + description bumped)
+docs/ALGOTRADE.md                              (W2-PR1 section + roadmap update)
+docs/CHANGELOG_AGENTS.md                       (this entry)
+tests/test_algotrade_exec.py                   (NEW, 32)
+tests/test_algotrade_exec_actions.py           (NEW, 18)
+```
+
 ## 2026-05-10 — Cursor · Phase W1a: algotrade foundations (Strategy IR + registry + backtest engine)
 
 **Summary**
@@ -2188,29 +2286,6 @@ still trims secrets and enforces **GET pages/projects/tars-meeet**.
 - `docs/TARS_MEEET_OPS_TODO.md`
 - `docs/CHANGELOG_AGENTS.md` (this entry)
 
-## 2026-05-03 — Cursor · B-001: legacy installers on tars + CF preflight + hybrid monitor
-
-**Summary**
-
-**TARS `public/_redirects`:** `/dl/TARS-8.4.0-*` and `/install.sh` now **302** to
-GitHub Release / raw install script (replacing `/install.sh → /install`); human
-page stays **`/install`**.
-
-**CI:** **Preflight** step `GET …/pages/projects/tars-meeet` with jq — fails fast
-with a clear error when the GitHub secret token lacks **Account → Cloudflare
-Pages → Edit** (avoids opaque Wrangler **10000**).
-
-**meeet-command-center** `resolution_monitor` B-001: each legacy path must
-**sniff** as non-HTML on **meeet.world** *or* **tars.meeet.world** (no SPA
-false positive).
-
-**Files**
-
-- `experiments/neural-showcase-v3/public/_redirects`
-- `.github/workflows/tars-meeet-cloudflare-pages.yml`
-- `meeet-command-center/tools/resolution_monitor.py` (sister repo; push separately)
-- `docs/CHANGELOG_AGENTS.md` (this entry)
-
 ---
 
-_Showing the most recent 60 of 246 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 247 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._

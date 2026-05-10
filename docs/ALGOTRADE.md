@@ -1,4 +1,4 @@
-# Algotrade module — Phase W1 reference
+# Algotrade module — Phase W1 + W2-PR1 reference
 
 > Foundations for the **Cresco workshop** (\"The Algorithmic Edge\").
 > See `docs/CRESCO_WORKSHOP.md` (operator) for the audience-facing
@@ -14,10 +14,15 @@ The `backend/core/algotrade/` module gives TARS:
 4. A **recipe gallery** (`algotrade.recipes`) — 4 starter
    strategies operators fork from in the workshop's vibe-coding
    step.
+5. **(W2-PR1)** A **paper-trading execution layer**
+   (`algotrade.exec`): order router → risk gate → adapter → audit
+   log → position book → session manager. Same dataclasses the
+   live Binance adapter (W2-PR2) will plug into; same `Bar` type
+   the backtest engine consumes.
 
-W2 will add the live execution layer (paper + Binance), risk gate
-and order router. W3 brings PnL attribution and the trading
-council. W4 the workshop-lab multi-attendee mode.
+W2-PR2 will add the Binance live adapter behind a vault key. W3
+brings PnL attribution and the trading council. W4 the
+workshop-lab multi-attendee mode.
 
 ## 1. Strategy IR
 
@@ -237,13 +242,86 @@ register(v2)
 deploy(v2, mode="paper")  ← W2
 ```
 
-## 6. Tests
+## 6. Execution layer (W2-PR1)
+
+```python
+from backend.core.algotrade.exec import (
+    OrderIntent, OrderType, Side,
+    PaperAdapter, PaperConfig,
+    PositionStore, RiskGate, RiskPolicy,
+    AuditLog, OrderRouter,
+    SessionStore, get_runtime,
+)
+```
+
+The execution layer turns "my backtest looks great" into "send
+a real order" with **zero translation surface** — the same `Bar`
+the backtest harness consumes is what `PaperAdapter.on_bar`
+takes, and the `Strategy` IR fingerprint is the audit anchor for
+every intent.
+
+### Building blocks
+
+- `OrderIntent` — what the strategy / operator WANTS, pre-gate.
+  Carries an `intent_id` the router de-dupes on (idempotent
+  retries are safe).
+- `RiskGate(policy=RiskPolicy(...), positions=...)` — pre-trade
+  policy enforcement. Workshop-grade explicit rules: kill-switch,
+  per-order qty cap, position-notional cap, max open positions,
+  daily-loss kill-switch, no-short toggle, instrument allowlist.
+  Returns a `GateVerdict` (accepted / reason / triggered_rules).
+- `PaperAdapter(PaperConfig(commission_bps=…, slippage_bps=…))` —
+  market orders fill at next bar's open with configured
+  slippage; limit orders fill when the bar's range crosses
+  the price.
+- `PositionStore` — instrument-keyed open position book. Realises
+  PnL on closing legs; rolls residual qty on long↔short flips.
+  Backed by a JSON file so worker restarts pick up cleanly.
+- `OrderRouter(adapter=…, gate=…, positions=…, audit=…)` — the
+  one funnel every order goes through:
+  `intent → verdict → order → fill`. Everything is appended to
+  the per-session JSONL `AuditLog`.
+- `SessionStore` — `(session_id, mode, strategy_fingerprint,
+  status, sandbox_id, started_at)` rows persisted as JSONL so
+  the cockpit can list them across worker restarts.
+- `get_runtime()` — process-singleton that owns
+  `session_id → (router, adapter, positions, audit, gate)` and
+  rehydrates from disk on cold start.
+
+### Domain pack actions (W2-PR1)
+
+The `algotrade` domain pack now exposes the full paper cycle as
+HTTP-addressable actions (under
+`/api/domains/algotrade/actions/<id>/invoke`):
+
+| Action                  | Destructive | Purpose                                                  |
+| ----------------------- | ----------- | -------------------------------------------------------- |
+| `start_paper_session`   | ✓           | Spin up a session bound to a registered strategy.        |
+| `stop_session`          | ✓           | Close a session — no more intents accepted.              |
+| `list_sessions`         |             | Filter by `mode` / `sandbox_id`.                         |
+| `get_session`           |             | Snapshot: session, policy, positions, open orders, audit.|
+| `submit_intent`         | ✓           | Operator-issued intent; goes through the gate.           |
+| `cancel_order`          | ✓           | Cancel an open order.                                    |
+| `feed_bar`              |             | Advance the paper clock by one OHLCV bar.                |
+| `get_policy`            |             | Read the active risk policy.                             |
+| `set_policy`            | ✓           | Replace the risk policy (kill-switch, caps, allowlist).  |
+| `audit_tail`            |             | Last N audit events (intent / verdict / order / fill).   |
+
+The `live_sessions` awareness source is the cockpit-facing
+read-only roll-up (id, status, position count, realised +
+unrealised PnL totals, kill-switch state) so the dashboard
+doesn't spam `get_session` per row.
+
+## 7. Tests
 
 `tests/test_algotrade_strategy_ir.py` (24) ·
 `tests/test_algotrade_registry.py` (10) ·
 `tests/test_algotrade_indicators.py` (15) ·
-`tests/test_algotrade_backtest.py` (15) — **64 assertions, 0
-network**, deterministic.
+`tests/test_algotrade_backtest.py` (15) ·
+`tests/test_algotrade_pack.py` (26) ·
+`tests/test_algotrade_exec.py` (32) ·
+`tests/test_algotrade_exec_actions.py` (18) — **140 assertions,
+0 network**, deterministic.
 
 Run them as:
 
@@ -251,13 +329,14 @@ Run them as:
 .venv/bin/python -m pytest tests/test_algotrade_*.py -q
 ```
 
-## 7. Roadmap (Phase W)
+## 8. Roadmap (Phase W)
 
-| Phase   | What lands                                                                                  | PR                                |
+| Phase   | What lands                                                                                  | Status                            |
 | ------- | ------------------------------------------------------------------------------------------- | --------------------------------- |
-| **W1a** | Strategy IR + registry + backtest + indicators + recipes                                    | this PR                           |
-| **W1b** | `algotrade` domain pack — `generate_strategy`, `backtest`, `register`, `fork`, `refine`     | next                              |
-| **W2**  | Paper executor + Binance live adapter + risk gate + order router + position store           | follow-up                         |
+| **W1a** | Strategy IR + registry + backtest + indicators + recipes                                    | shipped (PR #165)                 |
+| **W1b** | `algotrade` domain pack — `parse`, `register`, `fork`, `backtest`, recipe + registry verbs  | shipped (PR #165)                 |
+| **W2-PR1** | Paper executor + risk gate + order router + position store + session manager + 10 HTTP actions | this PR                           |
+| **W2-PR2** | Live Binance adapter behind vault key + market-data poller                              | follow-up                         |
 | **W3**  | PnL attribution + slippage ledger + session report + trading council voices                 | follow-up                         |
 | **W4**  | Workshop lab mode (multi-attendee sandbox + leaderboard) + cockpit handbook                 | follow-up                         |
 

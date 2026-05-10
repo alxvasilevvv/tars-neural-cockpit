@@ -25,6 +25,7 @@ from backend.core.algotrade import (
     StrategyError,
     get_registry,
 )
+from .exec_actions import EXEC_ACTIONS
 from backend.core.algotrade.backtest.data import (
     DataError,
     load_binance_klines,
@@ -555,4 +556,4 @@ ACTIONS: tuple[ActionSpec, ...] = (
             },
         },
     ),
-)
+) + EXEC_ACTIONS

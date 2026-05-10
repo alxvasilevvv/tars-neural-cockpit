@@ -1,8 +1,8 @@
 {
   "slug": "algotrade",
   "name": "Algotrade",
-  "version": "0.1.0",
-  "phase": "W1b",
+  "version": "0.2.0",
+  "phase": "W2-PR1",
   "stage": "alpha",
   "homepage": "https://meeet.world/tars/packs/algotrade",
   "docs": "docs/ALGOTRADE.md",
@@ -13,7 +13,12 @@
     "backtest_deterministic",
     "indicators_sma_ema_rsi_atr_bollinger",
     "recipe_gallery",
-    "binance_klines_data"
+    "binance_klines_data",
+    "paper_executor",
+    "risk_gate_policy",
+    "order_router_audit",
+    "position_pnl_book",
+    "session_manager"
   ],
   "auth_keys": [],
   "actions": [
@@ -24,9 +29,19 @@
     "get_strategy",
     "register_strategy",
     "fork_strategy",
-    "backtest"
+    "backtest",
+    "start_paper_session",
+    "stop_session",
+    "list_sessions",
+    "get_session",
+    "submit_intent",
+    "cancel_order",
+    "feed_bar",
+    "get_policy",
+    "set_policy",
+    "audit_tail"
   ],
-  "awareness": ["strategy_registry"],
+  "awareness": ["strategy_registry", "live_sessions"],
   "depends_on": ["backend.core.algotrade"],
   "license": "Apache-2.0"
 }
