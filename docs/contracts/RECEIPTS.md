@@ -144,7 +144,7 @@ fields. Callers MUST:
   (`sha256(normalise(email))[:16]` is the recommended shape — full
   reversibility breaks compliance).
 - Avoid raw IDs that link back to PII (use `actor: "operator"` not
-  `actor: "alice@cresco.io"`).
+  `actor: "alice@example.com"`).
 - Strip free-text user content (chat messages, file names) when
   emitting from skills — pass a hashed summary instead.
 
