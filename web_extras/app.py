@@ -54,6 +54,7 @@ from web_extras.routers import webhooks as webhooks_router
 from web_extras.routers import github as github_router
 from web_extras.routers import connectors as connectors_router
 from web_extras.routers import clone as clone_router
+from web_extras.routers import cohort as cohort_router
 
 START_TS = time.time()
 log = logging.getLogger("tars.app")
@@ -638,6 +639,7 @@ app.include_router(webhooks_router.router)
 app.include_router(github_router.router)
 app.include_router(connectors_router.router)
 app.include_router(clone_router.router)
+app.include_router(cohort_router.router)
 from web_extras.routers import entitlements as entitlements_router  # noqa: E402
 from web_extras.routers import roles as roles_router  # noqa: E402
 

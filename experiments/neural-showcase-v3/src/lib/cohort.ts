@@ -1,12 +1,13 @@
-// SYNC: claude-w89-fe-only
+// SYNC: claude-w94-cohort-real
 /**
- * Wave 89 — Workshop cohort facilitator dashboard data layer.
+ * Wave 94 — Workshop cohort facilitator dashboard data layer.
  *
- * Mock data shipped for facilitator demo before W2-PR2 backend lands.
- * When `/api/cohort/*` endpoints exist, swap mock fallback for real
- * (same hook contract). The `usePollAttendees`, `useCohortStream`,
- * and `broadcast` exports are designed to be drop-in replaceable —
- * the page never reaches into the mock generator directly.
+ * Now wired to the real `/api/cohort/*` backend (Wave 94). Falls
+ * back to deterministic mock data when the backend is unreachable
+ * (no /api/cohort yet, network error, file://) so existing demos
+ * keep working. The `usePollAttendees`, `useCohortStream`, and
+ * `broadcast` exports preserve the Wave 89 contract — the page
+ * never reaches into either mock or real code paths directly.
  *
  * Mock data strategy:
  *   - 15 deterministic attendees with generic first names (no PII).
@@ -21,7 +22,7 @@
  *     deterministic per page-load but feels live across refreshes.
  */
 
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 // ── types ───────────────────────────────────────────────────────────
 
@@ -300,60 +301,256 @@ export function mockSSE(
 
 // ── hooks ───────────────────────────────────────────────────────────
 
+// ── real backend mapping ────────────────────────────────────────────
+
+interface BackendAttendee {
+  id: string;
+  cohort_id: string;
+  display_name: string;
+  email: string | null;
+  joined_at: number;
+  current_phase: string;
+  last_activity_at: number;
+  playbook_runs: number;
+  errors: number;
+  flagged: boolean;
+  flag_reason: string | null;
+}
+
+function fromBackendAttendee(a: BackendAttendee): Attendee {
+  const phase = (["intake", "design", "test", "deploy"].includes(a.current_phase)
+    ? (a.current_phase as Phase)
+    : "intake") as Phase;
+  const lastActivityMs = a.last_activity_at * 1000;
+  const idleMin = Math.max(0, Math.round((Date.now() - lastActivityMs) / 60_000));
+  return {
+    id: a.id,
+    name: a.display_name,
+    email: a.email ?? "",
+    phase,
+    lastAction: a.flagged ? `Flagged: ${a.flag_reason ?? "needs help"}` : "Active",
+    playbooksRun: a.playbook_runs,
+    errors: a.errors,
+    idleMin,
+    lastActionAt: new Date(lastActivityMs).toISOString(),
+  };
+}
+
+async function fetchRealAttendees(cohortId: string): Promise<Attendee[] | null> {
+  try {
+    const r = await fetch(`/api/cohort/${encodeURIComponent(cohortId)}/attendees`, {
+      headers: { accept: "application/json" },
+    });
+    if (!r.ok) return null;
+    const body = (await r.json()) as { ok: boolean; attendees?: BackendAttendee[] };
+    if (!body.ok || !Array.isArray(body.attendees)) return null;
+    return body.attendees.map(fromBackendAttendee);
+  } catch {
+    return null;
+  }
+}
+
 /**
- * Returns the cohort attendee list. Mock today; will swap to a fetch
- * against `GET /api/cohort/attendees` (with periodic poll) once the
- * backend ships. Hook contract is `{ rows, refresh, pending }`.
+ * Returns the cohort attendee list. Tries `/api/cohort/{id}/attendees`
+ * first; falls back to deterministic mock data when the backend is
+ * unreachable. Hook contract is `{ rows, refresh, pending, source }`.
+ *
+ * `cohortId` is optional — when omitted the hook stays on mock data
+ * so the demo keeps working without any backend round-trip.
  */
-export function usePollAttendees(): {
+export function usePollAttendees(cohortId?: string): {
   rows: Attendee[];
   refresh: () => void;
   pending: boolean;
+  source: "real" | "mock";
 } {
   const [rows, setRows] = useState<Attendee[]>(() => deterministicAttendees());
-  const [pending] = useState(true); // Mock backend is always "pending" until W2-PR2.
-  const refresh = (): void => {
-    // In real impl: re-fetch /api/cohort/attendees. Mock just regens
-    // (but with the same deterministic seed, so visually identical —
-    // swap to a real fetcher when backend lands).
-    setRows(deterministicAttendees());
-  };
-  return { rows, refresh, pending };
+  const [pending, setPending] = useState<boolean>(Boolean(cohortId));
+  const [source, setSource] = useState<"real" | "mock">("mock");
+
+  const refresh = useCallback(() => {
+    if (!cohortId) {
+      setRows(deterministicAttendees());
+      setSource("mock");
+      setPending(false);
+      return;
+    }
+    setPending(true);
+    void fetchRealAttendees(cohortId).then((real) => {
+      if (real && real.length > 0) {
+        setRows(real);
+        setSource("real");
+      } else if (real && real.length === 0) {
+        // Cohort exists but is empty — surface real source with no rows
+        // so the page can render an empty state instead of demo data.
+        setRows([]);
+        setSource("real");
+      } else {
+        // Backend not shipped or unreachable → mock fallback.
+        setRows(deterministicAttendees());
+        setSource("mock");
+      }
+      setPending(false);
+    });
+  }, [cohortId]);
+
+  useEffect(() => {
+    refresh();
+    if (!cohortId) return;
+    const id = window.setInterval(refresh, 15_000);
+    return () => window.clearInterval(id);
+  }, [cohortId, refresh]);
+
+  return { rows, refresh, pending, source };
 }
 
 /**
- * Live event stream for the right-rail activity feed. Mock today via
- * `mockSSE`; real impl will open `EventSource("/api/cohort/stream")`
- * and dispatch the same `CohortEvent` shape.
+ * Live event stream for the right-rail activity feed.
+ *
+ * If `cohortId` is provided, opens a real `EventSource` against
+ * `/api/cohort/{id}/stream`; if the connection errors out (404 / no
+ * backend), automatically falls back to the deterministic mock
+ * generator so the demo keeps animating.
  */
-export function useCohortStream(attendees: Attendee[]): CohortEvent[] {
+export function useCohortStream(
+  attendees: Attendee[],
+  cohortId?: string,
+): CohortEvent[] {
   const [events, setEvents] = useState<CohortEvent[]>([]);
   const attendeesRef = useRef(attendees);
   attendeesRef.current = attendees;
+
   useEffect(() => {
-    if (attendeesRef.current.length === 0) return;
-    const stop = mockSSE(attendeesRef.current, (e) => {
-      setEvents((prev) => [e, ...prev].slice(0, 40));
-    });
-    return stop;
-  }, []);
+    if (!cohortId) {
+      // Mock-only mode (no cohort selected).
+      if (attendeesRef.current.length === 0) return;
+      const stop = mockSSE(attendeesRef.current, (e) => {
+        setEvents((prev) => [e, ...prev].slice(0, 40));
+      });
+      return stop;
+    }
+
+    // Real backend mode: try EventSource first, fall back to mock on error.
+    let es: EventSource | null = null;
+    let stopMock: (() => void) | null = null;
+    let cancelled = false;
+
+    function startMockFallback(): void {
+      if (cancelled || stopMock) return;
+      if (attendeesRef.current.length === 0) return;
+      stopMock = mockSSE(attendeesRef.current, (e) => {
+        setEvents((prev) => [e, ...prev].slice(0, 40));
+      });
+    }
+
+    try {
+      es = new EventSource(`/api/cohort/${encodeURIComponent(cohortId)}/stream`);
+      es.onmessage = (raw: MessageEvent) => {
+        try {
+          const parsed = JSON.parse(raw.data) as {
+            id?: string;
+            type?: string;
+            occurred_at?: number;
+            data?: Record<string, unknown>;
+          };
+          // Skip heartbeats / open sentinels — they're transport plumbing.
+          if (parsed.type === "heartbeat" || parsed.type === "stream.open") {
+            return;
+          }
+          const evtKind = mapBackendKind(parsed.type ?? "");
+          const data = parsed.data ?? {};
+          const attendeeName =
+            (data.display_name as string | undefined) ??
+            (data.attendeeName as string | undefined) ??
+            (data.email as string | undefined) ??
+            "attendee";
+          const evt: CohortEvent = {
+            id: parsed.id ?? `evt-${Date.now()}`,
+            kind: evtKind,
+            attendeeId: (data.attendee_id as string | undefined) ?? "",
+            attendeeName,
+            message: VERB_BY_KIND[evtKind](attendeeName),
+            at: new Date((parsed.occurred_at ?? Date.now() / 1000) * 1000).toISOString(),
+          };
+          setEvents((prev) => [evt, ...prev].slice(0, 40));
+        } catch {
+          // Malformed event — ignore.
+        }
+      };
+      es.onerror = () => {
+        // EventSource will keep retrying internally; if we have no
+        // events yet AND we keep failing, lean on the mock so the FE
+        // still feels alive.
+        if (es && es.readyState === EventSource.CLOSED) {
+          startMockFallback();
+        }
+      };
+    } catch {
+      startMockFallback();
+    }
+
+    return () => {
+      cancelled = true;
+      if (es) es.close();
+      if (stopMock) stopMock();
+    };
+  }, [cohortId]);
+
   return events;
 }
 
+// Map backend event types onto the FE's existing SSEEventKind union.
+function mapBackendKind(t: string): SSEEventKind {
+  switch (t) {
+    case "playbook.started":
+    case "playbook_start":
+      return "playbook_start";
+    case "playbook.finished":
+    case "playbook.completed":
+    case "playbook_finish":
+      return "playbook_finish";
+    case "playbook.failed":
+    case "playbook.error":
+    case "error":
+      return "error";
+    case "hil.requested":
+    case "hil_gate":
+      return "hil_gate";
+    case "cohort.attendee.joined":
+    case "cohort.attendee.added":
+    case "join":
+      return "join";
+    case "cohort.broadcast":
+    case "cohort.broadcast.ack":
+    case "broadcast_ack":
+      return "broadcast_ack";
+    case "cohort.phase.advanced":
+    case "phase_advance":
+      return "phase_advance";
+    default:
+      return "playbook_start";
+  }
+}
+
 /**
- * Broadcast a message to the entire cohort. Mock POST today; will
- * fire `POST /api/cohort/broadcast` when backend lands. Returns
- * `{ ok: true }` on success, `{ ok: false, reason }` otherwise.
+ * Broadcast a message to the entire cohort.
+ *
+ * Hits `POST /api/cohort/{id}/broadcast` when `cohortId` is supplied
+ * (Wave 94 backend); falls back to a silent mock-ack for back-compat
+ * when the backend is unreachable or no cohort is selected.
  */
 export async function broadcast(
   message: string,
+  cohortId?: string,
 ): Promise<{ ok: boolean; reason?: string }> {
   if (!message.trim()) {
     return { ok: false, reason: "Empty message." };
   }
-  // Try real endpoint first. 404 → mock fallback (silent ack).
+  const url = cohortId
+    ? `/api/cohort/${encodeURIComponent(cohortId)}/broadcast`
+    : "/api/cohort/broadcast";
   try {
-    const r = await fetch("/api/cohort/broadcast", {
+    const r = await fetch(url, {
       method: "POST",
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ message }),
@@ -375,16 +572,25 @@ export async function broadcast(
 }
 
 /**
- * Mark an attendee as needing facilitator help. Mock POST today; will
- * fire `POST /api/cohort/{id}/flag` once backend lands.
+ * Mark an attendee as needing facilitator help.
+ *
+ * When `cohortId` is provided, hits the real Wave 94 endpoint
+ * `POST /api/cohort/{cohortId}/attendees/{attendeeId}/flag`; otherwise
+ * falls back to the legacy mock path so older callers keep working.
  */
 export async function flagAttendee(
   attendeeId: string,
+  cohortId?: string,
+  reason?: string,
 ): Promise<{ ok: boolean; reason?: string }> {
+  const url = cohortId
+    ? `/api/cohort/${encodeURIComponent(cohortId)}/attendees/${encodeURIComponent(attendeeId)}/flag`
+    : `/api/cohort/${attendeeId}/flag`;
   try {
-    const r = await fetch(`/api/cohort/${attendeeId}/flag`, {
+    const r = await fetch(url, {
       method: "POST",
       headers: { "content-type": "application/json" },
+      body: JSON.stringify({ reason: reason ?? "" }),
     });
     if (r.status === 404) {
       await new Promise((resolve) => window.setTimeout(resolve, 240));
@@ -395,6 +601,51 @@ export async function flagAttendee(
   } catch {
     await new Promise((resolve) => window.setTimeout(resolve, 240));
     return { ok: true };
+  }
+}
+
+// ── Wave 94 cohort lifecycle helpers ─────────────────────────────────
+
+export interface BackendCohort {
+  id: string;
+  name: string;
+  slug: string;
+  started_at: number;
+  ended_at: number | null;
+  is_active: boolean;
+  max_attendees: number | null;
+  metadata: Record<string, unknown>;
+}
+
+/** List cohorts owned by the current user. Returns null on backend miss. */
+export async function listCohorts(): Promise<BackendCohort[] | null> {
+  try {
+    const r = await fetch("/api/cohort");
+    if (!r.ok) return null;
+    const body = (await r.json()) as { ok: boolean; cohorts?: BackendCohort[] };
+    return body.ok && Array.isArray(body.cohorts) ? body.cohorts : null;
+  } catch {
+    return null;
+  }
+}
+
+/** Create a new cohort. Returns null on backend miss. */
+export async function createCohort(input: {
+  name: string;
+  slug?: string;
+  max_attendees?: number;
+}): Promise<BackendCohort | null> {
+  try {
+    const r = await fetch("/api/cohort", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(input),
+    });
+    if (!r.ok) return null;
+    const body = (await r.json()) as { ok: boolean; cohort?: BackendCohort };
+    return body.ok && body.cohort ? body.cohort : null;
+  } catch {
+    return null;
   }
 }
 

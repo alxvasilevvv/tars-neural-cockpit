@@ -19,7 +19,7 @@
  *     re-enable picks them up automatically.
  */
 
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import {
   Bell,
@@ -42,6 +42,7 @@ import {
   type Phase,
   broadcast,
   computeStats,
+  createCohort,
   phaseLabel,
   phaseTint,
   toCSV,
@@ -84,9 +85,48 @@ export function WorkshopCohort() {
       "Live facilitator dashboard: see what every attendee is doing right now during a TARS workshop.",
   });
 
-  const { rows } = usePollAttendees();
-  const events = useCohortStream(rows);
+  // Wave 94 — read selected cohort from `?cohort=...` URL param so
+  // a facilitator can deep-link / bookmark a specific session. When
+  // no cohort is set, the hooks fall back to mock data and we render
+  // an "empty state" CTA at the bottom of the page.
+  const [cohortId, setCohortId] = useState<string | undefined>(() => {
+    if (typeof window === "undefined") return undefined;
+    const param = new URL(window.location.href).searchParams.get("cohort");
+    return param ?? undefined;
+  });
+
+  // Keep state in sync if the user pastes a different URL into the bar.
+  useEffect(() => {
+    function syncFromUrl(): void {
+      const param = new URL(window.location.href).searchParams.get("cohort");
+      setCohortId(param ?? undefined);
+    }
+    window.addEventListener("popstate", syncFromUrl);
+    return () => window.removeEventListener("popstate", syncFromUrl);
+  }, []);
+
+  const { rows, source } = usePollAttendees(cohortId);
+  const events = useCohortStream(rows, cohortId);
   const stats = useMemo(() => computeStats(rows), [rows]);
+
+  const [createPending, setCreatePending] = useState(false);
+  const onCreateCohort = useCallback(async () => {
+    if (createPending) return;
+    setCreatePending(true);
+    const fresh = await createCohort({
+      name: `Workshop ${new Date().toLocaleDateString()}`,
+    });
+    setCreatePending(false);
+    if (fresh) {
+      const next = new URL(window.location.href);
+      next.searchParams.set("cohort", fresh.id);
+      window.history.pushState({}, "", next.toString());
+      setCohortId(fresh.id);
+    } else {
+      // Backend miss — fallback to mock so demo still loads.
+      setCohortId(undefined);
+    }
+  }, [createPending]);
 
   const [sortKey, setSortKey] = useState<SortKey>("idleMin");
   const [sortDir, setSortDir] = useState<SortDir>("asc");
@@ -156,7 +196,7 @@ export function WorkshopCohort() {
   const onBroadcast = useCallback(async () => {
     if (!broadcastText.trim() || broadcastState === "sending") return;
     setBroadcastState("sending");
-    const res = await broadcast(broadcastText.trim());
+    const res = await broadcast(broadcastText.trim(), cohortId);
     if (res.ok) {
       setBroadcastState("sent");
       setBroadcastText("");
@@ -210,6 +250,34 @@ export function WorkshopCohort() {
             ]}
           />
         </motion.div>
+
+        {/* Wave 94 — empty state when no cohort is selected and the
+            backend isn't returning rows. Renders inline above the
+            normal header so the CTA is the first thing the operator
+            sees on a fresh cockpit. */}
+        {!cohortId && source === "mock" && (
+          <div className="mt-8 rounded-md border border-line bg-bg-1 p-5">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="font-display text-[1.15rem] text-ink">
+                  No cohort selected
+                </div>
+                <div className="mt-1 text-[13px] text-ink-2">
+                  Showing demo data. Create a real cohort to start tracking
+                  attendees, or append <code>?cohort=...</code> to the URL.
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={onCreateCohort}
+                disabled={createPending}
+                className="inline-flex min-h-[40px] items-center gap-2 rounded-sm border border-[var(--brand-indigo)] bg-[var(--brand-indigo)]/10 px-4 py-2 font-mono-tech text-[11px] uppercase tracking-[2.2px] text-ink transition-colors hover:bg-[var(--brand-indigo)]/15 disabled:opacity-50"
+              >
+                {createPending ? "Creating…" : "Create cohort"}
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* Header */}
         <motion.header

@@ -164,6 +164,21 @@ class PlaybookRunner:
                 await _wh_emit("playbook.started", _started_payload)
             except Exception:
                 pass
+            # Wave 94 — cohort hook. Best-effort: only records when the
+            # playbook context carries an attendee email and that email
+            # matches a known cohort attendee.
+            try:
+                from backend.core.cohort import record_action_if_member as _coh_record
+
+                _attendee_email = (ctx.get("attendee_email") if isinstance(ctx, dict) else None)
+                if _attendee_email:
+                    await _coh_record(
+                        _attendee_email,
+                        "playbook_start",
+                        _started_payload,
+                    )
+            except Exception:
+                pass
 
             stop = False
             groups = _group_steps(playbook.steps)
@@ -270,6 +285,20 @@ class PlaybookRunner:
                     await _wh_emit("playbook.failed", _completed_payload)
                 else:
                     await _wh_emit("playbook.finished", _completed_payload)
+            except Exception:
+                pass
+            # Wave 94 — cohort hook for completion (mirror of started).
+            try:
+                from backend.core.cohort import record_action_if_member as _coh_record
+
+                _attendee_email = (ctx.get("attendee_email") if isinstance(ctx, dict) else None)
+                if _attendee_email:
+                    _coh_action = (
+                        "error"
+                        if _completed_payload["steps_failed"] > 0
+                        else "playbook_finish"
+                    )
+                    await _coh_record(_attendee_email, _coh_action, _completed_payload)
             except Exception:
                 pass
 
