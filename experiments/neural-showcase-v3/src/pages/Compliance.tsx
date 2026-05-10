@@ -134,6 +134,22 @@ export function Compliance() {
   );
   const [actionType, setActionType] = useState<string>("all");
 
+  // Wave 95 — unified receipt ledger surface: Merkle root pill
+  // for today + on-demand chain integrity check.
+  type ChainState =
+    | { kind: "idle" }
+    | { kind: "checking" }
+    | { kind: "ok"; count: number; day: string }
+    | { kind: "fail"; reason: string; day: string; index?: number };
+  const [chainState, setChainState] = useState<ChainState>({ kind: "idle" });
+  const [merkleToday, setMerkleToday] = useState<{
+    day_iso: string;
+    root_hex: string;
+    leaf_count: number;
+    anchored_at: number | null;
+  } | null>(null);
+
+
   const fetchAudit = async (signal?: AbortSignal) => {
     try {
       const r = await fetch(`${API_BASE}/api/audit/list`, { signal });
@@ -169,6 +185,63 @@ export function Compliance() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Wave 95 — fetch today's Merkle root for the header pill. Fires
+  // once on mount; the daemon caches per-day so the request is cheap.
+  useEffect(() => {
+    const ctrl = new AbortController();
+    void (async () => {
+      try {
+        const r = await fetch(`${API_BASE}/api/receipts/merkle/today`, {
+          signal: ctrl.signal,
+        });
+        if (!r.ok) return;
+        const body = await r.json();
+        if (body && body.day_iso) setMerkleToday(body);
+      } catch {
+        /* offline — pill stays hidden */
+      }
+    })();
+    return () => ctrl.abort();
+  }, []);
+
+  const verifyChainToday = async () => {
+    setChainState({ kind: "checking" });
+    try {
+      const r = await fetch(
+        `${API_BASE}/api/receipts/chain/verify?day=today`,
+      );
+      if (!r.ok) {
+        setChainState({
+          kind: "fail",
+          reason: `daemon HTTP ${r.status}`,
+          day: "today",
+        });
+        return;
+      }
+      const body = await r.json();
+      if (body.ok) {
+        setChainState({
+          kind: "ok",
+          count: body.count ?? 0,
+          day: body.day ?? "today",
+        });
+      } else {
+        setChainState({
+          kind: "fail",
+          reason: body.reason ?? "chain_invalid",
+          day: body.day ?? "today",
+          index: body.broken_at_index,
+        });
+      }
+    } catch (e) {
+      setChainState({
+        kind: "fail",
+        reason: (e as Error).message,
+        day: "today",
+      });
+    }
+  };
 
   // Sync `?agent=…` param into the actor filter on URL change.
   useEffect(() => {
@@ -276,6 +349,37 @@ export function Compliance() {
               ? ` · refreshed ${new Date(lastFetched).toLocaleTimeString()}`
               : ""}
           </span>
+          {merkleToday && merkleToday.root_hex && (
+            <span
+              className="mt-1 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 font-mono-tech text-[9.5px] uppercase tracking-[1.6px]"
+              style={{
+                borderColor: merkleToday.anchored_at
+                  ? "var(--color-success)"
+                  : "var(--brand-cyan)",
+                color: merkleToday.anchored_at
+                  ? "var(--color-success)"
+                  : "var(--brand-cyan)",
+              }}
+              title={`day ${merkleToday.day_iso} · ${merkleToday.leaf_count} receipts`}
+            >
+              merkle · {merkleToday.root_hex.slice(0, 10)}…
+              {merkleToday.anchored_at ? " · anchored" : ""}
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={() => void verifyChainToday()}
+            disabled={chainState.kind === "checking"}
+            className="mt-1 inline-flex items-center gap-1.5 rounded-md border border-line-strong bg-bg-2/60 px-2.5 py-1 font-mono-tech text-[9.5px] uppercase tracking-[1.6px] text-ink transition-colors hover:border-accent disabled:opacity-50"
+          >
+            {chainState.kind === "checking"
+              ? "verifying…"
+              : chainState.kind === "ok"
+                ? `chain ok · ${chainState.count}`
+                : chainState.kind === "fail"
+                  ? `chain BROKEN @ ${chainState.index ?? "?"}`
+                  : "verify chain integrity"}
+          </button>
         </div>
       </header>
 

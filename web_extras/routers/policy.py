@@ -116,6 +116,18 @@ async def confirm(
             await _wh_emit("hil.approved", _hil_payload)
         except Exception:
             pass
+        # Wave 95 — unified receipt ledger.
+        try:
+            from backend.core.receipts import record as _rcpt_record
+
+            await _rcpt_record(
+                type="hil.approved",
+                actor="operator",
+                resource=confirmation.slug,
+                payload=dict(_hil_payload),
+            )
+        except Exception:
+            pass
         try:
             result = await spec.handler(confirmation.args)
         except Exception as exc:
@@ -177,6 +189,18 @@ async def cancel(token: str) -> dict[str, Any]:
         from backend.core.webhooks import emit as _wh_emit
 
         await _wh_emit("hil.denied", _denied_payload)
+    except Exception:
+        pass
+    # Wave 95 — unified receipt ledger.
+    try:
+        from backend.core.receipts import record as _rcpt_record
+
+        await _rcpt_record(
+            type="hil.denied",
+            actor="operator",
+            resource=confirmation.slug,
+            payload=dict(_denied_payload),
+        )
     except Exception:
         pass
     return {"ok": True, "confirmation": _to_dict(resolved) if resolved else None}

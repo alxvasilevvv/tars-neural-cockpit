@@ -55,6 +55,7 @@ from web_extras.routers import github as github_router
 from web_extras.routers import connectors as connectors_router
 from web_extras.routers import clone as clone_router
 from web_extras.routers import cohort as cohort_router
+from web_extras.routers import receipts as receipts_router
 
 START_TS = time.time()
 log = logging.getLogger("tars.app")
@@ -517,6 +518,98 @@ async def _verify_fts_on_boot() -> None:
         log.warning("fts boot-repair failed: %s", exc)
 
 
+def _merkle_anchor_enabled() -> bool:
+    """Opt-in via ``TARS_RECEIPT_ANCHOR_ENABLED=1``."""
+
+    raw = (os.getenv("TARS_RECEIPT_ANCHOR_ENABLED") or "").strip().lower()
+    return raw in {"1", "true", "yes", "on"}
+
+
+def _merkle_loop_interval_s() -> float:
+    """How often the daily-Merkle-root loop ticks. Default 3600s (1h)."""
+
+    raw = os.getenv("TARS_RECEIPT_MERKLE_INTERVAL_S")
+    if raw is None:
+        return 3600.0
+    try:
+        return max(60.0, float(raw))
+    except ValueError:
+        return 3600.0
+
+
+async def _merkle_root_loop() -> None:
+    """Wave 95 — daily Merkle-root computation + optional Solana anchor.
+
+    Every ``TARS_RECEIPT_MERKLE_INTERVAL_S`` seconds (default 1h):
+
+    1. After UTC midnight + 1h, ensure yesterday's Merkle root row
+       exists (compute on demand from NDJSON).
+    2. If ``TARS_RECEIPT_ANCHOR_ENABLED=1`` and the row hasn't been
+       anchored yet, fire :func:`anchor_to_solana`. The anchor
+       module silently no-ops when ``SOLANA_KEYPAIR_PATH`` is unset.
+
+    Same safety contract as the other lifespan loops:
+    never propagates exceptions, never crashes the host.
+    """
+
+    interval = _merkle_loop_interval_s()
+    if interval <= 0:
+        return
+    from datetime import datetime, timedelta, timezone
+
+    from backend.core.receipts import compute_root, get_store
+    from backend.core.receipts.anchor import anchor_to_solana
+
+    store = get_store()
+    if store is None:
+        return
+    log.info("receipt merkle-root loop active: interval_s=%.1f", interval)
+    while True:
+        try:
+            await asyncio.sleep(interval)
+            now = datetime.now(timezone.utc)
+            # Only act when we are at least 1h past UTC midnight, so
+            # late-night appends always make it into yesterday's
+            # NDJSON file before we hash.
+            if now.hour < 1:
+                continue
+            yesterday_iso = (now - timedelta(days=1)).strftime("%Y-%m-%d")
+            row = await store.get_merkle_root(yesterday_iso)
+            if row is None:
+                receipts = await store.replay_chain_for_day(yesterday_iso)
+                hashes = [r.hash for r in receipts]
+                root_hex = compute_root(hashes)
+                row = await store.upsert_merkle_root(
+                    day_iso=yesterday_iso,
+                    root_hex=root_hex,
+                    leaf_count=len(hashes),
+                )
+                if hashes:
+                    log.info(
+                        "receipt merkle-root computed: day=%s leaves=%s root=%s",
+                        yesterday_iso, len(hashes), root_hex[:16],
+                    )
+            if (
+                _merkle_anchor_enabled()
+                and row is not None
+                and not row.anchored_at
+                and row.leaf_count > 0
+            ):
+                out = await anchor_to_solana(
+                    yesterday_iso, row.root_hex
+                )
+                if out.get("anchored"):
+                    log.info(
+                        "receipt merkle-root anchored: day=%s sig=%s",
+                        yesterday_iso, out.get("signature"),
+                    )
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # never crash the host
+            log.warning("receipt merkle-root loop tick failed: %s", exc)
+
+
+
 @contextlib.asynccontextmanager
 async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     from backend.core.agents.autopilot import autopilot_loop
@@ -556,6 +649,13 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     webhooks_loop = asyncio.create_task(
         webhooks_dispatcher_loop(), name="webhooks-dispatcher-loop"
     )
+    # Wave 95 — daily Merkle-root scheduler. Loop self-disables when
+    # ``TARS_RECEIPT_STORE=disabled``; Solana anchoring inside is
+    # gated by ``TARS_RECEIPT_ANCHOR_ENABLED=1`` AND
+    # ``SOLANA_KEYPAIR_PATH`` being set.
+    merkle_loop = asyncio.create_task(
+        _merkle_root_loop(), name="receipts-merkle-root-loop"
+    )
     tasks = (
         replay,
         autopilot,
@@ -566,6 +666,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         policy_expire,
         reflection,
         webhooks_loop,
+        merkle_loop,
     )
     try:
         yield
@@ -640,6 +741,7 @@ app.include_router(github_router.router)
 app.include_router(connectors_router.router)
 app.include_router(clone_router.router)
 app.include_router(cohort_router.router)
+app.include_router(receipts_router.router)
 from web_extras.routers import entitlements as entitlements_router  # noqa: E402
 from web_extras.routers import roles as roles_router  # noqa: E402
 

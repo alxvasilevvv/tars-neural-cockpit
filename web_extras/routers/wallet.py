@@ -361,6 +361,18 @@ async def sign_solana_transfer(
                 signed=signed,
             ),
         )
+        # Wave 95 — unified receipt ledger.
+        try:
+            from backend.core.receipts import record as _rcpt_record
+
+            await _rcpt_record(
+                type=f"wallet.{signed.get('kind') or 'tx'}_signed",
+                actor=f"wallet:{wallet_id}",
+                resource=str(signed.get("tx_signature") or signed.get("hash") or signed.get("body_hash") or wallet_id),
+                payload={"trace_id": tid, "wallet_id": wallet_id},
+            )
+        except Exception:
+            pass
         return {"ok": True, "trace_id": tid, "signed": signed}
 
 
@@ -412,6 +424,18 @@ async def sign_ton_transfer(
                 signed=signed,
             ),
         )
+        # Wave 95 — unified receipt ledger.
+        try:
+            from backend.core.receipts import record as _rcpt_record
+
+            await _rcpt_record(
+                type=f"wallet.{signed.get('kind') or 'tx'}_signed",
+                actor=f"wallet:{wallet_id}",
+                resource=str(signed.get("tx_signature") or signed.get("hash") or signed.get("body_hash") or wallet_id),
+                payload={"trace_id": tid, "wallet_id": wallet_id},
+            )
+        except Exception:
+            pass
         return {"ok": True, "trace_id": tid, "signed": signed}
 
 
@@ -451,6 +475,18 @@ async def sign_evm_tx(
                 raw_keys=("raw", "hash"),  # EVM uses "raw"/"hash" not raw_b64/raw_hex
             ),
         )
+        # Wave 95 — unified receipt ledger.
+        try:
+            from backend.core.receipts import record as _rcpt_record
+
+            await _rcpt_record(
+                type=f"wallet.{signed.get('kind') or 'tx'}_signed",
+                actor=f"wallet:{wallet_id}",
+                resource=str(signed.get("tx_signature") or signed.get("hash") or signed.get("body_hash") or wallet_id),
+                payload={"trace_id": tid, "wallet_id": wallet_id},
+            )
+        except Exception:
+            pass
         return {"ok": True, "trace_id": tid, "signed": signed}
 
 

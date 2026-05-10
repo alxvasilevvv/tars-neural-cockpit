@@ -54,6 +54,14 @@ def enrich_signed_event(
     ``signed`` is the dict returned by ``sign_*_transfer`` /
     ``sign_*_tx``. ``raw_keys`` whitelists which fields to copy
     over — defaults cover Solana, EVM, and TON.
+
+    TODO(v9.3): the wallet router callers should ALSO fire a
+    receipt via :func:`backend.core.receipts.record`. As of Wave 95
+    the receipt-ledger is the canonical signed audit trail —
+    ``enrich_signed_event`` keeps emitting raw-tx metadata to the
+    meeet store for backward-compat with O4 audit mode, and will be
+    deprecated in v9.3 once every wallet caller writes through the
+    receipt ledger directly.
     """
 
     out: dict[str, Any] = dict(base)

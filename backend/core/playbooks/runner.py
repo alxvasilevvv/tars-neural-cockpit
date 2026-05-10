@@ -287,6 +287,34 @@ class PlaybookRunner:
                     await _wh_emit("playbook.finished", _completed_payload)
             except Exception:
                 pass
+            # Wave 95 — unified receipt ledger. Emit a tamper-evident
+            # signed receipt for each completed/failed playbook run.
+            try:
+                from backend.core.receipts import record as _rcpt_record
+
+                _rcpt_type = (
+                    "playbook.failed"
+                    if _completed_payload["steps_failed"] > 0
+                    else "playbook.completed"
+                )
+                _rcpt_actor = (
+                    str(ctx.get("actor"))
+                    if isinstance(ctx, dict) and ctx.get("actor")
+                    else "system:playbook_runner"
+                )
+                await _rcpt_record(
+                    type=_rcpt_type,
+                    actor=_rcpt_actor,
+                    resource=playbook.id,
+                    payload={
+                        "trace_id": trace_id,
+                        "steps": _completed_payload["steps"],
+                        "steps_failed": _completed_payload["steps_failed"],
+                        "duration_ms": _completed_payload["duration_ms"],
+                    },
+                )
+            except Exception:
+                pass
             # Wave 94 — cohort hook for completion (mirror of started).
             try:
                 from backend.core.cohort import record_action_if_member as _coh_record
