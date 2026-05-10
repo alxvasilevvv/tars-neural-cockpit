@@ -35,6 +35,7 @@ export function PerfDashboard() {
     title: "Performance — TARS",
     description:
       "Operator dashboard for latency, connector health, webhook deliveries, receipt chain integrity, and background jobs.",
+      ogImage: "https://tars.meeet.world/og-perf.svg",
   });
 
   const [summary, setSummary] = useState<PerfSummaryEnvelope | null>(null);

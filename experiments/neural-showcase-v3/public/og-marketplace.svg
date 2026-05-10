@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="630" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0a0a12"/>
+      <stop offset="1" stop-color="#000000"/>
+    </linearGradient>
+    <linearGradient id="brand" x1="0" y1="0" x2="1200" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#6366F1"/>
+      <stop offset="0.5" stop-color="#8B5CF6"/>
+      <stop offset="1" stop-color="#06B6D4"/>
+    </linearGradient>
+    <radialGradient id="halo" cx="900" cy="320" r="380" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#8B5CF6" stop-opacity="0.32"/>
+      <stop offset="0.6" stop-color="#6366F1" stop-opacity="0.08"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="grid" x="0" y="0" width="48" height="48" patternUnits="userSpaceOnUse">
+      <path d="M 48 0 L 0 0 0 48" fill="none" stroke="#f5f5f0" stroke-opacity="0.04" stroke-width="1"/>
+    </pattern>
+  </defs>
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#grid)"/>
+  <rect width="1200" height="630" fill="url(#halo)"/>
+  <rect x="0" y="0" width="1200" height="2" fill="url(#brand)" opacity="0.85"/>
+  <g stroke="#06B6D4" stroke-width="1.5" stroke-opacity="0.5" fill="none">
+    <path d="M 60 60 L 60 84 M 60 60 L 84 60"/>
+    <path d="M 1140 60 L 1140 84 M 1140 60 L 1116 60"/>
+    <path d="M 60 570 L 60 546 M 60 570 L 84 570"/>
+    <path d="M 1140 570 L 1140 546 M 1140 570 L 1116 570"/>
+  </g>
+  <g transform="translate(80 110)">
+    <circle cx="0" cy="-2" r="3" fill="#06B6D4"/>
+    <text x="14" y="2" font-family="'Fira Code', ui-monospace, monospace" font-size="14" fill="#a09e96" letter-spacing="3px">MARKETPLACE · TARS</text>
+  </g>
+  <g transform="translate(80 230)">
+    <text font-family="'Share Tech Mono', monospace" font-size="92" font-weight="500" fill="#f5f5f0" letter-spacing="-2px">
+      <tspan x="0" y="0">Browse, install,</tspan>
+      <tspan x="0" y="106" fill="url(#brand)">remix.</tspan>
+    </text>
+  </g>
+  <g transform="translate(80 470)">
+    <text font-family="'Fira Code', monospace" font-size="22" fill="#a09e96" letter-spacing="0.2px">
+      <tspan x="0" y="0">Community playbooks · skills · templates.</tspan>
+      <tspan x="0" y="34">One-click install. Locally cached. Yours.</tspan>
+    </text>
+  </g>
+  <!-- Card grid -->
+  <g transform="translate(820 200)">
+    <g fill="#0b0b10" stroke="url(#brand)" stroke-width="2">
+      <rect x="0" y="0" width="120" height="120" rx="6"/>
+      <rect x="140" y="0" width="120" height="120" rx="6"/>
+      <rect x="0" y="140" width="120" height="120" rx="6"/>
+      <rect x="140" y="140" width="120" height="120" rx="6"/>
+    </g>
+    <g font-family="'Fira Code', monospace" font-size="11" letter-spacing="1.5px" text-anchor="middle">
+      <text x="60" y="68" fill="#6366F1">PLAYBOOK</text>
+      <text x="200" y="68" fill="#8B5CF6">SKILL</text>
+      <text x="60" y="208" fill="#A78BFA">REPORT</text>
+      <text x="200" y="208" fill="#06B6D4">BUNDLE</text>
+    </g>
+    <g font-family="'Fira Code', monospace" font-size="9" fill="#5c5a52" letter-spacing="1px" text-anchor="middle">
+      <text x="60" y="86">★ 4.7</text>
+      <text x="200" y="86">★ 4.9</text>
+      <text x="60" y="226">★ 4.6</text>
+      <text x="200" y="226">★ 4.8</text>
+    </g>
+  </g>
+  <g transform="translate(80 612)">
+    <text font-family="'Fira Code', monospace" font-size="13" fill="#5c5a52" letter-spacing="2.4px">TARS · MEEET.WORLD · MARKETPLACE</text>
+  </g>
+</svg>

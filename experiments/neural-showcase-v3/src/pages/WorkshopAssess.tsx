@@ -263,6 +263,7 @@ export function WorkshopAssess() {
     title: "Workshop self-assessment · TARS",
     description:
       "Twelve-question pre-workshop self-assessment. Get a tailored pre-read so you arrive on Day 1 ready to ship.",
+      ogImage: "https://tars.meeet.world/og-workshop.svg",
   });
 
   const [draft, setDraft] = useState<DraftState>(() => loadDraft());

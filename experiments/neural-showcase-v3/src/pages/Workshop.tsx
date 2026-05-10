@@ -27,6 +27,8 @@ import { ArrowLeft, FlaskRound } from "lucide-react";
 import { useDocumentMeta } from "@/lib/meta";
 import { CornerFrame, StatusLozenge } from "@/components/Glyphs";
 import { BrandHairline } from "@/components/BrandHairline";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
+import { HelpButton } from "@/components/HelpButton";
 import {
   WorkshopRail,
   WORKSHOP_PHASES,
@@ -93,6 +95,7 @@ export function Workshop() {
     title: "Workshop · TARS",
     description:
       "Build, test, and deploy a custom TARS agent for your team in four phases.",
+      ogImage: "https://tars.meeet.world/og-workshop.svg",
   });
 
   const [params, setParams] = useSearchParams();
@@ -136,15 +139,22 @@ export function Workshop() {
 
   return (
     <section className="relative z-10 mx-auto max-w-[1200px] px-6 pb-24 pt-32 md:px-12">
-      <div className="relative mb-6">
+      <div className="relative mb-6 flex items-center justify-between gap-3">
         <CornerFrame />
-        <Link
-          to="/"
-          className="inline-flex items-center gap-1.5 font-mono-tech text-[10.5px] uppercase tracking-[2px] text-ink-3 transition-colors hover:text-ink"
-        >
-          <ArrowLeft size={11} strokeWidth={2} aria-hidden />
-          <span>back</span>
-        </Link>
+        <div className="flex flex-col gap-2">
+          <Link
+            to="/"
+            className="inline-flex items-center gap-1.5 font-mono-tech text-[10.5px] uppercase tracking-[2px] text-ink-3 transition-colors hover:text-ink"
+          >
+            <ArrowLeft size={11} strokeWidth={2} aria-hidden />
+            <span>back</span>
+          </Link>
+          <Breadcrumbs items={[{ label: "Home", to: "/" }, { label: "Workshop" }]} />
+        </div>
+        <HelpButton
+          label="What is Workshop?"
+          body="Build a custom TARS agent for your team in four phases: describe the process (intake), pick agents and policy (design), validate on history (test), and ship to autopilot (deploy). Phase progress saves locally — close the tab and resume any time."
+        />
       </div>
 
       <header className="mb-10 grid gap-6 md:grid-cols-[1fr_auto] md:items-end">

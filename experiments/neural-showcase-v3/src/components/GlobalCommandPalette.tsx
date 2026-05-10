@@ -91,6 +91,12 @@ const ITEMS: CmdItem[] = [
   { id: "changelog", kind: "route", title: "Changelog",        hint: "What shipped, top-down",     Icon: FileText,    href: "/changelog",  group: "Pages", keywords: "history release" },
   { id: "buildwith", kind: "route", title: "Built with TARS",  hint: "Embed badge for your repo / site", Icon: Stamp,    href: "/build-with", group: "Pages", keywords: "badge embed widget viral share" },
   { id: "settings",  kind: "route", title: "Settings",          hint: "Updates · keyboard · about",         Icon: Settings2, href: "/settings",   group: "Pages", keywords: "preferences updater shortcuts version about" },
+  // Wave 112 — discoverability sweep. Workshop main hub + enterprise
+  // variant + compliance + schedules now first-class Cmd+K targets.
+  { id: "workshop", kind: "route", title: "Workshop", hint: "Build a custom TARS agent for your team in four phases", Icon: FlaskRound, href: "/workshop", group: "Pages", keywords: "workshop b2b intake design test deploy agent generic team" },
+  { id: "workshop-enterprise", kind: "route", title: "Enterprise workshop", hint: "Algorithmic workshop pitch + agenda for funds and quant teams", Icon: FlaskRound, href: "/workshop/enterprise", group: "Pages", keywords: "workshop enterprise b2b fund hedge quant algotrade pitch agenda cresco" },
+  { id: "compliance", kind: "route", title: "Compliance", hint: "Signed action receipts + verifier + regulator-grade export", Icon: ShieldCheck, href: "/compliance", group: "Pages", keywords: "compliance receipts audit log verify export regulator hash chain solana ledger" },
+  { id: "schedules", kind: "route", title: "Schedules", hint: "Cron-driven playbook triggers, last/next run, run-now", Icon: Activity, href: "/schedules", group: "Pages", keywords: "schedules cron scheduler playbook recurring trigger autopilot run now" },
   // Wave 84 — Workshop ROI calculator entry. Surfaces during the
   // structured onboarding workshop so fund partners can compute live
   // savings via Cmd+K instead of hunting for the URL.

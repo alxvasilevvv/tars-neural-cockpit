@@ -38,6 +38,7 @@ export function Bundles() {
     title: "Bundles — TARS",
     description:
       "One-click vertical templates: VC fund, hedge fund, family office, SaaS, DAO, research lab. Install playbooks + schedules + dashboard + outreach in 30 seconds.",
+      ogImage: "https://tars.meeet.world/og-marketplace.svg",
   });
   const navigate = useNavigate();
   const [params] = useSearchParams();

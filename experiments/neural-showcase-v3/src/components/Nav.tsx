@@ -1,37 +1,40 @@
 import { motion, useScroll, useSpring } from "framer-motion";
 import { Link, useLocation } from "react-router-dom";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { ChevronDown } from "lucide-react";
 import { SoundToggle } from "@/components/SoundToggle";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { LocaleSwitcher } from "@/components/LocaleSwitcher";
 import { WorkspaceSwitcher } from "@/components/workspaces/WorkspaceSwitcher";
 
+// Wave 112 — top-level marketing-only links. The B2B operator pages
+// (dashboard / inbox / files / reports / etc.) live in the B2B
+// dropdown below to keep this row scannable on narrow viewports.
 const links = [
-  { label: "Domains", href: "/#domains" },
+  { label: "Cockpit", href: "/cockpit" },
   { label: "Pricing", href: "/pricing" },
+  { label: "Compare", href: "/compare" },
   { label: "FAQ", href: "/faq" },
-  // Wave 96 - Dashboard surface. Public link sits next to FAQ so an
-  // operator landing on the marketing surface can jump into their
-  // configurable workspace without hunting through Cmd+K.
+];
+
+// Wave 112 — B2B operator surfaces grouped behind a single dropdown.
+// Order is loosely "what you reach for daily → less often". Workspaces
+// + Workshop sit at the end because new orgs visit them once at setup
+// and rarely after that.
+const b2bLinks: { label: string; href: string }[] = [
   { label: "Dashboard", href: "/dashboard" },
-  // Wave 98 - Outreach surface (LP updates + founder DD drafting).
-  { label: "Outreach", href: "/outreach" },
-  // Wave 101 - Unified HIL approval inbox. Badge with pending count
-  // rendered next to the link below.
   { label: "Inbox", href: "/inbox" },
-  // Wave 102 — Files browser (PDFs, decks, contracts, reports).
-  { label: "Files", href: "/files" },
-  // Wave 103 — Reports surface (LP updates, board packs, KPIs).
+  { label: "Outreach", href: "/outreach" },
   { label: "Reports", href: "/reports" },
-  // Wave 106 — Marketplace (community registry + browse + install).
-  { label: "Market", href: "/marketplace" },
-  // Wave 107 — Bundles (one-click vertical templates).
+  { label: "Files", href: "/files" },
+  { label: "Marketplace", href: "/marketplace" },
   { label: "Bundles", href: "/bundles" },
-  // Wave 108 — Admin perf dashboard. Single-tenant cockpit so the
-  // link is always visible; future multi-tenant gating reads a
-  // role flag here.
+  { label: "Compliance", href: "/compliance" },
+  { label: "Schedules", href: "/schedules" },
+  { label: "Workshop", href: "/workshop" },
+  { label: "Onboarding", href: "/onboard/org" },
+  { label: "Workspaces", href: "/workspaces" },
   { label: "Perf", href: "/admin/perf" },
-  { label: "Install", href: "/install" },
 ];
 
 export function Nav() {
@@ -184,6 +187,11 @@ export function Nav() {
               </li>
             );
           })}
+          {/* Wave 112 — B2B dropdown groups every operator surface
+              behind one menu so the public marketing nav stays calm. */}
+          <li className="relative hidden md:inline-flex">
+            <B2BMenu pathname={loc.pathname} hilPending={hilPending} />
+          </li>
           {/* ⌘K hint — visible on landing-side routes only (cockpit owns its own ⌘K). */}
           {!insideCockpit && (
             <li className="hidden md:inline-flex">
@@ -245,5 +253,109 @@ export function Nav() {
         </ul>
       </motion.nav>
     </>
+  );
+}
+
+// Wave 112 — B2B operator-surfaces dropdown.
+// Click toggles, outside-click + Escape close. Active highlighting
+// when the current pathname matches any of the B2B routes.
+function B2BMenu({
+  pathname,
+  hilPending,
+}: {
+  pathname: string;
+  hilPending: number;
+}) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onDown(e: MouseEvent) {
+      if (!wrapRef.current) return;
+      if (!wrapRef.current.contains(e.target as Node)) setOpen(false);
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    document.addEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  // Close menu on route change.
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
+
+  const anyActive = b2bLinks.some((l) => pathname === l.href);
+
+  return (
+    <div ref={wrapRef} className="relative">
+      <button
+        type="button"
+        aria-haspopup="menu"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+        className={`inline-flex items-center gap-1 rounded-md px-3.5 py-2 font-mono-tech text-[11px] uppercase tracking-[2.4px] transition-colors duration-200 ${
+          anyActive ? "text-accent" : "text-ink-2 hover:bg-line hover:text-ink"
+        }`}
+      >
+        <span>B2B</span>
+        {hilPending > 0 && (
+          <span
+            aria-label={`${hilPending} pending HIL approvals`}
+            className="inline-flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 font-mono-tech text-[9px] tracking-normal"
+            style={{ backgroundColor: "var(--brand-indigo, #6366f1)", color: "#fff" }}
+          >
+            {hilPending > 99 ? "99+" : hilPending}
+          </span>
+        )}
+        <ChevronDown
+          size={11}
+          strokeWidth={1.8}
+          aria-hidden
+          className={`transition-transform duration-150 ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+      {open && (
+        <div
+          role="menu"
+          aria-label="B2B operator surfaces"
+          className="absolute right-0 top-full z-50 mt-1 w-[210px] rounded-md border border-line bg-bg-1/95 p-1.5 shadow-2xl backdrop-blur-md"
+        >
+          {b2bLinks.map((l) => {
+            const isActive = pathname === l.href;
+            const showBadge = l.href === "/inbox" && hilPending > 0;
+            return (
+              <Link
+                key={l.href}
+                to={l.href}
+                role="menuitem"
+                className={`flex items-center justify-between gap-2 rounded px-2.5 py-2 font-mono-tech text-[11px] uppercase tracking-[2.2px] transition-colors duration-150 ${
+                  isActive
+                    ? "bg-line text-accent"
+                    : "text-ink-2 hover:bg-line hover:text-ink"
+                }`}
+              >
+                <span>{l.label}</span>
+                {showBadge && (
+                  <span
+                    aria-label={`${hilPending} pending`}
+                    className="inline-flex h-4 min-w-[16px] items-center justify-center rounded-full px-1 font-mono-tech text-[9px] tracking-normal"
+                    style={{ backgroundColor: "var(--brand-indigo, #6366f1)", color: "#fff" }}
+                  >
+                    {hilPending > 99 ? "99+" : hilPending}
+                  </span>
+                )}
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }

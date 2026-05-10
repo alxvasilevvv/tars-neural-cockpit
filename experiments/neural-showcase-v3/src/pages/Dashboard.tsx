@@ -16,6 +16,7 @@ import { motion } from "framer-motion";
 import { Pencil, Plus, RotateCcw, Check } from "lucide-react";
 import { useDocumentMeta } from "@/lib/meta";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
+import { HelpButton } from "@/components/HelpButton";
 import {
   DEFAULT_LAYOUTS,
   ROLE_LABEL,
@@ -65,6 +66,7 @@ export function Dashboard() {
   useDocumentMeta({
     title: "Dashboard - TARS",
     description: "Configurable workspace - calendar, mentions, PRs, receipts, backtests, cohorts.",
+      ogImage: "https://tars.meeet.world/og-dashboard.svg",
   });
 
   const dash = useDashboard();
@@ -78,7 +80,13 @@ export function Dashboard() {
 
   return (
     <section className="relative z-10 mx-auto max-w-[1320px] px-6 pb-24 pt-32 md:px-12">
-      <Breadcrumbs items={[{ label: "Home", to: "/" }, { label: "Dashboard" }]} className="mb-6" />
+      <div className="mb-6 flex items-start justify-between gap-3">
+        <Breadcrumbs items={[{ label: "Home", to: "/" }, { label: "Dashboard" }]} />
+        <HelpButton
+          label="What is the Dashboard?"
+          body="Your personal day-at-a-glance surface. Add or remove widgets (Cmd+K → Dashboard: add widget) to surface calendar events, mentions, PRs, receipts, backtest summaries, cohort progress, and HIL approvals. Layout saves to localStorage."
+        />
+      </div>
 
       <header className="mb-10 grid gap-4 md:grid-cols-[1fr_auto] md:items-end">
         <div>

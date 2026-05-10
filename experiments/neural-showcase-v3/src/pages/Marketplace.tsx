@@ -20,6 +20,7 @@ import { motion } from "framer-motion";
 import { RefreshCw, Search, Sparkles, Library } from "lucide-react";
 import { useDocumentMeta } from "@/lib/meta";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
+import { HelpButton } from "@/components/HelpButton";
 import { ListingCard } from "@/components/marketplace/ListingCard";
 import { ListingPreviewModal } from "@/components/marketplace/ListingPreviewModal";
 import { InstallConfirmDialog } from "@/components/marketplace/InstallConfirmDialog";
@@ -54,6 +55,7 @@ export function Marketplace() {
     title: "Marketplace — TARS",
     description:
       "Community-published playbooks, skills, and report templates. Browse, preview and install in one click.",
+      ogImage: "https://tars.meeet.world/og-marketplace.svg",
   });
 
   const [tab, setTab] = useState<Tab>("browse");
@@ -181,12 +183,18 @@ export function Marketplace() {
 
   return (
     <div className="mx-auto max-w-[1280px] px-6 py-10 md:px-10 md:py-14">
-      <Breadcrumbs
-        items={[
-          { label: t("marketplace.crumb.home"), href: "/" },
-          { label: t("marketplace.crumb") },
-        ]}
-      />
+      <div className="flex items-start justify-between gap-3">
+        <Breadcrumbs
+          items={[
+            { label: t("marketplace.crumb.home"), to: "/" },
+            { label: t("marketplace.crumb") },
+          ]}
+        />
+        <HelpButton
+          label="What is the Marketplace?"
+          body="Discover and install community-published playbooks, skills, report templates, and bundles. Source-of-truth is a JSON manifest fetched from a public registry, with a bundled seed for offline. Ratings are local-only in v0; payouts ship in v9.3."
+        />
+      </div>
 
       <header className="mt-4 flex flex-col items-start justify-between gap-4 md:flex-row md:items-end">
         <div>

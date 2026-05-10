@@ -49,6 +49,7 @@ import {
 } from "lucide-react";
 import { useDocumentMeta } from "@/lib/meta";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
+import { HelpButton } from "@/components/HelpButton";
 import {
   type InviteDraft,
   type InviteRole,
@@ -177,6 +178,7 @@ export function OrgOnboarding() {
     title: "Set up your org · TARS",
     description:
       "5-step wizard for new funds and companies onboarding to TARS — org info, connectors, team, playbooks, first run.",
+      ogImage: "https://tars.meeet.world/og-onboard.svg",
   });
   const navigate = useNavigate();
 
@@ -370,12 +372,18 @@ export function OrgOnboarding() {
 
   return (
     <div className="mx-auto max-w-3xl px-6 pb-32 pt-6 sm:px-8">
-      <Breadcrumbs
-        items={[
-          { label: "Home", to: "/" },
-          { label: COPY.crumb },
-        ]}
-      />
+      <div className="flex items-start justify-between gap-3">
+        <Breadcrumbs
+          items={[
+            { label: "Home", to: "/" },
+            { label: COPY.crumb },
+          ]}
+        />
+        <HelpButton
+          label="What is Org Onboarding?"
+          body="A 5-step wizard for new funds and companies: organization details, team invites, playbook templates, connector linkage (Gmail / Slack / Calendar / GitHub), and a smoke run. Drafts save to localStorage so you can step away mid-flow."
+        />
+      </div>
 
       <header className="mb-8 mt-4">
         <p className="font-mono-tech text-[10px] uppercase tracking-[3px] text-ink-3">

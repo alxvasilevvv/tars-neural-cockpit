@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { useDocumentMeta } from "@/lib/meta";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
+import { HelpButton } from "@/components/HelpButton";
 import { TemplateCard } from "@/components/reports/TemplateCard";
 import { InputFormBuilder } from "@/components/reports/InputFormBuilder";
 import { PreviewPane } from "@/components/reports/PreviewPane";
@@ -52,6 +53,7 @@ export function Reports() {
     title: "Reports — TARS",
     description:
       "Generate LP updates, board packs, KPI dashboards, audit packs and incident postmortems as PDF / PPTX / XLSX / DOCX files.",
+      ogImage: "https://tars.meeet.world/og-reports.svg",
   });
 
   const [tab, setTab] = useState<Tab>("templates");
@@ -207,12 +209,18 @@ export function Reports() {
 
   return (
     <div className="mx-auto max-w-[1200px] px-6 py-10">
-      <Breadcrumbs
-        items={[
-          { label: "Home", href: "/" },
-          { label: "Reports" },
-        ]}
-      />
+      <div className="flex items-start justify-between gap-3">
+        <Breadcrumbs
+          items={[
+            { label: "Home", to: "/" },
+            { label: "Reports" },
+          ]}
+        />
+        <HelpButton
+          label="What are Reports?"
+          body="Render structured outputs into PDF, PPTX, XLSX, or DOCX from a template + data inputs. Built-in templates ship for LP updates, board packs, KPI dashboards, audit packs and incident postmortems. Bring your own template via /reports → Templates."
+        />
+      </div>
       <header className="mb-6 flex items-end justify-between gap-4">
         <div>
           <div className="font-mono-tech text-[10.5px] uppercase tracking-[2px] text-ink-3">

@@ -3,6 +3,8 @@ import { Link, useParams } from "react-router-dom";
 import { motion } from "framer-motion";
 import { Users, Plus, Archive } from "lucide-react";
 import { useDocumentMeta } from "@/lib/meta";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
+import { HelpButton } from "@/components/HelpButton";
 import { CornerFrame } from "@/components/Glyphs";
 import { BrandHairline } from "@/components/BrandHairline";
 import { WorkspaceCard, type WorkspaceCardData } from "@/components/workspaces/WorkspaceCard";
@@ -39,6 +41,7 @@ export function Workspaces() {
   useDocumentMeta({
     title: "Workspaces · TARS",
     description: "Manage workspaces, members, invites, and roles.",
+      ogImage: "https://tars.meeet.world/og-workspaces.svg",
   });
 
   const [workspaces, setWorkspaces] = useState<WorkspaceCardData[]>([]);
@@ -176,13 +179,22 @@ export function Workspaces() {
   return (
     <section className="relative z-10 mx-auto max-w-[1180px] px-6 pb-24 pt-32 md:px-12">
       <CornerFrame>
-        <Link
-          to="/"
-          className="inline-flex items-center gap-1.5 font-mono-tech text-[10.5px] uppercase tracking-[2px] text-ink-3 transition-colors hover:text-ink"
-        >
-          <Users size={12} strokeWidth={1.7} />
-          back to home
-        </Link>
+        <div className="flex w-full items-start justify-between gap-3">
+          <div className="flex flex-col gap-2">
+            <Link
+              to="/"
+              className="inline-flex items-center gap-1.5 font-mono-tech text-[10.5px] uppercase tracking-[2px] text-ink-3 transition-colors hover:text-ink"
+            >
+              <Users size={12} strokeWidth={1.7} />
+              back to home
+            </Link>
+            <Breadcrumbs items={[{ label: "Home", to: "/" }, { label: "Workspaces" }]} />
+          </div>
+          <HelpButton
+            label="What are Workspaces?"
+            body="Multi-tenant containers for teams or funds sharing one TARS install. Each workspace has members, invites, and roles (owner / admin / designer / analyst / viewer). Switch the active workspace from the nav to scope every page (dashboard, files, receipts) to that tenant."
+          />
+        </div>
       </CornerFrame>
 
       <header className="mt-8 flex items-end justify-between">
@@ -343,6 +355,7 @@ export function WorkspaceInviteAccept() {
   useDocumentMeta({
     title: "Accept workspace invite · TARS",
     description: "Join a TARS workspace via an invite link.",
+      ogImage: "https://tars.meeet.world/og-workspaces.svg",
   });
   const { token } = useParams<{ token: string }>();
   const [state, setState] = useState<

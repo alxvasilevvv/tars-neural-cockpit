@@ -13,6 +13,7 @@
 [![eval-suite](https://github.com/alxvasilevvv/tars-neural-cockpit/actions/workflows/eval-suite.yml/badge.svg?branch=main)](.github/workflows/eval-suite.yml)
 [![contract](https://img.shields.io/badge/meeet--contract-1.0.0-blue)](docs/contracts/)
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
+[![b2b-suite](https://img.shields.io/badge/B2B%20Production%20Suite-21%20pages-6366F1)](docs/audit/DISCOVERABILITY_2026-05-10.md)
 
 **Read in this order:** [`docs/WHAT_WORKS.md`](docs/WHAT_WORKS.md) (what
 ships) → [`docs/RELEASE_NOTES_v9.1.0.md`](docs/RELEASE_NOTES_v9.1.0.md)

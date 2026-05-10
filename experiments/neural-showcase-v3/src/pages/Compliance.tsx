@@ -34,6 +34,8 @@ import {
   ShieldCheck,
 } from "lucide-react";
 import { useDocumentMeta } from "@/lib/meta";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
+import { HelpButton } from "@/components/HelpButton";
 import { CornerFrame, StatusLozenge } from "@/components/Glyphs";
 import { BrandHairline } from "@/components/BrandHairline";
 import { API_BASE } from "@/lib/api";
@@ -117,6 +119,7 @@ export function Compliance() {
     title: "Compliance · TARS",
     description:
       "Signed action receipts, $-impact filters, and one-click signature verifier.",
+      ogImage: "https://tars.meeet.world/og-compliance.svg",
   });
 
   const [params, setParams] = useSearchParams();
@@ -305,15 +308,22 @@ export function Compliance() {
 
   return (
     <section className="relative z-10 mx-auto max-w-[1200px] px-6 pb-24 pt-32 md:px-12">
-      <div className="relative mb-6">
+      <div className="relative mb-6 flex items-center justify-between gap-3">
         <CornerFrame />
-        <Link
-          to="/"
-          className="inline-flex items-center gap-1.5 font-mono-tech text-[10.5px] uppercase tracking-[2px] text-ink-3 transition-colors hover:text-ink"
-        >
-          <ArrowLeft size={11} strokeWidth={2} aria-hidden />
-          <span>back</span>
-        </Link>
+        <div className="flex flex-col gap-2">
+          <Link
+            to="/"
+            className="inline-flex items-center gap-1.5 font-mono-tech text-[10.5px] uppercase tracking-[2px] text-ink-3 transition-colors hover:text-ink"
+          >
+            <ArrowLeft size={11} strokeWidth={2} aria-hidden />
+            <span>back</span>
+          </Link>
+          <Breadcrumbs items={[{ label: "Home", to: "/" }, { label: "Compliance" }]} />
+        </div>
+        <HelpButton
+          label="What is Compliance?"
+          body="A live audit feed of every action TARS or its agents take. Each row is a hash-chained, signed receipt that you can verify offline. Filter by actor, action, or dollar impact, then export the bundle as PDF + JSONL for regulators in one click."
+        />
       </div>
 
       <header className="mb-10 grid gap-6 md:grid-cols-[1fr_auto] md:items-end">

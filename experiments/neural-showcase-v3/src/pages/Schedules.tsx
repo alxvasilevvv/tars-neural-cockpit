@@ -77,6 +77,7 @@ export function Schedules() {
     title: "Schedules · TARS",
     description:
       "Every cron-driven playbook trigger in this cockpit, with last/next run timing and one-click run-now.",
+      ogImage: "https://tars.meeet.world/og-perf.svg",
   });
 
   const [schedules, setSchedules] = useState<Schedule[]>([]);

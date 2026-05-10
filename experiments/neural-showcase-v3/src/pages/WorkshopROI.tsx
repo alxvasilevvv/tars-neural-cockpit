@@ -216,6 +216,7 @@ export function WorkshopROI() {
     title: "Workshop ROI calculator · TARS",
     description:
       "Compute time + dollars saved by automating with TARS. Live calculator built for fund partners during the algorithmic workshop.",
+      ogImage: "https://tars.meeet.world/og-workshop.svg",
   });
 
   const [input, setInput] = useState<RoiInput>(() => loadInitial());

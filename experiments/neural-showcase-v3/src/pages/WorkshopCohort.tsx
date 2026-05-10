@@ -83,6 +83,7 @@ export function WorkshopCohort() {
     title: "Workshop cohort · TARS",
     description:
       "Live facilitator dashboard: see what every attendee is doing right now during a TARS workshop.",
+      ogImage: "https://tars.meeet.world/og-workshop.svg",
   });
 
   // Wave 94 — read selected cohort from `?cohort=...` URL param so

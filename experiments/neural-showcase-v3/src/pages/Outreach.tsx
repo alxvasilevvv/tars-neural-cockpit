@@ -77,6 +77,7 @@ export function Outreach() {
   useDocumentMeta({
     title: "Outreach - TARS",
     description: "Draft + send LP updates, founder DD, intros, follow-ups in your voice. Gmail send is HIL-gated.",
+      ogImage: "https://tars.meeet.world/og-inbox.svg",
   });
 
   const [drafts, setDrafts] = useState<OutreachDraft[]>([]);

@@ -74,6 +74,7 @@ export function Files() {
     title: "Files — TARS",
     description:
       "Browse, tag and manage every PDF, deck, report and attachment ingested by TARS.",
+      ogImage: "https://tars.meeet.world/og-files.svg",
   });
 
   const params = new URLSearchParams(

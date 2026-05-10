@@ -28,6 +28,7 @@ import { CheckCheck, Inbox as InboxIcon, RefreshCw } from "lucide-react";
 import { useDocumentMeta } from "@/lib/meta";
 import { useT } from "@/lib/i18n";
 import { Breadcrumbs } from "@/components/Breadcrumbs";
+import { HelpButton } from "@/components/HelpButton";
 import { InboxRow, type InboxItem, type InboxCategory } from "@/components/inbox/InboxRow";
 import { ApprovalDetail } from "@/components/inbox/ApprovalDetail";
 import { BulkApproveDialog } from "@/components/inbox/BulkApproveDialog";
@@ -70,6 +71,7 @@ export function Inbox() {
   useDocumentMeta({
     title: "Inbox · TARS",
     description: "Approve, deny, or bulk-resolve every pending HIL confirmation in one place.",
+      ogImage: "https://tars.meeet.world/og-inbox.svg",
   });
 
   const [items, setItems] = useState<InboxItem[]>([]);
@@ -175,7 +177,13 @@ export function Inbox() {
 
   return (
     <section className="relative z-10 mx-auto max-w-[1280px] px-6 pb-24 pt-28 md:px-12">
-      <Breadcrumbs items={[{ label: t("inbox.crumb.home" as never) ?? "Home", to: "/" }, { label: t("inbox.crumb" as never) ?? "Inbox" }]} className="mb-6" />
+      <div className="mb-6 flex items-start justify-between gap-3">
+        <Breadcrumbs items={[{ label: t("inbox.crumb.home" as never) ?? "Home", to: "/" }, { label: t("inbox.crumb" as never) ?? "Inbox" }]} />
+        <HelpButton
+          label="What is the Inbox?"
+          body="A unified queue of every staged confirmation TARS is waiting on: wallet signatures, outreach sends, code edits, paper-to-live promotions, deletions. Approve or deny one-by-one, or use Cmd+K → Bulk approve all pending."
+        />
+      </div>
 
       {/* Header */}
       <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
