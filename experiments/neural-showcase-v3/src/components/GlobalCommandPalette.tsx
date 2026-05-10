@@ -18,6 +18,7 @@ import {
   Settings2,
   Search,
   Hash,
+  FlaskRound,
   CornerDownLeft,
   ArrowDown,
   ArrowUp,
@@ -84,6 +85,10 @@ const ITEMS: CmdItem[] = [
   { id: "changelog", kind: "route", title: "Changelog",        hint: "What shipped, top-down",     Icon: FileText,    href: "/changelog",  group: "Pages", keywords: "history release" },
   { id: "buildwith", kind: "route", title: "Built with TARS",  hint: "Embed badge for your repo / site", Icon: Stamp,    href: "/build-with", group: "Pages", keywords: "badge embed widget viral share" },
   { id: "settings",  kind: "route", title: "Settings",          hint: "Updates · keyboard · about",         Icon: Settings2, href: "/settings",   group: "Pages", keywords: "preferences updater shortcuts version about" },
+  // Wave 80-D — Workshop + Compliance entries.
+  { id: "workshop",  kind: "route", title: "Workshop mode",     hint: "Build a TARS agent for your team", Icon: FlaskRound, href: "/workshop",   group: "Pages", keywords: "b2b onboard playbook backtest deploy autopilot" },
+  { id: "compliance",kind: "route", title: "Compliance log",    hint: "Signed receipts · filters · CSV export", Icon: ShieldCheck, href: "/compliance", group: "Pages", keywords: "audit receipts signed verify regulator" },
+  { id: "verify-rcpt", kind: "route", title: "Verify receipt", hint: "Paste JSON · check signature",     Icon: ShieldCheck, href: "/compliance#verify", group: "Actions", keywords: "ed25519 signature audit" },
 
   // Sections (anchor on /)
   { id: "domains",   kind: "anchor", title: "Domain packs",    hint: "Traders / Entrepreneur / Researcher / Science", Icon: Hash, href: "/#domains", group: "Sections" },
