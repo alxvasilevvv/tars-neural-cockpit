@@ -75,7 +75,12 @@ class AlgotradePack(DomainPack):
             "can drive a 30-person workshop with a single `cat` "
             "audit trail. Pure stdlib — leaderboard always recomputed "
             "from disk so the ranking matches the audit log "
-            "byte-for-byte after a worker restart."
+            "byte-for-byte after a worker restart. **W4-PR3** adds "
+            "the one-shot workshop debrief: a single Markdown bundle "
+            "(header + leaderboard + per-attendee sections including "
+            "every session's W3-PR2 report and W3-PR3 council "
+            "consensus) that facilitators email out at the end of the "
+            "workshop."
         ),
         color="#f97316",
         capabilities=(
@@ -99,6 +104,7 @@ class AlgotradePack(DomainPack):
             "binance_spot_testnet",
             "workshop_lab_roster",
             "workshop_leaderboard",
+            "workshop_debrief_markdown",
         ),
         audience="quant traders, analysts, fund operators, workshop attendees",
     )

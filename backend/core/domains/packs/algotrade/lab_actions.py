@@ -28,6 +28,7 @@ from backend.core.algotrade.lab import (
     WorkshopStatus,
     compute_leaderboard,
     get_lab_store,
+    render_workshop_debrief,
 )
 
 
@@ -188,6 +189,25 @@ async def lab_leaderboard_action(args: Mapping[str, Any]) -> dict[str, Any]:
     except KeyError:
         return _err("workshop_not_found", workshop_id=workshop_id)
     return _ok(leaderboard=leaderboard.to_dict())
+
+
+async def lab_workshop_debrief_action(
+    args: Mapping[str, Any],
+) -> dict[str, Any]:
+    workshop_id = str(args.get("workshop_id") or "")
+    if not workshop_id:
+        return _err("missing_workshop_id")
+    include_session_reports = bool(
+        args.get("include_session_reports", True)
+    )
+    try:
+        debrief = render_workshop_debrief(
+            workshop_id,
+            include_session_reports=include_session_reports,
+        )
+    except KeyError:
+        return _err("workshop_not_found", workshop_id=workshop_id)
+    return _ok(debrief=debrief.to_dict())
 
 
 async def lab_attendee_snapshot_action(
@@ -357,6 +377,31 @@ LAB_ACTIONS: tuple[ActionSpec, ...] = (
             "type": "object",
             "properties": {
                 "workshop_id": {"type": "string"},
+            },
+            "required": ["workshop_id"],
+        },
+    ),
+    ActionSpec(
+        id="lab_workshop_debrief",
+        name="Workshop debrief (markdown bundle)",
+        description=(
+            "One-shot Markdown bundle for the entire workshop: "
+            "header + leaderboard table + per-attendee sections "
+            "(rank, council consensus, every session's W3-PR2 "
+            "Markdown report). Pure stdlib, deterministic — same "
+            "audit logs always produce the same bundle. Set "
+            "`include_session_reports=false` to render the "
+            "headline-only debrief (leaderboard + attendee "
+            "summaries) the cockpit's lab summary panel uses. "
+            "The full bundle is what facilitators email out at "
+            "the end of the workshop."
+        ),
+        handler=lab_workshop_debrief_action,
+        schema={
+            "type": "object",
+            "properties": {
+                "workshop_id": {"type": "string"},
+                "include_session_reports": {"type": "boolean"},
             },
             "required": ["workshop_id"],
         },

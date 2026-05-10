@@ -4,6 +4,78 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-10 — Cursor · Phase W4-PR3: workshop debrief markdown bundle
+
+**Summary**
+
+One-shot Markdown bundle for the entire workshop. Stitches the
+W3-PR1 analytics, the W3-PR2 session report, the W3-PR3 council
+voices, and the W4-PR2 leaderboard into a single document the
+facilitator can email out at the end of the session — no more
+chasing 15 individual report URLs.
+
+What ships:
+
+1. **`backend/core/algotrade/lab/debrief.py`** —
+   - `WorkshopDebrief` (workshop + leaderboard + attendees +
+     `markdown` + `rendered_at`).
+   - `AttendeeDebrief` (attendee + leaderboard rank +
+     per-session markdown reports + worst council severity
+     across all sessions).
+   - `render_workshop_debrief(workshop_id,
+     include_session_reports=True)` — composes the bundle.
+     For every session the attendee owns, replays the audit
+     log via the W3-PR1 analytics, renders the W3-PR2
+     markdown report, and runs the W3-PR3 council. Handles
+     rehydrated sessions (live-mode after worker restart)
+     gracefully by falling back to a default RiskPolicy for
+     the council (the audit-derived metrics are still exact).
+   - Markdown layout: `# Workshop debrief — {name}` →
+     `## Workshop` (header) → `## Leaderboard` (table) →
+     `## Per-attendee debrief` → `### {Name}` (rank, sandbox,
+     council consensus) → embedded session reports with
+     headings pushed three levels deeper to keep the document
+     outline valid (`# > ## > ### > #### > ##### > ######`).
+2. **`lab_workshop_debrief` action** — new HTTP-exposed verb
+   on the `algotrade` pack. Schema accepts `workshop_id`
+   (required) + `include_session_reports` (default `true`;
+   set `false` for the cockpit's headline-only summary view).
+   Returns the full `WorkshopDebrief.to_dict()`.
+3. **Manifest + pack** — bumped to `0.8.0` / phase `W4-PR3`,
+   added `workshop_debrief_markdown` capability, registered
+   the new action.
+
+**Tests** — `tests/test_algotrade_workshop_debrief.py` (10
+cases). Action surface (registration, missing-arg / unknown-
+workshop error envelopes), renderer (KeyError on unknown
+workshop, empty-workshop skeleton with leaderboard placeholder
+text + footer, full bundle with two attendees ranked by net
+edge, headings appear in rank order, embedded session reports
+nested correctly, `include_session_reports=False` renders
+headlines only, council consensus is one of the valid severity
+strings + surfaces in the markdown body, `to_dict()` round-trip
+preserves every field).
+
+Total algotrade regression: **182 passing** (W1 + W2-PR1 +
+W3-PR1 + W3-PR2 + W3-PR3 + W4-PR1 + W2-PR2 + W4-PR2 + W4-PR3).
+
+**Files**
+
+- `backend/core/algotrade/lab/debrief.py` (new, ~310 lines)
+- `backend/core/algotrade/lab/__init__.py` (re-exports)
+- `backend/core/domains/packs/algotrade/lab_actions.py`
+  (`lab_workshop_debrief_action` + spec)
+- `backend/core/domains/packs/algotrade/manifest.json` (0.8.0,
+  +1 capability, +1 action)
+- `backend/core/domains/packs/algotrade/pack.py` (description +
+  capabilities)
+- `tests/test_algotrade_workshop_debrief.py` (new, ~250 lines,
+  10 tests)
+- `tests/test_algotrade_lab_actions.py` (action list updated)
+
+**Branch / PR**: `cursor/algotrade-w4-pr3-workshop-debrief`,
+stacked on top of W4-PR2 (#172).
+
 ## 2026-05-10 — Cursor · Phase W4-PR2: workshop lab mode (multi-attendee sandbox + leaderboard) + cockpit handbook
 
 **Summary**

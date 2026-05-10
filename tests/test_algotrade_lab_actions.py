@@ -67,6 +67,7 @@ def test_lab_actions_are_registered() -> None:
         "lab_enroll_attendee",
         "lab_list_attendees",
         "lab_leaderboard",
+        "lab_workshop_debrief",
         "lab_attendee_snapshot",
     ]
     # Mutating actions must be flagged destructive so the gate

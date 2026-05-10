@@ -17,6 +17,11 @@ workshops where the facilitator wants a *deterministic*
 leaderboard at any point.
 """
 
+from .debrief import (
+    AttendeeDebrief,
+    WorkshopDebrief,
+    render_workshop_debrief,
+)
 from .lab import (
     Attendee,
     LabStore,
@@ -31,12 +36,15 @@ from .lab import (
 
 __all__ = [
     "Attendee",
+    "AttendeeDebrief",
     "LabStore",
     "Leaderboard",
     "LeaderboardEntry",
     "Workshop",
+    "WorkshopDebrief",
     "WorkshopStatus",
     "compute_leaderboard",
     "get_lab_store",
+    "render_workshop_debrief",
     "reset_lab_store",
 ]

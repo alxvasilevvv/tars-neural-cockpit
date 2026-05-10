@@ -1,8 +1,8 @@
 {
   "slug": "algotrade",
   "name": "Algotrade",
-  "version": "0.7.0",
-  "phase": "W4-PR2",
+  "version": "0.8.0",
+  "phase": "W4-PR3",
   "stage": "alpha",
   "homepage": "https://meeet.world/tars/packs/algotrade",
   "docs": "docs/ALGOTRADE.md",
@@ -27,7 +27,8 @@
     "binance_spot_live",
     "binance_spot_testnet",
     "workshop_lab_roster",
-    "workshop_leaderboard"
+    "workshop_leaderboard",
+    "workshop_debrief_markdown"
   ],
   "auth_keys": [],
   "actions": [
@@ -61,6 +62,7 @@
     "lab_enroll_attendee",
     "lab_list_attendees",
     "lab_leaderboard",
+    "lab_workshop_debrief",
     "lab_attendee_snapshot"
   ],
   "awareness": ["strategy_registry", "live_sessions"],
