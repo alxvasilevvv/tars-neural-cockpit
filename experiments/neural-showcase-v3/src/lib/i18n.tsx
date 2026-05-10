@@ -1096,6 +1096,18 @@ const STRINGS_EN = {
   "dashboard.empty.playbooks":    "No recent runs.",
   "dashboard.notconnected":       "{name} not connected.",
   "dashboard.updated":            "updated {ago}",
+  // Wave 103 — Reports surface at /reports. Auto-generated PDF/PPTX/XLSX
+  // from templates + inputs. Six built-ins ship.
+  "reports.eyebrow":              "Wave 103",
+  "reports.crumb":                "Reports",
+  "reports.title":                "Reports",
+  "reports.tab.templates":        "Templates",
+  "reports.tab.runs":             "Runs",
+  "reports.tab.scheduled":        "Scheduled",
+  "reports.cta.generate":         "Generate",
+  "reports.cta.preview":          "Preview",
+  "reports.empty.runs":           "No reports generated yet.",
+  "reports.empty.scheduled":      "No scheduled reports.",
   // Wave 101 — unified HIL approval inbox at /inbox.
   "inbox.eyebrow":                "Wave 101",
   "inbox.crumb":                  "Inbox",

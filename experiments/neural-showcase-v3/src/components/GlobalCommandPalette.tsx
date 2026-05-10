@@ -125,6 +125,10 @@ const ITEMS: CmdItem[] = [
   { id: "files",  kind: "route", title: "Files browser", hint: "All PDFs, decks, contracts in one place", Icon: FolderOpen, href: "/files", group: "Pages", keywords: "files browser document attachments pdf deck contract report upload tag category bulk" },
   { id: "files-upload", kind: "action", title: "Upload file", hint: "Open /files with the upload picker focused", Icon: Upload, group: "Actions", keywords: "upload file document attach drag drop import multipart bulk", run: () => { try { window.location.assign("/files?upload=1"); } catch { /* noop */ } } },
   { id: "files-search", kind: "action", title: "Search files", hint: "Full-text search over every ingested attachment", Icon: FolderOpen, group: "Actions", keywords: "search files documents attachments fts5 query find", run: () => { try { window.location.assign("/files?focus=search"); } catch { /* noop */ } } },
+  // Wave 103 - Reports surface (LP updates, board packs, KPIs, audit packs).
+  { id: "reports", kind: "route", title: "Reports", hint: "Generate PDF / PPTX / XLSX from templates + your data", Icon: Compass, href: "/reports", group: "Pages", keywords: "reports report pdf pptx xlsx docx lp update board pack kpi dashboard portfolio audit deal screen incident postmortem template render generate export" },
+  { id: "reports-new", kind: "action", title: "Generate report", hint: "Open /reports with the templates tab focused", Icon: Sparkles, group: "Actions", keywords: "report generate render export pdf pptx xlsx docx new", run: () => { try { window.location.assign("/reports"); } catch { /* noop */ } } },
+  { id: "reports-runs", kind: "action", title: "View report runs", hint: "Open /reports runs tab", Icon: Compass, group: "Actions", keywords: "reports runs history download recent generated", run: () => { try { window.location.assign("/reports?tab=runs"); } catch { /* noop */ } } },
 
   // Sections (anchor on /)
   { id: "domains",   kind: "anchor", title: "Domain packs",    hint: "Traders / Entrepreneur / Researcher / Science", Icon: Hash, href: "/#domains", group: "Sections" },

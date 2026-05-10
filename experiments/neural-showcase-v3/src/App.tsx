@@ -152,6 +152,10 @@ const Inbox = lazy(() =>
 const Files = lazy(() =>
   import("@/pages/Files").then((m) => ({ default: m.Files })),
 );
+// Wave 103 — /reports report export module (PDF/PPTX/XLSX/DOCX).
+const Reports = lazy(() =>
+  import("@/pages/Reports").then((m) => ({ default: m.Reports })),
+);
 
 // Default skeleton for routes that don't pin a specific layout shape.
 const Loading = () => <RouteSkeleton variant="default" />;
@@ -545,6 +549,15 @@ function AppShell() {
               element={
                 <Suspense fallback={<RouteSkeleton variant="wide" />}>
                   <Files />
+                </Suspense>
+              }
+            />
+            {/* Wave 103 — /reports report export module (PDF/PPTX/XLSX/DOCX). */}
+            <Route
+              path="/reports"
+              element={
+                <Suspense fallback={<RouteSkeleton variant="wide" />}>
+                  <Reports />
                 </Suspense>
               }
             />

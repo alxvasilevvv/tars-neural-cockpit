@@ -180,4 +180,18 @@
     <changefreq>hourly</changefreq>
     <priority>0.85</priority>
   </url>
+
+  <!--
+    Wave 103 — Reporting export surface. Generates LP updates, board
+    packs, KPI dashboards, audit packs and incident postmortems as
+    PDF / PPTX / XLSX / DOCX from a template + structured inputs.
+    Built-in templates ship with the install; custom templates +
+    cron scheduling are first-class.
+  -->
+  <url>
+    <loc>https://tars.meeet.world/reports</loc>
+    <lastmod>2026-05-10</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
 </urlset>

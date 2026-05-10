@@ -552,6 +552,62 @@ export function WorkshopMaterials() {
           </div>
         </motion.section>
 
+        {/* ── R. REPORTING TEMPLATES ───────────────────────────── */}
+        <motion.section
+          initial={{ opacity: 1, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.55, delay: 0.16, ease: [0.22, 1, 0.36, 1] }}
+          className="mb-10"
+          aria-labelledby="materials-reports-heading"
+        >
+          <SectionHeading
+            id="materials-reports-heading"
+            eyebrow="0R · Reporting templates"
+            title="Reporting export templates"
+            blurb="Six built-in templates ship with every install: LP quarterly update, board meeting pack, monthly KPI dashboard, portfolio audit pack, deal screening memo, incident postmortem. Open /reports to generate any of them as PDF / PPTX / XLSX / DOCX."
+          />
+          <div className="overflow-hidden rounded-md border border-line bg-bg-1/40 backdrop-blur-sm">
+            <div className="flex items-center justify-between border-b border-line px-4 py-3">
+              <div className="flex items-center gap-2">
+                <FileText
+                  size={14}
+                  style={{ color: "var(--brand-cyan)" }}
+                  aria-hidden
+                />
+                <span className="text-[14px] font-medium text-ink">
+                  /reports — six built-in templates
+                </span>
+              </div>
+              <a
+                href="/reports"
+                className="inline-flex items-center gap-2 rounded-sm border border-line px-3 py-1.5 font-mono-tech text-[10.5px] uppercase tracking-[2px] text-ink-2 transition-colors hover:border-[var(--brand-cyan)] hover:text-ink"
+              >
+                Open Reports
+              </a>
+            </div>
+            <ul className="grid grid-cols-1 gap-2 p-4 sm:grid-cols-2">
+              <li className="rounded-sm border border-line bg-bg-0/40 p-3 text-[12.5px] text-ink-2">
+                LP quarterly update <span className="ml-1 font-mono-tech text-[10px] uppercase tracking-[1.5px] text-ink-3">PPTX</span>
+              </li>
+              <li className="rounded-sm border border-line bg-bg-0/40 p-3 text-[12.5px] text-ink-2">
+                Board meeting pack <span className="ml-1 font-mono-tech text-[10px] uppercase tracking-[1.5px] text-ink-3">PDF</span>
+              </li>
+              <li className="rounded-sm border border-line bg-bg-0/40 p-3 text-[12.5px] text-ink-2">
+                Monthly KPI dashboard <span className="ml-1 font-mono-tech text-[10px] uppercase tracking-[1.5px] text-ink-3">XLSX</span>
+              </li>
+              <li className="rounded-sm border border-line bg-bg-0/40 p-3 text-[12.5px] text-ink-2">
+                Portfolio audit pack <span className="ml-1 font-mono-tech text-[10px] uppercase tracking-[1.5px] text-ink-3">PDF</span>
+              </li>
+              <li className="rounded-sm border border-line bg-bg-0/40 p-3 text-[12.5px] text-ink-2">
+                Deal screening memo <span className="ml-1 font-mono-tech text-[10px] uppercase tracking-[1.5px] text-ink-3">DOCX</span>
+              </li>
+              <li className="rounded-sm border border-line bg-bg-0/40 p-3 text-[12.5px] text-ink-2">
+                Incident postmortem <span className="ml-1 font-mono-tech text-[10px] uppercase tracking-[1.5px] text-ink-3">DOCX</span>
+              </li>
+            </ul>
+          </div>
+        </motion.section>
+
         {/* ── 6. OFFICE HOURS ─────────────────────────────────── */}
         <motion.section
           initial={{ opacity: 1, y: 8 }}

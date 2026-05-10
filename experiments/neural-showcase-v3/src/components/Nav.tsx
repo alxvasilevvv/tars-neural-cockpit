@@ -20,6 +20,8 @@ const links = [
   { label: "Inbox", href: "/inbox" },
   // Wave 102 — Files browser (PDFs, decks, contracts, reports).
   { label: "Files", href: "/files" },
+  // Wave 103 — Reports surface (LP updates, board packs, KPIs).
+  { label: "Reports", href: "/reports" },
   { label: "Install", href: "/install" },
 ];
 
