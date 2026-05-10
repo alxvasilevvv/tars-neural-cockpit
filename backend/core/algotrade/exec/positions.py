@@ -156,6 +156,11 @@ class PositionStore:
                         price=float(f["price"]),
                         fee=float(f.get("fee", 0.0)),
                         ts=float(f["ts"]),
+                        reference_price=(
+                            None
+                            if f.get("reference_price") is None
+                            else float(f["reference_price"])
+                        ),
                     )
                     for f in raw.get("fills", [])
                 ],

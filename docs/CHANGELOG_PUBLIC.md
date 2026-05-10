@@ -4,6 +4,109 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-10 — Cursor · Phase W3-PR1: PnL attribution + slippage ledger + session metrics
+
+**Summary**
+
+Plugs the Cresco workshop's "what did my strategy actually
+make?" gap. The W2-PR1 audit log already has every intent /
+verdict / order / fill on disk; W3-PR1 turns that raw stream
+into the numbers a quant fund's PM actually wants at end-of-day:
+realised + unrealised PnL bucketed by instrument and
+strategy_fingerprint, a round-trip trade ledger, a cumulative
+PnL curve, and a per-fill slippage report (fill price vs
+intended reference price in basis points + cost).
+
+What ships:
+
+1. **`backend/core/algotrade/exec/analytics.py`** — pure
+   stdlib analyser that reads :class:`AuditLog.read_all` and
+   produces three immutable dataclasses:
+   - :class:`PnLAttribution` — realised / unrealised totals,
+     ``by_instrument`` and ``by_strategy`` breakdowns,
+     :class:`RoundTrip` trade ledger (mirrors the position
+     store's weighted-average entry math byte-for-byte), and a
+     cumulative PnL curve sampled per closing leg.
+   - :class:`SlippageReport` — :class:`SlippageEntry` per fill
+     (signed bps + cost), aggregate avg / p50 / p95 / worst,
+     ``fills_missing_reference`` for live adapters that don't
+     populate ``Fill.reference_price``, plus per-instrument
+     bucketing.
+   - :class:`SessionMetrics` — headline cockpit-card numbers:
+     intents emitted / accepted / rejected, orders, fills,
+     cancels, bars consumed, realised + unrealised PnL, fees,
+     slippage cost, open positions, started_at / last_event_at
+     and derived ``duration_seconds`` + ``acceptance_rate``.
+2. **`Fill.reference_price` (optional float)** —
+   `backend/core/algotrade/exec/base.py`. New optional field
+   carrying the strategy's intended execution price (bar.open
+   for market, limit price for limit). Backward compatible:
+   defaults to ``None``; existing callers don't change.
+3. **Paper adapter populates the reference** —
+   `backend/core/algotrade/exec/paper.py`. Market fills set
+   ``reference_price = bar.open``; limit fills set
+   ``reference_price = order.price``. Position store
+   re-hydrates the field on load.
+4. **3 new domain pack actions** —
+   `backend/core/domains/packs/algotrade/exec_actions.py`:
+   `pnl_report`, `slippage_report`, `session_summary`. Each
+   reads the live wiring + audit log via the runtime singleton,
+   so cockpit / playbook / MCP clients consume the same
+   contract. Manifest version bumped 0.2.0 → 0.3.0; pack phase
+   advances to W3-PR1.
+5. **17 new tests** —
+   `tests/test_algotrade_analytics.py`. Cover long round-trip,
+   short round-trip, pyramiding-then-close (weighted-average
+   entry), partial-then-full-close (two trips), flip
+   (close + open residual), unrealised-with-mark, by-strategy
+   and by-instrument bucketing, monotonic PnL curve, market-buy
+   vs market-sell sign, aggregate avg/p50/p95/worst, fills
+   without reference, basic counts, empty-audit safety,
+   rejected-verdicts counting, and full to_dict JSON
+   round-tripping.
+
+**Why this matters for the Cresco cohort**
+
+After a paper session ends, an attendee runs ONE action
+(`session_summary` or `pnl_report`) and gets the slide-ready
+breakdown: PnL by strategy and instrument, top contributors /
+detractors via the trade ledger, slippage cost they actually
+paid (vs the theoretical reference), and a PnL curve they can
+plot. No SQL, no spreadsheet — straight out of the audit log.
+
+**Tests**
+
+`pytest tests/test_algotrade_analytics.py
+tests/test_algotrade_exec.py tests/test_algotrade_exec_actions.py
+tests/test_algotrade_pack.py tests/test_playbooks_recursive_loader.py
+tests/test_playbooks.py` → **112 passed**. End-to-end smoke
+(buy 1@100 → sell 1@110 with 5bps slippage and 1bp commission)
+returns realised PnL = 9.895, slippage avg = 5.0 bps, total
+slippage cost = 0.105, intents = 2, fills = 2, open_positions
+= 0 — all consistent with the position store's live state.
+
+**Files**
+
+- `backend/core/algotrade/exec/analytics.py` (new, ~590 lines).
+- `backend/core/algotrade/exec/__init__.py` — re-export
+  analytics symbols (`PnLAttribution`, `RoundTrip`,
+  `SlippageEntry`, `SlippageReport`, `SessionMetrics`,
+  `compute_attribution`, `compute_slippage`,
+  `compute_session_metrics`).
+- `backend/core/algotrade/exec/base.py` — `Fill.reference_price`.
+- `backend/core/algotrade/exec/paper.py` — populate reference.
+- `backend/core/algotrade/exec/positions.py` — load reference
+  on disk re-hydration.
+- `backend/core/domains/packs/algotrade/exec_actions.py` — 3
+  new actions + ActionSpec entries.
+- `backend/core/domains/packs/algotrade/manifest.json` — bump
+  to 0.3.0 / W3-PR1, add 3 capabilities + 3 actions.
+- `backend/core/domains/packs/algotrade/pack.py` — refresh
+  manifest description + capabilities tuple.
+- `tests/test_algotrade_analytics.py` (new, 17 tests).
+
+>>> SYNC: Cursor · 2026-05-10 · W3-PR1 PnL attribution + slippage ledger + session metrics.
+
 ## 2026-05-10 — Cursor · Phase W4-PR1: workshop quant playbooks + recursive playbook loader
 
 **Summary**
@@ -2332,26 +2435,6 @@ check — if OK, prints RU hint that token lacks **Account → Cloudflare Pages 
 - `docs/CHANGELOG_PUBLIC.md` (regenerated)
 - `docs/CHANGELOG_AGENTS.md` (this entry)
 
-## 2026-05-04 — Cursor · ops: cf-operator.env paste + Cloudflare → GitHub Pages deploy
-
-**Summary**
-
-**Operator flow:** copy **`cf-operator.env.example`** → **`cf-operator.env`** (gitignored),
-paste **`CLOUDFLARE_ACCOUNT_ID`** + **`CLOUDFLARE_API_TOKEN`**, run **`make ops-cf-pages-token`**.
-**`scripts/ops_push_cloudflare_pages_api_token.sh`** preflights **GET …/pages/projects/tars-meeet**,
-then **`gh secret set CLOUDFLARE_API_TOKEN`** + **`gh workflow run`** (dashboard token must have
-**Account → Cloudflare Pages → Edit**). **`cf-operator.env.example`** / локальный **`cf-operator.env`**
-— пошаговые подсказки где взять ID и token.
-
-**Files**
-
-- `cf-operator.env.example` (paste template + hints)
-- `.gitignore` (`cf-operator.env`)
-- `scripts/ops_push_cloudflare_pages_api_token.sh`
-- `Makefile` (`ops-cf-pages-token`)
-- `docs/CHANGELOG_PUBLIC.md` (regenerated)
-- `docs/CHANGELOG_AGENTS.md` (this entry)
-
 ---
 
-_Showing the most recent 60 of 248 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 249 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._

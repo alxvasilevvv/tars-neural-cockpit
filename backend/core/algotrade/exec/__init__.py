@@ -24,8 +24,29 @@ W2-PR1 ships:
   (id, mode, strategy fingerprint, started_at, status).
 
 W2-PR2 will add the Binance live adapter behind a vault key.
+
+W3-PR1 ships analytics on top of the audit log:
+
+- :class:`PnLAttribution` — realised + unrealised PnL bucketed
+  by instrument and strategy_fingerprint, plus a :class:`RoundTrip`
+  ledger and a cumulative PnL curve.
+- :class:`SlippageReport` — per-fill comparison of fill price vs
+  the strategy's intended reference price (bar.open for market,
+  limit price for limit), in basis points + cost.
+- :class:`SessionMetrics` — headline counters for the cockpit
+  session card.
 """
 
+from .analytics import (
+    PnLAttribution,
+    RoundTrip,
+    SessionMetrics,
+    SlippageEntry,
+    SlippageReport,
+    compute_attribution,
+    compute_session_metrics,
+    compute_slippage,
+)
 from .base import (
     AuditEvent,
     ExecAdapter,
@@ -58,14 +79,22 @@ __all__ = [
     "OrderType",
     "PaperAdapter",
     "PaperConfig",
+    "PnLAttribution",
     "Position",
     "PositionStore",
     "RiskGate",
     "RiskPolicy",
+    "RoundTrip",
     "Session",
+    "SessionMetrics",
     "SessionStatus",
     "SessionStore",
     "Side",
+    "SlippageEntry",
+    "SlippageReport",
+    "compute_attribution",
+    "compute_session_metrics",
+    "compute_slippage",
     "get_runtime",
     "reset_runtime",
 ]

@@ -186,6 +186,7 @@ class PaperAdapter(ExecAdapter):
             price=price,
             fee=fee,
             ts=bar.ts,
+            reference_price=bar.open,
         )
         order.fills.append(fill)
         order.status = OrderStatus.FILLED
@@ -214,6 +215,7 @@ class PaperAdapter(ExecAdapter):
             price=fill_price,
             fee=fee,
             ts=bar.ts,
+            reference_price=order.price,
         )
         order.fills.append(fill)
         order.status = OrderStatus.FILLED

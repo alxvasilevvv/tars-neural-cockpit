@@ -1,8 +1,8 @@
 {
   "slug": "algotrade",
   "name": "Algotrade",
-  "version": "0.2.0",
-  "phase": "W2-PR1",
+  "version": "0.3.0",
+  "phase": "W3-PR1",
   "stage": "alpha",
   "homepage": "https://meeet.world/tars/packs/algotrade",
   "docs": "docs/ALGOTRADE.md",
@@ -18,7 +18,10 @@
     "risk_gate_policy",
     "order_router_audit",
     "position_pnl_book",
-    "session_manager"
+    "session_manager",
+    "pnl_attribution",
+    "slippage_ledger",
+    "session_metrics"
   ],
   "auth_keys": [],
   "actions": [
@@ -39,7 +42,10 @@
     "feed_bar",
     "get_policy",
     "set_policy",
-    "audit_tail"
+    "audit_tail",
+    "pnl_report",
+    "slippage_report",
+    "session_summary"
   ],
   "awareness": ["strategy_registry", "live_sessions"],
   "depends_on": ["backend.core.algotrade"],

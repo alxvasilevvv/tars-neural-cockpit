@@ -130,6 +130,13 @@ class Fill:
     price: float
     fee: float
     ts: float
+    reference_price: float | None = None
+    """The "ideal" price the strategy would have wanted at the moment
+    the fill landed: the bar's open for market orders, the limit
+    price for limit orders. Optional so live adapters that can't
+    derive it leave it ``None``; the slippage ledger silently
+    skips fills without a reference rather than fabricating one.
+    """
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -139,6 +146,11 @@ class Fill:
             "price": float(self.price),
             "fee": float(self.fee),
             "ts": float(self.ts),
+            "reference_price": (
+                None
+                if self.reference_price is None
+                else float(self.reference_price)
+            ),
         }
 
 

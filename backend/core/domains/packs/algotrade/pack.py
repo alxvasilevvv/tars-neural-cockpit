@@ -51,10 +51,16 @@ class AlgotradePack(DomainPack):
             "(per-order qty cap, position notional cap, max open "
             "positions, no-short toggle, daily-loss kill-switch, "
             "instrument allowlist), in-process session manager, and "
-            "JSONL audit log per session. **W2-PR2** adds the live "
-            "Binance adapter; **W3** brings PnL attribution + slippage "
-            "ledger + trading council voices; **W4** the workshop lab "
-            "mode + quant playbooks."
+            "JSONL audit log per session. **W3-PR1** adds analytics "
+            "on top of the audit log: PnL attribution by instrument "
+            "and strategy_fingerprint with a round-trip ledger and "
+            "cumulative PnL curve, slippage ledger (fill price vs "
+            "intended reference in basis points + cost), and a "
+            "session metrics summary. **W2-PR2** will add the live "
+            "Binance adapter; **W3-PR2/3** session reports + trading "
+            "council voices; **W4** workshop lab mode + quant "
+            "playbooks (W4-PR1 shipped 5 quant playbooks + recursive "
+            "loader)."
         ),
         color="#f97316",
         capabilities=(
@@ -69,6 +75,9 @@ class AlgotradePack(DomainPack):
             "order_router_audit",
             "position_pnl_book",
             "session_manager",
+            "pnl_attribution",
+            "slippage_ledger",
+            "session_metrics",
         ),
         audience="quant traders, analysts, fund operators, workshop attendees",
     )

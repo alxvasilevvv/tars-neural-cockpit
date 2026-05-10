@@ -39,6 +39,9 @@ from backend.core.algotrade.exec import (
     OrderType,
     RiskPolicy,
     Side,
+    compute_attribution,
+    compute_session_metrics,
+    compute_slippage,
     get_runtime,
 )
 
@@ -299,6 +302,95 @@ async def audit_tail_action(args: Mapping[str, Any]) -> dict[str, Any]:
     )
 
 
+# --------------------------------------------------------- analytics (W3-PR1)
+
+
+def _collect_mark_prices(wiring: Any) -> dict[str, float]:
+    """Snapshot the latest mark for every instrument the session
+    has touched (open positions + risk-gate marks)."""
+
+    marks: dict[str, float] = {}
+    for pos in wiring.positions.all():
+        if pos.is_flat():
+            continue
+        derived = pos.avg_price + (
+            pos.unrealized_pnl / pos.qty if pos.qty != 0 else 0.0
+        )
+        if derived > 0:
+            marks[pos.instrument] = derived
+    return marks
+
+
+async def pnl_report_action(args: Mapping[str, Any]) -> dict[str, Any]:
+    sid = args.get("session_id")
+    if not sid:
+        return _err("missing_session_id")
+    runtime = get_runtime()
+    wiring = runtime.get(str(sid))
+    if wiring is None:
+        return _err("session_not_found", session_id=sid)
+
+    events = wiring.audit.read_all()
+    marks = _collect_mark_prices(wiring)
+    attribution = compute_attribution(events, mark_prices=marks)
+
+    trim_trades = int(args.get("trades_limit") or 0)
+    payload = attribution.to_dict()
+    if trim_trades > 0 and len(payload["trades"]) > trim_trades:
+        payload["trades"] = payload["trades"][-trim_trades:]
+    payload["session_id"] = sid
+    payload["live_realized_pnl"] = wiring.positions.total_realized()
+    payload["live_unrealized_pnl"] = wiring.positions.total_unrealized()
+    return _ok(**payload)
+
+
+async def slippage_report_action(args: Mapping[str, Any]) -> dict[str, Any]:
+    sid = args.get("session_id")
+    if not sid:
+        return _err("missing_session_id")
+    runtime = get_runtime()
+    wiring = runtime.get(str(sid))
+    if wiring is None:
+        return _err("session_not_found", session_id=sid)
+
+    events = wiring.audit.read_all()
+    report = compute_slippage(events)
+
+    trim_entries = int(args.get("entries_limit") or 0)
+    payload = report.to_dict()
+    if trim_entries > 0 and len(payload["entries"]) > trim_entries:
+        payload["entries"] = payload["entries"][-trim_entries:]
+    payload["session_id"] = sid
+    return _ok(**payload)
+
+
+async def session_summary_action(args: Mapping[str, Any]) -> dict[str, Any]:
+    sid = args.get("session_id")
+    if not sid:
+        return _err("missing_session_id")
+    runtime = get_runtime()
+    wiring = runtime.get(str(sid))
+    if wiring is None:
+        return _err("session_not_found", session_id=sid)
+
+    events = wiring.audit.read_all()
+    marks = _collect_mark_prices(wiring)
+    metrics = compute_session_metrics(
+        events,
+        open_positions=wiring.positions.open_count(),
+        realized_pnl=wiring.positions.total_realized(),
+        unrealized_pnl=wiring.positions.total_unrealized(),
+        mark_prices=marks,
+    )
+    return _ok(
+        session_id=sid,
+        session=wiring.session.to_dict(),
+        policy=wiring.gate.policy.to_dict(),
+        metrics=metrics.to_dict(),
+        positions=[p.to_dict() for p in wiring.positions.all()],
+    )
+
+
 # --------------------------------------------------------- specs
 
 
@@ -508,6 +600,81 @@ EXEC_ACTIONS: tuple[ActionSpec, ...] = (
             "properties": {
                 "session_id": {"type": "string"},
                 "limit": {"type": "integer"},
+            },
+            "required": ["session_id"],
+        },
+    ),
+    ActionSpec(
+        id="pnl_report",
+        name="PnL attribution report",
+        description=(
+            "Replay the session's audit log to produce a PnL "
+            "attribution: realised + unrealised totals, breakdown "
+            "by instrument and strategy_fingerprint, a round-trip "
+            "trade ledger, and a cumulative PnL curve. Use this "
+            "for end-of-day fund reports and council debates."
+        ),
+        handler=pnl_report_action,
+        schema={
+            "type": "object",
+            "properties": {
+                "session_id": {"type": "string"},
+                "trades_limit": {
+                    "type": "integer",
+                    "description": (
+                        "Optional cap on the number of round-trips "
+                        "returned (newest first). 0 / unset = all."
+                    ),
+                },
+            },
+            "required": ["session_id"],
+        },
+    ),
+    ActionSpec(
+        id="slippage_report",
+        name="Slippage ledger report",
+        description=(
+            "Per-fill comparison of fill price vs the strategy's "
+            "intended reference price (bar.open for market, limit "
+            "price for limit). Returns slippage in basis points "
+            "and absolute cost, plus aggregate stats (avg, p50, "
+            "p95, worst) and a per-instrument breakdown. Live "
+            "adapters that don't populate `Fill.reference_price` "
+            "are silently skipped but counted in "
+            "`fills_missing_reference`."
+        ),
+        handler=slippage_report_action,
+        schema={
+            "type": "object",
+            "properties": {
+                "session_id": {"type": "string"},
+                "entries_limit": {
+                    "type": "integer",
+                    "description": (
+                        "Optional cap on per-fill ledger entries "
+                        "returned (newest first). 0 / unset = all."
+                    ),
+                },
+            },
+            "required": ["session_id"],
+        },
+    ),
+    ActionSpec(
+        id="session_summary",
+        name="Session summary metrics",
+        description=(
+            "Headline counters + PnL + slippage for the cockpit "
+            "session card: intents emitted/accepted/rejected, "
+            "fills, cancels, bars consumed, realised/unrealised "
+            "PnL, fees, slippage cost, open positions, duration. "
+            "Combines `pnl_report` + `slippage_report` + the "
+            "in-memory wiring into a single snapshot."
+        ),
+        handler=session_summary_action,
+        schema={
+            "type": "object",
+            "properties": {
+                "session_id": {"type": "string"},
             },
             "required": ["session_id"],
         },

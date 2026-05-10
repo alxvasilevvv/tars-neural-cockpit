@@ -337,13 +337,67 @@ Run them as:
 | **W1b** | `algotrade` domain pack — `parse`, `register`, `fork`, `backtest`, recipe + registry verbs  | shipped (PR #165)                 |
 | **W2-PR1** | Paper executor + risk gate + order router + position store + session manager + 10 HTTP actions | this PR                           |
 | **W2-PR2** | Live Binance adapter behind vault key + market-data poller                              | follow-up                         |
-| **W3**  | PnL attribution + slippage ledger + session report + trading council voices                 | follow-up                         |
-| **W4-PR1** | Workshop quant playbooks + recursive playbook loader (5 quant recipes, derived-pack chain) | this PR                          |
+| **W3-PR1** | PnL attribution (by-instrument + by-strategy + trade ledger + curve) + slippage ledger + session metrics | this PR                |
+| **W3-PR2** | Markdown session report (assemble + render to attendee handout)                         | follow-up                         |
+| **W3-PR3** | Trading council voices (RiskAnalyst / ExecutionTrader / PnLAuditor commentary)          | follow-up                         |
+| **W4-PR1** | Workshop quant playbooks + recursive playbook loader (5 quant recipes, derived-pack chain) | shipped (PR #167)              |
 | **W4-PR2** | Workshop lab mode (multi-attendee sandbox + leaderboard) + cockpit handbook              | follow-up                         |
 
 See [SYNC issue #163](https://github.com/alxvasilevvv/tars-neural-cockpit/issues/163) for the lane split with Claude.
 
-## 9. Workshop quant playbooks (W4-PR1)
+## 9. Analytics layer (W3-PR1)
+
+The W2-PR1 audit log is append-only JSONL of every intent /
+verdict / order / fill. The analytics module
+(`backend/core/algotrade/exec/analytics.py`) replays it offline
+to produce three immutable dataclasses, all stdlib-only,
+JSON-roundtrippable, and zero-look-ahead:
+
+| Dataclass            | Surfaces                                                                                                    |
+| -------------------- | ----------------------------------------------------------------------------------------------------------- |
+| `PnLAttribution`     | `realized_total`, `unrealized_total`, `fees_total`, `by_instrument`, `by_strategy`, `trades` (`RoundTrip[]`), `pnl_curve` |
+| `SlippageReport`     | per-fill `SlippageEntry[]`, `fills_total / with_reference / missing_reference`, `total_slippage_cost`, `avg / p50 / p95 / worst` bps, `by_instrument` |
+| `SessionMetrics`     | `intents_total / accepted / rejected`, `orders_total`, `fills_total`, `cancels_total`, `realized_pnl`, `unrealized_pnl`, `fees_total`, `total_slippage_cost`, `open_positions`, `duration_seconds`, `acceptance_rate` |
+
+Trade-matching mirrors the position store's weighted-average
+entry exactly: a `RoundTrip` is emitted on every closing leg
+(reduce / flip), with the closing leg's realised PnL net of
+fees. Pyramiding (long → long add) updates the running average
+without emitting a trip, exactly like the live book.
+
+Slippage requires `Fill.reference_price` (bar.open for market,
+limit price for limit). The paper adapter populates it
+automatically. Live adapters that don't fill it are silently
+skipped from the bps stats but still counted in
+`fills_missing_reference` so the cockpit can warn "live adapter
+without reference prices".
+
+Three new domain-pack actions invoke the analyser:
+
+| Action ID         | What it returns                                                                                                  |
+| ----------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `pnl_report`      | `PnLAttribution.to_dict()` for the session, with optional `trades_limit` to trim the round-trip list.            |
+| `slippage_report` | `SlippageReport.to_dict()`, with optional `entries_limit` to trim per-fill entries.                              |
+| `session_summary` | Full snapshot: session row + active risk policy + `SessionMetrics.to_dict()` + open positions.                   |
+
+These three are read-only (no `destructive=True`) so playbooks
+can poll them as often as needed without going through the risk
+gate.
+
+Example end-to-end (paper session, 5 bps slippage, 1 bp
+commission, buy 1 @ 100, sell 1 @ 110):
+
+```
+session_summary →
+  intents=2, accepted=2, rejected=0, fills=2, open_positions=0
+  realized_pnl=9.895, fees_total=0.021, total_slippage_cost=0.105
+slippage_report →
+  fills_with_reference=2, avg_slippage_bps=5.0, total_slippage_cost=0.105
+pnl_report →
+  trades_count=1, realized_total=9.895, by_strategy={fp_test: {realized:9.895,...}}
+```
+
+## 10. Workshop quant playbooks (W4-PR1)
 
 The 10 W2-PR1 execution actions (`start_paper_session`,
 `submit_intent`, `feed_bar`, `set_policy`, `audit_tail`, …) are
