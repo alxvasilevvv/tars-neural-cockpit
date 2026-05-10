@@ -22,13 +22,15 @@
  * blobs. Bump on every visual/content change of the precache set.
  */
 
-// Bumped 2026-05-10 (Wave 85) — workshop materials hub + offline
-// precache for the four /workshop/* routes. Bumping VERSION here
-// busts the previous SW's caches in user browsers so the new
-// precache list (with /workshop, /workshop/cresco, /workshop/roi,
-// /workshop/materials) is what they end up with after the next
-// activate cycle.
-const VERSION = "tars-v9.0.2";
+// Wave 115 (2026-05-11) — bumped to v9.0.3 to invalidate stale caches
+// holding broken Workshop bundle (Wave 114 hotfix). Wave 87 renamed
+// og-cresco.svg → og-workshop-enterprise.svg + redirected
+// /workshop/cresco → /workshop/enterprise — old precache list referenced
+// the deleted file and got 404 on install (Promise.allSettled saved it
+// from total failure but stale clients still serve broken HTML). Also
+// adds the W112 OG cards + new B2B routes so cold-cache visitors get
+// the full surface offline-ready.
+const VERSION = "tars-v9.0.3";
 const PRECACHE = `${VERSION}-precache`;
 const RUNTIME = `${VERSION}-runtime`;
 
@@ -43,21 +45,33 @@ const PRECACHE_URLS = [
   "/og-install.svg",
   "/og-cockpit.svg",
   "/og-workshop.svg",
-  "/og-cresco.svg",
+  // Wave 87 + 112 — Cresco rebranded to Enterprise + 9 new B2B route OGs.
+  "/og-workshop-enterprise.svg",
+  "/og-dashboard.svg",
+  "/og-onboard.svg",
+  "/og-reports.svg",
+  "/og-marketplace.svg",
+  "/og-compliance.svg",
+  "/og-inbox.svg",
+  "/og-files.svg",
+  "/og-workspaces.svg",
+  "/og-perf.svg",
   "/badge/built-with-tars.svg",
   "/badge/built-with-tars-light.svg",
   "/badge/built-with-tars-compact.svg",
   "/badge/built-with-tars-compact-light.svg",
   "/robots.txt",
   "/sitemap.xml",
-  // Wave 85 — workshop surface offline-first. These four routes are
-  // the top of every cohort's bookmark bar; we precache the document
-  // shell so attendees can read decks/recipes/handouts on a flaky
-  // conference-WiFi connection.
+  // Wave 85 + 87 — workshop surface offline-first. /workshop/cresco
+  // removed (Wave 87 redirect to /workshop/enterprise). Wave 88/89 added
+  // /workshop/assess + /workshop/cohort — those are facilitator surfaces
+  // worth precaching for conference-WiFi resilience.
   "/workshop",
-  "/workshop/cresco",
+  "/workshop/enterprise",
   "/workshop/roi",
   "/workshop/materials",
+  "/workshop/assess",
+  "/workshop/cohort",
 ];
 
 // Wave 85 — runtime caching escape hatches.
