@@ -90,14 +90,33 @@ jobs:
         working-directory: experiments/neural-showcase-v3
         run: npm run typecheck
 
-      # Wave 75 — vitest is non-blocking for the deploy job. The bundle
-      # ships even if a unit test regresses (rationale: the marketing
-      # surface is server-rendered HTML/JS; a flaky vitest on a
-      # CI-specific node version should not block landing-page deploys).
-      # The test verdict still surfaces in the workflow log and the
-      # ``Smoke summary`` step at the end shows aggregate prod health.
-      # Promote back to a hard gate once the vitest failure is
-      # reproduced and root-caused.
+      # Wave 116 — Defense layer 1: route-import sanity. Walks App.tsx
+      # and verifies every JSX identifier rendered in a route slot has
+      # a matching `lazy(() => import(...))` / `import { X }` /
+      # function declaration. Catches the Wave 114 class of bug
+      # (missing `Workshop` lazy import → 500 on /workshop) BEFORE the
+      # build runs. tsc cannot catch this — JSX accepts any uppercase
+      # identifier — so the lint is the only static gate. BLOCKING.
+      - name: Route-import sanity (Wave 116 Defense 1)
+        working-directory: experiments/neural-showcase-v3
+        run: node scripts/check-route-imports.mjs
+
+      # Wave 116 — Defense layer 2: smoke-import every page module
+      # wired into App.tsx and assert each named export is a callable
+      # component. Catches the symmetric bug (export renamed in the
+      # page file but App.tsx still references the old name) which
+      # would 500 the route at runtime via `m.X is undefined`.
+      # BLOCKING — this is the route-correctness hard gate.
+      - name: Smoke render every route (Wave 116 Defense 2)
+        working-directory: experiments/neural-showcase-v3
+        run: npx vitest run src/App.routes.smoke.test.tsx
+
+      # Wave 75 — broader vitest is still non-blocking. Rationale: the
+      # marketing surface is server-rendered HTML/JS; a flaky vitest
+      # on a CI-specific node version should not block landing-page
+      # deploys. Promote back to hard gate once the failure is
+      # reproduced and root-caused. Wave 116's smoke-render is the
+      # *route-correctness* hard gate that replaces the lost coverage.
       - name: Unit tests
         working-directory: experiments/neural-showcase-v3
         continue-on-error: true

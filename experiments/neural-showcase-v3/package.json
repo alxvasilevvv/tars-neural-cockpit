@@ -10,7 +10,8 @@
   "scripts": {
     "predev": "python3 ../../scripts/generate_public_changelog.py",
     "dev": "vite",
-    "prebuild": "python3 ../../scripts/generate_public_changelog.py",
+    "prebuild": "node scripts/check-route-imports.mjs && python3 ../../scripts/generate_public_changelog.py",
+    "check:routes": "node scripts/check-route-imports.mjs",
     "build:cf": "vite build",
     "build": "tsc -b && vite build",
     "preview": "vite preview",

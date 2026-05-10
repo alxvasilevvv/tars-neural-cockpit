@@ -100,6 +100,13 @@ const SettingsPage = lazy(() =>
 const Workshop = lazy(() =>
   import("@/pages/Workshop").then((m) => ({ default: m.Workshop })),
 );
+// Wave 116 — caught by the new pre-build route-import lint:
+// `<Compliance />` was rendered on line 463 but never lazy-imported,
+// so /compliance would have 500'd in prod the same way /workshop did
+// in Wave 114. Lint script flagged it; this declaration fixes it.
+const Compliance = lazy(() =>
+  import("@/pages/Compliance").then((m) => ({ default: m.Compliance })),
+);
 const EnterpriseWorkshop = lazy(() =>
   import("@/pages/EnterpriseWorkshop").then((m) => ({
     default: m.EnterpriseWorkshop,
