@@ -33,13 +33,22 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["dmg", "app", "msi", "nsis", "deb", "appimage"],
-    "externalBin": ["binaries/tars-sidecar"],
+    "targets": [
+      "dmg",
+      "app",
+      "msi",
+      "nsis",
+      "deb",
+      "appimage"
+    ],
+    "externalBin": [
+      "binaries/tars-sidecar"
+    ],
     "category": "Productivity",
     "shortDescription": "Local-first neural cockpit",
-    "longDescription": "TARS — local-first neural cockpit released under meeet.world. Threads, voice, automations, files, full observability.",
+    "longDescription": "TARS \u2014 local-first neural cockpit released under meeet.world. Threads, voice, automations, files, full observability.",
     "publisher": "meeet.world",
-    "copyright": "© meeet.world",
+    "copyright": "\u00a9 meeet.world",
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -69,12 +78,14 @@
         "https://github.com/alxvasilevvv/tars-neural-cockpit/releases/latest/download/latest.json"
       ],
       "dialog": false,
-      "pubkey": "TODO_PUBLIC_KEY"
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDFCMjlGM0E2NzNBQTY3NTUKUldSVlo2cHpwdk1wRzg4ME8xVm14bHVoL0xlc0NzSFIyd1d4a2pBMTI5akRDODNDZUpQTzVHVWkK"
     },
     "deep-link": {
       "mobile": [],
       "desktop": {
-        "schemes": ["tars"]
+        "schemes": [
+          "tars"
+        ]
       }
     }
   }
