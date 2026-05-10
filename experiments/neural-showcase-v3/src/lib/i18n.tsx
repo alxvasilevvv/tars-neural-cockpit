@@ -823,6 +823,52 @@ const STRINGS_EN = {
     "$MEEET 0.42 · paid out",
   "cockpitPreview.row5.tag":       "calendar",
   "cockpitPreview.row5.body":      "meeting in 23 min",
+
+  // Wave 84 — Workshop ROI calculator (/workshop/roi). Strings ship in
+  // EN only (the surface is EN-only post-Wave 70). Keys mirror the
+  // `roi.*` namespace used inside `<WorkshopROI />`.
+  "roi.title":                    "What's the ROI of automating with TARS?",
+  "roi.subtitle":
+    "Drag the sliders. We compute the hours your team gets back, the dollar value of those hours, the TARS Business cost, and your year-1 net ROI in real time. No signup, no email gate.",
+  "roi.input.team":               "Team size",
+  "roi.input.rate":               "Average hourly rate",
+  "roi.input.hours":              "Hours / week on automatable work",
+  "roi.input.automation":         "Automation rate (TARS handles)",
+  "roi.metric.hoursSaved":        "Hours saved / week",
+  "roi.metric.annualSaving":      "Annual saving",
+  "roi.metric.tarsCost":          "TARS Business cost",
+  "roi.metric.netROI":            "Net ROI (year 1)",
+  "roi.metric.payback":           "Payback period",
+  "roi.preset.small":             "Small fund · 5 analysts · $300/hr",
+  "roi.preset.mid":               "Mid fund · 15 analysts · $500/hr",
+  "roi.preset.large":             "Large fund · 40 analysts · $1000/hr",
+  "roi.cta.memo":                 "Generate ROI memo",
+  "roi.cta.email":                "Email me this",
+  "roi.disclaimer":
+    "Estimates assume baseline TARS adoption. Real numbers vary. Talk to sales for benchmarked pilots.",
+
+  // Wave 85 — Workshop materials hub (/workshop/materials). EN-only
+  // post-Wave 70. Keys mirror the section headings rendered by
+  // `<WorkshopMaterials />`. Consumed via the `useT()` hook today
+  // only on the heading-line text — body copy is colocated with the
+  // page so the diff stays inside one file.
+  "materials.title":
+    "Everything you need from the Algorithmic Edge workshop, in one page.",
+  "materials.subtitle":
+    "Decks, handouts, the playbook recipe library, video walkthroughs, the Cresco Slack channel, and the recurring office hours. Bookmark this page — it works offline (PWA cache).",
+  "materials.section.decks":      "Slide decks",
+  "materials.section.handouts":   "One-pagers",
+  "materials.section.recipes":    "Recipe library",
+  "materials.section.videos":     "Recorded walkthroughs",
+  "materials.section.community":  "Cresco channel",
+  "materials.section.office":     "Recurring office hours",
+  "materials.recipe.algotrade":   "ALGOTRADE pack",
+  "materials.recipe.quant":       "QUANT pack",
+  "materials.cta.download":       "Download PDF",
+  "materials.cta.copy":           "Copy link",
+  "materials.cta.book":           "Book a slot",
+  "materials.placeholder.video":  "Recording pending",
+  "materials.placeholder.cal":    "Calendar embed pending",
 } as const;
 
 /** Pre-typed key namespace export so consumers get autocomplete. */

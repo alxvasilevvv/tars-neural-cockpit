@@ -404,16 +404,25 @@ export function CrescoWorkshop() {
           <p className="font-mono-tech text-[10.5px] uppercase tracking-[2.4px] text-ink-3">
             Not a Cresco Capital attendee?
           </p>
-          <Link
-            to="/workshop"
-            // Wave 83 a11y — focus-visible ring + ≥44px touch target on
-            // mobile (px-4 py-2 ≈ 36px tall; bump to min-h-[44px] when
-            // viewport is mobile so screen-reader + thumb-tap both win).
-            className="inline-flex min-h-[44px] items-center gap-2 rounded-sm border border-line px-4 py-2 font-mono-tech text-[11px] uppercase tracking-[2.4px] text-ink transition-colors duration-150 hover:border-ink-3 hover:bg-bg-1/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-bg-0 focus-visible:ring-[var(--brand-indigo)]"
-          >
-            Generic 4-phase workshop wizard
-            <ArrowRight size={12} strokeWidth={1.8} aria-hidden="true" />
-          </Link>
+          <div className="flex flex-wrap items-center gap-3">
+            {/* Wave 84 — pill link to ROI calculator. Quant teams ask
+                "what's the dollar saving?" almost immediately; surface
+                the live calculator next to the workshop fallback. */}
+            <Link
+              to="/workshop/roi"
+              className="inline-flex items-center gap-2 rounded-sm border border-line px-4 py-2 font-mono-tech text-[11px] uppercase tracking-[2.4px] text-ink-2 transition-colors duration-150 hover:border-ink-3 hover:bg-bg-1/60 hover:text-ink"
+            >
+              ROI calculator
+              <ArrowRight size={12} strokeWidth={1.8} />
+            </Link>
+            <Link
+              to="/workshop"
+              className="inline-flex items-center gap-2 rounded-sm border border-line px-4 py-2 font-mono-tech text-[11px] uppercase tracking-[2.4px] text-ink transition-colors duration-150 hover:border-ink-3 hover:bg-bg-1/60"
+            >
+              Generic 4-phase workshop wizard
+              <ArrowRight size={12} strokeWidth={1.8} />
+            </Link>
+          </div>
         </motion.footer>
       </article>
     </div>

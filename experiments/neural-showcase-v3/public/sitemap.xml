@@ -97,31 +97,29 @@
   </url>
 
   <!--
-    Wave 83 — workshop + compliance entries.
-    /workshop and /compliance are scheduled to land alongside the Wave 84
-    Workshop FE wizard (PlaybookComposer / AgentDesigner / BacktestPanel /
-    OutputSchemaBuilder + ReceiptVerifier). They're listed here ahead of
-    routing so meeet.world's edge worker can pre-stage 301 redirects and
-    crawlers can pick the URLs up the moment they go live.
-    /workshop/cresco is live today — the Cresco Capital "Algorithmic Edge"
-    landing page (see src/pages/CrescoWorkshop.tsx).
+    Wave 84 — Workshop ROI calculator. Live page that fund partners
+    use during the Algorithmic Edge workshop. Sibling routes /workshop
+    and /workshop/cresco are listed in adjacent waves' sitemap edits;
+    we append rather than re-templating the file to avoid touching
+    untouched URLs in Cursor's branches mid-flight.
   -->
   <url>
-    <loc>https://tars.meeet.world/workshop</loc>
+    <loc>https://tars.meeet.world/workshop/roi</loc>
     <lastmod>2026-05-10</lastmod>
     <changefreq>weekly</changefreq>
-    <priority>0.8</priority>
+    <priority>0.78</priority>
   </url>
+
+  <!--
+    Wave 85 — Workshop materials hub. Central page for cohort
+    attendees: decks, handouts, the 10-recipe library, video
+    walkthroughs, Cresco Slack, and office hours. Precached by the
+    SW (see public/sw.js) so it survives flaky conference-WiFi.
+  -->
   <url>
-    <loc>https://tars.meeet.world/workshop/cresco</loc>
+    <loc>https://tars.meeet.world/workshop/materials</loc>
     <lastmod>2026-05-10</lastmod>
     <changefreq>weekly</changefreq>
-    <priority>0.75</priority>
-  </url>
-  <url>
-    <loc>https://tars.meeet.world/compliance</loc>
-    <lastmod>2026-05-10</lastmod>
-    <changefreq>weekly</changefreq>
-    <priority>0.6</priority>
+    <priority>0.78</priority>
   </url>
 </urlset>

@@ -94,6 +94,18 @@ const SettingsPage = lazy(() =>
 const CrescoWorkshop = lazy(() =>
   import("@/pages/CrescoWorkshop").then((m) => ({ default: m.CrescoWorkshop })),
 );
+// Wave 84 — Workshop ROI calculator. Lazy-loaded to keep the main
+// landing bundle tight; the calculator only ships when fund partners
+// drill in via /workshop/roi or the Cmd+K palette.
+const WorkshopROI = lazy(() =>
+  import("@/pages/WorkshopROI").then((m) => ({ default: m.WorkshopROI })),
+);
+// Wave 85 — Workshop materials hub (decks, recipes, videos, community).
+const WorkshopMaterials = lazy(() =>
+  import("@/pages/WorkshopMaterials").then((m) => ({
+    default: m.WorkshopMaterials,
+  })),
+);
 
 // Default skeleton for routes that don't pin a specific layout shape.
 const Loading = () => <RouteSkeleton variant="default" />;
@@ -375,6 +387,27 @@ function AppShell() {
               element={
                 <Suspense fallback={<RouteSkeleton variant="wide" />}>
                   <CrescoWorkshop />
+                </Suspense>
+              }
+            />
+            {/* Wave 84 — Workshop ROI calculator. Lives under /workshop/*
+                so the breadcrumb (Home → Workshop → ROI calculator) and
+                the lazy-route bundle name read consistently. */}
+            <Route
+              path="/workshop/roi"
+              element={
+                <Suspense fallback={<RouteSkeleton variant="wide" />}>
+                  <WorkshopROI />
+                </Suspense>
+              }
+            />
+            {/* Wave 85 — Workshop materials hub. Same /workshop/*
+                breadcrumb pattern; precached by the SW (see public/sw.js). */}
+            <Route
+              path="/workshop/materials"
+              element={
+                <Suspense fallback={<RouteSkeleton variant="wide" />}>
+                  <WorkshopMaterials />
                 </Suspense>
               }
             />
