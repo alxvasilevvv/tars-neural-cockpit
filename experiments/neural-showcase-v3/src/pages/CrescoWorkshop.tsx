@@ -1,7 +1,6 @@
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
 import {
-  ArrowLeft,
   ArrowRight,
   ShieldCheck,
   Activity,
@@ -12,6 +11,7 @@ import {
   CheckCircle2,
 } from "lucide-react";
 import { useDocumentMeta } from "@/lib/meta";
+import { Breadcrumbs } from "@/components/Breadcrumbs";
 
 /**
  * /workshop/cresco — branded landing for the Cresco Capital "Algorithmic
@@ -81,10 +81,12 @@ const PHASE_COLOR: Record<PlaybookCard["phase"], string> = {
 
 export function CrescoWorkshop() {
   useDocumentMeta({
+    // Wave 83 — per-route OG SVG variant. og-cresco.svg is shipped in
+    // public/ alongside the other per-route OG cards (see Wave 11/44).
     title: "The Algorithmic Edge — Cresco Capital workshop",
     description:
       "Workshop landing for Cresco Capital, CARF, 3V, and Crypto Fund quant teams. Strategy IR → backtest → risk gate → paper → live, all running on TARS.",
-    ogImage: "https://tars.meeet.world/og.svg",
+    ogImage: "https://tars.meeet.world/og-cresco.svg",
   });
 
   return (
@@ -103,18 +105,22 @@ export function CrescoWorkshop() {
       />
 
       <article className="mx-auto max-w-[1100px] px-6 pb-28 pt-14 md:px-12 md:pt-20">
-        {/* Back link */}
+        {/* Wave 83 — breadcrumbs replace ad-hoc Back link.
+            Provides Home → Workshop → Cresco Capital trail with proper
+            <nav aria-label="Breadcrumb"> + aria-current="page" semantics. */}
         <motion.div
           initial={{ opacity: 1, y: 0 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+          className="flex items-center gap-4"
         >
-          <Link
-            to="/"
-            className="inline-flex items-center gap-2 font-mono-tech text-[10.5px] uppercase tracking-[2.4px] text-ink-2 transition-colors duration-150 hover:text-ink"
-          >
-            <ArrowLeft size={12} strokeWidth={1.8} /> Back
-          </Link>
+          <Breadcrumbs
+            items={[
+              { label: "Home", to: "/" },
+              { label: "Workshop", to: "/workshop" },
+              { label: "Cresco Capital" },
+            ]}
+          />
         </motion.div>
 
         {/* Hero */}
@@ -159,7 +165,14 @@ export function CrescoWorkshop() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.55, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
           className="mb-16 grid grid-cols-1 gap-4 md:grid-cols-3"
+          aria-labelledby="cresco-steps-heading"
         >
+          {/* Visually hidden heading keeps the h1→h2→h3 order correct
+              for screen readers. The aria-labelledby above pairs the
+              region with this title. */}
+          <h2 id="cresco-steps-heading" className="sr-only">
+            How the workshop runs in three steps
+          </h2>
           {[
             {
               n: "01",
@@ -193,7 +206,12 @@ export function CrescoWorkshop() {
                   >
                     {s.n}
                   </span>
-                  <Icon size={16} strokeWidth={1.6} className="text-ink-2" />
+                  <Icon
+                    size={16}
+                    strokeWidth={1.6}
+                    aria-hidden="true"
+                    className="text-ink-2"
+                  />
                 </div>
                 <h3 className="mb-2 font-display text-[18px] leading-[1.2] text-ink">
                   {s.title}
@@ -239,9 +257,13 @@ export function CrescoWorkshop() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.55, delay: 0.2, ease: [0.22, 1, 0.36, 1] }}
           className="mb-16"
+          aria-labelledby="cresco-playbooks-heading"
         >
           <header className="mb-7 flex items-baseline justify-between border-b border-line pb-4">
-            <h2 className="font-display text-[26px] leading-[1.05] tracking-[-0.01em] text-ink">
+            <h2
+              id="cresco-playbooks-heading"
+              className="font-display text-[26px] leading-[1.05] tracking-[-0.01em] text-ink"
+            >
               What you'll have at the end of Day 1
             </h2>
             <span className="font-mono-tech text-[10.5px] uppercase tracking-[2.4px] text-ink-3">
@@ -254,7 +276,8 @@ export function CrescoWorkshop() {
               <a
                 key={pb.slug}
                 href={`/playbooks/_workshop/algotrade/${pb.slug}.json`}
-                className="group block rounded-md border border-line bg-bg-1/40 p-5 transition-colors duration-150 hover:border-ink-3 hover:bg-bg-1/70"
+                aria-label={`${pb.title} (${pb.phase} phase) — open playbook JSON`}
+                className="group block rounded-md border border-line bg-bg-1/40 p-5 transition-colors duration-150 hover:border-ink-3 hover:bg-bg-1/70 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-bg-0 focus-visible:ring-[var(--brand-indigo)]"
               >
                 <div className="mb-3 flex items-center justify-between">
                   <span
@@ -266,6 +289,7 @@ export function CrescoWorkshop() {
                   <ArrowRight
                     size={13}
                     strokeWidth={1.6}
+                    aria-hidden="true"
                     className="text-ink-3 transition-transform duration-150 group-hover:translate-x-0.5 group-hover:text-ink"
                   />
                 </div>
@@ -290,14 +314,19 @@ export function CrescoWorkshop() {
             background:
               "linear-gradient(150deg, rgba(139,92,246,0.05), rgba(6,182,212,0.04))",
           }}
+          aria-labelledby="cresco-risk-heading"
         >
           <header className="mb-5 flex items-center gap-3">
             <ShieldCheck
               size={18}
               strokeWidth={1.6}
+              aria-hidden="true"
               style={{ color: "var(--brand-violet)" }}
             />
-            <h2 className="font-display text-[22px] leading-[1.05] tracking-[-0.01em] text-ink">
+            <h2
+              id="cresco-risk-heading"
+              className="font-display text-[22px] leading-[1.05] tracking-[-0.01em] text-ink"
+            >
               Live = vault-key + multi-sig confirm + daily caps
             </h2>
           </header>
@@ -348,6 +377,7 @@ export function CrescoWorkshop() {
                   <Icon
                     size={14}
                     strokeWidth={1.6}
+                    aria-hidden="true"
                     className="mt-1 flex-shrink-0 text-ink-2"
                   />
                   <div>
@@ -376,10 +406,13 @@ export function CrescoWorkshop() {
           </p>
           <Link
             to="/workshop"
-            className="inline-flex items-center gap-2 rounded-sm border border-line px-4 py-2 font-mono-tech text-[11px] uppercase tracking-[2.4px] text-ink transition-colors duration-150 hover:border-ink-3 hover:bg-bg-1/60"
+            // Wave 83 a11y — focus-visible ring + ≥44px touch target on
+            // mobile (px-4 py-2 ≈ 36px tall; bump to min-h-[44px] when
+            // viewport is mobile so screen-reader + thumb-tap both win).
+            className="inline-flex min-h-[44px] items-center gap-2 rounded-sm border border-line px-4 py-2 font-mono-tech text-[11px] uppercase tracking-[2.4px] text-ink transition-colors duration-150 hover:border-ink-3 hover:bg-bg-1/60 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-offset-bg-0 focus-visible:ring-[var(--brand-indigo)]"
           >
             Generic 4-phase workshop wizard
-            <ArrowRight size={12} strokeWidth={1.8} />
+            <ArrowRight size={12} strokeWidth={1.8} aria-hidden="true" />
           </Link>
         </motion.footer>
       </article>
