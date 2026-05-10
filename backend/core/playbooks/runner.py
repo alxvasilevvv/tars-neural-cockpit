@@ -150,14 +150,20 @@ class PlaybookRunner:
         results_in_order: list[StepResult] = []
 
         with trace_scope() as trace_id:
-            await client.emit(
-                "playbook.started",
-                {
-                    "playbook_id": playbook.id,
-                    "steps": len(playbook.steps),
-                    "mode": mode.value,
-                },
-            )
+            _started_payload = {
+                "playbook_id": playbook.id,
+                "steps": len(playbook.steps),
+                "mode": mode.value,
+            }
+            await client.emit("playbook.started", _started_payload)
+            # Wave 90 — outbound webhook fan-out. Wrapped so a webhook
+            # store error never breaks the playbook run.
+            try:
+                from backend.core.webhooks import emit as _wh_emit
+
+                await _wh_emit("playbook.started", _started_payload)
+            except Exception:
+                pass
 
             stop = False
             groups = _group_steps(playbook.steps)
@@ -246,18 +252,26 @@ class PlaybookRunner:
                         stop = True
                         break
 
-            await client.emit(
-                "playbook.completed",
-                {
-                    "playbook_id": playbook.id,
-                    "ok": not stop,
-                    "steps_run": sum(1 for r in results_in_order if not r.skipped),
-                    "steps_blocked": sum(1 for r in results_in_order if r.blocked),
-                    "steps_failed": sum(
-                        1 for r in results_in_order if not r.ok and not r.skipped and not r.blocked
-                    ),
-                },
-            )
+            _completed_payload = {
+                "playbook_id": playbook.id,
+                "ok": not stop,
+                "steps_run": sum(1 for r in results_in_order if not r.skipped),
+                "steps_blocked": sum(1 for r in results_in_order if r.blocked),
+                "steps_failed": sum(
+                    1 for r in results_in_order if not r.ok and not r.skipped and not r.blocked
+                ),
+            }
+            await client.emit("playbook.completed", _completed_payload)
+            # Wave 90 — outbound webhook fan-out for finished playbooks.
+            try:
+                from backend.core.webhooks import emit as _wh_emit
+
+                if _completed_payload["steps_failed"] > 0:
+                    await _wh_emit("playbook.failed", _completed_payload)
+                else:
+                    await _wh_emit("playbook.finished", _completed_payload)
+            except Exception:
+                pass
 
             # Re-emit the steps in the playbook's declared order so the
             # response is deterministic regardless of completion order.

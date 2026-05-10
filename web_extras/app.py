@@ -50,6 +50,7 @@ from web_extras.routers import vault as vault_router
 from web_extras.routers import speech as speech_router
 from web_extras.routers import voice as voice_router
 from web_extras.routers import wallet as wallet_router
+from web_extras.routers import webhooks as webhooks_router
 from web_extras.routers import github as github_router
 from web_extras.routers import clone as clone_router
 
@@ -544,6 +545,15 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     reflection = asyncio.create_task(
         reflection_loop(), name="memory-reflection-loop"
     )
+    # Wave 90 — webhooks dispatcher; OFF by default, opt-in via
+    # ``TARS_WEBHOOKS_ENABLED=1``. The loop self-disables when the
+    # flag is unset, so this create_task is a no-cost no-op for the
+    # default cockpit configuration.
+    from backend.core.webhooks.dispatcher_loop import webhooks_dispatcher_loop
+
+    webhooks_loop = asyncio.create_task(
+        webhooks_dispatcher_loop(), name="webhooks-dispatcher-loop"
+    )
     tasks = (
         replay,
         autopilot,
@@ -553,6 +563,7 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
         memory_purge,
         policy_expire,
         reflection,
+        webhooks_loop,
     )
     try:
         yield
@@ -622,6 +633,7 @@ app.include_router(pairing_router.router)
 app.include_router(recovery_router.router)
 app.include_router(agents_router.router)
 app.include_router(wallet_router.router)
+app.include_router(webhooks_router.router)
 app.include_router(github_router.router)
 app.include_router(clone_router.router)
 from web_extras.routers import entitlements as entitlements_router  # noqa: E402

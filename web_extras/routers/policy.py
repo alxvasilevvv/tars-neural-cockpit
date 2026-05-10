@@ -99,17 +99,23 @@ async def confirm(
 
     client = get_client()
     with thread_id_scope(confirmation.thread_id), trace_scope(parent=x_meeet_trace_id) as trace_id:
-        await client.emit(
-            "policy.confirm",
-            _attach_thread_id(
-                {
-                    "slug": confirmation.slug,
-                    "action": confirmation.action_id,
-                    "token": token,
-                },
-                confirmation,
-            ),
+        _hil_payload = _attach_thread_id(
+            {
+                "slug": confirmation.slug,
+                "action": confirmation.action_id,
+                "token": token,
+            },
+            confirmation,
         )
+        await client.emit("policy.confirm", _hil_payload)
+        # Wave 90 — outbound webhook fan-out for HIL approval. Wrapped
+        # so a webhook store error never breaks the confirm flow.
+        try:
+            from backend.core.webhooks import emit as _wh_emit
+
+            await _wh_emit("hil.approved", _hil_payload)
+        except Exception:
+            pass
         try:
             result = await spec.handler(confirmation.args)
         except Exception as exc:
@@ -157,17 +163,22 @@ async def cancel(token: str) -> dict[str, Any]:
             detail=f"confirmation_already_{confirmation.status}",
         )
     resolved = await store.resolve(token, status="cancelled")
-    await get_client().emit(
-        "policy.cancelled",
-        _attach_thread_id(
-            {
-                "slug": confirmation.slug,
-                "action": confirmation.action_id,
-                "token": token,
-            },
-            confirmation,
-        ),
+    _denied_payload = _attach_thread_id(
+        {
+            "slug": confirmation.slug,
+            "action": confirmation.action_id,
+            "token": token,
+        },
+        confirmation,
     )
+    await get_client().emit("policy.cancelled", _denied_payload)
+    # Wave 90 — outbound webhook fan-out for HIL denial.
+    try:
+        from backend.core.webhooks import emit as _wh_emit
+
+        await _wh_emit("hil.denied", _denied_payload)
+    except Exception:
+        pass
     return {"ok": True, "confirmation": _to_dict(resolved) if resolved else None}
 
 

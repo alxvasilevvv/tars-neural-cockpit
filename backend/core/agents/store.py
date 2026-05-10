@@ -187,7 +187,7 @@ class AgentStore:
             raise ValueError("agent name must be non-empty")
         if not pack_slug.strip():
             raise ValueError("pack_slug must be non-empty")
-        return await asyncio.to_thread(
+        agent = await asyncio.to_thread(
             self._create_agent_sync,
             name=name,
             pack_slug=pack_slug,
@@ -196,6 +196,24 @@ class AgentStore:
             wallet_address=wallet_address,
             metadata=metadata,
         )
+        # Wave 90 — outbound webhook fan-out for agent.created. Wrapped
+        # so a webhook store error never breaks agent creation.
+        try:
+            from backend.core.webhooks import emit as _wh_emit
+
+            await _wh_emit(
+                "agent.created",
+                {
+                    "agent_id": agent.id,
+                    "name": agent.name,
+                    "pack_slug": agent.pack_slug,
+                    "wallet_address": agent.wallet_address,
+                    "created_at": agent.created_at,
+                },
+            )
+        except Exception:
+            pass
+        return agent
 
     def _list_agents_sync(self, *, include_archived: bool) -> list[Agent]:
         conn = self._connect()
@@ -284,7 +302,31 @@ class AgentStore:
     async def patch_agent(
         self, agent_id: str, updates: Mapping[str, Any]
     ) -> Agent | None:
-        return await asyncio.to_thread(self._patch_agent_sync, agent_id, dict(updates))
+        agent = await asyncio.to_thread(
+            self._patch_agent_sync, agent_id, dict(updates)
+        )
+        # Wave 90 — outbound webhook fan-out for agent.deleted (soft
+        # delete via status=archived). Wrapped so a webhook store
+        # error never breaks the patch flow.
+        if (
+            agent is not None
+            and isinstance(updates.get("status"), str)
+            and updates["status"] == AgentStatus.ARCHIVED.value
+        ):
+            try:
+                from backend.core.webhooks import emit as _wh_emit
+
+                await _wh_emit(
+                    "agent.deleted",
+                    {
+                        "agent_id": agent.id,
+                        "name": agent.name,
+                        "pack_slug": agent.pack_slug,
+                    },
+                )
+            except Exception:
+                pass
+        return agent
 
     # -- tasks -----------------------------------------------------------
 

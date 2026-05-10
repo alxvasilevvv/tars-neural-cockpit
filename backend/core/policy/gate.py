@@ -116,6 +116,24 @@ class PolicyGate:
             "args": dict(args),
             "would": "execute_destructive_action",
         }
+        # Wave 90 — outbound webhook fan-out for HIL gate. Wrapped so
+        # a webhook store error never blocks the gate decision.
+        try:
+            from backend.core.webhooks import emit as _wh_emit
+
+            await _wh_emit(
+                "hil.requested",
+                {
+                    "token": token,
+                    "slug": slug,
+                    "action_id": action_id,
+                    "trace_id": trace_id,
+                    "thread_id": thread_id,
+                    "requested_by": requested_by,
+                },
+            )
+        except Exception:
+            pass
         return GateDecision(
             allowed=False,
             mode=mode,
