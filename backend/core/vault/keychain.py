@@ -24,6 +24,11 @@ KNOWN_KEYS: tuple[str, ...] = (
     "HUBSPOT_API_KEY",
     "PIPEDRIVE_API_KEY",
     "OPENALEX_EMAIL",
+    # Wave M1 — web-search domain pack. Optional: when present the
+    # pack prefers Brave over SearXNG / DuckDuckGo. Free tier is
+    # 2 000 queries/month and only needs an X-Subscription-Token
+    # header. See docs/WEB_SEARCH.md.
+    "BRAVE_SEARCH_API_KEY",
 )
 
 

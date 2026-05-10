@@ -8,7 +8,15 @@ Composite packs are registered after the leaf packs so they can cleanly
 reference the leaves through the registry.
 """
 
-from . import business, entrepreneur, mlm, science, traders, wallet  # noqa: F401
+from . import (  # noqa: F401
+    business,
+    entrepreneur,
+    mlm,
+    science,
+    traders,
+    wallet,
+    web_search,
+)
 from .composites import register_default_composites
 
 register_default_composites()
@@ -20,5 +28,6 @@ __all__ = [
     "science",
     "traders",
     "wallet",
+    "web_search",
     "register_default_composites",
 ]
