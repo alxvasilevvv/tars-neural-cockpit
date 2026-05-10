@@ -1,0 +1,38 @@
+{
+  "_meta": {
+    "vertical": "saas",
+    "workshop_phase": "deploy",
+    "teaches": "How to wire entrepreneur.churn_alert into a daily cron so retention risk surfaces in the cockpit before the customer cancels.",
+    "estimated_runtime_seconds": 45,
+    "schedule": "0 10 * * *"
+  },
+  "id": "_workshop.saas.churn_alert",
+  "name": "Daily churn alert",
+  "description": "Each morning, run entrepreneur.churn_alert against the active customer base and forward the at-risk list as a triage queue.",
+  "tags": ["saas", "workshop", "churn", "retention"],
+  "pack": "workshop",
+  "on_block": "stop",
+  "steps": [
+    {
+      "id": "scan",
+      "action": "entrepreneur.churn_alert",
+      "args": {
+        "lookback_days": 30,
+        "risk_threshold": 0.65
+      },
+      "store_as": "scan"
+    },
+    {
+      "id": "notify",
+      "action": "business.alert",
+      "args": {
+        "channel": "slack",
+        "to": "${env.CS_CHANNEL}",
+        "subject": "Churn risk — ${date.iso}",
+        "body": "${steps.scan.at_risk}",
+        "skip_if_empty": true
+      },
+      "store_as": "notify"
+    }
+  ]
+}

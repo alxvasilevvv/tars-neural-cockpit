@@ -1,0 +1,44 @@
+{
+  "_meta": {
+    "vertical": "family-office",
+    "workshop_phase": "build",
+    "teaches": "How to bundle every receipt in the ledger plus the audit export into a single compliance pack the accountant can accept.",
+    "estimated_runtime_seconds": 120
+  },
+  "id": "_workshop.family_office.compliance_pack",
+  "name": "Compliance pack for accountant",
+  "description": "Pull every receipt for the period, attach the signed audit export, and bundle them into a downloadable archive ready for the accountant.",
+  "tags": ["family-office", "workshop", "compliance", "audit"],
+  "pack": "workshop",
+  "on_block": "stop",
+  "steps": [
+    {
+      "id": "receipts",
+      "action": "business.receipts.query",
+      "args": {
+        "since": "${input.period_start}",
+        "until": "${input.period_end}"
+      },
+      "store_as": "receipts"
+    },
+    {
+      "id": "audit",
+      "action": "business.audit_export",
+      "args": {
+        "since": "${input.period_start}",
+        "until": "${input.period_end}",
+        "include_anchors": true
+      },
+      "store_as": "audit"
+    },
+    {
+      "id": "bundle",
+      "action": "business.archive_bundle",
+      "args": {
+        "name": "compliance_pack_${input.period_end}",
+        "items": ["${steps.receipts}", "${steps.audit}"]
+      },
+      "store_as": "bundle"
+    }
+  ]
+}

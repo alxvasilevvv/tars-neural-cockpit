@@ -1,0 +1,42 @@
+{
+  "_meta": {
+    "vertical": "fund",
+    "workshop_phase": "deploy",
+    "teaches": "How to compose and email a weekly LP report from portfolio KPIs and a filtered daily brief.",
+    "estimated_runtime_seconds": 90,
+    "schedule": "0 9 * * MON"
+  },
+  "id": "_workshop.fund.weekly_lp_report",
+  "name": "Weekly LP report",
+  "description": "Every Monday 9am: snapshot portfolio KPIs, draft a portfolio-filtered daily brief, and SMTP-send the report to the LP distribution list.",
+  "tags": ["fund", "workshop", "weekly", "lp", "report"],
+  "pack": "workshop",
+  "on_block": "stop",
+  "steps": [
+    {
+      "id": "kpi",
+      "action": "business.kpi_snapshot",
+      "args": { "scope": "portfolio" },
+      "store_as": "kpi"
+    },
+    {
+      "id": "brief",
+      "action": "business.daily_brief",
+      "args": { "filter_tag": "portfolio" },
+      "store_as": "brief"
+    },
+    {
+      "id": "send",
+      "action": "business.smtp_send",
+      "args": {
+        "to_list": "${env.LP_DISTRIBUTION_LIST}",
+        "subject": "Weekly LP report — ${date.iso}",
+        "body_template": "lp_weekly_v1",
+        "kpi": "${steps.kpi}",
+        "brief": "${steps.brief}"
+      },
+      "store_as": "send",
+      "on_error": "stop"
+    }
+  ]
+}

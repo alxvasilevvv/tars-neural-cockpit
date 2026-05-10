@@ -1,0 +1,45 @@
+{
+  "_meta": {
+    "vertical": "family-office",
+    "workshop_phase": "deploy",
+    "teaches": "How to schedule a 90-day KYC refresh per beneficiary and gate the action behind a human-in-the-loop confirmation prompt.",
+    "estimated_runtime_seconds": 30,
+    "schedule": "0 9 1 */3 *"
+  },
+  "id": "_workshop.family_office.kyc_refresh",
+  "name": "KYC refresh (90-day cadence)",
+  "description": "Quarterly: list beneficiaries whose KYC document is older than 90 days and raise a HIL prompt for the operator to confirm the refresh request before the message goes out.",
+  "tags": ["family-office", "workshop", "kyc", "hil"],
+  "pack": "workshop",
+  "on_block": "stop",
+  "steps": [
+    {
+      "id": "due",
+      "action": "business.beneficiaries.kyc_due",
+      "args": { "max_age_days": 90 },
+      "store_as": "due"
+    },
+    {
+      "id": "confirm",
+      "action": "business.hil_prompt",
+      "args": {
+        "title": "Refresh KYC for the listed beneficiaries?",
+        "items": "${steps.due}",
+        "options": ["approve", "skip"]
+      },
+      "store_as": "decision",
+      "on_error": "stop"
+    },
+    {
+      "id": "send",
+      "action": "business.smtp_send",
+      "args": {
+        "to_list": "${steps.due.emails}",
+        "subject": "KYC refresh request",
+        "body_template": "kyc_refresh_v1"
+      },
+      "when": "${steps.confirm} == 'approve'",
+      "store_as": "send"
+    }
+  ]
+}

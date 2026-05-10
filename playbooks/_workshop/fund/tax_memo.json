@@ -1,0 +1,45 @@
+{
+  "_meta": {
+    "vertical": "fund",
+    "workshop_phase": "build",
+    "teaches": "How to query the receipt ledger, group spend by category, and compose a tax memo the firm's accountant can act on.",
+    "estimated_runtime_seconds": 90
+  },
+  "id": "_workshop.fund.tax_memo",
+  "name": "Quarterly tax memo",
+  "description": "Pull all receipts from the receipt ledger above a $1,000 threshold, group them by tax category, and draft a memo for the accountant including audit-ready totals.",
+  "tags": ["fund", "workshop", "tax", "receipts"],
+  "pack": "workshop",
+  "on_block": "stop",
+  "steps": [
+    {
+      "id": "receipts",
+      "action": "business.receipts.query",
+      "args": {
+        "min_amount_usd": 1000,
+        "since": "${input.period_start}",
+        "until": "${input.period_end}"
+      },
+      "store_as": "receipts"
+    },
+    {
+      "id": "group",
+      "action": "business.receipts.group_by",
+      "args": {
+        "rows": "${steps.receipts}",
+        "key": "tax_category"
+      },
+      "store_as": "groups"
+    },
+    {
+      "id": "memo",
+      "action": "business.summarize",
+      "args": {
+        "title": "Tax memo — ${input.period_start} → ${input.period_end}",
+        "sources": ["${steps.group}"],
+        "format": "markdown"
+      },
+      "store_as": "memo"
+    }
+  ]
+}

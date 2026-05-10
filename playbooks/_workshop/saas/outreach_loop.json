@@ -1,0 +1,41 @@
+{
+  "_meta": {
+    "vertical": "saas",
+    "workshop_phase": "build",
+    "teaches": "How to drive entrepreneur.generate_outreach across rows fetched from CRM and stage drafts for human review before sending.",
+    "estimated_runtime_seconds": 120
+  },
+  "id": "_workshop.saas.outreach_loop",
+  "name": "CRM outreach loop",
+  "description": "Read the current outreach segment from the CRM, generate per-contact outbound drafts with entrepreneur.generate_outreach, and stage them in the review queue.",
+  "tags": ["saas", "workshop", "outreach", "crm"],
+  "pack": "workshop",
+  "on_block": "continue",
+  "steps": [
+    {
+      "id": "rows",
+      "action": "business.awareness.hubspot.snapshot",
+      "args": { "segment": "${input.segment}" },
+      "store_as": "rows"
+    },
+    {
+      "id": "drafts",
+      "action": "entrepreneur.generate_outreach",
+      "args": {
+        "rows": "${steps.rows}",
+        "channel": "email",
+        "tone": "founder_to_founder"
+      },
+      "store_as": "drafts"
+    },
+    {
+      "id": "stage",
+      "action": "business.review_queue.push",
+      "args": {
+        "items": "${steps.drafts}",
+        "lane": "outreach"
+      },
+      "store_as": "queued"
+    }
+  ]
+}
