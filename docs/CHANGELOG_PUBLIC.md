@@ -4,6 +4,76 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-10 — Cursor · Wave M3: TARS MCP client (drives external MCP servers)
+
+**Summary**
+
+Stdlib-only async **MCP client** so TARS itself can drive
+any external MCP server: filesystem, GitHub, Postgres,
+third-party tool servers — and the TARS MCP server (Wave
+M4 / PR #176) when running TARS-as-client against
+TARS-as-server. Same pinned spec version (`2025-06-18`),
+same line-delimited JSON-RPC framing.
+
+What ships:
+
+1. **`backend/mcp/client/`** — three-layer client:
+   - `transport.py` — async subprocess-stdio transport
+     (`asyncio.create_subprocess_exec` + read loop with
+     id-correlated futures + write lock + stderr
+     forwarding callback). Never crashes the event loop
+     — EOF on stdout fails every pending request with a
+     clean `ConnectionError`. `RemoteRpcError(code,
+     message, data)` for JSON-RPC error envelopes.
+   - `session.py` — high-level `ClientSession` with the
+     full MCP handshake (`initialize` + `notifications/
+     initialized`), `ping`, `list_tools`, `call_tool`.
+     Unwraps `content: [{type:"text",text:"..."}]` into
+     parsed JSON automatically. `RemoteToolError` for
+     `isError: true` (opt-in via `raise_on_remote_error`,
+     default returns the payload with
+     `__remote_is_error: True`).
+   - `registry.py` — file-backed roster of remote servers
+     (`$TARS_HOME/mcp/servers.json`). Lazy re-read on
+     every `get` so operators can edit the file without
+     restart. Atomic write via `*.tmp` + `replace`.
+     `ServerConfig.from_dict` validation matrix.
+2. **`backend/mcp/client/__main__.py`** — `python -m
+   backend.mcp.client <verb>` operator CLI: `list-servers`,
+   `list-tools <server>`, `call-tool <server> <tool>
+   [<json-args>] [--timeout]`, `ping <server>`. JSON
+   stdout, structured error stderr, exit `1` on remote-error
+   so cron jobs fail loudly.
+3. **`tests/mcp_fixtures/mock_mcp_server.py`** — tiny
+   stdlib-only mock MCP server used by the e2e tests.
+   Env-var knobs for forced handshake failure, delayed
+   reply, mid-session crash. Lives under `tests/mcp_fixtures/`
+   not `tests/fixtures/` so pytest does not auto-collect it
+   as a test module.
+4. **`docs/MCP_CLIENT.md`** (new, ~200 lines) — operator
+   manual: configure, CLI verbs, programmatic API, error
+   model matrix, notification queue, stderr forwarding,
+   testing, design rationale.
+
+**Tests** — 39 cases across three files
+(`test_mcp_client_session.py` (13), `test_mcp_client_registry.py`
+(16), `test_mcp_client_cli.py` (10)). All e2e tests spawn
+the mock fixture as a real subprocess so the transport /
+session / CLI work over actual stdio framing — no in-process
+mocking shortcut. Suite runs in <1s total.
+
+**Branch / PR**: `cursor/wave-m3-mcp-client`, **independent
+of the algotrade / CLI / M4 stack** so it can land directly
+into `main`. Pairs naturally with #176 (M4 server) — the
+two together close the round-trip ("TARS-as-client talking
+to TARS-as-server"), but neither blocks the other on review
+or merge.
+
+This closes the M-Wave (CLI + MCP server + MCP client) and
+`wave-c-mcp-client` from `docs/AGENT_HANDOFF.md`. TARS now
+speaks **four** transports for the same set of action
+handlers: HTTP, in-process, CLI, MCP (both directions).
+
 ## 2026-05-10 — Cursor · Phase W4-PR1: workshop quant playbooks + recursive playbook loader
 
 **Summary**
@@ -2332,26 +2402,6 @@ check — if OK, prints RU hint that token lacks **Account → Cloudflare Pages 
 - `docs/CHANGELOG_PUBLIC.md` (regenerated)
 - `docs/CHANGELOG_AGENTS.md` (this entry)
 
-## 2026-05-04 — Cursor · ops: cf-operator.env paste + Cloudflare → GitHub Pages deploy
-
-**Summary**
-
-**Operator flow:** copy **`cf-operator.env.example`** → **`cf-operator.env`** (gitignored),
-paste **`CLOUDFLARE_ACCOUNT_ID`** + **`CLOUDFLARE_API_TOKEN`**, run **`make ops-cf-pages-token`**.
-**`scripts/ops_push_cloudflare_pages_api_token.sh`** preflights **GET …/pages/projects/tars-meeet**,
-then **`gh secret set CLOUDFLARE_API_TOKEN`** + **`gh workflow run`** (dashboard token must have
-**Account → Cloudflare Pages → Edit**). **`cf-operator.env.example`** / локальный **`cf-operator.env`**
-— пошаговые подсказки где взять ID и token.
-
-**Files**
-
-- `cf-operator.env.example` (paste template + hints)
-- `.gitignore` (`cf-operator.env`)
-- `scripts/ops_push_cloudflare_pages_api_token.sh`
-- `Makefile` (`ops-cf-pages-token`)
-- `docs/CHANGELOG_PUBLIC.md` (regenerated)
-- `docs/CHANGELOG_AGENTS.md` (this entry)
-
 ---
 
-_Showing the most recent 60 of 248 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 249 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
