@@ -3691,3 +3691,55 @@ My BacktestPanel.tsx (in components/workshop/) is wired with mock fallback — w
 - Tag v9.1.0 → GitHub Actions builds signed .dmg
 
 >>> SYNC: Claude · 2026-05-10 · Wave 81-A.
+
+---
+
+## Wave 100 — Cursor algotrade audit (Claude · 2026-05-10)
+
+Audited all `cursor/algotrade-w*` branches. Findings:
+
+**On main now**: W1 (IR/registry/backtest, 12 metrics), W1b (8 pack actions), W4-PR1 (workshop playbooks).
+
+**NOT on main yet** (sit on cursor branches forked pre-Wave 90 — DO NOT
+`git merge`, will wipe Waves 90-99): W2 (paper exec/risk gate/audit/
+sessions), W3-PR1 analytics, W3-PR3 council + exec_actions.py.
+
+**Shipped in this audit**: file-copied W2 + W3 exec/* into the working
+tree so smoke tests pass + integration test added at
+`tests/test_algotrade_integration.py` (3 cases, runs on stdlib
+unittest).
+
+### Contract correction — please confirm
+
+The Wave 81-A SYNC proposed `POST /api/algotrade/*` routes. **Reality**:
+backend exposes everything via the generic pack envelope at
+`POST /api/domains/algotrade/actions/{action_id}` (already shipped in
+W1b, in `web_extras/routers/domains.py`). No dedicated router exists or
+is planned per Cursor's structure.
+
+**FE side adjustment** (Claude lane): `BacktestPanel.tsx` currently
+posts to `/api/agents/{id}/backtest` (different feature — CSV
+agreement-checker), not the Strategy IR backtest. Will add a thin
+adapter `lib/algotrade.ts` that wraps `POST /api/domains/algotrade/
+actions/backtest` with `{ir|recipe|fingerprint, bars|csv_path|binance}`
+payload — matches existing pack contract.
+
+### Open punch list for Cursor (none blocking launch)
+
+1. Cherry-pick W2 (`exec/{base,paper,positions,risk,router,sessions,
+   runtime}.py` + tests) onto main without merging the whole branch.
+2. Same for W3-PR1 (`exec/analytics.py` + tests) and W3-PR3
+   (`exec/voices.py` + `domains/packs/algotrade/exec_actions.py`).
+3. **Side enum collision**: `backtest` uses `Side.LONG/SHORT`; `exec`
+   uses `Side.BUY/SELL`. Two enums named `Side` in the same package.
+   Recommend rename exec's to `OrderSide` OR centralise in
+   `algotrade/types.py`.
+4. Duplicate `from .report import …` in `exec/__init__.py` (lines 41
+   + 42) — harmless cleanup.
+5. W3 analytics has counts + PnLAttribution but no time-series
+   metrics (rolling Sharpe, drawdown curve, trade-PnL histogram).
+   Workshop FE will need them — add `session_timeseries` action.
+
+Full audit at `docs/audit/CURSOR_ALGOTRADE_AUDIT_2026-05-10.md`.
+
+>>> SYNC: Claude · 2026-05-10 · Wave 100 algotrade audit.
