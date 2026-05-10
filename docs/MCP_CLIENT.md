@@ -108,11 +108,20 @@ python3 -m backend.mcp.client bridge-cache-list --show-tools
 
 # Drop one server's cache entry (forces re-discovery next boot).
 python3 -m backend.mcp.client bridge-cache-delete filesystem
+
+# Bench cold vs warm latency on a real server (Wave M6 pool).
+python3 -m backend.mcp.client bridge-pool-bench filesystem read_file \
+    --arguments '{"path": "/tmp/x.txt"}' --iterations 10
 ```
 
 `bridge-bootstrap` exits `0` when every configured server
 either succeeded or was skipped; `1` when at least one
 server failed.
+
+`bridge-pool-bench` (Wave M6) does one bridged call cold,
+N calls warm, and reports the speedup. The mock server in
+the test suite shows ~190x speedup; real servers usually
+land in the 30-150x range depending on handshake cost.
 
 Output is always JSON on stdout (machine-readable). Errors
 land on stderr with `{"ok": false, "error": "...", "detail": "..."}`

@@ -25,7 +25,7 @@ from __future__ import annotations
 
 import logging
 import re
-from typing import Any, Callable, Iterable, Mapping
+from typing import Any, Callable, Iterable, Mapping, TYPE_CHECKING
 
 from backend.core.domains.base import (
     ActionSpec,
@@ -34,6 +34,9 @@ from backend.core.domains.base import (
     DomainPack,
 )
 from backend.mcp.client import ClientSession, ServerConfig, StdioTransport
+
+if TYPE_CHECKING:
+    from .pool import SessionPool
 
 
 log = logging.getLogger(__name__)
@@ -51,14 +54,37 @@ def sanitize_action_id(tool_name: str) -> str:
 
 
 def _build_handler(
+    server_config: ServerConfig,
+    tool_name: str,
+    *,
+    pool: "SessionPool | None" = None,
+) -> Callable[[Mapping[str, Any]], Any]:
+    """Build a per-tool async handler closure.
+
+    When ``pool`` is ``None`` (M5 default), each call opens a
+    fresh transport, runs the handshake, calls the tool,
+    closes. Simple but ~100-300ms per call.
+
+    When ``pool`` is provided (Wave M6), each call reuses the
+    long-lived ``ClientSession`` cached by the pool. On
+    transient transport errors (remote crashed, EOF), the
+    handler evicts the dead entry and retries once with a
+    fresh session — operators see at most one failed call
+    per remote crash.
+
+    Returns the *unwrapped* MCP payload directly so the
+    cockpit / CLI / TARS MCP server see the same shape they
+    get from native handlers.
+    """
+
+    if pool is None:
+        return _build_per_call_handler(server_config, tool_name)
+    return _build_pooled_handler(server_config, tool_name, pool)
+
+
+def _build_per_call_handler(
     server_config: ServerConfig, tool_name: str
 ) -> Callable[[Mapping[str, Any]], Any]:
-    """Build a per-tool async handler closure. Each call opens
-    a fresh transport, runs the handshake, calls the tool,
-    closes. Returns the *unwrapped* MCP payload directly so
-    the cockpit / CLI / TARS MCP server see the same shape
-    they get from native handlers."""
-
     async def handler(args: Mapping[str, Any]) -> dict[str, Any]:
         transport = StdioTransport(
             command=server_config.command,
@@ -69,29 +95,79 @@ def _build_handler(
         try:
             async with ClientSession(transport) as session:
                 payload = await session.call_tool(tool_name, args or {})
-            if payload.pop("__remote_is_error", False):
-                if "ok" not in payload:
-                    payload["ok"] = False
-                return payload
-            if "ok" not in payload:
-                payload["ok"] = True
-            return payload
+            return _normalise_payload(payload)
         except Exception as exc:  # noqa: BLE001 — surface as structured error
             log.exception(
                 "mcp.bridge.handler.uncaught server=%s tool=%s",
                 server_config.name,
                 tool_name,
             )
-            return {
-                "ok": False,
-                "error": "mcp_bridge_call_failed",
-                "detail": f"{type(exc).__name__}: {exc}",
-                "server": server_config.name,
-                "tool": tool_name,
-            }
+            return _failure_envelope(server_config.name, tool_name, exc)
 
     handler.__name__ = f"bridged__{server_config.name}__{tool_name}"
     return handler
+
+
+def _build_pooled_handler(
+    server_config: ServerConfig,
+    tool_name: str,
+    pool: "SessionPool",
+) -> Callable[[Mapping[str, Any]], Any]:
+    async def handler(args: Mapping[str, Any]) -> dict[str, Any]:
+        try:
+            session = await pool.get_or_create(server_config)
+            try:
+                payload = await session.call_tool(tool_name, args or {})
+            except (ConnectionError, BrokenPipeError) as exc:
+                # The pooled session died mid-call. Evict it,
+                # reconnect, retry once. After that, surface
+                # the failure to the caller.
+                log.warning(
+                    "mcp.bridge.pooled.retry server=%s tool=%s reason=%s",
+                    server_config.name,
+                    tool_name,
+                    exc,
+                )
+                await pool.evict(server_config.name)
+                session = await pool.get_or_create(server_config)
+                payload = await session.call_tool(tool_name, args or {})
+            return _normalise_payload(payload)
+        except Exception as exc:  # noqa: BLE001
+            log.exception(
+                "mcp.bridge.handler.uncaught server=%s tool=%s",
+                server_config.name,
+                tool_name,
+            )
+            return _failure_envelope(server_config.name, tool_name, exc)
+
+    handler.__name__ = f"bridged_pooled__{server_config.name}__{tool_name}"
+    return handler
+
+
+def _normalise_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    """Apply the cockpit-facing ``ok``/``isError`` collapsing.
+    Shared by the per-call and pooled handlers so both flavours
+    return the same shape."""
+
+    if payload.pop("__remote_is_error", False):
+        if "ok" not in payload:
+            payload["ok"] = False
+        return payload
+    if "ok" not in payload:
+        payload["ok"] = True
+    return payload
+
+
+def _failure_envelope(
+    server_name: str, tool_name: str, exc: BaseException
+) -> dict[str, Any]:
+    return {
+        "ok": False,
+        "error": "mcp_bridge_call_failed",
+        "detail": f"{type(exc).__name__}: {exc}",
+        "server": server_name,
+        "tool": tool_name,
+    }
 
 
 class BridgedPack(DomainPack):
@@ -103,11 +179,14 @@ class BridgedPack(DomainPack):
         self,
         server_config: ServerConfig,
         tool_descriptors: list[dict[str, Any]],
+        *,
+        pool: "SessionPool | None" = None,
     ) -> None:
         if not server_config.name:
             raise ValueError("server_config.name must be non-empty")
         self._server_config = server_config
         self._tool_descriptors = list(tool_descriptors)
+        self._pool = pool
         self._actions = tuple(
             self._build_action_spec(t) for t in tool_descriptors
         )
@@ -174,7 +253,9 @@ class BridgedPack(DomainPack):
             id=sanitize_action_id(tool_name),
             name=name,
             description=description,
-            handler=_build_handler(self._server_config, tool_name),
+            handler=_build_handler(
+                self._server_config, tool_name, pool=self._pool
+            ),
             schema=dict(schema),
             destructive=destructive,
         )
@@ -186,3 +267,7 @@ class BridgedPack(DomainPack):
     @property
     def tool_descriptors(self) -> list[dict[str, Any]]:
         return list(self._tool_descriptors)
+
+    @property
+    def pooled(self) -> bool:
+        return self._pool is not None

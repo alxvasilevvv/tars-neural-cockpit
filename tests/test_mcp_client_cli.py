@@ -345,3 +345,75 @@ def test_bridge_cache_delete_round_trip(capsys, isolated_registry) -> None:
     err = json.loads(capsys.readouterr().err)
     assert rc == 1
     assert err["error"] == "cache_entry_not_found"
+
+
+# ---------------------------------------------------------------------
+# bridge-pool-bench — Wave M6
+# ---------------------------------------------------------------------
+
+
+def test_bridge_pool_bench_reports_cold_warm_speedup(
+    capsys, isolated_registry
+) -> None:
+    _seed_mock_server(isolated_registry)
+    rc = main([
+        "bridge-pool-bench",
+        "mock",
+        "echo",
+        "--arguments", '{"value":"hi"}',
+        "--iterations", "3",
+    ])
+    out = json.loads(capsys.readouterr().out)
+    assert rc == 0
+    assert out["server"] == "mock"
+    assert out["tool"] == "echo"
+    assert out["cold_payload_ok"] is True
+    assert isinstance(out["cold_ms"], float)
+    assert isinstance(out["warm_avg_ms"], float)
+    assert len(out["warm_calls"]) == 3
+    # Subprocess spawn vs reuse — speedup must be > 1
+    # even on a slow CI runner. Mock server is fast enough
+    # that warm calls are sub-ms; we expect >= 2x.
+    assert out["speedup_vs_cold"] is None or out["speedup_vs_cold"] >= 2.0
+    # Stats snapshot is taken before pool.close_all(), so it
+    # shows the live session that served the warm calls.
+    assert out["pool_stats"]["count"] == 1
+    assert out["pool_stats"]["sessions"][0]["name"] == "mock"
+
+
+def test_bridge_pool_bench_invalid_json_args(capsys, isolated_registry) -> None:
+    _seed_mock_server(isolated_registry)
+    rc = main([
+        "bridge-pool-bench",
+        "mock",
+        "echo",
+        "--arguments", "{not valid",
+    ])
+    err = json.loads(capsys.readouterr().err)
+    assert rc == 1
+    assert err["error"] == "invalid_arguments_json"
+
+
+def test_bridge_pool_bench_unknown_server(capsys, isolated_registry) -> None:
+    rc = main([
+        "bridge-pool-bench",
+        "ghost",
+        "echo",
+    ])
+    err = json.loads(capsys.readouterr().err)
+    assert rc == 1
+    assert err["error"] == "server_not_in_registry"
+
+
+def test_bridge_pool_bench_unknown_tool(capsys, isolated_registry) -> None:
+    _seed_mock_server(isolated_registry)
+    rc = main([
+        "bridge-pool-bench",
+        "mock",
+        "no-such-tool",
+        "--iterations", "1",
+    ])
+    err = json.loads(capsys.readouterr().err)
+    assert rc == 1
+    assert err["error"] == "bench_failed"
+    assert "not in mcp-mock" in err["detail"]

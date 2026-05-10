@@ -43,6 +43,7 @@ from backend.mcp.client.registry import (
 from .cache import DEFAULT_MAX_AGE_SECONDS, CachedDiscovery, ToolCache
 from .discovery import DiscoveryError, discover_remote_tools
 from .pack import BridgedPack
+from .pool import SessionPool
 
 
 log = logging.getLogger(__name__)
@@ -82,19 +83,59 @@ def boot_mcp_bridges(
     *,
     client_registry: ClientRegistry | None = None,
     cache: ToolCache | None = None,
+    pool: SessionPool | None = None,
     discovery_timeout: float = 10.0,
     max_age_seconds: int = DEFAULT_MAX_AGE_SECONDS,
     refresh: bool = False,
     only: Iterable[str] | None = None,
 ) -> BridgeBootResult:
-    """Read configured servers, discover or cache-hit, register
-    a ``BridgedPack`` per healthy server.
+    """Sync entry. Read configured servers, discover or
+    cache-hit, register a ``BridgedPack`` per healthy server.
+
+    Use this from synchronous contexts (CLI, tests, plain
+    scripts). From inside a running event loop, call
+    :func:`aboot_mcp_bridges` instead — this wrapper would
+    raise ``RuntimeError("asyncio.run() cannot be called from
+    a running event loop")``.
 
     ``refresh`` forces re-discovery even when a fresh cache
     exists. ``only`` restricts to a subset of server names
     (useful for tests + selective re-discovery from the
-    cockpit). Returns the structured boot result; it never
-    raises (every per-server failure is captured)."""
+    cockpit). ``pool`` (Wave M6) opts the synthesised bridges
+    into the long-lived session pool — pass the host's
+    process-scoped ``SessionPool`` here so handler calls
+    reuse one subprocess instead of spawning per call.
+    Returns the structured boot result; it never raises
+    (every per-server failure is captured)."""
+
+    return asyncio.run(
+        aboot_mcp_bridges(
+            client_registry=client_registry,
+            cache=cache,
+            pool=pool,
+            discovery_timeout=discovery_timeout,
+            max_age_seconds=max_age_seconds,
+            refresh=refresh,
+            only=only,
+        )
+    )
+
+
+async def aboot_mcp_bridges(
+    *,
+    client_registry: ClientRegistry | None = None,
+    cache: ToolCache | None = None,
+    pool: SessionPool | None = None,
+    discovery_timeout: float = 10.0,
+    max_age_seconds: int = DEFAULT_MAX_AGE_SECONDS,
+    refresh: bool = False,
+    only: Iterable[str] | None = None,
+) -> BridgeBootResult:
+    """Async entry — same as :func:`boot_mcp_bridges` but
+    safe to call from inside a running event loop. Use this
+    from the HTTP server / MCP server startup hooks where
+    the loop is already running. Same arguments, same return
+    shape."""
 
     registry = client_registry or get_client_registry()
     tool_cache = cache or ToolCache(_default_cache_root())
@@ -112,12 +153,13 @@ def boot_mcp_bridges(
 
     for server in servers:
         try:
-            outcome = _boot_one(
+            outcome = await _aboot_one(
                 server,
                 cache=tool_cache,
                 discovery_timeout=discovery_timeout,
                 max_age_seconds=max_age_seconds,
                 refresh=refresh,
+                pool=pool,
             )
         except Exception as exc:  # noqa: BLE001 — never crash the boot loop
             log.exception("mcp.bridge.boot.uncaught server=%s", server.name)
@@ -165,13 +207,14 @@ class _OneOutcome:
     skipped_reason: str | None = None
 
 
-def _boot_one(
+async def _aboot_one(
     server: ServerConfig,
     *,
     cache: ToolCache,
     discovery_timeout: float,
     max_age_seconds: int,
     refresh: bool,
+    pool: SessionPool | None = None,
 ) -> _OneOutcome:
     """Bootstrap one server. Returns ``_OneOutcome`` describing
     cache/discovery/skip outcome — never raises."""
@@ -185,13 +228,13 @@ def _boot_one(
                 skipped_reason="cache_hit_but_empty_tool_list"
             )
         return _OneOutcome(
-            pack=BridgedPack(server, cached.tools),
+            pack=BridgedPack(server, cached.tools, pool=pool),
             from_cache=True,
         )
 
     try:
-        tools, server_info = asyncio.run(
-            discover_remote_tools(server, timeout=discovery_timeout)
+        tools, server_info = await discover_remote_tools(
+            server, timeout=discovery_timeout
         )
     except DiscoveryError as exc:
         if cached is not None and cached.tools:
@@ -201,7 +244,7 @@ def _boot_one(
                 exc.reason,
             )
             return _OneOutcome(
-                pack=BridgedPack(server, cached.tools),
+                pack=BridgedPack(server, cached.tools, pool=pool),
                 from_cache=True,
             )
         return _OneOutcome(failed_reason=exc.reason)
@@ -211,7 +254,9 @@ def _boot_one(
         return _OneOutcome(
             skipped_reason="server_advertised_no_tools"
         )
-    return _OneOutcome(pack=BridgedPack(server, tools), from_cache=False)
+    return _OneOutcome(
+        pack=BridgedPack(server, tools, pool=pool), from_cache=False
+    )
 
 
 def unregister_bridges() -> int:

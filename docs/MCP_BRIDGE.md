@@ -107,17 +107,92 @@ and `.` (e.g. `filesystem/read_file`); TARS action ids are
 `[a-z0-9_]`. The bridge replaces anything else with `_`
 and lowercases the result.
 
-## Per-call session model (MVP)
+## Per-call session model (M5 default)
 
-Every bridged action call spawns a **fresh** subprocess,
-runs the handshake, calls the tool, closes. Adds ~100-300ms
-latency per call but is dead-simple and correct. No state
-leaks between calls; the bridge can run for weeks without
-accumulating zombie subprocesses.
+When `boot_mcp_bridges()` is called **without** a `pool=`
+argument, every bridged action call spawns a **fresh**
+subprocess, runs the handshake, calls the tool, closes.
+Adds ~100-300ms latency per call but is dead-simple and
+correct. No state leaks between calls; the bridge can run
+for weeks without accumulating zombie subprocesses.
 
-Connection pooling is a future Wave M6 — when it lands,
-`BridgedPack` will not need to change because the action
-handler signature stays identical.
+Use this mode for one-shot CLI commands, scheduled
+playbooks, and anything else where you don't care about
+sub-second latency.
+
+## Pooled session model (Wave M6)
+
+For long-lived hosts — HTTP server, MCP server, cockpit
+backend, workshop session driver — pass a `SessionPool`
+to the bootstrap:
+
+```python
+from backend.core.mcp_bridge import (
+    SessionPool, aboot_mcp_bridges, get_default_pool,
+)
+
+# At process startup
+pool = get_default_pool()  # process-scoped singleton
+result = await aboot_mcp_bridges(pool=pool)
+
+# At process shutdown
+await pool.close_all()
+```
+
+What changes:
+
+- **One subprocess per remote server**, kept alive across
+  every bridged action call.
+- **First call ("cold")** still pays the spawn + handshake
+  cost (~15-300ms depending on the remote server).
+- **Subsequent calls ("warm")** typically run in <1ms
+  end-to-end because there is no process spawn, no JSON-RPC
+  handshake, and no `tools/list` round trip — only the
+  `tools/call` itself.
+- Bench output from the in-test mock server: **194x speedup**
+  on warm calls vs cold (15.8ms cold → 0.08ms warm).
+- **Concurrent calls** on the same pooled session run truly
+  in parallel; the JSON-RPC layer correlates replies by id.
+- **Failure recovery**: if a pooled subprocess dies (remote
+  crashed, stdin closed), the bridge handler detects the
+  `ConnectionError` on the next call, evicts the dead entry,
+  reconnects, retries the call once. Operators see at most
+  one failed call per remote crash.
+- **Idle eviction** is opt-in via `pool.evict_idle(max_idle_seconds=...)`.
+  Long-lived hosts can call this from a periodic task.
+- **Always close** with `await pool.close_all()` at process
+  shutdown so no zombie subprocesses leak.
+
+The `BridgedPack` action handler signature is identical in
+both modes — code that imports a bridged action does not
+need to know whether it's pool-backed.
+
+### Async vs sync entry
+
+There are two bootstrap entry points:
+
+- `boot_mcp_bridges(...)` — sync, calls `asyncio.run()`
+  internally. Use from CLI / tests / synchronous scripts.
+- `aboot_mcp_bridges(...)` — async, safe to call from
+  inside an already-running event loop. Use from HTTP /
+  MCP server startup hooks where the loop is up.
+
+Both accept the same arguments, including `pool=`.
+
+### CLI bench
+
+Operators can sanity-check the pool benefit on a real
+configured server:
+
+```bash
+python -m backend.mcp.client bridge-pool-bench filesystem read_file \
+    --arguments '{"path": "/tmp/x.txt"}' --iterations 10
+```
+
+Output is one JSON envelope with `cold_ms`, `warm_calls`,
+`warm_avg_ms`, `speedup_vs_cold`, and the live `pool_stats`
+snapshot — useful for sizing how many concurrent workshop
+attendees one pool can handle.
 
 ## Cache layout
 
@@ -159,7 +234,7 @@ warning too. End-to-end consistent.
 
 ## Testing
 
-`tests/test_mcp_bridge_*.py` — **50 cases** across four files:
+`tests/test_mcp_bridge_*.py` — **68 cases** across five files:
 
 - `test_mcp_bridge_pack.py` (12) — `sanitize_action_id`
   matrix, manifest generation, action spec build, name
@@ -182,6 +257,16 @@ warning too. End-to-end consistent.
   discovery, `only=` filter, empty-tool-list skipped,
   `unregister_bridges` only touches `mcp-*` slugs,
   `BridgeBootResult.to_dict` shape.
+- `test_mcp_bridge_pool.py` (18, **Wave M6**) — pool basic
+  reuse, separate-server isolation, concurrent
+  `get_or_create` race serialisation, `close_all` count +
+  idempotency, `evict` happy/missing, idle eviction sweep,
+  pool stats round-trip, cross-loop guard, default-pool
+  singleton + reset, `pooled` flag on `BridgedPack`,
+  pooled-handler reuse across calls, automatic reconnect
+  after pool eviction, subprocess failure → structured
+  envelope, `aboot_mcp_bridges` runs inside an existing
+  loop, pool=None falls back to per-call.
 
 All e2e tests spawn the same `tests/mcp_fixtures/mock_mcp_server`
 fixture from M3 — no in-process mocking shortcut. Suite
@@ -189,14 +274,16 @@ runs in <1s total.
 
 ## What's next
 
-- **Wave M6 — connection pooling.** Long-lived
-  `ClientSession` per server, shared across handler calls.
-  Strips the per-call subprocess overhead. Keeps the
-  action surface unchanged.
-- **`tars mcp bridge ...` CLI verbs.** `bootstrap`,
-  `refresh <server>`, `list`, `unregister <server>`. Will
-  layer onto the M2 CLI (#174) once it merges.
-- **Cockpit panel.** Surface `BridgeBootResult` in the
-  domain-pack status UI so operators can see at a glance
-  which remote servers loaded, which fell back to stale
-  cache, and which failed.
+- **Cockpit panel.** Surface `BridgeBootResult` and the
+  live `pool.stats()` in the domain-pack status UI so
+  operators can see at a glance which remote servers
+  loaded, which fell back to stale cache, which failed,
+  and which sessions are currently warm.
+- **Auto-reconnect background sweep.** Periodic
+  `pool.evict_idle()` task wired into the HTTP / MCP
+  server lifecycle so very-long-lived hosts don't pin
+  subprocess slots indefinitely.
+- **Per-server tool-call concurrency limits.** Some remote
+  servers don't like 50 in-flight requests at once;
+  optional semaphore inside the pool entry would let the
+  operator cap concurrency per server.

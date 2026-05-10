@@ -4,6 +4,112 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-11 — Cursor · Wave M6: MCP bridge connection pooling (kills per-call subprocess overhead)
+
+**Summary**
+
+The M5 bridge ships with per-call sessions: every bridged
+tool call spawns a fresh subprocess, runs the handshake,
+calls the tool, closes. Fine for one-shot CLI use, painful
+for long-lived hosts (cockpit autocomplete, workshop demo
+loops, MCP-host driven sessions where every keystroke can
+fan out to multiple bridged calls).
+
+This wave adds an opt-in `SessionPool` so long-lived hosts
+keep one `ClientSession` alive per remote server, reused
+across handler calls. The action surface is unchanged —
+existing M5 callers see no API drift; pooling is enabled
+by passing `pool=` to `boot_mcp_bridges()`.
+
+What ships:
+
+1. **`backend/core/mcp_bridge/pool.py`** — new `SessionPool`
+   class:
+   - One `ClientSession` per remote server, lazily created.
+   - Per-server `asyncio.Lock` so concurrent
+     `get_or_create("filesystem")` calls share one session,
+     not two subprocesses.
+   - Dead-transport detection: if the cached session's
+     transport closed (remote crashed), pool evicts and
+     reconnects on the same call.
+   - `evict(name)`, `evict_idle(max_idle_seconds=...)`,
+     `close_all()` lifecycle. `close_all` is idempotent
+     and returns the count it actually closed.
+   - Cross-event-loop guard — pools are bound to the loop
+     that ran the first call; cross-loop access raises
+     `RuntimeError` with a helpful message.
+   - `stats()` returns a serialisable snapshot (count,
+     per-session age + idle + tool count + server info)
+     consumable by the cockpit panel.
+   - Process-scoped singleton via `get_default_pool()` for
+     long-lived hosts; `reset_default_pool()` for tests.
+2. **`backend/core/mcp_bridge/pack.py`** — `BridgedPack`
+   accepts optional `pool=` kwarg. Two handler flavours:
+   - `_build_per_call_handler` — M5 default, unchanged.
+   - `_build_pooled_handler` — Wave M6, reuses pooled
+     session, auto-evicts + retries once on
+     `ConnectionError` / `BrokenPipeError`.
+   - New `BridgedPack.pooled` property exposes which mode
+     a pack runs in (cockpit / debug surface).
+3. **`backend/core/mcp_bridge/bootstrap.py`** — split into
+   sync (`boot_mcp_bridges`) and async (`aboot_mcp_bridges`)
+   entry points. The async variant is safe to call from
+   inside an already-running event loop, which the sync
+   variant cannot do because of `asyncio.run()`. Both
+   accept `pool=`. `_boot_one` is now `_aboot_one` and
+   awaits `discover_remote_tools` directly.
+4. **`backend/mcp/client/__main__.py`** — new
+   `bridge-pool-bench <server> <tool>` CLI verb:
+   - Boots the bridge with a fresh `SessionPool`.
+   - Runs one cold call, N warm calls (default 5).
+   - Reports `cold_ms`, `warm_calls[]`, `warm_avg_ms`,
+     `speedup_vs_cold`, `pool_stats`.
+   - Used to size the pool benefit for a given remote
+     server before turning it on in production.
+5. **`tests/test_mcp_bridge_pool.py`** — 18 cases covering
+   reuse, isolation, race serialisation, idle eviction,
+   stats round-trip, cross-loop guard, default singleton,
+   `BridgedPack.pooled`, pooled handler reuse + retry,
+   subprocess failure → structured envelope,
+   `aboot_mcp_bridges` inside running loop, `pool=None`
+   fallback.
+6. **`tests/test_mcp_client_cli.py`** — 4 new cases for
+   `bridge-pool-bench`: happy path with cold/warm
+   speedup, invalid JSON args, unknown server, unknown
+   tool.
+
+End-to-end smoke against the in-test mock server:
+**194x speedup** on warm calls vs cold (15.8ms cold →
+0.08ms warm). 10 concurrent calls on a single pooled
+session run in 0.4ms total — JSON-RPC reply correlation
+makes them truly parallel.
+
+Stacked on M5b (#179).
+
+**Files**
+
+- `backend/core/mcp_bridge/__init__.py` — export
+  `SessionPool`, `aboot_mcp_bridges`, `get_default_pool`,
+  `reset_default_pool`.
+- `backend/core/mcp_bridge/pool.py` — new (240 LOC).
+- `backend/core/mcp_bridge/pack.py` — split handler into
+  per-call + pooled variants, share `_normalise_payload`
+  and `_failure_envelope` helpers, `BridgedPack` accepts
+  `pool=`, new `pooled` property.
+- `backend/core/mcp_bridge/bootstrap.py` — sync wrapper +
+  new `aboot_mcp_bridges` async path, `_aboot_one` instead
+  of `_boot_one`.
+- `backend/mcp/client/__main__.py` — `bridge-pool-bench`
+  CLI verb + `_bridge_pool_bench` handler.
+- `docs/MCP_BRIDGE.md` — Wave M6 section, async vs sync
+  entry, CLI bench, expanded test inventory, refreshed
+  "what's next" list.
+- `docs/MCP_CLIENT.md` — `bridge-pool-bench` example.
+- `tests/test_mcp_bridge_pool.py` — new (260 LOC, 18
+  tests).
+- `tests/test_mcp_client_cli.py` — 4 new pool-bench
+  tests.
+
 ## 2026-05-10 — Cursor · Wave M5b: `tars mcp` CLI verbs (servers + bridge management)
 
 **Summary**
@@ -2505,23 +2611,6 @@ characters like **`$`** in API tokens no longer truncate/break the value (repeat
 - `docs/CHANGELOG_PUBLIC.md` (regenerated)
 - `docs/CHANGELOG_AGENTS.md` (this entry)
 
-## 2026-05-04 — Cursor · ops: shorten CF token path (cf-operator + script header)
-
-**Summary**
-
-Minimal **3-line** `cf-operator.env.example`, one-line Makefile/help + script banner; **TARS_MEEET_OPS_TODO**
-top «token → GitHub» blurb.
-
-**Files**
-
-- `cf-operator.env.example`
-- `cf-operator.env` (comment only; local)
-- `scripts/ops_push_cloudflare_pages_api_token.sh`
-- `Makefile`
-- `docs/TARS_MEEET_OPS_TODO.md`
-- `docs/CHANGELOG_PUBLIC.md` (regenerated)
-- `docs/CHANGELOG_AGENTS.md` (this entry)
-
 ---
 
-_Showing the most recent 60 of 251 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 252 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._

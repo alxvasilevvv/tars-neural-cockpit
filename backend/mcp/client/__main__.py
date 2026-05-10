@@ -172,6 +172,34 @@ def _build_parser() -> argparse.ArgumentParser:
     )
     bcd.add_argument("name")
 
+    bpb = sub.add_parser(
+        "bridge-pool-bench",
+        help=(
+            "Boot the bridge with a SessionPool, call one tool N "
+            "times, report cold/warm latency. Wave M6 — handy "
+            "for sizing the pool benefit on real servers."
+        ),
+    )
+    bpb.add_argument("server", help="Configured server name to benchmark.")
+    bpb.add_argument(
+        "tool",
+        help=(
+            "Bridged action ID (e.g. mcp-fs.read_file). Use "
+            "bridge-list to see what's registered."
+        ),
+    )
+    bpb.add_argument(
+        "--arguments",
+        default="{}",
+        help="JSON object passed to the bridged action handler.",
+    )
+    bpb.add_argument(
+        "--iterations",
+        type=int,
+        default=5,
+        help="How many warm calls to time after the cold call.",
+    )
+
     return p
 
 
@@ -323,6 +351,13 @@ def main(argv: list[str] | None = None) -> int:
             return _bridge_cache_list(show_tools=args.show_tools)
         if args.command == "bridge-cache-delete":
             return _bridge_cache_delete(args.name)
+        if args.command == "bridge-pool-bench":
+            return _bridge_pool_bench(
+                server=args.server,
+                tool=args.tool,
+                arguments=args.arguments,
+                iterations=args.iterations,
+            )
     except KeyboardInterrupt:
         return 130
     return 2
@@ -447,6 +482,95 @@ def _bridge_cache_delete(name: str) -> int:
     if not deleted:
         return _err("cache_entry_not_found", name)
     _print({"ok": True, "deleted": name})
+    return 0
+
+
+def _bridge_pool_bench(
+    *, server: str, tool: str, arguments: str, iterations: int
+) -> int:
+    """Bench one bridged tool: cold call (subprocess spawn) vs
+    warm calls (pooled session reuse). Useful for sizing the
+    Wave M6 benefit on real remote servers."""
+
+    import time
+
+    try:
+        parsed_args = json.loads(arguments) if arguments else {}
+    except json.JSONDecodeError as exc:
+        return _err("invalid_arguments_json", str(exc))
+    if not isinstance(parsed_args, dict):
+        return _err("invalid_arguments_type", "must be a JSON object")
+
+    cfg = get_client_registry().get(server)
+    if cfg is None:
+        return _err("server_not_in_registry", server)
+
+    from backend.core.domains.registry import get_pack
+    from backend.core.mcp_bridge import (
+        SessionPool,
+        aboot_mcp_bridges,
+        unregister_bridges,
+    )
+
+    async def go() -> dict[str, Any]:
+        pool = SessionPool()
+        result = await aboot_mcp_bridges(
+            client_registry=get_client_registry(),
+            pool=pool,
+            only=[server],
+        )
+        if result.failed:
+            await pool.close_all()
+            unregister_bridges()
+            raise RuntimeError(
+                f"bridge boot failed: {result.failed[0]}"
+            )
+        slug = f"mcp-{server}"
+        pack = get_pack(slug)
+        action_id = tool.split(".")[-1] if "." in tool else tool
+        action = next((a for a in pack.actions() if a.id == action_id), None)
+        if action is None:
+            await pool.close_all()
+            unregister_bridges()
+            raise RuntimeError(
+                f"action {action_id!r} not in {slug}; available: "
+                f"{[a.id for a in pack.actions()]}"
+            )
+
+        try:
+            t0 = time.perf_counter()
+            cold_payload = await action.handler(parsed_args)
+            cold_ms = (time.perf_counter() - t0) * 1000
+
+            warm_ms: list[float] = []
+            for _ in range(max(1, iterations)):
+                t = time.perf_counter()
+                await action.handler(parsed_args)
+                warm_ms.append((time.perf_counter() - t) * 1000)
+
+            avg_warm = sum(warm_ms) / len(warm_ms)
+            return {
+                "ok": True,
+                "server": server,
+                "tool": action_id,
+                "cold_ms": round(cold_ms, 2),
+                "warm_calls": [round(t, 2) for t in warm_ms],
+                "warm_avg_ms": round(avg_warm, 2),
+                "speedup_vs_cold": (
+                    round(cold_ms / avg_warm, 1) if avg_warm > 0 else None
+                ),
+                "cold_payload_ok": bool(cold_payload.get("ok")),
+                "pool_stats": pool.stats(),
+            }
+        finally:
+            await pool.close_all()
+            unregister_bridges()
+
+    try:
+        payload = asyncio.run(go())
+    except RuntimeError as exc:
+        return _err("bench_failed", str(exc))
+    _print(payload)
     return 0
 
 
