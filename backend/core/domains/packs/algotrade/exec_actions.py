@@ -44,6 +44,7 @@ from backend.core.algotrade.exec import (
     compute_slippage,
     get_runtime,
     render_session_report,
+    run_council,
 )
 
 
@@ -392,6 +393,40 @@ async def session_summary_action(args: Mapping[str, Any]) -> dict[str, Any]:
     )
 
 
+async def council_review_action(args: Mapping[str, Any]) -> dict[str, Any]:
+    sid = args.get("session_id")
+    if not sid:
+        return _err("missing_session_id")
+    runtime = get_runtime()
+    wiring = runtime.get(str(sid))
+    if wiring is None:
+        return _err("session_not_found", session_id=sid)
+
+    events = wiring.audit.read_all()
+    marks = _collect_mark_prices(wiring)
+    attribution = compute_attribution(events, mark_prices=marks)
+    slippage = compute_slippage(events)
+    metrics = compute_session_metrics(
+        events,
+        open_positions=wiring.positions.open_count(),
+        realized_pnl=wiring.positions.total_realized(),
+        unrealized_pnl=wiring.positions.total_unrealized(),
+        mark_prices=marks,
+    )
+    review = run_council(
+        policy=wiring.gate.policy,
+        metrics=metrics,
+        attribution=attribution,
+        slippage=slippage,
+    )
+    return _ok(
+        session_id=sid,
+        consensus=review.consensus,
+        notes=review.notes,
+        voices=[v.to_dict() for v in review.voices],
+    )
+
+
 async def session_report_action(args: Mapping[str, Any]) -> dict[str, Any]:
     sid = args.get("session_id")
     if not sid:
@@ -714,6 +749,31 @@ EXEC_ACTIONS: tuple[ActionSpec, ...] = (
             "in-memory wiring into a single snapshot."
         ),
         handler=session_summary_action,
+        schema={
+            "type": "object",
+            "properties": {
+                "session_id": {"type": "string"},
+            },
+            "required": ["session_id"],
+        },
+    ),
+    ActionSpec(
+        id="council_review",
+        name="Trading council review",
+        description=(
+            "Three deterministic voices (RiskAnalyst, "
+            "ExecutionTrader, PnLAuditor) read the session's "
+            "PnL attribution + slippage report + metrics + risk "
+            "policy and emit structured commentary "
+            "(severity = info|warn|alert + headline + bullet "
+            "rationale + audit trail of consulted metrics). "
+            "Returns the voice list plus an overall `consensus` "
+            "(worst severity any voice raised). Pure stdlib, no "
+            "LLM call — same audit log produces the same "
+            "verdicts so workshops are reproducible and "
+            "transparent."
+        ),
+        handler=council_review_action,
         schema={
             "type": "object",
             "properties": {

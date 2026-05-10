@@ -48,6 +48,14 @@ from .analytics import (
     compute_slippage,
 )
 from .report import SessionReport, render_session_report
+from .voices import (
+    CouncilReview,
+    Voice,
+    execution_trader_voice,
+    pnl_auditor_voice,
+    risk_analyst_voice,
+    run_council,
+)
 from .base import (
     AuditEvent,
     ExecAdapter,
@@ -86,6 +94,7 @@ __all__ = [
     "RiskGate",
     "RiskPolicy",
     "RoundTrip",
+    "CouncilReview",
     "Session",
     "SessionMetrics",
     "SessionReport",
@@ -94,10 +103,15 @@ __all__ = [
     "Side",
     "SlippageEntry",
     "SlippageReport",
+    "Voice",
     "compute_attribution",
     "compute_session_metrics",
     "compute_slippage",
+    "execution_trader_voice",
     "get_runtime",
+    "pnl_auditor_voice",
     "render_session_report",
     "reset_runtime",
+    "risk_analyst_voice",
+    "run_council",
 ]

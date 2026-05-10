@@ -338,8 +338,8 @@ Run them as:
 | **W2-PR1** | Paper executor + risk gate + order router + position store + session manager + 10 HTTP actions | this PR                           |
 | **W2-PR2** | Live Binance adapter behind vault key + market-data poller                              | follow-up                         |
 | **W3-PR1** | PnL attribution (by-instrument + by-strategy + trade ledger + curve) + slippage ledger + session metrics | shipped (PR #168)      |
-| **W3-PR2** | Markdown session report renderer (`session_report` action, ASCII PnL sparkline)         | this PR                           |
-| **W3-PR3** | Trading council voices (RiskAnalyst / ExecutionTrader / PnLAuditor commentary)          | follow-up                         |
+| **W3-PR2** | Markdown session report renderer (`session_report` action, ASCII PnL sparkline)         | shipped (PR #169)                 |
+| **W3-PR3** | Trading council voices (RiskAnalyst / ExecutionTrader / PnLAuditor commentary)          | this PR                           |
 | **W4-PR1** | Workshop quant playbooks + recursive playbook loader (5 quant recipes, derived-pack chain) | shipped (PR #167)              |
 | **W4-PR2** | Workshop lab mode (multi-attendee sandbox + leaderboard) + cockpit handbook              | follow-up                         |
 
@@ -436,7 +436,38 @@ The PnL sparkline uses Unicode block characters
 e-mail; the cockpit can re-render the same data as a proper
 chart from `PnLAttribution.pnl_curve`.
 
-## 11. Workshop quant playbooks (W4-PR1)
+## 11. Trading council voices (W3-PR3)
+
+Three deterministic, stdlib-only "agents" read the W3-PR1
+analytics + W3-PR2 report payload and emit structured
+commentary the cockpit can render alongside the markdown
+report. **No LLM call** — workshops are reproducible (same
+audit log → same verdicts) and transparent (every bullet is
+explained by the rule that fired, with a `metrics_consulted`
+audit trail of which numbers drove the verdict).
+
+| Voice                | What it judges                                                                                                  |
+| -------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `risk_analyst`       | Kill-switch state, daily-loss-limit proximity, verdict rejection rate, slippage cost vs realised PnL.           |
+| `execution_trader`   | Avg / worst slippage bps, reference-price coverage, intent acceptance rate, cancel ratio.                       |
+| `pnl_auditor`        | Win-rate, win/loss ratio, biggest contributor / detractor, fees-as-share-of-realised, by-strategy concentration. |
+
+Each voice returns a `Voice` dataclass with:
+- `severity ∈ {info, warn, alert}` — colour for the cockpit banner.
+- `headline` — one-line summary for the voice's card.
+- `bullets` — rationale list; cockpit renders as `- bullet`.
+- `metrics_consulted` — which payload numbers drove the
+  verdict. Useful when an attendee asks "where did this come
+  from?".
+
+`run_council(...)` invokes all three and returns a
+`CouncilReview` whose `consensus` is the worst severity any
+voice raised (cockpit colours the review banner off this).
+
+The action `algotrade.council_review` exposes the same review
+to playbooks / cockpit / external MCP clients.
+
+## 12. Workshop quant playbooks (W4-PR1)
 
 The 10 W2-PR1 execution actions (`start_paper_session`,
 `submit_intent`, `feed_bar`, `set_policy`, `audit_tail`, …) are

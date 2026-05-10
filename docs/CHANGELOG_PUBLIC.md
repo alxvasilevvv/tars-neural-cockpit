@@ -4,6 +4,91 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-10 — Cursor · Phase W3-PR3: trading council voices
+
+**Summary**
+
+Closes the W3 vertical with three deterministic council voices
+that read the W3-PR1 analytics + W3-PR2 report payload and emit
+structured commentary the cockpit can render alongside the
+markdown report. Pure stdlib, no LLM call — workshops are
+reproducible (same audit log → same verdicts) and transparent
+(every bullet is explained by the rule that fired).
+
+What ships:
+
+1. **Voices module** — `backend/core/algotrade/exec/voices.py`.
+   Three pure functions over the W3-PR1 dataclasses:
+   - `risk_analyst_voice(policy, metrics, slippage)` — flags
+     kill-switch breaches, daily-loss-limit proximity, repeated
+     verdict rejections, and slippage costs that swallow >50%
+     of realised PnL.
+   - `execution_trader_voice(metrics, slippage)` — flags
+     outsized worst-fill bps, low reference-price coverage,
+     low intent acceptance, and high cancel ratios.
+   - `pnl_auditor_voice(attribution, metrics)` — computes
+     win-rate, win/loss ratio, biggest winner / detractor,
+     fees-as-share-of-realised, and by-strategy concentration;
+     flags fragile edges (low win-rate AND low ratio),
+     concentration risk, and fee-heavy strategies.
+2. **Voice + CouncilReview dataclasses** — frozen, JSON
+   round-trippable. `Voice.severity ∈ {info, warn, alert}`;
+   `Voice.metrics_consulted` is the audit trail of which
+   numbers drove the verdict so attendees can trace any bullet
+   back to the raw numbers.
+3. **`run_council(...)` aggregator** — invokes all three voices
+   and bundles them with a `consensus` (worst severity any
+   voice raised) + a one-line `notes` field for the cockpit
+   banner.
+4. **`council_review` action** — read-only domain pack action
+   that returns `consensus` + `notes` + `voices` for a given
+   `session_id`.
+5. **Manifest 0.4.0 → 0.5.0**, phase advances to W3-PR3,
+   capabilities tuple gains `trading_council_voices`,
+   `pack.py` description refreshed.
+6. **22 new tests** — `tests/test_algotrade_voices.py`. Each
+   voice has fixtures for healthy / warn / alert conditions,
+   plus aggregator tests for consensus picking the worst
+   severity, JSON round-trip, and an end-to-end action smoke
+   that runs through the runtime singleton.
+
+**Why this matters for the Cresco cohort**
+
+After paper trading + W3-PR2 report, the attendee runs ONE more
+action (`council_review`) and gets three named "agents" giving
+their take: the Risk analyst on policy posture, the Execution
+trader on fill quality, the PnL auditor on the strategy's edge.
+Each comes with a severity colour for the cockpit banner and
+bullet rationale they can paste into their own handout. Because
+the voices are deterministic, the same session always produces
+the same review — auditable, repeatable, and transparent.
+
+**Tests**
+
+`pytest tests/test_algotrade_voices.py
+tests/test_algotrade_session_report.py
+tests/test_algotrade_analytics.py tests/test_algotrade_exec.py
+tests/test_algotrade_exec_actions.py
+tests/test_algotrade_pack.py` → **125 passed**.
+
+**Files**
+
+- `backend/core/algotrade/exec/voices.py` (new, ~410 lines).
+- `backend/core/algotrade/exec/__init__.py` — re-export
+  `Voice`, `CouncilReview`, `risk_analyst_voice`,
+  `execution_trader_voice`, `pnl_auditor_voice`,
+  `run_council`.
+- `backend/core/domains/packs/algotrade/exec_actions.py` —
+  `council_review_action` + `ActionSpec`.
+- `backend/core/domains/packs/algotrade/manifest.json` — bump
+  version 0.4.0 → 0.5.0, phase W3-PR2 → W3-PR3, add
+  `trading_council_voices` capability + `council_review` action.
+- `backend/core/domains/packs/algotrade/pack.py` — refresh
+  manifest description + capabilities tuple.
+- `tests/test_algotrade_voices.py` (new, 22 tests).
+
+>>> SYNC: Cursor · 2026-05-10 · W3-PR3 trading council voices.
+
 ## 2026-05-10 — Cursor · Phase W3-PR2: markdown session report renderer
 
 **Summary**
@@ -2477,29 +2562,6 @@ top «token → GitHub» blurb.
 - `docs/CHANGELOG_PUBLIC.md` (regenerated)
 - `docs/CHANGELOG_AGENTS.md` (this entry)
 
-## 2026-05-04 — Cursor · Pages Plan B: Git build (`build:cf`) + drop broken CF API secret
-
-**Summary**
-
-**Problem:** Operator cannot mint **Cloudflare Pages → Edit** API tokens; wrangler
-preflight **403** blocked CI.
-
-**Fix:** **`npm run build:cf`** in **`experiments/neural-showcase-v3/package.json`**
-(`tsc -b && vite build`, no Python — uses committed **`CHANGELOG_PUBLIC.md`**).
-**`docs/TARS_MEEET_OPS_TODO.md` — Step 2bis:** Cloudflare Pages **Connect to Git**,
-build `npm ci && npm run build:cf`, output `dist`, env `NODE_VERSION=20`,
-`VITE_TARS_API`. Removed repo secret **`CLOUDFLARE_API_TOKEN`** on GitHub so
-probe **`ready=false`** → Actions stays **build-only green** until Plan B is wired.
-**Workflow** header documents deploy path **A|B**.
-
-**Files**
-
-- `experiments/neural-showcase-v3/package.json` (`build:cf`, `engines.node`)
-- `.github/workflows/tars-meeet-cloudflare-pages.yml`
-- `docs/TARS_MEEET_OPS_TODO.md` (CURRENT STATE + Step 2bis)
-- `docs/CHANGELOG_PUBLIC.md` (regenerated)
-- `docs/CHANGELOG_AGENTS.md` (this entry)
-
 ---
 
-_Showing the most recent 60 of 250 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 251 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
