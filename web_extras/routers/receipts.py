@@ -39,6 +39,11 @@ from backend.core.receipts.anchor import anchor_to_solana
 
 router = APIRouter(prefix="/api/receipts", tags=["receipts"])
 
+# Wave 123: alias surface for the FE Compliance page; this surfaces
+# as GET /api/audit/list. Both routers are registered in web_extras/app.py
+# so the receipts module owns the audit alias too.
+audit_router = APIRouter(prefix="/api/audit", tags=["audit"])
+
 
 def _store_or_503():
     s = get_store()
@@ -285,3 +290,54 @@ async def export(
             )
         },
     )
+
+
+# ---------------------------------------------------------------------
+# Wave 123: /api/audit/list endpoint (FE Compliance page consumer)
+# ---------------------------------------------------------------------
+
+
+@audit_router.get("/list")
+async def audit_list(
+    since: float | None = Query(default=None),
+    until: float | None = Query(default=None),
+    limit: int = Query(default=100, ge=1, le=1000),
+    actor: str | None = Query(default=None),
+    type: str | None = Query(default=None),
+) -> dict[str, Any]:
+    """Audit feed: same store as /api/receipts but flattened for the FE
+    Compliance page. Each row is annotated with `sig_verified` —
+    derived once per response by re-running ed25519 verify on the
+    receipt payload (cheap; verify is constant-time per row).
+
+    Returns 503 when the receipt store is disabled.
+    """
+
+    s = _store_or_503()
+    rows = await s.query(
+        type=type, actor=actor, since=since, until=until, limit=limit,
+    )
+
+    items: list[dict[str, Any]] = []
+    for r in rows:
+        try:
+            sig_ok = bool(verify_receipt(r))
+        except Exception:
+            sig_ok = False
+        items.append(
+            {
+                "id": r.id,
+                "ts": r.ts,
+                "type": r.type,
+                "actor": r.actor,
+                "resource": r.resource,
+                "impact": (r.payload or {}).get("impact"),
+                "sig_verified": sig_ok,
+            }
+        )
+
+    return {
+        "ok": True,
+        "count": len(items),
+        "items": items,
+    }

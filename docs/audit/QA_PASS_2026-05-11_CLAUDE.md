@@ -331,3 +331,60 @@ $ python3 -c "import ast; ast.parse(open('web_extras/routers/connectors.py').rea
 `tsc --noEmit` run logged in commit body.
 
 >>> SYNC: Claude · 2026-05-11 · Wave 122 QA pass — Cursor parallel via SYNC marker.
+
+---
+
+## Wave 123 follow-up (2026-05-11, same day)
+
+Closed the P1/P2 test-coverage gaps W122 itemised. All five new test
+files use stdlib unittest (consistent with existing suite), and the
+new `/api/audit/list` endpoint is appended to `web_extras/routers/
+receipts.py` as `audit_router` (mounted alongside the existing
+`receipts.router`).
+
+| Module | File | Cases | Notes |
+| --- | --- | --- | --- |
+| `compliance_export` | `tests/test_compliance_export.py` | 13 | round-trip + tamper + GDPR isolation + redaction joinable + size-warning + scope filter + empty-range + determinism + pubkey-embedded |
+| `observability/otel.py` | `tests/test_observability_otel.py` | 12 | no-endpoint no-op, SDK-missing graceful, env vars, NoopSpan, span_for_trace_summary, real SDK skip-if-missing |
+| `clone/style.py` | `tests/test_clone_style.py` | 12 | record/profile/draft/nearest, disabled gate, path isolation, corrupt-db recovery, v0.1 metadata |
+| Per-connector OAuth | `tests/test_oauth_flow_per_connector.py` | 24 | Slack / Gmail / Calendar / Telegram + storage helpers — 0o600 mode, env-driven `is_configured`, mocked `_http_post`, tokens persisted |
+| `/api/audit/list` | `tests/test_audit_list_endpoint.py` | 8 | empty / filtered / paginated / sig_verified / 503-when-disabled / type-filter |
+| **Total** | — | **69 new tests** | |
+
+### Endpoint shipped
+
+`GET /api/audit/list` — alias surface for the FE Compliance page.
+Query params: `since` / `until` / `limit` / `actor` / `type`. Reuses
+`get_store().query()` and annotates each row with `sig_verified`
+(per-receipt ed25519 verify). Mounted in `web_extras/app.py` alongside
+the existing receipts router. Closes the W122 §B mismatch P1 finding.
+
+### Local verification
+
+- AST parse: 5 new test files + `web_extras/routers/receipts.py` +
+  `web_extras/app.py` — all OK.
+- `python3 -m unittest tests.test_compliance_export` -> **13/13 OK**.
+- `python3 -m unittest tests.test_observability_otel` -> **11/11 OK,
+  1 skipped** (real OTel SDK not present in CI baseline image; the
+  guard test exercises the skip path).
+- `python3 -m unittest tests.test_oauth_flow_per_connector` -> **24/24 OK**.
+- `python3 -m unittest tests.test_clone_style` -> requires `pynacl`
+  (chained import via `vault.file_vault`); passes on the dev venv.
+- `python3 -m unittest tests.test_audit_list_endpoint` -> requires
+  `fastapi`; passes on the dev venv.
+- The pre-existing `tests/test_compliance_bundle.py` continues to
+  pass clean (23/23 OK) — Wave 123 added orthogonal coverage,
+  didn't disturb Wave 104 fixtures.
+
+### Remaining punch list (deferred to W124+)
+
+- W124: `POST /api/vault/secrets` write side (P2, §B mismatch).
+- W124: `POST /api/client-error` sink (P2, §B mismatch) — or document
+  the swallow.
+- W124: split top-3 large pages (`OrgOnboarding.tsx` 1372 LOC,
+  `Pitch.tsx` 942, `Cockpit.tsx` 910).
+- W124: audit + delete the 12 candidate-orphaned files.
+- W124: harden `tars-meeet-cloudflare-pages.yml` `npm test` step.
+- v9.3: real ed25519 marketplace install signature verification.
+
+>>> SYNC: Claude · 2026-05-11 · Wave 123 test gaps closed.

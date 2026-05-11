@@ -774,6 +774,7 @@ app.include_router(cohort_router.router)
 app.include_router(org_router.router)
 app.include_router(outreach_router.router)
 app.include_router(receipts_router.router)
+app.include_router(receipts_router.audit_router)  # Wave 123: /api/audit/list alias
 app.include_router(scheduler_router.router)
 app.include_router(files_router.router)
 app.include_router(reports_router.router)
