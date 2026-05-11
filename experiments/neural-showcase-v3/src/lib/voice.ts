@@ -58,41 +58,61 @@ const PROVIDER_KEY = "tars.voice.provider";
 const AUTOPLAY_KEY = "tars.voice.autoplay";
 const MUTED_KEY = "tars.voice.muted";
 
+// Wave 122 — every localStorage call is now wrapped: in private/incognito
+// browsing both Safari and Firefox throw on access, which previously could
+// crash any voice-control surface that called these helpers at mount time.
+
+function _safeGet(key: string): string | null {
+  try {
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function _safeSet(key: string, value: string): void {
+  try {
+    localStorage.setItem(key, value);
+  } catch {
+    /* private mode / quota exceeded — silently drop, runtime keeps going */
+  }
+}
+
 export function getStoredPersonaId(): string {
   // Persona slug is a functional id mapped to the backend voice registry
   // (`backend/core/voice/personas.py` — DEFAULT_PERSONA_ID). Distinct from
   // the product name (TARS); stays as the historical character slug.
-  return localStorage.getItem(PERSONA_KEY) || "jarvis";
+  return _safeGet(PERSONA_KEY) || "jarvis";
 }
 
 export function setStoredPersonaId(id: string): void {
-  localStorage.setItem(PERSONA_KEY, id);
+  _safeSet(PERSONA_KEY, id);
 }
 
 export function getStoredProvider(): VoiceProviderId {
-  const v = localStorage.getItem(PROVIDER_KEY);
+  const v = _safeGet(PROVIDER_KEY);
   if (v === "elevenlabs" || v === "openai" || v === "mac_say") return v;
   return "auto";
 }
 
 export function setStoredProvider(p: VoiceProviderId): void {
-  localStorage.setItem(PROVIDER_KEY, p);
+  _safeSet(PROVIDER_KEY, p);
 }
 
 export function getAutoplay(): boolean {
-  return localStorage.getItem(AUTOPLAY_KEY) === "1";
+  return _safeGet(AUTOPLAY_KEY) === "1";
 }
 
 export function setAutoplay(v: boolean): void {
-  localStorage.setItem(AUTOPLAY_KEY, v ? "1" : "0");
+  _safeSet(AUTOPLAY_KEY, v ? "1" : "0");
 }
 
 export function getMuted(): boolean {
-  return localStorage.getItem(MUTED_KEY) === "1";
+  return _safeGet(MUTED_KEY) === "1";
 }
 
 export function setMuted(v: boolean): void {
-  localStorage.setItem(MUTED_KEY, v ? "1" : "0");
+  _safeSet(MUTED_KEY, v ? "1" : "0");
 }
 
 // --------------------------------------------------------------------

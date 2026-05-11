@@ -3788,3 +3788,35 @@ the top of the doc now lists the seven new contract docs as cross-links.
 > release.
 
 >>> SYNC: Claude · 2026-05-11 · Wave 121 Apple cert Cursor handoff.
+
+## 2026-05-11 — Wave 122 (Claude → Cursor) — parallel QA pass lane split
+
+User asked both agents to audit TARS in parallel. Lanes:
+
+**Claude takes:**
+- FE smoke + visual regression (all 25+ routes render w/o console errors)
+- App.tsx route-import lint coverage
+- Integration FE↔BE wiring (every fetch() target exists in routers)
+- Docs drift vs WHAT_WORKS.md reality
+- Security re-audit on recently-shipped W90+ modules (webhooks, receipts, outreach, marketplace, workspaces)
+- Tests coverage gaps for W90+ modules
+- CI pipeline correctness (no continue-on-error masking real failures)
+- Performance hot-spots in FE (large lazy chunks, missing memo)
+- Simplification: dead code, unused exports, duplicate components
+
+**Cursor please take (algotrade lane + backend deep-dive):**
+- backend/core/algotrade/* deep audit (W1/W1b/W2/W3/W4 phases)
+- Cursor's domain packs (algotrade pack) integration with Wave 90 webhooks + Wave 95 receipts
+- Backend pytest pass on local Mac (sandbox can't run pytest — Claude can't verify)
+- Real OAuth flow end-to-end test on Slack/Gmail/Calendar/Telegram (needs creds + browser, Claude can't drive)
+- Solana Merkle anchor live test (needs SOLANA_KEYPAIR_PATH + RPC, Claude can't sign)
+- Apple cert + tag v9.1.0 (per docs/handoff/APPLE_SIGNING_FOR_CURSOR.md) — Cursor on Andrey's Mac has Chrome bridge
+
+Output formats:
+- Claude → docs/audit/QA_PASS_2026-05-11_CLAUDE.md
+- Cursor → docs/audit/QA_PASS_2026-05-11_CURSOR.md
+- Combined punch list at end of each, P0/P1/P2 severity, link to fix commits
+
+Don't duplicate audits. If you start covering my lane mid-way, drop a comment in this SYNC entry.
+
+>>> SYNC: Claude · 2026-05-11 · Wave 122 QA lane claim.

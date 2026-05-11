@@ -15,8 +15,14 @@ const STORAGE_KEY = "tars-theme";
 
 function readInitial(): Theme {
   if (typeof window === "undefined") return "dark";
-  const saved = localStorage.getItem(STORAGE_KEY);
-  if (saved === "light" || saved === "dark") return saved;
+  // Wave 122 — wrap in try/catch: private/incognito browsers throw on
+  // localStorage access, which would crash the whole app at module init.
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    if (saved === "light" || saved === "dark") return saved;
+  } catch {
+    /* private mode or storage disabled — use canonical default */
+  }
   return "dark"; // explicit canonical default — Master.md says OLED-first
 }
 
@@ -30,7 +36,12 @@ export function ThemeToggle() {
     } else {
       html.removeAttribute("data-theme");
     }
-    localStorage.setItem(STORAGE_KEY, theme);
+    // Wave 122 — guard against private/incognito storage exceptions.
+    try {
+      localStorage.setItem(STORAGE_KEY, theme);
+    } catch {
+      /* storage disabled — DOM toggle still works in-session */
+    }
   }, [theme]);
 
   return (

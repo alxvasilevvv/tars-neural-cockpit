@@ -174,6 +174,27 @@ async def slack_messages(
     return {"ok": True, "channel_id": channel_id, "count": len(msgs), "messages": msgs}
 
 
+@router.get("/slack/mentions")
+async def slack_mentions(
+    limit: int = Query(default=20, ge=1, le=200),
+) -> dict[str, Any]:
+    """Wave 122 — wire the FE Dashboard SlackMentionsWidget endpoint.
+
+    Frontend has been polling ``/api/connectors/slack/mentions`` since
+    the dashboard widget shipped; the audit (Wave 122) caught that
+    backend never registered the route. The Slack connector already
+    exposes :meth:`SlackClient.mentions_for_user`, so this is a thin
+    wrap; pre-existing 404 fallback in ``SlackMentionsWidget.tsx``
+    keeps the UI safe even when the connector isn't configured.
+    """
+    spec = _get_spec("slack")
+    if not spec.is_configured():
+        raise _not_configured(spec)
+    client = _wrap(spec, slack_conn.SlackClient.from_stored_token)
+    mentions = _wrap(spec, client.mentions_for_user, limit=limit)
+    return {"ok": True, "count": len(mentions), "mentions": mentions}
+
+
 # -- Gmail reads ---------------------------------------------------------
 
 

@@ -32,11 +32,11 @@ Legend:
 | Playbooks (deterministic recipes, recursive loader) | `playbooks/`, `backend/core/playbooks/` |
 | Chat (multi-thread, SQLite-backed) | `backend/core/chat/store.py`, `web_extras/routers/chat.py` |
 | Memory KV (per-pack, TTL, SQLite) | `backend/core/memory/store.py` |
-| TTS (XTTS-v2 + system fallback) | `backend/core/voice/tts.py`, `web_extras/routers/voice.py` |
+| TTS (XTTS-v2 + system fallback) | `backend/core/voice/synthesis.py`, `web_extras/routers/voice.py` |
 | STT (Whisper API; 503 when no key) *(Wave 73)* | `backend/core/voice/transcribe.py`, `web_extras/routers/voice.py` |
-| Voice intents (parse + dispatch) | `backend/core/voice/intents.py`, `backend/agents/persona_router.py` |
+| Voice intents (parse + dispatch) | `backend/core/speech/intents.py`, `backend/core/agents/router.py` |
 | Pairing (host identity + QR) | `backend/core/pairing/store.py` *(SQLite-backed in Wave 72)*, `backend/core/crypto/` |
-| Recovery (passphrase → vault) | `backend/core/vault/`, `backend/core/pairing/recovery.py` |
+| Recovery (passphrase → vault) | `backend/core/vault/`, `backend/core/crypto/recovery.py` |
 | Meeet bridge (relayer + economy) | `backend/core/meeet/`, `web_extras/routers/meeet*.py` |
 | Entitlements (tier gating) | `backend/core/entitlements/`, `web_extras/routers/entitlements.py` |
 | 6 domain packs | `backend/core/domains/packs/{wealth,health,family,product,brand,entrepreneur}/` |
@@ -44,9 +44,9 @@ Legend:
 | Sidecar crash watcher (Wave 61) | `desktop/src-tauri/src/sidecar.rs` (watcher thread) |
 | Updater channel (live JSON) | `backend/core/product/updater.py`, `web_extras/routers/product.py` |
 | Receipt ledger (signed events) | `backend/core/receipts/` |
-| Watch-me-work (real WS events) | `backend/core/orchestrator/`, `web_extras/routers/timeline.py` |
-| Health endpoint + cockpit indicator | `web_extras/routers/health.py`, frontend Status page |
-| OAuth bridge protocol | `backend/core/oauth_bridge/`, `web_extras/routers/oauth_bridge.py` |
+| Watch-me-work (real WS events) | `backend/core/orchestrator/`, `web_extras/routers/search.py` (`timeline_router`) |
+| Health endpoint + cockpit indicator | `web_extras/app.py` (`@app.get("/health")`), frontend Status page |
+| OAuth bridge protocol | `backend/core/oauth_bridge/`, `web_extras/routers/oauth_consent.py` |
 | GitHub connector (token-based read; 60s LRU) *(Wave 73)* | `web_extras/routers/github.py` |
 | Memory reflection (weekly ISO-week summary) *(Wave 73)* | `backend/core/memory/reflection.py`, `playbooks/_global/memory_reflection.json` |
 | AI Clone v0.1 (style traits skeleton — *style hint, not full clone*) *(Wave 73)* | `backend/core/clone/style.py`, `web_extras/routers/clone.py` |
@@ -109,15 +109,15 @@ funds / SaaS / DAO / family-office / agency-style customers.
 | Reporting dashboard — `/dashboard` with 10 widgets, 5 default layouts, drag-resize *(Wave 96)* | `experiments/neural-showcase-v3/src/pages/Dashboard.tsx`, `src/components/dashboard/widgets/*` |
 | Playbook scheduler — cron-based, persisted, restart-safe *(Wave 97)* | `backend/core/scheduler/{cron,store,runner}.py`, `web_extras/routers/scheduler.py`, `docs/contracts/SCHEDULER.md` |
 | Email outreach — Gmail send + AI Clone drafting + HIL gate + 5 starter templates *(Wave 98)* | `backend/core/outreach/{templates,sender,drafts}.py`, `web_extras/routers/outreach.py`, `experiments/neural-showcase-v3/src/pages/Outreach.tsx`, `docs/contracts/OUTREACH.md` |
-| Org onboarding — `/onboard/org` 5-step wizard (org type / size / pillars / connectors / first playbook) *(Wave 99)* | `experiments/neural-showcase-v3/src/pages/OrgOnboarding.tsx`, `backend/core/onboarding/org.py` |
-| HIL inbox — `/inbox` approval queue + bulk approve + policy thresholds *(Wave 101)* | `experiments/neural-showcase-v3/src/pages/Inbox.tsx`, `backend/core/hil/{queue,policy}.py`, `web_extras/routers/hil.py` |
+| Org onboarding — `/onboard/org` 5-step wizard (org type / size / pillars / connectors / first playbook) *(Wave 99)* | `experiments/neural-showcase-v3/src/pages/OrgOnboarding.tsx`, `backend/core/org/{models,store}.py`, `web_extras/routers/org.py` |
+| HIL inbox — `/inbox` approval queue + bulk approve + policy thresholds *(Wave 101)* | `experiments/neural-showcase-v3/src/pages/Inbox.tsx`, `backend/core/policy/`, `web_extras/routers/policy.py` |
 | Files management — `/files` document UI + bulk ops + 8 categories + tagging *(Wave 102)* | `experiments/neural-showcase-v3/src/pages/Files.tsx`, `backend/core/files/{store,categories}.py`, `web_extras/routers/files.py`, `docs/contracts/FILES.md` |
 | Reports — `/reports` 6 templates (LP, board, weekly digest, compliance, KPI, postmortem) + scheduling + delivery *(Wave 103)* | `experiments/neural-showcase-v3/src/pages/Reports.tsx`, `backend/core/reports/{templates,renderers,scheduler}.py`, `web_extras/routers/reports.py`, `docs/contracts/REPORTS.md` |
-| Compliance export — audit-grade bundle (receipts + ledger + Merkle proofs + verifier script + GDPR + PII redaction) *(Wave 104)* | `backend/core/compliance/{bundle,verifier,gdpr,redact}.py`, `web_extras/routers/compliance.py`, `docs/contracts/COMPLIANCE_EXPORT.md` |
+| Compliance export — audit-grade bundle (receipts + ledger + Merkle proofs + verifier script + GDPR + PII redaction) *(Wave 104)* | `backend/core/compliance_export/{bundler,gdpr}.py`, `web_extras/routers/compliance_export.py`, `docs/contracts/COMPLIANCE_EXPORT.md` |
 | E2E test suite — 10 cross-module scenarios (12 pass + 1 skip) *(Wave 105)* | `tests/e2e/`, `docs/testing/E2E_SUITE.md` |
 | Marketplace v0 — in-process registry + `/marketplace` browse + install + local ratings + 12 seed listings *(Wave 106)* | `backend/core/marketplace/{registry,store,ratings}.py`, `web_extras/routers/marketplace.py`, `experiments/neural-showcase-v3/src/pages/Marketplace.tsx`, `docs/contracts/MARKETPLACE.md` |
 | Vertical bundles — 7 org-type ready-to-demo packs (fund / saas / dao / family-office / agency / enterprise / nonprofit) at `/bundles` *(Wave 107)* | `backend/core/bundles/{fund,saas,dao,family_office,agency,enterprise,nonprofit}.py`, `web_extras/routers/bundles.py`, `experiments/neural-showcase-v3/src/pages/Bundles.tsx`, `docs/contracts/BUNDLES.md` |
-| Performance dashboard — `/admin/perf` ops monitoring (latency p50/p95/p99 + throughput + error rate + active sessions) *(Wave 108)* | `experiments/neural-showcase-v3/src/pages/PerfDashboard.tsx`, `backend/core/observability/perf.py`, `web_extras/routers/perf.py`, `docs/contracts/PERF_DASHBOARD.md` |
+| Performance dashboard — `/admin/perf` ops monitoring (latency p50/p95/p99 + throughput + error rate + active sessions) *(Wave 108)* | `experiments/neural-showcase-v3/src/pages/PerfDashboard.tsx`, `backend/core/observability/{otel,latency}.py`, `web_extras/routers/perf.py`, `docs/contracts/PERF_DASHBOARD.md` |
 
 ### Hardening (Waves 72, 79)
 
