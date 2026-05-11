@@ -293,6 +293,90 @@ compliance export → verifier round-trip. `tests/e2e/`,
 
 ---
 
+## Cowork — multiplayer agent sessions (Waves 129-132) — addendum 2026-05-12
+
+The W122 system audit found that tasks #99 (Shared Agent Sessions) and
+#100 (TARS Handoff) had been marked complete historically but shipped
+no live backend code. W129-132 actually delivers them.
+
+**Cowork** lets several humans + a TARS agent share one session:
+live presence, shared cursors over workspace files, a fan-out of every
+agent run frame, and a one-click handoff that transfers ownership of
+an active session to another user.
+
+### Backend module (Wave 129)
+
+`backend/core/cowork/` with the same architectural discipline as W90+
+modules (SQLite WAL + `asyncio.to_thread` + best-effort exception
+swallowing on hot paths):
+
+- `models.py` — `Session`, `Member`, `Cursor`, `Handoff` dataclasses,
+  role enum, color palette, slugify helper.
+- `store.py` — `CoworkStore` at `~/.tars/cowork.sqlite`. Four tables
+  with proper indexes. Set `TARS_COWORK_STORE=disabled` to opt out.
+- `presence.py` — `PresenceTracker` with 25 s TTL window. In-process;
+  v9.3 swaps to Redis-backed.
+- `stream.py` — SSE/WebSocket pub-sub via `asyncio.Queue` with 15 s
+  heartbeat sentinel. Same pattern as W94 cohort SSE.
+- `handoff.py` — short-TTL token + atomic accept via conditional
+  UPDATE. Concurrent accepts can't both win.
+
+Contract: [`docs/contracts/COWORK.md`](contracts/COWORK.md) v1.0
+(10 endpoints + full event envelope).
+
+### Frontend (Waves 129, 130, 132)
+
+- `/cowork` — list of active sessions.
+- `/cowork/:slug` — single session with PresenceBar + SessionViewer
+  (live event stream) + HandoffDialog (generate one-time link).
+- `/cowork/handoff/:token` — recipient accept screen.
+- 5th pillar in `MeeetSection` (pink accent #EC4899); Nav link at
+  the top of the B2B dropdown.
+- `CoworkPreview` animated card on the landing page (between
+  MeeetSection and CouncilDemo) — 3 mock members + cycling agent
+  frames, respects `prefers-reduced-motion`.
+- `og-cowork.svg` 1200×630 per-route share card.
+
+The frontend transparently mocks the demo session when the backend
+endpoints 404 — so `/cowork` works in v9.1.0 even before brother's
+core-bridge wires the routes.
+
+### Orchestrator integration (Wave 131)
+
+`backend/core/agents/runner.py` reads `metadata['cowork_session_id']`
+on every task. When present, the runner calls
+`cowork.emit_agent_frame(session_id, frame_type, payload)` on
+`task.started` / `task.completed` / `task.failed`. Best-effort
+import + best-effort emit — a stripped-down deployment that
+disables cowork doesn't break the runner.
+
+### Tests
+
+- `tests/test_cowork_store.py` — 16 cases (CRUD + handoff atomicity
+  + double-accept race + expired tokens + non-owner rejection).
+- `tests/test_cowork_presence.py` — 10 cases (presence TTL +
+  publish/subscribe fan-out + subscriber lifecycle).
+- `experiments/neural-showcase-v3/src/lib/cowork.test.ts` — 13 vitest
+  cases (fmtRelative + isLive + fetch fallback + real-path branch).
+- `src/components/cowork/PresenceBar.test.tsx` — 5 component smokes.
+
+Total: **44 new test cases**, all green.
+
+### Integration milestones
+
+- **v9.1.0 (this release)** — TARS module + page shipped, demo-able
+  offline. No brother work required to keep production rendering.
+- **v9.1.1** — brother wires the 10 `/api/cowork/*` routes
+  (handoff at `docs/handoff/COWORK_WIRING_FOR_CURSOR.md` — paste-ready
+  FastAPI scaffolding). Mock fallback auto-deactivates.
+- **v9.2** — outgoing webhook on `cowork.handoff.accepted` so other
+  systems can observe transfers.
+- **v9.3** — workspace fencing becomes mandatory (sessions filtered
+  by caller's workspace membership). Coupled with the rest of W110
+  multi-tenant work.
+
+---
+
 ## What's changed
 
 - Default `_DEFAULT_VERSION` in `backend/core/product/manifest.py` bumped from `0.1.0-alpha.2` → `9.1.0`.
@@ -338,7 +422,7 @@ See [`docs/WHAT_WORKS.md`](WHAT_WORKS.md) for the full FULLY-IMPLEMENTED / PARTI
 - **v9.1.1** (~2 weeks) — Magic-link auth, Slack/Gmail/Calendar Quick Connect (Chrome flow), web wake-word (PWA / wasm Picovoice), iMessage bridge.
 - **v9.2** (~1 month) — Multi-tenant Workspaces (initial), Windows + Linux installers, sqlite-vec wired, AI Clone v1 (real fine-tune), XTTS-v2 cloning, Marketplace 70/30 payouts, Skill SDK third-party publishing, headless daemon.
 - **v9.3+** — T2T live + Solana escrow, Reputation Graph UI, webhooks `receipt.*` emission everywhere, MCP server bridge, webhooks central registry (cross-tenant).
-- **v10.0** — Multi-tenant full + Orgs/Teams/RBAC, Shared Agent Sessions, TARS Handoff, edge voice adapter.
+- **v10.0** — Multi-tenant full + Orgs/Teams/RBAC, edge voice adapter. *(Shared Agent Sessions + TARS Handoff shipped early in v9.1.0 as Cowork — see addendum above.)*
 
 Authoritative forward roadmap: [`docs/ROADMAP.md`](ROADMAP.md). Design-phase context: [`docs/PHASE_L_ROADMAP.md`](PHASE_L_ROADMAP.md).
 

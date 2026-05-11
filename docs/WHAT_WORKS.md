@@ -118,6 +118,8 @@ funds / SaaS / DAO / family-office / agency-style customers.
 | Marketplace v0 — in-process registry + `/marketplace` browse + install + local ratings + 12 seed listings *(Wave 106)* | `backend/core/marketplace/{registry,store,ratings}.py`, `web_extras/routers/marketplace.py`, `experiments/neural-showcase-v3/src/pages/Marketplace.tsx`, `docs/contracts/MARKETPLACE.md` |
 | Vertical bundles — 7 org-type ready-to-demo packs (fund / saas / dao / family-office / agency / enterprise / nonprofit) at `/bundles` *(Wave 107)* | `backend/core/bundles/{fund,saas,dao,family_office,agency,enterprise,nonprofit}.py`, `web_extras/routers/bundles.py`, `experiments/neural-showcase-v3/src/pages/Bundles.tsx`, `docs/contracts/BUNDLES.md` |
 | Performance dashboard — `/admin/perf` ops monitoring (latency p50/p95/p99 + throughput + error rate + active sessions) *(Wave 108)* | `experiments/neural-showcase-v3/src/pages/PerfDashboard.tsx`, `backend/core/observability/{otel,latency}.py`, `web_extras/routers/perf.py`, `docs/contracts/PERF_DASHBOARD.md` |
+| **Cowork — multiplayer agent sessions** (shared sessions + presence + cursors over shared paths + one-click ownership handoff via short-TTL token). Closes W122 audit gaps on tasks #99 + #100 which had historically been marked complete but had no live backend code. *(Waves 129-132)* | `backend/core/cowork/{models,store,presence,stream,handoff}.py`, `experiments/neural-showcase-v3/src/pages/Cowork.tsx`, `experiments/neural-showcase-v3/src/lib/cowork.ts`, `experiments/neural-showcase-v3/src/components/cowork/{PresenceBar,SessionViewer,HandoffDialog}.tsx`, `experiments/neural-showcase-v3/src/components/CoworkPreview.tsx`, `tests/test_cowork_{store,presence}.py`, `docs/contracts/COWORK.md`. Backend module ships in this release; the 10 `/api/cowork/*` HTTP routes land in v9.1.1 (brother handoff at `docs/handoff/COWORK_WIRING_FOR_CURSOR.md`). Frontend transparently mocks until then. |
+| **Orchestrator → Cowork fan-out** (agents pass `cowork_session_id` in task metadata → runner emits `task.started`/`completed`/`failed` frames onto the live session) *(Wave 131)* | `backend/core/agents/runner.py` |
 
 ### Hardening (Waves 72, 79)
 
@@ -162,8 +164,8 @@ funds / SaaS / DAO / family-office / agency-style customers.
 | Multi-tenant Workspaces + JWT auth | Single-user only today; `WORKSPACES.md` contract published; Wave 110 backend MVP in flight (additive, schema-only) | v9.2 (initial) → v10.0 (full) |
 | Webhooks central registry (cross-tenant) | Per-instance webhook registry today; cross-tenant central registry pending. | v9.3 |
 | Organizations + Teams + RBAC | Org/team scaffolding exists, role assignment UI does not | v10.0 |
-| Shared agent sessions (multiplayer) | UI mocked, no realtime sync layer | v10.0 |
-| TARS Handoff (viral hand-off between users) | Wave 100 scaffolded; depends on multi-tenant | v10.0 |
+| ~~Shared agent sessions (multiplayer)~~ | **MOVED TO FULLY IMPLEMENTED at Wave 129** — see Cowork row in "B2B operational suite" above | shipped v9.1.0 |
+| ~~TARS Handoff (viral hand-off between users)~~ | **MOVED TO FULLY IMPLEMENTED at Wave 129** — see Cowork row in "B2B operational suite" above | shipped v9.1.0 |
 | Edge compute adapter for voice latency | Local adapter shipped earlier; edge variant pending | v10.0 |
 
 Full forward-looking detail: [`ROADMAP.md`](ROADMAP.md).

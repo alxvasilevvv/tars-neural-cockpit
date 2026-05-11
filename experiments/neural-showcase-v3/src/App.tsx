@@ -195,19 +195,22 @@ const WorkspaceInviteAccept = lazy(() =>
     default: m.WorkspaceInviteAccept,
   })),
 );
-// Wave 129 — Cowork (multiplayer agent sessions). Three named exports
-// from one module: list (Cowork), single session (CoworkSession), and
-// recipient accept screen (CoworkHandoffAccept). Lazy-imported as 3
-// chunks via the same file so the bundle doesn't bloat the marketing
-// surface — only loaded when /cowork/* routes are visited.
+// Wave 129 + Wave 136 — Cowork lazy-imports split into 3 separate
+// chunks. /cowork (list) is light and doesn't pull in PresenceBar /
+// SessionViewer / HandoffDialog. /cowork/:slug (CoworkSession) pulls
+// the heavy components only when visited. /cowork/handoff/:token
+// (CoworkHandoffAccept) is its own tiny chunk. Wave 128 bundle-size
+// gate benefits.
 const Cowork = lazy(() =>
   import("@/pages/Cowork").then((m) => ({ default: m.Cowork })),
 );
 const CoworkSession = lazy(() =>
-  import("@/pages/Cowork").then((m) => ({ default: m.CoworkSession })),
+  import("@/pages/CoworkSession").then((m) => ({ default: m.CoworkSession })),
 );
 const CoworkHandoffAccept = lazy(() =>
-  import("@/pages/Cowork").then((m) => ({ default: m.CoworkHandoffAccept })),
+  import("@/pages/CoworkHandoffAccept").then((m) => ({
+    default: m.CoworkHandoffAccept,
+  })),
 );
 
 // Default skeleton for routes that don't pin a specific layout shape.

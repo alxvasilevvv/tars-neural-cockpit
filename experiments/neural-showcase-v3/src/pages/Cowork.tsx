@@ -1,53 +1,29 @@
 /**
- * <Cowork /> — Wave 129
+ * <Cowork /> — Wave 129 / split in Wave 136.
  *
- * Multi-user real-time collaboration over a TARS agent session.
- * Mounted at `/cowork` (list view) and `/cowork/:slug` (single session).
+ * `/cowork` list view. Light surface: just the session list + intro
+ * copy. The heavy session viewer (PresenceBar, SessionViewer,
+ * HandoffDialog, SSE stream) lives in CoworkSession.tsx so this
+ * chunk stays small for visitors who never click into a session.
  *
- * Closes the W122 audit gap on tasks #99 (Shared Agent Sessions) and
- * #100 (TARS Handoff) — historically marked complete but never
- * actually shipped on the backend. This page binds to the new
- * `backend/core/cowork/` module via `@/lib/cowork`.
- *
- * Layout:
- *   ┌──────────────────────────────────────────────────────────────┐
- *   │ Breadcrumb / title / PresenceBar / "Hand off" CTA            │
- *   ├──────────────────────────────────────────────────────────────┤
- *   │ left rail (session meta + members)  │  Live stream viewer    │
- *   │                                     │                        │
- *   └──────────────────────────────────────────────────────────────┘
- *
- * Design conventions (Wave 70 / 89 / 94 pattern):
- *   - Defensive `initial: opacity: 1` on motion wrappers so the page
- *     stays legible if framer hydrates late.
- *   - All copy in plain English (i18n keys exist but we skip the t()
- *     dance — adds bundle weight, no localisation shipping today).
- *   - The page is demo-able offline via the mock fallback in
- *     `@/lib/cowork` — visitors landing on `/cowork` without a backend
- *     still see a working session.
+ * Wave 136 split: Cowork.tsx (this file, list only) +
+ * CoworkSession.tsx (single-session view, heavy components) +
+ * CoworkHandoffAccept.tsx (recipient screen, tiny). Each is a
+ * separate React.lazy chunk in App.tsx so the marketing surface
+ * doesn't pay for code it never uses.
  */
 
-import { useEffect, useMemo, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ArrowLeft, Send, Users } from "lucide-react";
 
 import { Breadcrumbs } from "@/components/Breadcrumbs";
-import { PresenceBar } from "@/components/cowork/PresenceBar";
-import { SessionViewer } from "@/components/cowork/SessionViewer";
-import { HandoffDialog } from "@/components/cowork/HandoffDialog";
 import { useDocumentMeta } from "@/lib/meta";
 import {
   COWORK_MOCK,
-  type CoworkMember,
   type CoworkSession,
-  fetchSession,
-  listMembers,
   listSessions,
-  useCoworkStream,
 } from "@/lib/cowork";
-
-// ── /cowork (list) ────────────────────────────────────────────────
 
 export function Cowork() {
   useDocumentMeta({
@@ -169,209 +145,6 @@ export function Cowork() {
           endpoints, the same UI swaps from mock to live — no page-level
           changes needed.
         </p>
-      </div>
-    </section>
-  );
-}
-
-// ── /cowork/:slug (single session) ────────────────────────────────
-
-export function CoworkSession() {
-  const { slug } = useParams<{ slug: string }>();
-  const [session, setSession] = useState<CoworkSession | null>(null);
-  const [members, setMembers] = useState<CoworkMember[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [handoffOpen, setHandoffOpen] = useState(false);
-  const [nowTick, setNowTick] = useState(Date.now() / 1000);
-
-  useDocumentMeta({
-    title: session ? `Cowork · ${session.name}` : "Cowork",
-    description:
-      "Shared agent session with real-time presence and one-click handoff.",
-  });
-
-  useEffect(() => {
-    if (!slug) return;
-    let cancelled = false;
-    (async () => {
-      const s = await fetchSession(slug);
-      if (cancelled) return;
-      setSession(s);
-      if (s) {
-        const ms = await listMembers(s.id);
-        if (!cancelled) setMembers(ms);
-      }
-      setLoading(false);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [slug]);
-
-  // Recompute presence-live boundary every 5 s.
-  useEffect(() => {
-    const id = setInterval(() => setNowTick(Date.now() / 1000), 5000);
-    return () => clearInterval(id);
-  }, []);
-
-  const events = useCoworkStream(session?.id ?? null);
-
-  const sessionForDialog = useMemo(() => session, [session?.id]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  if (loading) {
-    return (
-      <section className="mx-auto max-w-[1100px] px-6 py-24 text-center text-ink-2">
-        Loading session…
-      </section>
-    );
-  }
-  if (!session) {
-    return (
-      <section className="mx-auto max-w-[760px] px-6 py-24 text-center">
-        <div className="mb-3 font-display text-[22px] text-ink">Session not found</div>
-        <p className="mb-6 text-[14px] text-ink-2">
-          That cowork session doesn't exist or has ended.
-        </p>
-        <Link
-          to="/cowork"
-          className="inline-flex items-center gap-2 rounded-md border border-line bg-bg-2 px-4 py-2.5 font-mono-tech text-[11px] uppercase tracking-[2.4px] text-ink transition hover:bg-bg-1"
-        >
-          <ArrowLeft size={14} strokeWidth={1.6} />
-          Back to sessions
-        </Link>
-      </section>
-    );
-  }
-
-  return (
-    <section className="relative z-20 mx-auto max-w-[1280px] px-6 pb-24 pt-10 md:px-10 md:pt-14">
-      <Breadcrumbs
-        items={[
-          { label: "Cowork", to: "/cowork" },
-          { label: session.name },
-        ]}
-      />
-
-      {/* Header */}
-      <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between">
-        <div>
-          <div className="mb-2 inline-flex items-center gap-2 font-mono-tech text-[10px] uppercase tracking-[2.6px] text-ink-2">
-            <Users size={12} strokeWidth={1.8} />
-            /cowork/{session.slug}
-          </div>
-          <h1
-            className="font-display font-medium leading-[1] tracking-[-0.02em] text-ink"
-            style={{ fontSize: "clamp(1.6rem, 3.2vw, 2.4rem)" }}
-          >
-            {session.name}
-          </h1>
-        </div>
-        <div className="flex items-center gap-4">
-          <PresenceBar members={members} now={nowTick} />
-          <button
-            type="button"
-            onClick={() => setHandoffOpen(true)}
-            className="inline-flex items-center gap-2 rounded-md border border-line bg-bg-2 px-4 py-2.5 font-mono-tech text-[11px] uppercase tracking-[2.4px] text-ink transition hover:bg-bg-1"
-            data-testid="cowork-handoff-open"
-          >
-            <Send size={13} strokeWidth={1.6} />
-            Hand off
-          </button>
-        </div>
-      </div>
-
-      {/* Body */}
-      <div className="grid grid-cols-1 gap-5 lg:grid-cols-[320px_1fr]">
-        {/* Left rail — members */}
-        <aside className="rounded-[14px] border border-line bg-bg-1/70 p-5 backdrop-blur-sm">
-          <div className="mb-3 font-mono-tech text-[10px] uppercase tracking-[2.6px] text-ink-2">
-            Members
-          </div>
-          <ul className="space-y-2">
-            {members.map((m) => (
-              <li
-                key={m.id}
-                className="flex items-center gap-3 rounded-md border border-transparent p-2 transition hover:border-line"
-                data-testid={`cowork-member-${m.id}`}
-              >
-                <span
-                  className="grid h-7 w-7 place-items-center rounded-full font-mono-tech text-[11px] uppercase tracking-[1.4px]"
-                  style={{
-                    background: `${m.color ?? "#6366F1"}26`,
-                    color: m.color ?? "#6366F1",
-                    boxShadow: `inset 0 0 0 1px ${m.color ?? "#6366F1"}50`,
-                  }}
-                >
-                  {(m.display_name?.[0] ?? "?").toUpperCase()}
-                </span>
-                <div className="min-w-0 flex-1">
-                  <div className="truncate text-[13px] text-ink">
-                    {m.display_name}
-                  </div>
-                  <div className="font-mono-tech text-[10px] uppercase tracking-[1.6px] text-ink-3">
-                    {m.role}
-                  </div>
-                </div>
-              </li>
-            ))}
-          </ul>
-        </aside>
-
-        {/* Right pane — stream */}
-        <SessionViewer events={events} members={members} />
-      </div>
-
-      <HandoffDialog
-        open={handoffOpen}
-        sessionId={session.id}
-        fromUserId={session.owner_user_id}
-        onClose={() => setHandoffOpen(false)}
-      />
-    </section>
-  );
-}
-
-// ── /cowork/handoff/:token (recipient accept) ─────────────────────
-
-export function CoworkHandoffAccept() {
-  const { token } = useParams<{ token: string }>();
-
-  useDocumentMeta({
-    title: "Accept cowork handoff",
-    description:
-      "Accept ownership of a TARS cowork session that was handed off to you.",
-  });
-
-  return (
-    <section className="mx-auto max-w-[640px] px-6 py-20">
-      <Breadcrumbs
-        items={[
-          { label: "Cowork", to: "/cowork" },
-          { label: "Accept handoff" },
-        ]}
-      />
-      <div className="rounded-[14px] border border-line bg-bg-1/70 p-8 backdrop-blur-sm">
-        <div className="mb-2 font-mono-tech text-[10px] uppercase tracking-[2.6px] text-ink-2">
-          Handoff received
-        </div>
-        <h1 className="mb-4 font-display text-[24px] font-medium leading-[1.1] tracking-[-0.01em] text-ink">
-          You've been handed a cowork session.
-        </h1>
-        <p className="mb-6 text-[13.5px] leading-[1.65] text-ink-2">
-          To accept ownership of this session, open it in the desktop TARS
-          app (which carries your local identity). The token below is
-          single-use and expires shortly.
-        </p>
-        <div className="mb-6 break-all rounded-md border border-line bg-bg-2 px-3 py-2 font-mono-tech text-[12.5px] text-ink">
-          {token ?? "(missing token)"}
-        </div>
-        <Link
-          to="/cowork"
-          className="inline-flex items-center gap-2 rounded-md border border-line bg-bg-2 px-4 py-2.5 font-mono-tech text-[11px] uppercase tracking-[2.4px] text-ink transition hover:bg-bg-1"
-        >
-          <ArrowLeft size={14} strokeWidth={1.6} />
-          Back to sessions
-        </Link>
       </div>
     </section>
   );
