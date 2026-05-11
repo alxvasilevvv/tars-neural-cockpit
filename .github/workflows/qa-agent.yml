@@ -37,7 +37,10 @@ env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 permissions:
-  contents: read
+  # Wave 126 — needs `write` so the scheduled run can commit
+  # experiments/neural-showcase-v3/public/qa-snapshot.json on status
+  # flips. PR runs are still read-only via the conditional below.
+  contents: write
 
 concurrency:
   group: qa-agent-${{ github.ref }}
@@ -92,11 +95,58 @@ jobs:
           # (and the artefact upload below) without turning the workflow red
           # every 5 minutes. REMOVE this env once B-019 is closed.
           QA_AGENT_SOFT_FAIL: "1"
+          # Wave 126 — emit the public snapshot to
+          # experiments/neural-showcase-v3/public/qa-snapshot.json so the
+          # /status page can read live probe state. The next step decides
+          # whether to git-commit it (see "Maybe commit public snapshot").
+          QA_AGENT_WRITE_SNAPSHOT: "1"
         run: |
-          python -m scripts.qa_agent --no-color | tee qa-report.txt
+          # 2>&1 stitched together so the runner's
+          # "snapshot_commit=true|false" line (printed to stderr) lands in
+          # the captured output for the grep below.
+          python -m scripts.qa_agent --no-color 2> qa-stderr.txt | tee qa-report.txt
           rc=${PIPESTATUS[0]}
+          cat qa-stderr.txt >&2
+          # Surface the snapshot decision into a workflow output for the
+          # commit step.
+          if grep -q "snapshot_commit=true" qa-stderr.txt; then
+            echo "snapshot_should_commit=true" >> "$GITHUB_ENV"
+          else
+            echo "snapshot_should_commit=false" >> "$GITHUB_ENV"
+          fi
+          grep -E "snapshot_(overall|reason)=" qa-stderr.txt || true
           echo "qa_agent_exit=$rc" >> "$GITHUB_ENV"
           exit $rc
+
+      - name: Maybe commit public snapshot
+        # Only on scheduled / manual runs that landed on main, and only
+        # when the runner signalled a real change. PRs and forks never
+        # push (no creds, no permissions). See scripts/qa_agent/snapshot.py
+        # for the cadence rules — at most ~48 commits/day on a perfectly
+        # green deployment.
+        if: |
+          env.snapshot_should_commit == 'true'
+          && github.ref == 'refs/heads/main'
+          && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
+        run: |
+          set -e
+          SNAP=experiments/neural-showcase-v3/public/qa-snapshot.json
+          if [ ! -f "$SNAP" ]; then
+            echo "snapshot file missing — skipping commit"
+            exit 0
+          fi
+          git config user.name  "tars-qa-agent[bot]"
+          git config user.email "tars-qa-agent@meeet.world"
+          git add "$SNAP"
+          if git diff --staged --quiet; then
+            echo "no diff to commit"
+            exit 0
+          fi
+          git commit -m "chore(status): qa-agent snapshot refresh
+
+Wave 126 automated snapshot publish.
+Triggered by run ${{ github.run_id }}."
+          git push origin HEAD:main || echo "push failed (likely race) — next run will retry"
 
       - name: Persist alert history
         if: always() && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')

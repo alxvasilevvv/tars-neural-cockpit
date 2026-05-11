@@ -35,6 +35,11 @@ from .alerts import (
     should_alert,
 )
 from .env_resolve import resolved_ingest_api_key
+from .snapshot import (
+    DEFAULT_SNAPSHOT_PATH,
+    build_snapshot,
+    maybe_commit_snapshot,
+)
 from .probes import (
     Context,
     Probe,
@@ -208,7 +213,28 @@ def maybe_escalate_alerts(
         ):
             fired[p.name] = send_alert(p.name, p.detail or "(no detail)")
     save_history(history, history_path)
-    return {"history_path": str(history_path), "fired": fired}
+    return {"history_path": str(history_path), "fired": fired, "history": history}
+
+
+def maybe_write_public_snapshot(
+    probes: list[Probe],
+    history: dict[str, Any] | None,
+    *,
+    snapshot_path: Path | str = DEFAULT_SNAPSHOT_PATH,
+) -> dict[str, Any]:
+    """Wave 126 — project the current run into the public status snapshot.
+
+    Builds the JSON used by the public ``/status`` page on
+    ``tars.meeet.world``. Always writes the file; the returned ``commit``
+    flag tells the workflow whether to git-push (status changed or
+    interval elapsed). See ``scripts/qa_agent/snapshot.py``.
+    """
+
+    snapshot = build_snapshot(probes, history)
+    return {
+        "snapshot": snapshot,
+        **maybe_commit_snapshot(snapshot, snapshot_path=snapshot_path),
+    }
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -289,9 +315,29 @@ def main(argv: list[str] | None = None) -> int:
         "--history-path", default=str(DEFAULT_HISTORY_PATH),
         help="Path to history.json for alert dedup (default: ~/.tars/qa-agent/history.json).",
     )
+    parser.add_argument(
+        "--write-public-snapshot",
+        action="store_true",
+        help=(
+            "Wave 126: also write experiments/neural-showcase-v3/public/"
+            "qa-snapshot.json so the public /status page can read live "
+            "probe state. Set via env QA_AGENT_WRITE_SNAPSHOT=1."
+        ),
+    )
+    parser.add_argument(
+        "--snapshot-path",
+        default=str(DEFAULT_SNAPSHOT_PATH),
+        help=(
+            "Where to write the public snapshot (default: "
+            "experiments/neural-showcase-v3/public/qa-snapshot.json)."
+        ),
+    )
     args = parser.parse_args(argv)
     soft_fail = args.soft_fail or os.environ.get("QA_AGENT_SOFT_FAIL") in ("1", "true", "yes")
     escalate = args.escalate_alerts or os.environ.get("QA_AGENT_ESCALATE_ALERTS") in ("1", "true", "yes")
+    write_snapshot = args.write_public_snapshot or os.environ.get(
+        "QA_AGENT_WRITE_SNAPSHOT"
+    ) in ("1", "true", "yes")
     ingest_key = resolved_ingest_api_key(args.ingest_api_key)
 
     ctx = Context(
@@ -311,6 +357,7 @@ def main(argv: list[str] | None = None) -> int:
         color = not args.no_color and sys.stdout.isatty()
         print(render_text(probes, ctx, color))
 
+    alert_outcome: dict[str, Any] = {}
     if escalate:
         alert_outcome = maybe_escalate_alerts(
             probes,
@@ -324,6 +371,24 @@ def main(argv: list[str] | None = None) -> int:
                 f"{','.join(alert_outcome['fired'].keys())}",
                 file=sys.stderr,
             )
+
+    if write_snapshot:
+        # Reuse the just-saved history (with this run already appended)
+        # so uptime % and 24h-fail counts include the current probe row.
+        snap_outcome = maybe_write_public_snapshot(
+            probes,
+            alert_outcome.get("history"),
+            snapshot_path=args.snapshot_path,
+        )
+        # Surface the commit decision for the workflow YAML to act on
+        # (it greps stdout for ``snapshot_commit=true`` to decide whether
+        # to git-push the file).
+        print(
+            f"snapshot_overall={snap_outcome['snapshot']['overall_status']} "
+            f"snapshot_commit={'true' if snap_outcome['commit'] else 'false'} "
+            f"snapshot_reason={snap_outcome['reason']}",
+            file=sys.stderr,
+        )
 
     fails = sum(1 for p in probes if p.status == "fail")
     if fails == 0:

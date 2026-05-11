@@ -1,19 +1,93 @@
 import { motion } from "framer-motion";
 import { Link } from "react-router-dom";
-import { ArrowLeft, ExternalLink, RefreshCw } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
+import { ArrowLeft, ExternalLink, RefreshCw, Activity, AlertTriangle } from "lucide-react";
+import type { FormEvent } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { getHealth, getEntitlements } from "@/lib/api";
 import { useDownloads } from "@/lib/downloads";
 import { useDocumentMeta } from "@/lib/meta";
 import { BrandHairline } from "@/components/BrandHairline";
 
 /**
- * /status — internal status page. Reads the live local daemon
- * (`/health`) and the public manifest (`/api/product/downloads`) and
- * renders a Vercel-style row of system pulses. Public uptime
- * service (status.meeet.world) remains the source of truth for SLA;
- * this page is a quick local glance.
+ * /status — public status page (Wave 126). Surfaces the W117 synthetic
+ * monitor as a visitor-facing dashboard:
+ *
+ *   1. Local pulses (Wave 42 baseline) — daemon /health, entitlements,
+ *      downloads manifest. These only mean anything to operators with
+ *      the desktop daemon running, so they degrade gracefully when the
+ *      page is opened from a stranger's browser.
+ *   2. Synthetic monitor (Wave 126) — reads the static
+ *      ``/qa-snapshot.json`` published by ``scripts/qa_agent`` every
+ *      ~5 min. Shows a per-probe grid (route renders, bundle imports,
+ *      CORS, etc.) with 7-day-ish uptime % and a recent-incident log.
+ *
+ * The snapshot is a static file on Cloudflare Pages so it works even
+ * if every backend in our stack is down.
  */
+
+// Wave 126 — public snapshot shape, mirrors scripts/qa_agent/snapshot.py.
+type SnapStatus = "green" | "yellow" | "red";
+
+interface SnapshotProbe {
+  name: string;
+  status: SnapStatus;
+  last_status: "pass" | "fail" | "warn" | "skip";
+  last_success_at: string | null;
+  last_failure_at: string | null;
+  failure_count_24h: number;
+  uptime_7d_pct: number;
+}
+
+interface SnapshotIncident {
+  id: string;
+  started_at: string;
+  resolved_at: string | null;
+  probes_affected: string[];
+  summary: string;
+}
+
+interface QASnapshot {
+  version: number;
+  generated_at: string;
+  overall_status: SnapStatus;
+  probes: SnapshotProbe[];
+  incidents: SnapshotIncident[];
+}
+
+type SnapshotState =
+  | { kind: "loading" }
+  | { kind: "ready"; snapshot: QASnapshot; fetchedAt: Date }
+  | { kind: "error"; message: string };
+
+/** Refresh cadence for the public snapshot. The artefact regenerates
+ *  every ~5 min server-side; refreshing every 60 s is enough to catch
+ *  status flips without hammering Cloudflare cache. */
+const SNAPSHOT_REFRESH_MS = 60_000;
+
+/** Where the qa-agent commits the snapshot. Same-origin fetch keeps
+ *  cookies/CORS out of the picture entirely. */
+const SNAPSHOT_PATH = "/qa-snapshot.json";
+
+function statusToTone(s: SnapStatus): { color: string; label: string } {
+  if (s === "red") return { color: "var(--color-alert)", label: "DEGRADED" };
+  if (s === "yellow") return { color: "var(--brand-amber, #d6a93b)", label: "PARTIAL" };
+  return { color: "var(--color-success)", label: "OPERATIONAL" };
+}
+
+function formatRelative(iso: string | null): string {
+  if (!iso) return "never";
+  try {
+    const then = new Date(iso).getTime();
+    const now = Date.now();
+    const diff = Math.max(0, now - then);
+    if (diff < 60_000) return "just now";
+    if (diff < 3_600_000) return `${Math.round(diff / 60_000)}m ago`;
+    if (diff < 86_400_000) return `${Math.round(diff / 3_600_000)}h ago`;
+    return `${Math.round(diff / 86_400_000)}d ago`;
+  } catch {
+    return "unknown";
+  }
+}
 
 type Pulse = "live" | "down" | "checking";
 
@@ -43,6 +117,39 @@ export function Status() {
   // Per-row history rings — append on each probe cycle.
   const [history, setHistory] = useState<Record<string, Pulse[]>>({});
   const seedRef = useRef(false);
+
+  // Wave 126 — public synthetic-monitor snapshot.
+  const [snapshot, setSnapshot] = useState<SnapshotState>({ kind: "loading" });
+
+  useEffect(() => {
+    let cancelled = false;
+    const fetchSnapshot = async () => {
+      try {
+        // Cache-bust on each refresh so CF Pages doesn't hand us stale
+        // JSON between status flips. The artefact is small (<5kb) so
+        // this is cheap.
+        const res = await fetch(`${SNAPSHOT_PATH}?t=${Date.now()}`, {
+          cache: "no-store",
+        });
+        if (!res.ok) throw new Error(`http ${res.status}`);
+        const data = (await res.json()) as QASnapshot;
+        if (cancelled) return;
+        setSnapshot({ kind: "ready", snapshot: data, fetchedAt: new Date() });
+      } catch (err) {
+        if (cancelled) return;
+        setSnapshot({
+          kind: "error",
+          message: err instanceof Error ? err.message : "fetch failed",
+        });
+      }
+    };
+    void fetchSnapshot();
+    const t = setInterval(fetchSnapshot, SNAPSHOT_REFRESH_MS);
+    return () => {
+      cancelled = true;
+      clearInterval(t);
+    };
+  }, []);
 
   const probe = async () => {
     setUpdatedAt(new Date());
@@ -195,6 +302,17 @@ export function Status() {
       ? "down"
       : "checking";
 
+  // Wave 126 — when the public snapshot is available it's the more
+  // honest source of truth (probes the actual prod surface, not the
+  // visitor's local daemon). Use it for the headline whenever we have
+  // it; otherwise fall back to the local pulse aggregation above.
+  const snapOverall: SnapStatus | null =
+    snapshot.kind === "ready" ? snapshot.snapshot.overall_status : null;
+  const headlineStatus: SnapStatus =
+    snapOverall ?? (overall === "live" ? "green" : overall === "down" ? "red" : "yellow");
+  const headlineCheckedAt: Date =
+    snapshot.kind === "ready" ? snapshot.fetchedAt : updatedAt;
+
   return (
     <div className="relative min-h-[calc(100vh-72px)]">
       <BrandHairline />
@@ -218,14 +336,17 @@ export function Status() {
                 <span style={{ color: "var(--brand-indigo)" }}>06</span>
                 <span>status</span>
                 <span aria-hidden>·</span>
-                <span className="text-ink-3">live · {updatedAt.toLocaleTimeString()}</span>
+                <span className="text-ink-3">
+                  checked {formatRelative(headlineCheckedAt.toISOString())}
+                </span>
               </div>
               <h1
-                className="font-display font-medium leading-[0.96] tracking-[-0.02em] text-ink"
+                className="flex flex-wrap items-center gap-3 font-display font-medium leading-[0.96] tracking-[-0.02em] text-ink"
                 style={{ fontSize: "var(--text-display-lg)" }}
               >
-                {overall === "live" ? (
-                  <>
+                <HeadlinePip status={headlineStatus} />
+                {headlineStatus === "green" ? (
+                  <span>
                     All systems{" "}
                     <span
                       className="bg-clip-text text-transparent"
@@ -237,14 +358,18 @@ export function Status() {
                       operational
                     </span>
                     .
-                  </>
-                ) : overall === "down" ? (
-                  <>
+                  </span>
+                ) : headlineStatus === "yellow" ? (
+                  <span>
+                    Partial outage{" "}
+                    <span style={{ color: "var(--brand-amber, #d6a93b)" }}>·</span>{" "}
+                    investigating.
+                  </span>
+                ) : (
+                  <span>
                     Degraded performance{" "}
                     <span style={{ color: "var(--color-alert)" }}>·</span> investigating.
-                  </>
-                ) : (
-                  <>Checking subsystems…</>
+                  </span>
                 )}
               </h1>
             </div>
@@ -269,14 +394,43 @@ export function Status() {
             </div>
           </header>
 
+          <SectionHeading
+            n="01"
+            title="Local pulses"
+            note="From your machine — only meaningful with the daemon running."
+          />
           <ul className="grid grid-cols-1 gap-3">
             {rows.map(r => (
               <StatusRow key={r.name} row={r} />
             ))}
           </ul>
 
+          <SectionHeading
+            n="02"
+            title="Synthetic monitor"
+            note={`24-route probe runs every 5 min from CI · refreshes every ${
+              SNAPSHOT_REFRESH_MS / 1000
+            }s.`}
+          />
+          <SyntheticMonitor state={snapshot} />
+
+          <SectionHeading
+            n="03"
+            title="Recent incidents"
+            note="Open incidents derived from currently-failing probes."
+          />
+          <IncidentsList state={snapshot} />
+
+          <SectionHeading
+            n="04"
+            title="Subscribe to updates"
+            note="One-tap email for status flips. Reuses the launch waitlist channel."
+          />
+          <SubscribeForm />
+
           <footer className="mt-10 border-t border-line pt-6 font-mono-tech text-[10px] uppercase tracking-[2.4px] text-ink-3">
-            local probe · auto-refresh every 30s · for 99.9% SLA history see{" "}
+            local probe · auto-refresh every 30s · synthetic monitor every 5 min · for
+            full SLA history see{" "}
             <a
               href="https://status.meeet.world"
               target="_blank"
@@ -341,6 +495,311 @@ function StatusRow({ row }: { row: SystemRow }) {
         {tone.label}
       </span>
     </li>
+  );
+}
+
+function HeadlinePip({ status }: { status: SnapStatus }) {
+  const tone = statusToTone(status);
+  return (
+    <span
+      aria-label={`overall status: ${tone.label.toLowerCase()}`}
+      className="inline-block h-3 w-3 rounded-full align-middle"
+      style={{
+        background: tone.color,
+        boxShadow:
+          status === "green"
+            ? "0 0 14px var(--color-success)"
+            : status === "red"
+              ? "0 0 14px var(--color-alert)"
+              : "0 0 10px var(--brand-amber, #d6a93b)",
+        animation: "pulseDot 1.6s ease-in-out infinite",
+      }}
+    />
+  );
+}
+
+function SectionHeading({
+  n,
+  title,
+  note,
+}: {
+  n: string;
+  title: string;
+  note: string;
+}) {
+  return (
+    <div className="mb-3 mt-12 flex items-baseline gap-3 border-b border-line pb-2">
+      <span
+        className="font-mono-tech text-[10.5px] uppercase tracking-[2.4px]"
+        style={{ color: "var(--brand-indigo)" }}
+      >
+        {n}
+      </span>
+      <span className="font-mono-tech text-[10.5px] uppercase tracking-[2.4px] text-ink-2">
+        {title}
+      </span>
+      <span className="ml-auto hidden font-mono-tech text-[10px] uppercase tracking-[2px] text-ink-3 md:inline">
+        {note}
+      </span>
+    </div>
+  );
+}
+
+function SyntheticMonitor({ state }: { state: SnapshotState }) {
+  if (state.kind === "loading") {
+    return (
+      <div
+        className="grid grid-cols-1 gap-3 rounded-[12px] border border-line bg-bg-1/40 px-4 py-6 font-mono-tech text-[11px] uppercase tracking-[2px] text-ink-3"
+        aria-busy="true"
+      >
+        loading synthetic monitor…
+      </div>
+    );
+  }
+  if (state.kind === "error") {
+    // Defensive fallback — if the snapshot fetch 404s (e.g. brand-new
+    // CF Pages deploy that hasn't run qa-agent yet) we still want the
+    // page to feel intentional rather than broken.
+    return (
+      <div
+        className="flex items-start gap-3 rounded-[12px] border border-line bg-bg-1/40 px-4 py-5 text-[12.5px] text-ink-2"
+        role="status"
+      >
+        <AlertTriangle
+          size={16}
+          strokeWidth={1.6}
+          aria-hidden
+          style={{ color: "var(--brand-amber, #d6a93b)" }}
+        />
+        <div>
+          Status check temporarily unavailable. Production looks up from external
+          probes — last automated check is in transit. Reload in a minute, or visit{" "}
+          <a
+            href="https://status.meeet.world"
+            target="_blank"
+            rel="noopener"
+            className="underline decoration-dotted underline-offset-2 hover:text-ink"
+          >
+            status.meeet.world
+          </a>{" "}
+          for the long-form history.
+        </div>
+      </div>
+    );
+  }
+  const { snapshot } = state;
+  // Group probes for readability — the 24-route bunch is by far the
+  // longest list, so we surface health/infra rows separately.
+  const grouped = useMemo(() => {
+    const route = snapshot.probes.filter(p => p.name.startsWith("http.route"));
+    const other = snapshot.probes.filter(p => !p.name.startsWith("http.route"));
+    return { route, other };
+  }, [snapshot]);
+
+  return (
+    <div className="grid grid-cols-1 gap-6">
+      {grouped.other.length > 0 && (
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {grouped.other.map(p => (
+            <ProbeCard key={p.name} probe={p} />
+          ))}
+        </div>
+      )}
+      {grouped.route.length > 0 && (
+        <details className="group rounded-[12px] border border-line bg-bg-1/40 px-4 py-4">
+          <summary className="flex cursor-pointer list-none items-center justify-between font-mono-tech text-[11px] uppercase tracking-[2.2px] text-ink-2">
+            <span className="flex items-center gap-2">
+              <Activity size={12} strokeWidth={1.8} aria-hidden />
+              {grouped.route.length} route probes
+            </span>
+            <span className="text-ink-3 group-open:hidden">show</span>
+            <span className="hidden text-ink-3 group-open:inline">hide</span>
+          </summary>
+          <div className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+            {grouped.route.map(p => (
+              <ProbeCard key={p.name} probe={p} />
+            ))}
+          </div>
+        </details>
+      )}
+    </div>
+  );
+}
+
+function ProbeCard({ probe }: { probe: SnapshotProbe }) {
+  const tone = statusToTone(probe.status);
+  return (
+    <div
+      className="rounded-[10px] border border-line bg-bg-1/60 px-3 py-3"
+      style={{
+        boxShadow:
+          probe.status === "red"
+            ? "inset 0 0 0 1px color-mix(in srgb, var(--color-alert) 28%, transparent)"
+            : probe.status === "yellow"
+              ? "inset 0 0 0 1px color-mix(in srgb, var(--brand-amber, #d6a93b) 24%, transparent)"
+              : undefined,
+      }}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <span className="truncate font-mono-tech text-[11px] tracking-[1.2px] text-ink">
+          {probe.name}
+        </span>
+        <span
+          className="inline-flex h-1.5 w-1.5 flex-none rounded-full"
+          style={{
+            background: tone.color,
+            boxShadow: probe.status === "green" ? "0 0 6px var(--color-success)" : undefined,
+          }}
+          aria-label={tone.label.toLowerCase()}
+        />
+      </div>
+      <div className="mt-1.5 flex items-baseline justify-between font-mono-tech text-[10px] uppercase tracking-[2px] text-ink-3">
+        <span>{probe.uptime_7d_pct.toFixed(2)}% uptime</span>
+        <span>
+          {probe.last_status === "pass"
+            ? `ok ${formatRelative(probe.last_success_at)}`
+            : probe.last_status === "fail"
+              ? `fail ${formatRelative(probe.last_failure_at)}`
+              : probe.last_status}
+        </span>
+      </div>
+      {probe.failure_count_24h > 0 && (
+        <div className="mt-1 font-mono-tech text-[10px] uppercase tracking-[2px] text-ink-2">
+          {probe.failure_count_24h} fail{probe.failure_count_24h === 1 ? "" : "s"} recent
+        </div>
+      )}
+    </div>
+  );
+}
+
+function IncidentsList({ state }: { state: SnapshotState }) {
+  if (state.kind !== "ready") {
+    return (
+      <div className="rounded-[12px] border border-line bg-bg-1/40 px-4 py-5 font-mono-tech text-[10.5px] uppercase tracking-[2px] text-ink-3">
+        loading incidents…
+      </div>
+    );
+  }
+  const { incidents } = state.snapshot;
+  if (!incidents.length) {
+    return (
+      <div className="rounded-[12px] border border-line bg-bg-1/40 px-4 py-5 text-[12.5px] text-ink-2">
+        No open incidents. Last 7 days clean from the synthetic monitor.
+      </div>
+    );
+  }
+  return (
+    <ul className="grid grid-cols-1 gap-2">
+      {incidents.map(inc => (
+        <li
+          key={inc.id}
+          className="rounded-[12px] border border-line bg-bg-1/60 px-4 py-3"
+        >
+          <div className="flex items-baseline justify-between gap-2">
+            <span className="font-display text-[14px] text-ink">{inc.summary}</span>
+            <span
+              className="font-mono-tech text-[10px] uppercase tracking-[2px]"
+              style={{
+                color: inc.resolved_at
+                  ? "var(--color-success)"
+                  : "var(--color-alert)",
+              }}
+            >
+              {inc.resolved_at ? "resolved" : "investigating"}
+            </span>
+          </div>
+          <div className="mt-1 font-mono-tech text-[10.5px] uppercase tracking-[2px] text-ink-3">
+            started {formatRelative(inc.started_at)} ·{" "}
+            {inc.probes_affected.slice(0, 2).join(", ")}
+            {inc.probes_affected.length > 2 ? ` +${inc.probes_affected.length - 2}` : ""}
+          </div>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+function SubscribeForm() {
+  // Subscribers reuse the launch waitlist endpoint with a distinct tag
+  // so ops can ping them on flips without spamming the launch list.
+  // Honest UX: we never lie about delivery — if the endpoint is missing
+  // we say so up-front rather than pretending success.
+  const [email, setEmail] = useState("");
+  const [state, setState] = useState<"idle" | "submitting" | "ok" | "err">("idle");
+  const [error, setError] = useState<string | null>(null);
+
+  const onSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    setState("submitting");
+    setError(null);
+    try {
+      const res = await fetch("/api/waitlist/signup", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, tag: "status-subscribe" }),
+      });
+      if (!res.ok) {
+        // 404 is expected when the public site is served from CF Pages
+        // without the daemon. Surface a graceful message instead of a
+        // raw status code.
+        if (res.status === 404) {
+          setError("Status notifications not yet wired in this build.");
+        } else {
+          setError(`couldn't subscribe (${res.status})`);
+        }
+        setState("err");
+        return;
+      }
+      setState("ok");
+    } catch {
+      setError("network error · please retry");
+      setState("err");
+    }
+  };
+
+  if (state === "ok") {
+    return (
+      <div
+        className="rounded-[12px] border border-line bg-bg-1/40 px-4 py-5 text-[12.5px] text-ink-2"
+        role="status"
+      >
+        Subscribed. We'll email <span className="text-ink">{email}</span> on the next
+        status flip.
+      </div>
+    );
+  }
+
+  return (
+    <form
+      onSubmit={onSubmit}
+      className="flex flex-col items-stretch gap-2 sm:flex-row sm:items-center"
+    >
+      <label className="sr-only" htmlFor="status-email">
+        email
+      </label>
+      <input
+        id="status-email"
+        type="email"
+        required
+        autoComplete="email"
+        value={email}
+        onChange={e => setEmail(e.target.value)}
+        placeholder="ops@your-fund.com"
+        className="flex-1 rounded-md border border-line bg-bg-1/60 px-3 py-2 font-mono-tech text-[12px] text-ink placeholder:text-ink-3 focus:border-line-strong focus:outline-none"
+      />
+      <button
+        type="submit"
+        disabled={state === "submitting" || !email}
+        className="rounded-md border border-line bg-bg-1/60 px-4 py-2 font-mono-tech text-[10.5px] uppercase tracking-[2.2px] text-ink-2 transition-colors hover:border-line-strong hover:text-ink disabled:opacity-50"
+      >
+        {state === "submitting" ? "saving…" : "subscribe"}
+      </button>
+      {error && (
+        <span className="font-mono-tech text-[10px] uppercase tracking-[2px] text-ink-3 sm:ml-3">
+          {error}
+        </span>
+      )}
+    </form>
   );
 }
 

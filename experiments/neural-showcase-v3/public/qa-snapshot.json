@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "generated_at": "2026-05-11T00:00:00+00:00",
+  "overall_status": "green",
+  "probes": [
+    {
+      "name": "infra.dns",
+      "status": "green",
+      "last_status": "pass",
+      "last_success_at": "2026-05-11T00:00:00+00:00",
+      "last_failure_at": null,
+      "failure_count_24h": 0,
+      "uptime_7d_pct": 100.0
+    },
+    {
+      "name": "http.spa_root",
+      "status": "green",
+      "last_status": "pass",
+      "last_success_at": "2026-05-11T00:00:00+00:00",
+      "last_failure_at": null,
+      "failure_count_24h": 0,
+      "uptime_7d_pct": 100.0
+    },
+    {
+      "name": "bundle.imports",
+      "status": "green",
+      "last_status": "pass",
+      "last_success_at": "2026-05-11T00:00:00+00:00",
+      "last_failure_at": null,
+      "failure_count_24h": 0,
+      "uptime_7d_pct": 100.0
+    }
+  ],
+  "incidents": []
+}

@@ -105,9 +105,85 @@ gh workflow run qa-agent.yml
 ```
 python -m scripts.qa_agent --escalate-alerts \
     --alert-threshold 3 \
-    --history-path ~/.tars/qa-agent/history.json
+    --history-path ~/.tars/qa-agent/history.json \
+    --write-public-snapshot \
+    --snapshot-path experiments/neural-showcase-v3/public/qa-snapshot.json
 ```
 
 Env equivalents: `QA_AGENT_ESCALATE_ALERTS=1`, `QA_AGENT_SOFT_FAIL=1`,
-`TELEGRAM_BOT_TOKEN`, `TELEGRAM_OPERATOR_CHAT_ID`,
-`BRIDGE_SHARED_SECRET`, `TARS_INGEST_API_KEY`.
+`QA_AGENT_WRITE_SNAPSHOT=1`, `TELEGRAM_BOT_TOKEN`,
+`TELEGRAM_OPERATOR_CHAT_ID`, `BRIDGE_SHARED_SECRET`,
+`TARS_INGEST_API_KEY`.
+
+## Public status page (Wave 126)
+
+The marketing site at `tars.meeet.world/status` reads a static
+`/qa-snapshot.json` projected from each probe run. Pipeline:
+
+1. `python -m scripts.qa_agent --write-public-snapshot` (set in CI via
+   `QA_AGENT_WRITE_SNAPSHOT=1`) builds the public-facing JSON via
+   `scripts/qa_agent/snapshot.py::build_snapshot()` and writes it to
+   `experiments/neural-showcase-v3/public/qa-snapshot.json`.
+2. The runner prints `snapshot_commit=true|false` to stderr based on
+   `should_commit_snapshot()`. Decision rules:
+     * **first_snapshot** — no prior file on disk; commit.
+     * **status_change:green->red** (any flip) — commit immediately.
+     * **probes_changed** — same overall_status but a different set of
+       probes is failing; commit.
+     * **interval** — 30+ minutes since the last commit; commit so the
+       timestamp doesn't go stale on a green deployment.
+     * **no_change_within_interval** — skip; the GH Actions artefact
+       still has the latest copy for retroactive debugging.
+3. The `Maybe commit public snapshot` step in
+   `.github/workflows/qa-agent.yml` greps for `snapshot_commit=true`
+   and only pushes from `main` on scheduled / manual runs (PRs and
+   forks never push). Worst case ~48 commits/day on a perfectly green
+   deploy (every 30 min); a brief outage adds at most 2-4 (status
+   flip + recovery flip).
+4. Cloudflare Pages serves the JSON with no auth and short TTL. The FE
+   fetches `/qa-snapshot.json?t=<ts>` every 60s and degrades gracefully
+   (a "Status check temporarily unavailable" panel) on 404.
+
+### Snapshot shape v1
+
+```json
+{
+  "version": 1,
+  "generated_at": "2026-05-11T12:34:56+00:00",
+  "overall_status": "green | yellow | red",
+  "probes": [
+    {
+      "name": "http.route/",
+      "status": "green | yellow | red",
+      "last_status": "pass | fail | warn | skip",
+      "last_success_at": "...",
+      "last_failure_at": null,
+      "failure_count_24h": 0,
+      "uptime_7d_pct": 99.94
+    }
+  ],
+  "incidents": [
+    {
+      "id": "incident-2026-05-10-route_workshop",
+      "started_at": "...",
+      "resolved_at": null,
+      "probes_affected": ["http.route/workshop"],
+      "summary": "1 probe failing (http.route/workshop)"
+    }
+  ]
+}
+```
+
+`uptime_7d_pct` is computed from the history.json rolling window (cap
+`HISTORY_MAX_PER_PROBE = 10`). Honest naming would be "uptime in last
+N runs"; we round to a 7-day-style label for human readability and
+document the caveat in the FE.
+
+### Local smoke
+
+```
+python -m scripts.qa_agent --json --no-color --write-public-snapshot \
+    --snapshot-path /tmp/qa-snapshot.json
+cat /tmp/qa-snapshot.json | python3 -m json.tool | head -40
+python3 -m unittest tests.test_qa_snapshot
+```
