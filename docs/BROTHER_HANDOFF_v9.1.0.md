@@ -665,3 +665,77 @@ If all three pass: the integration surface is live and brother can
 register his first webhook subscriber (§ 7.4).
 
 >>> SYNC: Claude · 2026-05-11 · Wave 119 brother handoff sync.
+
+---
+
+## Wave 129 — Cowork (multiplayer agent sessions)
+
+**Status:** backend module + frontend page + tests shipped on the TARS
+side. Brother's core-bridge needs to expose the `/api/cowork/*` HTTP
+surface that proxies into `backend.core.cowork.*`. Full contract:
+[`docs/contracts/COWORK.md`](contracts/COWORK.md).
+
+### Why this matters
+
+Closes the W122 audit gap on tasks **#99 (Shared Agent Sessions)** and
+**#100 (TARS Handoff)** — both had been marked complete historically
+but had no live backend code. With W129 they actually ship.
+
+### Module surface (importable Python)
+
+```python
+from backend.core.cowork import (
+    # session CRUD
+    CoworkStore, get_store,
+    # presence
+    PresenceTracker, get_tracker,
+    # stream pub/sub
+    publish, subscribe, subscriber_count,
+    # handoff
+    create_handoff, accept_handoff, HandoffError,
+    # orchestrator hook (best-effort)
+    emit_agent_frame,
+)
+```
+
+### Endpoints to wire (10 routes)
+
+| Method | Path                                          |
+| ------ | --------------------------------------------- |
+| POST   | `/api/cowork/sessions`                        |
+| GET    | `/api/cowork/sessions`                        |
+| GET    | `/api/cowork/sessions/:slug`                  |
+| POST   | `/api/cowork/sessions/:id/members`            |
+| GET    | `/api/cowork/sessions/:id/members`            |
+| POST   | `/api/cowork/sessions/:id/heartbeat`          |
+| POST   | `/api/cowork/sessions/:id/cursor`             |
+| POST   | `/api/cowork/sessions/:id/handoff`            |
+| POST   | `/api/cowork/handoff/:token/accept`           |
+| GET    | `/api/cowork/sessions/:id/stream`             |
+
+Until brother ships these, the TARS frontend transparently falls back
+to a deterministic mock so `/cowork` still renders an end-to-end demo
+session — no broken state at v9.1.0 launch.
+
+### Integration milestones
+
+- **v9.1.0 (now)** — TARS module + page shipped. Mock fallback handles offline. No brother work required to keep production rendering.
+- **v9.1.1** — brother wires the 10 routes above. Mock fallback turns itself off automatically — the real path is preferred, mock only activates on fetch failure.
+- **v9.2** — outgoing webhook on `cowork.handoff.accepted` so other systems can observe transfers. Brother's W90 dispatcher already supports this pattern.
+- **v9.3** — workspace fencing becomes mandatory. Coupled with the rest of W110 multi-tenant work.
+
+### Quickstart curl (once endpoints are live)
+
+```bash
+# Create a session
+curl -X POST https://tars.meeet.world/api/cowork/sessions \
+  -H "content-type: application/json" \
+  -d '{"name":"Smoke session","owner_user_id":"u_alice"}'
+# expect: 200 + JSON { id, name, slug, owner_user_id, status:"live", ... }
+
+# Subscribe to its stream (SSE)
+curl -N https://tars.meeet.world/api/cowork/sessions/cw_<id>/stream
+# expect: text/event-stream with frames every 15s heartbeat or on activity
+```
+
+>>> SYNC: Claude · 2026-05-12 · Wave 129 — Cowork module shipped.

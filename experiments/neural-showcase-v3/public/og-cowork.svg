@@ -1,0 +1,76 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630" width="1200" height="630">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1200" y2="630" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#0a0a12"/>
+      <stop offset="1" stop-color="#000000"/>
+    </linearGradient>
+    <linearGradient id="brand" x1="0" y1="0" x2="1200" y2="0" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#6366F1"/>
+      <stop offset="0.5" stop-color="#8B5CF6"/>
+      <stop offset="1" stop-color="#06B6D4"/>
+    </linearGradient>
+    <radialGradient id="halo" cx="900" cy="320" r="380" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#8B5CF6" stop-opacity="0.32"/>
+      <stop offset="0.6" stop-color="#6366F1" stop-opacity="0.08"/>
+      <stop offset="1" stop-color="#000" stop-opacity="0"/>
+    </radialGradient>
+    <pattern id="grid" x="0" y="0" width="48" height="48" patternUnits="userSpaceOnUse">
+      <path d="M 48 0 L 0 0 0 48" fill="none" stroke="#f5f5f0" stroke-opacity="0.04" stroke-width="1"/>
+    </pattern>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bg)"/>
+  <rect width="1200" height="630" fill="url(#grid)"/>
+  <rect width="1200" height="630" fill="url(#halo)"/>
+
+  <!-- Top hairline accent -->
+  <rect x="0" y="0" width="1200" height="2" fill="url(#brand)" opacity="0.85"/>
+
+  <!-- Corner ticks -->
+  <g stroke="#06B6D4" stroke-width="1.5" stroke-opacity="0.5" fill="none">
+    <path d="M 60 60 L 60 84 M 60 60 L 84 60"/>
+    <path d="M 1140 60 L 1140 84 M 1140 60 L 1116 60"/>
+    <path d="M 60 570 L 60 546 M 60 570 L 84 570"/>
+    <path d="M 1140 570 L 1140 546 M 1140 570 L 1116 570"/>
+  </g>
+
+  <!-- Eyebrow -->
+  <g transform="translate(80 110)">
+    <circle cx="0" cy="-2" r="3" fill="#06B6D4"/>
+    <text x="14" y="2" font-family="'Fira Code', ui-monospace, monospace" font-size="14" fill="#a09e96" letter-spacing="3px">TARS · COWORK</text>
+  </g>
+
+  <!-- Headline -->
+  <g transform="translate(80 230)">
+    <text font-family="'Share Tech Mono', monospace" font-size="84" font-weight="500" fill="#f5f5f0" letter-spacing="-2px">
+      <tspan x="0" y="0">Agent sessions —</tspan>
+      <tspan x="0" y="98" fill="url(#brand)">multiplayer.</tspan>
+    </text>
+  </g>
+
+  <!-- Sub-copy -->
+  <g transform="translate(80 460)">
+    <text font-family="'Fira Code', ui-monospace, monospace" font-size="22" fill="#a09e96" letter-spacing="0.4px">
+      <tspan x="0" y="0">Shared sessions · live presence · cursors over files · one-click handoff.</tspan>
+    </text>
+  </g>
+
+  <!-- Presence-dot row (decorative) -->
+  <g transform="translate(80 520)">
+    <circle cx="0" cy="0" r="14" fill="#6366F1" fill-opacity="0.18" stroke="#6366F1" stroke-opacity="0.5"/>
+    <text x="-4" y="6" font-family="'Fira Code', monospace" font-size="14" fill="#6366F1">A</text>
+    <circle cx="36" cy="0" r="14" fill="#8B5CF6" fill-opacity="0.18" stroke="#8B5CF6" stroke-opacity="0.5"/>
+    <text x="32" y="6" font-family="'Fira Code', monospace" font-size="14" fill="#8B5CF6">B</text>
+    <circle cx="72" cy="0" r="14" fill="#06B6D4" fill-opacity="0.18" stroke="#06B6D4" stroke-opacity="0.5"/>
+    <text x="68" y="6" font-family="'Fira Code', monospace" font-size="14" fill="#06B6D4">C</text>
+    <circle cx="108" cy="0" r="14" fill="#34D399" fill-opacity="0.18" stroke="#34D399" stroke-opacity="0.5"/>
+    <text x="104" y="6" font-family="'Fira Code', monospace" font-size="14" fill="#34D399">D</text>
+    <text x="150" y="6" font-family="'Fira Code', monospace" font-size="14" fill="#a09e96" letter-spacing="1.6px">4 LIVE</text>
+  </g>
+
+  <!-- Bottom-right brand stamp -->
+  <g transform="translate(1120 590)" text-anchor="end">
+    <text font-family="'Fira Code', monospace" font-size="14" fill="#a09e96" letter-spacing="2.6px">TARS.MEEET.WORLD/COWORK</text>
+  </g>
+</svg>

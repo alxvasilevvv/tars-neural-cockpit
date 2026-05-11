@@ -195,6 +195,20 @@ const WorkspaceInviteAccept = lazy(() =>
     default: m.WorkspaceInviteAccept,
   })),
 );
+// Wave 129 — Cowork (multiplayer agent sessions). Three named exports
+// from one module: list (Cowork), single session (CoworkSession), and
+// recipient accept screen (CoworkHandoffAccept). Lazy-imported as 3
+// chunks via the same file so the bundle doesn't bloat the marketing
+// surface — only loaded when /cowork/* routes are visited.
+const Cowork = lazy(() =>
+  import("@/pages/Cowork").then((m) => ({ default: m.Cowork })),
+);
+const CoworkSession = lazy(() =>
+  import("@/pages/Cowork").then((m) => ({ default: m.CoworkSession })),
+);
+const CoworkHandoffAccept = lazy(() =>
+  import("@/pages/Cowork").then((m) => ({ default: m.CoworkHandoffAccept })),
+);
 
 // Default skeleton for routes that don't pin a specific layout shape.
 const Loading = () => <RouteSkeleton variant="default" />;
@@ -651,6 +665,32 @@ function AppShell() {
               element={
                 <Suspense fallback={<RouteSkeleton variant="narrow" />}>
                   <WorkspaceInviteAccept />
+                </Suspense>
+              }
+            />
+            {/* Wave 129 — Cowork: multiplayer agent sessions. Three
+                routes: list, single session, recipient accept page. */}
+            <Route
+              path="/cowork"
+              element={
+                <Suspense fallback={<RouteSkeleton variant="wide" />}>
+                  <Cowork />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/cowork/handoff/:token"
+              element={
+                <Suspense fallback={<RouteSkeleton variant="narrow" />}>
+                  <CoworkHandoffAccept />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/cowork/:slug"
+              element={
+                <Suspense fallback={<RouteSkeleton variant="wide" />}>
+                  <CoworkSession />
                 </Suspense>
               }
             />

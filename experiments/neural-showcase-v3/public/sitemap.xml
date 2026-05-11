@@ -285,4 +285,13 @@
     <changefreq>weekly</changefreq>
     <priority>0.78</priority>
   </url>
+  <!-- Wave 129 - Cowork (multiplayer agent sessions) landing page.
+       Higher priority than internal B2B surfaces because it's the new
+       hero feature post-launch (closes W122 audit gaps #99 + #100). -->
+  <url>
+    <loc>https://tars.meeet.world/cowork</loc>
+    <lastmod>2026-05-12</lastmod>
+    <changefreq>weekly</changefreq>
+    <priority>0.85</priority>
+  </url>
 </urlset>

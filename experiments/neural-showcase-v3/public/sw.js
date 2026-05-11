@@ -22,15 +22,21 @@
  * blobs. Bump on every visual/content change of the precache set.
  */
 
-// Wave 115 (2026-05-11) — bumped to v9.0.3 to invalidate stale caches
-// holding broken Workshop bundle (Wave 114 hotfix). Wave 87 renamed
-// og-cresco.svg → og-workshop-enterprise.svg + redirected
-// /workshop/cresco → /workshop/enterprise — old precache list referenced
-// the deleted file and got 404 on install (Promise.allSettled saved it
-// from total failure but stale clients still serve broken HTML). Also
-// adds the W112 OG cards + new B2B routes so cold-cache visitors get
-// the full surface offline-ready.
-const VERSION = "tars-v9.0.3";
+// Wave 129 (2026-05-12) — bumped to v9.0.4 to invalidate stale caches
+// + add /cowork to the offline precache list. Cowork is the new
+// multiplayer agent-session surface (shared sessions, presence, T2T
+// handoff). We want the entry page available offline so a user landing
+// on /cowork without a network gets the branded fallback rather than
+// the generic offline screen.
+//
+// Wave 115 history kept for reference:
+//   v9.0.3 — invalidated stale caches holding broken Workshop bundle
+//   (Wave 114 hotfix). Wave 87 renamed og-cresco.svg →
+//   og-workshop-enterprise.svg + redirected /workshop/cresco →
+//   /workshop/enterprise — old precache list referenced the deleted
+//   file and got 404 on install (Promise.allSettled saved it from
+//   total failure but stale clients still served broken HTML).
+const VERSION = "tars-v9.0.4";
 const PRECACHE = `${VERSION}-precache`;
 const RUNTIME = `${VERSION}-runtime`;
 
@@ -56,6 +62,8 @@ const PRECACHE_URLS = [
   "/og-files.svg",
   "/og-workspaces.svg",
   "/og-perf.svg",
+  // Wave 129 — Cowork OG card.
+  "/og-cowork.svg",
   "/badge/built-with-tars.svg",
   "/badge/built-with-tars-light.svg",
   "/badge/built-with-tars-compact.svg",
@@ -72,6 +80,11 @@ const PRECACHE_URLS = [
   "/workshop/materials",
   "/workshop/assess",
   "/workshop/cohort",
+  // Wave 129 — Cowork landing page offline-ready. The :slug sub-routes
+  // aren't precached (dynamic + need backend), but landing reads from
+  // cache instantly. The mock fallback in lib/cowork.ts keeps the demo
+  // session interactive even with no network.
+  "/cowork",
 ];
 
 // Wave 85 — runtime caching escape hatches.
