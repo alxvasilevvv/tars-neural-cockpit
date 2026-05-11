@@ -41,8 +41,13 @@ on:
       - ".github/workflows/tars-meeet-cloudflare-pages.yml"
 
 permissions:
-  contents: read
+  # `contents: write` is needed for the Wave 128 baseline bootstrap step
+  # (commits dist/bundle-sizes.json → bundle-sizes-baseline.json on
+  # successful main builds). `pull-requests: write` lets the sticky PR
+  # comment action post the bundle-size delta on every PR.
+  contents: write
   deployments: write
+  pull-requests: write
 
 concurrency:
   group: tars-meeet-pages-${{ github.ref }}
@@ -127,6 +132,51 @@ jobs:
         env:
           VITE_TARS_API: https://tars.meeet.world
         run: npm run build
+
+      # Wave 128 — bundle-size gate. Measures gzipped sizes of the seven
+      # tracked chunks (entry / Landing / Cockpit / Workshop / Dashboard
+      # / vendor / HTML shell), compares them against budgets in
+      # `bundlesize.config.json` AND the committed
+      # `bundle-sizes-baseline.json`. Fails the job if any chunk
+      # breaches `max_gzip_kb` or grew more than `fail_threshold_growth_pct`%
+      # vs baseline. Writes `dist/bundle-size-summary.md` for the PR
+      # comment step below.
+      - name: Measure bundle sizes (Wave 128 gate)
+        id: bundle_size
+        working-directory: experiments/neural-showcase-v3
+        run: node scripts/measure-bundle.mjs
+
+      - name: Comment bundle size delta on PR
+        if: github.event_name == 'pull_request' && always() && hashFiles('experiments/neural-showcase-v3/dist/bundle-size-summary.md') != ''
+        uses: marocchino/sticky-pull-request-comment@v2
+        with:
+          path: experiments/neural-showcase-v3/dist/bundle-size-summary.md
+          header: bundle-size
+
+      # First successful main build seeds the baseline; subsequent green
+      # main builds refresh it so the next PR compares against fresh
+      # numbers. `[skip ci]` on the commit prevents an infinite workflow
+      # loop. Push race ("non-fast-forward") is logged but not failed —
+      # the next main build will retry.
+      - name: Update bundle-size baseline on main
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main' && success()
+        working-directory: experiments/neural-showcase-v3
+        run: |
+          set -euo pipefail
+          if [[ ! -f dist/bundle-sizes.json ]]; then
+            echo "::warning::dist/bundle-sizes.json missing — skipping baseline update."
+            exit 0
+          fi
+          cp dist/bundle-sizes.json bundle-sizes-baseline.json
+          if git diff --quiet bundle-sizes-baseline.json; then
+            echo "Baseline unchanged — nothing to commit."
+            exit 0
+          fi
+          git config user.email "ci@meeet.world"
+          git config user.name "ci-bundle-sizes"
+          git add bundle-sizes-baseline.json
+          git commit -m "ci(bundle): refresh size baseline after main build [skip ci]"
+          git push origin HEAD:main || echo "::warning::push race — next main build will refresh baseline."
 
       # Do **not** copy `index.html` → `404.html`. When `404.html`
       # exists, Cloudflare Pages serves it for unknown paths with a real

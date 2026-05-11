@@ -152,7 +152,69 @@ public/                    — static assets (favicon, og, manifest, sitemap)
 npm run typecheck   # tsc -b --noEmit
 npm run build       # vite build
 npm run preview     # preview dist/
+npm run size:check  # build + bundle-size gate (Wave 128)
 ```
+
+## Bundle size budgets (Wave 128)
+
+The W124 perf audit found three eager-loaded hot-spots that nobody
+caught at PR time (tsparticles ~50 KB gzip on Landing, RobotAvatar
+547 LOC eager on Cockpit, render-blocking Google Fonts). Wave 128
+adds an automated gate so the next 50 KB regression fails CI before
+it reaches users.
+
+The CI workflow runs `node scripts/measure-bundle.mjs` after every
+build (PR + main). The script:
+
+1. Reads `bundlesize.config.json` (seven tracked chunks).
+2. Gzips each match in `dist/` in-memory and records the size.
+3. Compares against `bundle-sizes-baseline.json` (refreshed on
+   every successful main build by the workflow itself).
+4. Fails the run if **any** chunk exceeds its hard `max_gzip_kb`
+   budget OR grew more than `fail_threshold_growth_pct` (10%) vs
+   baseline. `warn_gzip_kb` overshoots emit a warning but pass.
+5. On PRs, posts a sticky comment with the per-chunk delta table.
+
+Current budgets (gzip KB):
+
+| Chunk | warn | max |
+|---|---:|---:|
+| `index-*.js` (entry) | 70 | 80 |
+| `Landing-*.js` | 50 | 60 |
+| `Cockpit-*.js` | 70 | 80 |
+| `Workshop-*.js` | 50 | 60 |
+| `Dashboard-*.js` | 50 | 60 |
+| `vendor-*.js` | 180 | 200 |
+| `index.html` | 6 | 8 |
+
+### Debugging a regression locally
+
+```bash
+cd experiments/neural-showcase-v3
+npm run size:check                 # build + measure + table
+cat dist/bundle-size-summary.md    # same Markdown CI posts on PRs
+```
+
+Common fixes when a chunk blows the budget:
+
+- Eager `import` of a heavy lib in a top-level page → switch to
+  `lazy()` or dynamic `import()`.
+- Component pulled into the entry chunk because it's referenced by
+  `App.tsx` directly → move it behind a route boundary.
+- New dependency that bundles its own copy of `three` / `react` →
+  add it to the `dedupe` array in `vite.config.ts`.
+
+### Updating a budget
+
+Open a PR that:
+
+1. Edits `bundlesize.config.json` with the new ceiling.
+2. Explains in the PR description **why** the regression is the
+   right trade-off.
+3. Links to a tracking issue for the eventual cleanup.
+
+Never silently raise a budget without that paper trail — the whole
+point of the gate is the rationale, not the number.
 
 ## Cross-references
 

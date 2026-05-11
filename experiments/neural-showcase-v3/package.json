@@ -20,7 +20,9 @@
     "test:watch": "vitest",
     "audit:lighthouse": "npx --yes lighthouse https://tars.meeet.world --only-categories=performance,accessibility --chrome-flags=\"--headless=new\" --output=json --output-path=./lighthouse.json",
     "audit:axe": "npx --yes @axe-core/cli https://tars.meeet.world --exit",
-    "changelog:check": "python3 ../../scripts/generate_public_changelog.py --check"
+    "changelog:check": "python3 ../../scripts/generate_public_changelog.py --check",
+    "size": "node scripts/measure-bundle.mjs",
+    "size:check": "npm run build && npm run size"
   },
   "dependencies": {
     "@react-three/drei": "^9.122.0",
