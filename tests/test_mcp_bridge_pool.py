@@ -177,7 +177,13 @@ def test_pool_stats_after_create() -> None:
 def test_pool_stats_empty() -> None:
     pool = SessionPool()
     stats = pool.stats()
-    assert stats == {"count": 0, "sessions": []}
+    assert stats["count"] == 0
+    assert stats["sessions"] == []
+    # Wave M7 — sweeper + concurrency surfaces are always
+    # present so the cockpit can render a stable shape.
+    assert stats["sweeper"]["running"] is False
+    assert stats["sweeper"]["runs_total"] == 0
+    assert stats["default_max_concurrency"] is None
 
 
 # ---------------------------------------------------------------------

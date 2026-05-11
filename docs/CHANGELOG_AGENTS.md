@@ -4,6 +4,63 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-11 — Cursor · Wave M7: SessionPool background sweeper + per-server concurrency caps
+
+**Summary**
+
+Closes the two "What's next" items on the Wave M6 pool:
+
+1. **Background idle-eviction sweeper.** `SessionPool.start_sweeper()`
+   spawns a coroutine that runs `evict_idle()` on a fixed interval
+   (default 60s), with `stop_sweeper()` for clean shutdown. Errors
+   inside `evict_idle` are caught + logged so a transient failure
+   never kills the host. Stats land on `pool.stats()["sweeper"]`
+   so cockpit panels can show "evicted 3 sessions across 14 runs,
+   uptime 14m". Long-lived hosts (FastAPI app, MCP server) wire
+   `start_sweeper` into their lifespan; CLI gets one-shot verbs.
+
+2. **Per-server concurrency cap.** `ServerConfig.max_concurrency` and
+   `SessionPool.set_concurrency_limit()` enforce "no more than N
+   concurrent `tools/call` per server" via a semaphore the bridge
+   handler holds before issuing the call. Defaults to no cap
+   (zero-overhead path). `SessionPool(default_max_concurrency=N)`
+   sets a process-wide default. `pool.stats()` now carries
+   `in_flight`, `in_flight_peak`, `calls_total`, `concurrency_limit`
+   per pooled session so the cockpit can render utilisation.
+
+3. **CLI** — three new verbs: `bridge-pool-stats` (read-only
+   snapshot), `bridge-pool-sweeper {start|stop|run-once}`, and
+   `bridge-pool-cap <server> <N|off>`.
+
+4. **Tests** — `test_mcp_pool_lifecycle.py` (16 tests) pins the
+   sweeper start/stop idempotency, eviction-after-N-runs, error
+   resilience, semaphore serialisation, default-cap propagation,
+   `ServerConfig.max_concurrency` parsing edge cases, and the
+   `PoolSweeperStats` dataclass. CLI tests gain 6 new cases for
+   the new verbs (stats / sweeper run-once / sweeper stop-when-
+   idle / cap set+clear / invalid limits / invalid intervals).
+   **140/140 MCP tests + 49/49 CLI+lifecycle tests pass locally.**
+
+**Files**
+
+- `backend/core/mcp_bridge/pool.py` — `PoolSweeperStats`, sweeper
+  task plumbing, semaphore-backed `acquire_slot` context manager,
+  per-entry counters.
+- `backend/core/mcp_bridge/__init__.py` — export `PoolSweeperStats`.
+- `backend/core/mcp_bridge/pack.py` — pooled handler now wraps
+  `call_tool` in `pool.acquire_slot(config)`.
+- `backend/mcp/client/registry.py` — `ServerConfig.max_concurrency`
+  field + parser + serialiser.
+- `backend/mcp/client/__main__.py` — three new CLI verbs +
+  dispatchers (`_bridge_pool_stats`, `_bridge_pool_sweeper`,
+  `_bridge_pool_cap`).
+- `tests/test_mcp_pool_lifecycle.py` (new, 16 tests).
+- `tests/test_mcp_client_cli.py` (+ 6 tests).
+- `tests/test_mcp_bridge_pool.py` (1 test updated for new
+  `pool.stats()` shape).
+- `docs/MCP_BRIDGE.md` — Wave M7 section on sweeper +
+  concurrency, examples, replaces "What's next" bullets.
+
 ## 2026-05-11 — Cursor · Wave M6: MCP bridge connection pooling (kills per-call subprocess overhead)
 
 **Summary**

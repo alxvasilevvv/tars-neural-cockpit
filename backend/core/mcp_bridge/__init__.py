@@ -38,13 +38,19 @@ from .bootstrap import (
 from .cache import CachedDiscovery, ToolCache
 from .discovery import DiscoveryError, discover_remote_tools
 from .pack import BridgedPack, sanitize_action_id
-from .pool import SessionPool, get_default_pool, reset_default_pool
+from .pool import (
+    PoolSweeperStats,
+    SessionPool,
+    get_default_pool,
+    reset_default_pool,
+)
 
 __all__ = [
     "BridgeBootResult",
     "BridgedPack",
     "CachedDiscovery",
     "DiscoveryError",
+    "PoolSweeperStats",
     "SessionPool",
     "ToolCache",
     "aboot_mcp_bridges",

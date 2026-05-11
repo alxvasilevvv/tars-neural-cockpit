@@ -58,6 +58,12 @@ class ServerConfig:
     env: Mapping[str, str] = field(default_factory=dict)
     cwd: str | None = None
     description: str = ""
+    # Wave M7 — optional per-server cap on concurrent
+    # ``call_tool`` invocations. ``None`` (default) = no cap.
+    # The bridge handler honours this through
+    # ``SessionPool.acquire_slot``. Values < 1 are rejected at
+    # parse / construction time.
+    max_concurrency: int | None = None
 
     def to_dict(self) -> dict[str, Any]:
         out: dict[str, Any] = {
@@ -71,6 +77,8 @@ class ServerConfig:
             out["cwd"] = self.cwd
         if self.description:
             out["description"] = self.description
+        if self.max_concurrency is not None:
+            out["max_concurrency"] = self.max_concurrency
         return out
 
     @classmethod
@@ -102,6 +110,21 @@ class ServerConfig:
         description = raw.get("description") or ""
         if not isinstance(description, str):
             raise ValueError(f"server {name!r} 'description' must be a string")
+        max_conc_raw = raw.get("max_concurrency")
+        max_concurrency: int | None
+        if max_conc_raw is None:
+            max_concurrency = None
+        else:
+            if not isinstance(max_conc_raw, int) or isinstance(max_conc_raw, bool):
+                raise ValueError(
+                    f"server {name!r} 'max_concurrency' must be a positive int"
+                )
+            if max_conc_raw < 1:
+                raise ValueError(
+                    f"server {name!r} 'max_concurrency' must be >= 1, "
+                    f"got {max_conc_raw!r}"
+                )
+            max_concurrency = max_conc_raw
         return cls(
             name=name,
             command=cmd,
@@ -109,6 +132,7 @@ class ServerConfig:
             env=dict(env_raw),
             cwd=cwd,
             description=description,
+            max_concurrency=max_concurrency,
         )
 
 

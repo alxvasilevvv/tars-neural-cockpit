@@ -116,21 +116,26 @@ def _build_pooled_handler(
     async def handler(args: Mapping[str, Any]) -> dict[str, Any]:
         try:
             session = await pool.get_or_create(server_config)
-            try:
-                payload = await session.call_tool(tool_name, args or {})
-            except (ConnectionError, BrokenPipeError) as exc:
-                # The pooled session died mid-call. Evict it,
-                # reconnect, retry once. After that, surface
-                # the failure to the caller.
-                log.warning(
-                    "mcp.bridge.pooled.retry server=%s tool=%s reason=%s",
-                    server_config.name,
-                    tool_name,
-                    exc,
-                )
-                await pool.evict(server_config.name)
-                session = await pool.get_or_create(server_config)
-                payload = await session.call_tool(tool_name, args or {})
+            # Wave M7 — gate every call_tool through the pool's
+            # per-server semaphore so a misbehaving caller can't
+            # flood one MCP server with concurrent requests. The
+            # context manager is a no-op when no cap is set.
+            async with pool.acquire_slot(server_config):
+                try:
+                    payload = await session.call_tool(tool_name, args or {})
+                except (ConnectionError, BrokenPipeError) as exc:
+                    # The pooled session died mid-call. Evict it,
+                    # reconnect, retry once. After that, surface
+                    # the failure to the caller.
+                    log.warning(
+                        "mcp.bridge.pooled.retry server=%s tool=%s reason=%s",
+                        server_config.name,
+                        tool_name,
+                        exc,
+                    )
+                    await pool.evict(server_config.name)
+                    session = await pool.get_or_create(server_config)
+                    payload = await session.call_tool(tool_name, args or {})
             return _normalise_payload(payload)
         except Exception as exc:  # noqa: BLE001
             log.exception(

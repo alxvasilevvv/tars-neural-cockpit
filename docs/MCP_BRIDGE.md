@@ -272,18 +272,102 @@ All e2e tests spawn the same `tests/mcp_fixtures/mock_mcp_server`
 fixture from M3 — no in-process mocking shortcut. Suite
 runs in <1s total.
 
+## Pool lifecycle (Wave M7)
+
+Wave M7 ships two opt-in mechanisms that close the pool's
+"long-running host" gap. Both are no-overhead-when-disabled
+so existing M5 / M6 callers see no behavioural change.
+
+### Background idle-eviction sweeper
+
+```python
+pool = get_default_pool()
+await pool.start_sweeper(interval_seconds=60.0, max_idle_seconds=300.0)
+# … host runs …
+await pool.stop_sweeper()
+```
+
+Spawns a coroutine that calls `pool.evict_idle()` on a fixed
+interval. Errors inside `evict_idle` are logged and the loop
+continues — the sweeper is best-effort and never crashes the
+host. Stats land on `pool.stats()["sweeper"]`:
+
+```jsonc
+{
+  "running": true,
+  "interval_seconds": 60.0,
+  "max_idle_seconds": 300.0,
+  "runs_total": 14,
+  "sessions_evicted_total": 3,
+  "last_run_evicted": 0,
+  "uptime_seconds": 842.1,
+  "seconds_since_last_run": 12.3
+}
+```
+
+CLI (one-shot operator commands; the CLI cannot keep a
+sweeper alive past process exit — wire `start_sweeper` into
+the host lifespan for that):
+
+```bash
+tars-mcp-client bridge-pool-sweeper run-once --max-idle 300
+tars-mcp-client bridge-pool-stats        # live snapshot
+```
+
+### Per-server concurrency caps
+
+Some remote servers can't take 50 in-flight requests. Cap them
+at the pool level — the bridge handler holds a slot before
+issuing `tools/call`, so callers are transparently serialised:
+
+Static (in `~/.tars/mcp/servers.json`):
+
+```jsonc
+{
+  "filesystem": {
+    "command": "uv",
+    "args": ["run", "fs-mcp"],
+    "max_concurrency": 4
+  }
+}
+```
+
+Or set / clear at runtime:
+
+```python
+pool.set_concurrency_limit("filesystem", 4)
+pool.set_concurrency_limit("filesystem", None)  # clear cap
+```
+
+CLI:
+
+```bash
+tars-mcp-client bridge-pool-cap filesystem 4
+tars-mcp-client bridge-pool-cap filesystem off
+```
+
+The pool also accepts a process-wide default:
+
+```python
+pool = SessionPool(default_max_concurrency=8)  # for every server unless overridden
+```
+
+`pool.stats()["sessions"][i]` carries `in_flight`,
+`in_flight_peak`, `calls_total`, and `concurrency_limit`
+per server so the cockpit panel can render "filesystem:
+2/4 in flight, 137 calls".
+
 ## What's next
 
 - **Cockpit panel.** Surface `BridgeBootResult` and the
-  live `pool.stats()` in the domain-pack status UI so
-  operators can see at a glance which remote servers
-  loaded, which fell back to stale cache, which failed,
-  and which sessions are currently warm.
-- **Auto-reconnect background sweep.** Periodic
-  `pool.evict_idle()` task wired into the HTTP / MCP
-  server lifecycle so very-long-lived hosts don't pin
-  subprocess slots indefinitely.
-- **Per-server tool-call concurrency limits.** Some remote
-  servers don't like 50 in-flight requests at once;
-  optional semaphore inside the pool entry would let the
-  operator cap concurrency per server.
+  live `pool.stats()` (incl. sweeper + concurrency) in the
+  domain-pack status UI. Already partly addressed by
+  PR #182 (`MCPBridgePanel`); the M7 fields slot into the
+  same envelope without UI changes.
+- **Per-tool concurrency caps.** Today the cap is per
+  *server*; a noisy tool on a quiet server can still
+  starve siblings. The follow-up is a tool-level semaphore
+  on top of the per-server one.
+- **Sweeper-driven liveness probe.** Have the sweeper also
+  send a cheap `tools/list` to each session every N runs;
+  a failed probe pre-empts a real `call_tool` ConnectionError.

@@ -200,6 +200,61 @@ def _build_parser() -> argparse.ArgumentParser:
         help="How many warm calls to time after the cold call.",
     )
 
+    # Wave M7 — pool sweeper / concurrency control
+    bps = sub.add_parser(
+        "bridge-pool-stats",
+        help=(
+            "Show the default SessionPool's snapshot (sessions, "
+            "in-flight counts, sweeper status). Read-only."
+        ),
+    )
+    del bps  # configured by argparse; no extra args
+
+    bsm = sub.add_parser(
+        "bridge-pool-sweeper",
+        help=(
+            "Start or stop the background idle-eviction sweeper. "
+            "Wave M7 — long-lived hosts run this so stale "
+            "subprocesses don't pile up."
+        ),
+    )
+    bsm.add_argument(
+        "action",
+        choices=("start", "stop", "run-once"),
+        help="start | stop the sweeper, or run-once to evict idle now.",
+    )
+    bsm.add_argument(
+        "--interval",
+        type=float,
+        default=60.0,
+        help="(start) sweeper run interval in seconds (default 60).",
+    )
+    bsm.add_argument(
+        "--max-idle",
+        type=float,
+        default=300.0,
+        help=(
+            "(start, run-once) evict sessions idle longer than "
+            "this many seconds (default 300)."
+        ),
+    )
+
+    bcc = sub.add_parser(
+        "bridge-pool-cap",
+        help=(
+            "Set or clear a per-server concurrency cap on the "
+            "default pool. Wave M7."
+        ),
+    )
+    bcc.add_argument("server", help="Server name to cap.")
+    bcc.add_argument(
+        "limit",
+        help=(
+            "Positive integer cap, or 'off' to remove an "
+            "existing cap."
+        ),
+    )
+
     return p
 
 
@@ -358,6 +413,16 @@ def main(argv: list[str] | None = None) -> int:
                 arguments=args.arguments,
                 iterations=args.iterations,
             )
+        if args.command == "bridge-pool-stats":
+            return _bridge_pool_stats()
+        if args.command == "bridge-pool-sweeper":
+            return _bridge_pool_sweeper(
+                action=args.action,
+                interval=args.interval,
+                max_idle=args.max_idle,
+            )
+        if args.command == "bridge-pool-cap":
+            return _bridge_pool_cap(server=args.server, limit=args.limit)
     except KeyboardInterrupt:
         return 130
     return 2
@@ -571,6 +636,105 @@ def _bridge_pool_bench(
     except RuntimeError as exc:
         return _err("bench_failed", str(exc))
     _print(payload)
+    return 0
+
+
+# ---------------------------------------------------------------------
+# Wave M7 — pool stats / sweeper / concurrency caps
+# ---------------------------------------------------------------------
+
+
+def _bridge_pool_stats() -> int:
+    """Read-only snapshot of the default ``SessionPool``."""
+
+    from backend.core.mcp_bridge import get_default_pool
+
+    pool = get_default_pool()
+    _print({"ok": True, "pool": pool.stats()})
+    return 0
+
+
+def _bridge_pool_sweeper(
+    *, action: str, interval: float, max_idle: float
+) -> int:
+    """Drive the background idle-eviction sweeper from the CLI.
+
+    The CLI uses ``asyncio.run`` so a ``start`` action cannot keep
+    a sweeper alive past process exit — the verb is for one-off
+    operator commands, not for keeping a daemon running. Long-lived
+    hosts (FastAPI, MCP server) wire ``start_sweeper`` directly into
+    their lifespan instead. The ``run-once`` action is the most
+    useful CLI flavour: evict idle sessions right now and report
+    how many were dropped.
+    """
+
+    from backend.core.mcp_bridge import get_default_pool
+
+    async def go() -> dict[str, Any]:
+        pool = get_default_pool()
+        if action == "start":
+            await pool.start_sweeper(
+                interval_seconds=interval, max_idle_seconds=max_idle
+            )
+            return {"ok": True, "action": "started", "stats": pool.stats()["sweeper"]}
+        if action == "stop":
+            stopped = await pool.stop_sweeper()
+            return {
+                "ok": True,
+                "action": "stopped",
+                "was_running": stopped,
+                "stats": pool.stats()["sweeper"],
+            }
+        # run-once
+        evicted = await pool.evict_idle(max_idle_seconds=max_idle)
+        return {
+            "ok": True,
+            "action": "run-once",
+            "evicted": evicted,
+            "stats": pool.stats()["sweeper"],
+        }
+
+    try:
+        payload = asyncio.run(go())
+    except (RuntimeError, ValueError) as exc:
+        return _err("sweeper_failed", str(exc))
+    _print(payload)
+    return 0
+
+
+def _bridge_pool_cap(*, server: str, limit: str) -> int:
+    """Set or clear a per-server concurrency cap on the default pool."""
+
+    from backend.core.mcp_bridge import get_default_pool
+
+    pool = get_default_pool()
+    if limit.lower() in ("off", "none", "unlimited", "remove", "clear"):
+        pool.set_concurrency_limit(server, None)
+        _print(
+            {
+                "ok": True,
+                "server": server,
+                "concurrency_limit": None,
+                "action": "cleared",
+            }
+        )
+        return 0
+    try:
+        cap = int(limit)
+    except ValueError:
+        return _err("invalid_limit", f"expected positive integer or 'off', got {limit!r}")
+    try:
+        pool.set_concurrency_limit(server, cap)
+    except ValueError as exc:
+        return _err("invalid_limit", str(exc))
+    _print(
+        {
+            "ok": True,
+            "server": server,
+            "concurrency_limit": cap,
+            "action": "set",
+        }
+    )
     return 0
 
 

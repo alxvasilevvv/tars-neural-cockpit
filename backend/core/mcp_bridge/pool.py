@@ -29,10 +29,11 @@ Operators see at most one failed call per remote crash.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import logging
 import time
-from dataclasses import dataclass, field
-from typing import Any
+from dataclasses import dataclass
+from typing import Any, AsyncIterator
 
 from backend.mcp.client import ClientSession, ServerConfig, StdioTransport
 
@@ -48,6 +49,49 @@ class _PoolEntry:
     transport: StdioTransport
     created_at: float
     last_used_at: float
+    # Wave M7 — per-server concurrency limit. Initialised lazily
+    # by ``SessionPool._slot_for`` so a server with no explicit
+    # cap pays no semaphore cost.
+    in_flight: int = 0
+    inflight_peak: int = 0
+    calls_total: int = 0
+
+
+@dataclass
+class PoolSweeperStats:
+    """Snapshot of the background sweeper's recent activity.
+
+    Surfaced via :meth:`SessionPool.stats` so the cockpit panel
+    can show sweeper health without poking at internals.
+    """
+
+    started_at: float | None = None
+    last_run_at: float | None = None
+    last_run_evicted: int = 0
+    runs_total: int = 0
+    sessions_evicted_total: int = 0
+    interval_seconds: float = 60.0
+    max_idle_seconds: float = 300.0
+    running: bool = False
+
+    def to_dict(self) -> dict[str, Any]:
+        now = time.monotonic()
+        age_s = (
+            round(now - self.started_at, 1) if self.started_at is not None else None
+        )
+        last_age_s = (
+            round(now - self.last_run_at, 1) if self.last_run_at is not None else None
+        )
+        return {
+            "running": self.running,
+            "interval_seconds": self.interval_seconds,
+            "max_idle_seconds": self.max_idle_seconds,
+            "runs_total": self.runs_total,
+            "sessions_evicted_total": self.sessions_evicted_total,
+            "last_run_evicted": self.last_run_evicted,
+            "uptime_seconds": age_s,
+            "seconds_since_last_run": last_age_s,
+        }
 
 
 class SessionPool:
@@ -77,10 +121,29 @@ class SessionPool:
     have been unused for a long time.
     """
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        *,
+        default_max_concurrency: int | None = None,
+    ) -> None:
         self._entries: dict[str, _PoolEntry] = {}
         self._locks: dict[str, asyncio.Lock] = {}
         self._loop: asyncio.AbstractEventLoop | None = None
+        # Wave M7 — per-server concurrency caps. ``None`` (the
+        # default) means "no cap"; a positive int means the
+        # bridge handler must hold a slot before issuing
+        # ``call_tool``. Defaults are merged from
+        # ``ServerConfig.max_concurrency`` at session-create time.
+        self._concurrency_limits: dict[str, int | None] = {}
+        self._semaphores: dict[str, asyncio.Semaphore] = {}
+        self._default_max_concurrency = default_max_concurrency
+        # Wave M7 — background idle-eviction sweeper. Lazily
+        # started via :meth:`start_sweeper`. The sweeper
+        # captures the loop the pool is bound to so cancel /
+        # wait operations land on the right loop.
+        self._sweeper_task: asyncio.Task[None] | None = None
+        self._sweeper_stop: asyncio.Event | None = None
+        self._sweeper_stats = PoolSweeperStats()
 
     # ------------------------------------------------------------------
     # get / evict / close
@@ -201,10 +264,242 @@ class SessionPool:
                     "tool_count": entry.session.server_capabilities.get(
                         "tools", {}
                     ).get("_count", "?"),
+                    # Wave M7 — surface concurrency / call counters
+                    # so the cockpit panel can show "filesystem:
+                    # 2/4 in flight, 137 calls".
+                    "in_flight": entry.in_flight,
+                    "in_flight_peak": entry.inflight_peak,
+                    "calls_total": entry.calls_total,
+                    "concurrency_limit": self._concurrency_limits.get(name),
                 }
                 for name, entry in sorted(self._entries.items())
             ],
+            # Wave M7 — sweeper status. Always present so a
+            # cockpit panel can render "sweeper: stopped" without
+            # branching on key presence.
+            "sweeper": self._sweeper_stats.to_dict(),
+            "default_max_concurrency": self._default_max_concurrency,
         }
+
+    # ------------------------------------------------------------------
+    # Wave M7 — per-server concurrency limits
+    # ------------------------------------------------------------------
+
+    def set_concurrency_limit(self, name: str, limit: int | None) -> None:
+        """Cap concurrent ``call_tool`` invocations against
+        server ``name``. ``None`` removes the cap.
+
+        Safe to call before or after the session is constructed —
+        the semaphore is recreated transparently. Existing
+        in-flight calls keep their slots; new calls observe the
+        new cap.
+        """
+
+        if limit is not None and limit < 1:
+            raise ValueError(f"concurrency limit must be >= 1, got {limit!r}")
+        if limit is None:
+            self._concurrency_limits.pop(name, None)
+            self._semaphores.pop(name, None)
+            return
+        self._concurrency_limits[name] = limit
+        self._semaphores[name] = asyncio.Semaphore(limit)
+
+    def get_concurrency_limit(self, name: str) -> int | None:
+        return self._concurrency_limits.get(name)
+
+    def _ensure_semaphore(self, config: ServerConfig) -> asyncio.Semaphore | None:
+        """Return the semaphore for ``config`` if a cap is set,
+        creating one from ``config.max_concurrency`` /
+        ``self._default_max_concurrency`` when first observed."""
+
+        name = config.name
+        if name not in self._concurrency_limits:
+            cap = getattr(config, "max_concurrency", None)
+            if cap is None:
+                cap = self._default_max_concurrency
+            if cap is None:
+                self._concurrency_limits[name] = None
+            else:
+                if cap < 1:
+                    raise ValueError(
+                        f"max_concurrency for {name!r} must be >= 1, got {cap!r}"
+                    )
+                self._concurrency_limits[name] = cap
+                self._semaphores[name] = asyncio.Semaphore(cap)
+        return self._semaphores.get(name)
+
+    @contextlib.asynccontextmanager
+    async def acquire_slot(
+        self, config: ServerConfig
+    ) -> "AsyncIterator[None]":
+        """Async context manager bridge handlers wrap around
+        ``call_tool`` so the pool can enforce per-server caps and
+        track in-flight / total counts. When no cap is configured
+        this is a near-zero-cost no-op (still bumps counters)."""
+
+        semaphore = self._ensure_semaphore(config)
+        entry = self._entries.get(config.name)
+        if semaphore is None:
+            try:
+                if entry is not None:
+                    entry.in_flight += 1
+                    entry.inflight_peak = max(
+                        entry.inflight_peak, entry.in_flight
+                    )
+                yield
+            finally:
+                if entry is not None:
+                    entry.in_flight = max(0, entry.in_flight - 1)
+                    entry.calls_total += 1
+            return
+
+        async with semaphore:
+            try:
+                if entry is not None:
+                    entry.in_flight += 1
+                    entry.inflight_peak = max(
+                        entry.inflight_peak, entry.in_flight
+                    )
+                yield
+            finally:
+                if entry is not None:
+                    entry.in_flight = max(0, entry.in_flight - 1)
+                    entry.calls_total += 1
+
+    # ------------------------------------------------------------------
+    # Wave M7 — background sweeper task
+    # ------------------------------------------------------------------
+
+    async def start_sweeper(
+        self,
+        *,
+        interval_seconds: float = 60.0,
+        max_idle_seconds: float = 300.0,
+    ) -> None:
+        """Start a background task that calls ``evict_idle`` every
+        ``interval_seconds``. Idempotent — calling twice while the
+        sweeper is running raises ``RuntimeError`` to surface the
+        misuse instead of silently dropping the second call.
+
+        Long-lived hosts (FastAPI app, MCP server) wire this into
+        their lifespan; short-lived CLI invocations don't need it.
+        """
+
+        if interval_seconds <= 0:
+            raise ValueError(
+                f"sweeper interval must be > 0, got {interval_seconds!r}"
+            )
+        if max_idle_seconds <= 0:
+            raise ValueError(
+                f"max_idle_seconds must be > 0, got {max_idle_seconds!r}"
+            )
+        if self._sweeper_task is not None and not self._sweeper_task.done():
+            raise RuntimeError("sweeper already running")
+
+        loop = asyncio.get_running_loop()
+        if self._loop is None:
+            self._loop = loop
+        elif self._loop is not loop:
+            raise RuntimeError(
+                "sweeper must be started on the same event loop "
+                "the pool is bound to"
+            )
+
+        self._sweeper_stop = asyncio.Event()
+        self._sweeper_stats = PoolSweeperStats(
+            started_at=time.monotonic(),
+            interval_seconds=interval_seconds,
+            max_idle_seconds=max_idle_seconds,
+            running=True,
+        )
+        self._sweeper_task = loop.create_task(
+            self._sweeper_loop(interval_seconds, max_idle_seconds),
+            name="mcp.pool.sweeper",
+        )
+        log.info(
+            "mcp.pool.sweeper.started interval=%.1fs max_idle=%.1fs",
+            interval_seconds,
+            max_idle_seconds,
+        )
+
+    async def stop_sweeper(self) -> bool:
+        """Stop the background sweeper. Returns True if a
+        sweeper was running. Safe to call repeatedly."""
+
+        task = self._sweeper_task
+        stop_event = self._sweeper_stop
+        if task is None or task.done():
+            self._sweeper_task = None
+            self._sweeper_stop = None
+            self._sweeper_stats.running = False
+            return False
+
+        if stop_event is not None:
+            stop_event.set()
+        task.cancel()
+        try:
+            await task
+        except (asyncio.CancelledError, Exception):  # noqa: BLE001
+            # Either way the task is done; the stats reflect the
+            # last successful run via _sweeper_stats updates.
+            pass
+        self._sweeper_task = None
+        self._sweeper_stop = None
+        self._sweeper_stats.running = False
+        log.info("mcp.pool.sweeper.stopped")
+        return True
+
+    @property
+    def sweeper_running(self) -> bool:
+        task = self._sweeper_task
+        return task is not None and not task.done()
+
+    async def _sweeper_loop(
+        self,
+        interval_seconds: float,
+        max_idle_seconds: float,
+    ) -> None:
+        """Periodic eviction of idle sessions. Caller-cancellable
+        via ``stop_sweeper``. Errors inside ``evict_idle`` are
+        logged and the loop continues — the sweeper is best-effort
+        and must never crash the host process."""
+
+        stop_event = self._sweeper_stop
+        assert stop_event is not None
+        try:
+            while not stop_event.is_set():
+                try:
+                    await asyncio.wait_for(
+                        stop_event.wait(), timeout=interval_seconds
+                    )
+                except asyncio.TimeoutError:
+                    pass
+                else:
+                    break
+
+                if stop_event.is_set():
+                    break
+
+                try:
+                    evicted = await self.evict_idle(
+                        max_idle_seconds=max_idle_seconds
+                    )
+                except Exception as exc:  # noqa: BLE001
+                    log.warning("mcp.pool.sweeper.run_failed: %s", exc)
+                    evicted = 0
+
+                self._sweeper_stats.runs_total += 1
+                self._sweeper_stats.sessions_evicted_total += evicted
+                self._sweeper_stats.last_run_evicted = evicted
+                self._sweeper_stats.last_run_at = time.monotonic()
+                if evicted:
+                    log.info(
+                        "mcp.pool.sweeper.run evicted=%d total=%d",
+                        evicted,
+                        self._sweeper_stats.sessions_evicted_total,
+                    )
+        except asyncio.CancelledError:
+            raise
 
     def __contains__(self, name: object) -> bool:
         return isinstance(name, str) and name in self._entries

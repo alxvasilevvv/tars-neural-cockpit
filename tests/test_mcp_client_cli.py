@@ -417,3 +417,105 @@ def test_bridge_pool_bench_unknown_tool(capsys, isolated_registry) -> None:
     assert rc == 1
     assert err["error"] == "bench_failed"
     assert "not in mcp-mock" in err["detail"]
+
+
+# ---------------------------------------------------------------------
+# bridge-pool-stats / bridge-pool-sweeper / bridge-pool-cap — Wave M7
+# ---------------------------------------------------------------------
+
+
+def test_bridge_pool_stats_returns_snapshot(capsys, isolated_registry) -> None:
+    """Default pool starts empty; stats should still surface a
+    stable shape including the sweeper status block."""
+
+    from backend.core.mcp_bridge import reset_default_pool
+
+    reset_default_pool()
+    rc = main(["bridge-pool-stats"])
+    out = json.loads(capsys.readouterr().out)
+    assert rc == 0
+    assert out["ok"] is True
+    snap = out["pool"]
+    assert snap["count"] == 0
+    assert snap["sessions"] == []
+    assert snap["sweeper"]["running"] is False
+    assert snap["default_max_concurrency"] is None
+
+
+def test_bridge_pool_sweeper_run_once_returns_zero(
+    capsys, isolated_registry
+) -> None:
+    """Empty pool → sweeper run-once evicts nothing, exits 0."""
+
+    from backend.core.mcp_bridge import reset_default_pool
+
+    reset_default_pool()
+    rc = main(["bridge-pool-sweeper", "run-once", "--max-idle", "1.0"])
+    out = json.loads(capsys.readouterr().out)
+    assert rc == 0
+    assert out["ok"] is True
+    assert out["action"] == "run-once"
+    assert out["evicted"] == 0
+
+
+def test_bridge_pool_sweeper_stop_when_not_running(
+    capsys, isolated_registry
+) -> None:
+    """Stop on a non-running sweeper should be a no-op,
+    not an error."""
+
+    from backend.core.mcp_bridge import reset_default_pool
+
+    reset_default_pool()
+    rc = main(["bridge-pool-sweeper", "stop"])
+    out = json.loads(capsys.readouterr().out)
+    assert rc == 0
+    assert out["was_running"] is False
+
+
+def test_bridge_pool_cap_set_then_clear(capsys, isolated_registry) -> None:
+    from backend.core.mcp_bridge import get_default_pool, reset_default_pool
+
+    reset_default_pool()
+
+    rc = main(["bridge-pool-cap", "filesystem", "4"])
+    out = json.loads(capsys.readouterr().out)
+    assert rc == 0
+    assert out["concurrency_limit"] == 4
+    assert get_default_pool().get_concurrency_limit("filesystem") == 4
+
+    rc = main(["bridge-pool-cap", "filesystem", "off"])
+    out = json.loads(capsys.readouterr().out)
+    assert rc == 0
+    assert out["concurrency_limit"] is None
+    assert get_default_pool().get_concurrency_limit("filesystem") is None
+
+
+def test_bridge_pool_cap_rejects_invalid_limit(capsys, isolated_registry) -> None:
+    from backend.core.mcp_bridge import reset_default_pool
+
+    reset_default_pool()
+    rc = main(["bridge-pool-cap", "fs", "many"])
+    err = json.loads(capsys.readouterr().err)
+    assert rc == 1
+    assert err["error"] == "invalid_limit"
+
+    rc = main(["bridge-pool-cap", "fs", "0"])
+    err = json.loads(capsys.readouterr().err)
+    assert rc == 1
+    assert err["error"] == "invalid_limit"
+
+
+def test_bridge_pool_sweeper_rejects_zero_interval(capsys, isolated_registry) -> None:
+    from backend.core.mcp_bridge import reset_default_pool
+
+    reset_default_pool()
+    rc = main([
+        "bridge-pool-sweeper",
+        "start",
+        "--interval", "0",
+        "--max-idle", "1",
+    ])
+    err = json.loads(capsys.readouterr().err)
+    assert rc == 1
+    assert err["error"] == "sweeper_failed"
