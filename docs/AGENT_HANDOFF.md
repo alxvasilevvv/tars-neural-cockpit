@@ -3769,3 +3769,22 @@ one location to grab the wire shape per topic. Reader-pointer block at
 the top of the doc now lists the seven new contract docs as cross-links.
 
 >>> SYNC: Claude · 2026-05-11 · Wave 119 brother handoff sync.
+
+> **2026-05-11 — Wave 121: Apple cert dance delegated to brother's Cursor.**
+>
+> The Apple Developer + GitHub Settings click-through (cert generation,
+> p12 export, 6 GitHub Secrets, tag v9.1.0, smoke .dmg, flip
+> `INSTALLERS_READY`) is browser-only, and this Claude's browser MCP
+> tier is hard-locked to read-only. The neighbouring Cursor session on
+> Andrey's Mac has a working Chrome MCP bridge (proven during the B-019
+> Cloudflare dashboard pass) and can drive both Apple Developer portal
+> and GitHub Settings end-to-end.
+>
+> Self-contained paste-ready prompt for that Cursor session lives at
+> `docs/handoff/APPLE_SIGNING_FOR_CURSOR.md` — 10 steps, ~15 min wall
+> clock. After Step 9 lands `INSTALLERS_READY=true` on `main`, CF Pages
+> rebuilds in ~90 s and the Hero "Coming Soon" pill flips to a real
+> Download CTA pointing at the signed `.dmg` on the v9.1.0 GitHub
+> release.
+
+>>> SYNC: Claude · 2026-05-11 · Wave 121 Apple cert Cursor handoff.
