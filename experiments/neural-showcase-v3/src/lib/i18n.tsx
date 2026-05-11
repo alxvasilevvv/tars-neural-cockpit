@@ -679,6 +679,14 @@ const STRINGS_EN = {
   "meeetSection.p4.body":          "Quant teams, research desks, fund partners — ship live strategies in 2 days. Bring your data, leave with a deployed agent.",
   "meeetSection.p4.cta":           "See workshop →",
 
+  // Wave 129 — Cowork pillar. Honest framing: page + backend module
+  // shipped; brother's core-bridge endpoints land in v9.1.1. Mock
+  // fallback keeps the demo session interactive until then.
+  "meeetSection.p5.tag":           "COWORK",
+  "meeetSection.p5.title":         "Multiplayer agent sessions.",
+  "meeetSection.p5.body":          "Several humans + a TARS agent share one session. Live presence, shared cursors over your files, one-click ownership handoff.",
+  "meeetSection.p5.cta":           "Open Cowork →",
+
   // ── audit-6 · remaining Landing (no Apple) ─────────────────────
   // Section dividers on `/` (between major blocks).
   // Wave 66 — sections renumbered after cockpit removal.

@@ -9,6 +9,7 @@ import { Domains } from "@/components/Domains";
 import { Steps } from "@/components/Steps";
 import { MeeetSection } from "@/components/MeeetSection";
 import { MeeetWorldStrip } from "@/components/MeeetWorldStrip";
+import { CoworkPreview } from "@/components/CoworkPreview";
 import { CouncilDemo } from "@/components/CouncilDemo";
 import { Compare } from "@/components/Compare";
 import { Pricing } from "@/components/Pricing";
@@ -54,7 +55,13 @@ export function Landing() {
       <div className="mx-auto -mt-2 mb-12 max-w-[1280px] px-8 md:px-14">
         <MeeetWorldStrip variant="card" />
       </div>
+      {/* Wave 132 — CoworkPreview sits between MeeetSection and
+          CouncilDemo. Multiplayer is the new hero feature post-launch
+          and deserves a landing-page demo card. Reuses the section.06
+          divider; section.07+ shift down by one (no other refactor —
+          the existing dividers were just labels not content anchors). */}
       <SectionDivider label={t("landing.section.06")} />
+      <CoworkPreview />
       <CouncilDemo />
       <SectionDivider label={t("landing.section.07")} />
       <Compare />

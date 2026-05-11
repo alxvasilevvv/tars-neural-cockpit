@@ -22,6 +22,10 @@ const links = [
 // + Workshop sit at the end because new orgs visit them once at setup
 // and rarely after that.
 const b2bLinks: { label: string; href: string }[] = [
+  // Wave 129 — Cowork sits at the top of the B2B dropdown: it's the
+  // new multiplayer mechanic + the highest-engagement surface for the
+  // post-launch wave (closes W122 audit gaps #99 + #100).
+  { label: "Cowork", href: "/cowork" },
   { label: "Dashboard", href: "/dashboard" },
   { label: "Inbox", href: "/inbox" },
   { label: "Outreach", href: "/outreach" },

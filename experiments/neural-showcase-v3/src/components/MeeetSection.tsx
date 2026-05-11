@@ -1,5 +1,5 @@
 import { motion } from "framer-motion";
-import { Wallet, Network, Coins, GraduationCap, ArrowRight } from "lucide-react";
+import { Wallet, Network, Coins, GraduationCap, Users, ArrowRight } from "lucide-react";
 import { useT, type TKey } from "@/lib/i18n";
 
 /**
@@ -77,6 +77,19 @@ const PILLARS: Pillar[] = [
     accent: "#34D399", // success-green — distinct from indigo/violet/cyan trio
     href: "/workshop",
   },
+  // Wave 129 — fifth pillar: Cowork (multiplayer agent sessions).
+  // Same honest framing as the workshop pillar — backend module +
+  // frontend page shipped, brother's core-bridge endpoints land in
+  // v9.1.1. No fake metric; CTA only.
+  {
+    Icon: Users,
+    tagKey: "meeetSection.p5.tag",
+    titleKey: "meeetSection.p5.title",
+    bodyKey: "meeetSection.p5.body",
+    ctaKey: "meeetSection.p5.cta",
+    accent: "#EC4899", // pink — fifth distinct accent
+    href: "/cowork",
+  },
 ];
 
 export function MeeetSection() {
@@ -129,11 +142,12 @@ export function MeeetSection() {
         </p>
       </motion.div>
 
-      {/* Pillar cards — Wave 82: 4 pillars. Mobile: 1-col. md: 2-col
-          (so the workshop card always pairs visually with one of the
-          economy cards). lg: 4-col so all four read at a glance on
-          desktop without breaking the existing visual rhythm. */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
+      {/* Pillar cards — Wave 129: 5 pillars. Mobile: 1-col. md: 2-col.
+          lg: 5-col so all five read at a glance on wide desktop. The
+          two new pillars (workshop + cowork) get fourth + fifth slots
+          on the right so the original economy trio (Wallet/Coins/T2T)
+          stays visually intact on the left. */}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-5">
         {PILLARS.map((p, i) => (
           <motion.a
             key={p.tagKey}
