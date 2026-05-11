@@ -3743,3 +3743,29 @@ payload — matches existing pack contract.
 Full audit at `docs/audit/CURSOR_ALGOTRADE_AUDIT_2026-05-10.md`.
 
 >>> SYNC: Claude · 2026-05-10 · Wave 100 algotrade audit.
+
+---
+
+## Wave 119 — Brother handoff sync W90-118 (Claude · 2026-05-11)
+
+`docs/BROTHER_HANDOFF_v9.1.0.md` extended with a Wave 119 addendum
+covering all contracts shipped between Wave 78 (the original handoff
+date) and v9.1.0 soft launch:
+
+- §§ 7-16: ten new contract sections — Webhooks (W90), Receipts (W95),
+  Cohort (W94), Scheduler (W97), Outreach (W98), Marketplace (W106),
+  Workspaces (W110), Org onboarding (W99), Compliance export (W104),
+  Telegram bridge (W108).
+- § 17: integration milestones tabled per release (v9.1.0 / v9.1.1 /
+  v9.2 / v9.3) — what brother needs to do, what's blocked on him, what
+  can wait.
+- § 18: 5-minute quickstart with 3 curl commands brother can paste to
+  verify the integration surface is live (TARS prod up + webhook
+  receiver reachable + shared-secret roundtrip).
+
+Each new section links to the source-of-truth contract under
+`docs/contracts/` so brother has one document to read end-to-end and
+one location to grab the wire shape per topic. Reader-pointer block at
+the top of the doc now lists the seven new contract docs as cross-links.
+
+>>> SYNC: Claude · 2026-05-11 · Wave 119 brother handoff sync.
