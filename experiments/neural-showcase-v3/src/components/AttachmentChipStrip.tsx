@@ -115,6 +115,8 @@ function ImageThumb({
     <img
       src={`/api/attachments/${encodeURIComponent(attachmentId)}/download`}
       alt={filename ?? "image"}
+      loading="lazy"
+      decoding="async"
       onError={() => setErrored(true)}
       className="shrink-0 rounded-sm border border-line object-cover"
       style={{ width: size, height: size }}

@@ -128,6 +128,8 @@ export function FilePreview({ file, onClose }: FilePreviewProps) {
               <img
                 src={file.preview_url}
                 alt={file.filename ?? ""}
+                loading="lazy"
+                decoding="async"
                 className="max-h-full max-w-full object-contain"
               />
             </div>
