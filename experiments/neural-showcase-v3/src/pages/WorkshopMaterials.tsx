@@ -147,7 +147,10 @@ function formatRuntime(seconds: number): string {
 
 export function WorkshopMaterials() {
   useDocumentMeta({
-    title: "Workshop materials — decks, recipes, videos",
+    // Wave 127 — auto-fix: trimmed from "Workshop materials — decks,
+    // recipes, videos" (64 chars w/ suffix) to fit the 60-char Twitter
+    // title cap. Subtitle still rendered in <h1>.
+    title: "Workshop materials",
     description:
       "Everything algorithmic workshop attendees need: slide decks, handouts, the 10-playbook recipe library, video walkthroughs, Slack community, and office hours.",
     ogImage: "https://tars.meeet.world/og-workshop.svg",

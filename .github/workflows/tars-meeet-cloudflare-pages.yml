@@ -106,6 +106,18 @@ jobs:
         working-directory: experiments/neural-showcase-v3
         run: node scripts/check-route-imports.mjs
 
+      # Wave 127 — OG / Twitter card validation. Walks every route in
+      # App.tsx, extracts the `useDocumentMeta({ ... })` literal from
+      # each page module, merges with index.html defaults, and verifies
+      # the resulting OG / Twitter shape — title length ≤ 60, description
+      # length ≤ 200, og:image absolute + reachable in public/, SVG
+      # dimensions ≥ 1200x630, og:type / twitter:card valid. BLOCKING:
+      # a broken share preview halves CTR on HN / Twitter / Reddit, so
+      # we will not deploy a regressed card. See docs/contracts/OG_CARDS.md.
+      - name: Validate OG / Twitter cards (Wave 127 gate)
+        working-directory: experiments/neural-showcase-v3
+        run: node scripts/validate-og-cards.mjs
+
       # Wave 116 — Defense layer 2: smoke-import every page module
       # wired into App.tsx and assert each named export is a callable
       # component. Catches the symmetric bug (export renamed in the

@@ -84,7 +84,10 @@ export function EnterpriseWorkshop() {
     // Wave 83 — per-route OG SVG variant. og-workshop-enterprise.svg
     // is shipped in public/ alongside the other per-route OG cards
     // (see Wave 11/44).
-    title: "Algorithmic Workshop — Enterprise B2B onboarding",
+    // Wave 127 — auto-fix: trimmed from "Algorithmic Workshop —
+    // Enterprise B2B onboarding" (69 chars w/ suffix) to fit the
+    // 60-char Twitter title cap. Full headline still in <h1> below.
+    title: "Enterprise B2B workshop",
     description:
       "Workshop landing for fund partners, quant teams, and research desks. Strategy IR → backtest → risk gate → paper → live, all running on TARS.",
     ogImage: "https://tars.meeet.world/og-workshop-enterprise.svg",

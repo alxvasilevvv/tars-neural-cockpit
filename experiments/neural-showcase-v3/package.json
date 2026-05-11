@@ -22,7 +22,9 @@
     "audit:axe": "npx --yes @axe-core/cli https://tars.meeet.world --exit",
     "changelog:check": "python3 ../../scripts/generate_public_changelog.py --check",
     "size": "node scripts/measure-bundle.mjs",
-    "size:check": "npm run build && npm run size"
+    "size:check": "npm run build && npm run size",
+    "og:check": "node scripts/validate-og-cards.mjs",
+    "og:check:live": "node scripts/live-og-check.mjs"
   },
   "dependencies": {
     "@react-three/drei": "^9.122.0",
