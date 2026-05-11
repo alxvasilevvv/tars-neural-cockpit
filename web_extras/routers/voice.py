@@ -64,6 +64,96 @@ async def personas_endpoint() -> dict[str, Any]:
     }
 
 
+@router.get("/personas/effective")
+async def personas_effective_endpoint() -> dict[str, Any]:
+    """Phase L4.2 — preview the *actually-rendered* voice per persona.
+
+    For each persona, walk the same fallback chain the synthesiser
+    uses today and report:
+
+    - ``requested.mac_say`` — what the persona asked for
+    - ``effective.mac_say`` — what the engine would pick on this
+      Mac right now (after probing the installed voice list)
+    - ``substituted`` — whether they differ
+    - ``provider`` — which engine would handle ``provider="auto"``
+      synthesis (falls back through elevenlabs → openai → mac_say
+      based on which keys are configured + the OS)
+
+    The cockpit picker uses this to render "→ Daniel (substituted)"
+    next to a persona that *thinks* it speaks as Aaron, so the
+    operator knows to install the premium voice or pick a paid
+    provider before recording.
+
+    ElevenLabs / OpenAI voices are always treated as exact matches
+    when configured — those engines do not silently substitute.
+    """
+
+    from backend.core.voice.engines import MacSayEngine
+
+    engines = await available_engines()
+    mac_engine = MacSayEngine()
+    installed_mac = await mac_engine.installed_voices()
+
+    if engines.get("elevenlabs"):
+        active_provider = "elevenlabs"
+    elif engines.get("openai"):
+        active_provider = "openai"
+    elif engines.get("mac_say"):
+        active_provider = "mac_say"
+    else:
+        active_provider = None
+
+    rows: list[dict[str, Any]] = []
+    for persona in list_personas():
+        requested_mac = persona.provider.mac_say_voice
+        if installed_mac and requested_mac and requested_mac not in installed_mac:
+            effective_mac = MacSayEngine._pick_fallback_voice(
+                persona, installed_mac
+            )
+        else:
+            effective_mac = requested_mac
+
+        rows.append(
+            {
+                "id": persona.id,
+                "name": persona.name,
+                "active_provider": active_provider,
+                "providers": {
+                    "elevenlabs": {
+                        "requested": persona.provider.elevenlabs_voice_id,
+                        "effective": persona.provider.elevenlabs_voice_id,
+                        "substituted": False,
+                    },
+                    "openai": {
+                        "requested": persona.provider.openai_voice,
+                        "effective": persona.provider.openai_voice,
+                        "substituted": False,
+                    },
+                    "mac_say": {
+                        "requested": requested_mac,
+                        "effective": effective_mac,
+                        "substituted": bool(
+                            requested_mac
+                            and effective_mac
+                            and requested_mac != effective_mac
+                        ),
+                        "alternatives": list(
+                            persona.provider.mac_say_voice_alternatives
+                        ),
+                    },
+                },
+            }
+        )
+    return {
+        "ok": True,
+        "count": len(rows),
+        "active_provider": active_provider,
+        "engines": engines,
+        "mac_say_installed_voices": sorted(installed_mac) if installed_mac else [],
+        "personas": rows,
+    }
+
+
 @router.get("/health")
 async def health_endpoint() -> dict[str, Any]:
     engines = await available_engines()
@@ -234,6 +324,8 @@ async def speak_endpoint(
                 "voice_id": result.voice_id,
                 "bytes_total": result.bytes_total,
                 "duration_estimate_ms": result.duration_estimate_ms,
+                "requested_voice_id": result.requested_voice_id,
+                "substituted": result.substituted,
             },
         )
 
@@ -245,6 +337,15 @@ async def speak_endpoint(
         "x-trace-id": trace_id,
         "cache-control": "no-store",
     }
+    # Surface the persona's *requested* voice and a substitution
+    # flag so the cockpit can show "voice swapped to Daniel —
+    # install premium voices to hear Stark's Aaron". Older clients
+    # ignore unknown headers; never break the contract.
+    if result.requested_voice_id is not None:
+        headers["x-tars-voice-requested-id"] = result.requested_voice_id
+        headers["x-tars-voice-substituted"] = (
+            "true" if result.substituted else "false"
+        )
     if persona_source:
         headers["x-tars-voice-persona-source"] = persona_source
     return Response(content=result.audio, media_type=result.mime, headers=headers)

@@ -4,6 +4,78 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-11 — Cursor · Phase L4.2: per-persona mac_say fallback + voice substitution diagnostic
+
+**Summary**
+
+Closes a real UX bug surfaced by the operator: on a stock macOS 13+
+install (which strips Alex/Tom/Aaron/Bruce from the default voice
+roster), three of the four male personas (Stark / HAL / TARS) all
+collapsed onto the *same* `Fred` voice, so switching personas
+sounded identical. The synthesiser also gave the cockpit zero way
+to know substitution had happened — `voice_id` carried the *actual*
+rendered voice with no record of what the persona had asked for.
+
+What ships:
+
+1. **`PersonaProviderHint.mac_say_voice_alternatives`** — each
+   built-in persona now declares an ordered list of mac_say voice
+   alternates that the engine walks **before** the global accent
+   default. On a default macOS 13+ install the four male personas
+   now resolve to four distinct voices:
+
+   | persona | requested | effective on default macOS |
+   |---------|-----------|-----------------------------|
+   | jarvis  | Daniel    | Daniel (UK male, butler)    |
+   | stark   | Aaron     | Ralph (US male, deep)       |
+   | hal9000 | Bruce     | Albert (US male, synthetic) |
+   | tars    | Tom       | Fred (US male, monotone)    |
+
+2. **`SynthesisResult.requested_voice_id` + `.substituted` property** —
+   every engine (ElevenLabs / OpenAI / mac_say) now records the
+   voice the persona asked for. `to_dict()` carries both fields
+   so the trace + meeet event sees substitutions.
+
+3. **HTTP surface** — `POST /api/voice/speak` now sets
+   `x-tars-voice-requested-id` and `x-tars-voice-substituted`
+   headers so the cockpit can render "Voice: Daniel (you wanted
+   Alex — install premium voices)" without a second round trip.
+   `voice.tts.completed` events on the meeet bridge carry the
+   same fields.
+
+4. **`GET /api/voice/personas/effective`** — preview endpoint that
+   walks each persona through the live mac_say voice list and
+   reports requested-vs-effective per provider, so the cockpit
+   persona picker can show substitution badges before any audio
+   plays.
+
+5. **Tests**: 11 new tests in `test_voice_persona_alternatives.py`
+   pin the per-persona fallback chain (incl. the "4 male personas
+   stay distinct on stock macOS 13" regression guard) and
+   `SynthesisResult` diagnostic surface. 4 new tests in
+   `test_voice_router.py` cover the new headers and the
+   `/personas/effective` endpoint. Existing `test_voice_engines.py`
+   cases updated where the new per-persona alternatives now win
+   over the old global accent default. **All 69 voice/persona
+   tests pass locally.**
+
+**Files**
+
+- `backend/core/voice/personas.py` — added
+  `mac_say_voice_alternatives` field, populated for all 6 default
+  personas, exposed in `to_dict`.
+- `backend/core/voice/engines.py` — `SynthesisResult` gained
+  `requested_voice_id` + `substituted` property; all three engines
+  populate it; `MacSayEngine._pick_fallback_voice` now consults
+  the persona alternates first.
+- `web_extras/routers/voice.py` — `speak` emits new headers +
+  meeet trace fields; new `GET /personas/effective` endpoint.
+- `tests/test_voice_persona_alternatives.py` (new, 11 tests).
+- `tests/test_voice_router.py` (4 new tests).
+- `tests/test_voice_engines.py` (updated to reflect new resolution).
+- `tests/test_thread_persona_pinning.py` (mock updated to mirror
+  the new SynthesisResult contract).
+
 ## 2026-05-10 — Cursor · Phase W4-PR1: workshop quant playbooks + recursive playbook loader
 
 **Summary**

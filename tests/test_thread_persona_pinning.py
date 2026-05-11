@@ -282,6 +282,12 @@ def _patch_synthesize(monkeypatch: pytest.MonkeyPatch) -> dict:
             voice_id = "stub-voice"
             bytes_total = 10
             duration_estimate_ms = 100
+            # Phase L4.2 — router now reads requested_voice_id /
+            # substituted off the result. Mirror the production
+            # SynthesisResult contract so the trace emit + headers
+            # path stays exercised under the persona-pinning tests.
+            requested_voice_id = "stub-voice"
+            substituted = False
 
         return _Result()
 
