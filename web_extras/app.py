@@ -80,16 +80,14 @@ log = logging.getLogger("tars.app")
 
 
 def _cors_allow_origins() -> list[str]:
-    """Production marketing origin + local Vite defaults + optional extras.
+    """Production marketing origin + local desktop static shell + optional extras.
 
     Comma-separated override: ``TARS_CORS_ORIGINS`` (merged, not replaced).
     """
 
     defaults = [
         "http://localhost:5173",
-        "http://localhost:5174",
         "http://127.0.0.1:5173",
-        "http://127.0.0.1:5174",
         "https://tars.meeet.world",
     ]
     raw = os.getenv("TARS_CORS_ORIGINS", "").strip()

@@ -24,11 +24,11 @@ That trace id is the join key.
 ### 1.1 TARS half — `public.tars_event_ingest` (TARS Supabase)
 
 Already populated by:
-- `experiments/neural-showcase-v3/functions/_middleware.ts` →
-  `tars.page.viewed` (one per HTML navigation).
-- `experiments/neural-showcase-v3/src/lib/clientError.ts` →
-  `tars.client.error` (deduped, rate-limited).
-- `backend/core/meeet/` (Python) → every cockpit / Tauri action.
+- **Historical / Pages:** `tars.page.viewed` and `tars.client.error` were emitted
+  from the retired in-repo SPA (`functions/_middleware.ts`, `src/lib/clientError.ts`).
+  A live `tars.meeet.world` may still run that code from a **prior deploy** or
+  out-of-tree fork — Lovable/ops should confirm which bundle is in production.
+- `backend/core/meeet/` (Python) → every API / Tauri action and server-side trace.
 
 ```sql
 -- Schema (read-only reference; managed by migration

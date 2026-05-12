@@ -25,9 +25,9 @@ Auto-loaded by Claude Code in every session. Cursor reads the same context via
 - Backend: Python (FastAPI-style routers under `web_extras/routers/`), agents
  in `backend/agents/`. (Legacy MCP entry points were retired during the
  2026-05-02 audit cleanup.)
-- **Web UI:** the React marketing/cockpit SPA (`experiments/neural-showcase-v3/`, legacy v2)
-  was removed — API-first workflow. The **desktop** app still bundles the last static
-  build under `desktop/src-tauri/web/` (Tauri `pnpm run serve:web` in dev).
+- **Web UI:** the standalone React marketing/cockpit SPA was **removed from this repo**
+  (May 2026) — API-first workflow. The **desktop** app bundles static assets under
+  `desktop/src-tauri/web/` (Tauri `pnpm run serve:web` on **5173** in dev).
 - ⚠ Legacy `frontend/` (vanilla HTML/CSS/JS) was retired during the
  2026-05-02 system audit.
 

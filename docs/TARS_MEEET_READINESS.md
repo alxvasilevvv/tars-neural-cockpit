@@ -6,13 +6,15 @@
 > **Read this with:** `docs/SYNC.md`, `docs/ROADMAP_SHARED.md`,
 > `docs/TARS_MEEET_OPS_TODO.md` (Operator infra-side checklist).
 
+> **Update 2026-05-13:** The in-repo marketing/showcase SPA (`experiments/neural-showcase-v3/`, v2) and GitHub workflow `.github/workflows/tars-meeet-cloudflare-pages.yml` were **removed** from this repository. Sections below that name those paths describe the **historical** Cursor lane; production `tars.meeet.world` may still serve a **previously deployed** Cloudflare artifact. Ongoing UI in-tree: **desktop** (`desktop/src-tauri/web/`) + HTTP API.
+
 ---
 
 ## TL;DR
 
 | Layer            | Status      | Owner      | Blocker?          |
 | ---------------- | ----------- | ---------- | ----------------- |
-| Frontend (build) | ✅ ready     | Cursor     | no                |
+| Frontend (build) | ⚠ retired from `main` | Cursor     | SPA tree removed; desktop + API remain |
 | Backend FastAPI  | ✅ ready     | Cursor     | no (not on path)  |
 | Bridge contracts | ✅ frozen    | Cursor     | no                |
 | Edge cookie/log  | ✅ shipped   | Cursor     | no — needs secret |
@@ -30,24 +32,15 @@ are tracked below with concrete asks.
 
 ## 1. What is shipped on the Cursor lane
 
-### 1.1 Frontend (`experiments/neural-showcase-v3/`)
-- **Static SPA** (React 18 + Vite 5 + Tailwind 4 + framer-motion).
-  All marketing routes already render: `/`, `/install`, `/pitch`,
-  `/pricing`, `/faq`, `/compare`, `/cockpit`, `/onboarding`,
-  `/build-with`, `/changelog`, `/roadmap`, `/press`, `/privacy`,
-  `/terms`, `/security`, `/docs`, `/status`.
-- **Production env**: `.env.production` baked with
-  `VITE_TARS_API=https://tars.meeet.world` (subdomain itself, single
-  origin, downloads proxied via `_redirects`).
-- **Static assets ready**: `public/og*.svg` (per-route Open Graph
-  cards), `public/favicon.svg`, `public/manifest.webmanifest`,
-  `public/sw.js`, `public/sitemap.xml`, `public/robots.txt`.
-- **Analytics primitives**: `src/lib/analytics.ts` with `track()`,
-  `trackPageView()`, `trackClick()`, `trackApi()`, `flushOnUnload()`.
-  Edge middleware (below) hooks into the same event names.
-- **A11y/perf**: `npm run audit:lighthouse` and `audit:axe` already
-  wired against `https://tars.meeet.world/`.
-- **Type check + tests**: `npm run typecheck`, `npm test` are green.
+### 1.1 Frontend (retired from monorepo)
+- The React/Vite marketing + cockpit SPA that previously lived under
+  `experiments/neural-showcase-v3/` (and v2) was **removed** from this repo
+  (commit `e5f1911`). It is **not** rebuilt from `main` here anymore.
+- **Desktop:** operators use **`desktop/`** — Tauri bundles static files from
+  `desktop/src-tauri/web/` against the FastAPI backend.
+- **Hosted `tars.meeet.world`:** treat as CF Pages deploy of an **external or
+  historical** SPA tree until a new frontend package lands; parity checks in
+  §3 still apply to whatever is live.
 
 ### 1.2 Backend (`web_extras/routers/product.py`)
 - `GET /api/product/downloads` returns the contract 1.0.0 manifest.
@@ -69,25 +62,14 @@ are tracked below with concrete asks.
   audit honors every section).
 - `make smoke-core-bridge` — passes when `BRIDGE_SHARED_SECRET` is set.
 
-### 1.4 Hosting & edge config
-- **Cloudflare Pages** chosen as default host.
-  - `experiments/neural-showcase-v3/public/_headers` — security
-    headers (HSTS, CSP-equivalent via `X-Frame-Options`, COOP/COEP
-    handled by Pages defaults), per-path `Cache-Control` per spec
-    §3.3.
-  - `experiments/neural-showcase-v3/public/_redirects` — SPA
-    fallback + permanent redirects + downloads proxy to the
-    Supabase Edge Function (`tars-downloads`) until meeet-app
-    exposes its own `/api/tars/downloads` shim per spec §4.
-  - `experiments/neural-showcase-v3/functions/_middleware.ts` —
-    Pages Function implementing spec §5 (cookie issuing) and §6
-    (`tars.page.viewed` emit through `core-bridge`). Trace ID
-    generated/propagated, fail-open if `BRIDGE_SHARED_SECRET`
-    missing (page never breaks on missing infra).
-- **CI/CD**: `.github/workflows/tars-meeet-cloudflare-pages.yml`
-  builds + tests + deploys on every push to main. PR builds get
-  a preview URL automatically. Smoke step probes
-  `https://tars.meeet.world/api/product/downloads` after deploy.
+### 1.4 Hosting & edge config (historical paths)
+- **Cloudflare Pages** was the default host for the removed SPA (`_headers`,
+  `_redirects`, Pages Functions `_middleware.ts`, product/version routes).
+  Those files **no longer exist in `main`**; the live site may reflect the **last**
+  deployed commit from before removal or an out-of-tree package.
+- **CI/CD**: `.github/workflows/tars-meeet-cloudflare-pages.yml` was **deleted**
+  from this repository. Reinstate a Pages deploy workflow **only if** SPA sources
+  are revived in another branch or repo.
 
 ### 1.5 Cross-agent sync infrastructure
 - `docs/SYNC.md` — protocol, lane split, branching, handoff table.
@@ -131,12 +113,9 @@ are tracked below with concrete asks.
 4. **Acceptance run** of spec §10 checklist after DNS flip.
 
 ### 2.3 Optional but valuable
-- **Sitemap and canonical flip**: after DNS goes live, switch
-  `<link rel="canonical">` and `og:url` from `meeet.world/...` to
-  `tars.meeet.world/...` in `experiments/neural-showcase-v3/index.html`,
-  then update `public/sitemap.xml` URLs and `public/robots.txt`.
-  This is a one-line change per file; deferred until DNS lands so
-  preview builds don't 301-loop.
+- **Sitemap and canonical flip**: after DNS goes live, update canonical / `og:url`
+  and sitemap/robots in **whatever package deploys** `tars.meeet.world` (no longer
+  `experiments/neural-showcase-v3/` in this repo).
 - **Edge sampling for `tars.page.viewed`**: at sub-100k DAU we emit
   every page view. Sampling at 1% can land later (spec §6.2).
 

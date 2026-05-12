@@ -100,7 +100,7 @@ plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 > Local operator: **`make ops-billing-remote-wizard`** — hidden key paste, prod GET+POST idempotency smoke, optional **`.env`** merge.
 > After `.env` is set: **`make smoke-billing-tars`** — same machine, stdlib **`fetch_operator_snapshot`** (no uvicorn) to confirm TARS reads prod.
 > One command dev server: **`make backend-tars-up`** — frees **:8765**, starts **uvicorn** with **`.env`** in background, prints **`/api/entitlements`** billing JSON; stop: **`kill $(cat /tmp/tars-backend-8765.pid)`**.
-> Full local stack (API bg + Vite fg): **`make dev-tars-stack`** — same as **`backend-tars-up`**, then **`pnpm dev`** in **`experiments/neural-showcase-v3`** (cockpit **5174** talks to API **8765** by default).
+> **`make dev-tars-stack`** — starts **`backend-tars-up`** only (API **8765**). The in-repo Vite showcase was removed; use **`make desktop-dev`** (bundled static shell on **5173**) or your own UI against the API.
 
 > **2026-05-04 — Go-live same-day closeout.** `docs/GO_LIVE_48H.md` is the
 > operator checklist (**bridge on Pages**, GitHub `BRIDGE_SHARED_SECRET`,

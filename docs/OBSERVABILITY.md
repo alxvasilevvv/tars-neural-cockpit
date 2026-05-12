@@ -6,7 +6,10 @@
 > Functions Logs, GitHub Actions, browser DevTools, and our own
 > `core-bridge` event stream.
 
-**Status:** active. Last edited 2026-05-01 by Cursor.
+**Status:** active. Last edited 2026-05-13 — observability text below still applies
+to **live** `tars.meeet.world` / CF / Supabase; the in-repo SPA that owned
+`_middleware.ts` was **removed** from `main` (paths in §1 are deployment/historical).
+
 **Read with:** `docs/SYNC.md`, `docs/contracts/CORE_BRIDGE.md`,
 `docs/TARS_MEEET_READINESS.md`.
 
@@ -43,17 +46,19 @@ exactly one of these four streams. Memorize them.
   rollback. Each deployment has its own URL
   (`<sha>.tars-meeet.pages.dev`) so you can A/B compare.
 - **Retention:** 30 days for previews, ∞ for production.
-- **Alert path:** the GitHub Actions workflow
-  `tars-meeet-cloudflare-pages.yml` posts a status check on every PR; CF
-  Pages also emails on deploy failure. No paging today.
+- **Alert path:** if a Cloudflare Pages workflow is re-attached to a frontend
+  package, mirror the old PR status-check pattern. The workflow
+  **`tars-meeet-cloudflare-pages.yml` was removed** from this repo in May 2026
+  alongside the in-tree SPA; CF may still auto-build from a linked project.
 
 ### Stream B — Cloudflare Pages **runtime** logs (`_middleware.ts`)
 
 - **Where:** CF Dashboard → `tars-meeet` → Functions → Logs (Realtime).
-- **What:** every `console.log` / thrown error inside
-  `experiments/neural-showcase-v3/functions/_middleware.ts`. Includes
-  the `tars.page.viewed` event emit failures, missing
-  `BRIDGE_SHARED_SECRET` warnings, and uncaught middleware errors.
+- **What:** every `console.log` / thrown error inside the **deployed** Pages
+  Functions bundle (historically `functions/_middleware.ts` in the removed
+  `experiments/neural-showcase-v3/` tree). Includes the `tars.page.viewed`
+  event emit failures, missing `BRIDGE_SHARED_SECRET` warnings, and uncaught
+  middleware errors.
 - **Retention:** 24h on the free tier; 7d on Pro.
 - **Alert path:** none today. Operator-Brother can subscribe to the
   Workers Logpush integration when needed.
