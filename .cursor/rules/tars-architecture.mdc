@@ -1,5 +1,5 @@
 ---
-description: TARS architecture, domain packs, meeet bridge, premium showcase
+description: TARS architecture, domain packs, meeet bridge, desktop shell
 alwaysApply: true
 ---
 
@@ -11,14 +11,12 @@ alwaysApply: true
 ## Stack
 
 - Backend: Python, FastAPI-style. Routers in `web_extras/routers/`. Domain
- subsystems in `backend/core/*`. Agent entry points in `backend/agents/`.
-- Frontend canon: **`experiments/neural-showcase-v3/`** — React 18 + TS +
- Vite + Tailwind v4 + framer-motion + shadcn-ready for 21st.dev. Cockpit
- (`/cockpit`), marketing, pricing all live here. Port 5174.
-- Premium showcase: `experiments/neural-showcase-v2/` — Vite + Three.js +
- GSAP + Lenis + postprocessing. Custom GLSL. Port 5173.
+  subsystems in `backend/core/*`. Agent entry points in `backend/agents/`.
+- **Web UI:** the standalone React marketing/cockpit SPA was removed from this
+  repo — **API-first**. The **desktop** app bundles static assets under
+  `desktop/src-tauri/web/` (Tauri dev: `pnpm run serve:web` on port 5173).
 - ⚠ Legacy `frontend/` (vanilla HTML/CSS/JS) was retired during the
- 2026-05-02 system audit; v3 is the only live frontend.
+  2026-05-02 system audit.
 
 ## Domain packs (Phase 9)
 
@@ -49,21 +47,9 @@ Router: `web_extras/routers/domains.py` (`/api/domains`). Spec:
 
 ## Frontend conventions
 
-- Vanilla in `frontend/`. Cockpit pages keep dark HUD aesthetic. Marketing
-  pages evolve toward premium AI-product feel.
-- Aesthetic = **minimalism + futurism**. No rainbow gradients, no neon
-  flooding. Two accent colours max (cyan #9ec3d4, amber #e6c97a).
+- New UIs consume `web_extras/routers/` or ship beside the desktop bundle.
+- Follow `design-system/tars/MASTER.md` for visual baseline.
 - Always provide empty / loading / error / success states.
-
-## Showcase v2
-
-- WebGL: Stark/Interstellar inspired core (`Core.js`) — reactor + cage +
-  monolith slabs + 2 thin rings — and `Galaxy.js` particle field.
-- Postprocessing: tame bloom (intensity ≤ 0.6, threshold ≥ 0.78) + faint CA +
-  vignette + noise + SMAA.
-- Single subtle telemetry panel `aside.hud` top-left; hidden < 880px.
-- Drop GLB at `public/models/brain.glb` to override the procedural reactor.
-- Respect `prefers-reduced-motion`.
 
 ## Backend conventions
 
@@ -74,7 +60,6 @@ Router: `web_extras/routers/domains.py` (`/api/domains`). Spec:
 ## Guardrails
 
 - Scoped changes only.
-- No npm tooling outside `experiments/`.
 - Never commit `.env`.
 - Flag any cross-stack change.
 
@@ -92,8 +77,6 @@ Router: `web_extras/routers/domains.py` (`/api/domains`). Spec:
 - Aesthetic blend (per MASTER): HUD/Sci-Fi FUI + Exaggerated Minimalism +
   Dark Mode (OLED) + AI-Native UI. One cyan accent (`#67E8F9`); amber
   (`#FBBF24`) reserved for live/alert telemetry.
-- 21st.dev drops live in `experiments/neural-showcase-v3/`:
-  `npx shadcn@latest add "https://21st.dev/r/<author>/<id>"`.
 
 ## Sync
 

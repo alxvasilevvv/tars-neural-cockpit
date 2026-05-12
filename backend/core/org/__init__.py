@@ -10,10 +10,9 @@ org-level config:
   (override with ``TARS_ORG_DB_PATH``; disable with
   ``TARS_ORG_STORE=disabled``).
 
-The wizard itself lives in
-``experiments/neural-showcase-v3/src/pages/OrgOnboarding.tsx``; the
-backend stores the answers so re-installs / multi-device pickups skip
-the steps they already finished.
+The wizard UI that originally shipped beside this backend was removed
+with the marketing/showcase SPA; org onboarding APIs remain available
+for a future client.
 
 Multi-tenant workspaces ship in v9.3 — until then the invites table
 just records intent. The router still surfaces them so the cockpit

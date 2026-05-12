@@ -9,11 +9,9 @@ PIP       ?= .venv/bin/pip
 PORT      ?= 8765
 HOST      ?= 127.0.0.1
 PYTEST    ?= $(PY) -m pytest -q
-COCKPIT   ?= experiments/neural-showcase-v3
 DESKTOP   ?= desktop
 
-.PHONY: help test test-product test-commercial-readiness lint cockpit cockpit-build cockpit-tsc \
-        cockpit-changelog-check acceptance-tars-meeet qa-agent qa-agent-json qa-loop qa-loop-once \
+.PHONY: help test test-all test-product test-commercial-readiness lint changelog-public-check acceptance-tars-meeet qa-agent qa-agent-json qa-loop qa-loop-once \
         gate-release backend backend-dev desktop-dev desktop-build \
         smoke-core-bridge smoke-billing-tars backend-tars-up dev-tars-stack gate-control-tower ops-bridge-secret ops-billing-remote-wizard ops-cf-pages-token clean \
         install-hooks check-python-version bootstrap \
@@ -67,7 +65,7 @@ help:                ## list targets
 # Backend
 # ---------------------------------------------------------------------
 
-backend:             ## run uvicorn against the cockpit FastAPI app
+backend:             ## run uvicorn against the FastAPI app
 	PYTHONPATH=. $(PY) -m uvicorn web_extras.app:app --host $(HOST) --port $(PORT)
 
 backend-dev:         ## same, with --reload
@@ -83,37 +81,24 @@ test-commercial-readiness:  ## chain sweep: sell surfaces (domains, entitlements
 	PYTHONPATH=. $(PYTEST) tests/test_commercial_readiness_chain.py -q
 
 # ---------------------------------------------------------------------
-# Cockpit (React)
+# Public changelog trim (docs artefact; no SPA)
 # ---------------------------------------------------------------------
 
-cockpit:             ## run the v3 cockpit dev server
-	pnpm --dir $(COCKPIT) dev
-
-cockpit-build:       ## production build (output: dist/)
-	pnpm --dir $(COCKPIT) build
-
-cockpit-tsc:         ## type-check only
-	pnpm --dir $(COCKPIT) exec tsc --noEmit
-
-cockpit-changelog-check:  ## committed CHANGELOG_PUBLIC matches generator (same as Cloudflare CI)
+changelog-public-check:  ## committed CHANGELOG_PUBLIC matches generator
 	$(PY) scripts/generate_public_changelog.py --check
 
-cockpit-test:        ## run the cockpit Vitest suite (jsdom + lib/downloads.ts)
-	pnpm --dir $(COCKPIT) test
-
-test-all:            ## pytest + vitest in one go (CI default)
+test-all:            ## pytest + changelog check (CI default)
 	$(MAKE) test
-	$(MAKE) cockpit-changelog-check
-	$(MAKE) cockpit-test
+	$(MAKE) changelog-public-check
 
 # ---------------------------------------------------------------------
 # Desktop (Tauri)
 # ---------------------------------------------------------------------
 
-desktop-dev:         ## run the Tauri shell against the dev cockpit
+desktop-dev:         ## run the Tauri shell (serves bundled web from src-tauri/web)
 	pnpm --dir $(DESKTOP) tauri:dev
 
-desktop-build:       ## bundle the cockpit + Tauri release artifacts
+desktop-build:       ## bundle the Tauri desktop (uses committed src-tauri/web)
 	pnpm --dir $(DESKTOP) release
 
 # ---------------------------------------------------------------------
@@ -123,10 +108,8 @@ desktop-build:       ## bundle the cockpit + Tauri release artifacts
 smoke-core-bridge:   ## end-to-end smoke: old core-bridge -> new tars-ingest
 	bash scripts/with_repo_env.sh bash scripts/smoke_core_bridge_e2e.sh
 
-gate-control-tower:  ## cockpit checks + core-bridge e2e smoke + planner / playbooks gates
-	$(MAKE) cockpit-changelog-check
-	$(MAKE) cockpit-tsc
-	$(MAKE) cockpit-test
+gate-control-tower:  ## changelog trim + core-bridge e2e smoke + planner / playbooks gates
+	$(MAKE) changelog-public-check
 	$(MAKE) smoke-core-bridge
 	$(MAKE) planner-smoke
 	$(MAKE) playbooks-validate-all
@@ -364,7 +347,7 @@ qa-loop:             ## autonomous QA loop (every QA_LOOP_INTERVAL_S, default 30
 qa-loop-once:        ## single QA loop iteration; writes JSON report to .qa-runs/
 	bash scripts/with_repo_env.sh $(PY) -m scripts.qa_agent.loop --once
 
-gate-release:        ## full release readiness gate: pytest + cockpit + bridge + QA
+gate-release:        ## full release readiness gate: pytest + changelog + bridge + QA
 	bash scripts/gate_release.sh
 
 ops-bridge-secret:   ## one-shot: paste BRIDGE_SHARED_SECRET (Pages env + GH secret + redeploy + QA)
@@ -379,7 +362,7 @@ smoke-billing-tars:  ## with .env: stdlib GET remote operator (no uvicorn)
 backend-tars-up:  ## kill :8765 if busy; start uvicorn+.env in bg; curl /api/entitlements
 	bash scripts/backend_tars_up.sh
 
-dev-tars-stack:  ## backend-tars-up then neural-showcase-v3 dev (Ctrl+C = UI only)
+dev-tars-stack:  ## backend-tars-up then leaves API running (no separate SPA)
 	bash scripts/dev_tars_stack.sh
 
 launch-precheck:  ## Wave 64: single-command verification before tagging v9.1.0
@@ -396,9 +379,7 @@ ops-cf-pages-token:  ## cf-operator.env (id+cfat_) → GitHub secret + run Pages
 # ---------------------------------------------------------------------
 
 clean:               ## drop build outputs, keep node_modules / .venv
-	rm -rf $(COCKPIT)/dist
 	rm -rf $(DESKTOP)/src-tauri/target
-	rm -rf $(DESKTOP)/src-tauri/web
 	@find . -name '__pycache__' -type d -prune -exec rm -rf {} +
 	@find . -name '.pytest_cache' -type d -prune -exec rm -rf {} +
 	@find . -name '*.pyc' -delete

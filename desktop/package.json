@@ -2,17 +2,17 @@
   "name": "tars-desktop",
   "version": "9.1.0",
   "private": true,
-  "description": "TARS desktop shell — Tauri 2 wrapper around the neural cockpit. macOS + Windows installers.",
+  "description": "TARS desktop shell — Tauri 2 wrapper around the bundled static UI (src-tauri/web). macOS + Windows installers.",
   "scripts": {
     "tauri": "tauri",
+    "serve:web": "npx --yes serve src-tauri/web -l 5173",
     "tauri:dev": "tauri dev",
     "tauri:build": "tauri build",
     "tauri:icons": "tauri icon assets/icon-source.png -o src-tauri/icons",
-    "cockpit:build": "pnpm --dir ../experiments/neural-showcase-v3 build",
     "cockpit:package": "bash scripts/package-cockpit.sh",
     "preflight": "bash scripts/preflight-build.sh",
     "preflight:release": "bash scripts/preflight-build.sh --release",
-    "release": "pnpm cockpit:build && pnpm cockpit:package && pnpm preflight:release && pnpm tauri:build"
+    "release": "pnpm cockpit:package && pnpm preflight:release && pnpm tauri:build"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.0.0"

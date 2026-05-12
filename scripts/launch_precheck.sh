@@ -3,12 +3,11 @@
 #
 # What it does (all checks are idempotent and non-destructive):
 #   1. Working tree clean + commits ready to push
-#   2. Cockpit dev stack boots (Vite + backend on 5174/8765)
-#   3. /health endpoint responds with 200
-#   4. /api/entitlements responds with valid JSON
-#   5. Critical contract docs present
-#   6. .env has required keys (template check, not value check)
-#   7. Tauri desktop folder builds (only if --desktop passed)
+#   2. Backend on :8765 responds (/health, /api/entitlements) if running
+#   3. Optional: static shell on :5173 (desktop-dev)
+#   4. Critical contract docs + bundled desktop web present
+#   5. .env has required keys (template check, not value check)
+#   6. Tauri desktop folder builds (only if --desktop passed)
 #
 # Run from repo root:
 #     bash scripts/launch_precheck.sh           # core checks
@@ -87,10 +86,7 @@ REQUIRED_FILES=(
   "Makefile"
   "desktop/README.md"
   "desktop/scripts/preflight-build.sh"
-  "experiments/neural-showcase-v3/src/lib/useTarsDeepLink.ts"
-  "experiments/neural-showcase-v3/src/lib/useSidecarStatus.ts"
-  "experiments/neural-showcase-v3/src/components/SidecarStatusBadge.tsx"
-  "experiments/neural-showcase-v3/src/pages/Settings.tsx"
+  "desktop/src-tauri/web/index.html"
 )
 for f in "${REQUIRED_FILES[@]}"; do
   if [[ -f "$f" ]]; then ok "$f"; else fail "$f MISSING"; fi
@@ -127,25 +123,20 @@ if curl -sf -m 2 http://127.0.0.1:8765/health >/dev/null 2>&1; then
   else
     warn "/health returned non-ok: $HEALTH"
   fi
-  # /api/entitlements does live USD budget math + may pull billing
-  # state from Supabase, so the first call after a backend idle window
-  # can blow past 2s. One quick retry (300ms) kills the flake without
-  # losing the "is this thing alive?" semantics.
   if curl -sf -m 5 http://127.0.0.1:8765/api/entitlements >/dev/null 2>&1 \
      || (sleep 0.3 && curl -sf -m 5 http://127.0.0.1:8765/api/entitlements >/dev/null 2>&1); then
     ok "/api/entitlements returned 200"
   else
-    warn "/api/entitlements not responding after retry (Cursor backend may need restart)"
+    warn "/api/entitlements not responding after retry (backend may need restart)"
   fi
 else
-  warn "backend NOT reachable on :8765 (run 'make backend-tars-up' or 'make dev-tars-stack')"
+  warn "backend NOT reachable on :8765 (run 'make backend-tars-up')"
 fi
 
-if curl -sf -m 2 -o /dev/null http://127.0.0.1:5174 2>/dev/null \
-   || curl -sf -m 2 -o /dev/null http://127.0.0.1:5175 2>/dev/null; then
-  ok "Vite dev server reachable on :5174 or :5175"
+if curl -sf -m 2 -o /dev/null http://127.0.0.1:5173 2>/dev/null; then
+  ok "static dev server reachable on :5173 (e.g. make desktop-dev)"
 else
-  warn "Vite dev server not running (run 'make dev-tars-stack' for visual smoke)"
+  warn "nothing on :5173 (optional — run 'make desktop-dev' for Tauri static shell)"
 fi
 
 # ─── 5. desktop (cargo check) ─────────────────────────────────────
@@ -171,7 +162,7 @@ if [[ $DESKTOP -eq 1 ]]; then
   if bash desktop/scripts/preflight-build.sh 2>&1 | tail -1; then
     ok "preflight gate green"
   else
-    warn "preflight needs cockpit dist (run 'cd desktop && pnpm cockpit:build && pnpm cockpit:package' first)"
+    warn "preflight failed (check desktop/src-tauri/web)"
   fi
 fi
 

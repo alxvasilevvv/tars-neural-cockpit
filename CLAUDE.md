@@ -20,29 +20,23 @@ Auto-loaded by Claude Code in every session. Cursor reads the same context via
 
 ## Project
 
-- **TARS** — local-first neural cockpit. Released under the `meeet.world` brand
+- **TARS** — local-first neural assistant stack. Released under the `meeet.world` brand
  with end-to-end logging through the meeet bridge.
 - Backend: Python (FastAPI-style routers under `web_extras/routers/`), agents
  in `backend/agents/`. (Legacy MCP entry points were retired during the
  2026-05-02 audit cleanup.)
-- Frontend canon: **`experiments/neural-showcase-v3/`** — React 18 + TS +
- Vite + Tailwind v4 + framer-motion + lucide. shadcn-style `components.json`
- pre-wired so any [21st.dev](https://21st.dev) block installs with
- `npx shadcn@latest add "<url>"`. Cockpit (`/cockpit`), marketing,
- pricing all live here. Dev port `5174`.
-- Premium showcase surface: `experiments/neural-showcase-v2/` — vanilla JS +
- Vite + Three.js + GSAP + Lenis + postprocessing. WebGL-heavy, custom GLSL.
- Dev port `5173`.
+- **Web UI:** the React marketing/cockpit SPA (`experiments/neural-showcase-v3/`, legacy v2)
+  was removed — API-first workflow. The **desktop** app still bundles the last static
+  build under `desktop/src-tauri/web/` (Tauri `pnpm run serve:web` in dev).
 - ⚠ Legacy `frontend/` (vanilla HTML/CSS/JS) was retired during the
- 2026-05-02 system audit. Anything that was once "vanilla cockpit" lives
- in v3 today.
+ 2026-05-02 system audit.
 
 ## Awareness modules (legacy)
 
 The `backend/core/awareness/` package was a load-bearing module (calendar,
 memory, code_index, mac_actions) in early TARS phases but was retired
 during the 2026-05-02 audit when only orphan `__pycache__/` entries
-remained. The current cockpit replaces those concerns through:
+remained. Domain-facing capabilities now live in:
 
 - **Memory** → `backend/core/memory/` + `backend/core/chat/` thread store.
 - **Calendar / mac_actions** → `backend/core/domains/packs/business/`
@@ -98,9 +92,9 @@ specific audiences. Built-in packs: `traders`, `business`, `mlm`, `science`.
 
 `GET /api/awareness/stream` (`web_extras/routers/awareness.py`) emits
 `hello`, `system.pulse`, `domain.heartbeat`, `bye` frames. Tunable via
-`AWARENESS_PULSE_S` and `AWARENESS_TICK_LIMIT`. Frontend consumer:
-`experiments/neural-showcase-v3/src/lib/awareness.ts` +
-`<AwarenessTicker/>` mounted at the top of `/cockpit`.
+`AWARENESS_PULSE_S` and `AWARENESS_TICK_LIMIT`. Any client may consume the
+stream over SSE (the retired cockpit wired a ticker; use your own consumer
+or CLI).
 
 ### Awareness snapshots (Phase K-A)
 
@@ -190,32 +184,11 @@ of truth for tier in that mode.
 
 ## Frontend conventions
 
-- The canonical frontend is `experiments/neural-showcase-v3/` (React 18 +
- TS + Vite + Tailwind v4). Tokens live in `src/index.css` (shadcn CSS
- variables); components in `src/components/`, pages in `src/pages/`.
-- Cockpit/operator pages (`/cockpit`, `/cockpit/*` under v3)
- keep their dark HUD aesthetic.
-- Marketing/landing surfaces evolve toward a premium AI-product feel: cinematic
-  hero, big confident type, glass cards, restrained gradients, purposeful
-  motion. **Aesthetic = minimalism + futurism**, never neon/gaudy.
-- Always provide empty / loading / error / success states for async UI.
+- API-first workflow: ship UIs against `web_extras/routers/` or use the
+  bundled desktop shell (`desktop/src-tauri/web/`). Follow
+  `design-system/tars/MASTER.md` if you add a new surface.
+- For async UX, always consider empty / loading / error / success states.
 - Maintain accessibility: semantic structure, visible focus, `aria-live`.
-
-## Premium showcase (`experiments/neural-showcase-v2/`)
-
-- Stack: Vite + Three.js + GSAP + ScrollTrigger + Lenis + postprocessing.
-- WebGL: Stark / Interstellar inspired core (`src/scene/Core.js`) — reactor +
-  cage + monolith slabs + two thin concentric rings — and `Galaxy.js` particle
-  field with custom GLSL.
-- Palette: deep ink (#04060d) + soft pastel cyan (#9ec3d4) + warm amber
-  (#e6c97a) accents only. No rainbow gradients.
-- Postprocessing: tame bloom + faint chromatic aberration + vignette + film
-  noise + SMAA.
-- DOM HUD: a single subtle panel `aside.hud` top-left.
-- GLB hook: drop `public/models/brain.glb` to override the procedural reactor.
-- Motion: word stagger reveal, magnetic cursor, scroll-driven camera, animated
-  counter, ScrollTrigger reveals.
-- Respect `prefers-reduced-motion`. Hide HUD on small screens.
 
 ## Backend conventions
 
@@ -229,8 +202,8 @@ of truth for tier in that mode.
 ## Engineering guardrails
 
 - Keep changes scoped to the requested surface.
-- Don't add npm tooling or heavy frontend frameworks for one-off polish; only
-  `experiments/neural-showcase-v2/` owns its own `node_modules`.
+- Don't add npm tooling or heavy frontend frameworks for one-off polish; keep
+  new UI experiments isolated (separate package/folder).
 - Don't commit `.env`.
 - Flag any change that crosses frontend/backend.
 - For "make it innovative" requests: produce a plan (sections, motion, states)
@@ -274,20 +247,11 @@ of truth for tier in that mode.
   `.venv/`. Helper: `python /tmp/tars-transcribe/run.py <wav> small`.
   See `docs/VIDEO_TRANSCRIPTS.md` for usage and existing transcripts.
 
-## 21st.dev workflow
+## 21st.dev workflow (retired with showcase)
 
-The 4-step recipe from the design instruction video
-(`docs/VIDEO_TRANSCRIPTS.md`) lives entirely inside
-`experiments/neural-showcase-v3/`. To drop a new block:
-
-```bash
-cd experiments/neural-showcase-v3
-npx shadcn@latest add "https://21st.dev/r/<author>/<id>"
-```
-
-The component lands in `src/components/ui/<name>.tsx` and inherits TARS
-tokens (cyan accent, deep-ink BG) via the shadcn CSS variables defined
-in `src/index.css`.
+The React showcase that integrated 21st.dev blocks was removed. If you revive a
+client SPA, follow `design-system/tars/MASTER.md` and keep it in a dedicated
+frontend package.
 
 ## Sync with the agent transcript
 
@@ -306,10 +270,9 @@ edit**, read `docs/SYNC.md` (the contract) and `docs/ROADMAP_SHARED.md`
 - Canonical remote in this repo is `integration` (not `origin`, which
   currently 404s).
 - Cursor lane: `backend/`, `web_extras/`, `tests/`, `scripts/`,
-  `experiments/neural-showcase-v3/src/lib/**`, `desktop/src-tauri/src/**`,
+  `desktop/src-tauri/src/**`,
   `mobile/**`, control-tower (`Makefile` smoke targets).
-- Claude lane: cockpit visuals (`experiments/neural-showcase-v3/src/components/**`,
-  `pages/**`, `index.css`), brand assets, public docs (`docs/RELEASE_NOTES_*`,
+- Claude lane: brand assets, public docs (`docs/RELEASE_NOTES_*`,
   `docs/LAUNCH_*`, `docs/POST_LAUNCH_*`, `docs/AUDIT_*`, `docs/DESIGN_*`,
   `docs/handoff-claude.md`), `desktop/src-tauri/web/**` build artifacts.
 - Shared files (require SYNC note before edit): `CLAUDE.md`,

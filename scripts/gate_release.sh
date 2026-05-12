@@ -7,7 +7,7 @@
 #
 # Steps (in order):
 #   1. pytest (TARS backend)
-#   2. cockpit-changelog-check + cockpit-tsc + cockpit-test (showcase v3)
+#   2. changelog-public-check (docs/CHANGELOG_PUBLIC.md)
 #   3. core-bridge e2e smoke (requires BRIDGE_SHARED_SECRET)
 #   4. TARS Layer-1 QA agent (scripts/qa_agent, JSON mode)
 #   5. (Optional, if QA_BASE_URL is set) Layer-2 qa-suite browser probes
@@ -38,7 +38,6 @@ if [[ -f .env ]]; then
 fi
 
 PY="${PY:-.venv/bin/python}"
-COCKPIT="${COCKPIT:-experiments/neural-showcase-v3}"
 OUT_DIR="${GATE_OUTPUT_DIR:-docs/release-evidence}"
 
 TRACE_ID="rel-$(date -u +%Y%m%dT%H%M%S)-$RANDOM"
@@ -120,28 +119,12 @@ fi
 run_step "pytest (backend)" env PYTHONPATH=. "$PY" -m pytest -q --tb=line tests || true
 
 # ---------------------------------------------------------------
-# Step 2a — changelog public artefact (Cloudflare CI parity)
+# Step 2 — changelog public artefact
 # ---------------------------------------------------------------
 if [[ -f scripts/generate_public_changelog.py ]]; then
-  run_step "cockpit-changelog-check" "$PY" scripts/generate_public_changelog.py --check || true
+  run_step "changelog-public-check" "$PY" scripts/generate_public_changelog.py --check || true
 else
-  skip_step "cockpit-changelog-check" "scripts/generate_public_changelog.py missing"
-fi
-
-# ---------------------------------------------------------------
-# Step 2b — cockpit tsc
-# ---------------------------------------------------------------
-if [[ -d "$COCKPIT" ]]; then
-  if command -v pnpm >/dev/null 2>&1; then
-    run_step "cockpit-tsc" pnpm --dir "$COCKPIT" exec tsc --noEmit || true
-    run_step "cockpit-test (vitest)" pnpm --dir "$COCKPIT" test -- --reporter=basic || true
-  else
-    skip_step "cockpit-tsc" "pnpm not installed"
-    skip_step "cockpit-test (vitest)" "pnpm not installed"
-  fi
-else
-  skip_step "cockpit-tsc" "$COCKPIT/ not present"
-  skip_step "cockpit-test (vitest)" "$COCKPIT/ not present"
+  skip_step "changelog-public-check" "scripts/generate_public_changelog.py missing"
 fi
 
 # ---------------------------------------------------------------

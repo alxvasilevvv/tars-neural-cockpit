@@ -6,8 +6,8 @@
   "build": {
     "frontendDist": "./web",
     "devUrl": "http://localhost:5173",
-    "beforeDevCommand": "pnpm --dir ../../experiments/neural-showcase-v3 dev",
-    "beforeBuildCommand": "pnpm cockpit:build && pnpm cockpit:package"
+    "beforeDevCommand": "pnpm run serve:web",
+    "beforeBuildCommand": "pnpm run cockpit:package"
   },
   "app": {
     "windows": [

@@ -314,6 +314,7 @@ class OutreachDraftSendIT(unittest.TestCase):
                 store.upsert_template(
                     name="Cold intro",
                     slug="cold_intro",
+                    use_case="intro",
                     system_prompt="Write a short cold intro.",
                     default_subject_template="Quick hello {name}",
                 )

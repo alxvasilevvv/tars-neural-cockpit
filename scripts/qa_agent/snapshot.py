@@ -5,12 +5,12 @@ The synthetic monitor (Wave 117) runs every 5 min in GitHub Actions and
 persists per-probe history to ``~/.tars/qa-agent/history.json``. That
 file is internal: it stores raw streaks for alert dedup. Wave 126 layers
 a *public* projection on top — a JSON document optimised for human
-consumption that the marketing site (``tars.meeet.world/status``) reads
-directly.
+consumption (published to ``docs/qa-snapshot.json`` in-repo; historically
+also consumed by the retired marketing site).
 
 Why static JSON instead of a backend endpoint?
-  * No backend coupling. The status page works even if the daemon is
-    down — Cloudflare Pages serves the snapshot from cache.
+  * No backend coupling. The snapshot is readable from disk or any
+    static host even if the API is down.
   * No auth surface. The snapshot leaks only what's already publicly
     visible (uptime %, incident summaries — no secrets, no PII).
   * Cheap to refresh. Same artifact pipeline as ``history.json``.
@@ -74,9 +74,7 @@ from typing import Any
 log = logging.getLogger("tars.qa_agent.snapshot")
 
 SNAPSHOT_VERSION = 1
-DEFAULT_SNAPSHOT_PATH = (
-    Path("experiments/neural-showcase-v3/public/qa-snapshot.json")
-)
+DEFAULT_SNAPSHOT_PATH = Path("docs/qa-snapshot.json")
 # 30 min between forced commits → ≤ 48 commits/day
 COMMIT_INTERVAL_S = 30 * 60
 

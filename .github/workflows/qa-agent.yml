@@ -16,20 +16,12 @@ on:
     paths:
       - "scripts/qa_agent/**"
       - ".github/workflows/qa-agent.yml"
-      - "experiments/neural-showcase-v3/public/_headers"
-      - "experiments/neural-showcase-v3/public/_redirects"
-      - "experiments/neural-showcase-v3/functions/**"
-      - "experiments/neural-showcase-v3/src/App.tsx"
-      - "experiments/neural-showcase-v3/src/pages/**"
+      - "docs/qa-snapshot.json"
   pull_request:
     paths:
       - "scripts/qa_agent/**"
       - ".github/workflows/qa-agent.yml"
-      - "experiments/neural-showcase-v3/public/_headers"
-      - "experiments/neural-showcase-v3/public/_redirects"
-      - "experiments/neural-showcase-v3/functions/**"
-      - "experiments/neural-showcase-v3/src/App.tsx"
-      - "experiments/neural-showcase-v3/src/pages/**"
+      - "docs/qa-snapshot.json"
   schedule:
     - cron: "*/5 * * * *"
 
@@ -38,8 +30,7 @@ env:
 
 permissions:
   # Wave 126 — needs `write` so the scheduled run can commit
-  # experiments/neural-showcase-v3/public/qa-snapshot.json on status
-  # flips. PR runs are still read-only via the conditional below.
+  # docs/qa-snapshot.json on status flips.
   contents: write
 
 concurrency:
@@ -95,10 +86,8 @@ jobs:
           # (and the artefact upload below) without turning the workflow red
           # every 5 minutes. REMOVE this env once B-019 is closed.
           QA_AGENT_SOFT_FAIL: "1"
-          # Wave 126 — emit the public snapshot to
-          # experiments/neural-showcase-v3/public/qa-snapshot.json so the
-          # /status page can read live probe state. The next step decides
-          # whether to git-commit it (see "Maybe commit public snapshot").
+          # Wave 126 — emit docs/qa-snapshot.json; runner decides whether to
+          # git-commit it (see "Maybe commit public snapshot").
           QA_AGENT_WRITE_SNAPSHOT: "1"
         run: |
           # 2>&1 stitched together so the runner's
@@ -130,7 +119,7 @@ jobs:
           && (github.event_name == 'schedule' || github.event_name == 'workflow_dispatch')
         run: |
           set -e
-          SNAP=experiments/neural-showcase-v3/public/qa-snapshot.json
+          SNAP=docs/qa-snapshot.json
           if [ ! -f "$SNAP" ]; then
             echo "snapshot file missing — skipping commit"
             exit 0

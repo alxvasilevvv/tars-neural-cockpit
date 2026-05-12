@@ -319,17 +319,15 @@ def main(argv: list[str] | None = None) -> int:
         "--write-public-snapshot",
         action="store_true",
         help=(
-            "Wave 126: also write experiments/neural-showcase-v3/public/"
-            "qa-snapshot.json so the public /status page can read live "
-            "probe state. Set via env QA_AGENT_WRITE_SNAPSHOT=1."
+            "Wave 126: also write docs/qa-snapshot.json with live probe "
+            "state. Set via env QA_AGENT_WRITE_SNAPSHOT=1."
         ),
     )
     parser.add_argument(
         "--snapshot-path",
         default=str(DEFAULT_SNAPSHOT_PATH),
         help=(
-            "Where to write the public snapshot (default: "
-            "experiments/neural-showcase-v3/public/qa-snapshot.json)."
+            "Where to write the public snapshot (default: docs/qa-snapshot.json)."
         ),
     )
     args = parser.parse_args(argv)

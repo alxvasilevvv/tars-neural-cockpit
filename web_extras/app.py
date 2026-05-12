@@ -1,8 +1,8 @@
-"""FastAPI entry for the TARS cockpit backend.
+"""FastAPI entry for the TARS backend.
 
-Tiny on purpose: just mounts the domain packs router and a couple of
-health/identity endpoints. The full cockpit (council, awareness, mac
-actions, voice) attaches its routers here once it lands.
+Tiny on purpose: mounts domain packs, chat, memory, policy, meeet, and related
+routers. No static SPA is served here — clients are CLI, desktop, or custom HTTP
+consumers.
 
 Lifespan:
 

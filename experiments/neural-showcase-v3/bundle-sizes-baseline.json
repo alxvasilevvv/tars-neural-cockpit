@@ -1,9 +1,0 @@
-{
-  "_meta": {
-    "generated": "2026-05-11T00:00:00Z",
-    "wave": 128,
-    "commit": "edc9741",
-    "note": "Auto-bootstrap on first successful main build by .github/workflows/tars-meeet-cloudflare-pages.yml. Update only via PR with rationale."
-  },
-  "sizes": []
-}

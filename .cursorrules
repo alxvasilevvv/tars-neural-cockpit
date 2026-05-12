@@ -9,20 +9,14 @@ This file is the legacy-format snapshot of `CLAUDE.md` and
 
 ## What this project is
 
-- TARS is the local-first "Neural Cockpit" agent. Released under the
- `meeet.world` brand with cross-cutting trace logging via the meeet bridge.
+- TARS is the local-first neural assistant stack. Released under the
+  `meeet.world` brand with cross-cutting trace logging via the meeet bridge.
 - Backend: Python, FastAPI-style routers under `web_extras/routers/`. Domain
- subsystems in `backend/core/*`. Agent entry points in `backend/agents/`.
-- Frontend canon: **`experiments/neural-showcase-v3/`** — React 18 + TS +
- Vite + Tailwind v4 + framer-motion. shadcn-style `components.json` ready
- for 21st.dev drops. Cockpit (`/cockpit`), marketing, and pricing all live
- here. Port 5174.
-- Premium showcase surface:
- - `experiments/neural-showcase-v2/` — Vite + Three.js + GSAP + Lenis +
- postprocessing. WebGL + custom GLSL. Port 5173.
-- ⚠ **Note**: legacy `frontend/` (vanilla HTML/CSS/JS) was retired. Anything
- referenced as "vanilla cockpit" lives in `experiments/neural-showcase-v3/`
- today.
+  subsystems in `backend/core/*`. Agent entry points in `backend/agents/`.
+- **Web UI:** the standalone React marketing/cockpit SPA was removed — **API-first**.
+  The **desktop** app bundles static assets under `desktop/src-tauri/web/`
+  (port 5173 via `pnpm run serve:web` in dev).
+- ⚠ **Note**: legacy `frontend/` (vanilla HTML/CSS/JS) was retired.
 
 ## Domain packs (Phase 9)
 
@@ -54,26 +48,10 @@ user input, never auto-execute destructive ops.
 
 ## Frontend conventions
 
-- React 18 + TS + Tailwind v4 in `experiments/neural-showcase-v3/`. Tokens
- live in `src/index.css` (shadcn CSS variables). Components in
- `src/components/`, pages in `src/pages/`.
-- Aesthetic: minimalism + futurism. No rainbow gradients, no neon flooding.
-- Cockpit/operator pages (`/cockpit`, `/cockpit/*`) keep the dark HUD aesthetic.
-- Marketing/landing pages (`/`, `/pricing`, `/about`) evolve toward premium
- AI-product feel.
+- New UIs consume the HTTP API or ship beside the desktop bundle. Follow
+  `design-system/tars/MASTER.md`.
 - Always implement empty / loading / error / success states for async surfaces.
-- Use framer-motion for purposeful motion; CSS transitions for hover / focus
- micro-interactions.
 - Accessibility: semantic structure, focus rings, `aria-live` for async.
-
-## Showcase v2 conventions
-
-- WebGL scene under `src/scene/`. Custom GLSL in `src/scene/shaders/`.
-- Postprocessing: tame bloom + faint CA + vignette + noise + SMAA.
-- Palette: deep ink + soft pastel cyan + warm amber (no neon rainbow).
-- A single subtle telemetry panel (`aside.hud`) top-left only.
-- Drop a GLB at `public/models/brain.glb` to override the procedural reactor.
-- Respect `prefers-reduced-motion` everywhere.
 
 ## Backend conventions
 
@@ -84,7 +62,6 @@ user input, never auto-execute destructive ops.
 ## Engineering guardrails
 
 - Scoped changes only.
-- No npm tooling outside `experiments/`.
 - Never commit `.env`.
 - Flag any cross-stack change.
 - For "innovative design" requests: produce a plan before big refactors.
@@ -93,26 +70,12 @@ user input, never auto-execute destructive ops.
 
 - Source of truth: `design-system/tars/MASTER.md`. Pages: `design-system/tars/pages/<slug>.md`.
 - Skill `nextlevelbuilder/ui-ux-pro-max-skill` installed in the canonical
-  Cursor + Claude Code locations:
-  - `~/.cursor/skills-cursor/ui-ux-pro-max/` (Cursor agent global,
-    registered in the `.sync-manifest.json`).
-  - `.cursor/skills/ui-ux-pro-max/` (Cursor project, fallback).
-  - `~/.claude/skills/ui-ux-pro-max/` (Claude Code global).
-  - `.claude/skills/ui-ux-pro-max/` (Claude Code project).
-  Auto-activates on UI/UX work.
+  Cursor + Claude Code locations (see `CLAUDE.md`).
 - Targeted lookup:
   `python3 .cursor/skills/ui-ux-pro-max/scripts/search.py "<query>"
   --domain style|landing|typography|ux|color`.
 - One cyan accent only (`#67E8F9`); amber (`#FBBF24`) reserved for live
   telemetry. No AI-purple/pink rainbow gradients.
-
-## 21st.dev workflow
-
-`experiments/neural-showcase-v3/` is the React drop-zone. Add any 21st.dev
-block from inside that folder:
-`npx shadcn@latest add "https://21st.dev/r/<author>/<id>"`.
-Components land in `src/components/ui/` and inherit our tokens via
-shadcn CSS variables in `src/index.css`.
 
 ## Sync with the agent
 

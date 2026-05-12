@@ -42,11 +42,11 @@ fail() {
 # 1. Cockpit web/ directory populated?
 if [[ ! -d "$WEB" ]]; then
   fail "src-tauri/web/ does not exist" \
-       "run \`pnpm cockpit:build && pnpm cockpit:package\` from desktop/"
+       "restore desktop/src-tauri/web from git (bundled static UI)"
 fi
 if [[ ! -f "$WEB/index.html" ]]; then
   fail "src-tauri/web/index.html missing — Tauri would build a blank-window installer" \
-       "run \`bash desktop/scripts/package-cockpit.sh\` (after \`pnpm build\` in the v3 cockpit)"
+       "ensure desktop/src-tauri/web is populated (committed bundle)"
 fi
 # Sanity: there should be SOME built JS chunks in the assets dir.
 asset_count=0
@@ -55,8 +55,8 @@ if [[ -d "$WEB/assets" ]]; then
   asset_count=$(ls -1 "$WEB/assets" 2>/dev/null | wc -l | tr -d ' ')
 fi
 if [[ "$asset_count" -lt 5 ]]; then
-  fail "src-tauri/web/assets has only $asset_count files — looks like a stale or partial build" \
-       "rebuild the cockpit and re-run package-cockpit.sh"
+  fail "src-tauri/web/assets has only $asset_count files — looks like a stale or partial bundle" \
+       "restore desktop/src-tauri/web from git or rebuild from a maintained UI pipeline"
 fi
 
 # 2. Icon set present.
