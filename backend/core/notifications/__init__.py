@@ -38,13 +38,21 @@ from .imessage import (
     recent_messages,
     send_imessage,
 )
+from .telegram import (
+    fanout_doctor_change,
+    is_configured as telegram_is_configured,
+    send_telegram,
+)
 
 
 __all__ = [
     "CONTRACT_VERSION",
     "IMessageError",
     "Message",
+    "fanout_doctor_change",
     "is_supported",
     "recent_messages",
     "send_imessage",
+    "send_telegram",
+    "telegram_is_configured",
 ]

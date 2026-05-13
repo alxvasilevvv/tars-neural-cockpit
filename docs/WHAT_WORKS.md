@@ -54,6 +54,7 @@ Legend:
 | Background TARS daemon — macOS LaunchAgent + Linux systemd user-unit + heartbeat *(Waves 152 + 153)* | `backend/core/daemon/{__init__,runner,launchd,systemd,__main__}.py`, `scripts/tars-daemon`, `tests/test_daemon.py`, `docs/contracts/BACKGROUND_DAEMON.md` |
 | `tars-doctor` — single-command health check across MCP / Clone sync / daemon / scheduler / webhooks / cowork / receipts / vault *(Wave 154)* + HTTP `/api/doctor` *(Wave 155)* + self-contained HTML dashboard at `/api/doctor/page` *(Wave 156)* | `backend/core/doctor/`, `web_extras/routers/doctor.py`, `scripts/tars-doctor`, `tests/test_doctor*.py`, `docs/contracts/DOCTOR.md` |
 | iMessage bridge — macOS send (AppleScript) + read (chat.db) *(Wave 160)* | `backend/core/notifications/{__init__,imessage}.py`, `tests/test_imessage.py`, `docs/contracts/IMESSAGE.md` |
+| Telegram notifier — cross-platform Bot-API send + doctor fan-out helper *(Wave 161)* | `backend/core/notifications/telegram.py`, `tests/test_telegram_notify.py`, `docs/contracts/IMESSAGE.md` (Telegram section) |
 | Smart Agent Router (LLM intent routing; opt-in `TARS_SMART_ROUTER=1`) *(Wave 73)* | `backend/core/agents/router.py`, `web_extras/routers/agents.py` |
 | OpenTelemetry exporter wrapper (no-op unless OTLP endpoint set) *(Wave 73)* | `backend/core/observability/otel.py` |
 | /dl proxy → GitHub Releases | `experiments/neural-showcase-v3/functions/dl/[file].ts` |
