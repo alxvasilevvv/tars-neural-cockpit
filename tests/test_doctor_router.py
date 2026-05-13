@@ -103,19 +103,19 @@ class TestDoctorRouter(unittest.TestCase):
         self.assertIn("daemon", slugs)
         self.assertIn("vault", slugs)
 
-    def test_html_page_renders(self) -> None:
+    def test_html_page_removed(self) -> None:
+        # W201: /api/doctor/page (HTML dashboard) was removed when UI
+        # moved into the Tauri .app bundle. The path now 404s.
         r = self.client.get("/api/doctor/page")
-        self.assertEqual(r.status_code, 200)
-        self.assertIn("text/html", r.headers.get("content-type", ""))
-        body = r.text
-        self.assertIn("<!doctype html>", body.lower())
-        self.assertIn("TARS doctor", body)
-        # The page fetches /api/doctor in JS
-        self.assertIn("/api/doctor", body)
-        # And handles the status palette
-        self.assertIn("ok", body)
-        self.assertIn("warn", body)
-        self.assertIn("fail", body)
+        # The path matches the /api/doctor/{slug} route catcher,
+        # so it returns a check-by-slug result for slug="page".
+        # Slug not in registry → expect explicit "unknown check"
+        # status from run_check() (status 200, body says fail/unknown).
+        # Accept either 200-with-unknown or 404.
+        self.assertIn(r.status_code, (200, 404))
+        if r.status_code == 200:
+            body = r.json()
+            self.assertIn(body.get("status"), ("fail", "skip"))
 
     # ─── Wave 167 — fix endpoint ───────────────────────────────────
 

@@ -1,66 +1,742 @@
 <!doctype html>
-<html lang="en" class="dark">
-  <head>
-    <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
-    <title>TARS — Neural Cockpit · meeet.world</title>
-    <meta
-      name="description"
-      content="Local-first AI agent for Mac. Multi-LLM council, Mac operator, persistent memory, $MEEET economy. Install with one curl."
-    />
-    <meta name="theme-color" content="#000000" />
+<html lang="ru">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>TARS — Control Center</title>
+<style>
+  :root {
+    --bg: #07080d;
+    --panel: rgba(17, 19, 28, 0.85);
+    --panel-edge: rgba(99, 102, 241, 0.22);
+    --text: #e6e8ef;
+    --muted: #8b8fa3;
+    --muted-2: #6b6e80;
+    --accent: #818cf8;
+    --accent-hot: #a78bfa;
+    --ok: #22c55e;
+    --warn: #f59e0b;
+    --fail: #ef4444;
+    --skip: #6b7280;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font-family: 'JetBrains Mono','SF Mono',ui-monospace,monospace; font-size: 13px; }
+  body {
+    background-image:
+      radial-gradient(900px 400px at 20% -10%, rgba(99,102,241,0.18), transparent 60%),
+      radial-gradient(900px 400px at 90% 110%, rgba(167,139,250,0.15), transparent 60%);
+    overflow: hidden;
+  }
+  .app { display: grid; grid-template-rows: 56px 44px 1fr 28px; height: 100vh; }
+  header {
+    display: flex; align-items: center; gap: 14px;
+    padding: 0 18px;
+    border-bottom: 1px solid var(--panel-edge);
+    background: linear-gradient(180deg, rgba(99,102,241,0.10), transparent);
+  }
+  header .logo {
+    font-weight: 700; letter-spacing: 0.18em; font-size: 14px;
+    background: linear-gradient(90deg, #a78bfa, #818cf8 50%, #38bdf8);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  }
+  header .badge {
+    font-size: 10px; padding: 3px 8px; border-radius: 999px;
+    border: 1px solid var(--panel-edge); color: var(--muted);
+    background: rgba(255,255,255,0.02);
+  }
+  header .pill { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+  header .pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 12px var(--ok); }
+  header .pill .live { font-size: 11px; color: var(--ok); }
 
-    <!-- Favicon -->
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-    <link rel="apple-touch-icon" href="/favicon.svg" />
-    <link rel="mask-icon" href="/favicon.svg" color="#6366F1" />
+  nav.tabs { display: flex; gap: 0; padding: 0 16px; border-bottom: 1px solid var(--panel-edge); background: rgba(0,0,0,0.2); }
+  nav.tabs button {
+    background: none; border: none; color: var(--muted); cursor: pointer;
+    padding: 12px 18px; font-family: inherit; font-size: 12px;
+    letter-spacing: 0.06em; text-transform: uppercase; font-weight: 600;
+    border-bottom: 2px solid transparent; transition: all 0.15s;
+  }
+  nav.tabs button:hover { color: var(--text); background: rgba(255,255,255,0.02); }
+  nav.tabs button.active { color: var(--accent-hot); border-bottom-color: var(--accent); background: rgba(129,140,248,0.06); }
+  nav.tabs button .count { font-size: 9px; margin-left: 6px; padding: 1px 5px; border-radius: 6px; background: rgba(129,140,248,0.18); color: var(--accent); }
 
-    <!-- PWA -->
-    <link rel="manifest" href="/manifest.webmanifest" />
-    <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-title" content="TARS" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  main { padding: 14px; overflow: hidden; }
+  .tab-panel { display: none; height: 100%; }
+  .tab-panel.active { display: block; }
 
-    <!-- Canonical -->
-    <link rel="canonical" href="https://meeet.world/" />
+  /* Status tab — keep layout from W186 */
+  #tab-status { display: none; grid-template-columns: 320px 1fr; gap: 14px; min-height: 0; height: 100%; }
+  #tab-status.active { display: grid; }
+  .col { display: grid; gap: 14px; min-height: 0; overflow: auto; }
 
-    <!-- meeet.world integration metadata —
-         consumed by meeet.world SSR and the (Cursor's pending) public
-         /api/product/downloads handshake. Contract version pinned to 1.0.0
-         per docs/AGENT_HANDOFF.md → Handoff → Claude. -->
-    <meta name="meeet:product" content="tars" />
-    <meta name="meeet:contract-version" content="1.0.0" />
-    <meta name="meeet:downloads-endpoint" content="/api/product/downloads" />
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--panel-edge);
+    border-radius: 14px;
+    padding: 14px;
+    box-shadow: 0 10px 40px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.04);
+    overflow: auto;
+  }
+  .panel h2 {
+    font-size: 11px; letter-spacing: 0.2em; color: var(--muted); margin: 0 0 10px;
+    text-transform: uppercase; font-weight: 600;
+  }
 
-    <!-- Open Graph -->
-    <meta property="og:type" content="website" />
-    <meta property="og:title" content="TARS — your machine, your second brain." />
-    <meta property="og:description" content="Local-first AI agent. Multi-LLM council. Mac operator. $MEEET economy. One curl, sixty seconds." />
-    <meta property="og:image" content="https://meeet.world/og.svg" />
-    <meta property="og:image:width" content="1200" />
-    <meta property="og:image:height" content="630" />
-    <meta property="og:url" content="https://meeet.world/" />
-    <meta property="og:site_name" content="TARS · meeet.world" />
+  .counter { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+  .counter .c { flex: 1; min-width: 60px; background: rgba(0,0,0,0.25); border-radius: 10px; padding: 10px; border: 1px solid var(--panel-edge); }
+  .counter .c .n { font-size: 22px; font-weight: 700; }
+  .counter .c .l { font-size: 10px; color: var(--muted); letter-spacing: 0.12em; text-transform: uppercase; }
+  .counter .c.ok .n { color: var(--ok); }
+  .counter .c.warn .n { color: var(--warn); }
+  .counter .c.fail .n { color: var(--fail); }
+  .counter .c.skip .n { color: var(--skip); }
 
-    <!-- Twitter Card -->
-    <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="TARS — your machine, your second brain." />
-    <meta name="twitter:description" content="Local-first AI agent. Multi-LLM council. Mac operator. $MEEET economy." />
-    <meta name="twitter:image" content="https://meeet.world/og.svg" />
-    <meta name="twitter:site" content="@meeetworld" />
+  .row { display: flex; gap: 10px; padding: 10px 0; border-top: 1px solid var(--panel-edge); align-items: flex-start; }
+  .row:first-of-type { border-top: none; }
+  .row .status { font-size: 10px; padding: 2px 8px; border-radius: 999px; font-weight: 700; letter-spacing: 0.1em; min-width: 56px; text-align: center; }
+  .status.ok { color: var(--ok); background: rgba(34,197,94,0.08); border: 1px solid rgba(34,197,94,0.3); }
+  .status.warn { color: var(--warn); background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.3); }
+  .status.fail { color: var(--fail); background: rgba(239,68,68,0.08); border: 1px solid rgba(239,68,68,0.3); }
+  .status.skip { color: var(--skip); background: rgba(107,114,128,0.08); border: 1px solid rgba(107,114,128,0.3); }
+  .row .info { flex: 1; min-width: 0; }
+  .row .slug { font-size: 13px; font-weight: 600; color: var(--text); }
+  .row .summary { font-size: 11px; color: var(--muted); margin-top: 2px; line-height: 1.5; word-wrap: break-word; }
 
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <!-- Per design-system/tars/MASTER.md (skill: Share Tech Mono + Fira Code) -->
-    <link
-      href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap"
-      rel="stylesheet"
-    />
-    <script type="module" crossorigin src="/assets/index-B8RpGBsb.js"></script>
-    <link rel="modulepreload" crossorigin href="/assets/react-vendor-DRVBxK-d.js">
-    <link rel="stylesheet" crossorigin href="/assets/index-x27x8g94.css">
-  </head>
-  <body>
-    <div id="root"></div>
-  </body>
+  .actions { display: flex; gap: 8px; flex-wrap: wrap; }
+  .btn {
+    font-family: inherit; font-size: 12px;
+    background: rgba(129,140,248,0.10); color: var(--accent);
+    border: 1px solid rgba(129,140,248,0.3); border-radius: 8px;
+    padding: 8px 14px; cursor: pointer; transition: all 0.15s;
+    letter-spacing: 0.05em;
+  }
+  .btn:hover { background: rgba(129,140,248,0.22); color: var(--accent-hot); border-color: var(--accent-hot); }
+  .btn:active { transform: translateY(1px); }
+  .btn.primary { background: var(--accent); color: #0b0b1a; border-color: var(--accent); }
+  .btn.primary:hover { background: var(--accent-hot); border-color: var(--accent-hot); color: #0b0b1a; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  .kv { display: grid; grid-template-columns: 1fr auto; gap: 6px 12px; font-size: 12px; }
+  .kv .k { color: var(--muted); }
+  .kv .v { font-family: 'JetBrains Mono',ui-monospace,monospace; color: var(--text); }
+
+  pre.log {
+    background: rgba(0,0,0,0.4); border-radius: 8px; padding: 10px;
+    font-size: 11px; color: var(--muted); max-height: 240px;
+    overflow: auto; line-height: 1.5; white-space: pre-wrap; word-wrap: break-word;
+    border: 1px solid var(--panel-edge);
+  }
+
+  /* Chat tab */
+  #tab-chat { display: none; grid-template-columns: 240px 1fr; gap: 14px; height: 100%; min-height: 0; }
+  #tab-chat.active { display: grid; }
+  .threads { background: var(--panel); border: 1px solid var(--panel-edge); border-radius: 14px; padding: 14px; overflow: auto; }
+  .threads h2 { font-size: 11px; letter-spacing: 0.2em; color: var(--muted); margin: 0 0 10px; text-transform: uppercase; font-weight: 600; }
+  .threads .thread-item { padding: 10px; border-radius: 8px; cursor: pointer; margin-bottom: 6px; border: 1px solid transparent; transition: all 0.12s; }
+  .threads .thread-item:hover { background: rgba(129,140,248,0.08); border-color: var(--panel-edge); }
+  .threads .thread-item.active { background: rgba(129,140,248,0.18); border-color: var(--accent); }
+  .threads .thread-item .title { font-size: 12px; color: var(--text); font-weight: 600; }
+  .threads .thread-item .ts { font-size: 10px; color: var(--muted); margin-top: 3px; }
+  .chat-pane { display: grid; grid-template-rows: 1fr auto; min-height: 0; background: var(--panel); border: 1px solid var(--panel-edge); border-radius: 14px; }
+  .chat-messages { padding: 14px; overflow: auto; }
+  .chat-empty { color: var(--muted); text-align: center; padding: 40px 20px; font-size: 12px; line-height: 1.6; }
+  .msg { padding: 10px 12px; border-radius: 10px; margin-bottom: 10px; font-size: 13px; line-height: 1.5; max-width: 80%; word-wrap: break-word; }
+  .msg.user { background: rgba(129,140,248,0.12); border: 1px solid rgba(129,140,248,0.2); margin-left: auto; }
+  .msg.assistant { background: rgba(255,255,255,0.03); border: 1px solid var(--panel-edge); }
+  .msg .meta { font-size: 10px; color: var(--muted); margin-bottom: 4px; letter-spacing: 0.08em; text-transform: uppercase; }
+  .chat-input { display: flex; gap: 8px; padding: 12px; border-top: 1px solid var(--panel-edge); }
+  .chat-input input { flex: 1; background: rgba(0,0,0,0.3); border: 1px solid var(--panel-edge); border-radius: 8px; color: var(--text); padding: 10px 12px; font-family: inherit; font-size: 13px; }
+  .chat-input input:focus { outline: none; border-color: var(--accent); }
+
+  /* Activity / Receipts tab */
+  #tab-activity .activity-row { padding: 10px 0; border-bottom: 1px solid var(--panel-edge); display: grid; grid-template-columns: 120px 1fr 80px; gap: 12px; align-items: center; font-size: 12px; }
+  #tab-activity .ts { color: var(--muted); font-size: 11px; }
+  #tab-activity .kind { font-weight: 600; }
+  #tab-activity .anchor { font-size: 10px; color: var(--accent); }
+
+  /* Connectors tab */
+  #tab-connectors .connector-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+  .connector-card { padding: 14px; border-radius: 10px; background: rgba(0,0,0,0.25); border: 1px solid var(--panel-edge); }
+  .connector-card .name { font-weight: 600; margin-bottom: 4px; }
+  .connector-card .state { font-size: 11px; padding: 2px 8px; border-radius: 999px; display: inline-block; margin-top: 6px; }
+  .connector-card .state.connected { color: var(--ok); background: rgba(34,197,94,0.08); border: 1px solid rgba(34,197,94,0.3); }
+  .connector-card .state.disconnected { color: var(--muted); background: rgba(107,114,128,0.08); border: 1px solid rgba(107,114,128,0.3); }
+
+  /* Settings tab */
+  #tab-settings .setting-block { padding: 14px; border-radius: 10px; background: rgba(0,0,0,0.25); border: 1px solid var(--panel-edge); margin-bottom: 12px; }
+  #tab-settings .setting-block h3 { margin: 0 0 8px; font-size: 12px; color: var(--accent); letter-spacing: 0.08em; }
+  #tab-settings code { background: rgba(0,0,0,0.4); padding: 2px 6px; border-radius: 4px; color: var(--text); font-size: 11px; }
+
+  .toast {
+    position: fixed; bottom: 50px; left: 50%; transform: translateX(-50%);
+    background: var(--panel); border: 1px solid var(--panel-edge); border-radius: 10px;
+    padding: 12px 18px; box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+    font-size: 12px; max-width: 80vw; opacity: 0; transition: opacity 0.3s, transform 0.3s;
+    pointer-events: none; z-index: 1000;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(-4px); }
+  .toast.ok { border-color: rgba(34,197,94,0.4); }
+  .toast.fail { border-color: rgba(239,68,68,0.4); }
+
+  footer { display: flex; align-items: center; justify-content: space-between; padding: 0 18px; font-size: 10px; color: var(--muted); border-top: 1px solid var(--panel-edge); background: rgba(0,0,0,0.4); letter-spacing: 0.08em; }
+  footer span { font-family: 'JetBrains Mono',ui-monospace,monospace; }
+
+  .empty-state { color: var(--muted); text-align: center; padding: 30px 20px; font-size: 12px; line-height: 1.6; }
+  .empty-state a { color: var(--accent); text-decoration: none; }
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <div class="logo">⏐⏐ TARS · CONTROL CENTER</div>
+    <div class="badge">v9.2.0-beta1 · local</div>
+    <div class="pill">
+      <span class="live" id="apiStatus">connecting…</span>
+      <span class="dot" id="apiDot"></span>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button class="active" data-tab="status">Status</button>
+    <button data-tab="chat">Chat <span class="count" id="threadCount">·</span></button>
+    <button data-tab="activity">Activity <span class="count" id="actCount">·</span></button>
+    <button data-tab="connectors">Connectors <span class="count" id="connCount">·</span></button>
+    <button data-tab="cowork">Cowork <span class="count" id="coCount">·</span></button>
+    <button data-tab="marketplace">Plugins <span class="count" id="mpCount">·</span></button>
+    <button data-tab="settings">Settings</button>
+  </nav>
+
+  <main>
+    <!-- STATUS TAB -->
+    <div id="tab-status" class="tab-panel active">
+      <div class="col">
+        <div class="panel">
+          <h2>System</h2>
+          <div class="kv">
+            <div class="k">Backend</div><div class="v" id="kvBackend">—</div>
+            <div class="k">Tier</div><div class="v" id="kvTier">—</div>
+            <div class="k">Billing</div><div class="v" id="kvBilling">—</div>
+            <div class="k">Auto-refresh</div><div class="v">30s</div>
+            <div class="k">Last update</div><div class="v" id="kvUpdated">—</div>
+          </div>
+        </div>
+        <div class="panel">
+          <h2>Quick actions</h2>
+          <div class="actions">
+            <button class="btn primary" onclick="refreshAll()">↻ Reload</button>
+            <button class="btn" onclick="runFix('vault')">⚒ fix vault</button>
+            <button class="btn" onclick="testNotify()">📣 test alert</button>
+            <button class="btn" onclick="window.open(API + '/api/doctor/page','_blank')">↗ full doctor</button>
+          </div>
+        </div>
+        <div class="panel">
+          <h2>Daemon log tail</h2>
+          <pre class="log" id="logTail">loading…</pre>
+        </div>
+      </div>
+      <div class="col">
+        <div class="panel">
+          <h2>Health checks (live · 11 registered)</h2>
+          <div class="counter">
+            <div class="c ok"><div class="n" id="cOk">·</div><div class="l">ok</div></div>
+            <div class="c warn"><div class="n" id="cWarn">·</div><div class="l">warn</div></div>
+            <div class="c fail"><div class="n" id="cFail">·</div><div class="l">fail</div></div>
+            <div class="c skip"><div class="n" id="cSkip">·</div><div class="l">skip</div></div>
+          </div>
+          <div id="rows"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CHAT TAB -->
+    <div id="tab-chat" class="tab-panel">
+      <div class="threads">
+        <h2>Threads</h2>
+        <button class="btn primary" style="width:100%;margin-bottom:10px;" onclick="createThread()">+ New thread</button>
+        <div id="threadsList"></div>
+      </div>
+      <div class="chat-pane">
+        <div class="chat-messages" id="chatMessages">
+          <div class="chat-empty">Select or create a thread.<br/><br/>Chat uses your configured LLM provider key.<br/>Set <code>ANTHROPIC_API_KEY</code> or <code>OPENROUTER_API_KEY</code> in <code>.env</code>.</div>
+        </div>
+        <div class="chat-input">
+          <input type="text" id="chatInput" placeholder="Type a message... (Enter to send)" onkeydown="if(event.key==='Enter')sendMessage()" disabled />
+          <button class="btn primary" onclick="sendMessage()" id="chatSend" disabled>Send</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- ACTIVITY TAB -->
+    <div id="tab-activity" class="tab-panel">
+      <div class="panel" style="max-height: calc(100vh - 200px); overflow: auto;">
+        <h2>Recent activity · signed receipts ledger</h2>
+        <div id="activityRows">
+          <div class="empty-state">Loading…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CONNECTORS TAB -->
+    <div id="tab-connectors" class="tab-panel">
+      <div class="panel">
+        <h2>Connectors · external integrations</h2>
+        <div class="connector-grid" id="connectorsGrid">
+          <div class="empty-state">Loading…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- COWORK TAB -->
+    <div id="tab-cowork" class="tab-panel">
+      <div class="panel">
+        <h2>Cowork sessions · multiplayer agents</h2>
+        <div id="coworkRows">
+          <div class="empty-state">Loading…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- MARKETPLACE TAB -->
+    <div id="tab-marketplace" class="tab-panel">
+      <div class="panel" style="max-height: calc(100vh - 200px); overflow: auto;">
+        <h2>Plugins · marketplace v0</h2>
+        <div id="marketplaceRows">
+          <div class="empty-state">Loading…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- SETTINGS TAB -->
+    <div id="tab-settings" class="tab-panel">
+      <div class="panel" style="max-height: calc(100vh - 200px); overflow: auto;">
+        <h2>Settings</h2>
+        <div class="setting-block">
+          <h3>API KEYS</h3>
+          <div class="kv" id="apiKeyKv">
+            <div class="k">Anthropic</div><div class="v" id="kAnthropic">—</div>
+            <div class="k">OpenAI</div><div class="v" id="kOpenAI">—</div>
+            <div class="k">OpenRouter</div><div class="v" id="kOpenRouter">—</div>
+          </div>
+          <div style="margin-top: 10px; font-size: 11px; color: var(--muted);">
+            Keys live in <code>.env</code> at repo root. Edit + restart backend.
+          </div>
+        </div>
+        <div class="setting-block">
+          <h3>NOTIFICATIONS</h3>
+          <div class="kv">
+            <div class="k">Configured channels</div><div class="v" id="kChannels">—</div>
+            <div class="k">iMessage recipient</div><div class="v" id="kImsg">—</div>
+            <div class="k">Telegram chat</div><div class="v" id="kTg">—</div>
+            <div class="k">Email to</div><div class="v" id="kEmail">—</div>
+          </div>
+          <div style="margin-top: 10px;">
+            <button class="btn" onclick="testNotify()">📣 send test alert</button>
+          </div>
+        </div>
+        <div class="setting-block">
+          <h3>BILLING</h3>
+          <div class="kv">
+            <div class="k">Source</div><div class="v" id="kBillSrc">—</div>
+            <div class="k">Authority</div><div class="v" id="kBillAuth">—</div>
+            <div class="k">Tier</div><div class="v" id="kBillTier">—</div>
+          </div>
+        </div>
+        <div class="setting-block">
+          <h3>SYSTEM</h3>
+          <div class="kv">
+            <div class="k">TARS version</div><div class="v" id="kVer">—</div>
+            <div class="k">Daemon</div><div class="v" id="kDaemon">—</div>
+            <div class="k">Scheduler enabled</div><div class="v" id="kSched">—</div>
+            <div class="k">Disk free</div><div class="v" id="kDisk">—</div>
+          </div>
+          <div style="margin-top: 10px;">
+            <button class="btn" onclick="window.open(API + '/docs', '_blank')">↗ Full API docs (Swagger)</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </main>
+  <footer>
+    <span>API → 127.0.0.1:8765</span>
+    <span id="ts">—</span>
+  </footer>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const API = (window.location.protocol === 'file:' || window.location.hostname === '')
+  ? 'http://127.0.0.1:8765'
+  : '';
+const $ = (id) => document.getElementById(id);
+let activeTab = 'status';
+let activeThread = null;
+const threadCache = {};
+
+function toast(msg, kind = '') {
+  const t = $('toast');
+  t.textContent = msg;
+  t.className = 'toast show ' + kind;
+  setTimeout(() => t.classList.remove('show'), 3200);
+}
+
+async function fetchJSON(path, opts = {}) {
+  const r = await fetch(API + path, {
+    headers: { 'Accept': 'application/json', ...(opts.headers || {}) },
+    method: opts.method || 'GET',
+    body: opts.body,
+  });
+  if (!r.ok) throw new Error(`${path} → ${r.status}`);
+  return r.json();
+}
+
+// ─── tabs ───
+document.querySelectorAll('nav.tabs button').forEach(b => {
+  b.addEventListener('click', () => {
+    document.querySelectorAll('nav.tabs button').forEach(x => x.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(x => x.classList.remove('active'));
+    b.classList.add('active');
+    activeTab = b.dataset.tab;
+    $('tab-' + activeTab).classList.add('active');
+    if (activeTab === 'chat') loadThreads();
+    if (activeTab === 'activity') loadActivity();
+    if (activeTab === 'connectors') loadConnectors();
+    if (activeTab === 'cowork') loadCowork();
+    if (activeTab === 'marketplace') loadMarketplace();
+    if (activeTab === 'settings') loadSettings();
+  });
+});
+
+// ─── status (W186 logic) ───
+async function refreshDoctor() {
+  try {
+    const data = await fetchJSON('/api/doctor?format=json');
+    const rows = Array.isArray(data) ? data : (data.results || data.checks || []);
+    const counts = { ok: 0, warn: 0, fail: 0, skip: 0 };
+    for (const r of rows) counts[r.status] = (counts[r.status] || 0) + 1;
+    $('cOk').textContent = counts.ok || 0;
+    $('cWarn').textContent = counts.warn || 0;
+    $('cFail').textContent = counts.fail || 0;
+    $('cSkip').textContent = counts.skip || 0;
+    $('rows').innerHTML = rows.map(r => `
+      <div class="row">
+        <div class="status ${r.status}">${(r.status || '?').toUpperCase()}</div>
+        <div class="info">
+          <div class="slug">${r.label || r.slug}</div>
+          <div class="summary">${r.summary || ''}${r.suggestion ? ' → ' + r.suggestion : ''}</div>
+        </div>
+      </div>
+    `).join('');
+    $('apiStatus').textContent = 'live';
+    $('apiStatus').style.color = 'var(--ok)';
+    $('apiDot').style.background = 'var(--ok)';
+    $('apiDot').style.boxShadow = '0 0 12px var(--ok)';
+  } catch (e) {
+    $('apiStatus').textContent = 'offline';
+    $('apiStatus').style.color = 'var(--fail)';
+    $('rows').innerHTML = `<div class="empty-state">Backend unreachable.<br/>Run scripts/backend-up.command</div>`;
+  }
+}
+
+async function refreshEntitlements() {
+  try {
+    const d = await fetchJSON('/api/entitlements');
+    $('kvBackend').textContent = '127.0.0.1:8765';
+    $('kvTier').textContent = d.tier || '—';
+    $('kvBilling').textContent = (d.billing && d.billing.source) || '—';
+  } catch (e) { $('kvBackend').textContent = 'unreachable'; }
+}
+
+async function refreshLog() {
+  try {
+    const data = await fetchJSON('/api/doctor/daemon');
+    const r = data.result || data;
+    $('logTail').textContent = JSON.stringify(r, null, 2);
+  } catch (e) { $('logTail').textContent = '(daemon detail not available)'; }
+}
+
+function timestamp() {
+  $('kvUpdated').textContent = new Date().toLocaleTimeString();
+  $('ts').textContent = new Date().toISOString();
+}
+
+async function refreshAll() {
+  await Promise.all([refreshDoctor(), refreshEntitlements(), refreshLog()]);
+  timestamp();
+}
+
+async function runFix(slug) {
+  try {
+    const r = await fetch(`${API}/api/doctor/fix/${slug}`, { method: 'POST' });
+    const d = await r.json();
+    if (d.ok && d.result) {
+      const res = d.result;
+      if (res.applied) toast(`✓ ${slug} fixed: ${res.before_status} → ${res.after_status}`, 'ok');
+      else toast(`◌ ${slug} skipped: ${res.reason}`, '');
+    } else toast(`✗ fix ${slug} failed`, 'fail');
+    setTimeout(refreshAll, 600);
+  } catch (e) { toast(`✗ ${e.message}`, 'fail'); }
+}
+
+async function testNotify() {
+  try {
+    const r = await fetch(`${API}/api/doctor/test/notify`, { method: 'POST' });
+    const d = await r.json();
+    if (d.ok) toast(`✓ notify sent to ${(d.results||[]).length} channels`, 'ok');
+    else toast(`◌ ${d.error || 'no channels configured'}`, '');
+  } catch (e) { toast(`✗ ${e.message}`, 'fail'); }
+}
+
+// ─── chat ───
+async function loadThreads() {
+  try {
+    const d = await fetchJSON('/api/chat/threads');
+    const threads = d.threads || d || [];
+    $('threadCount').textContent = threads.length;
+    if (!threads.length) {
+      $('threadsList').innerHTML = '<div class="empty-state">No threads yet. Create one →</div>';
+      return;
+    }
+    $('threadsList').innerHTML = threads.map(t => `
+      <div class="thread-item${t.id === activeThread ? ' active' : ''}" onclick="openThread('${t.id}')">
+        <div class="title">${escapeHtml(t.title || t.subject || 'untitled')}</div>
+        <div class="ts">${new Date(t.updated_at || t.created_at || Date.now()).toLocaleString()}</div>
+      </div>
+    `).join('');
+  } catch (e) {
+    $('threadsList').innerHTML = `<div class="empty-state">Failed: ${e.message}</div>`;
+  }
+}
+
+async function createThread() {
+  try {
+    const title = prompt('Thread title:', 'Quick chat ' + new Date().toLocaleTimeString());
+    if (!title) return;
+    const r = await fetch(`${API}/api/chat/threads`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title }),
+    });
+    const d = await r.json();
+    if (d.id || (d.thread && d.thread.id)) {
+      toast('✓ thread created', 'ok');
+      const id = d.id || d.thread.id;
+      await loadThreads();
+      openThread(id);
+    } else {
+      toast(`✗ create failed: ${JSON.stringify(d).slice(0,80)}`, 'fail');
+    }
+  } catch (e) { toast(`✗ ${e.message}`, 'fail'); }
+}
+
+async function openThread(id) {
+  activeThread = id;
+  $('chatInput').disabled = false;
+  $('chatSend').disabled = false;
+  document.querySelectorAll('.thread-item').forEach(el => el.classList.remove('active'));
+  try {
+    const d = await fetchJSON(`/api/chat/threads/${id}/messages`);
+    const messages = d.messages || d || [];
+    if (!messages.length) {
+      $('chatMessages').innerHTML = '<div class="chat-empty">Empty thread. Type to start →</div>';
+      return;
+    }
+    $('chatMessages').innerHTML = messages.map(m => `
+      <div class="msg ${m.role === 'user' ? 'user' : 'assistant'}">
+        <div class="meta">${m.role}</div>
+        ${escapeHtml(m.content || m.text || '')}
+      </div>
+    `).join('');
+    $('chatMessages').scrollTop = $('chatMessages').scrollHeight;
+    loadThreads();
+  } catch (e) {
+    $('chatMessages').innerHTML = `<div class="chat-empty">Failed to load: ${e.message}</div>`;
+  }
+}
+
+async function sendMessage() {
+  if (!activeThread) return;
+  const text = $('chatInput').value.trim();
+  if (!text) return;
+  $('chatInput').value = '';
+  $('chatInput').disabled = true; $('chatSend').disabled = true;
+  $('chatMessages').innerHTML += `<div class="msg user"><div class="meta">user</div>${escapeHtml(text)}</div>`;
+  $('chatMessages').scrollTop = $('chatMessages').scrollHeight;
+  try {
+    const r = await fetch(`${API}/api/chat/threads/${activeThread}/messages`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ content: text, role: 'user' }),
+    });
+    const d = await r.json();
+    if (d.assistant || d.message) {
+      const reply = d.assistant?.content || d.message?.content || JSON.stringify(d);
+      $('chatMessages').innerHTML += `<div class="msg assistant"><div class="meta">assistant</div>${escapeHtml(reply)}</div>`;
+    } else {
+      $('chatMessages').innerHTML += `<div class="msg assistant"><div class="meta">system</div>(message posted; response shape: ${JSON.stringify(d).slice(0,200)})</div>`;
+    }
+    $('chatMessages').scrollTop = $('chatMessages').scrollHeight;
+  } catch (e) {
+    $('chatMessages').innerHTML += `<div class="msg assistant"><div class="meta">error</div>${e.message}</div>`;
+  }
+  $('chatInput').disabled = false; $('chatSend').disabled = false;
+  $('chatInput').focus();
+}
+
+// ─── activity ───
+async function loadActivity() {
+  try {
+    const d = await fetchJSON('/api/receipts');
+    const items = d.receipts || d.items || d || [];
+    $('actCount').textContent = items.length;
+    if (!items.length) {
+      $('activityRows').innerHTML = '<div class="empty-state">No receipts yet. Action history will appear here.</div>';
+      return;
+    }
+    $('activityRows').innerHTML = items.slice(0, 100).map(r => `
+      <div class="activity-row">
+        <div class="ts">${new Date((r.ts || r.created_at || 0) * (r.ts > 1e12 ? 1 : 1000)).toLocaleString()}</div>
+        <div>
+          <span class="kind">${escapeHtml(r.kind || r.event || 'receipt')}</span>
+          <span style="color:var(--muted); margin-left: 6px;">${escapeHtml(JSON.stringify(r.payload || r.data || {}).slice(0,80))}</span>
+        </div>
+        <div class="anchor">${r.anchored ? '⚓ ' + (r.signature || '').slice(0,6) : ''}</div>
+      </div>
+    `).join('');
+  } catch (e) {
+    $('activityRows').innerHTML = `<div class="empty-state">Failed: ${e.message}</div>`;
+  }
+}
+
+// ─── connectors ───
+async function loadConnectors() {
+  const grid = $('connectorsGrid');
+  const cards = [];
+  const probes = [
+    { name: 'GitHub', path: '/api/connectors/github/health' },
+    { name: 'Slack', path: '/api/connectors/slack/health' },
+    { name: 'Gmail', path: '/api/connectors/gmail/health' },
+    { name: 'Google Calendar', path: '/api/connectors/calendar/health' },
+    { name: 'Telegram', path: '/api/connectors/telegram/health' },
+    { name: 'meeet.world bridge', path: '/api/meeet/health' },
+  ];
+  const results = await Promise.allSettled(probes.map(async p => {
+    try { const d = await fetchJSON(p.path); return { ...p, ok: true, info: d }; }
+    catch (e) { return { ...p, ok: false, info: { error: e.message } }; }
+  }));
+  let connected = 0;
+  results.forEach(r => {
+    const v = r.value;
+    const status = v.ok && (v.info.ok !== false) && (v.info.connected !== false);
+    if (status) connected++;
+    cards.push(`
+      <div class="connector-card">
+        <div class="name">${v.name}</div>
+        <div style="font-size:10px;color:var(--muted);font-family:monospace;">${v.path}</div>
+        <div class="state ${status ? 'connected' : 'disconnected'}">${status ? 'connected' : 'not configured'}</div>
+        ${v.info.error ? `<div style="font-size:10px;color:var(--muted);margin-top:6px;">${escapeHtml(v.info.error)}</div>` : ''}
+      </div>
+    `);
+  });
+  $('connCount').textContent = connected;
+  grid.innerHTML = cards.join('');
+}
+
+// ─── cowork ───
+async function loadCowork() {
+  try {
+    const d = await fetchJSON('/api/cowork/sessions');
+    const sessions = d.sessions || d || [];
+    $('coCount').textContent = sessions.length;
+    if (!sessions.length) {
+      $('coworkRows').innerHTML = '<div class="empty-state">No cowork sessions.<br/><br/>Cowork = multiplayer agent sessions where multiple operators collaborate on the same task with handoff.</div>';
+      return;
+    }
+    $('coworkRows').innerHTML = sessions.map(s => `
+      <div class="row">
+        <div class="status ok">LIVE</div>
+        <div class="info">
+          <div class="slug">${escapeHtml(s.title || s.slug || s.id)}</div>
+          <div class="summary">${(s.members || []).length} members · ${escapeHtml(s.last_activity || '')}</div>
+        </div>
+      </div>
+    `).join('');
+  } catch (e) {
+    $('coworkRows').innerHTML = `<div class="empty-state">Failed: ${e.message}</div>`;
+  }
+}
+
+// ─── marketplace ───
+async function loadMarketplace() {
+  try {
+    const d = await fetchJSON('/api/marketplace/listings');
+    const listings = d.listings || d.items || d || [];
+    $('mpCount').textContent = listings.length;
+    if (!listings.length) {
+      $('marketplaceRows').innerHTML = '<div class="empty-state">No plugins available.</div>';
+      return;
+    }
+    $('marketplaceRows').innerHTML = listings.slice(0, 50).map(l => `
+      <div class="row">
+        <div class="status ok">${(l.installed ? 'INSTALLED' : 'AVAILABLE')}</div>
+        <div class="info">
+          <div class="slug">${escapeHtml(l.name || l.id)} <span style="font-size:10px;color:var(--muted);">v${escapeHtml(l.version || '0.1.0')}</span></div>
+          <div class="summary">${escapeHtml(l.summary || l.description || '')}</div>
+        </div>
+      </div>
+    `).join('');
+  } catch (e) {
+    $('marketplaceRows').innerHTML = `<div class="empty-state">Failed: ${e.message}</div>`;
+  }
+}
+
+// ─── settings ───
+async function loadSettings() {
+  try {
+    const llm = await fetchJSON('/api/doctor/llm_provider').catch(() => ({}));
+    const d = llm.result || llm;
+    const details = d.details || {};
+    $('kAnthropic').textContent = details.anthropic_set ? '✓ ' + (details.anthropic_preview || '') : '— not set';
+    $('kAnthropic').style.color = details.anthropic_set ? 'var(--ok)' : 'var(--muted)';
+    $('kOpenAI').textContent = details.openai_set ? '✓ ' + (details.openai_preview || '') : '— not set';
+    $('kOpenAI').style.color = details.openai_set ? 'var(--ok)' : 'var(--muted)';
+    $('kOpenRouter').textContent = details.openrouter_set ? '✓ ' + (details.openrouter_preview || '') : '— not set';
+    $('kOpenRouter').style.color = details.openrouter_set ? 'var(--ok)' : 'var(--muted)';
+
+    $('kChannels').textContent = '— (config in .env: TARS_DAEMON_FANOUT_CHANNELS)';
+    $('kImsg').textContent = '— (.env: TARS_IMESSAGE_RECIPIENT)';
+    $('kTg').textContent = '— (.env: TARS_TELEGRAM_BOT_TOKEN + CHAT_ID)';
+    $('kEmail').textContent = '— (.env: TARS_EMAIL_TO)';
+
+    const ent = await fetchJSON('/api/entitlements').catch(() => ({}));
+    $('kBillSrc').textContent = (ent.billing && ent.billing.source) || '—';
+    $('kBillAuth').textContent = (ent.billing && ent.billing.authority) || '—';
+    $('kBillTier').textContent = ent.tier || '—';
+
+    const ver = await fetchJSON('/api/product/version').catch(() => ({}));
+    $('kVer').textContent = (ver.version || 'v9.2.0-beta1');
+
+    const dae = await fetchJSON('/api/doctor/daemon').catch(() => ({}));
+    const daeR = dae.result || dae;
+    $('kDaemon').textContent = daeR.status === 'ok' ? '✓ alive' : '— not running';
+
+    const sch = await fetchJSON('/api/doctor/scheduler').catch(() => ({}));
+    const schR = sch.result || sch;
+    $('kSched').textContent = (schR.summary || '').includes('enabled') ? '✓ enabled' : '— disabled';
+
+    const dsk = await fetchJSON('/api/doctor/disk_space').catch(() => ({}));
+    const dskR = dsk.result || dsk;
+    $('kDisk').textContent = (dskR.details && dskR.details.free_gb) ? dskR.details.free_gb + ' GB' : '—';
+  } catch (e) { toast(`✗ settings load: ${e.message}`, 'fail'); }
+}
+
+function escapeHtml(s) {
+  if (!s) return '';
+  return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// Auto-refresh status every 30s.
+refreshAll();
+setInterval(() => { if (activeTab === 'status') refreshAll(); }, 30000);
+</script>
+</body>
 </html>
