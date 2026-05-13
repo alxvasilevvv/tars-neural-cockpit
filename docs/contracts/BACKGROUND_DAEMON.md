@@ -1,6 +1,6 @@
-# TARS Background daemon — v0.1 contract (Wave 152)
+# TARS Background daemon — v0.2 contract (Waves 152 + 153)
 
-**Module:** `backend/core/daemon/` · **Contract:** `0.1.0` · **Platform:** macOS (launchd LaunchAgent)
+**Module:** `backend/core/daemon/` · **Contract:** `0.2.0` · **Platforms:** macOS (launchd LaunchAgent), Linux (systemd user-unit)
 
 The Background daemon is the **autopilot path** — the headless
 process that ticks the scheduler, fires due playbooks, and keeps
@@ -33,16 +33,29 @@ policy: `SuccessfulExit=false`, `Crashed=true`,
 
 ## What this is NOT
 
-- **Not a system daemon.** LaunchAgent runs in the operator's
-  session — it has `$HOME`, vault keys, browser cookies, and
-  meeet.world tokens. A LaunchDaemon (system-level) wouldn't.
-- **Not Linux/Windows.** v0.1 ships macOS only. systemd is on the
-  v9.2 roadmap; Windows Task Scheduler is v9.3.
+- **Not a system daemon.** LaunchAgent / systemd user-unit run in
+  the operator's session — they have `$HOME`, vault keys, browser
+  cookies, and meeet.world tokens. A LaunchDaemon (system-level)
+  or systemd system-unit wouldn't.
+- **Not Windows (yet).** v0.2 ships macOS + Linux. Windows Task
+  Scheduler is v9.3.
 - **Not real-time.** Ticks every `TARS_SCHEDULER_TICK_S` seconds
   (default 30). The web-app lifespan loop uses the same cadence.
 - **Not a replacement for FastAPI.** The web app keeps owning
   HTTP, WS, and cockpit UI. The daemon is the "even when no human
   is here" path.
+
+## Platform dispatch
+
+`python -m backend.core.daemon` auto-detects the host platform:
+
+| Host | Service definition | Service manager |
+| --- | --- | --- |
+| macOS (`darwin`) | `~/Library/LaunchAgents/com.tars.background.plist` | `launchctl bootstrap gui/<uid>` |
+| Linux | `~/.config/systemd/user/tars-background.service` | `systemctl --user enable --now` |
+| Other | error: unsupported | (use `--render-plist` / `--render-unit` to inspect) |
+
+Override with `--platform launchd|systemd`.
 
 ## Install / Uninstall
 
@@ -71,10 +84,11 @@ unloads. Both calls are idempotent.
 
 | Path | Owner | Purpose |
 | --- | --- | --- |
-| `~/Library/LaunchAgents/com.tars.background.plist` | operator | LaunchAgent definition |
+| `~/Library/LaunchAgents/com.tars.background.plist` | operator (macOS) | LaunchAgent definition |
+| `~/.config/systemd/user/tars-background.service` | operator (Linux) | systemd user-unit |
 | `~/.tars/daemon.heartbeat` | daemon | runtime status JSON (atomically replaced) |
-| `~/.tars/daemon.out.log` | daemon | stdout (rotated by launchd) |
-| `~/.tars/daemon.err.log` | daemon | stderr (rotated by launchd) |
+| `~/.tars/daemon.out.log` | daemon | stdout (launchd `StandardOutPath` / systemd `StandardOutput=append:`) |
+| `~/.tars/daemon.err.log` | daemon | stderr (same) |
 
 ## Heartbeat shape
 
@@ -110,20 +124,24 @@ crashed between launchctl respawns; `tars-doctor` and the cockpit
 
 | Subcommand | Effect |
 | --- | --- |
-| (none) | Run the daemon loop (the launchd path) |
-| `--install [--dry-run]` | Write plist + `launchctl bootstrap` (skip bootstrap with `--dry-run`) |
-| `--uninstall` | `launchctl bootout` + remove plist |
-| `--status` | Print plist + heartbeat snapshot as JSON |
+| (none) | Run the daemon loop (launchd / systemd `ExecStart` calls this) |
+| `--install [--dry-run]` | Write the native service definition + bootstrap it (skip bootstrap with `--dry-run`) |
+| `--uninstall` | Stop service + remove the native service file |
+| `--status` | Print service + heartbeat snapshot as JSON |
 | `--heartbeat` | Print latest heartbeat JSON only |
-| `--render-plist` | Print the plist XML, no side effects |
+| `--render-plist` | Print the launchd plist XML, no side effects |
+| `--render-unit` | Print the systemd .service body, no side effects |
+| `--render` | Render whichever fits the host (or use `--platform`) |
+| `--platform launchd|systemd|auto` | Override platform detection |
 
 ## Error model
 
 | Wire | Cause |
 | --- | --- |
 | `launchctl_not_found` | non-Darwin host (or PATH missing launchctl) |
+| `systemctl_not_found` | non-Linux host (or PATH missing systemctl) |
 | `launchd_not_supported_on_platform` | `os.getuid()` not available (Windows) |
-| `unlink_failed: <reason>` | plist file removal failed (typically permissions) |
+| `unlink_failed: <reason>` | plist/unit file removal failed (typically permissions) |
 
 The daemon process itself never raises uncaught exceptions — tick
 errors are logged + counted, the loop continues. launchd respawns
@@ -132,16 +150,18 @@ the process if it exits abnormally; `idle_exit` (status 0) is the
 
 ## Versioning
 
-- `CONTRACT_VERSION = "0.1.0"` — daemon contract (this file)
+- `CONTRACT_VERSION = "0.2.0"` — daemon contract (this file)
 - `PLIST_LABEL = "com.tars.background"` — canonical LaunchAgent label
+- `UNIT_NAME = "tars-background"` — canonical systemd user-unit name
 
 Bump CONTRACT_VERSION on every breaking change to the heartbeat
-shape or plist semantics. Additive env knobs = patch bump.
+shape or service-file semantics. Additive env knobs = patch bump.
+Additive native-service support (systemd → Windows) = minor bump.
 
 ## Roadmap
 
-- **v0.1 (this release):** macOS LaunchAgent, heartbeat, scheduler integration, CLI shim
-- **v0.2 (v9.1.3 target):** Linux systemd unit + parity install CLI
+- **v0.1 (Wave 152):** macOS LaunchAgent, heartbeat, scheduler integration, CLI shim
+- **v0.2 (Wave 153 — *this release*):** Linux systemd user-unit parity, platform-auto `--install` / `--uninstall` / `--status` / `--render`
 - **v0.3 (v9.2 target):** Windows Task Scheduler integration
 - **v0.4 (v9.2 target):** Cockpit "Background" status panel pulls live heartbeat
-- **v1.0 (v9.3 target):** Multi-instance daemon (per-workspace launchd labels)
+- **v1.0 (v9.3 target):** Multi-instance daemon (per-workspace labels)

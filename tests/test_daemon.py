@@ -273,9 +273,129 @@ class TestMainSubcommands(_IsolatedDaemon):
         self.assertIn("<plist", out)
         self.assertIn("com.tars.background", out)
 
+    def test_render_unit_subcommand_via_main(self) -> None:
+        from backend.core.daemon import __main__ as dm
+        import io
+        buf = io.StringIO()
+        with patch("sys.stdout", buf):
+            rc = dm.main(["--render-unit"])
+        self.assertEqual(rc, 0)
+        out = buf.getvalue()
+        self.assertIn("[Unit]", out)
+        self.assertIn("ExecStart=", out)
+        self.assertIn("backend.core.daemon", out)  # ExecStart references the module
+
+    def test_render_subcommand_platform_auto(self) -> None:
+        from backend.core.daemon import __main__ as dm
+        import io
+        buf = io.StringIO()
+        with patch("sys.stdout", buf):
+            rc = dm.main(["--render", "--platform", "systemd"])
+        self.assertEqual(rc, 0)
+        self.assertIn("[Service]", buf.getvalue())
+
     def test_heartbeat_subcommand_missing_file(self) -> None:
         from backend.core.daemon import __main__ as dm
         rc = dm.main(["--heartbeat"])
+        self.assertEqual(rc, 1)
+
+
+# ─── systemd unit ──────────────────────────────────────────────────
+
+
+class TestRenderUnit(_IsolatedDaemon):
+    def test_renders_default_unit(self) -> None:
+        from backend.core.daemon import systemd as sd
+        body = sd.render_unit()
+        self.assertIn("[Unit]", body)
+        self.assertIn("[Service]", body)
+        self.assertIn("[Install]", body)
+        self.assertIn("WantedBy=default.target", body)
+        self.assertIn("ExecStart=", body)
+        self.assertIn("backend.core.daemon", body)
+        self.assertIn("Restart=on-failure", body)
+
+    def test_unit_includes_extra_env(self) -> None:
+        from backend.core.daemon import systemd as sd
+        body = sd.render_unit(sd.UnitConfig(extra_env={"TARS_LOG_LEVEL": "DEBUG", "MULTI": "two words"}))
+        self.assertIn("Environment=TARS_LOG_LEVEL=DEBUG", body)
+        self.assertIn('Environment=MULTI="two words"', body)
+
+    def test_install_unit_dry_run_writes_file(self) -> None:
+        from backend.core.daemon import systemd as sd
+        unit_dir = Path(self._tmp) / "systemd"
+        result = sd.install_unit(unit_dir=unit_dir, dry_run=True)
+        self.assertTrue(result["ok"])
+        self.assertTrue(Path(result["unit_path"]).exists())
+        body = Path(result["unit_path"]).read_text()
+        self.assertIn("ExecStart=", body)
+
+    def test_install_unit_handles_missing_systemctl(self) -> None:
+        from backend.core.daemon import systemd as sd
+        unit_dir = Path(self._tmp) / "systemd"
+
+        def _raise(*args, **kwargs):
+            raise FileNotFoundError("systemctl not found")
+
+        with patch("backend.core.daemon.systemd._systemctl", side_effect=_raise):
+            result = sd.install_unit(unit_dir=unit_dir, dry_run=False)
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["error"], "systemctl_not_found")
+        # Unit was still written before the systemctl call.
+        self.assertTrue(Path(result["unit_path"]).exists())
+
+    def test_uninstall_unit_no_file_present(self) -> None:
+        from backend.core.daemon import systemd as sd
+        unit_dir = Path(self._tmp) / "systemd"
+        unit_dir.mkdir()
+        fake = subprocess.CompletedProcess(
+            args=["systemctl"], returncode=0, stdout="", stderr=""
+        )
+        with patch("backend.core.daemon.systemd._systemctl", return_value=fake):
+            result = sd.uninstall_unit(unit_dir=unit_dir)
+        self.assertTrue(result["ok"])
+
+    def test_unit_status_active_parses_pid(self) -> None:
+        from backend.core.daemon import systemd as sd
+        unit_dir = Path(self._tmp) / "systemd"
+        unit_dir.mkdir()
+        (unit_dir / sd.UNIT_FILENAME).write_text("[Unit]")
+
+        is_active = subprocess.CompletedProcess(
+            args=["systemctl", "is-active"], returncode=0, stdout="active\n", stderr=""
+        )
+        show = subprocess.CompletedProcess(
+            args=["systemctl", "show"],
+            returncode=0,
+            stdout="MainPID=98765\n",
+            stderr="",
+        )
+        calls = [is_active, show]
+
+        def _fake(*args, **kwargs):
+            return calls.pop(0)
+
+        with patch("backend.core.daemon.systemd._systemctl", side_effect=_fake):
+            st = sd.unit_status(unit_dir=unit_dir)
+        self.assertTrue(st["installed"])
+        self.assertTrue(st["active"])
+        self.assertEqual(st["pid"], 98765)
+
+
+# ─── platform dispatch ─────────────────────────────────────────────
+
+
+class TestPlatformDispatch(_IsolatedDaemon):
+    def test_detect_platform(self) -> None:
+        from backend.core.daemon import __main__ as dm
+        p = dm._detect_platform()
+        self.assertIn(p, {"launchd", "systemd", "unsupported"})
+
+    def test_install_unsupported_platform(self) -> None:
+        from backend.core.daemon import __main__ as dm
+        # Force an unsupported platform string by patching sys.platform
+        with patch("backend.core.daemon.__main__.sys.platform", "freebsd13"):
+            rc = dm.main(["--install"])
         self.assertEqual(rc, 1)
 
 

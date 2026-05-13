@@ -58,20 +58,36 @@ from .runner import (
     run_daemon,
     write_heartbeat,
 )
+from .systemd import (
+    DEFAULT_UNIT_DIR,
+    UNIT_FILENAME,
+    UNIT_NAME,
+    install_unit,
+    render_unit,
+    uninstall_unit,
+    unit_status,
+)
 
 
 __all__ = [
     "DaemonState",
     "DEFAULT_PLIST_DIR",
+    "DEFAULT_UNIT_DIR",
     "HEARTBEAT_PATH",
     "PLIST_FILENAME",
     "PLIST_LABEL",
+    "UNIT_FILENAME",
+    "UNIT_NAME",
     "get_state",
     "install_plist",
+    "install_unit",
     "plist_status",
     "read_heartbeat",
     "render_plist",
+    "render_unit",
     "run_daemon",
     "uninstall_plist",
+    "uninstall_unit",
+    "unit_status",
     "write_heartbeat",
 ]
