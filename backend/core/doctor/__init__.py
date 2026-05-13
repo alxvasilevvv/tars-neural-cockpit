@@ -40,12 +40,22 @@ from .checks import (
     run_check,
     run_all,
 )
+from .fixers import (
+    FIX_REGISTRY,
+    FixResult,
+    run_all_fixes,
+    run_fix,
+)
 
 
 __all__ = [
     "CheckResult",
     "CheckStatus",
+    "FIX_REGISTRY",
+    "FixResult",
     "REGISTRY",
-    "run_check",
     "run_all",
+    "run_all_fixes",
+    "run_check",
+    "run_fix",
 ]

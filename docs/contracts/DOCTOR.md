@@ -160,7 +160,38 @@ same posture as `/health` and `/api/status`.
 
 - **v0.1 (Wave 154):** 8 built-in checks, JSON / human / quiet / single-check modes
 - **v0.2 (Wave 155):** HTTP `/api/doctor` endpoint surface
-- **v0.3 (Wave 156 — *this release*):** self-contained HTML dashboard at `/api/doctor/page` (auto-refresh, no React build)
-- **v0.4 (v9.2 target):** time-series log of past doctor runs (last N) under `~/.tars/doctor.log`
-- **v0.5 (v9.2 target):** Tauri cockpit embeds the page in a webview tab
-- **v1.0 (v9.3 target):** fix-mode (`--fix daemon` re-installs the LaunchAgent etc.)
+- **v0.3 (Wave 156):** self-contained HTML dashboard at `/api/doctor/page` (auto-refresh, no React build)
+- **v0.4 (Wave 166 — *this release*):** `--fix` mode — safe auto-remediation framework (vault dir mkdir; daemon + scheduler surface manual commands; future fixers register via `FIX_REGISTRY`)
+- **v0.5 (v9.2 target):** time-series log of past doctor runs under `~/.tars/doctor.log`
+- **v0.6 (v9.2 target):** Tauri cockpit embeds the page in a webview tab
+- **v1.0 (v9.3 target):** Destructive fixers behind explicit `--fix --confirm` flag (re-install LaunchAgent, restart scheduler etc.)
+
+## `--fix` mode (Wave 166)
+
+```bash
+scripts/tars-doctor --fix          # apply every registered fixer
+scripts/tars-doctor --fix vault    # apply one
+scripts/tars-doctor --fix --json   # machine-readable output
+```
+
+Each registered fixer returns a `FixResult { slug, applied,
+skipped, reason, before_status, after_status, detail, elapsed_ms }`.
+The CLI prints a human table; `--json` returns the array.
+
+Posture: **conservative**. Only filesystem mkdir is applied
+automatically. Destructive ops (launchctl bootstrap, env exports,
+scheduler restart) require manual action — fixers for those
+slugs return `skipped: manual_action_required` with the exact
+command in `detail`.
+
+Built-in fixers:
+
+| Slug | Behaviour |
+| --- | --- |
+| `vault` | `mkdir -p $TARS_VAULT_DIR` (idempotent) |
+| `daemon` | surfaces `scripts/tars-daemon install` — never auto-runs |
+| `scheduler` | surfaces `export TARS_SCHEDULER_ENABLED=1` — never mutates parent shell |
+| (anything else) | `skipped: no_fixer_registered` |
+
+Exit codes: `0` when all fixers applied or skipped cleanly;
+`2` when any fixer failed (mkdir permission denied etc.).

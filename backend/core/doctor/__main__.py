@@ -20,6 +20,7 @@ import sys
 from typing import Sequence
 
 from .checks import REGISTRY, CheckResult, run_all, run_check
+from .fixers import FIX_REGISTRY, FixResult, run_all_fixes, run_fix
 
 
 # ANSI colors — disabled when stdout isn't a TTY or NO_COLOR is set.
@@ -120,6 +121,10 @@ def _build_parser() -> argparse.ArgumentParser:
         "--list", action="store_true",
         help="print available check slugs and exit",
     )
+    p.add_argument(
+        "--fix", nargs="?", const="__ALL__", metavar="SLUG",
+        help="apply safe auto-remediation. With no arg: every registered fixer. With SLUG: one.",
+    )
     return p
 
 
@@ -130,8 +135,39 @@ def main(argv: list[str] | None = None) -> int:
         for slug, fn in REGISTRY:
             doc = (fn.__doc__ or "").strip().splitlines()
             short = doc[0] if doc else ""
-            sys.stdout.write(f"{slug:12s}  {short}\n")
+            has_fix = " [fixer]" if slug in FIX_REGISTRY else ""
+            sys.stdout.write(f"{slug:12s}  {short}{has_fix}\n")
         return 0
+
+    if args.fix:
+        if args.fix == "__ALL__":
+            fix_results = run_all_fixes()
+        else:
+            fix_results = [run_fix(args.fix)]
+        if args.json:
+            _print_json([r.to_dict() for r in fix_results])
+        else:
+            sys.stdout.write("TARS doctor — fix run\n\n")
+            for r in fix_results:
+                if r.applied:
+                    glyph = "✓"
+                    line = f"  {glyph} {r.slug:12s} {r.before_status} → {r.after_status or '?'}  {r.detail}"
+                elif r.skipped:
+                    glyph = "·"
+                    line = f"  {glyph} {r.slug:12s} SKIP ({r.reason})  {r.detail}"
+                else:
+                    glyph = "✗"
+                    line = f"  {glyph} {r.slug:12s} FAIL ({r.reason})  {r.detail}"
+                sys.stdout.write(line + "\n")
+            applied = sum(1 for r in fix_results if r.applied)
+            skipped = sum(1 for r in fix_results if r.skipped)
+            failed = sum(1 for r in fix_results if not r.applied and not r.skipped)
+            sys.stdout.write(
+                f"\n  Summary: {applied} applied · {skipped} skipped · {failed} failed\n"
+            )
+        return 0 if not any(
+            (not r.applied and not r.skipped) for r in fix_results
+        ) else 2
 
     if args.check:
         results = [run_check(args.check, timeout_s=args.timeout)]
