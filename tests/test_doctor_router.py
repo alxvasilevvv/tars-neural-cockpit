@@ -162,6 +162,51 @@ class TestDoctorRouter(unittest.TestCase):
         self.assertTrue(body["ok"])
         self.assertTrue(body["result"]["skipped"])
 
+    # ─── Wave 168 — test notify endpoint ───────────────────────────
+
+    def test_test_notify_no_channels_returns_hint(self) -> None:
+        # No TARS_DAEMON_FANOUT_CHANNELS env and no body.channels →
+        # fanout_all returns [] → endpoint returns ok=False with hint
+        os.environ.pop("TARS_DAEMON_FANOUT_CHANNELS", None)
+        r = self.client.post("/api/doctor/test/notify", json={})
+        self.assertEqual(r.status_code, 200)
+        body = r.json()
+        self.assertFalse(body["ok"])
+        self.assertEqual(body["error"], "no_channels_configured")
+        self.assertIn("hint", body)
+
+    def test_test_notify_with_explicit_channels(self) -> None:
+        # Pass an unknown channel — fanout_all returns one
+        # 'unknown_channel' result, endpoint surfaces it
+        r = self.client.post(
+            "/api/doctor/test/notify",
+            json={"channels": ["bogus-xyz"]},
+        )
+        self.assertEqual(r.status_code, 200)
+        body = r.json()
+        self.assertFalse(body["ok"])
+        self.assertEqual(len(body["results"]), 1)
+        self.assertEqual(body["results"][0]["channel"], "bogus-xyz")
+        self.assertEqual(body["results"][0]["error"], "unknown_channel")
+
+    def test_test_notify_custom_change_payload(self) -> None:
+        r = self.client.post(
+            "/api/doctor/test/notify",
+            json={
+                "channels": ["bogus"],
+                "slug": "mcp",
+                "from": "ok",
+                "to": "fail",
+                "summary": "synthetic test",
+            },
+        )
+        self.assertEqual(r.status_code, 200)
+        body = r.json()
+        # Payload echoed back via change field
+        self.assertEqual(body["change"]["slug"], "mcp")
+        self.assertEqual(body["change"]["to"], "fail")
+        self.assertEqual(body["change"]["summary"], "synthetic test")
+
 
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()

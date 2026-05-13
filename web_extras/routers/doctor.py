@@ -22,7 +22,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Body, HTTPException
 from fastapi.responses import HTMLResponse
 
 from backend.core.doctor import (
@@ -174,6 +174,66 @@ async def doctor_fix_one(slug: str) -> dict[str, Any]:
     return {"ok": not failed, "result": result.to_dict()}
 
 
+# ─── Notification test surface (Wave 168) ───────────────────────────
+
+
+@router.post("/test/notify")
+async def doctor_test_notify(
+    payload: dict[str, Any] | None = Body(default=None),
+) -> dict[str, Any]:
+    """Fire a synthetic doctor.status_changed alert through fanout_all.
+
+    Body shape (all optional):
+      {
+        "channels": ["telegram", "imessage", "email"]  # default: env
+        "slug": "test",
+        "from": "ok",
+        "to": "warn",
+        "summary": "test alert from /api/doctor/test/notify"
+      }
+
+    Returns ``{ok, results: [...]}`` mirroring the fanout_all
+    contract. ``ok`` is true iff every channel reports ``ok=True``.
+
+    Use this to verify TARS_DAEMON_FANOUT_CHANNELS + per-channel
+    config is wired correctly without waiting for a real drift.
+    """
+
+    body = payload or {}
+    channels = body.get("channels")  # None → fanout_all reads env
+    change = {
+        "slug": str(body.get("slug") or "test"),
+        "from": str(body.get("from") or "ok"),
+        "to": str(body.get("to") or "warn"),
+        "summary": str(
+            body.get("summary")
+            or "test alert from /api/doctor/test/notify"
+        ),
+    }
+
+    try:
+        from backend.core.notifications import fanout_all
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(
+            status_code=500,
+            detail={"error": "notifications_import_failed", "detail": str(exc)},
+        )
+
+    results = fanout_all(change, channels=channels)
+    if not results:
+        return {
+            "ok": False,
+            "results": [],
+            "error": "no_channels_configured",
+            "hint": (
+                "Pass {channels:[...]} in the body OR set "
+                "TARS_DAEMON_FANOUT_CHANNELS env"
+            ),
+        }
+    all_ok = all(r.get("ok") for r in results)
+    return {"ok": all_ok, "results": results, "change": change}
+
+
 # ─── Self-contained HTML dashboard (Wave 156) ───────────────────────
 
 
@@ -264,7 +324,10 @@ _DOCTOR_PAGE_HTML = """<!doctype html>
         <h1>TARS doctor</h1>
         <div class="sub">health check across every TARS subsystem · auto-refresh 30s</div>
       </div>
-      <button class="refresh" id="refresh-btn">↻ refresh</button>
+      <div>
+        <button class="refresh" id="test-notify-btn" title="Fire a test alert through the configured fanout channels">📣 test alert</button>
+        <button class="refresh" id="refresh-btn" style="margin-left:8px;">↻ refresh</button>
+      </div>
     </header>
 
     <div id="status-display">
@@ -341,6 +404,35 @@ _DOCTOR_PAGE_HTML = """<!doctype html>
     document.getElementById('refresh-btn').addEventListener('click', () => {
       loadDoctor();
       startTimer();
+    });
+
+    // Wave 168 — test notification button.
+    document.getElementById('test-notify-btn').addEventListener('click', async () => {
+      const btn = document.getElementById('test-notify-btn');
+      btn.disabled = true;
+      btn.textContent = '📣 firing…';
+      try {
+        const r = await fetch('/api/doctor/test/notify', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          body: JSON.stringify({}),
+        });
+        const body = await r.json();
+        if (body.ok) {
+          const channels = (body.results || []).map(x => x.channel).join(', ');
+          showToast(`✓ test alert dispatched to: ${channels || '(none)'}`, 'ok');
+        } else if (body.error === 'no_channels_configured') {
+          showToast(`· no channels configured — ${body.hint}`, 'warn');
+        } else {
+          const fails = (body.results || []).filter(x => !x.ok).map(x => `${x.channel}: ${x.error}`).join('; ');
+          showToast(`✗ ${fails || 'test failed'}`, 'fail');
+        }
+      } catch (err) {
+        showToast('Test request failed: ' + err.message, 'fail');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '📣 test alert';
+      }
     });
 
     // Wave 167 — Fix button click handler + toast feedback.

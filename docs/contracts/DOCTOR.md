@@ -147,6 +147,9 @@ The same results are exposed via the FastAPI app:
 | `GET` | `/api/doctor/{slug}` | Run a single check by slug; 404 if unknown |
 | `GET` | `/api/doctor/registry` | List slugs + labels without running |
 | `GET` | `/api/doctor/page` | Self-contained HTML dashboard (Wave 156); auto-refresh 30s |
+| `POST` | `/api/doctor/fix` | Run every registered fixer (Wave 167) |
+| `POST` | `/api/doctor/fix/{slug}` | Run a single fixer by slug; 404 if unknown |
+| `POST` | `/api/doctor/test/notify` | Wave 168 — fire synthetic doctor.status_changed through fanout_all so operator can verify channel wiring |
 
 The cockpit Status page consumes `/api/doctor` to render a live
 health table. The W117 synthetic monitor scrapes the same endpoint
