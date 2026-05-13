@@ -1,0 +1,38 @@
+=== fix-all-warns at 2026-05-13T22:15:44Z ===
+
+── step 1/3: POST /api/doctor/fix/vault ──
+{"ok":true,"result":{"slug":"vault","applied":true,"skipped":false,"reason":"","before_status":"warn","after_status":"ok","detail":"created /Users/alien/.tars/vault","elapsed_ms":0.2}}
+
+── step 2/3: install tars-daemon LaunchAgent ──
+{
+  "ok": true,
+  "plist_path": "/Users/alien/Library/LaunchAgents/com.tars.background.plist",
+  "action": "installed",
+  "dry_run": false,
+  "bootstrap_rc": 0
+}
+
+Waiting 6s for daemon first tick…
+
+── step 3/3: restart backend (TARS_SCHEDULER_ENABLED=1 in .env) ──
+Stopping listener(s) on :8765: 50191
+Starting uvicorn on 127.0.0.1:8765 (log: /tmp/tars-backend-8765.log) …
+
+--- GET /api/entitlements (billing) ---
+{
+  "tier": "free",
+  "billing_authority": "meeet.world",
+  "billing_source": "remote",
+  "remote_ok": false
+}
+
+Uvicorn PID 51439 still running. Log: /tmp/tars-backend-8765.log
+Stop: kill $(cat /tmp/tars-backend-8765.pid)
+
+── final summary GET /api/doctor?format=json (counts only) ──
+Traceback (most recent call last):
+  File "<string>", line 1, in <module>
+  File "<string>", line 1, in <listcomp>
+TypeError: string indices must be integers
+
+=== DONE ===

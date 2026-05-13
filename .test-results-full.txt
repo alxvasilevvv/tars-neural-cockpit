@@ -1,0 +1,101 @@
+=== test-categories start at 2026-05-13T23:12:12Z ===
+
+Python 3.12.13
+PYTHONPATH: /Users/alien/Documents/Claude/Projects/Jarvis/jarvis
+MEEET_MODE: mock
+
+
+── [doctor] starting ──
+── [doctor] done rc=0 in 0s ──
+.........................                                     [100%]
+25 passed, 11 subtests passed in 0.12s
+/Users/alien/Documents/Claude/Projects/Jarvis/jarvis/scripts/test-categories.command: line 26: 58534 Terminated: 15          ( sleep 60 && kill -9 $PID 2> /dev/null )
+
+── [doctor_fixers] starting ──
+── [doctor_fixers] done rc=0 in 0s ──
+........F
+=================================== FAILURES ===================================
+E   AssertionError: 'TARS_SCHEDULER_ENABLED' not found in ''
+/Users/alien/.local/share/uv/python/cpython-3.12.13-macos-aarch64-none/lib/python3.12/unittest/case.py:715: AssertionError: 'TARS_SCHEDULER_ENABLED' not found in ''
+=========================== short test summary info ============================
+FAILED tests/test_doctor_fixers.py::TestSkipOnlyFixers::test_scheduler_skip
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed, 8 passed in 0.04s
+/Users/alien/Documents/Claude/Projects/Jarvis/jarvis/scripts/test-categories.command: line 26: 58541 Terminated: 15          ( sleep 60 && kill -9 $PID 2> /dev/null )
+
+── [doctor_router] starting ──
+── [doctor_router] done rc=0 in 1s ──
+..............                                                           [100%]
+14 passed in 0.26s
+/Users/alien/Documents/Claude/Projects/Jarvis/jarvis/scripts/test-categories.command: line 26: 58548 Terminated: 15          ( sleep 60 && kill -9 $PID 2> /dev/null )
+
+── [daemon] starting ──
+── [daemon] done rc=0 in 0s ──
+..................................                                       [100%]
+34 passed in 0.40s
+/Users/alien/Documents/Claude/Projects/Jarvis/jarvis/scripts/test-categories.command: line 26: 58555 Terminated: 15          ( sleep 60 && kill -9 $PID 2> /dev/null )
+
+── [clone_sync] starting ──
+── [clone_sync] done rc=0 in 1s ──
+........F
+=================================== FAILURES ===================================
+E   ImportError: cannot import name 'get_clone_store' from 'backend.core.clone' (/Users/alien/Documents/Claude/Projects/Jarvis/jarvis/backend/core/clone/__init__.py)
+/Users/alien/Documents/Claude/Projects/Jarvis/jarvis/tests/test_clone_sync.py:202: ImportError: cannot import name 'get_clone_store' from 'backend.core.clone' (/Users/alien/Documents/Claude/Projects/Jarvis/jarvis/backend/core/clone/__init__.py)
+=========================== short test summary info ============================
+FAILED tests/test_clone_sync.py::TestImport::test_import_preserves_created_at
+!!!!!!!!!!!!!!!!!!!!!!!!!! stopping after 1 failures !!!!!!!!!!!!!!!!!!!!!!!!!!!
+1 failed, 8 passed in 0.22s
+/Users/alien/Documents/Claude/Projects/Jarvis/jarvis/scripts/test-categories.command: line 26: 58562 Terminated: 15          ( sleep 60 && kill -9 $PID 2> /dev/null )
+
+── [notifications] starting ──
+── [notifications] done rc=0 in 0s ──
+........................................................ [ 87%]
+........                                                                 [100%]
+64 passed, 16 subtests passed in 0.17s
+/Users/alien/Documents/Claude/Projects/Jarvis/jarvis/scripts/test-categories.command: line 26: 58577 Terminated: 15          ( sleep 60 && kill -9 $PID 2> /dev/null )
+
+── [billing] starting ──
+── [billing] done rc=0 in 1s ──
+.......                                                                  [100%]
+7 passed in 0.42s
+/Users/alien/Documents/Claude/Projects/Jarvis/jarvis/scripts/test-categories.command: line 26: 58584 Terminated: 15          ( sleep 60 && kill -9 $PID 2> /dev/null )
+
+── [cowork] starting ──
+── [cowork] done rc=0 in 1s ──
+....................................................                     [100%]
+52 passed in 1.20s
+/Users/alien/Documents/Claude/Projects/Jarvis/jarvis/scripts/test-categories.command: line 26: 58591 Terminated: 15          ( sleep 60 && kill -9 $PID 2> /dev/null )
+
+── [mcp] starting ──
+── [mcp] done rc=0 in 0s ──
+.....................                                                    [100%]
+21 passed in 0.03s
+/Users/alien/Documents/Claude/Projects/Jarvis/jarvis/scripts/test-categories.command: line 26: 58598 Terminated: 15          ( sleep 60 && kill -9 $PID 2> /dev/null )
+
+── [receipts] starting ──
+── [receipts] done rc=0 in 1s ──
+....................................                                     [100%]
+36 passed in 0.15s
+/Users/alien/Documents/Claude/Projects/Jarvis/jarvis/scripts/test-categories.command: line 26: 58605 Terminated: 15          ( sleep 60 && kill -9 $PID 2> /dev/null )
+
+── [voice] starting ──
+── [voice] done rc=0 in 9s ──
+............................                                             [100%]
+28 passed in 9.00s
+/Users/alien/Documents/Claude/Projects/Jarvis/jarvis/scripts/test-categories.command: line 26: 58612 Terminated: 15          ( sleep 60 && kill -9 $PID 2> /dev/null )
+
+── [supervisor] starting ──
+── [supervisor] done rc=0 in 0s ──
+
+no tests ran in 0.00s
+ERROR: file or directory not found: tests/test_supervisor*.py
+
+/Users/alien/Documents/Claude/Projects/Jarvis/jarvis/scripts/test-categories.command: line 26: 58625 Terminated: 15          ( sleep 60 && kill -9 $PID 2> /dev/null )
+
+── [marketplace] starting ──
+── [marketplace] done rc=0 in 0s ──
+........................                                                 [100%]
+24 passed in 0.10s
+/Users/alien/Documents/Claude/Projects/Jarvis/jarvis/scripts/test-categories.command: line 26: 58632 Terminated: 15          ( sleep 60 && kill -9 $PID 2> /dev/null )
+
+=== DONE ===

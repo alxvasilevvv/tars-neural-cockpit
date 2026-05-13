@@ -1,0 +1,20 @@
+=== relaunch at 2026-05-13T23:41:18Z ===
+── restart backend ──
+Stopping listener(s) on :8765: 52684
+Starting uvicorn on 127.0.0.1:8765 (log: /tmp/tars-backend-8765.log) …
+
+--- GET /api/entitlements (billing) ---
+{
+  "tier": "free",
+  "billing_authority": "meeet.world",
+  "billing_source": "remote",
+  "remote_ok": false
+}
+
+Uvicorn PID 61919 still running. Log: /tmp/tars-backend-8765.log
+Stop: kill $(cat /tmp/tars-backend-8765.pid)
+
+── open chromeless cockpit ──
+(opened chromeless app window)
+
+=== DONE ===

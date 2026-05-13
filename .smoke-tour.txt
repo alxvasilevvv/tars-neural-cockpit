@@ -1,0 +1,76 @@
+=== smoke-tour at 2026-05-13T23:28:52Z ===
+Base: http://127.0.0.1:8765
+
+── 1/12 health / version / entitlements ──
+  ✗ GET /api/health                              404  (expected 200)  body: {"ok":false,"error_code":"not_found","message":"Not Found","
+  ✓ GET /api/entitlements                        200  (     447b, 0.001819s)
+  ✓ GET /api/product/version                     200  (      92b, 0.001920s)
+  ✓ GET /api/product/downloads/latest            200  (     824b, 0.001491s)
+
+── 2/12 doctor (11 checks) ──
+  ✓ GET /api/doctor                              200  (    2960b, 0.001870s)
+  ✓ GET /api/doctor?format=json                  200  (    2960b, 0.001902s)
+  ✓ GET /api/doctor/registry                     200  (     827b, 0.001151s)
+  ✓ GET /api/doctor/page (HTML)                  200  (   10537b, 0.001064s)
+  ✓ GET /api/doctor/cockpit (HTML)               200  (   12300b, 0.001102s)
+  ✓ GET /api/doctor/daemon                       200  (     295b, 0.001117s)
+  ✓ GET /api/doctor/mcp                          200  (     317b, 0.001583s)
+  ✓ GET /api/doctor/clone                        200  (     309b, 0.001506s)
+  ✓ GET /api/doctor/scheduler                    200  (     283b, 0.001185s)
+  ✓ GET /api/doctor/webhooks                     200  (     276b, 0.001055s)
+  ✓ GET /api/doctor/cowork                       200  (     246b, 0.001034s)
+  ✓ GET /api/doctor/receipts                     200  (     240b, 0.001520s)
+  ✓ GET /api/doctor/vault                        200  (     240b, 0.001725s)
+  ✓ GET /api/doctor/llm_provider                 200  (     310b, 0.001315s)
+  ✓ GET /api/doctor/disk_space                   200  (     285b, 0.001401s)
+  ✓ GET /api/doctor/log_freshness                200  (     309b, 0.001044s)
+
+── 3/12 usage ──
+  ✓ GET /api/usage                               200  (    2293b, 0.010343s)
+  ✓ GET /api/usage/lines                         200  (   43143b, 0.004960s)
+  ✓ GET /api/usage/prices                        200  (     705b, 0.000930s)
+
+── 4/12 clone ──
+  ✓ GET /api/clone/profile                       200  (     514b, 0.004681s)
+
+── 5/12 cowork ──
+  ✓ GET /api/cowork/sessions                     200  (      15b, 0.003976s)
+
+── 6/12 marketplace ──
+  ✓ GET /api/marketplace/listings                200  (    8408b, 0.363585s)
+
+── 7/12 scheduler ──
+  ✓ GET /api/scheduler/schedules                 200  (      36b, 0.002321s)
+
+── 8/12 webhooks ──
+  ✓ GET /api/webhooks/outgoing                   200  (      32b, 0.002651s)
+  ✓ GET /api/webhooks/incoming                   200  (      32b, 0.002170s)
+
+── 9/12 workspaces ──
+  ✓ GET /api/workspaces                          200  (     259b, 0.003554s)
+  ✓ GET /api/workspaces/permissions              200  (     699b, 0.001657s)
+
+── 10/12 wallet ──
+  ✓ GET /api/wallet                              200  (      34b, 0.003193s)
+  ✓ GET /api/wallet/policy/status                200  (      28b, 0.001192s)
+
+── 11/12 pairing ──
+  ✗ GET /api/pairing/status                      422  (expected 200)  body: {"ok":false,"error_code":"validation_error","message":"reque
+  ✓ GET /api/pairing/identity                    200  (     244b, 0.048785s)
+  ✓ GET /api/pairing/devices                     200  (     212b, 0.001859s)
+  ✓ GET /api/pairing/audit                       200  (   16327b, 0.015110s)
+
+── 12/12 connectors + qa + compliance ──
+  ✓ GET /api/connectors/github/health            200  (      62b, 0.095057s)
+  ✓ GET /api/qa/health                           200  (     188b, 1.647975s)
+  ✓ GET /api/qa/report                           200  (      41b, 0.001390s)
+  ✓ GET /api/compliance/export/bundles           200  (      24b, 0.001484s)
+  ✓ GET /api/compliance/export/scope-categories  200  (     129b, 0.001212s)
+
+── side-effect: fix vault (idempotent) ──
+  ✓ POST /api/doctor/fix/vault                   200  (     158b, 0.001786s)
+
+── side-effect: test-notify (no channels → 200 with hint) ──
+  ✓ POST /api/doctor/test/notify                 200  (     140b, 0.003474s)
+
+=== DONE ===
