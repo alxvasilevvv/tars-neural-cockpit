@@ -1,5 +1,12 @@
 # iMessage bridge — v0.1 contract (Wave 160)
 
+> **📚 Superseded by `NOTIFICATIONS.md`** as of Wave 164. This
+> doc remains as the deep-dive for the iMessage-specific bits
+> (Cocoa-epoch conversion, AppleScript escaping, chat.db
+> schema). For the full notifications surface (iMessage +
+> Telegram + Email + dispatcher + env table), see
+> [docs/contracts/NOTIFICATIONS.md](./NOTIFICATIONS.md).
+
 **Module:** `backend/core/notifications/imessage.py` · **Contract:** `0.1.0` · **Platform:** macOS only
 
 Closes the last W148 reality-audit honesty drift — task #66
