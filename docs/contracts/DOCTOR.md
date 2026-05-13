@@ -137,9 +137,28 @@ to catch.
 - **Local-only.** No remote inspection, no SSH, no cluster
   rollup. v0.1 is single-host.
 
+## HTTP surface (Wave 155)
+
+The same results are exposed via the FastAPI app:
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| `GET` | `/api/doctor` | Run every check; returns `{ok, summary, results[]}` |
+| `GET` | `/api/doctor/{slug}` | Run a single check by slug; 404 if unknown |
+| `GET` | `/api/doctor/registry` | List slugs + labels without running |
+
+The cockpit Status page consumes `/api/doctor` to render a live
+health table. The W117 synthetic monitor scrapes the same endpoint
+so an outage in MCP / Clone / daemon flips the public status
+dashboard.
+
+`/api/doctor` is read-only (idempotent GET), no auth required —
+same posture as `/health` and `/api/status`.
+
 ## Roadmap
 
-- **v0.1 (this release):** 8 built-in checks, JSON / human / quiet / single-check modes
-- **v0.2 (v9.2 target):** time-series log of past doctor runs (last N) under `~/.tars/doctor.log`
-- **v0.3 (v9.2 target):** cockpit panel renders the JSON output live
+- **v0.1 (Wave 154):** 8 built-in checks, JSON / human / quiet / single-check modes
+- **v0.2 (Wave 155 — *this release*):** HTTP `/api/doctor` endpoint surface
+- **v0.3 (v9.2 target):** time-series log of past doctor runs (last N) under `~/.tars/doctor.log`
+- **v0.4 (v9.2 target):** cockpit panel renders the JSON output live
 - **v1.0 (v9.3 target):** fix-mode (`--fix daemon` re-installs the LaunchAgent etc.)
