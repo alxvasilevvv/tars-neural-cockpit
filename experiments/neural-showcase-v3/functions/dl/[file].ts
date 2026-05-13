@@ -342,4 +342,5 @@ export const __test = {
   ALLOWED_FILENAMES,
   LATEST_TAG,
   tagForFilename,
+  fetchAsset,
 };

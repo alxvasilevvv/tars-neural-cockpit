@@ -59,6 +59,17 @@ plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 >   `untagged-891bf1e8f4a8f7591346` because the CI publish was cancelled
 >   mid-flight; by-tag GitHub API returns the tag record with empty
 >   `assets[]`).
+> - **W144** (this commit) — Vitest coverage for the W142 fallback logic.
+>   Added `fetchAsset` to the `__test` export (Cursor's audit caught the
+>   gap). New `experiments/neural-showcase-v3/functions/dl/[file].test.ts`
+>   with 9 cases: 3× allowlist guards, 3× `tagForFilename` derivation,
+>   1× by-tag happy path (no fallback fetch), 2× draft-release fallback
+>   (matching by name + ranking preference), 2× total miss → null.
+>   Added `vitest@^1.6.0` as devDependency + `npm test` / `npm test:watch`
+>   scripts. **Build command unchanged** — CF Pages still runs
+>   `npm run build:cf = cp -r public dist`, devDeps not part of production
+>   bundle. Pure `vi.stubGlobal("fetch", ...)` mocking, no
+>   `@cloudflare/vitest-pool-workers` needed at this layer.
 >
 > **Launch status (2026-05-13 14:30 UTC):**
 > - ✅ `tars.meeet.world/api/product/version` → `9.1.0` (from cached Pages
