@@ -803,8 +803,7 @@ from web_extras.routers import cowork as cowork_router  # noqa: E402
 app.include_router(cowork_router.router)
 
 
-@app.get("/health")
-async def health() -> dict[str, object]:
+async def _health_payload() -> dict[str, object]:
     return {
         "ok": True,
         "service": "tars",
@@ -812,6 +811,18 @@ async def health() -> dict[str, object]:
         "trace_id": current_trace(),
         "meeet_ingest": bool(os.getenv("MEEET_INGEST_URL")),
     }
+
+
+@app.get("/health")
+async def health() -> dict[str, object]:
+    return await _health_payload()
+
+
+# W199 — Also expose under /api/ prefix so client code that assumes
+# the full namespace lives at /api/* gets a consistent surface.
+@app.get("/api/health")
+async def api_health() -> dict[str, object]:
+    return await _health_payload()
 
 
 @app.get("/")
