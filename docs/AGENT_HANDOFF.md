@@ -3,6 +3,89 @@
 Pick this up if you are continuing the work in a fresh chat. Read this file
 plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 
+> **>>> SYNC: Claude · 2026-05-13 evening · Waves 129-143 (READ BEFORE AUDIT) <<<**
+>
+> While Cursor was wedged (chat UI froze mid-thread on `cursor/bootstrap-workspace`),
+> Claude took over the dev lane. Closed the v9.1.0 launch end-to-end. Do **not**
+> reset `main` — every commit below has a clear scope, all gates green, all
+> commit messages explain the why.
+>
+> **Waves landed (commits on main):**
+> - **W129** `e8f03f4` — Cowork backend module (`backend/core/cowork/`: models +
+>   store + presence + stream + handoff). Closes W122 audit gaps task #99
+>   (Shared Agent Sessions) and #100 (TARS Handoff) which were marked complete
+>   historically but had no live backend. 26 pytest + contract at
+>   `docs/contracts/COWORK.md` + brother handoff at
+>   `docs/handoff/COWORK_WIRING_FOR_CURSOR.md` (paste-ready FastAPI for 10
+>   routes). Idempotent — adds new files only.
+> - **W130-132** `829fa5d` — Nav + 5th MeeetSection pillar + orchestrator
+>   hook in `backend/core/agents/runner.py` (`task.{started,completed,failed}`
+>   frames if `metadata['cowork_session_id']` set) + landing CoworkPreview card.
+>   The Nav / MeeetSection / landing changes were inside
+>   `experiments/neural-showcase-v3/` which YOU then deleted in `e5f1911` (fine —
+>   that pivot was correct). The orchestrator hook in `runner.py` SURVIVES — it
+>   gracefully no-ops when cowork module unavailable.
+> - **W133-137** `6f7db6b` — Brother handoff doc + WHAT_WORKS/RELEASE_NOTES
+>   sync + 12 edge tests + Cowork bundle split + `v9.1.0-rc1` local tag.
+> - **W138** `50bad47` — Cleanup orphan untracked files
+>   (`backend/core/algotrade/exec/{__init__,report}.py`, `tests/helpers/`,
+>   `ruvector.db`) that came from cursor branches never merged to main. Added
+>   `ruvector.db` and `*.test.sqlite` to `.gitignore`. Created
+>   `docs/V9_1_0_LAUNCH_PLAN.md`.
+> - **W139** `f233ca8` — Lead-dev sign-off + corrected launch readiness
+>   (`docs/V9_1_0_LAUNCH_READINESS.md`). Apple cert is OPTIONAL — release
+>   workflow falls back to ad-hoc codesign. Existing `v9.1.0` tag was stale
+>   (pointing at May 4 commit, 101 commits behind HEAD).
+> - **W140** `8346681` — `scripts/launch-v9.1.0.sh` one-script launch +
+>   `docs/LAUNCH_NOW.md` one-page handbook. Run-once auto: pre-flight checks,
+>   push main, delete stale `v9.1.0` tag, re-tag at HEAD, push tag, print
+>   Cloudflare B-019 reminder.
+> - **W141** `318738d` — `scripts/diagnose-launch.command` (single
+>   double-click in Finder runs curl + gh probes, dumps to
+>   `.diagnose-launch.txt`).
+> - **W142** `0a3fa7e` — **Restored CF Pages skeleton** at
+>   `experiments/neural-showcase-v3/` (NO React/Vite, minimal:
+>   `package.json` with `build:cf = cp -r public dist`, `public/index.html`
+>   redirecting to GitHub Release, plus all the function files you deleted
+>   in `e5f1911`). Reason: those functions are the install funnel + API
+>   proxies, NOT SPA — your `e5f1911` cleanup zapped them as collateral
+>   damage. CF Pages `tars-meeet-git` has been serving from the LAST
+>   SUCCESSFUL build since `e5f1911` because every subsequent build fails
+>   (no `package.json` in the configured root). After push of `0a3fa7e`,
+>   builds succeed again. **Patched `dl/[file].ts`:** added 4 missing v9.1.0
+>   artifact names (Win/Linux were live in Release but missing from old
+>   allowlist), and added smart fallback in `fetchAsset()` for the
+>   draft-release case (the actual v9.1.0 binaries live under
+>   `untagged-891bf1e8f4a8f7591346` because the CI publish was cancelled
+>   mid-flight; by-tag GitHub API returns the tag record with empty
+>   `assets[]`).
+>
+> **Launch status (2026-05-13 14:30 UTC):**
+> - ✅ `tars.meeet.world/api/product/version` → `9.1.0` (from cached Pages
+>   functions, pre-`e5f1911`)
+> - ✅ GitHub Release `v9.1.0` exists with all 6 platform artifacts
+>   (downloadCount on aarch64.dmg = 194)
+> - ⚠️ `tars.meeet.world/dl/<file>` returns `asset_not_found_in_release`
+>   until W142 push lands → CF Pages rebuild → fixed
+> - ⚠️ Recent CI runs queued 6h+ then cancelled — likely GitHub Actions
+>   billing exhaustion. Doesn't block launch (artifacts already in Release
+>   from 2026-05-04 build).
+>
+> **What's pending operator click:**
+> - B-019 (Cloudflare dashboard) — swap `tars.meeet.world` custom-domain
+>   from legacy `tars-meeet` project to `tars-meeet-git`. **DONE per user
+>   confirmation 2026-05-13 14:30** (version endpoint now returns 9.1.0).
+> - W140 `8346681` and W142 `0a3fa7e` — still in local commits, need
+>   `git push origin main` to reach CF Pages for rebuild.
+>
+> **If Cursor disagrees with any of this:** read the commit messages
+> (they're verbose for exactly this reason), check the test sweep
+> (`python3 -m unittest tests.test_cowork_store tests.test_cowork_presence
+> tests.test_cowork_edge_cases` → 38/38). Don't `git reset --hard` main.
+> Open an issue / comment instead. Detail in `docs/V9_1_0_LAUNCH_READINESS.md`.
+>
+> **>>> END SYNC <<<**
+
 > **2026-05-13 — Doc sync: `main` after in-tree showcase removal (read first).**
 >
 > The React marketing / operator SPA (`experiments/neural-showcase-v3/`, v2) is **not in this repo anymore** (removed May 2026). **Canonical in-tree UI:** Tauri **desktop** shell `desktop/src-tauri/web/` — dev **`make desktop-dev`** → **5173**. **Backend API:** **`make dev-tars-stack`** / **`make backend-tars-up`** → **8765** (see `CLAUDE.md`). Live **tars.meeet.world** is built from **Cloudflare Pages** (artifact may predate removal); operator unblocks: **B-019** domain bind + **`GITHUB_RELEASE_TOKEN`** → `docs/TARS_MEEET_OPS_TODO.md`.
