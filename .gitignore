@@ -32,3 +32,4 @@ ruvector.db
 .verify-launch-e2e.txt
 .tars-ops-output.txt
 .auto-push.txt
+.auto-push-tag.txt
