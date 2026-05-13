@@ -67,6 +67,7 @@ from .systemd import (
     uninstall_unit,
     unit_status,
 )
+from . import doctor_watch  # noqa: F401  -- importable as backend.core.daemon.doctor_watch
 
 
 __all__ = [
@@ -78,6 +79,7 @@ __all__ = [
     "PLIST_LABEL",
     "UNIT_FILENAME",
     "UNIT_NAME",
+    "doctor_watch",
     "get_state",
     "install_plist",
     "install_unit",

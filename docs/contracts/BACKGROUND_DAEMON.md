@@ -119,6 +119,8 @@ crashed between launchctl respawns; `tars-doctor` and the cockpit
 | `TARS_DAEMON_FORCE` | unset | Keep the daemon alive (heartbeat-only) even when scheduler is disabled. Set in the plist by default. |
 | `TARS_SCHEDULER_TICK_S` | 30 | Seconds between ticks. |
 | `TARS_DAEMON_HEARTBEAT_S` | 30 | Heartbeat write cadence when scheduler is off. Floor 0.05s. |
+| `TARS_DAEMON_DOCTOR_ENABLED` | unset | Enable per-tick `tars-doctor` watcher (Wave 157). On status drift, fires a `doctor.status_changed` webhook. |
+| `TARS_DAEMON_DOCTOR_EVERY_N` | 1 | Run the doctor every Nth tick. Use to throttle. |
 
 ## Subcommands
 
@@ -161,7 +163,8 @@ Additive native-service support (systemd → Windows) = minor bump.
 ## Roadmap
 
 - **v0.1 (Wave 152):** macOS LaunchAgent, heartbeat, scheduler integration, CLI shim
-- **v0.2 (Wave 153 — *this release*):** Linux systemd user-unit parity, platform-auto `--install` / `--uninstall` / `--status` / `--render`
-- **v0.3 (v9.2 target):** Windows Task Scheduler integration
-- **v0.4 (v9.2 target):** Cockpit "Background" status panel pulls live heartbeat
+- **v0.2 (Wave 153):** Linux systemd user-unit parity, platform-auto `--install` / `--uninstall` / `--status` / `--render`
+- **v0.3 (Wave 157 — *this release*):** Per-tick `tars-doctor` watcher emits `doctor.status_changed` webhook on health drift
+- **v0.4 (v9.2 target):** Windows Task Scheduler integration
+- **v0.5 (v9.2 target):** Cockpit "Background" status panel pulls live heartbeat
 - **v1.0 (v9.3 target):** Multi-instance daemon (per-workspace labels)

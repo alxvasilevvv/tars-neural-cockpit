@@ -243,6 +243,21 @@ async def run_daemon() -> int:
             else:
                 # Heartbeat-only mode — nothing to fire.
                 state.last_status = "heartbeat_only"
+
+            # Wave 157 — doctor watcher (opt-in). Never breaks the tick.
+            try:
+                from . import doctor_watch  # local import to avoid cycles
+
+                if doctor_watch.should_run_this_tick(state.tick_count):
+                    watch_out = await doctor_watch.run_once()
+                    if isinstance(watch_out, dict) and watch_out.get("emitted"):
+                        log.info(
+                            "daemon tick: doctor.status_changed emitted (%d change%s)",
+                            len(watch_out.get("changes") or []),
+                            "" if len(watch_out.get("changes") or []) == 1 else "s",
+                        )
+            except Exception as exc:  # noqa: BLE001
+                log.debug("daemon tick: doctor_watch swallowed exc=%s", exc)
         except Exception as exc:  # noqa: BLE001
             state.error_count += 1
             state.last_status = "error"
