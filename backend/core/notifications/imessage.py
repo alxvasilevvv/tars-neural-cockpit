@@ -213,6 +213,36 @@ LIMIT ?
 """
 
 
+def fanout_doctor_change(
+    change: dict[str, Any],
+    *,
+    handle: str | None = None,
+) -> dict[str, Any]:
+    """Wave 162 — one-line fan-out of a doctor.status_changed entry.
+
+    Maps the W157 webhook payload's per-change dict to an iMessage
+    alert. ``handle`` falls back to ``TARS_DOCTOR_ALERT_IMESSAGE_HANDLE``.
+    Returns the same shape as :func:`send_imessage`.
+    """
+
+    handle = handle or os.getenv("TARS_DOCTOR_ALERT_IMESSAGE_HANDLE")
+    if not handle:
+        return {
+            "ok": False,
+            "error": "handle_required",
+            "hint": "set TARS_DOCTOR_ALERT_IMESSAGE_HANDLE env",
+        }
+    slug = change.get("slug", "?")
+    frm = change.get("from", "?")
+    to = change.get("to", "?")
+    summary = (change.get("summary") or "").strip()
+    glyph = {"ok": "OK", "warn": "WARN", "fail": "FAIL", "skip": "SKIP"}.get(to, to.upper())
+    text = f"[TARS:{glyph}] {slug}: {frm} → {to}"
+    if summary:
+        text += f"\n{summary}"
+    return send_imessage(handle, text)
+
+
 def recent_messages(*, limit: int = 50) -> dict[str, Any]:
     """Read the most recent N messages from chat.db.
 

@@ -199,7 +199,36 @@ async def _emit_changes(changes: list[dict[str, Any]], results: list[Any]) -> bo
             len(changes),
             "" if len(changes) == 1 else "s",
         )
-        return True
+        emitted = True
     except Exception as exc:  # noqa: BLE001
         log.debug("doctor_watch: emit failed: %s", exc)
-        return False
+        emitted = False
+
+    # Wave 162 — auto fan-out to operator's notification channels.
+    # Opt-in via TARS_DAEMON_FANOUT_CHANNELS=telegram,imessage.
+    # Best-effort: a failed fan-out never demotes the webhook emit.
+    fanout_raw = (os.getenv("TARS_DAEMON_FANOUT_CHANNELS") or "").strip()
+    if fanout_raw:
+        try:
+            from backend.core.notifications import fanout_all  # local import
+
+            for ch in changes:
+                results = fanout_all(ch)
+                for r in results:
+                    if r.get("ok"):
+                        s = get_state()
+                        s.emits += 0  # webhook emit counter unaffected
+                        log.info(
+                            "doctor_watch: fan-out → %s ok (%s: %s → %s)",
+                            r.get("channel"), ch.get("slug"),
+                            ch.get("from"), ch.get("to"),
+                        )
+                    else:
+                        log.debug(
+                            "doctor_watch: fan-out → %s skipped: %s",
+                            r.get("channel"), r.get("error"),
+                        )
+        except Exception as exc:  # noqa: BLE001
+            log.debug("doctor_watch: fan-out swallowed: %s", exc)
+
+    return emitted

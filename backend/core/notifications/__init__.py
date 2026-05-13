@@ -34,25 +34,65 @@ from .imessage import (
     CONTRACT_VERSION,
     IMessageError,
     Message,
+    fanout_doctor_change as imessage_fanout_doctor_change,
     is_supported,
     recent_messages,
     send_imessage,
 )
 from .telegram import (
-    fanout_doctor_change,
+    fanout_doctor_change as telegram_fanout_doctor_change,
     is_configured as telegram_is_configured,
     send_telegram,
 )
+
+# Keep `fanout_doctor_change` as the Telegram default for callers
+# that didn't specify a channel (back-compat with W161).
+from .telegram import fanout_doctor_change
+
+
+def fanout_all(
+    change: dict,
+    *,
+    channels: list[str] | None = None,
+) -> list[dict]:
+    """Wave 162 — dispatch a single doctor change across N channels.
+
+    ``channels`` is a list of channel slugs. If omitted, reads
+    ``TARS_DAEMON_FANOUT_CHANNELS`` env (comma-separated). Returns
+    a list of per-channel result dicts in input order.
+
+    Recognised channels: ``telegram``, ``imessage``.
+    Unknown channels are skipped with a ``unknown_channel`` result.
+    """
+
+    import os
+
+    if channels is None:
+        raw = (os.getenv("TARS_DAEMON_FANOUT_CHANNELS") or "").strip()
+        channels = [c.strip().lower() for c in raw.split(",") if c.strip()]
+
+    results: list[dict] = []
+    for ch in channels:
+        if ch == "telegram":
+            results.append({"channel": "telegram", **telegram_fanout_doctor_change(change)})
+        elif ch == "imessage":
+            results.append({"channel": "imessage", **imessage_fanout_doctor_change(change)})
+        else:
+            results.append({"channel": ch, "ok": False, "error": "unknown_channel"})
+    return results
 
 
 __all__ = [
     "CONTRACT_VERSION",
     "IMessageError",
     "Message",
+    "fanout_all",
     "fanout_doctor_change",
+    "imessage_fanout_doctor_change",
     "is_supported",
     "recent_messages",
     "send_imessage",
     "send_telegram",
+    "telegram_fanout_doctor_change",
     "telegram_is_configured",
 ]
