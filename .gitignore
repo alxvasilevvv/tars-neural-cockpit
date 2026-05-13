@@ -30,3 +30,4 @@ ruvector.db
 *.test.sqlite
 .diagnose-launch.txt
 .verify-launch-e2e.txt
+.tars-ops-output.txt
