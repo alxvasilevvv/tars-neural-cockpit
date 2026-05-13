@@ -120,6 +120,8 @@ funds / SaaS / DAO / family-office / agency-style customers.
 | Performance dashboard — `/admin/perf` ops monitoring (latency p50/p95/p99 + throughput + error rate + active sessions) *(Wave 108)* | `experiments/neural-showcase-v3/src/pages/PerfDashboard.tsx`, `backend/core/observability/{otel,latency}.py`, `web_extras/routers/perf.py`, `docs/contracts/PERF_DASHBOARD.md` |
 | **Cowork — multiplayer agent sessions** (shared sessions + presence + cursors over shared paths + one-click ownership handoff via short-TTL token). Closes W122 audit gaps on tasks #99 + #100 which had historically been marked complete but had no live backend code. *(Waves 129-132)* | `backend/core/cowork/{models,store,presence,stream,handoff}.py`, `experiments/neural-showcase-v3/src/pages/Cowork.tsx`, `experiments/neural-showcase-v3/src/lib/cowork.ts`, `experiments/neural-showcase-v3/src/components/cowork/{PresenceBar,SessionViewer,HandoffDialog}.tsx`, `experiments/neural-showcase-v3/src/components/CoworkPreview.tsx`, `tests/test_cowork_{store,presence}.py`, `docs/contracts/COWORK.md`. Backend module ships in this release; the 10 `/api/cowork/*` HTTP routes land in v9.1.1 (brother handoff at `docs/handoff/COWORK_WIRING_FOR_CURSOR.md`). Frontend transparently mocks until then. |
 | **Orchestrator → Cowork fan-out** (agents pass `cowork_session_id` in task metadata → runner emits `task.started`/`completed`/`failed` frames onto the live session) *(Wave 131)* | `backend/core/agents/runner.py` |
+| **Cowork HTTP routes** (FastAPI router, 10 endpoints per `docs/contracts/COWORK.md` v1.0 — `/api/cowork/*` callable on `make backend-tars-up`) *(Wave 149)* | `web_extras/routers/cowork.py`, `web_extras/app.py`, `tests/test_cowork_router.py` (12 cases) |
+| **MCP server bridge** (stdio JSON-RPC 2.0, 5 built-in tools: `tars.{version,list_playbooks,run_playbook,recent_events,cowork_session}`, conforms to MCP spec 2024-11-05) *(Wave 150)* | `backend/core/mcp/{__init__,protocol,tools,server,__main__}.py`, `tests/test_mcp_server.py` (21 cases), `docs/contracts/MCP.md`. Closes historic task #17 + #85 dishonest-done drift. |
 
 ### Hardening (Waves 72, 79)
 
@@ -160,7 +162,7 @@ funds / SaaS / DAO / family-office / agency-style customers.
 | Skill SDK (third-party packaging spec + signing) | Scaffolding shipped earlier; public spec + third-party publish flow pending. Marketplace v0 uses in-process registry. | v9.2 |
 | T2T (TARS-to-TARS handshake, live) | Mock escrow only (Wave 81); no live counterparty discovery | v9.3 |
 | Reputation Graph + leaderboard (public UI) | Wave 80 aggregator shipped; public UI pending | v9.3 |
-| MCP server bridge (canonical productized form) | Reference shipped Wave 85; canonical bridge pending | v9.3 |
+| ~~MCP server bridge (canonical productized form)~~ | **W150 reality fix:** the historic task #17 + #85 entries claimed a reference shipped — code path was absent. W150 actually ships it: `backend/core/mcp/` (stdio JSON-RPC server, 5 built-in tools, 21 pytest cases). See `docs/contracts/MCP.md`. Moved to FULLY IMPLEMENTED. | shipped v9.1.1-dev |
 | Multi-tenant Workspaces + JWT auth | Single-user only today; `WORKSPACES.md` contract published; Wave 110 backend MVP in flight (additive, schema-only) | v9.2 (initial) → v10.0 (full) |
 | Webhooks central registry (cross-tenant) | Per-instance webhook registry today; cross-tenant central registry pending. | v9.3 |
 | Organizations + Teams + RBAC | Org/team scaffolding exists, role assignment UI does not | v10.0 |
