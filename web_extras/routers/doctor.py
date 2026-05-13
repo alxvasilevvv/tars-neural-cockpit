@@ -25,7 +25,14 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import HTMLResponse
 
-from backend.core.doctor import REGISTRY, run_all, run_check
+from backend.core.doctor import (
+    FIX_REGISTRY,
+    REGISTRY,
+    run_all,
+    run_all_fixes,
+    run_check,
+    run_fix,
+)
 
 
 router = APIRouter(prefix="/api/doctor", tags=["doctor"])
@@ -106,6 +113,67 @@ async def doctor_one(slug: str) -> dict[str, Any]:
     return {"ok": result.status != "fail", "result": result.to_dict()}
 
 
+# ─── Auto-remediation surface (Wave 167) ────────────────────────────
+
+
+@router.post("/fix")
+async def doctor_fix_all() -> dict[str, Any]:
+    """Apply every registered fixer.
+
+    Response::
+
+      {
+        "ok": True,
+        "summary": {"applied": 1, "skipped": 2, "failed": 0},
+        "results": [<FixResult.to_dict()>, ...]
+      }
+
+    ``ok`` is false iff any fixer failed (applied=False AND
+    skipped=False). Skip-only fixers (daemon, scheduler) don't
+    demote ok.
+    """
+
+    results = run_all_fixes()
+    summary = {"applied": 0, "skipped": 0, "failed": 0}
+    for r in results:
+        if r.applied:
+            summary["applied"] += 1
+        elif r.skipped:
+            summary["skipped"] += 1
+        else:
+            summary["failed"] += 1
+    return {
+        "ok": summary["failed"] == 0,
+        "summary": summary,
+        "results": [r.to_dict() for r in results],
+    }
+
+
+@router.post("/fix/{slug}")
+async def doctor_fix_one(slug: str) -> dict[str, Any]:
+    """Apply a single fixer by slug. 404 when slug isn't known.
+
+    Returns ``{ok, result: <FixResult.to_dict()>}``. ``ok`` is
+    false iff the fixer ran but failed (applied=False AND
+    skipped=False).
+    """
+
+    known = {s for s, _ in REGISTRY}
+    if slug not in known:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": "unknown_check",
+                "slug": slug,
+                "known": sorted(known),
+                "fixable": sorted(FIX_REGISTRY.keys()),
+            },
+        )
+    result = run_fix(slug)
+    failed = (not result.applied) and (not result.skipped)
+    return {"ok": not failed, "result": result.to_dict()}
+
+
 # ─── Self-contained HTML dashboard (Wave 156) ───────────────────────
 
 
@@ -173,6 +241,18 @@ _DOCTOR_PAGE_HTML = """<!doctype html>
       background: transparent; padding: 6px 12px; border-radius: 6px; font-family: inherit;
       font-size: 12px; }
     .refresh:hover { background: rgba(99,102,241,0.1); }
+    .fix-btn { color: var(--accent); cursor: pointer; border: 1px solid var(--accent);
+      background: transparent; padding: 3px 9px; border-radius: 4px; font-family: inherit;
+      font-size: 11px; margin-left: 8px; }
+    .fix-btn:hover { background: rgba(99,102,241,0.15); }
+    .fix-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .toast { position: fixed; bottom: 16px; right: 16px; padding: 10px 14px;
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px;
+      font-size: 12px; max-width: 340px; opacity: 0; transition: opacity 0.2s; z-index: 9; }
+    .toast.show { opacity: 1; }
+    .toast.ok { border-left: 3px solid var(--ok); }
+    .toast.warn { border-left: 3px solid var(--warn); }
+    .toast.fail { border-left: 3px solid var(--fail); }
     code { font-family: inherit; background: rgba(255,255,255,0.04); padding: 1px 5px;
       border-radius: 3px; color: var(--accent); }
   </style>
@@ -190,6 +270,8 @@ _DOCTOR_PAGE_HTML = """<!doctype html>
     <div id="status-display">
       <div class="loading">Running checks…</div>
     </div>
+
+    <div id="toast" class="toast"></div>
 
     <footer>
       Wave 156 · powered by <code>backend.core.doctor</code> · contract v0.2.0
@@ -214,13 +296,18 @@ _DOCTOR_PAGE_HTML = """<!doctype html>
         .map(k => `<span class="pill ${k}">${k} · ${summary[k] || 0}</span>`)
         .join('');
 
+      const fixable = (window.__fixable || []);
       const rows = (body.results || []).map(r => {
         const sug = r.suggestion && r.status !== 'ok'
           ? `<div class="suggestion">→ ${esc(r.suggestion)}</div>` : '';
+        const showFix = r.status !== 'ok' && r.status !== 'skip' && fixable.includes(r.slug);
+        const fixBtn = showFix
+          ? `<button class="fix-btn" data-slug="${esc(r.slug)}" onclick="doFix(this)">⚒ fix</button>`
+          : '';
         return `<div class="row ${r.status}">
           <div class="glyph ${r.status}">${GLYPH[r.status] || '?'}</div>
           <div class="body">
-            <div class="label">${esc(r.label || r.slug)}</div>
+            <div class="label">${esc(r.label || r.slug)} ${fixBtn}</div>
             <div class="summary-text">${esc(r.summary || '')}</div>
             ${sug}
           </div>
@@ -256,6 +343,54 @@ _DOCTOR_PAGE_HTML = """<!doctype html>
       startTimer();
     });
 
+    // Wave 167 — Fix button click handler + toast feedback.
+    let toastTimer = null;
+    function showToast(msg, kind) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.className = 'toast show ' + (kind || 'ok');
+      if (toastTimer) clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => { t.className = 'toast ' + (kind || 'ok'); }, 4000);
+    }
+
+    window.doFix = async function(btn) {
+      const slug = btn.getAttribute('data-slug');
+      btn.disabled = true;
+      btn.textContent = '⚒ fixing…';
+      try {
+        const r = await fetch('/api/doctor/fix/' + encodeURIComponent(slug), { method: 'POST' });
+        const body = await r.json();
+        const result = body.result || {};
+        if (result.applied) {
+          showToast(`✓ ${slug}: ${result.before_status} → ${result.after_status || '?'}`, 'ok');
+        } else if (result.skipped) {
+          showToast(`· ${slug}: ${result.reason} — ${result.detail}`, 'warn');
+        } else {
+          showToast(`✗ ${slug}: ${result.reason} — ${result.detail}`, 'fail');
+        }
+        // Refresh the table so the new status is reflected.
+        await loadDoctor();
+      } catch (err) {
+        showToast('Fix request failed: ' + err.message, 'fail');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '⚒ fix';
+      }
+    };
+
+    async function loadFixable() {
+      try {
+        const r = await fetch('/api/doctor/registry', { cache: 'no-store' });
+        const body = await r.json();
+        // The registry endpoint doesn't currently list fixable slugs;
+        // fall back to a hardcoded list of v0.4 fixable slugs.
+        window.__fixable = ['vault', 'daemon', 'scheduler'];
+      } catch {
+        window.__fixable = ['vault', 'daemon', 'scheduler'];
+      }
+    }
+
+    loadFixable();
     loadDoctor();
     startTimer();
   </script>

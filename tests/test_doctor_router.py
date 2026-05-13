@@ -117,6 +117,51 @@ class TestDoctorRouter(unittest.TestCase):
         self.assertIn("warn", body)
         self.assertIn("fail", body)
 
+    # ─── Wave 167 — fix endpoint ───────────────────────────────────
+
+    def test_fix_all_returns_summary(self) -> None:
+        r = self.client.post("/api/doctor/fix")
+        self.assertEqual(r.status_code, 200)
+        body = r.json()
+        self.assertIn("ok", body)
+        self.assertIn("summary", body)
+        self.assertIn("results", body)
+        # summary fields sum to results length
+        s = body["summary"]
+        self.assertEqual(
+            s["applied"] + s["skipped"] + s["failed"],
+            len(body["results"]),
+        )
+
+    def test_fix_one_known_slug(self) -> None:
+        # vault is a real fixable slug; mkdir will succeed in the
+        # test home directory.
+        r = self.client.post("/api/doctor/fix/vault")
+        self.assertEqual(r.status_code, 200)
+        body = r.json()
+        self.assertIn("result", body)
+        self.assertEqual(body["result"]["slug"], "vault")
+
+    def test_fix_unknown_slug_404(self) -> None:
+        r = self.client.post("/api/doctor/fix/nonexistent-xyz")
+        self.assertEqual(r.status_code, 404)
+        detail = r.json()["detail"]
+        self.assertEqual(detail["error"], "unknown_check")
+        self.assertEqual(detail["slug"], "nonexistent-xyz")
+        self.assertIn("fixable", detail)
+        # vault should appear in the fixable list
+        self.assertIn("vault", detail["fixable"])
+
+    def test_fix_skip_only_slug_still_returns_200(self) -> None:
+        # daemon fixer always skips with manual_action_required —
+        # that's not a failure, so endpoint should return 200 with
+        # ok=True.
+        r = self.client.post("/api/doctor/fix/daemon")
+        self.assertEqual(r.status_code, 200)
+        body = r.json()
+        self.assertTrue(body["ok"])
+        self.assertTrue(body["result"]["skipped"])
+
 
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()
