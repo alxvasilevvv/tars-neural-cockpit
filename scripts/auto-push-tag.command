@@ -4,7 +4,9 @@
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
 OUT="$(pwd)/.auto-push-tag.txt"
-TAG="${1:-v9.1.1}"
+# Default: most recent tag by creation date (annotated > lightweight).
+DEFAULT_TAG="$(git tag --sort=-creatordate 2>/dev/null | head -1)"
+TAG="${1:-${DEFAULT_TAG:-v9.1.1}}"
 
 {
   echo "=== auto-push-tag run at $(date -u +%Y-%m-%dT%H:%M:%SZ) ==="
