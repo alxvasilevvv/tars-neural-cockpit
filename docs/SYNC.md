@@ -1,7 +1,9 @@
 # Agent SYNC protocol — Cursor ↔ Cursor ↔ Claude ↔ Lovable
 
 > **Status:** active. Read this BEFORE making any change in this repo.
-> Last updated: 2026-05-04 by Claude QA (§6 handoff row — privatize + P0 path).
+> Last updated: **2026-05-13** (§3 lanes: in-repo **showcase/cockpit SPA removed** from `main`;
+> public **tars.meeet.world** may still be a **Cloudflare Pages** build; local UI → **desktop**).
+> Prior: 2026-05-04 Claude QA (§6 handoff row — privatize + P0 path).
 
 This file is the contract between the autonomous agents that touch the
 TARS / meeet.world stack. It exists so we can work in parallel without
@@ -42,24 +44,25 @@ URL — open a SYNC issue and ping the operator.
 
 ### Cursor lane (this machine)
 - Backend: `backend/`, `web_extras/`, `tests/`, `scripts/` (smoke + ops).
-- Cockpit functional wiring: `experiments/neural-showcase-v3/src/lib/**`.
-- Desktop: `desktop/src-tauri/src/**`, `desktop/scripts/**`.
+- **Desktop UI shell** (canonical in-tree): `desktop/src-tauri/web/**`,
+  `desktop/src-tauri/src/**`, `desktop/scripts/**`.
+  (`experiments/neural-showcase-v3/` **removed** from `main` — do not reference as live paths.)
 - Mobile: `mobile/ios/**`, `mobile/android/**`.
 - Control Tower: `Makefile` (smoke targets), `scripts/smoke_*.sh`.
 - This file (`docs/SYNC.md`) and `docs/ROADMAP_SHARED.md`.
 
 ### Claude Code lane (other machine)
-- Cockpit visual polish: `experiments/neural-showcase-v3/src/components/**`,
-  `src/index.css`, `src/pages/**`, `design-system/**`.
-- Brand assets: `experiments/neural-showcase-v3/public/**` (badges,
-  OG images, favicons).
+- **Design system + copy:** `design-system/**` (see `MASTER.md`).
+- **Public marketing** (`tars.meeet.world`): assets/copy may live in the **Cloudflare Pages**
+  project / historical branches — **not** under `experiments/neural-showcase-v3/` on `main`
+  (removed May 2026). Coordinate with operator for deploy lane.
+- **Desktop in-tree:** coordinate visual polish with Cursor on
+  `desktop/src-tauri/web/**`; avoid fighting generated `dist/` outputs.
 - Public docs / launch comms: `docs/RELEASE_NOTES_*.md`,
   `docs/LAUNCH_ANNOUNCEMENTS.md`, `docs/PRIVACY_POLICY.md`,
   `docs/TERMS_OF_SERVICE.md`, `docs/SECURITY.md`,
   `docs/POST_LAUNCH_*.md`, `docs/AUDIT_*.md`,
   `docs/DESIGN_*.md`, `docs/handoff-claude.md`.
-- Tauri desktop assets (built dist): `desktop/src-tauri/web/**` (these
-  are build artifacts; Cursor will not touch them).
 
 ### Shared (require a SYNC note before edit)
 - `CLAUDE.md`, `.cursorrules`, `AGENTS.md`
@@ -237,7 +240,7 @@ that already touched `main` today.
 | Surface                 | Window A           | Window B           |
 | ----------------------- | ------------------ | ------------------ |
 | TARS backend (uvicorn)  | `127.0.0.1:8765`   | `127.0.0.1:8866`   |
-| TARS cockpit preview    | `127.0.0.1:5174`   | `127.0.0.1:5184`   |
+| TARS desktop web shell (`make desktop-dev`) | `127.0.0.1:5173`   | `127.0.0.1:5183`   |
 | meeet.world prod (serve)| `127.0.0.1:8083`   | `127.0.0.1:8084`   |
 
 If a port is occupied, **do not** kill the other process — switch to
@@ -248,7 +251,7 @@ owns it.
 
 Before editing a shared file (`docs/AGENT_HANDOFF.md`,
 `docs/CHANGELOG_AGENTS.md`, `docs/SYNC.md`, `Makefile`, root
-`requirements.txt`, `experiments/neural-showcase-v3/package.json`),
+`requirements.txt`, `desktop/package.json` (or root `package.json` if added),
 prepend a `>>> SYNC LOCK` comment in `docs/CHANGELOG_AGENTS.md`'s
 top entry with `cursor` or `cursor-b` and a 5-min TTL. The other
 window respects it for that window. The lock is advisory — if 5 min

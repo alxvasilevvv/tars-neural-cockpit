@@ -4,6 +4,18 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-13 — Cursor · handoff doc debt (showcase removal sync)
+
+**Summary**
+
+Aligns `docs/AGENT_HANDOFF.md` with **current `main`**: in-tree showcase/cockpit SPA removed; canonical dev paths are **`make dev-tars-stack`** / **`make desktop-dev`**; **Mental model**, **Where things live**, **Conventions**, and **How to run locally** no longer describe `experiments/neural-showcase-v3/` or **5174** as live paths. Adds top **2026-05-13** banner explaining that long timelines below are **historical** unless dated current. Flags **2026-05-04** go-live SPA block as historical. Updates **`docs/SYNC.md`** §3 + port table + file mutex list for multi-agent lanes after showcase removal.
+
+**Files**
+
+- `docs/AGENT_HANDOFF.md` — banner + section rewrites above.
+- `docs/SYNC.md` — lane ownership, ports **5173**, mutex paths.
+- `docs/CHANGELOG_AGENTS.md` — this entry.
+
 ## 2026-05-10 — Cursor · Phase W4-PR1: workshop quant playbooks + recursive playbook loader
 
 **Summary**
@@ -2332,26 +2344,6 @@ check — if OK, prints RU hint that token lacks **Account → Cloudflare Pages 
 - `docs/CHANGELOG_PUBLIC.md` (regenerated)
 - `docs/CHANGELOG_AGENTS.md` (this entry)
 
-## 2026-05-04 — Cursor · ops: cf-operator.env paste + Cloudflare → GitHub Pages deploy
-
-**Summary**
-
-**Operator flow:** copy **`cf-operator.env.example`** → **`cf-operator.env`** (gitignored),
-paste **`CLOUDFLARE_ACCOUNT_ID`** + **`CLOUDFLARE_API_TOKEN`**, run **`make ops-cf-pages-token`**.
-**`scripts/ops_push_cloudflare_pages_api_token.sh`** preflights **GET …/pages/projects/tars-meeet**,
-then **`gh secret set CLOUDFLARE_API_TOKEN`** + **`gh workflow run`** (dashboard token must have
-**Account → Cloudflare Pages → Edit**). **`cf-operator.env.example`** / локальный **`cf-operator.env`**
-— пошаговые подсказки где взять ID и token.
-
-**Files**
-
-- `cf-operator.env.example` (paste template + hints)
-- `.gitignore` (`cf-operator.env`)
-- `scripts/ops_push_cloudflare_pages_api_token.sh`
-- `Makefile` (`ops-cf-pages-token`)
-- `docs/CHANGELOG_PUBLIC.md` (regenerated)
-- `docs/CHANGELOG_AGENTS.md` (this entry)
-
 ---
 
-_Showing the most recent 60 of 248 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 249 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._

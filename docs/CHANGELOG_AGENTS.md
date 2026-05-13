@@ -4,6 +4,18 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-13 — Cursor · handoff doc debt (showcase removal sync)
+
+**Summary**
+
+Aligns `docs/AGENT_HANDOFF.md` with **current `main`**: in-tree showcase/cockpit SPA removed; canonical dev paths are **`make dev-tars-stack`** / **`make desktop-dev`**; **Mental model**, **Where things live**, **Conventions**, and **How to run locally** no longer describe `experiments/neural-showcase-v3/` or **5174** as live paths. Adds top **2026-05-13** banner explaining that long timelines below are **historical** unless dated current. Flags **2026-05-04** go-live SPA block as historical. Updates **`docs/SYNC.md`** §3 + port table + file mutex list for multi-agent lanes after showcase removal.
+
+**Files**
+
+- `docs/AGENT_HANDOFF.md` — banner + section rewrites above.
+- `docs/SYNC.md` — lane ownership, ports **5173**, mutex paths.
+- `docs/CHANGELOG_AGENTS.md` — this entry.
+
 ## 2026-05-10 — Cursor · Phase W4-PR1: workshop quant playbooks + recursive playbook loader
 
 **Summary**

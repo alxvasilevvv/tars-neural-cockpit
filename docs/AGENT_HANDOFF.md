@@ -3,6 +3,12 @@
 Pick this up if you are continuing the work in a fresh chat. Read this file
 plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 
+> **2026-05-13 — Doc sync: `main` after in-tree showcase removal (read first).**
+>
+> The React marketing / operator SPA (`experiments/neural-showcase-v3/`, v2) is **not in this repo anymore** (removed May 2026). **Canonical in-tree UI:** Tauri **desktop** shell `desktop/src-tauri/web/` — dev **`make desktop-dev`** → **5173**. **Backend API:** **`make dev-tars-stack`** / **`make backend-tars-up`** → **8765** (see `CLAUDE.md`). Live **tars.meeet.world** is built from **Cloudflare Pages** (artifact may predate removal); operator unblocks: **B-019** domain bind + **`GITHUB_RELEASE_TOKEN`** → `docs/TARS_MEEET_OPS_TODO.md`.
+>
+> Sections **«Mental model»**, **«Where things live»**, **«How to run locally»**, timelines, and **«Next Cursor block»** below still name `neural-showcase-v3`, `/cockpit`, or **5174** — treat undated bullets as **historical archive** unless updated **2026-05-13+** above.
+
 > **2026-05-09 — operator UX hardening + B-017/B-018 stack landed.**
 >
 > Five Cursor PRs were opened across 2026-05-08/09 and **all
@@ -101,6 +107,8 @@ plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 > After `.env` is set: **`make smoke-billing-tars`** — same machine, stdlib **`fetch_operator_snapshot`** (no uvicorn) to confirm TARS reads prod.
 > One command dev server: **`make backend-tars-up`** — frees **:8765**, starts **uvicorn** with **`.env`** in background, prints **`/api/entitlements`** billing JSON; stop: **`kill $(cat /tmp/tars-backend-8765.pid)`**.
 > **`make dev-tars-stack`** — starts **`backend-tars-up`** only (API **8765**). The in-repo Vite showcase was removed; use **`make desktop-dev`** (bundled static shell on **5173**) or your own UI against the API.
+
+> **Historical (pre–May 2026 showcase removal from `main`):** the next block records the **SPA** that shipped same-day routes on the marketing host — **not** the current in-tree layout.
 
 > **2026-05-04 — Go-live same-day closeout.** `docs/GO_LIVE_48H.md` is the
 > operator checklist (**bridge on Pages**, GitHub `BRIDGE_SHARED_SECRET`,
@@ -505,8 +513,10 @@ plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 ## Current split of work
 
 - **Cursor agent (functional / backend / wiring):** owns domain packs,
-  meeet bridge, real adapters, SSE awareness, FastAPI router, frontend
-  glue (Cockpit + AwarenessTicker + OperatorStrip + UsageStrip). The
+  meeet bridge, real adapters, SSE awareness, FastAPI router, and
+  **desktop** / API consumers (Tauri shell under `desktop/src-tauri/web/`,
+  AwarenessTicker / OperatorStrip / UsageStrip patterns — the old web
+  cockpit SPA is **retired from `main`**). The
   latest batch (Phase K) shipped: route + session_id tagging in every
   event, a USD/token cost ledger fed by `usage.tokens` events, the
   `/api/usage` rollup with per-route / per-model / per-session
@@ -527,9 +537,11 @@ plus per-page overrides in `design-system/tars/pages/`.
 ## Mental model
 
 TARS is a local-first Neural Cockpit. Frontend and backend are loosely
-coupled — `frontend/` is vanilla HTML/CSS/JS, the canonical SaaS-grade
-surface is `experiments/neural-showcase-v3/` (React + Tailwind v4 +
-framer-motion + R3F).
+coupled: **`frontend/` is retired** (2026 audit). **Canonical in-tree
+UI** is the **Tauri desktop** app (`desktop/src-tauri/web/`); public
+marketing may still be served from **Cloudflare Pages** (`tars.meeet.world`)
+built outside this tree. **HTTP API-first** workflow: any client (desktop,
+scripts, MCP) talks to `web_extras/` routes.
 
 Phase-9: **domain packs** — plugin system that specialises the neural
 core for traders, business, MLM, science.
@@ -539,8 +551,8 @@ inside a `trace_scope` and emits events to the meeet ingest, contract
 version pinned at `1.0.0`.
 
 Phase-9.2: **awareness SSE** — `GET /api/awareness/stream` pushes
-`hello`, `system.pulse`, `domain.heartbeat`, and `bye` frames so the
-cockpit can wire a live ticker.
+`hello`, `system.pulse`, `domain.heartbeat`, and `bye` frames so **UI
+clients** (desktop shell, scripts, external tools) can wire a live ticker.
 
 ## Where things live
 
@@ -652,12 +664,10 @@ cockpit can wire a live ticker.
   **159 tests, all green.**
 - **Specs:** `docs/DOMAIN_PACKS.md`, `docs/VIDEO_TRANSCRIPTS.md`,
   `docs/IDEAS.md`.
-- **Showcase v2 — vanilla:** `experiments/neural-showcase-v2/`
-- **Showcase v3 — React (canonical surface):**
-  `experiments/neural-showcase-v3/`. Live routes:
-  - `/` → Landing (Hero + Rail + Layers + Domains + Steps + Footer)
-  - `/cockpit` → operator console (live `/api/domains` + invoke +
-    SSE awareness ticker)
+- **Showcase v2/v3 (removed from `main`, May 2026):** historical Cursor
+  lane lived under `experiments/neural-showcase-{v2,v3}/` with `/`,
+  `/cockpit`, `/pricing`, etc. **Current in-tree UI:** `desktop/src-tauri/web/`;
+  public site routes may still exist on **deployed** CF Pages only.
 - **Project context for AI:** `CLAUDE.md`, `.cursorrules`,
   `.cursor/rules/tars-architecture.mdc` — keep these three in sync.
 
@@ -3321,27 +3331,27 @@ Smaller functional items still pending in parallel:
   at least `*.invoked` and `*.completed` events.
 - Manifests: slug is kebab-case-or-lower; color is hex; capabilities
   are short snake_case strings.
-- Don't bleed `experiments/neural-showcase-{v2,v3}/` deps into the
-  canonical `frontend/`.
+- Don't bleed old showcase or retired `frontend/` assumptions into **API
+  contracts** — desktop + `web_extras/` are source of truth.
 - Update `docs/CHANGELOG_AGENTS.md` after every meaningful edit batch.
 
 ## How to run locally
 
 ```bash
-# Backend (real adapters + SSE + council + policy + playbooks)
-cd Jarvis/jarvis
-PYTHONPATH=. PORT=9911 .venv/bin/python serve.py
+# Recommended: API + desktop shell (matches current tree)
+cd /path/to/Jarvis/jarvis
+make dev-tars-stack          # API on :8765 (loads .env)
+make desktop-dev             # Tauri web shell on :5173 → proxies to API
 
-# Frontend (v3)
-cd experiments/neural-showcase-v3
-npm install
-npm run dev          # http://127.0.0.1:5174
-# Cockpit reads VITE_TARS_API; the project ships a .env.local pinned
-# to http://127.0.0.1:9911. Point it elsewhere if you change the port.
+# Or: backend only on a custom port
+PYTHONPATH=. PORT=9911 .venv/bin/python serve.py
 
 # Tests
 PYTHONPATH=. .venv/bin/python -m pytest -q
 ```
+
+**Removed from `main`:** `cd experiments/neural-showcase-v3 && npm run dev` (port **5174**).
+Use **`make desktop-dev`** instead for browser UI against the API.
 
 ### Useful curl recipes
 
