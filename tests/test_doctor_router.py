@@ -103,6 +103,20 @@ class TestDoctorRouter(unittest.TestCase):
         self.assertIn("daemon", slugs)
         self.assertIn("vault", slugs)
 
+    def test_html_page_renders(self) -> None:
+        r = self.client.get("/api/doctor/page")
+        self.assertEqual(r.status_code, 200)
+        self.assertIn("text/html", r.headers.get("content-type", ""))
+        body = r.text
+        self.assertIn("<!doctype html>", body.lower())
+        self.assertIn("TARS doctor", body)
+        # The page fetches /api/doctor in JS
+        self.assertIn("/api/doctor", body)
+        # And handles the status palette
+        self.assertIn("ok", body)
+        self.assertIn("warn", body)
+        self.assertIn("fail", body)
+
 
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()

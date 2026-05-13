@@ -146,6 +146,7 @@ The same results are exposed via the FastAPI app:
 | `GET` | `/api/doctor` | Run every check; returns `{ok, summary, results[]}` |
 | `GET` | `/api/doctor/{slug}` | Run a single check by slug; 404 if unknown |
 | `GET` | `/api/doctor/registry` | List slugs + labels without running |
+| `GET` | `/api/doctor/page` | Self-contained HTML dashboard (Wave 156); auto-refresh 30s |
 
 The cockpit Status page consumes `/api/doctor` to render a live
 health table. The W117 synthetic monitor scrapes the same endpoint
@@ -158,7 +159,8 @@ same posture as `/health` and `/api/status`.
 ## Roadmap
 
 - **v0.1 (Wave 154):** 8 built-in checks, JSON / human / quiet / single-check modes
-- **v0.2 (Wave 155 — *this release*):** HTTP `/api/doctor` endpoint surface
-- **v0.3 (v9.2 target):** time-series log of past doctor runs (last N) under `~/.tars/doctor.log`
-- **v0.4 (v9.2 target):** cockpit panel renders the JSON output live
+- **v0.2 (Wave 155):** HTTP `/api/doctor` endpoint surface
+- **v0.3 (Wave 156 — *this release*):** self-contained HTML dashboard at `/api/doctor/page` (auto-refresh, no React build)
+- **v0.4 (v9.2 target):** time-series log of past doctor runs (last N) under `~/.tars/doctor.log`
+- **v0.5 (v9.2 target):** Tauri cockpit embeds the page in a webview tab
 - **v1.0 (v9.3 target):** fix-mode (`--fix daemon` re-installs the LaunchAgent etc.)

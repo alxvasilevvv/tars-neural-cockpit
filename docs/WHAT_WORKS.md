@@ -52,7 +52,7 @@ Legend:
 | AI Clone v0.1 (style traits skeleton — *style hint, not full clone*) *(Wave 73)* | `backend/core/clone/style.py`, `web_extras/routers/clone.py` |
 | AI Clone v0.2 — style persistence (export/import envelope + debounced webhook sync) *(Wave 151)* | `backend/core/clone/sync.py`, `web_extras/routers/clone.py` (`/api/clone/export`, `/api/clone/import`), `tests/test_clone_sync.py` |
 | Background TARS daemon — macOS LaunchAgent + Linux systemd user-unit + heartbeat *(Waves 152 + 153)* | `backend/core/daemon/{__init__,runner,launchd,systemd,__main__}.py`, `scripts/tars-daemon`, `tests/test_daemon.py`, `docs/contracts/BACKGROUND_DAEMON.md` |
-| `tars-doctor` — single-command health check across MCP / Clone sync / daemon / scheduler / webhooks / cowork / receipts / vault *(Wave 154)* + HTTP `/api/doctor` surface *(Wave 155)* | `backend/core/doctor/`, `web_extras/routers/doctor.py`, `scripts/tars-doctor`, `tests/test_doctor*.py`, `docs/contracts/DOCTOR.md` |
+| `tars-doctor` — single-command health check across MCP / Clone sync / daemon / scheduler / webhooks / cowork / receipts / vault *(Wave 154)* + HTTP `/api/doctor` *(Wave 155)* + self-contained HTML dashboard at `/api/doctor/page` *(Wave 156)* | `backend/core/doctor/`, `web_extras/routers/doctor.py`, `scripts/tars-doctor`, `tests/test_doctor*.py`, `docs/contracts/DOCTOR.md` |
 | Smart Agent Router (LLM intent routing; opt-in `TARS_SMART_ROUTER=1`) *(Wave 73)* | `backend/core/agents/router.py`, `web_extras/routers/agents.py` |
 | OpenTelemetry exporter wrapper (no-op unless OTLP endpoint set) *(Wave 73)* | `backend/core/observability/otel.py` |
 | /dl proxy → GitHub Releases | `experiments/neural-showcase-v3/functions/dl/[file].ts` |
