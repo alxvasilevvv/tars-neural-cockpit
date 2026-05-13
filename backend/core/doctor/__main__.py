@@ -55,6 +55,10 @@ _STATUS_GLYPH = {
 }
 
 
+def _print_json(payload) -> None:
+    sys.stdout.write(json.dumps(payload, indent=2, default=str) + "\n")
+
+
 def _format_human(results: Sequence[CheckResult], *, quiet: bool) -> str:
     rows: list[str] = []
     rows.append(_c("TARS doctor — health check (Wave 154)", "bold"))
@@ -125,6 +129,14 @@ def _build_parser() -> argparse.ArgumentParser:
         "--fix", nargs="?", const="__ALL__", metavar="SLUG",
         help="apply safe auto-remediation. With no arg: every registered fixer. With SLUG: one.",
     )
+    p.add_argument(
+        "--test-notify", action="store_true",
+        help="fire a synthetic doctor.status_changed through fanout_all to verify channel wiring",
+    )
+    p.add_argument(
+        "--channel", metavar="SLUG", default=None,
+        help="with --test-notify: pin a single channel (telegram|imessage|email) instead of TARS_DAEMON_FANOUT_CHANNELS env",
+    )
     return p
 
 
@@ -138,6 +150,41 @@ def main(argv: list[str] | None = None) -> int:
             has_fix = " [fixer]" if slug in FIX_REGISTRY else ""
             sys.stdout.write(f"{slug:12s}  {short}{has_fix}\n")
         return 0
+
+    if args.test_notify:
+        try:
+            from backend.core.notifications import fanout_all
+        except Exception as exc:
+            sys.stderr.write(f"notifications import failed: {exc}\n")
+            return 2
+        channels = [args.channel] if args.channel else None
+        change = {
+            "slug": "test",
+            "from": "ok",
+            "to": "warn",
+            "summary": "test alert from tars-doctor --test-notify",
+        }
+        results = fanout_all(change, channels=channels)
+        if args.json:
+            _print_json({"ok": all(r.get("ok") for r in results), "results": results})
+        else:
+            sys.stdout.write("TARS doctor — test alert\n\n")
+            if not results:
+                sys.stdout.write(
+                    "  (no channels configured)\n"
+                    "  → set TARS_DAEMON_FANOUT_CHANNELS env or pass --channel SLUG\n"
+                )
+                return 1
+            for r in results:
+                glyph = "✓" if r.get("ok") else "✗"
+                detail = r.get("message_id") or r.get("error") or "?"
+                sys.stdout.write(
+                    f"  {glyph} {r.get('channel'):10s}  {detail}\n"
+                )
+            ok = all(r.get("ok") for r in results)
+            sys.stdout.write(f"\n  {'all channels delivered' if ok else 'some channels failed'}\n")
+            return 0 if ok else 2
+        return 0 if all(r.get("ok") for r in results) else 2
 
     if args.fix:
         if args.fix == "__ALL__":

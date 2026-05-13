@@ -216,6 +216,32 @@ class TestCliFixFlag(_IsolatedFixer):
         self.assertEqual(rc, 0)
         self.assertIn("[fixer]", out)
 
+    # ─── Wave 169 — --test-notify CLI ───────────────────────────
+
+    def test_test_notify_no_channels(self) -> None:
+        # No env, no --channel → fanout_all returns [] → rc=1 with hint
+        os.environ.pop("TARS_DAEMON_FANOUT_CHANNELS", None)
+        rc, out, _ = self._capture(["--test-notify"])
+        self.assertEqual(rc, 1)
+        self.assertIn("no channels configured", out)
+        self.assertIn("TARS_DAEMON_FANOUT_CHANNELS", out)
+
+    def test_test_notify_channel_arg_unknown(self) -> None:
+        # --channel bogus → fanout_all returns [unknown_channel] → rc=2
+        rc, out, _ = self._capture(["--test-notify", "--channel", "bogus"])
+        self.assertEqual(rc, 2)
+        self.assertIn("bogus", out)
+        self.assertIn("unknown_channel", out)
+
+    def test_test_notify_json_mode(self) -> None:
+        rc, out, _ = self._capture(
+            ["--test-notify", "--channel", "bogus", "--json"]
+        )
+        parsed = json.loads(out)
+        self.assertIn("ok", parsed)
+        self.assertIn("results", parsed)
+        self.assertFalse(parsed["ok"])
+
 
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()
