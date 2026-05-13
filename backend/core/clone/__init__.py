@@ -23,6 +23,7 @@ from __future__ import annotations
 from .style import (
     StyleProfile,
     draft,
+    get_clone_store,
     profile,
     record_message,
     reset_clone_store,
@@ -31,6 +32,7 @@ from .style import (
 __all__ = [
     "StyleProfile",
     "draft",
+    "get_clone_store",
     "profile",
     "record_message",
     "reset_clone_store",

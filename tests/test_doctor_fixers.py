@@ -52,14 +52,23 @@ class _IsolatedFixer(unittest.TestCase):
         self._home = Path(self._tmp) / "home"
         self._home.mkdir()
         os.environ["HOME"] = str(self._home)
-        os.environ.pop("TARS_VAULT_DIR", None)
+        # Snapshot + drop env that affects fixer outcomes, so tests run
+        # the same regardless of operator's .env state.
+        self._env_snapshot: dict[str, str | None] = {}
+        for k in ("TARS_VAULT_DIR", "TARS_SCHEDULER_ENABLED"):
+            self._env_snapshot[k] = os.environ.pop(k, None)
 
     def tearDown(self) -> None:
         try:
             shutil.rmtree(self._tmp)
         except Exception:
             pass
-        os.environ.pop("TARS_VAULT_DIR", None)
+        # Restore any env we removed in setUp.
+        for k, v in self._env_snapshot.items():
+            if v is not None:
+                os.environ[k] = v
+            else:
+                os.environ.pop(k, None)
 
 
 # ─── FixResult ────────────────────────────────────────────────────
