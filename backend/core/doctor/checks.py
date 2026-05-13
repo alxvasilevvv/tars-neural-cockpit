@@ -312,6 +312,132 @@ def check_receipts(_timeout_s: float) -> CheckResult:
     return r
 
 
+def check_llm_provider(_timeout_s: float) -> CheckResult:
+    """At least one LLM provider key is configured.
+
+    Operators frequently set up TARS without realizing the chat
+    layer needs an Anthropic OR OpenAI key. This check surfaces
+    that early. We only check env presence — never call the
+    provider (that's a network check, out of scope here).
+    """
+
+    r = CheckResult(slug="llm_provider", label="LLM provider keys")
+    anth = (os.getenv("TARS_ANTHROPIC_API_KEY") or os.getenv("ANTHROPIC_API_KEY") or "").strip()
+    oai = (os.getenv("TARS_OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY") or "").strip()
+
+    def _redact(s: str) -> str:
+        if not s:
+            return ""
+        return s[:6] + "…" + s[-3:] if len(s) > 12 else "…redacted…"
+
+    r.details = {
+        "anthropic_set": bool(anth),
+        "anthropic_preview": _redact(anth) if anth else None,
+        "openai_set": bool(oai),
+        "openai_preview": _redact(oai) if oai else None,
+    }
+    if not anth and not oai:
+        r.status = "warn"
+        r.summary = "no LLM provider key set"
+        r.suggestion = (
+            "set TARS_ANTHROPIC_API_KEY or TARS_OPENAI_API_KEY env"
+        )
+    elif anth and oai:
+        r.status = "ok"
+        r.summary = "Anthropic + OpenAI both configured"
+    else:
+        provider = "Anthropic" if anth else "OpenAI"
+        r.status = "ok"
+        r.summary = f"{provider} configured"
+    return r
+
+
+def check_disk_space(_timeout_s: float) -> CheckResult:
+    """Free space at ``~/.tars/`` (or its parent if it doesn't exist).
+
+    SQLite stores (clone, cowork, receipts, webhooks) live here.
+    Below 100MB free → fail; below 1GB → warn; else ok.
+    """
+
+    import shutil
+
+    r = CheckResult(slug="disk_space", label="Disk space (~/.tars)")
+    target = Path.home() / ".tars"
+    probe_dir = target if target.exists() else target.parent
+    try:
+        total, used, free = shutil.disk_usage(probe_dir)
+    except OSError as exc:
+        r.status = "fail"
+        r.summary = f"disk_usage failed: {exc}"
+        return r
+
+    free_mb = free / (1024 * 1024)
+    free_gb = free_mb / 1024
+    r.details = {
+        "probe_dir": str(probe_dir),
+        "total_gb": round(total / (1024**3), 1),
+        "used_gb": round(used / (1024**3), 1),
+        "free_gb": round(free_gb, 1),
+        "free_mb": round(free_mb, 1),
+    }
+    if free_mb < 100:
+        r.status = "fail"
+        r.summary = f"only {free_mb:.0f} MB free at {probe_dir}"
+        r.suggestion = "free disk space — TARS SQLite stores live here"
+    elif free_gb < 1:
+        r.status = "warn"
+        r.summary = f"{free_mb:.0f} MB free (< 1 GB)"
+        r.suggestion = "consider freeing disk space"
+    else:
+        r.status = "ok"
+        r.summary = f"{free_gb:.1f} GB free at {probe_dir}"
+    return r
+
+
+def check_log_freshness(_timeout_s: float) -> CheckResult:
+    """Daemon log file freshness.
+
+    If the daemon is running, ``~/.tars/daemon.out.log`` should
+    have been written to recently. A stale log (no writes in the
+    last hour) often means the daemon crashed without updating
+    the heartbeat. This is a complementary signal to the daemon
+    heartbeat check.
+    """
+
+    r = CheckResult(slug="log_freshness", label="Daemon log file freshness")
+    log_path = Path.home() / ".tars" / "daemon.out.log"
+    if not log_path.exists():
+        r.status = "skip"
+        r.summary = "no daemon log file yet"
+        return r
+
+    try:
+        mtime = log_path.stat().st_mtime
+        size = log_path.stat().st_size
+    except OSError as exc:
+        r.status = "fail"
+        r.summary = f"stat failed: {exc}"
+        return r
+
+    age_s = max(0.0, time.time() - mtime)
+    r.details = {
+        "log_path": str(log_path),
+        "size_bytes": size,
+        "age_s": round(age_s, 1),
+    }
+    if age_s < 300:  # 5 min
+        r.status = "ok"
+        r.summary = f"updated {age_s:.0f}s ago, {size} bytes"
+    elif age_s < 3600:  # 1 hour
+        r.status = "warn"
+        r.summary = f"updated {age_s/60:.0f} min ago"
+    else:
+        r.status = "fail"
+        r.summary = f"updated {age_s/3600:.1f} hours ago — daemon may be hung"
+        r.suggestion = "run: scripts/tars-daemon restart"
+    return r
+
+
 def check_vault(_timeout_s: float) -> CheckResult:
     """Vault dir exists + key files readable."""
 
@@ -349,6 +475,9 @@ REGISTRY: list[tuple[str, CheckFn]] = [
     ("cowork", check_cowork),
     ("receipts", check_receipts),
     ("vault", check_vault),
+    ("llm_provider", check_llm_provider),
+    ("disk_space", check_disk_space),
+    ("log_freshness", check_log_freshness),
 ]
 
 

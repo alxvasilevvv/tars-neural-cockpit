@@ -21,6 +21,7 @@ import os
 import shutil
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 from unittest.mock import patch
@@ -150,6 +151,84 @@ class TestVaultCheck(_IsolatedDoctor):
         r = check_vault(5.0)
         self.assertEqual(r.status, "ok")
         self.assertEqual(r.details["file_count"], 1)
+
+
+# ─── Wave 173 — new checks ────────────────────────────────────────
+
+
+class TestLlmProviderCheck(_IsolatedDoctor):
+    def test_no_keys_returns_warn(self) -> None:
+        for k in ("TARS_ANTHROPIC_API_KEY", "ANTHROPIC_API_KEY",
+                  "TARS_OPENAI_API_KEY", "OPENAI_API_KEY"):
+            os.environ.pop(k, None)
+        from backend.core.doctor.checks import check_llm_provider
+        r = check_llm_provider(5.0)
+        self.assertEqual(r.status, "warn")
+        self.assertIn("LLM provider", r.summary)
+        self.assertFalse(r.details["anthropic_set"])
+        self.assertFalse(r.details["openai_set"])
+
+    def test_anthropic_only_is_ok(self) -> None:
+        os.environ["ANTHROPIC_API_KEY"] = "sk-ant-abc123long-secret-value"
+        from backend.core.doctor.checks import check_llm_provider
+        r = check_llm_provider(5.0)
+        self.assertEqual(r.status, "ok")
+        self.assertIn("Anthropic", r.summary)
+        # Redacted preview shouldn't leak the secret
+        self.assertIn("…", r.details["anthropic_preview"])
+        self.assertNotIn("secret", r.details["anthropic_preview"])
+        os.environ.pop("ANTHROPIC_API_KEY", None)
+
+    def test_both_keys_set(self) -> None:
+        os.environ["ANTHROPIC_API_KEY"] = "sk-ant-xxx"
+        os.environ["OPENAI_API_KEY"] = "sk-oai-yyy"
+        from backend.core.doctor.checks import check_llm_provider
+        r = check_llm_provider(5.0)
+        self.assertEqual(r.status, "ok")
+        self.assertIn("Anthropic + OpenAI", r.summary)
+        os.environ.pop("ANTHROPIC_API_KEY", None)
+        os.environ.pop("OPENAI_API_KEY", None)
+
+
+class TestDiskSpaceCheck(_IsolatedDoctor):
+    def test_returns_ok_or_warn(self) -> None:
+        from backend.core.doctor.checks import check_disk_space
+        r = check_disk_space(5.0)
+        self.assertIn(r.status, {"ok", "warn", "fail"})
+        self.assertIn("free_gb", r.details)
+        self.assertIn("probe_dir", r.details)
+
+
+class TestLogFreshnessCheck(_IsolatedDoctor):
+    def test_no_log_returns_skip(self) -> None:
+        from backend.core.doctor.checks import check_log_freshness
+        r = check_log_freshness(5.0)
+        self.assertEqual(r.status, "skip")
+        self.assertIn("no daemon log", r.summary)
+
+    def test_fresh_log_returns_ok(self) -> None:
+        log_dir = self._home / ".tars"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        log = log_dir / "daemon.out.log"
+        log.write_text("recent entry")
+        from backend.core.doctor.checks import check_log_freshness
+        r = check_log_freshness(5.0)
+        self.assertEqual(r.status, "ok")
+        self.assertLess(r.details["age_s"], 60)
+
+    def test_stale_log_returns_fail(self) -> None:
+        import os as _os
+        log_dir = self._home / ".tars"
+        log_dir.mkdir(parents=True, exist_ok=True)
+        log = log_dir / "daemon.out.log"
+        log.write_text("old entry")
+        # Set mtime to 2 hours ago
+        old = time.time() - (2 * 3600)
+        _os.utime(log, (old, old))
+        from backend.core.doctor.checks import check_log_freshness
+        r = check_log_freshness(5.0)
+        self.assertEqual(r.status, "fail")
+        self.assertIn("hours", r.summary)
 
 
 # ─── run_all + __main__ ────────────────────────────────────────────
