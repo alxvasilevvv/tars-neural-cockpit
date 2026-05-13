@@ -44,6 +44,11 @@ from .telegram import (
     is_configured as telegram_is_configured,
     send_telegram,
 )
+from .email import (
+    fanout_doctor_change as email_fanout_doctor_change,
+    is_configured as email_is_configured,
+    send_email,
+)
 
 # Keep `fanout_doctor_change` as the Telegram default for callers
 # that didn't specify a channel (back-compat with W161).
@@ -77,6 +82,8 @@ def fanout_all(
             results.append({"channel": "telegram", **telegram_fanout_doctor_change(change)})
         elif ch == "imessage":
             results.append({"channel": "imessage", **imessage_fanout_doctor_change(change)})
+        elif ch == "email":
+            results.append({"channel": "email", **email_fanout_doctor_change(change)})
         else:
             results.append({"channel": ch, "ok": False, "error": "unknown_channel"})
     return results
@@ -86,11 +93,14 @@ __all__ = [
     "CONTRACT_VERSION",
     "IMessageError",
     "Message",
+    "email_fanout_doctor_change",
+    "email_is_configured",
     "fanout_all",
     "fanout_doctor_change",
     "imessage_fanout_doctor_change",
     "is_supported",
     "recent_messages",
+    "send_email",
     "send_imessage",
     "send_telegram",
     "telegram_fanout_doctor_change",
