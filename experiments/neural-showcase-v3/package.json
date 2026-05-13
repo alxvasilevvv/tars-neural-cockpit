@@ -1,0 +1,11 @@
+{
+  "name": "tars-meeet-pages-infra",
+  "private": true,
+  "version": "9.1.0",
+  "type": "module",
+  "description": "Cloudflare Pages infrastructure for tars.meeet.world — API functions + dl-proxy + install funnel. Wave 142 restoration after the e5f1911 SPA-removal accidentally took the proxy infra with it. NO React SPA here — just the static install funnel + Pages functions.",
+  "scripts": {
+    "build:cf": "rm -rf dist && mkdir -p dist && cp -r public/. dist/",
+    "build": "npm run build:cf"
+  }
+}

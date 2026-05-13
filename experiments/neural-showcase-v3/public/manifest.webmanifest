@@ -1,0 +1,48 @@
+{
+  "name": "TARS — Neural Cockpit",
+  "short_name": "TARS",
+  "description": "Local-first AI agent for Mac. Multi-LLM council, signed receipts, $MEEET economy.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#000000",
+  "theme_color": "#6366F1",
+  "categories": ["productivity", "developer", "utilities"],
+  "lang": "en",
+  "dir": "ltr",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Open cockpit",
+      "short_name": "Cockpit",
+      "url": "/cockpit",
+      "description": "Live operator console"
+    },
+    {
+      "name": "Install guide",
+      "short_name": "Install",
+      "url": "/install",
+      "description": "One-curl setup, OS-detected"
+    },
+    {
+      "name": "Pitch deck",
+      "short_name": "Pitch",
+      "url": "/pitch",
+      "description": "12-slide product overview"
+    },
+    {
+      "name": "Workshop materials",
+      "short_name": "Materials",
+      "url": "/workshop/materials",
+      "description": "Decks, recipes, videos, community for the Algorithmic Edge cohort"
+    }
+  ]
+}

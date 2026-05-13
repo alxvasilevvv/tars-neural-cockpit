@@ -1,0 +1,4 @@
+# Wave 142 — minimal CF Pages infra (no SPA). Only build output gets ignored.
+dist/
+node_modules/
+.wrangler/
