@@ -45,15 +45,24 @@ from .systemd import (
     uninstall_unit,
     unit_status,
 )
+from .windows import (
+    WindowsTaskConfig,
+    install_task,
+    render_task_xml,
+    task_status,
+    uninstall_task,
+)
 
 
 def _detect_platform() -> str:
-    """Return ``launchd`` on macOS, ``systemd`` on Linux, else ``unsupported``."""
+    """Return ``launchd`` on macOS, ``systemd`` on Linux, ``schtasks`` on Windows, else ``unsupported``."""
 
     if sys.platform == "darwin":
         return "launchd"
     if sys.platform.startswith("linux"):
         return "systemd"
+    if sys.platform.startswith("win"):
+        return "schtasks"
     return "unsupported"
 
 
@@ -111,8 +120,13 @@ def _build_arg_parser() -> argparse.ArgumentParser:
         help="With --install, write the file but skip the launchctl/systemctl bootstrap.",
     )
     p.add_argument(
+        "--render-task",
+        action="store_true",
+        help="Print the Windows Task Scheduler XML to stdout (no side effects).",
+    )
+    p.add_argument(
         "--platform",
-        choices=["launchd", "systemd", "auto"],
+        choices=["launchd", "systemd", "schtasks", "auto"],
         default="auto",
         help="Override platform detection (default: auto).",
     )
@@ -139,6 +153,11 @@ def main(argv: list[str] | None = None) -> int:
         sys.stdout.write(render_unit(UnitConfig()))
         return 0
 
+    # --render-task (explicit Windows task render)
+    if args.render_task:
+        sys.stdout.write(render_task_xml(WindowsTaskConfig()))
+        return 0
+
     # --render (platform-auto)
     if args.render:
         if target_platform == "launchd":
@@ -147,8 +166,11 @@ def main(argv: list[str] | None = None) -> int:
         if target_platform == "systemd":
             sys.stdout.write(render_unit(UnitConfig()))
             return 0
+        if target_platform == "schtasks":
+            sys.stdout.write(render_task_xml(WindowsTaskConfig()))
+            return 0
         sys.stderr.write(
-            f"Unsupported platform '{sys.platform}'. Pass --render-plist or --render-unit explicitly.\n"
+            f"Unsupported platform '{sys.platform}'. Pass --render-plist / --render-unit / --render-task explicitly.\n"
         )
         return 1
 
@@ -159,6 +181,8 @@ def main(argv: list[str] | None = None) -> int:
             out = {"platform": "launchd", "service": plist_status(), "heartbeat": hb}
         elif target_platform == "systemd":
             out = {"platform": "systemd", "service": unit_status(), "heartbeat": hb}
+        elif target_platform == "schtasks":
+            out = {"platform": "schtasks", "service": task_status(), "heartbeat": hb}
         else:
             out = {"platform": "unsupported", "heartbeat": hb}
         _print_json(out)
@@ -179,10 +203,12 @@ def main(argv: list[str] | None = None) -> int:
             result = install_plist(dry_run=args.dry_run)
         elif target_platform == "systemd":
             result = install_unit(dry_run=args.dry_run)
+        elif target_platform == "schtasks":
+            result = install_task(dry_run=args.dry_run)
         else:
             sys.stderr.write(
                 f"Install not supported on platform '{sys.platform}'. "
-                "Use --platform launchd|systemd to force, or --dry-run --render to inspect.\n"
+                "Use --platform launchd|systemd|schtasks to force.\n"
             )
             return 1
         _print_json(result)
@@ -194,6 +220,8 @@ def main(argv: list[str] | None = None) -> int:
             result = uninstall_plist()
         elif target_platform == "systemd":
             result = uninstall_unit()
+        elif target_platform == "schtasks":
+            result = uninstall_task()
         else:
             sys.stderr.write(
                 f"Uninstall not supported on platform '{sys.platform}'.\n"

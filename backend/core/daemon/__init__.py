@@ -67,6 +67,14 @@ from .systemd import (
     uninstall_unit,
     unit_status,
 )
+from .windows import (
+    TASK_NAME,
+    WindowsTaskConfig,
+    install_task,
+    render_task_xml,
+    task_status,
+    uninstall_task,
+)
 from . import doctor_watch  # noqa: F401  -- importable as backend.core.daemon.doctor_watch
 
 
@@ -77,19 +85,24 @@ __all__ = [
     "HEARTBEAT_PATH",
     "PLIST_FILENAME",
     "PLIST_LABEL",
+    "TASK_NAME",
     "UNIT_FILENAME",
     "UNIT_NAME",
+    "WindowsTaskConfig",
     "doctor_watch",
     "get_state",
     "install_plist",
+    "install_task",
     "install_unit",
     "plist_status",
     "read_heartbeat",
     "render_plist",
+    "render_task_xml",
     "render_unit",
     "run_daemon",
+    "task_status",
     "uninstall_plist",
+    "uninstall_task",
     "uninstall_unit",
-    "unit_status",
     "write_heartbeat",
 ]

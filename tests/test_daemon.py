@@ -389,7 +389,7 @@ class TestPlatformDispatch(_IsolatedDaemon):
     def test_detect_platform(self) -> None:
         from backend.core.daemon import __main__ as dm
         p = dm._detect_platform()
-        self.assertIn(p, {"launchd", "systemd", "unsupported"})
+        self.assertIn(p, {"launchd", "systemd", "schtasks", "unsupported"})
 
     def test_install_unsupported_platform(self) -> None:
         from backend.core.daemon import __main__ as dm
@@ -397,6 +397,85 @@ class TestPlatformDispatch(_IsolatedDaemon):
         with patch("backend.core.daemon.__main__.sys.platform", "freebsd13"):
             rc = dm.main(["--install"])
         self.assertEqual(rc, 1)
+
+
+# ─── Wave 171 — Windows Task Scheduler ─────────────────────────────
+
+
+class TestRenderTask(_IsolatedDaemon):
+    def test_renders_default_task_xml(self) -> None:
+        from backend.core.daemon import windows as wmod
+        xml = wmod.render_task_xml()
+        self.assertIn("<?xml", xml)
+        self.assertIn("<Task", xml)
+        self.assertIn("<LogonTrigger>", xml)
+        self.assertIn("<Exec>", xml)
+        self.assertIn("backend.core.daemon", xml)
+        self.assertIn("<RestartOnFailure>", xml)
+
+    def test_task_xml_escapes_special_chars(self) -> None:
+        from backend.core.daemon import windows as wmod
+        cfg = wmod.WindowsTaskConfig(python="C:\\path&<chars>")
+        xml = wmod.render_task_xml(cfg)
+        self.assertIn("&amp;", xml)
+        self.assertIn("&lt;", xml)
+        self.assertIn("&gt;", xml)
+        # No literal < or > in escaped python path
+        # (the rest of the template still has < and >)
+
+    def test_install_task_dry_run(self) -> None:
+        from backend.core.daemon import windows as wmod
+        result = wmod.install_task(dry_run=True)
+        self.assertTrue(result["ok"])
+        self.assertIn("xml_path", result)
+        # XML file was written
+        with open(result["xml_path"], encoding="utf-16") as f:
+            body = f.read()
+        self.assertIn("<Task", body)
+
+    def test_install_task_handles_missing_schtasks(self) -> None:
+        from backend.core.daemon import windows as wmod
+
+        def _raise(*a, **kw):
+            raise FileNotFoundError("schtasks not found")
+
+        with patch("backend.core.daemon.windows._schtasks", side_effect=_raise):
+            result = wmod.install_task(dry_run=False)
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["error"], "schtasks_not_found")
+
+    def test_uninstall_task_not_found_returns_ok(self) -> None:
+        from backend.core.daemon import windows as wmod
+        fake = subprocess.CompletedProcess(
+            args=["schtasks"], returncode=1,
+            stdout="", stderr="ERROR: The system cannot find the file specified.",
+        )
+        with patch("backend.core.daemon.windows._schtasks", return_value=fake):
+            result = wmod.uninstall_task()
+        # "cannot find" → still OK
+        self.assertTrue(result["ok"])
+
+    def test_task_status_active_parses(self) -> None:
+        from backend.core.daemon import windows as wmod
+        stdout = "TaskName: tars-background\nStatus: Running\nLast Result: 0\n"
+        fake = subprocess.CompletedProcess(
+            args=["schtasks"], returncode=0, stdout=stdout, stderr=""
+        )
+        with patch("backend.core.daemon.windows._schtasks", return_value=fake):
+            st = wmod.task_status()
+        self.assertTrue(st["installed"])
+        self.assertTrue(st["active"])
+
+    def test_render_task_subcommand_via_main(self) -> None:
+        from backend.core.daemon import __main__ as dm
+        import io
+        buf = io.StringIO()
+        with patch("sys.stdout", buf):
+            rc = dm.main(["--render-task"])
+        self.assertEqual(rc, 0)
+        out = buf.getvalue()
+        self.assertIn("<Task", out)
+        self.assertIn("backend.core.daemon", out)
 
 
 if __name__ == "__main__":  # pragma: no cover

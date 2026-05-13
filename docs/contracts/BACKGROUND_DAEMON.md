@@ -1,6 +1,6 @@
-# TARS Background daemon — v0.2 contract (Waves 152 + 153)
+# TARS Background daemon — v0.3 contract (Waves 152 + 153 + 171)
 
-**Module:** `backend/core/daemon/` · **Contract:** `0.2.0` · **Platforms:** macOS (launchd LaunchAgent), Linux (systemd user-unit)
+**Module:** `backend/core/daemon/` · **Contract:** `0.3.0` · **Platforms:** macOS (launchd LaunchAgent), Linux (systemd user-unit), Windows (Task Scheduler)
 
 The Background daemon is the **autopilot path** — the headless
 process that ticks the scheduler, fires due playbooks, and keeps
@@ -53,9 +53,10 @@ policy: `SuccessfulExit=false`, `Crashed=true`,
 | --- | --- | --- |
 | macOS (`darwin`) | `~/Library/LaunchAgents/com.tars.background.plist` | `launchctl bootstrap gui/<uid>` |
 | Linux | `~/.config/systemd/user/tars-background.service` | `systemctl --user enable --now` |
-| Other | error: unsupported | (use `--render-plist` / `--render-unit` to inspect) |
+| Windows | Task Scheduler task `tars-background` (XML import) | `schtasks /Create /XML` |
+| Other | error: unsupported | (use `--render-plist` / `--render-unit` / `--render-task` to inspect) |
 
-Override with `--platform launchd|systemd`.
+Override with `--platform launchd|systemd|schtasks`.
 
 ## Install / Uninstall
 
@@ -164,7 +165,7 @@ Additive native-service support (systemd → Windows) = minor bump.
 
 - **v0.1 (Wave 152):** macOS LaunchAgent, heartbeat, scheduler integration, CLI shim
 - **v0.2 (Wave 153):** Linux systemd user-unit parity, platform-auto `--install` / `--uninstall` / `--status` / `--render`
-- **v0.3 (Wave 157 — *this release*):** Per-tick `tars-doctor` watcher emits `doctor.status_changed` webhook on health drift
-- **v0.4 (v9.2 target):** Windows Task Scheduler integration
+- **v0.3 (Wave 157):** Per-tick `tars-doctor` watcher emits `doctor.status_changed` webhook on health drift
+- **v0.4 (Wave 171 — *this release*):** Windows Task Scheduler parity — daemon trifecta complete (macOS + Linux + Windows)
 - **v0.5 (v9.2 target):** Cockpit "Background" status panel pulls live heartbeat
 - **v1.0 (v9.3 target):** Multi-instance daemon (per-workspace labels)
