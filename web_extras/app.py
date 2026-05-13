@@ -791,6 +791,15 @@ app.include_router(entitlements_router.router)
 app.include_router(roles_router.router)
 app.include_router(qa_router.router)
 
+# Wave 149 — Cowork HTTP surface. Wires the W129 backend module
+# (backend/core/cowork/) into 10 routes per docs/contracts/COWORK.md.
+# Operator can demo Cowork end-to-end via `make backend-tars-up`
+# without depending on brother's core-bridge. Brother can copy
+# web_extras/routers/cowork.py verbatim into core-bridge — same
+# imports, same contract.
+from web_extras.routers import cowork as cowork_router  # noqa: E402
+app.include_router(cowork_router.router)
+
 
 @app.get("/health")
 async def health() -> dict[str, object]:
