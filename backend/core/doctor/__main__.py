@@ -137,6 +137,18 @@ def _build_parser() -> argparse.ArgumentParser:
         "--channel", metavar="SLUG", default=None,
         help="with --test-notify: pin a single channel (telegram|imessage|email) instead of TARS_DAEMON_FANOUT_CHANNELS env",
     )
+    p.add_argument(
+        "--watch", action="store_true",
+        help="continuously tail health: re-run every --interval seconds, print only rows whose status changed",
+    )
+    p.add_argument(
+        "--interval", type=float, default=30.0,
+        help="with --watch: seconds between ticks (default 30, floor 1)",
+    )
+    p.add_argument(
+        "--max-ticks", type=int, default=0,
+        help="with --watch: stop after N ticks (0 = run forever, default)",
+    )
     return p
 
 
@@ -149,6 +161,51 @@ def main(argv: list[str] | None = None) -> int:
             short = doc[0] if doc else ""
             has_fix = " [fixer]" if slug in FIX_REGISTRY else ""
             sys.stdout.write(f"{slug:12s}  {short}{has_fix}\n")
+        return 0
+
+    if args.watch:
+        interval = max(1.0, float(args.interval))
+        max_ticks = int(args.max_ticks)
+        last_status: dict[str, str] = {}
+        tick = 0
+        sys.stdout.write(
+            f"TARS doctor — watch mode (interval {interval:.1f}s, "
+            f"max-ticks {max_ticks or '∞'})\n\n"
+        )
+        sys.stdout.flush()
+        try:
+            import time as _time
+            while True:
+                tick += 1
+                results = run_all(timeout_s=args.timeout)
+                transitions: list[CheckResult] = []
+                for r in results:
+                    prev = last_status.get(r.slug)
+                    if prev is None:
+                        # first sighting: report ok? + warn/fail at boot
+                        if r.status != "ok":
+                            transitions.append(r)
+                    elif prev != r.status:
+                        transitions.append(r)
+                    last_status[r.slug] = r.status
+
+                if transitions:
+                    stamp = _time.strftime("%H:%M:%S")
+                    for r in transitions:
+                        prev = last_status.get(r.slug + ".prev", "?")
+                        glyph = _STATUS_GLYPH.get(r.status, "?")
+                        sys.stdout.write(
+                            f"  [{stamp}] {_c(glyph, r.status)} {r.slug:12s} "
+                            f"{_c(r.status.upper().ljust(4), r.status)} "
+                            f"{r.summary}\n"
+                        )
+                    sys.stdout.flush()
+
+                if max_ticks and tick >= max_ticks:
+                    break
+                _time.sleep(interval)
+        except KeyboardInterrupt:
+            sys.stdout.write("\n  (watch stopped)\n")
         return 0
 
     if args.test_notify:

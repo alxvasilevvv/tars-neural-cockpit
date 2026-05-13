@@ -242,6 +242,30 @@ class TestCliFixFlag(_IsolatedFixer):
         self.assertIn("results", parsed)
         self.assertFalse(parsed["ok"])
 
+    # ─── Wave 172 — --watch mode ───────────────────────────────
+
+    def test_watch_runs_max_ticks_and_exits(self) -> None:
+        # --max-ticks 2 + interval 0.01 → runs twice quickly + exits
+        rc, out, _ = self._capture(
+            ["--watch", "--max-ticks", "2", "--interval", "0.01"]
+        )
+        self.assertEqual(rc, 0)
+        self.assertIn("TARS doctor — watch mode", out)
+        # First tick reports any non-ok rows (vault is missing in
+        # the temp home so it's warn)
+        self.assertIn("vault", out)
+
+    def test_watch_only_prints_transitions(self) -> None:
+        # Run with --max-ticks 1 → only initial non-ok rows print.
+        # If we re-run with --max-ticks 2, the second tick should
+        # NOT re-print rows whose status didn't change between ticks.
+        rc, out, _ = self._capture(
+            ["--watch", "--max-ticks", "3", "--interval", "0.01"]
+        )
+        # vault appears once (initial warn report), not three times
+        vault_lines = [line for line in out.splitlines() if "vault" in line and "WARN" in line]
+        self.assertEqual(len(vault_lines), 1)
+
 
 if __name__ == "__main__":  # pragma: no cover
     unittest.main()
