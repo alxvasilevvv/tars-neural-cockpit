@@ -304,6 +304,30 @@ export const onRequest: PagesFunction<Env> = async (context) => {
 
   const asset = await fetchAsset(env, tag, filename);
   if (!asset) {
+    // Wave 146 — Intel Mac fallback. When macos-13 GitHub runner pool
+    // is queue-starved the Intel .dmg never builds; install.sh would
+    // see HTTP 404. Apple Rosetta 2 runs the arm64 binary cleanly on
+    // Intel hardware, so redirect rather than fail. `x-tars-fallback`
+    // header lets the caller surface a "running under Rosetta" notice.
+    const ROSETTA_ALIASES: Record<string, string> = {
+      "TARS_9.1.0_x64.dmg": "TARS_9.1.0_aarch64.dmg",
+    };
+    const aliasTarget = ROSETTA_ALIASES[filename];
+    if (aliasTarget && aliasTarget !== filename) {
+      const altAsset = await fetchAsset(env, tag, aliasTarget);
+      if (altAsset) {
+        return new Response(null, {
+          status: 302,
+          headers: {
+            location: `/dl/${encodeURIComponent(aliasTarget)}`,
+            "x-tars-fallback": "rosetta",
+            "x-tars-fallback-from": filename,
+            "x-tars-fallback-to": aliasTarget,
+            "cache-control": "public, max-age=300",
+          },
+        });
+      }
+    }
     return new Response(
       JSON.stringify({
         ok: false,
