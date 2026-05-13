@@ -216,6 +216,7 @@ class CloneStore:
         metrics: dict[str, int],
         embedding: list[float] | None,
         embed_model: str | None,
+        created_at: float | None = None,
     ) -> None:
         conn = self._connect()
         try:
@@ -238,7 +239,7 @@ class CloneStore:
                     metrics["formal"],
                     _pack_vector(embedding) if embedding else None,
                     embed_model,
-                    time.time(),
+                    float(created_at) if created_at is not None else time.time(),
                 ),
             )
             conn.commit()
@@ -252,6 +253,7 @@ class CloneStore:
         metrics: dict[str, int],
         embedding: list[float] | None = None,
         embed_model: str | None = None,
+        created_at: float | None = None,
     ) -> None:
         if not self.enabled:
             return
@@ -261,6 +263,7 @@ class CloneStore:
             metrics=metrics,
             embedding=embedding,
             embed_model=embed_model,
+            created_at=created_at,
         )
 
     # --- reads ------------------------------------------------------
@@ -353,10 +356,17 @@ async def record_message(text: str) -> bool:
             text=text, metrics=metrics,
             embedding=embedding, embed_model=embed_model,
         )
-        return True
     except Exception as exc:
         log.warning("clone insert failed: %s", exc)
         return False
+    # Wave 151 — best-effort debounced webhook emit for cross-machine sync.
+    try:
+        from . import sync as _sync  # local import to avoid module init cycles
+
+        _sync.maybe_emit_sync_webhook()
+    except Exception as exc:  # noqa: BLE001
+        log.debug("clone sync hook skip: %s", exc)
+    return True
 
 
 async def profile() -> StyleProfile:

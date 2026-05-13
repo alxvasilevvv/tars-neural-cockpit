@@ -50,6 +50,7 @@ Legend:
 | GitHub connector (token-based read; 60s LRU) *(Wave 73)* | `web_extras/routers/github.py` |
 | Memory reflection (weekly ISO-week summary) *(Wave 73)* | `backend/core/memory/reflection.py`, `playbooks/_global/memory_reflection.json` |
 | AI Clone v0.1 (style traits skeleton — *style hint, not full clone*) *(Wave 73)* | `backend/core/clone/style.py`, `web_extras/routers/clone.py` |
+| AI Clone v0.2 — style persistence (export/import envelope + debounced webhook sync) *(Wave 151)* | `backend/core/clone/sync.py`, `web_extras/routers/clone.py` (`/api/clone/export`, `/api/clone/import`), `tests/test_clone_sync.py` |
 | Smart Agent Router (LLM intent routing; opt-in `TARS_SMART_ROUTER=1`) *(Wave 73)* | `backend/core/agents/router.py`, `web_extras/routers/agents.py` |
 | OpenTelemetry exporter wrapper (no-op unless OTLP endpoint set) *(Wave 73)* | `backend/core/observability/otel.py` |
 | /dl proxy → GitHub Releases | `experiments/neural-showcase-v3/functions/dl/[file].ts` |
@@ -153,7 +154,7 @@ funds / SaaS / DAO / family-office / agency-style customers.
 
 | Capability | Status | Roadmap |
 | --- | --- | --- |
-| AI Clone v1 (real fine-tune) | v0.1 ships Wave 73 (style hint); Wave 98 outreach uses style-hint draft. Real fine-tuned per-user clone pending. | v9.2 |
+| AI Clone v1 (real fine-tune) | v0.1 ships Wave 73 (style hint); v0.2 ships Wave 151 (style **persistence** via export/import envelope + debounced webhook sync — *still the same heuristic, just cross-machine portable*); Wave 98 outreach uses style-hint draft. Real fine-tuned per-user clone pending. | v9.2 |
 | Wake-word (web variant) | Browser experiment removed; native equivalent missing | v9.1.1 (web wasm Picovoice / PWA) |
 | Magic-link auth (real, end-to-end) | Onboarding wizard UI shipped; live token mint depends on brother backend | v9.1.1 |
 | Pyoxidizer Win/Linux desktop builds | CI only ships macOS dmg/app for v9.1.0 | v9.2 |
