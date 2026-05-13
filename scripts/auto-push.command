@@ -21,6 +21,12 @@ OUT="$(pwd)/.auto-push.txt"
     git push origin main 2>&1
   fi
   echo ""
+  # Also push any new tags (idempotent — already-pushed tags
+  # are a no-op). Catches the gap when auto-push-tag.command
+  # gets autocompleted to auto-push.command in Spotlight.
+  echo "── push --tags ──"
+  git push --tags origin 2>&1 || echo "tag push: nothing new"
+  echo ""
   echo "=== DONE ==="
 } > "$OUT" 2>&1
 
