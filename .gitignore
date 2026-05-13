@@ -23,3 +23,8 @@ cf-operator.env
 # Wave 72 — eval suite runtime artefacts (recreated on each CI run)
 eval-results.json
 
+
+# Local test artifacts (Wave 138 cleanup — Cursor's bootstrap-workspace
+# session sometimes drops these into the tree; never commit).
+ruvector.db
+*.test.sqlite
