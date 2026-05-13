@@ -95,6 +95,26 @@ async def doctor_page() -> str:
     return _DOCTOR_PAGE_HTML
 
 
+@router.get("/cockpit", response_class=HTMLResponse, include_in_schema=False)
+async def cockpit_page() -> str:
+    """W186 — richer multi-panel cockpit HTML served same-origin.
+
+    Loads tars-cockpit.html from the repo root. Serving it from the
+    backend (rather than file://) avoids CORS issues when fetching
+    /api/doctor and /api/entitlements from JavaScript.
+
+    Operators open ``http://127.0.0.1:<port>/api/doctor/cockpit`` or
+    launch via ``scripts/open-doctor.command`` for app-mode window.
+    """
+
+    from pathlib import Path
+    here = Path(__file__).resolve().parents[2]  # jarvis/ root
+    cockpit = here.parent / "tars-cockpit.html"
+    if not cockpit.exists():
+        return "<h1>tars-cockpit.html missing</h1><p>Expected at " + str(cockpit) + "</p>"
+    return cockpit.read_text(encoding="utf-8")
+
+
 @router.get("/{slug}")
 async def doctor_one(slug: str) -> dict[str, Any]:
     """Run a single check by slug."""
