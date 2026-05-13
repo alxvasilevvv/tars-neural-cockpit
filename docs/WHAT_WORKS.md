@@ -140,8 +140,8 @@ funds / SaaS / DAO / family-office / agency-style customers.
 | Slack/Gmail/Calendar — Quick Connect Chrome flow | URL-based OAuth ships (Wave 91); one-click Chrome extension flow pending. v9.1.1. | `backend/core/connectors/`, `web_extras/routers/connectors.py` |
 | GitHub connector — write side | Read shipped Wave 73; PR creation / issue write pending. v9.3 with webhooks. | `web_extras/routers/github.py` |
 | Webhooks `receipt.*` event emission (broad) | Contract v1.0 + dispatcher ship Wave 90; `receipt.*` events fire from algotrade + the unified receipt ledger (Wave 95). Other emit sites (outreach, scheduler, files, reports, compliance) wire incrementally. v9.3 for full coverage. | `backend/core/webhooks/`, `backend/core/receipts/` |
-| Background TARS (daemon triggers) | Daemon runs; trigger DSL is minimal. v9.2 → standalone headless mode. | `backend/core/background/` |
-| iMessage bridge | Mac-only stub. v9.1.1. | `backend/core/notifications/imessage.py` |
+| ~~Background TARS (daemon triggers)~~ | **W148 reality audit:** `backend/core/background/` doesn't exist. What we have: three lifespan loops in `web_extras/app.py` that die when FastAPI process exits. Real `launchd` plist scheduled v9.2. | (path was wrong — no such dir) |
+| ~~iMessage bridge~~ | **W148 reality audit:** `backend/core/notifications/imessage.py` doesn't exist. Even the stub is fictional. Promoted to NOT IMPLEMENTED below; v9.1.1 target unchanged but starts from zero, not from stub. | (path was wrong — no such file) |
 | Marketplace v0 — payouts | Browse + install + ratings ship Wave 106; **70/30 payouts NOT live** (still need brother's payout rails + per-jurisdiction legal). v9.3. | `backend/core/marketplace/`, `web_extras/routers/marketplace.py` |
 | Marketplace v0 — third-party publishing | In-process registry only (12 seed listings); third-party submit flow + ed25519 signing pending. v9.2 with Skill SDK. | same |
 
