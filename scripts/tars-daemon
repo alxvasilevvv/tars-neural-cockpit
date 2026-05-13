@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+# tars-daemon — manage the TARS Background daemon (Wave 152).
+#
+# Usage:
+#   tars-daemon install      — write plist + bootstrap LaunchAgent
+#   tars-daemon uninstall    — bootout + remove plist
+#   tars-daemon status       — print agent + heartbeat snapshot
+#   tars-daemon heartbeat    — print most-recent heartbeat JSON
+#   tars-daemon render       — print the rendered plist to stdout
+#   tars-daemon logs         — tail the daemon log
+#   tars-daemon restart      — uninstall + install (re-bootstrap)
+#
+# All real work happens in ``python -m backend.core.daemon`` — this
+# shim is the friendly entrypoint operators copy/paste from docs.
+
+set -euo pipefail
+
+REPO_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PYTHON="${TARS_PYTHON:-python3}"
+LOG_OUT="${HOME}/.tars/daemon.out.log"
+LOG_ERR="${HOME}/.tars/daemon.err.log"
+
+cd "$REPO_DIR"
+export PYTHONPATH="${PYTHONPATH:-}:$REPO_DIR"
+
+case "${1:-}" in
+  install)
+    "$PYTHON" -m backend.core.daemon --install
+    echo ""
+    echo "✅ TARS background daemon installed."
+    echo "   Heartbeat:  ~/.tars/daemon.heartbeat"
+    echo "   Stdout:     $LOG_OUT"
+    echo "   Stderr:     $LOG_ERR"
+    echo "   Stop with:  $(basename "$0") uninstall"
+    ;;
+  uninstall)
+    "$PYTHON" -m backend.core.daemon --uninstall
+    echo "🛑 TARS background daemon stopped + plist removed."
+    ;;
+  status)
+    "$PYTHON" -m backend.core.daemon --status
+    ;;
+  heartbeat)
+    "$PYTHON" -m backend.core.daemon --heartbeat
+    ;;
+  render)
+    "$PYTHON" -m backend.core.daemon --render-plist
+    ;;
+  logs)
+    if [ -f "$LOG_OUT" ]; then
+      tail -f "$LOG_OUT" "$LOG_ERR"
+    else
+      echo "No log file yet at $LOG_OUT — agent may not be running." >&2
+      exit 1
+    fi
+    ;;
+  restart)
+    "$PYTHON" -m backend.core.daemon --uninstall || true
+    sleep 1
+    "$PYTHON" -m backend.core.daemon --install
+    echo "🔁 TARS background daemon restarted."
+    ;;
+  ""|--help|-h|help)
+    sed -n '1,18p' "$0" | sed -E 's/^# ?//'
+    ;;
+  *)
+    echo "Unknown subcommand: $1" >&2
+    echo "Run '$(basename "$0") help' for usage." >&2
+    exit 2
+    ;;
+esac
