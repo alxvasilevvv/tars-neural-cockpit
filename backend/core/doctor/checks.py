@@ -316,14 +316,25 @@ def check_llm_provider(_timeout_s: float) -> CheckResult:
     """At least one LLM provider key is configured.
 
     Operators frequently set up TARS without realizing the chat
-    layer needs an Anthropic OR OpenAI key. This check surfaces
-    that early. We only check env presence — never call the
-    provider (that's a network check, out of scope here).
+    layer needs an Anthropic, OpenAI, OR OpenRouter key. This
+    check surfaces that early. We only check env presence —
+    never call the provider (that's a network check, out of
+    scope here).
+
+    Recognised env vars (in this priority order):
+      - ANTHROPIC: TARS_ANTHROPIC_API_KEY, ANTHROPIC_API_KEY
+      - OPENAI:    TARS_OPENAI_API_KEY,    OPENAI_API_KEY
+      - OPENROUTER: TARS_OPENROUTER_API_KEY, OPENROUTER_API_KEY
     """
 
     r = CheckResult(slug="llm_provider", label="LLM provider keys")
     anth = (os.getenv("TARS_ANTHROPIC_API_KEY") or os.getenv("ANTHROPIC_API_KEY") or "").strip()
     oai = (os.getenv("TARS_OPENAI_API_KEY") or os.getenv("OPENAI_API_KEY") or "").strip()
+    orouter = (
+        os.getenv("TARS_OPENROUTER_API_KEY")
+        or os.getenv("OPENROUTER_API_KEY")
+        or ""
+    ).strip()
 
     def _redact(s: str) -> str:
         if not s:
@@ -335,20 +346,30 @@ def check_llm_provider(_timeout_s: float) -> CheckResult:
         "anthropic_preview": _redact(anth) if anth else None,
         "openai_set": bool(oai),
         "openai_preview": _redact(oai) if oai else None,
+        "openrouter_set": bool(orouter),
+        "openrouter_preview": _redact(orouter) if orouter else None,
     }
-    if not anth and not oai:
+    configured = []
+    if anth:
+        configured.append("Anthropic")
+    if oai:
+        configured.append("OpenAI")
+    if orouter:
+        configured.append("OpenRouter")
+
+    if not configured:
         r.status = "warn"
         r.summary = "no LLM provider key set"
         r.suggestion = (
-            "set TARS_ANTHROPIC_API_KEY or TARS_OPENAI_API_KEY env"
+            "set TARS_ANTHROPIC_API_KEY, TARS_OPENAI_API_KEY, "
+            "or TARS_OPENROUTER_API_KEY env"
         )
-    elif anth and oai:
+    elif len(configured) == 1:
         r.status = "ok"
-        r.summary = "Anthropic + OpenAI both configured"
+        r.summary = f"{configured[0]} configured"
     else:
-        provider = "Anthropic" if anth else "OpenAI"
         r.status = "ok"
-        r.summary = f"{provider} configured"
+        r.summary = " + ".join(configured) + " configured"
     return r
 
 

@@ -159,7 +159,8 @@ class TestVaultCheck(_IsolatedDoctor):
 class TestLlmProviderCheck(_IsolatedDoctor):
     def test_no_keys_returns_warn(self) -> None:
         for k in ("TARS_ANTHROPIC_API_KEY", "ANTHROPIC_API_KEY",
-                  "TARS_OPENAI_API_KEY", "OPENAI_API_KEY"):
+                  "TARS_OPENAI_API_KEY", "OPENAI_API_KEY",
+                  "TARS_OPENROUTER_API_KEY", "OPENROUTER_API_KEY"):
             os.environ.pop(k, None)
         from backend.core.doctor.checks import check_llm_provider
         r = check_llm_provider(5.0)
@@ -167,6 +168,7 @@ class TestLlmProviderCheck(_IsolatedDoctor):
         self.assertIn("LLM provider", r.summary)
         self.assertFalse(r.details["anthropic_set"])
         self.assertFalse(r.details["openai_set"])
+        self.assertFalse(r.details["openrouter_set"])
 
     def test_anthropic_only_is_ok(self) -> None:
         os.environ["ANTHROPIC_API_KEY"] = "sk-ant-abc123long-secret-value"
@@ -179,6 +181,32 @@ class TestLlmProviderCheck(_IsolatedDoctor):
         self.assertNotIn("secret", r.details["anthropic_preview"])
         os.environ.pop("ANTHROPIC_API_KEY", None)
 
+    def test_openrouter_only_is_ok(self) -> None:
+        # W174: OpenRouter joins as a third recognised provider
+        for k in ("TARS_ANTHROPIC_API_KEY", "ANTHROPIC_API_KEY",
+                  "TARS_OPENAI_API_KEY", "OPENAI_API_KEY"):
+            os.environ.pop(k, None)
+        os.environ["OPENROUTER_API_KEY"] = "sk-or-v1-longsecretvalue123"
+        from backend.core.doctor.checks import check_llm_provider
+        r = check_llm_provider(5.0)
+        self.assertEqual(r.status, "ok")
+        self.assertIn("OpenRouter", r.summary)
+        self.assertTrue(r.details["openrouter_set"])
+        self.assertIn("…", r.details["openrouter_preview"])
+        os.environ.pop("OPENROUTER_API_KEY", None)
+
+    def test_tars_prefixed_openrouter_var(self) -> None:
+        for k in ("TARS_ANTHROPIC_API_KEY", "ANTHROPIC_API_KEY",
+                  "TARS_OPENAI_API_KEY", "OPENAI_API_KEY",
+                  "OPENROUTER_API_KEY"):
+            os.environ.pop(k, None)
+        os.environ["TARS_OPENROUTER_API_KEY"] = "sk-or-prefixed-variant"
+        from backend.core.doctor.checks import check_llm_provider
+        r = check_llm_provider(5.0)
+        self.assertEqual(r.status, "ok")
+        self.assertIn("OpenRouter", r.summary)
+        os.environ.pop("TARS_OPENROUTER_API_KEY", None)
+
     def test_both_keys_set(self) -> None:
         os.environ["ANTHROPIC_API_KEY"] = "sk-ant-xxx"
         os.environ["OPENAI_API_KEY"] = "sk-oai-yyy"
@@ -188,6 +216,19 @@ class TestLlmProviderCheck(_IsolatedDoctor):
         self.assertIn("Anthropic + OpenAI", r.summary)
         os.environ.pop("ANTHROPIC_API_KEY", None)
         os.environ.pop("OPENAI_API_KEY", None)
+
+    def test_all_three_keys_set(self) -> None:
+        os.environ["ANTHROPIC_API_KEY"] = "sk-ant-xxx"
+        os.environ["OPENAI_API_KEY"] = "sk-oai-yyy"
+        os.environ["OPENROUTER_API_KEY"] = "sk-or-zzz"
+        from backend.core.doctor.checks import check_llm_provider
+        r = check_llm_provider(5.0)
+        self.assertEqual(r.status, "ok")
+        self.assertIn("Anthropic", r.summary)
+        self.assertIn("OpenAI", r.summary)
+        self.assertIn("OpenRouter", r.summary)
+        for k in ("ANTHROPIC_API_KEY", "OPENAI_API_KEY", "OPENROUTER_API_KEY"):
+            os.environ.pop(k, None)
 
 
 class TestDiskSpaceCheck(_IsolatedDoctor):
