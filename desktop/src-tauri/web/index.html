@@ -1837,16 +1837,27 @@ async function openThread(id) {
 
 async function sendMessage() {
   if (!activeThread) return;
-  const text = $('chatInput').value.trim();
+  let text = $('chatInput').value.trim();
+  // W240 — fold any picked chips back into the text body as raw
+  // ``@kind:query`` tokens so the orchestrator (which parses them
+  // server-side) sees what the user composed. The structured
+  // ``mentions`` array is sent alongside as a fast path.
+  const chips = pickedMentions.slice();
+  if (chips.length) {
+    const tail = chips.map(m => m.query ? `@${m.kind}:${m.query}` : `@${m.kind}`).join(' ');
+    text = text ? `${text} ${tail}` : tail;
+  }
   if (!text) return;
   $('chatInput').value = '';
+  pickedMentions = [];
+  renderMentionChips();
   $('chatInput').disabled = true; $('chatSend').disabled = true;
   $('chatMessages').innerHTML += `<div class="msg user"><div class="meta">user</div>${escapeHtml(text)}</div>`;
   $('chatMessages').scrollTop = $('chatMessages').scrollHeight;
   try {
     const r = await fetch(`${API}/api/chat/threads/${activeThread}/messages`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ content: text, role: 'user' }),
+      body: JSON.stringify({ text, content: text, role: 'user', mentions: chips }),
     });
     const d = await r.json();
     if (d.assistant || d.message) {
@@ -1862,6 +1873,160 @@ async function sendMessage() {
   $('chatInput').disabled = false; $('chatSend').disabled = false;
   $('chatInput').focus();
 }
+
+// ─── W240: @-mention dropdown + chips ───
+let pickedMentions = [];
+let mentionDropdownState = { open: false, items: [], active: 0, triggerStart: -1 };
+
+function renderMentionChips() {
+  const host = $('mentionChips');
+  if (!host) return;
+  if (!pickedMentions.length) { host.innerHTML = ''; return; }
+  host.innerHTML = pickedMentions.map((m, i) => `
+    <span class="mention-chip" data-idx="${i}">
+      <span class="kind">@${escapeHtml(m.kind)}</span>${m.query ? `<span class="q">: ${escapeHtml(m.query)}</span>` : ''}
+      <span class="x" data-rm="${i}" title="Remove">&times;</span>
+    </span>
+  `).join('');
+  host.querySelectorAll('.x').forEach(el => {
+    el.addEventListener('click', (e) => {
+      const idx = +el.getAttribute('data-rm');
+      pickedMentions.splice(idx, 1);
+      renderMentionChips();
+      e.stopPropagation();
+    });
+  });
+}
+
+function closeMentionDropdown() {
+  const dd = $('mentionDropdown');
+  if (!dd) return;
+  dd.classList.remove('open');
+  mentionDropdownState.open = false;
+  mentionDropdownState.items = [];
+  mentionDropdownState.active = 0;
+  mentionDropdownState.triggerStart = -1;
+}
+
+function renderMentionDropdown(items) {
+  const dd = $('mentionDropdown');
+  if (!dd) return;
+  if (!items.length) { closeMentionDropdown(); return; }
+  mentionDropdownState.items = items;
+  mentionDropdownState.open = true;
+  if (mentionDropdownState.active >= items.length) mentionDropdownState.active = 0;
+  dd.innerHTML = items.map((it, i) => `
+    <div class="mention-option${i === mentionDropdownState.active ? ' active' : ''}" data-idx="${i}" role="option">
+      <span class="label">${escapeHtml(it.label || ('@' + it.kind))}</span>
+      <span class="preview">${escapeHtml(it.preview || '')}</span>
+    </div>
+  `).join('');
+  dd.classList.add('open');
+  dd.querySelectorAll('.mention-option').forEach(el => {
+    el.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      const idx = +el.getAttribute('data-idx');
+      selectMention(items[idx]);
+    });
+  });
+}
+
+function selectMention(item) {
+  if (!item) return;
+  const input = $('chatInput');
+  if (mentionDropdownState.triggerStart >= 0) {
+    const before = input.value.slice(0, mentionDropdownState.triggerStart);
+    const after = input.value.slice(input.selectionStart || input.value.length);
+    input.value = (before + after).replace(/\s{2,}/g, ' ');
+  }
+  if (item.query) {
+    pickedMentions.push({ kind: item.kind, query: item.query, label: item.label || `@${item.kind}` });
+    renderMentionChips();
+    closeMentionDropdown();
+  } else {
+    // Just a kind picked — seed input with ``@kind:`` and re-query
+    // so per-kind autocomplete fires.
+    const insert = `@${item.kind}:`;
+    const caret = input.selectionStart || input.value.length;
+    input.value = input.value.slice(0, caret) + insert + input.value.slice(caret);
+    input.setSelectionRange(caret + insert.length, caret + insert.length);
+    mentionDropdownState.triggerStart = caret;
+    fetchAutocomplete(insert);
+  }
+  input.focus();
+}
+
+let _mentionDebounce = 0;
+async function fetchAutocomplete(partial) {
+  clearTimeout(_mentionDebounce);
+  _mentionDebounce = setTimeout(async () => {
+    try {
+      const r = await fetch(`${API}/api/mentions/autocomplete?q=${encodeURIComponent(partial)}`);
+      const d = await r.json();
+      if (d && d.ok && Array.isArray(d.suggestions)) {
+        renderMentionDropdown(d.suggestions.slice(0, 5));
+      } else {
+        closeMentionDropdown();
+      }
+    } catch (e) {
+      closeMentionDropdown();
+    }
+  }, 80);
+}
+
+function detectMentionTrigger(input) {
+  const caret = input.selectionStart ?? input.value.length;
+  const left = input.value.slice(0, caret);
+  const m = left.match(/(?:^|\s)(@[^\s@]*)$/);
+  if (!m) { closeMentionDropdown(); return; }
+  const token = m[1];
+  mentionDropdownState.triggerStart = left.length - token.length;
+  fetchAutocomplete(token);
+}
+
+function onChatInputKeydown(e) {
+  if (mentionDropdownState.open) {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      mentionDropdownState.active = (mentionDropdownState.active + 1) % mentionDropdownState.items.length;
+      renderMentionDropdown(mentionDropdownState.items);
+      return;
+    }
+    if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      const n = mentionDropdownState.items.length;
+      mentionDropdownState.active = (mentionDropdownState.active - 1 + n) % n;
+      renderMentionDropdown(mentionDropdownState.items);
+      return;
+    }
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      selectMention(mentionDropdownState.items[mentionDropdownState.active]);
+      return;
+    }
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      closeMentionDropdown();
+      return;
+    }
+  }
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
+}
+
+function onChatInputInput() {
+  detectMentionTrigger($('chatInput'));
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const input = $('chatInput');
+  if (!input) return;
+  input.addEventListener('keydown', onChatInputKeydown);
+  input.addEventListener('input', onChatInputInput);
+  input.addEventListener('blur', () => setTimeout(closeMentionDropdown, 150));
+});
 
 // ─── activity ───
 async function loadActivity() {
