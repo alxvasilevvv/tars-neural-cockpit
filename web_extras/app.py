@@ -27,6 +27,7 @@ from backend.core.domains import packs as _packs  # noqa: F401  (registers)
 from backend.core.meeet import (
     current_trace,
     get_client,
+    get_store as get_meeet_store,
     get_trace_summary_store,
 )
 from web_extras.routers import agents as agents_router
@@ -874,7 +875,13 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=_cors_allow_origins(),
     allow_credentials=False,
-    allow_methods=["GET", "POST", "OPTIONS"],
+    # W271 — many routers expose DELETE/PATCH (composer rollback, agent
+    # marketplace uninstall, notepads delete, mcp servers delete, rules
+    # DELETE, agents PATCH, etc.). Previously only GET/POST were allowed
+    # which made every DELETE/PATCH from a cross-origin web shell hit the
+    # CORS preflight wall. Keep the explicit list so we don't silently
+    # broaden surface area beyond the verbs we actually use.
+    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allow_headers=[
         "*",
         "x-meeet-trace-id",

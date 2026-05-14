@@ -31,9 +31,13 @@ async def today() -> dict[str, Any]:
     out: dict[str, Any] = {"ok": True, "generated_at": int(now), "sections": {}}
 
     # Health from doctor
+    # W271 fix: previously imported backend.core.doctor.registry (doesn't
+    # exist) and awaited a sync function; outer except always swallowed
+    # the TypeError, so health silently came back as 0/0/0/0.
     try:
-        from backend.core.doctor.registry import run_all  # type: ignore
-        results = await run_all() if callable(run_all) else []
+        import asyncio as _asyncio
+        from backend.core.doctor.checks import run_all  # type: ignore
+        results = await _asyncio.to_thread(run_all) if callable(run_all) else []
         counts = {"ok": 0, "warn": 0, "fail": 0, "skip": 0}
         for r in results:
             status = getattr(r, "status", None) or (r.get("status") if isinstance(r, dict) else None)
@@ -44,17 +48,27 @@ async def today() -> dict[str, Any]:
         out["sections"]["health"] = {"ok": False, "error": str(exc)[:120]}
 
     # Receipts last 24h
+    # W271 fix: ReceiptStore has no `list_recent`; previously the hasattr
+    # guard short-circuited every call to [] and the briefing always
+    # showed receipts_24h=0. Switched to `query(since=...)` which exists.
     try:
         from backend.core.receipts.store import get_store  # type: ignore
         s = get_store()
         cutoff = now - 86400
-        recent = await s.list_recent(limit=200) if hasattr(s, "list_recent") else []
-        last24 = [r for r in recent if getattr(r, "ts", 0) >= cutoff]
-        out["sections"]["activity"] = {
-            "ok": True,
-            "receipts_24h": len(last24),
-            "last_kind": getattr(last24[0], "kind", None) if last24 else None,
-        }
+        if s is None:
+            out["sections"]["activity"] = {"ok": True, "receipts_24h": 0, "last_kind": None}
+        else:
+            last24 = []
+            if hasattr(s, "query"):
+                last24 = await s.query(since=cutoff, limit=200)
+            elif hasattr(s, "list_recent"):
+                recent = await s.list_recent(limit=200)
+                last24 = [r for r in recent if getattr(r, "ts", 0) >= cutoff]
+            out["sections"]["activity"] = {
+                "ok": True,
+                "receipts_24h": len(last24),
+                "last_kind": getattr(last24[0], "type", None) if last24 else None,
+            }
     except Exception as exc:
         out["sections"]["activity"] = {"ok": False, "error": str(exc)[:120]}
 

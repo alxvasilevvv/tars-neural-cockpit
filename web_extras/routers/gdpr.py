@@ -334,10 +334,15 @@ async def _collect_composer_plans() -> list[dict[str, Any]]:
 
 async def _collect_usage(subject: str) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
+    # W271 fix: previous import was `from backend.core.usage import get_store`,
+    # which never existed (the module exposes get_ledger); silently swallowed
+    # in the broad except below and so GDPR exports lost usage rows. Now we
+    # pull from the meeet event store, which is the single source of truth
+    # for usage.tokens / sampler.decision events.
     try:
-        from backend.core.usage import get_store as get_usage_store  # type: ignore
-        store = get_usage_store()
-        if store is None:
+        from backend.core.meeet import get_store as get_meeet_store
+        store = get_meeet_store()
+        if store is None or not getattr(store, "enabled", False):
             return out
         if hasattr(store, "list_events"):
             ev = await store.list_events(limit=10000)
@@ -345,7 +350,13 @@ async def _collect_usage(subject: str) -> list[dict[str, Any]]:
             ev = store.list(limit=10000)
         else:
             ev = []
-        out = [e if isinstance(e, dict) else e.to_dict() for e in ev or []]
+        out = [
+            (e if isinstance(e, dict) else (e.to_dict() if hasattr(e, "to_dict") else dict(e)))
+            for e in ev or []
+            if isinstance(e, dict)
+            or getattr(e, "name", "").startswith("usage.")
+            or getattr(e, "name", "").startswith("sampler.")
+        ]
     except Exception as exc:  # pragma: no cover
         log.debug("collect_usage swallow: %s", exc)
     return out

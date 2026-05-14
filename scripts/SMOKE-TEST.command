@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# SMOKE-TEST.command — W227 end-to-end smoke test for TARS v9.2.0-beta2.
+# SMOKE-TEST.command — W271 end-to-end smoke test for TARS v10.0.0-rc.1.
 #
 # Double-click to verify the entire backend surface + watchdog +
 # meeet token + installed TARS.app are wired correctly. Logs to
@@ -141,6 +141,20 @@ check_status() {
   check_status GET  /api/codebase/status
   check_status GET  /api/palette/actions
   check_status GET  /api/realtime/topics
+  echo ""
+
+  # W271 — Wave B (W253 / W255 / W257 / W260 / W261 / W269) probes
+  echo "── Wave B (W253-W269) ──"
+  check_status GET  /api/composer/plans
+  check_status GET  /api/composer/config
+  check_status GET  /api/audit/timeline
+  check_status GET  /api/t2t/review/inbox
+  check_status GET  /api/t2t/review/outbox
+  check_status GET  /api/marketplace/agents
+  check_status GET  /api/marketplace/agents/published
+  check_status GET  /api/gdpr/delete/status
+  check_status GET  /api/onboarding/stats
+  check_status GET  /api/usage/console
   echo ""
 
   echo "── system checks ──"

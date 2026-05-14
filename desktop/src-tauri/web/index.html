@@ -6108,6 +6108,34 @@ const TARS_ACTION_MAP = {
     const title = el.getAttribute('data-notepad-title') || '';
     if (nid) quickDeleteNotepad(nid, title);
   },
+  // W271 — close 22 remaining gaps so CSP can be tightened later
+  // without breaking buttons that today rely on inline onclick.
+  'agentmkt.browse':              () => loadAgentMarketplace(),
+  'agentmkt.install':             (el) => {
+    if (!el) return;
+    const uri = el.getAttribute('data-agent-uri') || '';
+    if (uri) installAgentFromMarketplace(uri);
+  },
+  'agentmkt.installed':           () => loadAgentMarketplaceInstalled(),
+  'agentmkt.publish':             () => openAgentMarketplacePublishModal(),
+  'agentmkt.publish.cancel':      () => closeAgentMarketplacePublishModal(),
+  'agentmkt.publish.go':          () => submitAgentMarketplacePublish(),
+  'agentmkt.published':           () => loadAgentMarketplacePublished(),
+  'audit.copy-hash':              () => auditCopyHash(),
+  'audit.copy-url':               () => auditCopyPublicUrl(),
+  'audit.export':                 () => auditRunExport(),
+  'audit.verify':                 () => auditVerifySelected(),
+  'compliance.bundle':            () => runComplianceBundle(),
+  'composer.approve':             () => composerApprove(),
+  'composer.close':               () => closeComposerPanel(),
+  'composer.pack.close':          () => { const m = document.getElementById('composerPackModal'); if (m) m.remove(); },
+  'composer.pack.switch':         () => composerOpenPackPicker(),
+  'composer.pair.toggle':         () => composerPairToggle(),
+  'composer.reject':              () => composerReject(),
+  'composer.rollback':            () => composerRollback(),
+  'composer.send.review':         () => composerOpenSendReviewModal(),
+  'gdpr.delete':                  () => gdprStartDelete(),
+  'gdpr.export':                  () => gdprStartExport(),
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -7266,18 +7294,22 @@ async function t2tReviewLoadInbox() {
     host.innerHTML = items.map(it => {
       const ago = Math.round((Date.now() / 1000 - (it.received_at || 0)));
       const isPending = it.state === 'pending';
+      // W271 — review_id arrives from a peer; escape both the button-arg
+      // and the inline display. JS-string-escape (replace ') ahead of
+      // inserting into onclick="...('id')".
+      const rid = String(it.review_id || '').replace(/'/g, "\\'");
       const actions = isPending
-        ? `<button class="btn primary" onclick="t2tReviewApprove('${it.review_id}')">Approve</button>
-           <button class="btn" onclick="t2tReviewReject('${it.review_id}')">Reject</button>`
-        : `<span style="color:var(--muted);font-size:11px;">${it.state}</span>`;
+        ? `<button class="btn primary" onclick="t2tReviewApprove('${rid}')">Approve</button>
+           <button class="btn" onclick="t2tReviewReject('${rid}')">Reject</button>`
+        : `<span style="color:var(--muted);font-size:11px;">${escapeHtmlSafe(it.state)}</span>`;
       return `<div style="border:1px solid var(--panel-edge,#333);border-radius:6px;padding:10px;margin-bottom:8px;">
-        <div style="font-family:monospace;font-size:11px;color:var(--text);">${it.review_id}</div>
-        <div style="font-size:11px;color:var(--muted);">From <code>${it.sender_tars_id}</code> · plan <code>${it.plan_id}</code> · ${ago}s ago</div>
+        <div style="font-family:monospace;font-size:11px;color:var(--text);">${escapeHtmlSafe(it.review_id)}</div>
+        <div style="font-size:11px;color:var(--muted);">From <code>${escapeHtmlSafe(it.sender_tars_id)}</code> · plan <code>${escapeHtmlSafe(it.plan_id)}</code> · ${ago}s ago</div>
         <div style="margin-top:8px;display:flex;gap:8px;">${actions}</div>
       </div>`;
     }).join('');
   } catch (e) {
-    host.innerHTML = `<div class="empty-state">Inbox error: ${e.message}</div>`;
+    host.innerHTML = `<div class="empty-state">Inbox error: ${escapeHtmlSafe(e.message || String(e))}</div>`;
   }
 }
 
@@ -7301,14 +7333,15 @@ async function t2tReviewLoadOutbox() {
     }
     host.innerHTML = items.map(it => {
       const stateColor = ({pending:'#f59e0b',approved:'#22c55e',rejected:'#f43f5e',applied:'#22d3ee',failed:'#f43f5e'})[it.state] || 'var(--muted)';
+      // W271 — escape every field; ids and state arrive from peer TARS.
       return `<div style="border:1px solid var(--panel-edge,#333);border-radius:6px;padding:10px;margin-bottom:8px;">
-        <div style="font-family:monospace;font-size:11px;color:var(--text);">${it.review_id} → <code>${it.recipient_tars_id}</code></div>
-        <div style="font-size:11px;color:var(--muted);">plan <code>${it.plan_id}</code> · <span style="color:${stateColor};">${it.state}</span></div>
-        ${it.comment ? `<div style="font-size:11px;color:var(--muted);margin-top:4px;">"${escapeHtmlSafe ? escapeHtmlSafe(it.comment) : it.comment}"</div>` : ''}
+        <div style="font-family:monospace;font-size:11px;color:var(--text);">${escapeHtmlSafe(it.review_id)} → <code>${escapeHtmlSafe(it.recipient_tars_id)}</code></div>
+        <div style="font-size:11px;color:var(--muted);">plan <code>${escapeHtmlSafe(it.plan_id)}</code> · <span style="color:${stateColor};">${escapeHtmlSafe(it.state)}</span></div>
+        ${it.comment ? `<div style="font-size:11px;color:var(--muted);margin-top:4px;">"${escapeHtmlSafe(it.comment)}"</div>` : ''}
       </div>`;
     }).join('');
   } catch (e) {
-    host.innerHTML = `<div class="empty-state">Outbox error: ${e.message}</div>`;
+    host.innerHTML = `<div class="empty-state">Outbox error: ${escapeHtmlSafe(e.message || String(e))}</div>`;
   }
 }
 
