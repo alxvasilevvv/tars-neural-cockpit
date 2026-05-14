@@ -5366,6 +5366,454 @@ function _bgConnectStream() {
 bgRefresh();
 _bgConnectStream();
 setInterval(bgRefresh, 4000);
+
+// ─── W246: Cmd+K palette v2 ──────────────────────────────────────────
+// Cursor-grade command palette. Fuzzy search across:
+//   • Quick actions (reload, settings, new chat, model switch, …)
+//   • Agents (live /api/agents)
+//   • Notepads (live /api/notepads)
+//   • MCP servers (live /api/mcp/servers, click toggles)
+//   • @-mention kinds (file/docs/web/recent/code)
+//   • Recent (last 10 actions, persisted to localStorage)
+// Keyboard-only: ↑/↓ Enter Esc, Tab autocompletes category prefix.
+
+const W246 = (() => {
+  const RECENT_KEY = 'tars_palette_recent';
+  const RECENT_MAX = 10;
+  const CATS = ['Recent', 'Quick actions', 'Agents', 'Notepads',
+                'MCP servers', 'Mentions'];
+  const CAT_PREFIX = {
+    '>': 'Quick actions',
+    '@': 'Mentions',
+    '#': 'Notepads',
+    '/': 'Agents',
+  };
+  let actions = [];
+  let recent = [];
+  let visibleRows = []; // [{type:'header'|'row', label?, action?}]
+  let cursor = 0;
+  let isOpen = false;
+  let lastFocus = null;
+
+  function loadRecent() {
+    try { recent = JSON.parse(localStorage.getItem(RECENT_KEY) || '[]'); }
+    catch (_) { recent = []; }
+    if (!Array.isArray(recent)) recent = [];
+    recent = recent.slice(0, RECENT_MAX);
+  }
+  function saveRecent() {
+    try { localStorage.setItem(RECENT_KEY, JSON.stringify(recent)); }
+    catch (_) { /* quota or disabled */ }
+  }
+
+  // Fuzzy matcher: each character of `q` must appear in `target` in order.
+  // Score rewards tight matches (consecutive runs) + prefix bonus.
+  function fuzzyScore(target, q) {
+    if (!q) return 1;
+    const t = (target || '').toLowerCase();
+    const s = q.toLowerCase();
+    let ti = 0, si = 0, score = 0, run = 0, firstHit = -1;
+    while (ti < t.length && si < s.length) {
+      if (t[ti] === s[si]) {
+        if (firstHit < 0) firstHit = ti;
+        run++;
+        score += 1 + run * 2;        // tightness reward
+        si++;
+      } else {
+        run = 0;
+      }
+      ti++;
+    }
+    if (si < s.length) return 0;     // not all chars matched
+    if (firstHit === 0) score += 10; // prefix bonus
+    score += Math.max(0, 20 - t.length); // shorter is better
+    return score;
+  }
+
+  function W246_filter(query) {
+    // Tab-autocomplete shorthand: leading > @ # / pins a category
+    let pinned = null;
+    let q = (query || '').trim();
+    if (q && CAT_PREFIX[q[0]]) {
+      pinned = CAT_PREFIX[q[0]];
+      q = q.slice(1).trim();
+    }
+
+    // Build the candidate set: Recent always first when no query
+    const buckets = {};
+    CATS.forEach(c => buckets[c] = []);
+
+    // Hydrate "Recent" from action_ids
+    const aById = {};
+    actions.forEach(a => { aById[a.id] = a; });
+    if (!q) {
+      recent.forEach(rid => {
+        if (aById[rid]) {
+          buckets['Recent'].push({ ...aById[rid], _recent: true, _score: 0 });
+        }
+      });
+    }
+
+    actions.forEach(a => {
+      if (pinned && a.category !== pinned) return;
+      const score = q ? fuzzyScore(a.label + ' ' + (a.hint || ''), q) : 1;
+      if (score <= 0) return;
+      const bucket = buckets[a.category] || (buckets[a.category] = []);
+      bucket.push({ ...a, _score: score });
+    });
+
+    // Sort each bucket by score desc
+    Object.values(buckets).forEach(b => b.sort((x, y) => y._score - x._score));
+
+    // Flatten with headers
+    visibleRows = [];
+    CATS.forEach(c => {
+      const bucket = buckets[c];
+      if (!bucket || !bucket.length) return;
+      visibleRows.push({ type: 'header', label: c });
+      const max = q ? 12 : (c === 'Recent' ? RECENT_MAX : 8);
+      bucket.slice(0, max).forEach(a => visibleRows.push({ type: 'row', action: a }));
+    });
+    cursor = 0;
+    // Move cursor to first row
+    for (let i = 0; i < visibleRows.length; i++) {
+      if (visibleRows[i].type === 'row') { cursor = i; break; }
+    }
+  }
+
+  function W246_render() {
+    const list = document.getElementById('w246List');
+    if (!list) return;
+    if (!visibleRows.length) {
+      list.innerHTML = '<div class="w246-empty">No matches.</div>';
+      return;
+    }
+    const html = visibleRows.map((r, i) => {
+      if (r.type === 'header') {
+        return `<div class="w246-header">${esc(r.label)}</div>`;
+      }
+      const a = r.action;
+      const active = i === cursor ? ' active' : '';
+      const hot = a.hotkey ? `<span class="w246-hot">${esc(a.hotkey)}</span>` : '';
+      const hint = a.hint ? `<span class="w246-hint">${esc(a.hint)}</span>` : '';
+      return `<div class="w246-row${active}" data-idx="${i}">
+        <span class="w246-icon">${esc(a.icon || '·')}</span>
+        <span class="w246-label">${esc(a.label)}</span>
+        ${hint}${hot}
+      </div>`;
+    }).join('');
+    list.innerHTML = html;
+    // Scroll active into view
+    const el = list.querySelector('.w246-row.active');
+    if (el && el.scrollIntoView) el.scrollIntoView({ block: 'nearest' });
+  }
+
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+    }[c]));
+  }
+
+  function moveCursor(delta) {
+    if (!visibleRows.length) return;
+    let i = cursor;
+    for (let n = 0; n < visibleRows.length; n++) {
+      i = (i + delta + visibleRows.length) % visibleRows.length;
+      if (visibleRows[i].type === 'row') { cursor = i; break; }
+    }
+    W246_render();
+  }
+
+  async function loadActions() {
+    try {
+      const base = (window.API || '');
+      const r = await fetch(base + '/api/palette/actions');
+      if (!r.ok) throw new Error('http ' + r.status);
+      const body = await r.json();
+      actions = Array.isArray(body.actions) ? body.actions : [];
+    } catch (_e) {
+      // Backend offline — degrade to Quick actions only so palette is
+      // still useful in pure-frontend mode.
+      actions = QUICK_FALLBACK.slice();
+    }
+  }
+
+  // Tiny shadow of the backend Quick actions so the palette still
+  // works if the API is unreachable.
+  const QUICK_FALLBACK = [
+    { id: 'quick.reload', category: 'Quick actions', label: 'Reload',
+      icon: '⚡', hint: 'Reload cockpit', hotkey: 'Cmd+R',
+      payload: { kind: 'reload' } },
+    { id: 'quick.settings', category: 'Quick actions', label: 'Open Settings',
+      icon: '⚙', hint: 'Settings drawer', hotkey: 'Cmd+,',
+      payload: { kind: 'open_settings' } },
+    { id: 'quick.new_chat', category: 'Quick actions', label: 'New chat',
+      icon: '💬', hotkey: 'Cmd+N', payload: { kind: 'new_chat' } },
+  ];
+
+  // Execute an action — also persists it to "Recent".
+  function exec(action) {
+    if (!action) return;
+    pushRecent(action.id);
+    closePalette();
+    const kind = (action.payload && action.payload.kind) || action.id;
+    try {
+      switch (kind) {
+        case 'reload':
+          location.reload(); return;
+        case 'open_settings':
+          if (typeof vcOpenDrawer === 'function') vcOpenDrawer('settings');
+          else if (typeof showTab === 'function') showTab('settings');
+          return;
+        case 'new_chat':
+          if (typeof vcOpenDrawer === 'function') vcOpenDrawer('chat');
+          return;
+        case 'open_providers':
+          if (typeof vcOpenDrawer === 'function') vcOpenDrawer('settings');
+          return;
+        case 'open_usage':
+          if (typeof vcOpenDrawer === 'function') vcOpenDrawer('status');
+          return;
+        case 'open_mcp_panel':
+          if (typeof vcOpenDrawer === 'function') vcOpenDrawer('settings');
+          return;
+        case 'open_notepads':
+          if (typeof vcOpenDrawer === 'function') vcOpenDrawer('chat');
+          return;
+        case 'open_bg_agents':
+          if (typeof vcOpenDrawer === 'function') vcOpenDrawer('agents');
+          return;
+        case 'toggle_privacy':
+          if (typeof togglePrivacy === 'function') togglePrivacy();
+          else if (typeof toast === 'function') toast('Privacy toggle (stub)', 'ok');
+          return;
+        case 'new_bg_task':
+          if (typeof vcOpenDrawer === 'function') vcOpenDrawer('agents');
+          return;
+        case 'open_agent':
+          if (typeof vcOpenDrawer === 'function') vcOpenDrawer('agents');
+          return;
+        case 'run_notepad':
+          if (typeof toast === 'function') toast('Run notepad ' + (action.payload && action.payload.notepad_id), 'ok');
+          return;
+        case 'toggle_mcp':
+          // Best-effort: hit the mcp_panel PUT toggle endpoint
+          if (action.payload && action.payload.server_id) {
+            const sid = action.payload.server_id;
+            const next = !action.payload.enabled;
+            fetch((window.API || '') + '/api/mcp/servers/' + sid, {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ enabled: next }),
+            }).catch(() => {});
+            if (typeof toast === 'function') toast('MCP ' + sid + ' → ' + (next ? 'enabled' : 'stopped'), 'ok');
+          }
+          return;
+        case 'insert_mention':
+          // Drop "@kind:" into the chat input if it exists.
+          const k = action.payload && action.payload.mention_kind;
+          const input = document.getElementById('chatInput')
+                     || document.getElementById('vcChatInput');
+          if (input && k) {
+            input.value = (input.value || '') + '@' + k + ':';
+            input.focus();
+          }
+          return;
+      }
+    } catch (e) {
+      if (typeof toast === 'function') toast('exec error: ' + e.message, 'fail');
+    }
+  }
+
+  function pushRecent(id) {
+    recent = [id].concat(recent.filter(x => x !== id)).slice(0, RECENT_MAX);
+    saveRecent();
+  }
+
+  // Wire DOM once (idempotent).
+  function W246_ensureDom() {
+    if (document.getElementById('w246Modal')) return;
+    const style = document.createElement('style');
+    style.textContent = `
+      .w246-modal {
+        position: fixed; inset: 0; display: none; z-index: 9000;
+        background: rgba(0,0,0,0.55); backdrop-filter: blur(8px);
+      }
+      .w246-modal.show { display: flex; align-items: flex-start;
+        justify-content: center; padding-top: 12vh; }
+      .w246-card {
+        width: min(640px, 92vw); background: var(--bg2, #0d0f14);
+        border: 1px solid rgba(255,255,255,0.1); border-radius: 14px;
+        box-shadow: 0 30px 80px rgba(0,0,0,0.5);
+        overflow: hidden; font-family: inherit;
+      }
+      .w246-search {
+        width: 100%; padding: 16px 18px; font-size: 15px;
+        background: transparent; color: inherit; border: 0;
+        outline: none; border-bottom: 1px solid rgba(255,255,255,0.08);
+      }
+      .w246-list { max-height: 60vh; overflow-y: auto; padding: 6px 0; }
+      .w246-header {
+        padding: 8px 18px 4px; font-size: 11px; letter-spacing: 0.06em;
+        text-transform: uppercase; color: rgba(255,255,255,0.4);
+      }
+      .w246-row {
+        display: flex; align-items: center; gap: 10px;
+        padding: 8px 18px; cursor: pointer;
+        font-size: 14px;
+      }
+      .w246-row.active { background: rgba(255,255,255,0.08); }
+      .w246-row:hover { background: rgba(255,255,255,0.04); }
+      .w246-icon { width: 20px; text-align: center; opacity: 0.85; }
+      .w246-label { flex: 1; }
+      .w246-hint { font-size: 12px; color: rgba(255,255,255,0.45); }
+      .w246-hot {
+        font-size: 11px; padding: 1px 6px; border-radius: 4px;
+        background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.7);
+        margin-left: 6px;
+      }
+      .w246-empty { padding: 18px; color: rgba(255,255,255,0.4); font-size: 13px; }
+      .w246-footer {
+        display: flex; gap: 14px; padding: 8px 18px;
+        border-top: 1px solid rgba(255,255,255,0.08);
+        font-size: 11px; color: rgba(255,255,255,0.45);
+      }
+      .w246-footer kbd {
+        font-family: inherit; padding: 1px 5px; border-radius: 3px;
+        background: rgba(255,255,255,0.08);
+      }
+    `;
+    document.head.appendChild(style);
+    const modal = document.createElement('div');
+    modal.id = 'w246Modal';
+    modal.className = 'w246-modal';
+    modal.setAttribute('role', 'dialog');
+    modal.setAttribute('aria-modal', 'true');
+    modal.setAttribute('aria-label', 'Command palette');
+    modal.innerHTML = `
+      <div class="w246-card">
+        <input id="w246Search" class="w246-search" type="text"
+               placeholder="Type a command, > for quick, @ for mentions, # for notepads, / for agents"
+               autocomplete="off" spellcheck="false" />
+        <div id="w246List" class="w246-list"></div>
+        <div class="w246-footer">
+          <span><kbd>↑↓</kbd> nav</span>
+          <span><kbd>Enter</kbd> run</span>
+          <span><kbd>Tab</kbd> autocomplete</span>
+          <span><kbd>Esc</kbd> close</span>
+        </div>
+      </div>`;
+    document.body.appendChild(modal);
+
+    // Backdrop click closes
+    modal.addEventListener('click', (e) => {
+      if (e.target === modal) closePalette();
+    });
+    // List click runs
+    document.getElementById('w246List').addEventListener('click', (e) => {
+      const row = e.target.closest('.w246-row');
+      if (!row) return;
+      const idx = parseInt(row.dataset.idx, 10);
+      if (!Number.isFinite(idx)) return;
+      const r = visibleRows[idx];
+      if (r && r.type === 'row') exec(r.action);
+    });
+    // Input handlers
+    const input = document.getElementById('w246Search');
+    input.addEventListener('input', () => {
+      W246_filter(input.value);
+      W246_render();
+    });
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowDown') { e.preventDefault(); moveCursor(1); }
+      else if (e.key === 'ArrowUp') { e.preventDefault(); moveCursor(-1); }
+      else if (e.key === 'Enter') {
+        e.preventDefault();
+        const r = visibleRows[cursor];
+        if (r && r.type === 'row') exec(r.action);
+      } else if (e.key === 'Escape') {
+        e.preventDefault(); closePalette();
+      } else if (e.key === 'Tab') {
+        // Autocomplete: if query is empty and a single char matches a prefix,
+        // do nothing — the user already typed it. Otherwise pin Quick actions.
+        e.preventDefault();
+        if (!input.value.trim()) {
+          input.value = '> ';
+          W246_filter(input.value); W246_render();
+        }
+      }
+    });
+  }
+
+  async function openPalette() {
+    if (isOpen) return;
+    W246_ensureDom();
+    loadRecent();
+    if (!actions.length) await loadActions();
+    lastFocus = document.activeElement;
+    const modal = document.getElementById('w246Modal');
+    const input = document.getElementById('w246Search');
+    input.value = '';
+    W246_filter('');
+    W246_render();
+    modal.classList.add('show');
+    isOpen = true;
+    setTimeout(() => input.focus(), 30);
+  }
+
+  function closePalette() {
+    const modal = document.getElementById('w246Modal');
+    if (modal) modal.classList.remove('show');
+    isOpen = false;
+    if (lastFocus && lastFocus.focus) {
+      try { lastFocus.focus(); } catch (_) {}
+    }
+  }
+
+  // Global hotkey
+  document.addEventListener('keydown', (e) => {
+    if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
+      e.preventDefault();
+      if (isOpen) closePalette(); else openPalette();
+    }
+  });
+
+  // Refresh actions periodically while idle so newly added notepads
+  // / MCP servers show up without reopening manually.
+  setInterval(() => { if (!isOpen) loadActions().catch(() => {}); }, 60000);
+  // Pre-fetch on first idle so the first ⌘K is instant.
+  setTimeout(() => loadActions().catch(() => {}), 800);
+
+  // ─── Frontend smoke-tests for the fuzzy matcher (5 queries) ────────
+  // Runs once at boot when ?w246_smoke=1 is present. Used by manual QA.
+  function W246_smoketest() {
+    const probes = [
+      { q: 'reload',  target: 'Reload action',          shouldHit: true },
+      { q: 'opst',    target: 'Open Settings',          shouldHit: true },
+      { q: 'mcp',     target: 'MCP servers panel',      shouldHit: true },
+      { q: '@file',   target: '@file',                   shouldHit: true },
+      { q: 'xyzqq',   target: 'Reload',                  shouldHit: false },
+    ];
+    const results = probes.map(p => ({
+      q: p.q, hit: fuzzyScore(p.target, p.q) > 0, expect: p.shouldHit,
+    }));
+    const ok = results.every(r => r.hit === r.expect);
+    console.log('[W246] fuzzy smoke', ok ? 'PASS' : 'FAIL', results);
+    return ok;
+  }
+  if (location.search && location.search.indexOf('w246_smoke=1') >= 0) {
+    setTimeout(W246_smoketest, 50);
+  }
+
+  // Exports for manual testing / external callers
+  return {
+    open: openPalette,
+    close: closePalette,
+    smoke: W246_smoketest,
+    _fuzzyScore: fuzzyScore,
+  };
+})();
+
 </script>
 </body>
 </html>
