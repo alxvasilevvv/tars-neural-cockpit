@@ -108,6 +108,8 @@ from web_extras.routers import realtime as realtime_router
 from web_extras.routers import codebase as codebase_router
 # W246 — /api/palette unified Cmd+K palette aggregator
 from web_extras.routers import palette as palette_router
+# W253 — /api/composer voice-driven Composer (multi-file edits with diff preview)
+from web_extras.routers import composer as composer_router
 
 START_TS = time.time()
 log = logging.getLogger("tars.app")
@@ -971,6 +973,8 @@ app.include_router(palette_router.router)  # W246 — Cmd+K palette v2
 app.include_router(realtime_router.router)
 # W245 — /api/codebase codebase indexer
 app.include_router(codebase_router.router)
+# W253 — /api/composer voice-driven Composer
+app.include_router(composer_router.router)
 
 
 async def _health_payload() -> dict[str, object]:

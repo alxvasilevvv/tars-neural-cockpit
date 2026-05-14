@@ -389,6 +389,34 @@
   #notepadsPickerModal select.np-pack-select { padding: 6px 10px; background: rgba(0,0,0,0.4); border: 1px solid var(--panel-edge); border-radius: 6px; color: var(--text); font-size: 12px; }
   #notepadsPickerGrid { max-height: 60vh; overflow: auto; padding-right: 4px; }
 
+  /* W253 — Composer panel (voice-driven multi-file edits) */
+  #composerPanel {
+    position: fixed; left: 0; right: 0; bottom: -100%;
+    height: 70vh; background: var(--panel); border-top: 1px solid var(--panel-edge);
+    box-shadow: 0 -8px 32px rgba(0,0,0,0.5); transition: bottom .25s ease;
+    z-index: 9000; display: flex; flex-direction: column; padding: 14px 18px;
+  }
+  #composerPanel.open { bottom: 0; }
+  #composerPanel .cmp-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  #composerPanel .cmp-title { font-size: 13px; font-weight: 700; color: var(--text); }
+  #composerPanel .cmp-meta { font-size: 11px; color: var(--muted); }
+  #composerPanel .cmp-summary { font-size: 12px; color: var(--text); margin: 4px 0 10px; line-height: 1.5; }
+  #composerPanel .cmp-ops { flex: 1; overflow: auto; padding-right: 6px; border-top: 1px solid var(--panel-edge); padding-top: 10px; }
+  #composerPanel .cmp-op { margin-bottom: 14px; border: 1px solid var(--panel-edge); border-radius: 8px; padding: 8px 10px; background: rgba(0,0,0,0.25); }
+  #composerPanel .cmp-op-h { display: flex; gap: 8px; align-items: center; font-size: 11px; margin-bottom: 6px; }
+  #composerPanel .cmp-op-kind { padding: 1px 6px; border-radius: 3px; background: rgba(99,102,241,0.18); color: var(--accent); text-transform: uppercase; font-size: 9px; letter-spacing: 0.06em; }
+  #composerPanel .cmp-op-kind.create { background: rgba(34,197,94,0.18); color: #22c55e; }
+  #composerPanel .cmp-op-kind.delete { background: rgba(244,63,94,0.18); color: #f43f5e; }
+  #composerPanel .cmp-op-kind.rename { background: rgba(245,158,11,0.18); color: #f59e0b; }
+  #composerPanel .cmp-op-path { font-family: 'JetBrains Mono', ui-monospace, monospace; color: var(--text); }
+  #composerPanel .cmp-op input[type=checkbox] { margin-right: 6px; }
+  #composerPanel .cmp-diff { font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: 11px; max-height: 240px; overflow: auto; background: rgba(0,0,0,0.45); padding: 6px 8px; border-radius: 4px; white-space: pre; }
+  #composerPanel .cmp-diff .add { color: #22c55e; }
+  #composerPanel .cmp-diff .del { color: #f43f5e; }
+  #composerPanel .cmp-diff .hunk { color: #22d3ee; }
+  #composerPanel .cmp-foot { display: flex; gap: 8px; justify-content: flex-end; padding-top: 10px; border-top: 1px solid var(--panel-edge); margin-top: 8px; }
+  #composerPanel .cmp-result { font-size: 11px; color: var(--muted); flex: 1; }
+
   /* USAGE TAB (W235) — consumption console */
   #tab-usage .usage-grid {
     display: grid;
@@ -2070,6 +2098,27 @@
   </div>
 </div>
 
+<!-- W253 — Voice-driven Composer panel (multi-file edits) -->
+<div id="composerPanel" role="dialog" aria-label="Composer plan">
+  <div class="cmp-head">
+    <div>
+      <div class="cmp-title" id="composerTitle">Composer plan</div>
+      <div class="cmp-meta" id="composerMeta">—</div>
+    </div>
+    <button class="btn" data-action="composer.close" onclick="closeComposerPanel()">Close</button>
+  </div>
+  <div class="cmp-summary" id="composerSummary">Listening for "compose: ..." or click Approve once a plan loads.</div>
+  <div class="cmp-ops" id="composerOps">
+    <div class="empty-state" style="padding:14px 0;color:var(--muted);">No plan loaded.</div>
+  </div>
+  <div class="cmp-foot">
+    <span class="cmp-result" id="composerResult"></span>
+    <button class="btn" data-action="composer.reject" onclick="composerReject()" id="composerRejectBtn" disabled>Reject</button>
+    <button class="btn" data-action="composer.rollback" onclick="composerRollback()" id="composerRollbackBtn" style="display:none;">Rollback</button>
+    <button class="btn primary" data-action="composer.approve" onclick="composerApprove()" id="composerApproveBtn" disabled>Approve all</button>
+  </div>
+</div>
+
 <!-- W205 — Welcome onboarding modal -->
 <div class="welcome-modal" id="welcomeModal">
   <div class="welcome-card">
@@ -2406,6 +2455,15 @@ async function openThread(id) {
 async function sendMessage() {
   if (!activeThread) return;
   let text = $('chatInput').value.trim();
+  // W253 — voice-driven Composer routing.
+  // Commands starting with "compose", "make changes", or "/compose"
+  // bypass the chat path and go to the Composer planner.
+  if (text && /^(\/compose\b|compose\b|make changes\b)/i.test(text)) {
+    $('chatInput').value = '';
+    const transcript = text.replace(/^(\/compose|compose|make changes)[:\s]*/i, '').trim() || text;
+    await composerPlanFromTranscript(transcript);
+    return;
+  }
   // W240 — fold any picked chips back into the text body as raw
   // ``@kind:query`` tokens so the orchestrator (which parses them
   // server-side) sees what the user composed. The structured
@@ -5867,6 +5925,163 @@ const W246 = (() => {
   };
 })();
 
+</script>
+
+<script>
+// ─── W253: voice-driven Composer ───
+let composerCurrentPlan = null;
+
+function escapeHtmlSafe(s) {
+  // Use the same helper the rest of the cockpit uses; fall back if missing.
+  if (typeof escapeHtml === 'function') return escapeHtml(s ?? '');
+  return String(s ?? '').replace(/[&<>\"]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c] || c));
+}
+
+function renderUnifiedDiff(diff) {
+  if (!diff) return '<span class="cmp-diff" style="color:var(--muted);">(no diff — same content)</span>';
+  const lines = diff.split('\n').map((ln) => {
+    const safe = escapeHtmlSafe(ln);
+    if (ln.startsWith('+++') || ln.startsWith('---')) return `<span class=\"hunk\">${safe}</span>`;
+    if (ln.startsWith('@@')) return `<span class=\"hunk\">${safe}</span>`;
+    if (ln.startsWith('+')) return `<span class=\"add\">${safe}</span>`;
+    if (ln.startsWith('-')) return `<span class=\"del\">${safe}</span>`;
+    return safe;
+  }).join('\n');
+  return `<pre class=\"cmp-diff\">${lines}</pre>`;
+}
+
+function openComposerPanel() {
+  const el = document.getElementById('composerPanel');
+  if (el) el.classList.add('open');
+}
+function closeComposerPanel() {
+  const el = document.getElementById('composerPanel');
+  if (el) el.classList.remove('open');
+}
+
+async function composerPlanFromTranscript(transcript) {
+  if (!transcript) return;
+  openComposerPanel();
+  document.getElementById('composerSummary').textContent = 'Planning...';
+  document.getElementById('composerOps').innerHTML = '<div class="empty-state" style="padding:14px 0;color:var(--muted);">Calling planner...</div>';
+  document.getElementById('composerApproveBtn').disabled = true;
+  document.getElementById('composerRejectBtn').disabled = true;
+  document.getElementById('composerRollbackBtn').style.display = 'none';
+  document.getElementById('composerResult').textContent = '';
+  try {
+    const r = await fetch(`${API}/api/composer/plan`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ transcript }),
+    });
+    const d = await r.json();
+    if (!d.ok) {
+      const reason = d.reason || d.detail || 'planner failed';
+      document.getElementById('composerSummary').textContent = `Refused: ${reason}`;
+      document.getElementById('composerOps').innerHTML = '';
+      return;
+    }
+    composerCurrentPlan = d.plan;
+    renderComposerPlan(d.plan);
+  } catch (e) {
+    document.getElementById('composerSummary').textContent = `Error: ${e.message}`;
+  }
+}
+
+function renderComposerPlan(plan) {
+  document.getElementById('composerTitle').textContent = `Composer plan ${plan.plan_id}`;
+  document.getElementById('composerMeta').textContent = `~${plan.estimated_tokens} tok · ~$${(plan.estimated_cost_usd || 0).toFixed(4)} · ${plan.ops.length} ops · ${plan.model || 'stub'}`;
+  document.getElementById('composerSummary').textContent = plan.intent_summary || '(no summary)';
+  const host = document.getElementById('composerOps');
+  if (!plan.ops.length) {
+    host.innerHTML = '<div class="empty-state" style="padding:14px 0;color:var(--muted);">Planner returned 0 ops.</div>';
+    document.getElementById('composerApproveBtn').disabled = true;
+    document.getElementById('composerRejectBtn').disabled = false;
+    return;
+  }
+  host.innerHTML = plan.ops.map((op, idx) => {
+    const target = op.new_path ? `${op.path} → ${op.new_path}` : op.path;
+    return `
+      <div class="cmp-op">
+        <div class="cmp-op-h">
+          <input type="checkbox" data-op-idx="${idx}" checked />
+          <span class="cmp-op-kind ${escapeHtmlSafe(op.op)}">${escapeHtmlSafe(op.op)}</span>
+          <span class="cmp-op-path">${escapeHtmlSafe(target)}</span>
+        </div>
+        ${renderUnifiedDiff(op.diff_unified || '')}
+      </div>
+    `;
+  }).join('');
+  document.getElementById('composerApproveBtn').disabled = false;
+  document.getElementById('composerRejectBtn').disabled = false;
+}
+
+async function composerApprove() {
+  if (!composerCurrentPlan) return;
+  const planId = composerCurrentPlan.plan_id;
+  document.getElementById('composerApproveBtn').disabled = true;
+  document.getElementById('composerRejectBtn').disabled = true;
+  document.getElementById('composerResult').textContent = 'Applying...';
+  try {
+    const r = await fetch(`${API}/api/composer/plans/${planId}/approve`, { method: 'POST' });
+    const d = await r.json();
+    if (d.ok) {
+      const result = d.result || {};
+      const n = (result.applied_ops || []).length;
+      const receipt = (result.receipts || []).slice(-1)[0] || '(no receipt)';
+      document.getElementById('composerResult').textContent = `Applied ${n} ops. Receipt: ${receipt}.`;
+      document.getElementById('composerRollbackBtn').style.display = '';
+      // Rollback stays visible for 24h per spec; we don't auto-hide.
+    } else {
+      document.getElementById('composerResult').textContent = `Apply failed: ${d.result?.error || 'unknown'}`;
+      document.getElementById('composerApproveBtn').disabled = false;
+      document.getElementById('composerRejectBtn').disabled = false;
+    }
+  } catch (e) {
+    document.getElementById('composerResult').textContent = `Network error: ${e.message}`;
+  }
+}
+
+async function composerReject() {
+  if (!composerCurrentPlan) return;
+  const planId = composerCurrentPlan.plan_id;
+  try {
+    await fetch(`${API}/api/composer/plans/${planId}/reject`, { method: 'POST' });
+    document.getElementById('composerResult').textContent = 'Rejected.';
+    document.getElementById('composerApproveBtn').disabled = true;
+    document.getElementById('composerRejectBtn').disabled = true;
+  } catch (e) {
+    document.getElementById('composerResult').textContent = `Network error: ${e.message}`;
+  }
+}
+
+async function composerRollback() {
+  if (!composerCurrentPlan) return;
+  const planId = composerCurrentPlan.plan_id;
+  if (!confirm('Restore the project tree to the state before this plan was applied?')) return;
+  try {
+    const r = await fetch(`${API}/api/composer/plans/${planId}/rollback`, { method: 'POST' });
+    const d = await r.json();
+    if (d.ok) {
+      document.getElementById('composerResult').textContent = 'Rolled back.';
+      document.getElementById('composerRollbackBtn').style.display = 'none';
+    } else {
+      document.getElementById('composerResult').textContent = `Rollback failed: ${d.error || 'unknown'}`;
+    }
+  } catch (e) {
+    document.getElementById('composerResult').textContent = `Network error: ${e.message}`;
+  }
+}
+
+// Hook for voice intent dispatcher (W220 voice cockpit + STT).
+// External code can call window.tarsComposer.plan(transcript) directly.
+window.tarsComposer = {
+  plan: composerPlanFromTranscript,
+  approve: composerApprove,
+  reject: composerReject,
+  rollback: composerRollback,
+  open: openComposerPanel,
+  close: closeComposerPanel,
+};
 </script>
 </body>
 </html>
