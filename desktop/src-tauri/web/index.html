@@ -471,6 +471,27 @@
   .voice-cockpit.state-listening .vc-mic { border-color: rgba(6,182,212,0.85); }
   .vc-mic-hint { font-size: 10px; color: var(--muted); letter-spacing: 0.12em; text-transform: uppercase; }
 
+  /* W232 — text fallback under the mic */
+  .vc-text-fallback {
+    display: flex; gap: 8px; margin-top: 14px; align-items: center;
+    background: rgba(15,23,42,0.55); border: 1px solid rgba(99,102,241,0.35);
+    border-radius: 24px; padding: 4px 4px 4px 14px;
+    width: min(440px, 80vw); backdrop-filter: blur(6px);
+  }
+  .vc-text-fallback input {
+    flex: 1; min-width: 0; background: transparent; border: 0; outline: 0;
+    color: var(--ink, #e5e7eb); font: inherit; font-size: 13px; padding: 6px 0;
+  }
+  .vc-text-fallback input::placeholder { color: rgba(148,163,184,0.6); }
+  .vc-text-send {
+    background: linear-gradient(135deg, #6366f1, #8b5cf6); border: 0; color: #fff;
+    width: 34px; height: 34px; border-radius: 50%; cursor: pointer; font-size: 16px;
+    transition: transform 120ms ease, box-shadow 120ms ease;
+    box-shadow: 0 0 0 1px rgba(139,92,246,0.4), 0 4px 12px rgba(99,102,241,0.35);
+  }
+  .vc-text-send:hover { transform: scale(1.08); }
+  .vc-text-send:active { transform: scale(0.95); }
+
   /* Slide-in panel for the old tabs (hamburger drawer) */
   .cockpit-panel-drawer {
     position: fixed; top: 0; bottom: 0; left: 0; z-index: 1800;
@@ -892,10 +913,17 @@
       <button class="vc-mic" id="vcMic" title="Click or ⌘⇧Space to toggle" data-action="vc.mic-toggle" onclick="toggleListening()">🎙</button>
       <div class="vc-mic-hint" id="vcMicHint">Tap to speak · ⌘⇧Space</div>
     </div>
+
+    <!-- W232 — text fallback so voice cockpit works even when STT backend is offline -->
+    <form class="vc-text-fallback" id="vcTextForm" onsubmit="event.preventDefault(); vcSubmitText();">
+      <input type="text" id="vcTextInput" placeholder="…or type a command and press ⏎"
+             autocomplete="off" autocapitalize="off" spellcheck="false" />
+      <button type="submit" class="vc-text-send" title="Send (⏎)">⏎</button>
+    </form>
   </div>
 
   <div class="vc-transcript" id="vcTranscript">
-    <div class="line system">TARS standing by. Say "доктор", "агенты", "сегодня", or ask anything.</div>
+    <div class="line system">TARS standing by. Say or type "доктор", "агенты", "сегодня", or ask anything.</div>
   </div>
 </div>
 
@@ -2533,6 +2561,18 @@ async function toggleListening() {
   } else {
     await vcMicStart();
   }
+}
+
+// W232 — text input fallback for users without STT backend
+async function vcSubmitText() {
+  const inp = $('vcTextInput'); if (!inp) return;
+  const text = (inp.value || '').trim();
+  if (!text) return;
+  inp.value = '';
+  vcAddLine('user', text);
+  vcSetState && vcSetState('thinking');
+  await _dispatchTranscript(text);
+  vcSetState && vcSetState('idle');
 }
 
 async function _dispatchTranscript(text) {
