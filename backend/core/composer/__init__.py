@@ -41,6 +41,17 @@ from .planner import (
 )
 from .executor import apply_plan, rollback
 from .storage import ComposerStore, get_store, reset_store
+from .packs import (
+    DEFAULT_PACK,
+    KNOWN_PACKS,
+    expand_action_shortcut,
+    get_active_pack,
+    get_pack_action_vocabulary,
+    get_pack_file_hints,
+    get_pack_info,
+    get_pack_overlay,
+    set_active_pack,
+)
 
 __all__ = [
     "EditOp",
@@ -56,4 +67,14 @@ __all__ = [
     "FORBIDDEN_PATTERNS",
     "MAX_OPS",
     "MAX_DIFF_BYTES",
+    # W256 — domain-pack-aware composer
+    "DEFAULT_PACK",
+    "KNOWN_PACKS",
+    "get_active_pack",
+    "set_active_pack",
+    "get_pack_overlay",
+    "get_pack_action_vocabulary",
+    "get_pack_file_hints",
+    "get_pack_info",
+    "expand_action_shortcut",
 ]

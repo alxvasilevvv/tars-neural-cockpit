@@ -2209,6 +2209,17 @@
     </div>
     <button class="btn" data-action="composer.close" onclick="closeComposerPanel()">Close</button>
   </div>
+  <!-- W256 — domain-pack indicator chip -->
+  <div id="composerPackChip" style="display:flex;align-items:center;gap:6px;font-size:11px;color:var(--muted);margin:2px 0 8px;">
+    <span>Pack:</span>
+    <button class="btn" id="composerPackBtn" data-action="composer.pack.switch"
+            onclick="composerOpenPackPicker()"
+            style="padding:2px 8px;font-size:11px;display:inline-flex;align-items:center;gap:6px;">
+      <span id="composerPackEmoji">🔎</span>
+      <span id="composerPackName">web_search</span>
+      <span style="opacity:0.65;">· switch</span>
+    </button>
+  </div>
   <div class="cmp-summary" id="composerSummary">Listening for "compose: ..." or click Approve once a plan loads.</div>
   <div class="cmp-ops" id="composerOps">
     <div class="empty-state" style="padding:14px 0;color:var(--muted);">No plan loaded.</div>
@@ -6065,7 +6076,10 @@ function closeComposerPanel() {
 async function composerPlanFromTranscript(transcript) {
   if (!transcript) return;
   openComposerPanel();
-  document.getElementById('composerSummary').textContent = 'Planning...';
+  // W256 — surface pack context in the planning message.
+  const _pn = document.getElementById('composerPackName');
+  const _pack = _pn ? _pn.textContent : 'web_search';
+  document.getElementById('composerSummary').textContent = `Composing in ${_pack} context...`;
   document.getElementById('composerOps').innerHTML = '<div class="empty-state" style="padding:14px 0;color:var(--muted);">Calling planner...</div>';
   document.getElementById('composerApproveBtn').disabled = true;
   document.getElementById('composerRejectBtn').disabled = true;
@@ -6185,6 +6199,101 @@ window.tarsComposer = {
   open: openComposerPanel,
   close: closeComposerPanel,
 };
+
+// ===== W256 — domain-pack-aware composer (chip + picker) ===================
+
+const COMPOSER_PACK_EMOJI = {
+  web_search: '🔎',
+  business: '💼',
+  civic: '🏛️',
+  entrepreneur: '🚀',
+  wallet: '💰',
+  traders: '📈',
+  science: '🔬',
+  algotrade: '🤖',
+};
+
+async function composerLoadPackInfo() {
+  try {
+    const r = await fetch(`${API}/api/composer/pack-info`);
+    const d = await r.json();
+    if (!d.ok) return null;
+    composerRenderPackChip(d.pack);
+    return d;
+  } catch (e) {
+    return null;
+  }
+}
+
+function composerRenderPackChip(pack) {
+  const nameEl = document.getElementById('composerPackName');
+  const emojiEl = document.getElementById('composerPackEmoji');
+  if (nameEl) nameEl.textContent = pack || 'web_search';
+  if (emojiEl) emojiEl.textContent = COMPOSER_PACK_EMOJI[pack] || '📦';
+}
+
+function composerOpenPackPicker() {
+  const packs = [
+    'web_search', 'business', 'civic', 'entrepreneur',
+    'wallet', 'traders', 'science', 'algotrade',
+  ];
+  const cur = document.getElementById('composerPackName').textContent;
+  // Inline modal — keep it dependency-free.
+  let modal = document.getElementById('composerPackModal');
+  if (modal) { modal.remove(); }
+  modal = document.createElement('div');
+  modal.id = 'composerPackModal';
+  modal.setAttribute('role', 'dialog');
+  modal.setAttribute('aria-label', 'Switch composer pack');
+  modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.65);z-index:9999;display:flex;align-items:center;justify-content:center;';
+  const card = document.createElement('div');
+  card.style.cssText = 'background:var(--panel);border:1px solid var(--panel-edge);border-radius:10px;padding:18px;min-width:320px;max-width:420px;color:var(--text);';
+  card.innerHTML = `
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+      <div style="font-size:14px;font-weight:700;">Switch composer pack</div>
+      <button class="btn" data-action="composer.pack.close"
+              onclick="document.getElementById('composerPackModal').remove()">Close</button>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-bottom:10px;">
+      Pack-specific prompts, action vocabulary, and file hints are loaded into the planner.
+    </div>
+    <div id="composerPackGrid" style="display:grid;grid-template-columns:1fr 1fr;gap:6px;"></div>
+  `;
+  modal.appendChild(card);
+  document.body.appendChild(modal);
+  const grid = card.querySelector('#composerPackGrid');
+  packs.forEach((p) => {
+    const b = document.createElement('button');
+    b.className = 'btn' + (p === cur ? ' primary' : '');
+    b.setAttribute('data-action', 'composer.pack.pick.' + p);
+    b.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 10px;text-align:left;justify-content:flex-start;';
+    b.innerHTML = `<span style="font-size:16px;">${COMPOSER_PACK_EMOJI[p] || '📦'}</span><span>${p}</span>`;
+    b.onclick = async () => {
+      try {
+        const r = await fetch(`${API}/api/composer/switch-pack`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ pack: p }),
+        });
+        const d = await r.json();
+        if (d.ok) {
+          composerRenderPackChip(d.pack);
+        }
+      } catch (e) {
+        // best-effort — chip just stays on its previous value
+      }
+      modal.remove();
+    };
+    grid.appendChild(b);
+  });
+}
+
+// Show "Composing in [pack] context..." while a plan is being drafted.
+window.addEventListener('DOMContentLoaded', () => {
+  // Best-effort initial load. If the API isn't up yet, the chip just
+  // shows "web_search" (the default).
+  setTimeout(() => { composerLoadPackInfo(); }, 800);
+});
 
 // ===== AUDIT TAB (W255) =====================================================
 let _AUDIT_STATE = {

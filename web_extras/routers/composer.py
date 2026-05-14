@@ -14,6 +14,11 @@ Endpoints
 - ``GET    /api/composer/config``                -> project_root config
 - ``POST   /api/composer/config``                -> persist project_root
 
+W256 endpoints — domain-pack-aware composer:
+
+- ``GET    /api/composer/pack-info``             -> active pack + vocab + hints
+- ``POST   /api/composer/switch-pack``           -> body {pack: str}
+
 The project root resolves with this precedence:
 
 1. ``project_root`` field in the request body.
@@ -34,11 +39,14 @@ from fastapi import APIRouter, Body, HTTPException
 from fastapi.responses import PlainTextResponse
 
 from backend.core.composer import (
+    KNOWN_PACKS,
     SafetyError,
     apply_plan as _apply_plan,
+    get_pack_info as _get_pack_info,
     get_store as _get_store,
     plan_from_transcript,
     rollback as _rollback,
+    set_active_pack as _set_active_pack,
 )
 
 
@@ -291,3 +299,65 @@ async def post_config(payload: dict[str, Any] | None = Body(default=None)) -> di
     cfg["project_root"] = str(expanded)
     _write_config(cfg)
     return {"ok": True, "project_root": str(expanded)}
+
+
+# ---------------------------------------------------------------------------
+# W256 — pack-aware composer
+# ---------------------------------------------------------------------------
+
+
+@router.get("/pack-info")
+async def get_pack_info_endpoint() -> dict[str, Any]:
+    """Return current active pack + action vocabulary + file hints.
+
+    Falls back to ``web_search`` when no pack has been selected. The
+    payload mirrors the structure consumed by the Composer panel
+    chip + pack-switcher modal.
+    """
+
+    info = await asyncio.to_thread(_get_pack_info)
+    return {"ok": True, **info}
+
+
+@router.post("/switch-pack")
+async def switch_pack_endpoint(
+    payload: dict[str, Any] | None = Body(default=None),
+) -> dict[str, Any]:
+    """Switch composer session to a different pack.
+
+    Body: ``{pack: str}``. Persists to ``~/.tars/active_pack.json``.
+    Returns the full pack-info payload of the *new* active pack.
+    """
+
+    body = payload or {}
+    pack = str(body.get("pack") or "").strip()
+    if not pack:
+        raise HTTPException(status_code=400, detail="pack required")
+    if pack not in KNOWN_PACKS:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"unknown pack {pack!r}; expected one of "
+                f"{sorted(KNOWN_PACKS)}"
+            ),
+        )
+    try:
+        await asyncio.to_thread(_set_active_pack, pack)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    info = await asyncio.to_thread(_get_pack_info)
+    # Receipt so we have a trace of pack switches in the audit feed.
+    try:
+        from backend.core.receipts.store import get_store as _rstore  # noqa: PLC0415
+
+        rs = _rstore()
+        if rs is not None:
+            await rs.append(
+                "composer.pack.switched",
+                "composer",
+                pack,
+                {"pack": pack},
+            )
+    except Exception:  # noqa: BLE001
+        pass
+    return {"ok": True, **info}

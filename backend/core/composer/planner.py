@@ -223,11 +223,21 @@ def _build_prompt(
     rules: str,
     tree: list[str],
     recent: list[str],
+    pack: str | None = None,
+    pack_overlay: str = "",
+    pack_vocab: dict[str, str] | None = None,
+    pack_hints: dict[str, str] | None = None,
 ) -> str:
     """Compose the system+user prompt as a single string.
 
     Kept LLM-agnostic on purpose — the active model bridge wraps this
     in whatever envelope its API requires.
+
+    W256 — when ``pack``/``pack_overlay``/``pack_vocab``/``pack_hints``
+    are supplied, the active domain pack's instructions are inlined
+    *after* the operator's global rules so pack-specific guidance
+    takes precedence over the generic composer voice (but never over
+    the safety fence at the top of the prompt).
     """
 
     parts: list[str] = []
@@ -256,6 +266,19 @@ def _build_prompt(
     if rules:
         parts.append("Operator rules:")
         parts.append(rules)
+    if pack:
+        parts.append(f"Active domain pack: {pack}")
+    if pack_overlay:
+        parts.append("Pack-specific instructions:")
+        parts.append(pack_overlay.strip())
+    if pack_vocab:
+        parts.append("Pack action vocabulary (shortcuts the operator may use):")
+        for k, v in pack_vocab.items():
+            parts.append(f"- {k}: {v}")
+    if pack_hints:
+        parts.append("Pack file hints (preferred paths for this pack):")
+        for k, v in pack_hints.items():
+            parts.append(f"- {k} -> {v}")
     parts.append(f"Project root: {project_root}")
     if tree:
         parts.append("Top-level tree:")
@@ -506,6 +529,7 @@ def plan_from_transcript(
     project_root: Path | str,
     *,
     allow_llm: bool = True,
+    pack: str | None = None,
 ) -> ComposerPlan:
     """Build a :class:`ComposerPlan` from a free-form transcript.
 
@@ -542,6 +566,33 @@ def plan_from_transcript(
 
     allow_secrets = _ALLOW_SECRETS_TOKEN in transcript
 
+    # ---- W256 — domain-pack overlay -----------------------------------
+    # Lazy import to keep this module import-cheap in test fixtures.
+    try:
+        from .packs import (  # noqa: PLC0415
+            DEFAULT_PACK,
+            expand_action_shortcut,
+            get_active_pack,
+            get_pack_action_vocabulary,
+            get_pack_file_hints,
+            get_pack_overlay,
+        )
+
+        active_pack = pack or get_active_pack() or DEFAULT_PACK
+        pack_overlay = get_pack_overlay(active_pack)
+        pack_vocab = get_pack_action_vocabulary(active_pack)
+        pack_hints = get_pack_file_hints(active_pack)
+        # Expand a leading vocabulary shortcut ("post X" -> full prompt).
+        # The original transcript is still stored on the plan; we only
+        # widen the *prompt context* the LLM sees.
+        expanded_transcript = expand_action_shortcut(transcript, active_pack)
+    except Exception:  # noqa: BLE001
+        active_pack = pack
+        pack_overlay = ""
+        pack_vocab = {}
+        pack_hints = {}
+        expanded_transcript = transcript
+
     # ---- gather context ------------------------------------------------
     rules = _load_rules_text()
     tree = _tree_summary(root)
@@ -552,11 +603,22 @@ def plan_from_transcript(
     raw: dict[str, Any] | None = None
     if allow_llm:
         prompt = _build_prompt(
-            transcript, root, rules=rules, tree=tree, recent=recent
+            expanded_transcript,
+            root,
+            rules=rules,
+            tree=tree,
+            recent=recent,
+            pack=active_pack,
+            pack_overlay=pack_overlay,
+            pack_vocab=pack_vocab,
+            pack_hints=pack_hints,
         )
         raw = _call_llm(prompt, model=active_model)
 
     if raw is None:
+        # Stub planner runs on the original transcript so the offline
+        # rename/create regex still triggers on the operator's text;
+        # the pack overlay only affects the LLM path.
         raw = _stub_plan(transcript, root)
 
     summary = str(raw.get("summary") or "draft plan").strip()
@@ -658,4 +720,5 @@ def plan_from_transcript(
         state="draft",
         project_root=str(root),
         model=active_model,
+        active_pack=active_pack,
     )

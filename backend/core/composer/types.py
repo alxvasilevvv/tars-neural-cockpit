@@ -143,6 +143,9 @@ class ComposerPlan:
     project_root: str | None = None
     model: str | None = None
     error: str | None = None
+    # W256 — domain pack the planner used (overlay + vocab + hints).
+    # ``None`` means the planner ran without pack context (legacy).
+    active_pack: str | None = None
 
     def __post_init__(self) -> None:
         if self.state not in _VALID_STATES:
@@ -164,6 +167,7 @@ class ComposerPlan:
             "project_root": self.project_root,
             "model": self.model,
             "error": self.error,
+            "active_pack": self.active_pack,
         }
 
     @classmethod
@@ -190,6 +194,7 @@ class ComposerPlan:
             project_root=data.get("project_root"),
             model=data.get("model"),
             error=data.get("error"),
+            active_pack=data.get("active_pack"),
         )
 
 
