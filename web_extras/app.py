@@ -102,6 +102,12 @@ from web_extras.routers import privacy as privacy_router
 from web_extras.routers import notepads as notepads_router
 # W241 — /api/bg_agents background-agent tray + long-running task status
 from web_extras.routers import bg_agents as bg_agents_router
+# W248 — unified WS real-time event bus
+from web_extras.routers import realtime as realtime_router
+# W245 — /api/codebase codebase indexer (incremental + language-aware)
+from web_extras.routers import codebase as codebase_router
+# W246 — /api/palette unified Cmd+K palette aggregator
+from web_extras.routers import palette as palette_router
 
 START_TS = time.time()
 log = logging.getLogger("tars.app")
@@ -654,6 +660,86 @@ async def _merkle_root_loop() -> None:
 
 
 
+
+# W248 — periodic /health publisher onto the unified WS bus. Pushes
+# every 30 s so the cockpit health chip stays accurate without polling.
+async def _realtime_health_loop() -> None:
+    """Push backend liveness onto the ``health`` topic every 30 s."""
+
+    try:
+        from backend.core.realtime import publish_event as _rt_publish
+    except Exception:  # pragma: no cover — broker missing
+        return
+    while True:
+        try:
+            payload = {
+                "ok": True,
+                "service": "tars",
+                "uptime_s": round(time.time() - START_TS, 3),
+                "meeet_ingest": bool(os.getenv("MEEET_INGEST_URL")),
+            }
+            _rt_publish("health", payload)
+        except Exception as exc:  # noqa: BLE001
+            log.debug("realtime.health_loop tick failed: %s", exc)
+        try:
+            await asyncio.sleep(30.0)
+        except asyncio.CancelledError:
+            return
+
+
+def _register_realtime_snapshots() -> None:
+    """W248 — register snapshot providers so {op:"snapshot"} works
+    even on the very first connect (before any push has happened)."""
+
+    try:
+        from backend.core.realtime import set_snapshot_provider
+    except Exception:  # pragma: no cover
+        return
+
+    def _health_snap() -> dict:
+        return {
+            "ok": True,
+            "service": "tars",
+            "uptime_s": round(time.time() - START_TS, 3),
+            "meeet_ingest": bool(os.getenv("MEEET_INGEST_URL")),
+        }
+
+    def _cap_snap() -> dict:
+        try:
+            from backend.core.metering import cap_status as _cs
+            return _cs()
+        except Exception:
+            return {}
+
+    def _usage_snap() -> dict:
+        try:
+            from backend.core.metering import current_balance_local, aggregate_today
+            return {"today": aggregate_today(), "balance": current_balance_local()}
+        except Exception:
+            return {}
+
+    def _privacy_snap() -> dict:
+        try:
+            from backend.core.privacy import snapshot as _snap
+            return _snap(limit=50)
+        except Exception:
+            return {}
+
+    async def _bg_snap() -> dict:
+        try:
+            from web_extras.routers.bg_agents import get_bg_store
+            rows = await get_bg_store().list_tasks(limit=20)
+            return {"tasks": rows}
+        except Exception:
+            return {}
+
+    set_snapshot_provider("health", _health_snap)
+    set_snapshot_provider("cap_status", _cap_snap)
+    set_snapshot_provider("usage", _usage_snap)
+    set_snapshot_provider("privacy.data_plane", _privacy_snap)
+    set_snapshot_provider("bg_agents", _bg_snap)
+
+
 @contextlib.asynccontextmanager
 async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     from backend.core.agents.autopilot import autopilot_loop
@@ -729,7 +815,15 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     scheduler_task = asyncio.create_task(
         _scheduler_loop(), name="scheduler-tick-loop"
     )
+    # W248 — unified WS bus: register snapshot providers + start the
+    # 30 s health publisher loop. Both are dependency-free; tear-down
+    # rides on the `tasks` cancel sweep below.
+    _register_realtime_snapshots()
+    realtime_health = asyncio.create_task(
+        _realtime_health_loop(), name="realtime-health-loop"
+    )
     tasks = (
+        realtime_health,
         replay,
         autopilot,
         trace_summary,
@@ -872,6 +966,11 @@ app.include_router(privacy_router.router)
 app.include_router(notepads_router.router)
 # W241 — /api/bg_agents background-agent tray + long-running task status
 app.include_router(bg_agents_router.router)
+app.include_router(palette_router.router)  # W246 — Cmd+K palette v2
+# W248 — /api/realtime WS event bus + /api/realtime/topics
+app.include_router(realtime_router.router)
+# W245 — /api/codebase codebase indexer
+app.include_router(codebase_router.router)
 
 
 async def _health_payload() -> dict[str, object]:

@@ -401,6 +401,12 @@ class _Broadcaster:
                 # Drop the slow consumer's update — they'll catch up on
                 # next state change. Never block the producer.
                 pass
+        # W248 — fan-out onto the unified WS event bus too.
+        try:
+            from backend.core.realtime import publish_event as _rt_publish
+            _rt_publish("bg_agents", payload)
+        except Exception:
+            pass
 
 
 _broadcaster = _Broadcaster()

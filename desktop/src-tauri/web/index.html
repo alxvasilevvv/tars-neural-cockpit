@@ -2053,6 +2053,90 @@
 const API = (window.location.protocol === 'file:' || window.location.hostname === '')
   ? 'http://127.0.0.1:8765'
   : '';
+
+// W248: unified real-time WS event bus
+(function tarsRealtime(){
+  const TOPICS = ['health','usage','cap_status','bg_agents','privacy.data_plane','agents.frame','connectors.status','doctor.status'];
+  let ws = null, reconnectMs = 1000, lastConnectedAt = Date.now(), fallbackTimer = null;
+  function wsUrl(){
+    if (API) return API.replace(/^http/, 'ws') + '/api/realtime';
+    const proto = (location.protocol === 'https:') ? 'wss:' : 'ws:';
+    return proto + '//' + location.host + '/api/realtime';
+  }
+  function dispatch(type, payload){
+    try { window.dispatchEvent(new CustomEvent('tars:'+type, { detail: payload })); } catch(_e){}
+  }
+  function setOnline(on){
+    window.__TARS_WS_ONLINE__ = !!on;
+    dispatch('ws.status', { online: !!on, since: lastConnectedAt });
+  }
+  function startFallback(){
+    if (fallbackTimer) return;
+    fallbackTimer = setInterval(function(){
+      if (window.__TARS_WS_ONLINE__) return;
+      ['/api/health','/api/usage/cap_status','/api/bg_agents','/api/privacy/data_plane'].forEach(function(path){
+        fetch(API + path, { cache: 'no-store' })
+          .then(function(r){ return r.ok ? r.json() : null; })
+          .then(function(j){
+            if (!j) return;
+            const t = path.indexOf('cap_status') >= 0 ? 'cap_status'
+                    : path.indexOf('bg_agents') >= 0 ? 'bg_agents'
+                    : path.indexOf('data_plane') >= 0 ? 'privacy.data_plane'
+                    : 'health';
+            dispatch(t, j);
+          })
+          .catch(function(){});
+      });
+    }, 5000);
+  }
+  function stopFallback(){
+    if (fallbackTimer) { clearInterval(fallbackTimer); fallbackTimer = null; }
+  }
+  function connect(){
+    try { ws = new WebSocket(wsUrl()); }
+    catch(_e){ scheduleReconnect(); return; }
+    window.TarsWS = ws;
+    ws.onopen = function(){
+      reconnectMs = 1000;
+      lastConnectedAt = Date.now();
+      setOnline(true);
+      stopFallback();
+      try { ws.send(JSON.stringify({ op:'subscribe', topics: TOPICS })); } catch(_e){}
+    };
+    ws.onmessage = function(ev){
+      let env = null;
+      try { env = JSON.parse(ev.data); } catch(_e){ return; }
+      if (!env || !env.type) return;
+      dispatch(env.type, env.payload || {});
+    };
+    ws.onclose = function(){ setOnline(false); scheduleReconnect(); };
+    ws.onerror = function(){ try { ws.close(); } catch(_e){} };
+  }
+  function scheduleReconnect(){
+    const idleMs = Date.now() - lastConnectedAt;
+    if (idleMs > 30000) startFallback();
+    reconnectMs = Math.min(reconnectMs * 2, 15000);
+    setTimeout(connect, reconnectMs);
+  }
+  window.tarsRealtimeSubscribe = function(topics){
+    if (!ws || ws.readyState !== 1) return false;
+    try { ws.send(JSON.stringify({ op:'subscribe', topics: topics })); return true; }
+    catch(_e){ return false; }
+  };
+  window.tarsRealtimeSnapshot = function(topic){
+    if (!ws || ws.readyState !== 1) return false;
+    try { ws.send(JSON.stringify({ op:'snapshot', topic: topic })); return true; }
+    catch(_e){ return false; }
+  };
+  setTimeout(connect, 0);
+})();
+
+window.addEventListener('tars:health',     function(e){ try { window.updateHealthChip && window.updateHealthChip(e.detail); } catch(_e){} });
+window.addEventListener('tars:usage',      function(e){ try { window.updateUsageTab && window.updateUsageTab(e.detail); } catch(_e){} });
+window.addEventListener('tars:cap_status', function(e){ try { window.updateCapBanner && window.updateCapBanner(e.detail); } catch(_e){} });
+window.addEventListener('tars:bg_agents',  function(e){ try { window.updateBgAgents && window.updateBgAgents(e.detail); } catch(_e){} });
+window.addEventListener('tars:privacy.data_plane', function(e){ try { window.updateDataPlane && window.updateDataPlane(e.detail); } catch(_e){} });
+
 const $ = (id) => document.getElementById(id);
 let activeTab = 'status';
 let activeThread = null;

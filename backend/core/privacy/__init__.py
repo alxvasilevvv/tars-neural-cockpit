@@ -283,17 +283,22 @@ def check_can_call(
                 allowed = False
                 reason = "privacy_block_connector"
 
-    _record(
-        DataFlowEvent(
-            ts=time.time(),
-            source=source,
-            dest=target,
-            kind=kind,
-            allowed=allowed,
-            reason=reason,
-            bytes=int(bytes_ or 0),
-        )
+    evt = DataFlowEvent(
+        ts=time.time(),
+        source=source,
+        dest=target,
+        kind=kind,
+        allowed=allowed,
+        reason=reason,
+        bytes=int(bytes_ or 0),
     )
+    _record(evt)
+    # W248 — push every data-plane decision onto the unified WS bus.
+    try:
+        from backend.core.realtime import publish_event as _rt_publish
+        _rt_publish("privacy.data_plane", evt.to_dict())
+    except Exception:
+        pass
     return allowed, reason
 
 

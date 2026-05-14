@@ -383,6 +383,12 @@ def _fanout(ev: UsageEvent) -> None:
             q.put_nowait(ev)
         except asyncio.QueueFull:  # pragma: no cover — backpressure
             log.debug("metering.fanout queue full; dropping for slow consumer")
+    # W248 — unified WS bus broadcast (best-effort, non-blocking).
+    try:
+        from backend.core.realtime import publish_event as _rt_publish
+        _rt_publish("usage", ev.to_dict())
+    except Exception as exc:  # noqa: BLE001
+        log.debug("metering.realtime publish failed: %s", exc)
 
 
 # ── receipt ledger sink ────────────────────────────────────────────────
@@ -888,6 +894,12 @@ def maybe_fire_cap_notification(level: str, info: dict[str, Any]) -> dict[str, A
         _mark_notified(month_iso, level)
     except Exception as exc:  # noqa: BLE001
         log.debug("metering.cap_notify mark failed: %s", exc)
+    # W248 — push cap-threshold crossings to the unified WS bus.
+    try:
+        from backend.core.realtime import publish_event as _rt_publish
+        _rt_publish("cap_status", {"level": level, "info": info})
+    except Exception as exc:  # noqa: BLE001
+        log.debug("metering.cap_status realtime publish failed: %s", exc)
     out["fired"] = True
     return out
 
