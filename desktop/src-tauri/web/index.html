@@ -34,16 +34,20 @@
     border-bottom: 1px solid var(--panel-edge);
     background: linear-gradient(180deg, rgba(99,102,241,0.10), transparent);
   }
-  header .logo {
-    font-weight: 700; letter-spacing: 0.18em; font-size: 14px;
-    background: linear-gradient(90deg, #a78bfa, #818cf8 50%, #38bdf8);
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
-  }
+  header .logo-svg { height: 40px; width: auto; display: block; }
   header .badge {
     font-size: 10px; padding: 3px 8px; border-radius: 999px;
     border: 1px solid var(--panel-edge); color: var(--muted);
     background: rgba(255,255,255,0.02);
   }
+  header .tier-pill {
+    font-size: 10px; padding: 3px 10px; border-radius: 999px;
+    border: 1px solid rgba(167,139,250,0.4); color: var(--accent-hot);
+    background: rgba(167,139,250,0.10); font-weight: 700;
+    letter-spacing: 0.1em; text-transform: uppercase;
+  }
+  header .tier-pill.pro { color: #06b6d4; border-color: rgba(6,182,212,0.5); background: rgba(6,182,212,0.10); }
+  header .tier-pill.business { color: #f59e0b; border-color: rgba(245,158,11,0.5); background: rgba(245,158,11,0.10); }
   header .pill { margin-left: auto; display: flex; gap: 8px; align-items: center; }
   header .pill .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 12px var(--ok); }
   header .pill .live { font-size: 11px; color: var(--ok); }
@@ -161,6 +165,24 @@
   .connector-card .state.connected { color: var(--ok); background: rgba(34,197,94,0.08); border: 1px solid rgba(34,197,94,0.3); }
   .connector-card .state.disconnected { color: var(--muted); background: rgba(107,114,128,0.08); border: 1px solid rgba(107,114,128,0.3); }
 
+  /* Agents tab — domain packs + user agents */
+  #tab-agents { display: none; grid-template-columns: 1fr 1fr; gap: 14px; height: 100%; min-height: 0; }
+  #tab-agents.active { display: grid; }
+  .pack-card { padding: 14px; border-radius: 12px; background: rgba(0,0,0,0.25); border: 1px solid var(--panel-edge); margin-bottom: 10px; transition: all .15s; }
+  .pack-card:hover { border-color: var(--accent); background: rgba(129,140,248,0.06); }
+  .pack-card .pack-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+  .pack-card .pack-name { font-size: 13px; font-weight: 700; color: var(--text); text-transform: capitalize; letter-spacing: .04em; }
+  .pack-card .pack-tier { font-size: 9px; padding: 2px 7px; border-radius: 999px; background: rgba(167,139,250,0.12); color: var(--accent-hot); letter-spacing: .1em; }
+  .pack-card .pack-desc { font-size: 11px; color: var(--muted); line-height: 1.5; margin-bottom: 8px; }
+  .pack-card .pack-skills { display: flex; gap: 4px; flex-wrap: wrap; }
+  .pack-card .pack-skill { font-size: 10px; padding: 2px 6px; border-radius: 4px; background: rgba(99,102,241,0.10); color: var(--accent); }
+
+  /* Vision tab */
+  #tab-vision .vision-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  .vision-action { padding: 16px; border-radius: 10px; background: rgba(0,0,0,0.25); border: 1px solid var(--panel-edge); }
+  .vision-action h3 { margin: 0 0 6px; font-size: 12px; color: var(--accent-hot); letter-spacing: .08em; text-transform: uppercase; }
+  .vision-action p { font-size: 11px; color: var(--muted); line-height: 1.5; margin: 0 0 10px; }
+
   /* Settings tab */
   #tab-settings .setting-block { padding: 14px; border-radius: 10px; background: rgba(0,0,0,0.25); border: 1px solid var(--panel-edge); margin-bottom: 12px; }
   #tab-settings .setting-block h3 { margin: 0 0 8px; font-size: 12px; color: var(--accent); letter-spacing: 0.08em; }
@@ -187,8 +209,82 @@
 <body>
 <div class="app">
   <header>
-    <div class="logo">⏐⏐ TARS · CONTROL CENTER</div>
+    <!-- TARS monolith wordmark — Interstellar-style 4-section monolith + animated LED rail -->
+    <svg class="logo-svg" viewBox="0 0 240 64" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="TARS">
+      <defs>
+        <linearGradient id="tw-body" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stop-color="#1a1a2e"/>
+          <stop offset="55%" stop-color="#0f0f1a"/>
+          <stop offset="100%" stop-color="#05050a"/>
+        </linearGradient>
+        <linearGradient id="tw-edge" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stop-color="#6366f1" stop-opacity="0.6"/>
+          <stop offset="50%" stop-color="#8b5cf6" stop-opacity="0.25"/>
+          <stop offset="100%" stop-color="#06b6d4" stop-opacity="0.6"/>
+        </linearGradient>
+        <linearGradient id="tw-text" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stop-color="#ffffff"/>
+          <stop offset="60%" stop-color="#c7d2fe"/>
+          <stop offset="100%" stop-color="#a5b4fc"/>
+        </linearGradient>
+        <linearGradient id="tw-sheen" x1="0" y1="0" x2="1" y2="0">
+          <stop offset="0%" stop-color="#ffffff" stop-opacity="0"/>
+          <stop offset="50%" stop-color="#ffffff" stop-opacity="0.08"/>
+          <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+        </linearGradient>
+        <filter id="tw-glow" x="-50%" y="-50%" width="200%" height="200%">
+          <feGaussianBlur stdDeviation="1.1" result="b"/>
+          <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+        </filter>
+        <style>
+          @keyframes tw-pulse { 0%,100%{opacity:.35;transform:scaleY(.55)} 50%{opacity:1;transform:scaleY(1)} }
+          @keyframes tw-led   { 0%,100%{opacity:.25} 50%{opacity:1} }
+          .tw-led{transform-origin:28px 32px;animation:tw-pulse 2.4s ease-in-out infinite}
+          .tw-dot{animation:tw-led 1.6s ease-in-out infinite}
+          .tw-dot-2{animation-delay:.35s} .tw-dot-3{animation-delay:.7s}
+          .tw-cursor{animation:tw-led 1s steps(2,end) infinite}
+        </style>
+      </defs>
+      <g transform="translate(8,6)">
+        <rect x="-2" y="-2" width="44" height="56" rx="5" fill="url(#tw-edge)" opacity="0.35" filter="url(#tw-glow)"/>
+        <rect x="0" y="0" width="40" height="52" rx="3" fill="url(#tw-body)" stroke="#6366f1" stroke-opacity="0.55" stroke-width="0.75"/>
+        <rect x="0" y="0" width="40" height="52" rx="3" fill="url(#tw-sheen)"/>
+        <g stroke="#6366f1" stroke-opacity="0.45" stroke-width="0.55">
+          <line x1="0" y1="13" x2="40" y2="13"/><line x1="0" y1="26" x2="40" y2="26"/><line x1="0" y1="39" x2="40" y2="39"/>
+        </g>
+        <g stroke="#000" stroke-opacity="0.6" stroke-width="0.4">
+          <line x1="0" y1="13.5" x2="40" y2="13.5"/><line x1="0" y1="26.5" x2="40" y2="26.5"/><line x1="0" y1="39.5" x2="40" y2="39.5"/>
+        </g>
+        <line x1="35" y1="4" x2="35" y2="48" stroke="#06b6d4" stroke-opacity="0.25" stroke-width="0.55"/>
+        <g fill="#06b6d4">
+          <circle class="tw-dot" cx="35" cy="8" r="1"/>
+          <circle class="tw-dot tw-dot-2" cx="35" cy="21" r="1"/>
+          <circle class="tw-dot tw-dot-3" cx="35" cy="34" r="1"/>
+          <circle class="tw-dot" cx="35" cy="47" r="1"/>
+        </g>
+        <g class="tw-led">
+          <rect x="6" y="18" width="22" height="2.4" rx="1.2" fill="#8b5cf6"/>
+          <rect x="6" y="18" width="22" height="2.4" rx="1.2" fill="#06b6d4" opacity="0.6" filter="url(#tw-glow)"/>
+        </g>
+        <g fill="#ffffff" fill-opacity="0.7">
+          <rect x="4" y="4" width="8" height="0.8" rx="0.4"/>
+          <rect x="4" y="6" width="4" height="0.8" rx="0.4"/>
+          <rect x="4" y="30" width="6" height="0.8" rx="0.4"/>
+          <rect x="4" y="44" width="9" height="0.8" rx="0.4"/>
+        </g>
+        <rect x="0" y="0" width="40" height="2" fill="#6366f1" fill-opacity="0.4"/>
+        <rect x="0" y="50" width="40" height="2" fill="#06b6d4" fill-opacity="0.4"/>
+      </g>
+      <g transform="translate(64,0)">
+        <line x1="0" y1="46" x2="168" y2="46" stroke="#6366f1" stroke-opacity="0.25" stroke-width="0.5"/>
+        <line x1="0" y1="46" x2="14" y2="46" stroke="#06b6d4" stroke-opacity="0.8" stroke-width="0.8"/>
+        <text x="0" y="40" font-family="'SF Mono','JetBrains Mono','Menlo','Consolas',ui-monospace,monospace" font-size="32" font-weight="700" letter-spacing="6" fill="url(#tw-text)">TARS</text>
+        <text x="1" y="56" font-family="'SF Mono','JetBrains Mono','Menlo','Consolas',ui-monospace,monospace" font-size="6" font-weight="500" letter-spacing="3" fill="#8b5cf6" fill-opacity="0.85">DESKTOP · CONTROL · CENTER</text>
+        <rect class="tw-cursor" x="124" y="18" width="4" height="22" fill="#06b6d4"/>
+      </g>
+    </svg>
     <div class="badge">v9.2.0-beta1 · local</div>
+    <div class="tier-pill" id="tierPill" title="Subscription tier">FREE</div>
     <div class="pill">
       <span class="live" id="apiStatus">connecting…</span>
       <span class="dot" id="apiDot"></span>
@@ -197,10 +293,12 @@
 
   <nav class="tabs">
     <button class="active" data-tab="status">Status</button>
+    <button data-tab="agents">Agents <span class="count" id="agCount">·</span></button>
     <button data-tab="chat">Chat <span class="count" id="threadCount">·</span></button>
     <button data-tab="activity">Activity <span class="count" id="actCount">·</span></button>
     <button data-tab="connectors">Connectors <span class="count" id="connCount">·</span></button>
     <button data-tab="cowork">Cowork <span class="count" id="coCount">·</span></button>
+    <button data-tab="vision">Vision</button>
     <button data-tab="marketplace">Plugins <span class="count" id="mpCount">·</span></button>
     <button data-tab="settings">Settings</button>
   </nav>
@@ -244,6 +342,49 @@
           </div>
           <div id="rows"></div>
         </div>
+      </div>
+    </div>
+
+    <!-- AGENTS TAB -->
+    <div id="tab-agents" class="tab-panel">
+      <div class="panel" style="overflow:auto;">
+        <h2>Domain packs · pre-built agent kinds</h2>
+        <div id="packsList"><div class="empty-state">Loading…</div></div>
+      </div>
+      <div class="panel" style="overflow:auto;">
+        <h2>Your agents · personal instances</h2>
+        <button class="btn primary" style="width:100%;margin-bottom:10px;" onclick="createAgent()">+ Create agent</button>
+        <div id="agentsList"><div class="empty-state">Loading…</div></div>
+      </div>
+    </div>
+
+    <!-- VISION TAB -->
+    <div id="tab-vision" class="tab-panel">
+      <div class="panel" style="overflow:auto;">
+        <h2>Machine vision · system control surface</h2>
+        <div class="vision-grid">
+          <div class="vision-action">
+            <h3>↗ Screenshot → analyze</h3>
+            <p>Capture the current screen and ask the active LLM to describe what's on it, transcribe text, or suggest next action. Uses your configured cloud key (Anthropic/OpenAI/OpenRouter).</p>
+            <button class="btn primary" onclick="visionCapture()">📸 Capture &amp; analyze</button>
+          </div>
+          <div class="vision-action">
+            <h3>↗ OCR on file</h3>
+            <p>Drop an image file and extract text via the local <code>pytesseract</code> bridge in <code>backend/agents/vision_agent.py</code>. Works offline.</p>
+            <button class="btn" onclick="visionOcr()">🔍 OCR a file</button>
+          </div>
+          <div class="vision-action">
+            <h3>↗ Selection → speak</h3>
+            <p>Bind a global shortcut: capture screen region → OCR → speak via TTS. Free screen-reader-style accessibility helper. Coming with W203.</p>
+            <button class="btn" disabled>Soon</button>
+          </div>
+          <div class="vision-action">
+            <h3>↗ Agent-driven actions</h3>
+            <p>Future: let an agent describe what it sees, propose a click, ask HIL approval, perform via macOS Accessibility API. Receipts-logged.</p>
+            <button class="btn" disabled>Roadmap · W205</button>
+          </div>
+        </div>
+        <pre class="log" id="visionOut" style="margin-top:14px;display:none"></pre>
       </div>
     </div>
 
@@ -309,6 +450,26 @@
     <div id="tab-settings" class="tab-panel">
       <div class="panel" style="max-height: calc(100vh - 200px); overflow: auto;">
         <h2>Settings</h2>
+
+        <!-- 1-click meeet.world connect — W202 -->
+        <div class="setting-block" style="border-color: rgba(139,92,246,0.4); background: linear-gradient(135deg, rgba(99,102,241,0.08), rgba(139,92,246,0.06));">
+          <h3 style="color: #a78bfa;">🌐 MEEET.WORLD · 1-CLICK CONNECT</h3>
+          <p style="font-size: 11px; color: var(--muted); line-height: 1.6; margin: 4px 0 10px;">
+            Link this TARS instance to your meeet.world account for cloud sync, billing,
+            cross-device receipts and unlimited Pro/Business features. Magic-link flow —
+            you sign in on the web, copy the token, paste it here.
+          </p>
+          <div class="kv" style="margin-bottom: 10px;">
+            <div class="k">Status</div><div class="v" id="kMeeetStatus">disconnected</div>
+            <div class="k">Account</div><div class="v" id="kMeeetAccount">—</div>
+          </div>
+          <div class="actions">
+            <button class="btn primary" onclick="connectMeeet()">🔗 Connect via magic link</button>
+            <button class="btn" onclick="openMeeetAccount()">↗ Open account page</button>
+            <button class="btn" id="meeetPasteBtn" onclick="pasteMeeetToken()" style="display:none">📋 Paste token</button>
+          </div>
+        </div>
+
         <div class="setting-block">
           <h3>API KEYS</h3>
           <div class="kv" id="apiKeyKv">
@@ -399,9 +560,11 @@ document.querySelectorAll('nav.tabs button').forEach(b => {
     activeTab = b.dataset.tab;
     $('tab-' + activeTab).classList.add('active');
     if (activeTab === 'chat') loadThreads();
+    if (activeTab === 'agents') loadAgents();
     if (activeTab === 'activity') loadActivity();
     if (activeTab === 'connectors') loadConnectors();
     if (activeTab === 'cowork') loadCowork();
+    if (activeTab === 'vision') {/* nothing to fetch */}
     if (activeTab === 'marketplace') loadMarketplace();
     if (activeTab === 'settings') loadSettings();
   });
@@ -734,9 +897,212 @@ function escapeHtml(s) {
   return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
-// Auto-refresh status every 30s.
+// ─── agents tab — domain packs (catalog) + user agents ───
+const PACK_BLURB = {
+  wealth: 'Personal finance, investing horizon, cashflow runway, portfolio diff.',
+  health: 'Sleep, training load, nutrition tracking, doctor-visit prep.',
+  family: 'Calendar coordination, school deadlines, household ops.',
+  product: 'PRD drafts, user-interview synthesis, roadmap pressure-test.',
+  brand: 'Voice consistency, marketing copy, social cadence.',
+  entrepreneur: 'Cold outreach, deal pipeline, fundraising stack, founder ops.',
+  civic: 'Public records, local government, civic-data lookups (planned).',
+};
+
+async function loadAgents() {
+  try {
+    const m = await fetchJSON('/api/domains/manifest').catch(() => ({}));
+    const packs = m.packs || m.domains || [];
+    if (!packs.length) {
+      $('packsList').innerHTML = '<div class="empty-state">No domain packs registered.</div>';
+    } else {
+      $('packsList').innerHTML = packs.map(p => `
+        <div class="pack-card">
+          <div class="pack-head">
+            <div class="pack-name">${escapeHtml(p.slug || p.name || '?')}</div>
+            <div class="pack-tier">${escapeHtml((p.tier || 'free').toUpperCase())}</div>
+          </div>
+          <div class="pack-desc">${escapeHtml(p.description || PACK_BLURB[p.slug] || 'Domain-specific agent skills.')}</div>
+          <div class="pack-skills">${(p.skills || p.actions || []).slice(0,6).map(s =>
+            `<span class="pack-skill">${escapeHtml(typeof s === 'string' ? s : (s.name || s.slug || '?'))}</span>`
+          ).join('')}</div>
+        </div>
+      `).join('');
+    }
+  } catch (e) { $('packsList').innerHTML = `<div class="empty-state">Packs load failed: ${e.message}</div>`; }
+
+  try {
+    const d = await fetchJSON('/api/agents');
+    const agents = d.agents || [];
+    $('agCount').textContent = agents.length;
+    if (!agents.length) {
+      $('agentsList').innerHTML = `
+        <div class="empty-state">
+          No agents created yet. Each agent picks a pack + a focus.<br/>
+          You can also delegate to them from the Chat tab.
+        </div>`;
+      return;
+    }
+    $('agentsList').innerHTML = agents.map(a => `
+      <div class="pack-card">
+        <div class="pack-head">
+          <div class="pack-name">${escapeHtml(a.name || 'untitled')}</div>
+          <div class="pack-tier">${escapeHtml((a.pack_slug || '?').toUpperCase())}</div>
+        </div>
+        <div class="pack-desc">${escapeHtml(a.description || a.system_prompt || '(no description)')}</div>
+        <div class="pack-skills">
+          <span class="pack-skill">status: ${escapeHtml(a.status || '?')}</span>
+          <span class="pack-skill">id: ${escapeHtml((a.id || '').slice(0,12))}…</span>
+        </div>
+      </div>
+    `).join('');
+  } catch (e) { $('agentsList').innerHTML = `<div class="empty-state">Agents load failed: ${e.message}</div>`; }
+}
+
+async function createAgent() {
+  const name = prompt('Agent name?');
+  if (!name) return;
+  const pack = prompt('Domain pack? (wealth · health · family · product · brand · entrepreneur)', 'wealth');
+  if (!pack) return;
+  try {
+    const r = await fetch(`${API}/api/agents`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, pack_slug: pack }),
+    });
+    if (r.ok) { toast(`✓ agent "${name}" created`, 'ok'); loadAgents(); }
+    else { const t = await r.text(); toast(`✗ ${r.status}: ${t.slice(0,80)}`, 'fail'); }
+  } catch (e) { toast(`✗ ${e.message}`, 'fail'); }
+}
+
+// ─── tier badge in header ───
+async function refreshTierBadge() {
+  try {
+    const d = await fetchJSON('/api/entitlements');
+    const tier = (d.tier || 'free').toLowerCase();
+    const pill = $('tierPill');
+    pill.textContent = tier.toUpperCase();
+    pill.className = 'tier-pill ' + (tier === 'pro' ? 'pro' : tier === 'business' ? 'business' : '');
+  } catch (e) { /* keep last */ }
+}
+
+// ─── 1-click meeet.world connect ───
+const MEEET_BASE = 'https://meeet.world';
+
+async function connectMeeet() {
+  // Open external browser via Tauri shell plugin if present, else regular new tab.
+  const url = `${MEEET_BASE}/account/tars-connect?source=tars-desktop&v=9.2.0-beta1`;
+  toast('↗ Opening meeet.world — sign in, copy your TARS token, then paste it here.', 'ok');
+  try {
+    if (window.__TAURI__ && window.__TAURI__.shell && window.__TAURI__.shell.open) {
+      await window.__TAURI__.shell.open(url);
+    } else {
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+    $('meeetPasteBtn').style.display = 'inline-block';
+  } catch (e) { toast(`✗ open failed: ${e.message}`, 'fail'); }
+}
+
+function openMeeetAccount() {
+  const url = `${MEEET_BASE}/account`;
+  try {
+    if (window.__TAURI__ && window.__TAURI__.shell && window.__TAURI__.shell.open) {
+      window.__TAURI__.shell.open(url);
+    } else { window.open(url, '_blank', 'noopener,noreferrer'); }
+  } catch (e) { window.open(url, '_blank'); }
+}
+
+async function pasteMeeetToken() {
+  let token = null;
+  try {
+    if (navigator.clipboard && navigator.clipboard.readText) {
+      token = (await navigator.clipboard.readText() || '').trim();
+    }
+  } catch (e) { /* user denied */ }
+  if (!token) token = prompt('Paste your meeet.world TARS token:');
+  if (!token) return;
+  // Backend hand-off: POST /api/auth/meeet/exchange — accepted at v9.2 once brother
+  // ships /api/magic-link. For now we store locally + show success.
+  try {
+    const r = await fetch(`${API}/api/auth/meeet/exchange`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: token.slice(0, 256) }),
+    }).catch(() => null);
+    if (r && r.ok) {
+      const d = await r.json();
+      toast(`✓ connected as ${d.account || 'meeet user'}`, 'ok');
+      $('kMeeetStatus').textContent = '✓ connected';
+      $('kMeeetAccount').textContent = d.account || '(set)';
+    } else {
+      // Fallback — backend endpoint not live yet. Save token client-side so reconnect
+      // works once /api/auth/meeet/exchange ships.
+      localStorage.setItem('meeet_token', token);
+      $('kMeeetStatus').textContent = '◌ token saved (pending backend)';
+      toast('Token saved locally. Magic-link exchange endpoint ships with W203.', '');
+    }
+  } catch (e) { toast(`✗ ${e.message}`, 'fail'); }
+}
+
+// ─── vision tab — capture & analyze ───
+async function visionCapture() {
+  $('visionOut').style.display = 'block';
+  $('visionOut').textContent = 'capturing screen…';
+  try {
+    // Tauri side: use the screenshot plugin if available; else PNG via desktop API.
+    let dataUrl = null;
+    if (window.__TAURI__ && window.__TAURI__.invoke) {
+      try { dataUrl = await window.__TAURI__.invoke('vision_capture_screen'); } catch (e) {}
+    }
+    if (!dataUrl) {
+      // Browser fallback: getDisplayMedia
+      const stream = await navigator.mediaDevices.getDisplayMedia({ video: true });
+      const track = stream.getVideoTracks()[0];
+      const ic = new ImageCapture(track);
+      const bmp = await ic.grabFrame();
+      track.stop();
+      const c = document.createElement('canvas'); c.width = bmp.width; c.height = bmp.height;
+      c.getContext('2d').drawImage(bmp, 0, 0);
+      dataUrl = c.toDataURL('image/png');
+    }
+    $('visionOut').textContent = 'analyzing via /api/vision/analyze …';
+    const r = await fetch(`${API}/api/vision/analyze`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image_data_url: dataUrl, prompt: 'Describe the current screen and any suggested next action.' }),
+    });
+    if (!r.ok) {
+      $('visionOut').textContent = `Backend endpoint /api/vision/analyze not live yet (HTTP ${r.status}).\n\nThis ships with W204 once the vision router lands.\nUntil then, drop screenshots into Chat — the orchestrator already routes them through VisionAgent (OCR + LLM vision).`;
+      return;
+    }
+    const d = await r.json();
+    $('visionOut').textContent = d.summary || d.text || JSON.stringify(d, null, 2);
+  } catch (e) { $('visionOut').textContent = `✗ ${e.message}`; }
+}
+
+async function visionOcr() {
+  const inp = document.createElement('input');
+  inp.type = 'file'; inp.accept = 'image/*';
+  inp.onchange = async () => {
+    const f = inp.files[0]; if (!f) return;
+    $('visionOut').style.display = 'block';
+    $('visionOut').textContent = 'uploading…';
+    const fd = new FormData();
+    fd.append('file', f);
+    try {
+      const r = await fetch(`${API}/api/vision/ocr`, { method: 'POST', body: fd });
+      if (!r.ok) { $('visionOut').textContent = `OCR endpoint not live yet (HTTP ${r.status}). Backend ships with W204.`; return; }
+      const d = await r.json();
+      $('visionOut').textContent = d.text || JSON.stringify(d, null, 2);
+    } catch (e) { $('visionOut').textContent = `✗ ${e.message}`; }
+  };
+  inp.click();
+}
+
+// Auto-refresh status every 30s + tier badge on boot.
 refreshAll();
+refreshTierBadge();
 setInterval(() => { if (activeTab === 'status') refreshAll(); }, 30000);
+setInterval(refreshTierBadge, 60000);
 </script>
 </body>
 </html>
