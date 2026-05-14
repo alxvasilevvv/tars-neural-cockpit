@@ -2065,6 +2065,15 @@ async function authMagicLink() {
       if (err === 'invalid_email' || err === 'bad_email') {
         authShowStatus(det.hint || 'Please enter a valid email like you@meeet.world', 'warn');
         if (input) input.focus();
+      } else if (err === 'not_deployed' || err === 'meeet_unreachable' || r.status === 404 || r.status === 503) {
+        // W233 — brother hasn't deployed meeet.world cloud yet. Steer
+        // the user to "Skip — local-only mode" instead of failing loudly.
+        authShowStatus('meeet.world cloud not deployed yet. Use "Skip — local-only mode" for now. Brother is wiring it up.', 'warn');
+        if ($('authSkipLink')) $('authSkipLink').style.display = 'inline';
+      } else if (err === 'meeet_mode_mock') {
+        // W233 — local .env still in mock mode. Tell the operator how to flip.
+        authShowStatus(det.hint || 'Set MEEET_MODE=live in .env to use real cloud auth (or use "Skip — local-only mode").', 'warn');
+        if ($('authSkipLink')) $('authSkipLink').style.display = 'inline';
       } else {
         authShowStatus(`Could not send link (${err}). Try OAuth or skip.`, 'fail');
       }
@@ -2095,6 +2104,16 @@ async function authMagicLink() {
       authShowStatus('meeet.world is unreachable. You can use "Skip — local-only" below.', 'fail');
       $('authSkipLink').style.display = 'inline';
       btn.disabled = false;
+    } else if (d && d.error === 'not_deployed') {
+      // W233 — brother's endpoint returned 404/503 from upstream.
+      authShowStatus('meeet.world cloud not deployed yet. Use "Skip — local-only mode" for now. Brother is wiring it up.', 'warn');
+      $('authSkipLink').style.display = 'inline';
+      btn.disabled = false;
+    } else if (d && d.error === 'meeet_mode_mock') {
+      // W233 — local .env still in mock mode.
+      authShowStatus(d.hint || 'Set MEEET_MODE=live in .env to use real cloud auth (or use "Skip — local-only mode").', 'warn');
+      $('authSkipLink').style.display = 'inline';
+      btn.disabled = false;
     } else {
       authShowStatus('Could not send link. Try again or use OAuth.', 'fail');
       btn.disabled = false;
@@ -2110,7 +2129,25 @@ async function authOAuth(provider) {
   authShowStatus(`Opening ${provider} sign-in in your browser…`, '');
   try {
     const r = await fetch(API + `/api/auth/meeet/oauth/${provider}/start`);
-    const d = await r.json();
+    let d = null;
+    try { d = await r.json(); } catch (_je) { d = null; }
+    // W233 — handle the deterministic not-deployed / mock-mode envelopes
+    // from the backend before the redirect_url branch.
+    if (d && d.error === 'not_deployed') {
+      authShowStatus('meeet.world cloud not deployed yet. Use "Skip — local-only mode" for now. Brother is wiring it up.', 'warn');
+      if ($('authSkipLink')) $('authSkipLink').style.display = 'inline';
+      return;
+    }
+    if (d && d.error === 'meeet_mode_mock') {
+      authShowStatus(d.hint || 'Set MEEET_MODE=live in .env to use real OAuth (or use "Skip — local-only mode").', 'warn');
+      if ($('authSkipLink')) $('authSkipLink').style.display = 'inline';
+      return;
+    }
+    if (!r.ok && (r.status === 404 || r.status === 503)) {
+      authShowStatus('meeet.world cloud not deployed yet. Use "Skip — local-only mode" for now. Brother is wiring it up.', 'warn');
+      if ($('authSkipLink')) $('authSkipLink').style.display = 'inline';
+      return;
+    }
     if (d && d.redirect_url) {
       openExternal(d.redirect_url);
       authShowStatus('Finish sign-in in your browser. We will pick up the response automatically.', 'ok');
@@ -2118,6 +2155,8 @@ async function authOAuth(provider) {
       authShowStatus('Could not start OAuth.', 'fail');
     }
   } catch (e) {
+    // Transient network error (e.g. backend not up) — distinct toast,
+    // don't claim brother is offline.
     authShowStatus(`Failed: ${e.message}`, 'fail');
   }
 }

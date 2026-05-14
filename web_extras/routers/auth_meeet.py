@@ -116,6 +116,21 @@ def _meeet_base() -> str:
     return os.getenv("MEEET_BASE_URL", "https://meeet.world").rstrip("/")
 
 
+def _meeet_mode() -> str:
+    """Return the active meeet.world mode.
+
+    W233 — defaults to ``live`` when unset so a fresh checkout points at
+    real meeet.world. The dev ``.env`` shipped with the repo flips this
+    to ``mock`` until the brother's endpoints are live; flip back to
+    ``live`` once ``scripts/CHECK-MEEET-LIVE.command`` reports 4/4 green.
+    """
+    return (os.getenv("MEEET_MODE", "live") or "live").strip().lower()
+
+
+def _is_mock_mode() -> bool:
+    return _meeet_mode() == "mock"
+
+
 class MagicLinkRequest(BaseModel):
     """Wrap pydantic EmailStr if available; fall back to plain str so the
     router still loads on dev machines without pydantic[email] extras."""
@@ -130,6 +145,10 @@ async def magic_link_start(req: MagicLinkRequest) -> dict[str, Any]:
     Returns ``{ok: true, sent: true}`` if the brother's endpoint accepted
     the request. Returns ``{ok: false, error: "meeet_unreachable"}`` on
     connection error so the UI can offer a "Skip — local-only" path.
+
+    W233 — when ``MEEET_MODE=mock`` we short-circuit BEFORE calling the
+    upstream so the frontend gets a deterministic envelope it can render
+    as "switch to live mode" instead of a connection error.
     """
     email = (req.email or "").strip().lower()
     # W230 — return a friendly envelope instead of raising 422, so the
@@ -145,6 +164,16 @@ async def magic_link_start(req: MagicLinkRequest) -> dict[str, Any]:
             "hint": "Please enter a valid email like you@meeet.world",
         }
 
+    # W233 — deterministic mock-mode short-circuit. Frontend looks for
+    # ``error == "meeet_mode_mock"`` and renders a "switch to live" hint.
+    if _is_mock_mode():
+        return {
+            "ok": False,
+            "error": "meeet_mode_mock",
+            "hint": "Set MEEET_MODE=live in .env to use real cloud auth",
+            "email": email,
+        }
+
     try:
         import httpx
     except ImportError:
@@ -155,10 +184,24 @@ async def magic_link_start(req: MagicLinkRequest) -> dict[str, Any]:
         async with httpx.AsyncClient(timeout=5.0) as client:
             r = await client.post(
                 f"{base}/api/magic-link/start",
-                json={"email": email, "client": "tars-desktop"},
+                json={
+                    "email": email,
+                    "client": "tars-desktop",
+                    "return_to": "tars://auth",
+                },
             )
         if 200 <= r.status_code < 300:
             return {"ok": True, "sent": True, "email": email}
+        # W233 — distinguish "endpoint not deployed yet" (404/503) from
+        # "endpoint deployed but rejected this request" so the frontend
+        # can show the specific brother-not-ready toast.
+        if r.status_code in (404, 503):
+            return {
+                "ok": False,
+                "error": "not_deployed",
+                "hint": "meeet.world endpoint not deployed yet. Use 'Skip — local-only mode' for now.",
+                "status": r.status_code,
+            }
         return {
             "ok": False,
             "error": "meeet_rejected",
@@ -177,10 +220,22 @@ async def oauth_start(provider: str) -> dict[str, Any]:
     The frontend opens this URL in the default browser; meeet.world
     handles the IdP dance and finally redirects to ``tars://auth?token=…``
     which the Tauri deep-link handler picks up.
+
+    W233 — in mock mode we return an explicit not-ready envelope so the
+    frontend can prompt the user to "Skip — local-only mode" instead of
+    opening a browser tab at a dead URL.
     """
     provider = (provider or "").strip().lower()
     if provider not in {"google", "apple"}:
         raise HTTPException(status_code=400, detail={"error": "unsupported_provider"})
+
+    if _is_mock_mode():
+        return {
+            "ok": False,
+            "error": "meeet_mode_mock",
+            "hint": "Set MEEET_MODE=live in .env to use real OAuth",
+            "provider": provider,
+        }
 
     base = _meeet_base()
     redirect_url = f"{base}/api/oauth/{provider}/start?return=tars://auth"
