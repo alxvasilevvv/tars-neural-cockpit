@@ -525,6 +525,32 @@ def _demo_seed_mcp_server() -> dict[str, object]:
     return {"seeded": True, "name": demo_name, "config_path": str(_config_path())}
 
 
+def _demo_seed_notepads() -> dict[str, object]:
+    """W273 — seed the 5 stock notepad templates so the cockpit list is
+    non-empty for the demo. Gated by TARS_DEMO_SEED=1 but the underlying
+    ``seed_defaults`` is itself idempotent (only fills if DB is empty),
+    so this is also safe to call when the flag is off.
+    """
+
+    if os.getenv("TARS_DEMO_SEED") != "1":
+        return {"seeded": False, "reason": "demo_flag_not_set"}
+
+    try:
+        from backend.core.notepads import get_store as _np_get
+    except Exception as exc:
+        return {"seeded": False, "reason": f"notepads_import_failed: {exc}"}
+
+    store = _np_get()
+    if store is None:
+        return {"seeded": False, "reason": "notepads_disabled"}
+
+    try:
+        created = store.seed_defaults()
+    except Exception as exc:  # pragma: no cover
+        return {"seeded": False, "reason": f"seed_failed: {exc}"}
+    return {"seeded": bool(created), "count": len(created)}
+
+
 # ---- entrypoint -------------------------------------------------------------
 
 
@@ -604,6 +630,14 @@ async def init_all_databases() -> BootstrapResult:
     except Exception as exc:
         result.steps_warn.append(("demo_seed_mcp", str(exc)[:240]))
         _stderr(f"warn: demo_seed_mcp: {exc}")
+
+    # W273 — seed notepad templates so the Notepads tab is non-empty for the demo
+    try:
+        result.seeded["demo_notepads"] = _demo_seed_notepads()
+        _stderr(f"seed: demo_notepads: {result.seeded['demo_notepads']}")
+    except Exception as exc:
+        result.steps_warn.append(("demo_seed_notepads", str(exc)[:240]))
+        _stderr(f"warn: demo_seed_notepads: {exc}")
 
         # Step 3 — default domain pack is already auto-registered via
     # ``backend.core.domains.packs`` import-side-effects in app.py;

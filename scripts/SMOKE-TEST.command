@@ -147,14 +147,28 @@ check_status() {
   echo "── Wave B (W253-W269) ──"
   check_status GET  /api/composer/plans
   check_status GET  /api/composer/config
+  check_status GET  /api/composer/pack-info
   check_status GET  /api/audit/timeline
   check_status GET  /api/t2t/review/inbox
   check_status GET  /api/t2t/review/outbox
   check_status GET  /api/marketplace/agents
   check_status GET  /api/marketplace/agents/published
+  check_status GET  /api/marketplace/agents/installed
   check_status GET  /api/gdpr/delete/status
   check_status GET  /api/onboarding/stats
   check_status GET  /api/usage/console
+  check_status GET  /api/usage/lines
+  check_status GET  /api/usage/prices
+  check_status GET  /api/receipts/recent
+  echo ""
+
+  # W273 — demo-readiness extras (data-bearing endpoints used by the
+  # deck slide 6/11/12 demo flow and the DEMO-READY pre-flight script)
+  echo "── W273 demo-readiness extras ──"
+  check_status GET  /api/doctor
+  check_status GET  /api/entitlements
+  check_status GET  /api/connectors
+  check_status GET  /api/health
   echo ""
 
   echo "── system checks ──"
