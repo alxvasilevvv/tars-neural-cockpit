@@ -1,19 +1,24 @@
 <!doctype html>
-<html lang="ru">
+<html lang="en">
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>TARS — Control Center</title>
 <style>
   :root {
+    /* W270 — canonical TARS palette tokens. Brand: meeet.world. */
     --bg: #07080d;
     --panel: rgba(17, 19, 28, 0.85);
+    --panel-glass: rgba(15, 23, 42, 0.55); /* W270 — brand glass spec */
     --panel-edge: rgba(99, 102, 241, 0.22);
     --text: #e6e8ef;
     --muted: #8b8fa3;
     --muted-2: #6b6e80;
     --accent: #818cf8;
     --accent-hot: #a78bfa;
+    --brand-indigo: #6366f1;
+    --brand-violet: #8b5cf6;
+    --brand-cyan:   #06b6d4;
     --ok: #22c55e;
     --warn: #f59e0b;
     --fail: #ef4444;
@@ -325,8 +330,8 @@
   /* W237 — Active model switcher */
   #modelTable { width: 100%; border-collapse: collapse; font-size: 12px; }
   #modelTable tr.model-row { cursor: pointer; transition: background 0.15s; border-bottom: 1px solid var(--panel-edge); }
-  #modelTable tr.model-row:hover:not(.disabled) { background: rgba(0,255,255,0.04); }
-  #modelTable tr.model-row.active { background: linear-gradient(90deg, rgba(0,255,255,0.10), rgba(0,255,255,0.02)); border-left: 2px solid var(--accent); }
+  #modelTable tr.model-row:hover:not(.disabled) { background: rgba(6,182,212,0.06); }
+  #modelTable tr.model-row.active { background: linear-gradient(90deg, rgba(6,182,212,0.12), rgba(6,182,212,0.02)); border-left: 2px solid var(--accent); }
   #modelTable tr.model-row.disabled { opacity: 0.5; cursor: not-allowed; }
   #modelTable td { padding: 9px 10px; vertical-align: middle; }
   #modelTable td.cell-radio { width: 28px; }
@@ -862,8 +867,14 @@
   .cap-banner .cap-icon {
     width: 22px; height: 22px; flex: 0 0 22px;
     display: inline-flex; align-items: center; justify-content: center;
-    font-size: 14px; font-weight: 700;
+    font-size: 13px; font-weight: 700;
+    border-radius: 50%; line-height: 1;
+    background: rgba(255,255,255,0.06);
+    border: 1px solid currentColor;
   }
+  .cap-banner.level-60 .cap-icon,
+  .cap-banner.level-80 .cap-icon { background: rgba(245,158,11,0.15); }
+  .cap-banner.level-90 .cap-icon { background: rgba(239,68,68,0.18); }
   .cap-banner .cap-body { flex: 1; min-width: 0; }
   .cap-banner .cap-title { font-weight: 600; }
   .cap-banner .cap-hint { color: var(--muted); font-size: 12px; }
@@ -1314,6 +1325,79 @@
     }
     .monolith-scan { display: none; }
     .vc-particles { opacity: 0.18 !important; }
+    /* W270 — extend reduced-motion to all decorative loops we added later. */
+    .tw-led, .tw-dot, .tw-cursor,
+    .skel-shimmer, .skel-line, .skel-card,
+    .ttfv-overlay, .ttfv-mic-hint.recording .pulse,
+    .bg-dot.running, .vc-flash, .vc-action-tag,
+    .monolith::after {
+      animation: none !important;
+    }
+  }
+
+  /* ─── W270 — Branded loading skeleton (parity with W195 marketing skeletons) ── */
+  @keyframes skel-shimmer-kf {
+    0%   { background-position: -240px 0; }
+    100% { background-position: 240px 0; }
+  }
+  .skel-shimmer {
+    position: relative; overflow: hidden;
+    background: linear-gradient(90deg,
+      rgba(129,140,248,0.04) 0%,
+      rgba(167,139,250,0.14) 50%,
+      rgba(129,140,248,0.04) 100%);
+    background-size: 240px 100%;
+    animation: skel-shimmer-kf 1.4s linear infinite;
+    border-radius: 8px;
+    border: 1px solid rgba(99,102,241,0.10);
+  }
+  .skel-line {
+    display: block; height: 12px; margin: 8px 0;
+    border-radius: 6px;
+  }
+  .skel-line.s   { width: 30%; }
+  .skel-line.m   { width: 55%; }
+  .skel-line.l   { width: 80%; }
+  .skel-line.xl  { width: 100%; }
+  .skel-card { padding: 14px 16px; margin-bottom: 10px; }
+  .skel-row  { display: flex; gap: 10px; align-items: center; padding: 10px 12px; }
+  .skel-dot  { width: 28px; height: 28px; border-radius: 50%; flex: 0 0 28px; }
+  .skel-stack { padding: 6px 0; }
+  .skel-pulse-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: var(--accent); display: inline-block; margin-right: 8px;
+    animation: skel-shimmer-kf 1s ease-in-out infinite alternate;
+    box-shadow: 0 0 8px rgba(129,140,248,0.6);
+  }
+
+  /* ─── W270 — Polished empty states ─── */
+  .empty-state.polished {
+    padding: 38px 22px; text-align: center;
+  }
+  .empty-state.polished .es-icon {
+    font-size: 28px; display: block; margin: 0 auto 10px;
+    opacity: 0.55; filter: drop-shadow(0 0 12px rgba(129,140,248,0.35));
+  }
+  .empty-state.polished .es-title {
+    font-size: 13px; color: var(--text); font-weight: 600;
+    letter-spacing: 0.04em; margin-bottom: 4px;
+  }
+  .empty-state.polished .es-sub {
+    font-size: 11px; color: var(--muted); line-height: 1.55;
+    margin: 0 auto 14px; max-width: 320px;
+  }
+  .empty-state.polished .es-cta {
+    display: inline-flex; align-items: center; gap: 6px;
+    background: linear-gradient(120deg, rgba(99,102,241,0.18), rgba(139,92,246,0.18));
+    border: 1px solid rgba(165,180,252,0.45);
+    color: var(--text);
+    padding: 7px 14px; border-radius: 999px;
+    font-size: 11px; font-family: inherit; cursor: pointer;
+    letter-spacing: 0.04em; transition: all .15s;
+  }
+  .empty-state.polished .es-cta:hover {
+    border-color: var(--accent-hot);
+    background: linear-gradient(120deg, rgba(99,102,241,0.28), rgba(139,92,246,0.28));
   }
 </style>
 </head>
@@ -1522,7 +1606,7 @@
   </div>
 
   <div class="vc-transcript" id="vcTranscript">
-    <div class="line system">TARS standing by. Say or type "доктор", "агенты", "сегодня", or ask anything.</div>
+    <div class="line system">TARS standing by. Say or type "doctor", "agents", "today", or ask anything.</div>
   </div>
 </div>
 
@@ -1687,7 +1771,7 @@
         <!-- W206 — Today briefing card -->
         <div class="panel" style="border-color: rgba(99,102,241,0.35); background: linear-gradient(160deg, rgba(99,102,241,0.05), rgba(0,0,0,0.25));">
           <h2>Today · daily briefing</h2>
-          <div id="briefingHeadline" style="font-size:13px;color:var(--text);line-height:1.6;margin-bottom:10px;font-weight:600;">loading…</div>
+          <div id="briefingHeadline" style="font-size:13px;color:var(--text);line-height:1.6;margin-bottom:10px;font-weight:600;"><span class="skel-shimmer skel-line l" style="height:14px;display:inline-block;width:62%"></span></div>
           <div class="kv" id="briefingKV">
             <div class="k">Receipts 24h</div><div class="v" id="bRecCount">—</div>
             <div class="k">Agents</div><div class="v" id="bAgentCount">—</div>
@@ -1696,7 +1780,7 @@
         </div>
         <div class="panel">
           <h2>Daemon log tail</h2>
-          <pre class="log" id="logTail">loading…</pre>
+          <pre class="log" id="logTail" aria-live="polite"><span class="skel-shimmer skel-line xl" style="height:10px;display:inline-block;"></span></pre>
         </div>
       </div>
       <div class="col">
@@ -1725,12 +1809,12 @@
           <div id="bgTasksList"><div class="bg-empty">No background tasks yet.</div></div>
         </div>
         <h2>Domain packs · pre-built agent kinds</h2>
-        <div id="packsList"><div class="empty-state">Loading…</div></div>
+        <div id="packsList"><div class="skel-shimmer skel-card"><div class="skel-line m"></div><div class="skel-line l"></div><div class="skel-line s"></div></div><div class="skel-shimmer skel-card"><div class="skel-line l"></div><div class="skel-line m"></div></div></div>
       </div>
       <div class="panel" style="overflow:auto;">
         <h2>Your agents · personal instances</h2>
         <button class="btn primary" style="width:100%;margin-bottom:10px;" data-action="agents.create" onclick="createAgent()">+ Create agent</button>
-        <div id="agentsList"><div class="empty-state">Loading…</div></div>
+        <div id="agentsList"><div class="skel-shimmer skel-row"><div class="skel-dot"></div><div style="flex:1"><div class="skel-line l"></div><div class="skel-line s"></div></div></div><div class="skel-shimmer skel-row"><div class="skel-dot"></div><div style="flex:1"><div class="skel-line m"></div><div class="skel-line s"></div></div></div></div>
       </div>
     </div>
 
@@ -1790,7 +1874,9 @@
       <div class="panel" style="max-height: calc(100vh - 200px); overflow: auto;">
         <h2>Recent activity · signed receipts ledger</h2>
         <div id="activityRows">
-          <div class="empty-state">Loading…</div>
+          <div class="skel-shimmer skel-row"><div class="skel-dot"></div><div style="flex:1"><div class="skel-line l"></div><div class="skel-line s"></div></div></div>
+          <div class="skel-shimmer skel-row"><div class="skel-dot"></div><div style="flex:1"><div class="skel-line m"></div><div class="skel-line s"></div></div></div>
+          <div class="skel-shimmer skel-row"><div class="skel-dot"></div><div style="flex:1"><div class="skel-line xl"></div><div class="skel-line s"></div></div></div>
         </div>
       </div>
     </div>
@@ -1800,7 +1886,10 @@
       <div class="panel">
         <h2>Connectors · external integrations</h2>
         <div class="connector-grid" id="connectorsGrid">
-          <div class="empty-state">Loading…</div>
+          <div class="skel-shimmer skel-card" style="height:84px;"></div>
+          <div class="skel-shimmer skel-card" style="height:84px;"></div>
+          <div class="skel-shimmer skel-card" style="height:84px;"></div>
+          <div class="skel-shimmer skel-card" style="height:84px;"></div>
         </div>
       </div>
     </div>
@@ -1810,7 +1899,8 @@
       <div class="panel">
         <h2>Cowork sessions · multiplayer agents</h2>
         <div id="coworkRows">
-          <div class="empty-state">Loading…</div>
+          <div class="skel-shimmer skel-row"><div class="skel-dot"></div><div style="flex:1"><div class="skel-line l"></div><div class="skel-line s"></div></div></div>
+          <div class="skel-shimmer skel-row"><div class="skel-dot"></div><div style="flex:1"><div class="skel-line m"></div><div class="skel-line s"></div></div></div>
         </div>
       </div>
     </div>
@@ -1820,7 +1910,8 @@
       <div class="panel" style="max-height: calc(100vh - 200px); overflow: auto;">
         <h2>Plugins · marketplace v0</h2>
         <div id="marketplaceRows">
-          <div class="empty-state">Loading…</div>
+          <div class="skel-shimmer skel-card" style="height:64px;"></div>
+          <div class="skel-shimmer skel-card" style="height:64px;"></div>
         </div>
       </div>
     </div>
@@ -1920,7 +2011,7 @@
           <div class="usage-table-wrap">
             <table class="usage-table" id="usageRecentTable">
               <thead><tr><th>time</th><th>model</th><th>action</th><th class="num">in/out</th><th class="num">$</th><th>outcome</th></tr></thead>
-              <tbody id="usageRecentBody"><tr><td colspan="6" style="text-align:center; padding:14px; color:var(--muted);">loading…</td></tr></tbody>
+              <tbody id="usageRecentBody"><tr><td colspan="6" style="padding:14px;"><div class="skel-shimmer skel-line xl" style="height:10px;margin:4px 0;"></div><div class="skel-shimmer skel-line l" style="height:10px;margin:4px 0;"></div><div class="skel-shimmer skel-line m" style="height:10px;margin:4px 0;"></div></td></tr></tbody>
             </table>
           </div>
         </div>
@@ -1945,12 +2036,12 @@
 
         <section style="margin-bottom:18px;">
           <h3 style="font-size:13px;margin:0 0 8px;">Inbox <span id="t2tInboxCount" style="color:var(--muted);font-weight:400;font-size:11px;">·</span></h3>
-          <div id="t2tInboxRows"><div class="empty-state">Loading…</div></div>
+          <div id="t2tInboxRows"><div class="skel-shimmer skel-card" style="height:56px;"></div></div>
         </section>
 
         <section>
           <h3 style="font-size:13px;margin:0 0 8px;">Outbox <span id="t2tOutboxCount" style="color:var(--muted);font-weight:400;font-size:11px;">·</span></h3>
-          <div id="t2tOutboxRows"><div class="empty-state">Loading…</div></div>
+          <div id="t2tOutboxRows"><div class="skel-shimmer skel-card" style="height:56px;"></div></div>
         </section>
 
         <div style="margin-top:14px;">
@@ -2016,7 +2107,7 @@
           <div id="modelTableWrap" style="overflow:hidden; border-radius:8px; border:1px solid var(--panel-edge); background:rgba(0,0,0,0.18);">
             <table id="modelTable">
               <tbody id="modelTbody">
-                <tr><td colspan="5" style="color:var(--muted); padding:14px;">Loading…</td></tr>
+                <tr><td colspan="5" style="padding:14px;"><div class="skel-shimmer skel-line xl" style="height:10px;margin:4px 0;"></div><div class="skel-shimmer skel-line l" style="height:10px;margin:4px 0;"></div></td></tr>
               </tbody>
             </table>
           </div>
@@ -2165,7 +2256,7 @@
             Use <code>{name}</code> placeholders for variables — TARS prompts you to fill them on insertion.
             Stored in <code>~/.tars/notepads.sqlite</code>.
           </p>
-          <div id="notepadsList" style="font-size:11px;"><div class="empty-state" style="padding:14px 0;color:var(--muted);">Loading…</div></div>
+          <div id="notepadsList" style="font-size:11px;"><div class="skel-shimmer skel-card" style="height:64px;margin-bottom:8px;"></div><div class="skel-shimmer skel-card" style="height:64px;"></div></div>
           <div style="margin-top: 10px; display:flex; gap:8px; flex-wrap:wrap;">
             <button class="btn primary" data-action="notepads.new" onclick="openNotepadEditor()">+ New notepad</button>
             <button class="btn" data-action="notepads.seed" onclick="seedNotepads()">Seed defaults</button>
@@ -2397,7 +2488,7 @@
         <option value="algotrade">algotrade</option>
       </select>
     </div>
-    <div id="notepadsPickerGrid"><div class="empty-state" style="padding:20px; text-align:center; color:var(--muted);">Loading…</div></div>
+    <div id="notepadsPickerGrid"><div class="skel-shimmer skel-card" style="height:90px;margin-bottom:10px;"></div><div class="skel-shimmer skel-card" style="height:90px;"></div></div>
     <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px;">
       <button class="btn" data-action="notepads.picker.close" onclick="closeNotepadsPicker()">Close</button>
     </div>
@@ -3110,7 +3201,7 @@ async function loadActivity() {
     const items = d.receipts || d.items || d || [];
     $('actCount').textContent = items.length;
     if (!items.length) {
-      $('activityRows').innerHTML = '<div class="empty-state">No receipts yet. Action history will appear here.</div>';
+      $('activityRows').innerHTML = '<div class="empty-state polished"><span class="es-icon">◇</span><div class="es-title">No receipts yet</div><div class="es-sub">Signed action receipts will appear here as TARS works. Try the voice cockpit or chat to generate your first one.</div><button class="es-cta" onclick="vcCloseDrawer()">Try the voice cockpit</button></div>';
       return;
     }
     $('activityRows').innerHTML = items.slice(0, 100).map(r => `
@@ -3169,7 +3260,7 @@ async function loadCowork() {
     const sessions = d.sessions || d || [];
     $('coCount').textContent = sessions.length;
     if (!sessions.length) {
-      $('coworkRows').innerHTML = '<div class="empty-state">No cowork sessions.<br/><br/>Cowork = multiplayer agent sessions where multiple operators collaborate on the same task with handoff.</div>';
+      $('coworkRows').innerHTML = '<div class="empty-state polished"><span class="es-icon">◯</span><div class="es-title">No cowork sessions</div><div class="es-sub">Cowork = multiplayer agent sessions. Multiple operators collaborate on one task with explicit handoff.</div><button class="es-cta" onclick="openExternal(\'https://tars.meeet.world/docs/cowork\')">Learn about Cowork</button></div>';
       return;
     }
     $('coworkRows').innerHTML = sessions.map(s => `
@@ -3193,7 +3284,7 @@ async function loadMarketplace() {
     const listings = d.listings || d.items || d || [];
     $('mpCount').textContent = listings.length;
     if (!listings.length) {
-      $('marketplaceRows').innerHTML = '<div class="empty-state">No plugins available.</div>';
+      $('marketplaceRows').innerHTML = '<div class="empty-state polished"><span class="es-icon">◫</span><div class="es-title">No plugins available</div><div class="es-sub">The marketplace is empty in local mode. Connect meeet.world to browse the catalog.</div><button class="es-cta" onclick="vcOpenDrawer();showTab(\'settings\')">Connect meeet.world</button></div>';
       return;
     }
     $('marketplaceRows').innerHTML = listings.slice(0, 50).map(l => `
@@ -3867,7 +3958,7 @@ function renderRules() {
   const saveBtn = document.getElementById('rulesSaveBtn');
   if (!list) return;
   if (!_rulesState.global.length) {
-    list.innerHTML = '<div class="empty-state">No rules yet. Click + Add rule.</div>';
+    list.innerHTML = '<div class="empty-state polished"><span class="es-icon">▢</span><div class="es-title">No rules yet</div><div class="es-sub">Plain-English rules fold into TARS\'s system prompt every chat turn. Add one to bias style or behaviour.</div><button class="es-cta" onclick="addRule()">+ Add your first rule</button></div>';
   } else {
     list.innerHTML = _rulesState.global.map((r) => `
       <div class="rule-row" style="display:grid;grid-template-columns:24px 1fr 28px;gap:8px;align-items:center;padding:6px 0;border-top:1px solid rgba(255,255,255,0.04);">
@@ -4040,7 +4131,7 @@ async function renderNotepadsPicker() {
     const r = await fetchJSON('/api/notepads?' + params.toString());
     const items = (r && r.items) || [];
     if (!items.length) {
-      grid.innerHTML = `<div class="empty-state" style="padding:20px;text-align:center;color:var(--muted);">No notepads. Try <b>Seed defaults</b> in Settings → Notepads.</div>`;
+      grid.innerHTML = `<div class="empty-state polished"><span class="es-icon">▤</span><div class="es-title">No notepads</div><div class="es-sub">Reusable AI workflow templates. Click "Seed defaults" in Settings → Notepads to drop in 5 starters.</div><button class="es-cta" onclick="closeNotepadsPicker();vcOpenDrawer();showTab('settings')">Open Notepads settings</button></div>`;
       return;
     }
     grid.innerHTML = `<div class="np-grid">${items.map(np => `
@@ -4138,7 +4229,7 @@ async function loadNotepadsSettings() {
     const r = await fetchJSON('/api/notepads?limit=200');
     const items = (r && r.items) || [];
     if (!items.length) {
-      wrap.innerHTML = `<div class="empty-state" style="color:var(--muted);padding:14px 0;">No notepads. Click <b>Seed defaults</b> to ship 5 starter templates.</div>`;
+      wrap.innerHTML = `<div class="empty-state polished"><span class="es-icon">▤</span><div class="es-title">No notepads yet</div><div class="es-sub">Reusable AI workflow templates with {placeholder} variables. Seed 5 starters or compose your own.</div><button class="es-cta" onclick="seedNotepads()">Seed 5 starter notepads</button></div>`;
       return;
     }
     const head = `<div class="np-row head"><div>TITLE</div><div>BODY</div><div>PACK</div><div>USED</div><div>ACTIONS</div></div>`;
@@ -4413,7 +4504,7 @@ async function loadAgents() {
     const m = await fetchJSON('/api/domains/manifest').catch(() => ({}));
     const packs = m.packs || m.domains || [];
     if (!packs.length) {
-      $('packsList').innerHTML = '<div class="empty-state">No domain packs registered.</div>';
+      $('packsList').innerHTML = '<div class="empty-state polished"><span class="es-icon">◇</span><div class="es-title">No domain packs registered</div><div class="es-sub">Packs ship with TARS by default. If you see this, the backend bootstrap did not run.</div></div>';
     } else {
       $('packsList').innerHTML = packs.map(p => `
         <div class="pack-card">
@@ -4436,9 +4527,11 @@ async function loadAgents() {
     $('agCount').textContent = agents.length;
     if (!agents.length) {
       $('agentsList').innerHTML = `
-        <div class="empty-state">
-          No agents created yet. Each agent picks a pack + a focus.<br/>
-          You can also delegate to them from the Chat tab.
+        <div class="empty-state polished">
+          <span class="es-icon">◬</span>
+          <div class="es-title">No agents yet</div>
+          <div class="es-sub">Each agent picks a domain pack and a focus. Create one to start delegating.</div>
+          <button class="es-cta" onclick="createAgent()">+ Add your first agent</button>
         </div>`;
       return;
     }
@@ -7167,7 +7260,7 @@ async function t2tReviewLoadInbox() {
     const items = (d.items || []);
     if (cnt) cnt.textContent = String(items.length);
     if (!items.length) {
-      host.innerHTML = '<div class="empty-state">No incoming reviews.</div>';
+      host.innerHTML = '<div class="empty-state polished"><span class="es-icon">↘</span><div class="es-title">Inbox is clean</div><div class="es-sub">No incoming code reviews from peer TARS instances.</div></div>';
       return;
     }
     host.innerHTML = items.map(it => {
@@ -7203,7 +7296,7 @@ async function t2tReviewLoadOutbox() {
     const items = (d.items || []);
     if (cnt) cnt.textContent = String(items.length);
     if (!items.length) {
-      host.innerHTML = '<div class="empty-state">No sent reviews yet.</div>';
+      host.innerHTML = '<div class="empty-state polished"><span class="es-icon">↗</span><div class="es-title">Nothing sent yet</div><div class="es-sub">Outgoing peer reviews will show up here once you hand off a plan.</div></div>';
       return;
     }
     host.innerHTML = items.map(it => {

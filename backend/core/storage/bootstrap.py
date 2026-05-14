@@ -253,6 +253,278 @@ async def _seed_welcome_receipt() -> dict[str, object]:
     return {"seeded": True, "receipt_id": rec.id}
 
 
+# ---- W270 demo-seed (presentation mode) -------------------------------------
+
+
+_DEMO_AGENTS = (
+    {
+        "name": "Briefing assistant",
+        "pack_slug": "web_search",
+        "description": (
+            "Drafts a 3-bullet daily briefing from your calendar, "
+            "inbox, and pinned receipts."
+        ),
+        "system_prompt": (
+            "You are TARS in briefing mode. Be concise. Three "
+            "bullets. Cite source per bullet."
+        ),
+    },
+    {
+        "name": "Email drafter",
+        "pack_slug": "web_search",
+        "description": (
+            "Drafts replies in the operator's tone using AI Clone "
+            "style fingerprint."
+        ),
+        "system_prompt": (
+            "You are TARS in email-drafter mode. Match the user's "
+            "tone. Keep replies under 80 words unless told otherwise."
+        ),
+    },
+    {
+        "name": "Code reviewer",
+        "pack_slug": "web_search",
+        "description": (
+            "Reviews proposed composer plans before apply. Flags "
+            "secrets, dead code, and broken contracts."
+        ),
+        "system_prompt": (
+            "You are TARS in code-review mode. Be terse. One line "
+            "per finding. Surface only the top 5 issues."
+        ),
+    },
+)
+
+
+_DEMO_RECEIPTS = (
+    {
+        "type": "auth.magic_link",
+        "actor": "meeet.world",
+        "resource": "auth.exchange",
+        "payload": {"account": "demo@meeet.world", "method": "magic_link"},
+    },
+    {
+        "type": "chat.message",
+        "actor": "tars",
+        "resource": "chat.thread.demo-briefing",
+        "payload": {"role": "assistant", "tokens_out": 142, "model": "claude-3-opus"},
+    },
+    {
+        "type": "composer.plan.applied",
+        "actor": "tars",
+        "resource": "composer.plan.demo-001",
+        "payload": {
+            "files_changed": 2,
+            "lines_added": 14,
+            "lines_removed": 3,
+            "pack": "code",
+        },
+    },
+    {
+        "type": "audit.verify",
+        "actor": "tars",
+        "resource": "audit.receipt.chain",
+        "payload": {"verified": 1, "anchor": "solana:devnet:demo-tx"},
+    },
+    {
+        "type": "usage.tokens",
+        "actor": "tars",
+        "resource": "usage.tokens.demo",
+        "payload": {"model": "claude-3-opus", "in": 1820, "out": 412, "cost_usd": 0.052},
+    },
+)
+
+
+_DEMO_COMPOSER_PLAN = {
+    "plan_id": "demo-plan-001",
+    "transcript": "Add a /healthz endpoint to the FastAPI app.",
+    "intent_summary": "Add a tiny /healthz route returning 200 OK + uptime.",
+    "model": "claude-3-opus",
+    "active_pack": "code",
+}
+
+
+async def _demo_seed_agents() -> dict[str, object]:
+    """Seed 3 demo agents when ``TARS_DEMO_SEED=1`` is set.
+
+    Skips silently when the env var is unset, when the store is
+    disabled, or when any of the demo names already exist.
+    """
+
+    if os.getenv("TARS_DEMO_SEED") != "1":
+        return {"seeded": False, "reason": "demo_flag_not_set"}
+
+    from backend.core.agents import get_agent_store
+
+    store = get_agent_store()
+    if not store.enabled:
+        return {"seeded": False, "reason": "agents_store_disabled"}
+
+    existing = await store.list_agents(include_archived=True)
+    existing_names = {(a.name or "").strip() for a in existing}
+
+    created: list[str] = []
+    for spec in _DEMO_AGENTS:
+        if spec["name"] in existing_names:
+            continue
+        try:
+            agent = await store.create_agent(
+                name=spec["name"],
+                pack_slug=spec["pack_slug"],
+                description=spec["description"],
+                system_prompt=spec["system_prompt"],
+                metadata={"source": "demo_seed", "wave": "W270"},
+            )
+            created.append(agent.id)
+        except Exception as exc:  # pragma: no cover
+            _stderr(f"warn: demo_agent {spec['name']}: {exc}")
+    return {"seeded": bool(created), "ids": created, "count": len(created)}
+
+
+async def _demo_seed_receipts() -> dict[str, object]:
+    """Seed 5 demo receipts spanning all major surfaces."""
+
+    if os.getenv("TARS_DEMO_SEED") != "1":
+        return {"seeded": False, "reason": "demo_flag_not_set"}
+
+    from backend.core.receipts import get_store as _r_get
+
+    store = _r_get()
+    if store is None:
+        return {"seeded": False, "reason": "receipts_disabled"}
+
+    # Idempotency — query for any prior W270 demo receipt; bail if found.
+    if hasattr(store, "query"):
+        try:
+            prior = await store.query(type="audit.verify", actor="tars", limit=5)
+            for rec in prior or []:
+                payload = getattr(rec, "payload", None) or {}
+                if isinstance(payload, dict) and payload.get("wave") == "W270":
+                    return {"seeded": False, "reason": "already_exists"}
+        except Exception:
+            pass
+
+    created: list[str] = []
+    for spec in _DEMO_RECEIPTS:
+        try:
+            rec = await store.append(
+                type=spec["type"],
+                actor=spec["actor"],
+                resource=spec["resource"],
+                payload={**spec["payload"], "demo": True, "wave": "W270"},
+            )
+            created.append(rec.id)
+        except Exception as exc:  # pragma: no cover
+            _stderr(f"warn: demo_receipt {spec['type']}: {exc}")
+    return {"seeded": bool(created), "count": len(created)}
+
+
+def _demo_seed_composer() -> dict[str, object]:
+    """Seed one drafted (not-applied) composer plan."""
+
+    if os.getenv("TARS_DEMO_SEED") != "1":
+        return {"seeded": False, "reason": "demo_flag_not_set"}
+
+    try:
+        from backend.core.composer.storage import get_store as _c_get
+        from backend.core.composer.types import ComposerPlan, EditOp
+    except Exception as exc:
+        return {"seeded": False, "reason": f"composer_import_failed: {exc}"}
+
+    store = _c_get()
+    if store is None:
+        return {"seeded": False, "reason": "composer_disabled"}
+
+    # Idempotency — bail if the demo plan already exists.
+    existing = store.load_plan(_DEMO_COMPOSER_PLAN["plan_id"])
+    if existing is not None:
+        return {"seeded": False, "reason": "already_exists"}
+
+    plan = ComposerPlan(
+        plan_id=_DEMO_COMPOSER_PLAN["plan_id"],
+        transcript=_DEMO_COMPOSER_PLAN["transcript"],
+        intent_summary=_DEMO_COMPOSER_PLAN["intent_summary"],
+        model=_DEMO_COMPOSER_PLAN["model"],
+        active_pack=_DEMO_COMPOSER_PLAN["active_pack"],
+        state="draft",
+        estimated_tokens=480,
+        estimated_cost_usd=0.012,
+        ops=[
+            EditOp(
+                op="modify",
+                path="backend/web_extras/app.py",
+                old_content="# app routes",
+                new_content=(
+                    "# app routes\n\n"
+                    "@app.get('/healthz')\n"
+                    "def healthz():\n"
+                    "    return {'ok': True, 'uptime_s': int(time.time() - BOOT_TS)}\n"
+                ),
+                diff_unified=(
+                    "--- a/backend/web_extras/app.py\n"
+                    "+++ b/backend/web_extras/app.py\n"
+                    "@@\n"
+                    " # app routes\n"
+                    "+\n"
+                    "+@app.get('/healthz')\n"
+                    "+def healthz():\n"
+                    "+    return {'ok': True, 'uptime_s': int(time.time() - BOOT_TS)}\n"
+                ),
+            ),
+        ],
+    )
+    try:
+        store.save_plan(plan)
+    except Exception as exc:  # pragma: no cover
+        return {"seeded": False, "reason": f"save_failed: {exc}"}
+    return {"seeded": True, "plan_id": plan.plan_id, "state": "draft"}
+
+
+def _demo_seed_mcp_server() -> dict[str, object]:
+    """Seed the W150 reference MCP server entry in the panel registry."""
+
+    if os.getenv("TARS_DEMO_SEED") != "1":
+        return {"seeded": False, "reason": "demo_flag_not_set"}
+
+    try:
+        from web_extras.routers.mcp_panel import (
+            _config_path,
+            _read_servers,
+            _write_servers,
+        )
+    except Exception as exc:
+        return {"seeded": False, "reason": f"mcp_panel_import_failed: {exc}"}
+
+    rows = _read_servers()
+    existing_names = {r.get("name") for r in rows}
+    demo_name = "tars-native-skills (W150)"
+    if demo_name in existing_names:
+        return {"seeded": False, "reason": "already_exists"}
+
+    import time as _time
+    import uuid as _uuid
+
+    rows.append(
+        {
+            "id": str(_uuid.uuid4()),
+            "name": demo_name,
+            "command": "python",
+            "args": ["-m", "backend.core.mcp"],
+            "env": {},
+            "enabled": True,
+            "status": "enabled",
+            "last_seen": int(_time.time()),
+            "error": None,
+            "created_at": int(_time.time()),
+        }
+    )
+    try:
+        _write_servers(rows)
+    except Exception as exc:  # pragma: no cover
+        return {"seeded": False, "reason": f"write_failed: {exc}"}
+    return {"seeded": True, "name": demo_name, "config_path": str(_config_path())}
+
+
 # ---- entrypoint -------------------------------------------------------------
 
 
@@ -304,7 +576,36 @@ async def init_all_databases() -> BootstrapResult:
         result.steps_warn.append(("seed_welcome_receipt", str(exc)[:240]))
         _stderr(f"warn: seed_welcome_receipt: {exc}")
 
-    # Step 3 — default domain pack is already auto-registered via
+    # W270 — demo-seed pack (presentation mode, gated by TARS_DEMO_SEED=1).
+    try:
+        result.seeded["demo_agents"] = await _demo_seed_agents()
+        _stderr(f"seed: demo_agents: {result.seeded['demo_agents']}")
+    except Exception as exc:
+        result.steps_warn.append(("demo_seed_agents", str(exc)[:240]))
+        _stderr(f"warn: demo_seed_agents: {exc}")
+
+    try:
+        result.seeded["demo_receipts"] = await _demo_seed_receipts()
+        _stderr(f"seed: demo_receipts: {result.seeded['demo_receipts']}")
+    except Exception as exc:
+        result.steps_warn.append(("demo_seed_receipts", str(exc)[:240]))
+        _stderr(f"warn: demo_seed_receipts: {exc}")
+
+    try:
+        result.seeded["demo_composer"] = _demo_seed_composer()
+        _stderr(f"seed: demo_composer: {result.seeded['demo_composer']}")
+    except Exception as exc:
+        result.steps_warn.append(("demo_seed_composer", str(exc)[:240]))
+        _stderr(f"warn: demo_seed_composer: {exc}")
+
+    try:
+        result.seeded["demo_mcp"] = _demo_seed_mcp_server()
+        _stderr(f"seed: demo_mcp: {result.seeded['demo_mcp']}")
+    except Exception as exc:
+        result.steps_warn.append(("demo_seed_mcp", str(exc)[:240]))
+        _stderr(f"warn: demo_seed_mcp: {exc}")
+
+        # Step 3 — default domain pack is already auto-registered via
     # ``backend.core.domains.packs`` import-side-effects in app.py;
     # no separate seed needed. Just record what's known.
     try:
