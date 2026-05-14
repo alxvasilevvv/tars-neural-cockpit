@@ -1,66 +1,124 @@
 #!/usr/bin/env bash
-# REBUILD-TARS-APP.command — W221
+# REBUILD-TARS-APP.command — W221 (v2)
 #
-# Double-click this to rebuild TARS.app with the latest auth gate + voice
-# cockpit (W219 + W220), copy it into /Applications, clear Gatekeeper
-# quarantine, and launch it.
+# Double-click to rebuild TARS.app with the latest auth gate + voice cockpit
+# (W219 + W220), copy it into /Applications, clear Gatekeeper quarantine,
+# and launch it.
 #
-# Log lands at .REBUILD-TARS-APP.txt at the repo root (same pattern as
-# scripts/LAUNCH-NOW.command). The Terminal window auto-closes ~5s
-# after the build finishes.
+# Uses the project's own @tauri-apps/cli (already in desktop/package.json
+# devDependencies) so we don't need `cargo install tauri-cli` globally.
+#
+# Build output is mirrored to terminal (so you can watch progress) AND
+# appended to .REBUILD-TARS-APP.txt at the repo root.
+
+set -u
 
 cd "$(dirname "${BASH_SOURCE[0]}")/.."
-OUT="$(pwd)/.REBUILD-TARS-APP.txt"
+REPO="$(pwd)"
+LOG="${REPO}/.REBUILD-TARS-APP.txt"
 
-{
-  echo "=== REBUILD-TARS-APP at $(date -u +%Y-%m-%dT%H:%M:%SZ) ==="
-  echo ""
-  echo "Building TARS.app (this takes ~3-5 minutes the first time)..."
-  echo ""
+# Mirror everything below to both terminal and log.
+exec > >(tee -a "$LOG") 2>&1
 
-  # Detect arch — default to aarch64-apple-darwin (Apple Silicon).
-  TARGET="aarch64-apple-darwin"
-  if [[ "$(arch 2>/dev/null)" == "i386" || "$(uname -m 2>/dev/null)" == "x86_64" ]]; then
-    TARGET="x86_64-apple-darwin"
+echo "=== REBUILD-TARS-APP at $(date -u +%Y-%m-%dT%H:%M:%SZ) ==="
+echo "repo: $REPO"
+echo ""
+
+# ── pick package manager ─────────────────────────────────────────────
+PM=""
+if command -v pnpm >/dev/null 2>&1; then PM="pnpm"
+elif command -v npm  >/dev/null 2>&1; then PM="npm"
+else
+  echo "✗ neither pnpm nor npm found on PATH."
+  echo "  Install Node 20+ (https://nodejs.org) and try again."
+  sleep 8
+  exit 1
+fi
+echo "── package manager: $PM ──"
+
+# ── detect target arch ───────────────────────────────────────────────
+ARCH="$(uname -m 2>/dev/null || echo unknown)"
+case "$ARCH" in
+  arm64|aarch64) TARGET="aarch64-apple-darwin" ;;
+  x86_64)        TARGET="x86_64-apple-darwin"  ;;
+  *)             TARGET="aarch64-apple-darwin" ;;
+esac
+echo "── target: $TARGET ──"
+echo ""
+
+# ── install node deps if missing ─────────────────────────────────────
+cd "$REPO/desktop"
+if [[ ! -d node_modules ]]; then
+  echo "── installing node deps (first run, ~30s) ──"
+  if [[ "$PM" == "pnpm" ]]; then
+    pnpm install --silent || pnpm install
+  else
+    npm install --no-audit --no-fund --silent || npm install
   fi
-  echo "── target: ${TARGET} ──"
   echo ""
+fi
 
-  echo "── tauri build ──"
-  (cd desktop && cargo tauri build --target "${TARGET}" 2>&1 | tail -30)
-  echo ""
+# ── tauri build ──────────────────────────────────────────────────────
+echo "── tauri build (this takes 3-5 minutes the first time) ──"
+echo "   (Rust compiles a lot. Don't close this window.)"
+echo ""
 
-  APP_SRC="desktop/src-tauri/target/${TARGET}/release/bundle/macos/TARS.app"
-  APP_DST="/Applications/TARS.app"
+if [[ "$PM" == "pnpm" ]]; then
+  pnpm exec tauri build --target "$TARGET"
+else
+  npx --no-install tauri build --target "$TARGET" \
+    || npx tauri build --target "$TARGET"
+fi
+BUILD_RC=$?
+echo ""
+if [[ $BUILD_RC -ne 0 ]]; then
+  echo "✗ tauri build failed (exit $BUILD_RC). See output above."
+  sleep 10
+  exit $BUILD_RC
+fi
 
-  if [[ ! -d "${APP_SRC}" ]]; then
-    echo "✗ build artifact not found at ${APP_SRC}"
-    echo "  Check the cargo tauri build output above."
-    exit 1
-  fi
+# ── locate artifact ──────────────────────────────────────────────────
+APP_SRC="$REPO/desktop/src-tauri/target/${TARGET}/release/bundle/macos/TARS.app"
+if [[ ! -d "$APP_SRC" ]]; then
+  # Older Tauri sometimes drops bundle under target/release/ directly.
+  ALT="$REPO/desktop/src-tauri/target/release/bundle/macos/TARS.app"
+  if [[ -d "$ALT" ]]; then APP_SRC="$ALT"; fi
+fi
+if [[ ! -d "$APP_SRC" ]]; then
+  echo "✗ build succeeded but TARS.app not found."
+  echo "  Looked at: $APP_SRC"
+  echo "  And:       $REPO/desktop/src-tauri/target/release/bundle/macos/TARS.app"
+  sleep 10
+  exit 2
+fi
+echo "── artifact: $APP_SRC ──"
 
-  echo "── install to ${APP_DST} ──"
-  rm -rf "${APP_DST}"
-  cp -R "${APP_SRC}" "${APP_DST}"
-  echo "    ✓ copied"
+# ── install to /Applications ─────────────────────────────────────────
+APP_DST="/Applications/TARS.app"
+echo "── install → $APP_DST ──"
+rm -rf "$APP_DST"
+cp -R "$APP_SRC" "$APP_DST"
+echo "    ✓ copied"
 
-  echo "── clear Gatekeeper quarantine ──"
-  xattr -cr "${APP_DST}" 2>&1 | tail -5 || true
-  echo "    ✓ cleared"
+# ── clear Gatekeeper quarantine ──────────────────────────────────────
+echo "── clear Gatekeeper quarantine ──"
+xattr -cr "$APP_DST" 2>/dev/null || true
+echo "    ✓ cleared"
 
-  echo "── launching ──"
-  open "${APP_DST}"
-  echo "    ✓ launched"
+# ── launch ───────────────────────────────────────────────────────────
+echo "── launching ──"
+open "$APP_DST"
+echo "    ✓ launched"
+echo ""
+echo "=== TARS.app rebuilt with v9.2.0-beta2 (W219 auth + W220 voice) ==="
+echo ""
+echo "On launch you'll see:"
+echo "  1. Auth screen → email magic-link / Google / Apple / Skip"
+echo "  2. After auth: full-screen voice cockpit (monolith + mic)"
+echo "  3. Hamburger (☰, top-left) opens Status/Agents/Chat/… tabs"
+echo ""
+echo "(Terminal will close automatically in 8s.)"
 
-  echo ""
-  echo "=== TARS.app rebuilt with v9.2.0-beta2 (W219+W220) ==="
-  echo ""
-  echo "On launch you'll see:"
-  echo "  1. Auth screen → email magic link / Google / Apple / Skip"
-  echo "  2. After auth: full-screen voice cockpit (monolith + mic)"
-  echo "  3. Hamburger (☰, top-left) opens Status/Agents/Chat/… tabs"
-} > "$OUT" 2>&1
-
-sleep 5
+sleep 8
 osascript -e 'tell application "Терминал" to close (every window whose name contains "REBUILD")' 2>/dev/null || true
 osascript -e 'tell application "Terminal" to close (every window whose name contains "REBUILD")' 2>/dev/null || true
