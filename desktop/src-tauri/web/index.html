@@ -1506,6 +1506,15 @@
           <span id="bgTrayPanelMeta">—</span>
         </div>
         <div id="bgTrayList"><div class="bg-empty">No background agents.</div></div>
+        <!-- W258 — managed launchd agents (real OS processes) -->
+        <div class="head" style="margin-top:8px;border-top:1px solid var(--panel-edge);padding-top:8px;">
+          <span>Managed (launchd)</span>
+          <span id="bgManagedMeta">—</span>
+        </div>
+        <div id="bgManagedList"><div class="bg-empty">No managed agents.</div></div>
+        <div style="padding:6px 10px 4px;">
+          <button class="primary" style="width:100%;" type="button" onclick="bgManagedNew(event)">+ New managed agent</button>
+        </div>
       </div>
     </div>
     <div class="pill">
@@ -5638,6 +5647,132 @@ function _bgConnectStream() {
 bgRefresh();
 _bgConnectStream();
 setInterval(bgRefresh, 4000);
+
+// ─── W258: Managed launchd agents (real OS processes) ───
+// Calls /api/bg-agents (hyphen) — separate prefix from the task tray.
+// On non-Darwin the backend returns {supported:false, agents:[]} so
+// we render a friendly platform message instead of erroring out.
+
+let _bgManagedCache = [];
+let _bgManagedSupported = true;
+
+function _bgManagedRenderRow(a) {
+  const id = _bgEscape(a.agent_id || '');
+  const loaded = a.loaded ? 'loaded' : 'stopped';
+  const pid = a.pid != null ? ('pid ' + a.pid) : '—';
+  const exit = a.last_exit != null ? ('exit ' + a.last_exit) : '';
+  return `<div class="bg-task-row" data-managed-id="${id}">
+    <div>
+      <div class="title"><span class="bg-dot ${a.loaded ? 'running' : 'cancelled'}"></span>${id}</div>
+      <div class="meta">${loaded} · ${pid} ${exit ? '· ' + exit : ''}</div>
+    </div>
+    <div class="actions">
+      <button onclick="bgManagedLogs('${id}', event)">Logs</button>
+      <button class="danger" onclick="bgManagedRemove('${id}', event)">Remove</button>
+    </div>
+  </div>`;
+}
+
+async function bgManagedRefresh() {
+  try {
+    const r = await fetch(`${API}/api/bg-agents`, { headers: { 'Accept': 'application/json' } });
+    if (!r.ok) return;
+    const body = await r.json();
+    _bgManagedSupported = !!body.supported;
+    _bgManagedCache = Array.isArray(body.agents) ? body.agents : [];
+  } catch (_) { return; }
+  const list = document.getElementById('bgManagedList');
+  const meta = document.getElementById('bgManagedMeta');
+  if (!list) return;
+  if (!_bgManagedSupported) {
+    list.innerHTML = '<div class="bg-empty">launchd is macOS-only. Linux/Windows parity is on the v9.4 roadmap.</div>';
+    if (meta) meta.textContent = 'n/a';
+    return;
+  }
+  const loaded = _bgManagedCache.filter(a => a.loaded).length;
+  if (meta) meta.textContent = `${loaded}/${_bgManagedCache.length}`;
+  list.innerHTML = _bgManagedCache.length
+    ? _bgManagedCache.map(_bgManagedRenderRow).join('')
+    : '<div class="bg-empty">No managed agents yet. Click + to register one.</div>';
+}
+
+async function bgManagedNew(ev) {
+  if (ev && ev.stopPropagation) ev.stopPropagation();
+  const id = prompt('Agent id (a-z, 0-9, _-, max 64):');
+  if (!id) return;
+  const cmdRaw = prompt('Command (space-separated argv, e.g. /usr/bin/python3 -m my_pkg):');
+  if (!cmdRaw) return;
+  const schedule = prompt('Schedule (cron-ish "min hr dom mon dow", blank = run at load):') || '';
+  const envRaw = prompt('Env vars (KEY=value, comma-separated, blank for none):') || '';
+  const env = {};
+  envRaw.split(',').map(s => s.trim()).filter(Boolean).forEach(pair => {
+    const eq = pair.indexOf('=');
+    if (eq > 0) env[pair.slice(0, eq).trim()] = pair.slice(eq + 1).trim();
+  });
+  const body = {
+    id: id.trim(),
+    command: cmdRaw.trim().split(/\s+/),
+    schedule: schedule.trim() || null,
+    env: Object.keys(env).length ? env : null,
+    keep_alive: false,
+    run_at_load: true,
+  };
+  try {
+    const r = await fetch(`${API}/api/bg-agents/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const j = await r.json();
+    if (j.ok) {
+      if (typeof toast === 'function') toast('✓ agent registered', 'ok');
+    } else if (typeof toast === 'function') {
+      toast('register failed: ' + (j.error || j.bootstrap_stderr || 'unknown'), 'fail');
+    }
+    bgManagedRefresh();
+  } catch (e) {
+    if (typeof toast === 'function') toast('register error: ' + e.message, 'fail');
+  }
+}
+
+async function bgManagedRemove(agentId, ev) {
+  if (ev && ev.stopPropagation) ev.stopPropagation();
+  if (!confirm(`Unregister managed agent "${agentId}"?`)) return;
+  try {
+    const r = await fetch(`${API}/api/bg-agents/${encodeURIComponent(agentId)}`, { method: 'DELETE' });
+    const j = await r.json();
+    if (j.ok && typeof toast === 'function') toast('✓ unregistered', 'ok');
+    bgManagedRefresh();
+  } catch (e) {
+    if (typeof toast === 'function') toast('remove error: ' + e.message, 'fail');
+  }
+}
+
+async function bgManagedLogs(agentId, ev) {
+  if (ev && ev.stopPropagation) ev.stopPropagation();
+  try {
+    const r = await fetch(`${API}/api/bg-agents/${encodeURIComponent(agentId)}/logs?tail=200`);
+    if (!r.ok) {
+      if (typeof toast === 'function') toast('logs unavailable', 'fail');
+      return;
+    }
+    const j = await r.json();
+    const lines = [];
+    lines.push(`=== ${agentId} — stdout (${j.out_path}) ===`);
+    lines.push(j.out || '(empty)');
+    lines.push('');
+    lines.push(`=== ${agentId} — stderr (${j.err_path}) ===`);
+    lines.push(j.err || '(empty)');
+    alert(lines.join('\n'));
+  } catch (e) {
+    if (typeof toast === 'function') toast('logs error: ' + e.message, 'fail');
+  }
+}
+
+// Boot managed-agents poller — slower cadence (8s) since launchd state
+// changes are rare compared with task progress.
+bgManagedRefresh();
+setInterval(bgManagedRefresh, 8000);
 
 // ─── W246: Cmd+K palette v2 ──────────────────────────────────────────
 // Cursor-grade command palette. Fuzzy search across:

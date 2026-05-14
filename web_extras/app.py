@@ -975,6 +975,8 @@ app.include_router(privacy_router.router)
 app.include_router(notepads_router.router)
 # W241 — /api/bg_agents background-agent tray + long-running task status
 app.include_router(bg_agents_router.router)
+# W258 — /api/bg-agents managed launchd agents (real plists, separate prefix)
+app.include_router(bg_agents_router.managed_router)
 app.include_router(palette_router.router)  # W246 — Cmd+K palette v2
 # W248 — /api/realtime WS event bus + /api/realtime/topics
 app.include_router(realtime_router.router)

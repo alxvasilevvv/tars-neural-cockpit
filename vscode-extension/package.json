@@ -5,12 +5,15 @@
   "version": "0.1.0",
   "publisher": "meeet-world",
   "license": "MIT",
+  "icon": "icon.png",
   "engines": {
     "vscode": "^1.85.0"
   },
   "categories": [
     "AI",
     "Chat",
+    "Programming Languages",
+    "Snippets",
     "Other"
   ],
   "keywords": [
@@ -18,10 +21,24 @@
     "voice",
     "ai",
     "agent",
+    "agents",
     "receipts",
     "composer",
-    "meeet"
+    "meeet",
+    "meeet.world",
+    "local-first",
+    "operator",
+    "cockpit"
   ],
+  "galleryBanner": {
+    "color": "#0b0b0f",
+    "theme": "dark"
+  },
+  "homepage": "https://tars.meeet.world",
+  "bugs": {
+    "url": "https://github.com/meeet-world/tars/issues"
+  },
+  "qna": "https://github.com/meeet-world/tars/discussions",
   "main": "./out/extension.js",
   "activationEvents": [
     "onStartupFinished"
@@ -87,7 +104,8 @@
     "vscode:prepublish": "npm run compile",
     "compile": "tsc -p ./",
     "watch": "tsc -watch -p ./",
-    "package": "vsce package"
+    "package": "vsce package",
+    "publish": "vsce publish"
   },
   "devDependencies": {
     "@types/node": "^20.10.0",
@@ -97,6 +115,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "https://github.com/meeet-world/tars"
+    "url": "https://github.com/meeet-world/tars.git",
+    "directory": "vscode-extension"
   }
 }

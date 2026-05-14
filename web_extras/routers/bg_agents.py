@@ -423,6 +423,36 @@ class StartTaskRequest(BaseModel):
     title: str | None = Field(default=None, max_length=160)
 
 
+# W258 — managed launchd agent register payload.
+class RegisterManagedAgentRequest(BaseModel):
+    """Register a long-running background process under launchd.
+
+    Distinct from ``StartTaskRequest`` — that one spawns a single
+    finite agent *task* recorded in our SQLite store; this one
+    installs a launchd plist so a process gets respawned across
+    reboots.
+    """
+
+    id: str = Field(
+        ..., min_length=1, max_length=64,
+        pattern=r"^[a-zA-Z0-9][a-zA-Z0-9_\-]{0,63}$",
+        description="Stable id; becomes part of the launchd label.",
+    )
+    command: list[str] = Field(
+        ..., min_length=1, max_length=64,
+        description="argv to exec — list, not a shell string.",
+    )
+    schedule: str | None = Field(
+        default=None, max_length=80,
+        description='cron-ish "min hr dom mon dow"; omit for RunAtLoad.',
+    )
+    env: dict[str, str] | None = Field(default=None)
+    keep_alive: bool = False
+    run_at_load: bool = True
+    working_directory: str | None = Field(default=None, max_length=512)
+    dry_run: bool = False
+
+
 # ---------- endpoints --------------------------------------------------------
 
 
@@ -544,9 +574,112 @@ async def shadow_agent_run_step(
         pass
 
 
+# ---------- W258 — managed launchd agents ------------------------------------
+#
+# Distinct router prefix (`/api/bg-agents`, hyphen) so the existing
+# `/api/bg_agents` (underscore) task-tray surface keeps working
+# untouched. The cockpit calls both: the tray polls
+# ``/api/bg_agents`` for task rows and ``/api/bg-agents`` for
+# managed launchd processes.
+
+
+managed_router = APIRouter(prefix="/api/bg-agents", tags=["bg_agents_managed"])
+
+
+def _bg_launchd():
+    """Late import so unit tests can monkey-patch the module."""
+
+    from backend.core import bg_agents as _bg
+    return _bg
+
+
+@managed_router.get("")
+async def list_managed_agents() -> dict[str, Any]:
+    """List all TARS-managed launchd agents with live status.
+
+    Returns ``{"supported": bool, "agents": [...]}``. On non-Darwin
+    the platform flag flips false but we still return an empty
+    list so the frontend can render a friendly message instead of
+    a 500.
+    """
+
+    bg = _bg_launchd()
+    return {
+        "supported": bg.is_supported(),
+        "agents": await asyncio.to_thread(bg.list_managed),
+    }
+
+
+@managed_router.post("/register")
+async def register_managed_agent(
+    body: RegisterManagedAgentRequest = Body(...),
+) -> dict[str, Any]:
+    """Register (or replace) a managed launchd agent."""
+
+    bg = _bg_launchd()
+    result = await asyncio.to_thread(
+        bg.register,
+        agent_id=body.id,
+        command=list(body.command),
+        schedule=body.schedule,
+        env=body.env,
+        keep_alive=body.keep_alive,
+        run_at_load=body.run_at_load,
+        working_directory=body.working_directory,
+        dry_run=body.dry_run,
+    )
+    # Fan out a status change so the cockpit tray refreshes
+    # without waiting for the next poll.
+    try:
+        _broadcaster.publish({"kind": "managed.registered", "agent": result})
+    except Exception:
+        pass
+    return result
+
+
+@managed_router.delete("/{agent_id}")
+async def unregister_managed_agent(agent_id: str) -> dict[str, Any]:
+    """Unload + delete a managed launchd agent's plist."""
+
+    bg = _bg_launchd()
+    try:
+        result = await asyncio.to_thread(
+            bg.unregister, agent_id=agent_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    try:
+        _broadcaster.publish({"kind": "managed.unregistered", "agent": result})
+    except Exception:
+        pass
+    return result
+
+
+@managed_router.get("/{agent_id}/status")
+async def managed_agent_status(agent_id: str) -> dict[str, Any]:
+    bg = _bg_launchd()
+    try:
+        return await asyncio.to_thread(bg.status, agent_id=agent_id)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@managed_router.get("/{agent_id}/logs")
+async def managed_agent_logs(
+    agent_id: str, tail: int = 200,
+) -> dict[str, Any]:
+    bg = _bg_launchd()
+    try:
+        return await asyncio.to_thread(bg.tail_logs, agent_id=agent_id, tail=tail)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
 __all__ = [
     "router",
+    "managed_router",
     "BgAgentStore",
+    "RegisterManagedAgentRequest",
     "get_bg_store",
     "reset_singleton_for_tests",
     "shadow_agent_run_step",

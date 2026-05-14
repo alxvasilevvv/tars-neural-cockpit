@@ -1,0 +1,23 @@
+PLACEHOLDER — replace with a real 128x128 PNG before publishing.
+
+The VS Code Marketplace requires `icon.png` to be a 128×128 raster
+PNG. We ship an SVG (media/tars-icon.svg) for the Activity Bar but
+the Marketplace listing image must be PNG.
+
+How to produce the real binary
+------------------------------
+
+  cd vscode-extension
+  # If you have rsvg-convert (librsvg) installed:
+  rsvg-convert -w 128 -h 128 media/tars-icon.svg -o icon.png
+
+  # Or with ImageMagick:
+  magick convert -background none -resize 128x128 \
+      media/tars-icon.svg icon.png
+
+  # Or open media/tars-icon.svg in Figma / Sketch / Affinity
+  # and export at 128x128 @ 1x as PNG, save as icon.png at the
+  # extension root.
+
+`scripts/PUBLISH-EXTENSION.command` will refuse to publish while
+this file is still text (it sniffs the PNG magic bytes).
