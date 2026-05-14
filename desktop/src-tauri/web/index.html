@@ -377,6 +377,16 @@
             <button class="btn" onclick="window.open(API + '/api/doctor/page','_blank')">↗ full doctor</button>
           </div>
         </div>
+        <!-- W206 — Today briefing card -->
+        <div class="panel" style="border-color: rgba(99,102,241,0.35); background: linear-gradient(160deg, rgba(99,102,241,0.05), rgba(0,0,0,0.25));">
+          <h2>Today · daily briefing</h2>
+          <div id="briefingHeadline" style="font-size:13px;color:var(--text);line-height:1.6;margin-bottom:10px;font-weight:600;">loading…</div>
+          <div class="kv" id="briefingKV">
+            <div class="k">Receipts 24h</div><div class="v" id="bRecCount">—</div>
+            <div class="k">Agents</div><div class="v" id="bAgentCount">—</div>
+            <div class="k">Last reflection</div><div class="v" id="bRefl">—</div>
+          </div>
+        </div>
         <div class="panel">
           <h2>Daemon log tail</h2>
           <pre class="log" id="logTail">loading…</pre>
@@ -715,8 +725,23 @@ function timestamp() {
   $('ts').textContent = new Date().toISOString();
 }
 
+async function refreshBriefing() {
+  try {
+    const d = await fetchJSON('/api/briefing/today');
+    $('briefingHeadline').textContent = d.headline || '—';
+    const a = (d.sections && d.sections.activity) || {};
+    const ag = (d.sections && d.sections.agents) || {};
+    const refl = (d.sections && d.sections.reflection) || {};
+    $('bRecCount').textContent = a.receipts_24h != null ? a.receipts_24h : '—';
+    $('bAgentCount').textContent = ag.count != null ? ag.count : '—';
+    $('bRefl').textContent = refl.summary ? refl.summary.slice(0, 80) + '…' : '— never run';
+  } catch (e) {
+    $('briefingHeadline').textContent = 'Briefing unavailable — backend offline.';
+  }
+}
+
 async function refreshAll() {
-  await Promise.all([refreshDoctor(), refreshEntitlements(), refreshLog()]);
+  await Promise.all([refreshDoctor(), refreshEntitlements(), refreshLog(), refreshBriefing()]);
   timestamp();
 }
 

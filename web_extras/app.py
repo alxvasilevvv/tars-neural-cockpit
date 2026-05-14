@@ -80,6 +80,8 @@ from web_extras.routers import vision as vision_router
 from web_extras.routers import auth_meeet as auth_meeet_router
 # Wave 204 — /api/public/proof/* unauthenticated Merkle verifier
 from web_extras.routers import public_proof as public_proof_router
+# Wave 206 — /api/briefing/today daily-briefing snapshot
+from web_extras.routers import briefing as briefing_router
 
 START_TS = time.time()
 log = logging.getLogger("tars.app")
@@ -811,6 +813,8 @@ app.include_router(vision_router.router)
 app.include_router(auth_meeet_router.router)
 # W204 — public verifiable-proof endpoints (no auth)
 app.include_router(public_proof_router.router)
+# W206 — daily briefing snapshot
+app.include_router(briefing_router.router)
 
 
 async def _health_payload() -> dict[str, object]:
