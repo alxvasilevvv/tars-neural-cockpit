@@ -1103,15 +1103,47 @@ async function createAgent() {
   } catch (e) { toast(`✗ ${e.message}`, 'fail'); }
 }
 
-// ─── tier badge in header ───
+// ─── tier badge in header + tier-aware gating ───
+let CURRENT_TIER = 'free';
+const TIER_GATED = {
+  // tab name → minimum tier required to fully use it
+  // (UI never hides — we just visually mark + show 'Upgrade' hint)
+  vision: 'free',       // OCR free, vision-analyze needs key but no tier gate
+  cowork: 'pro',        // multiplayer agents — Pro+
+  marketplace: 'free',  // browse free, install needs Pro+
+};
+
 async function refreshTierBadge() {
   try {
     const d = await fetchJSON('/api/entitlements');
     const tier = (d.tier || 'free').toLowerCase();
+    CURRENT_TIER = tier;
     const pill = $('tierPill');
     pill.textContent = tier.toUpperCase();
     pill.className = 'tier-pill ' + (tier === 'pro' ? 'pro' : tier === 'business' ? 'business' : '');
+    applyTierGates(tier);
   } catch (e) { /* keep last */ }
+}
+
+function applyTierGates(tier) {
+  // For each tab button, if the required tier exceeds the current one,
+  // add a 🔒 prefix to its label so users immediately see what's locked.
+  // (Click still works — we want them to discover the upgrade flow.)
+  const order = {free: 0, pro: 1, business: 2};
+  document.querySelectorAll('nav.tabs button[data-tab]').forEach(b => {
+    const need = TIER_GATED[b.dataset.tab];
+    if (!need) return;
+    const ok = (order[tier] ?? 0) >= (order[need] ?? 0);
+    // Strip any prior lock prefix.
+    b.textContent = b.textContent.replace(/^🔒\s*/, '');
+    if (!ok) {
+      b.style.opacity = '0.7';
+      b.title = `Requires ${need.toUpperCase()} tier — click to learn more`;
+    } else {
+      b.style.opacity = '';
+      b.title = '';
+    }
+  });
 }
 
 // ─── 1-click meeet.world connect ───
