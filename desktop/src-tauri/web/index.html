@@ -255,9 +255,317 @@
 
   .empty-state { color: var(--muted); text-align: center; padding: 30px 20px; font-size: 12px; line-height: 1.6; }
   .empty-state a { color: var(--accent); text-decoration: none; }
+
+  /* ─── W219 Auth gate overlay ─────────────────────────────────── */
+  .auth-screen {
+    position: fixed; inset: 0; z-index: 3000;
+    background: radial-gradient(900px 600px at 50% 30%, rgba(99,102,241,0.18), transparent 60%), #07080d;
+    display: none; align-items: center; justify-content: center;
+    overflow: auto;
+  }
+  .auth-screen.show { display: flex; }
+  .auth-card {
+    width: min(520px, 92vw);
+    background: var(--panel);
+    border: 1px solid rgba(139,92,246,0.35);
+    border-radius: 18px; padding: 32px;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.06);
+    text-align: center;
+  }
+  .auth-card .auth-logo { display: flex; justify-content: center; margin-bottom: 18px; }
+  .auth-card .auth-logo .logo-svg { height: 56px; }
+  .auth-card h1 {
+    margin: 0 0 6px; font-size: 22px; font-weight: 700;
+    background: linear-gradient(90deg, #ffffff, #c7d2fe 60%, #a5b4fc);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    letter-spacing: 0.02em;
+  }
+  .auth-card .auth-sub {
+    color: var(--muted); font-size: 13px; line-height: 1.6; margin: 0 0 22px;
+  }
+  .auth-card .auth-email-row { display: flex; gap: 8px; margin-bottom: 14px; }
+  .auth-card input[type="email"] {
+    flex: 1; background: rgba(0,0,0,0.35); border: 1px solid var(--panel-edge);
+    border-radius: 10px; padding: 12px 14px; color: var(--text);
+    font-family: inherit; font-size: 13px;
+  }
+  .auth-card input[type="email"]:focus { outline: none; border-color: var(--accent); }
+  .auth-card .auth-divider {
+    display: flex; align-items: center; gap: 10px;
+    color: var(--muted-2); font-size: 10px; letter-spacing: .2em;
+    text-transform: uppercase; margin: 18px 0;
+  }
+  .auth-card .auth-divider::before,
+  .auth-card .auth-divider::after {
+    content: ''; flex: 1; height: 1px; background: var(--panel-edge);
+  }
+  .auth-card .oauth-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .auth-card .btn-oauth {
+    background: rgba(255,255,255,0.04); color: var(--text);
+    border: 1px solid var(--panel-edge); border-radius: 10px;
+    padding: 12px; font-family: inherit; font-size: 13px;
+    cursor: pointer; transition: all .15s;
+  }
+  .auth-card .btn-oauth:hover { background: rgba(255,255,255,0.08); border-color: var(--accent); }
+  .auth-card .auth-status {
+    margin-top: 14px; padding: 10px; border-radius: 8px;
+    background: rgba(0,0,0,0.25); border: 1px solid var(--panel-edge);
+    font-size: 11px; color: var(--muted); display: none;
+  }
+  .auth-card .auth-status.show { display: block; }
+  .auth-card .auth-status.ok { color: var(--ok); border-color: rgba(34,197,94,0.3); }
+  .auth-card .auth-status.fail { color: var(--fail); border-color: rgba(239,68,68,0.3); }
+  .auth-card .auth-footer {
+    margin-top: 22px; font-size: 11px; color: var(--muted-2);
+    display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  }
+  .auth-card .auth-footer a { color: var(--accent); text-decoration: none; cursor: pointer; }
+  .auth-card .auth-footer a:hover { color: var(--accent-hot); }
+
+  /* ─── W220 Voice cockpit ─────────────────────────────────────── */
+  .voice-cockpit {
+    position: fixed; inset: 0; z-index: 1500;
+    background: #000;
+    display: none; flex-direction: column;
+    overflow: hidden;
+  }
+  .voice-cockpit.show { display: flex; }
+  .vc-topbar {
+    position: absolute; top: 0; left: 0; right: 0;
+    padding: 14px 18px; display: flex; align-items: center; justify-content: space-between;
+    z-index: 2;
+  }
+  .vc-hamburger {
+    background: rgba(255,255,255,0.04); border: 1px solid var(--panel-edge);
+    color: var(--text); width: 36px; height: 36px; border-radius: 10px;
+    cursor: pointer; font-size: 18px; line-height: 1; display: flex;
+    align-items: center; justify-content: center; transition: all .15s;
+  }
+  .vc-hamburger:hover { background: rgba(255,255,255,0.10); border-color: var(--accent); }
+  .vc-chip {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 6px 12px; border-radius: 999px;
+    background: rgba(255,255,255,0.04); border: 1px solid var(--panel-edge);
+    font-size: 11px; color: var(--muted); letter-spacing: 0.08em;
+  }
+  .vc-chip .vc-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 8px var(--ok); }
+  .vc-chip .vc-reload { cursor: pointer; color: var(--accent); padding: 0 4px; }
+  .vc-chip .vc-reload:hover { color: var(--accent-hot); }
+  .vc-chip .vc-tier { color: var(--accent-hot); font-weight: 700; }
+
+  .vc-stage {
+    flex: 1; display: flex; align-items: center; justify-content: center;
+    position: relative;
+  }
+  .monolith-wrap {
+    --mic-level: 0;
+    position: relative; display: flex; align-items: center; justify-content: center;
+    width: 200px; height: 320px;
+    transform: scale(calc(1 + (var(--mic-level) * 0.18)));
+    transition: transform .12s linear;
+  }
+  .monolith {
+    width: 120px; height: 280px; border-radius: 6px;
+    background:
+      linear-gradient(180deg, #1a1a2e 0%, #0a0a14 50%, #050509 100%);
+    border: 1px solid rgba(99,102,241,0.5);
+    box-shadow:
+      0 0 60px rgba(99,102,241,0.35),
+      inset 0 0 30px rgba(99,102,241,0.18),
+      inset 0 2px 0 rgba(255,255,255,0.08);
+    position: relative; overflow: hidden;
+    animation: monolith-breath 4s ease-in-out infinite;
+  }
+  .voice-cockpit.state-listening .monolith {
+    animation: monolith-listen 0.8s ease-in-out infinite;
+    border-color: rgba(167,139,250,0.85);
+    box-shadow:
+      0 0 calc(60px + (var(--mic-level) * 120px)) rgba(167,139,250, calc(0.4 + (var(--mic-level) * 0.5))),
+      inset 0 0 30px rgba(167,139,250,0.3);
+  }
+  .voice-cockpit.state-speaking .monolith {
+    animation: monolith-speak 1.4s ease-in-out infinite;
+    border-color: rgba(6,182,212,0.9);
+    box-shadow:
+      0 0 100px rgba(6,182,212,0.55),
+      inset 0 0 40px rgba(6,182,212,0.3);
+  }
+  .monolith::before {
+    content: ''; position: absolute; inset: 0;
+    background:
+      linear-gradient(180deg, transparent 12.5%, rgba(0,0,0,0.6) 12.5%, rgba(0,0,0,0.6) 13.5%, transparent 13.5%,
+        transparent 50%, rgba(0,0,0,0.6) 50%, rgba(0,0,0,0.6) 51%, transparent 51%,
+        transparent 87.5%, rgba(0,0,0,0.6) 87.5%, rgba(0,0,0,0.6) 88.5%, transparent 88.5%);
+    pointer-events: none;
+  }
+  .monolith::after {
+    content: ''; position: absolute;
+    top: 30%; left: 14%; right: 14%; height: 6px; border-radius: 3px;
+    background: linear-gradient(90deg, #8b5cf6, #06b6d4);
+    box-shadow: 0 0 16px rgba(139,92,246,0.7);
+    opacity: 0.7;
+    animation: led-pulse 2.4s ease-in-out infinite;
+  }
+  .monolith-glow {
+    position: absolute; inset: -40px; border-radius: 50%;
+    background: radial-gradient(closest-side, rgba(99,102,241,0.25), transparent 65%);
+    pointer-events: none;
+  }
+  @keyframes monolith-breath {
+    0%,100% { transform: scaleY(1); opacity: 0.92; }
+    50% { transform: scaleY(1.015); opacity: 1; }
+  }
+  @keyframes monolith-listen {
+    0%,100% { transform: scaleY(1); }
+    50% { transform: scaleY(1.05); }
+  }
+  @keyframes monolith-speak {
+    0%,100% { transform: scaleY(1) skewX(0); }
+    25% { transform: scaleY(1.04) skewX(0.5deg); }
+    75% { transform: scaleY(0.97) skewX(-0.5deg); }
+  }
+  @keyframes led-pulse {
+    0%,100% { opacity: 0.35; }
+    50% { opacity: 1; }
+  }
+
+  .vc-transcript {
+    height: 25vh; min-height: 140px; max-height: 320px;
+    background: linear-gradient(180deg, transparent, rgba(0,0,0,0.7));
+    padding: 16px 22px 28px; overflow-y: auto;
+    font-family: 'JetBrains Mono','SF Mono',ui-monospace,monospace;
+    font-size: 13px; line-height: 1.6;
+    border-top: 1px solid rgba(99,102,241,0.15);
+  }
+  .vc-transcript .line { margin-bottom: 6px; word-wrap: break-word; }
+  .vc-transcript .line.user { color: #ffffff; }
+  .vc-transcript .line.tars { color: #06b6d4; }
+  .vc-transcript .line.system { color: var(--muted); font-style: italic; }
+
+  .vc-mic-wrap {
+    position: absolute; bottom: 28vh; left: 50%; transform: translateX(-50%);
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+  }
+  .vc-mic {
+    width: 78px; height: 78px; border-radius: 50%;
+    background: radial-gradient(circle at 30% 30%, rgba(167,139,250,0.6), rgba(99,102,241,0.15));
+    border: 2px solid rgba(167,139,250,0.5);
+    cursor: pointer; font-size: 30px; color: white;
+    display: flex; align-items: center; justify-content: center;
+    box-shadow: 0 0 calc(20px + (var(--mic-level, 0) * 80px)) rgba(167,139,250, calc(0.4 + (var(--mic-level, 0) * 0.4)));
+    transition: transform .15s, box-shadow .12s linear;
+  }
+  .vc-mic:hover { transform: scale(1.05); }
+  .voice-cockpit.state-listening .vc-mic { border-color: rgba(6,182,212,0.85); }
+  .vc-mic-hint { font-size: 10px; color: var(--muted); letter-spacing: 0.12em; text-transform: uppercase; }
+
+  /* Slide-in panel for the old tabs (hamburger drawer) */
+  .cockpit-panel-drawer {
+    position: fixed; top: 0; bottom: 0; left: 0; z-index: 1800;
+    width: min(820px, 96vw); transform: translateX(-100%);
+    transition: transform .28s cubic-bezier(.2,.8,.2,1);
+    background: #07080d;
+    border-right: 1px solid var(--panel-edge);
+    box-shadow: 24px 0 60px rgba(0,0,0,0.6);
+    display: flex; flex-direction: column;
+  }
+  .cockpit-panel-drawer.show { transform: translateX(0); }
+  .cockpit-panel-drawer .drawer-close {
+    position: absolute; top: 12px; right: 12px; z-index: 4;
+    background: rgba(255,255,255,0.04); border: 1px solid var(--panel-edge);
+    color: var(--text); width: 32px; height: 32px; border-radius: 8px;
+    cursor: pointer; font-size: 16px; line-height: 1;
+  }
+  .cockpit-panel-drawer .drawer-close:hover { background: rgba(255,255,255,0.10); }
+  .cockpit-panel-drawer .app { height: 100%; }
 </style>
 </head>
 <body>
+
+<!-- W219 — Auth gate overlay (boots first; hides cockpit until token exists) -->
+<div class="auth-screen" id="authScreen">
+  <div class="auth-card">
+    <div class="auth-logo">
+      <svg class="logo-svg" viewBox="0 0 240 64" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="TARS">
+        <defs>
+          <linearGradient id="auth-body" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0%" stop-color="#1a1a2e"/><stop offset="55%" stop-color="#0f0f1a"/><stop offset="100%" stop-color="#05050a"/>
+          </linearGradient>
+          <linearGradient id="auth-text" x1="0" y1="0" x2="1" y2="0">
+            <stop offset="0%" stop-color="#ffffff"/><stop offset="60%" stop-color="#c7d2fe"/><stop offset="100%" stop-color="#a5b4fc"/>
+          </linearGradient>
+        </defs>
+        <g transform="translate(8,6)">
+          <rect x="0" y="0" width="40" height="52" rx="3" fill="url(#auth-body)" stroke="#6366f1" stroke-opacity="0.6" stroke-width="0.8"/>
+          <g stroke="#000" stroke-opacity="0.6" stroke-width="0.4">
+            <line x1="0" y1="13.5" x2="40" y2="13.5"/><line x1="0" y1="26.5" x2="40" y2="26.5"/><line x1="0" y1="39.5" x2="40" y2="39.5"/>
+          </g>
+          <rect x="6" y="18" width="22" height="2.4" rx="1.2" fill="#8b5cf6"/>
+        </g>
+        <g transform="translate(64,0)">
+          <text x="0" y="40" font-family="'SF Mono','JetBrains Mono',monospace" font-size="32" font-weight="700" letter-spacing="6" fill="url(#auth-text)">TARS</text>
+        </g>
+      </svg>
+    </div>
+    <h1>Sign in with meeet.world</h1>
+    <p class="auth-sub">Your TARS lives in your wallet.</p>
+
+    <div class="auth-email-row">
+      <input type="email" id="authEmail" placeholder="you@example.com" autocomplete="email" />
+      <button class="btn primary" id="authMagicLinkBtn" onclick="authMagicLink()">Send magic link</button>
+    </div>
+
+    <div class="auth-divider">or</div>
+
+    <div class="oauth-row">
+      <button class="btn-oauth" onclick="authOAuth('google')">Continue with Google</button>
+      <button class="btn-oauth" onclick="authOAuth('apple')">Continue with Apple</button>
+    </div>
+
+    <div class="auth-status" id="authStatus"></div>
+
+    <div class="auth-footer">
+      <a onclick="openExternal('https://meeet.world/about')">Why meeet.world?</a>
+      <a id="authSkipLink" style="display:none" onclick="authSkipLocal()">Skip — local-only mode</a>
+    </div>
+  </div>
+</div>
+
+<!-- W220 — Full-screen voice cockpit (DEFAULT view post-auth) -->
+<div class="voice-cockpit state-idle" id="voiceCockpit">
+  <div class="vc-topbar">
+    <button class="vc-hamburger" id="vcHamburger" title="Controls (Status / Agents / Chat / …)" onclick="vcOpenDrawer()">☰</button>
+    <div class="vc-chip" id="vcChip">
+      <span class="vc-dot" id="vcDot"></span>
+      <span id="vcConnState">connecting</span>
+      <span>·</span>
+      <span class="vc-tier" id="vcTier">FREE</span>
+      <span>·</span>
+      <span class="vc-reload" title="Reload cockpit" onclick="window.location.reload()">↻</span>
+    </div>
+  </div>
+
+  <div class="vc-stage">
+    <div class="monolith-wrap" id="monolithWrap">
+      <div class="monolith-glow"></div>
+      <div class="monolith"></div>
+    </div>
+
+    <div class="vc-mic-wrap">
+      <button class="vc-mic" id="vcMic" title="Click or ⌘⇧Space to toggle" onclick="toggleListening()">🎙</button>
+      <div class="vc-mic-hint" id="vcMicHint">Tap to speak · ⌘⇧Space</div>
+    </div>
+  </div>
+
+  <div class="vc-transcript" id="vcTranscript">
+    <div class="line system">TARS standing by. Say "доктор", "агенты", "сегодня", or ask anything.</div>
+  </div>
+</div>
+
+<!-- Hamburger drawer — holds the original tabs (Status/Agents/Chat/...) -->
+<div class="cockpit-panel-drawer" id="cockpitDrawer">
+  <button class="drawer-close" onclick="vcCloseDrawer()" title="Close (Esc)">✕</button>
+
 <div class="app">
   <header>
     <!-- TARS monolith wordmark — Interstellar-style 4-section monolith + animated LED rail -->
@@ -588,6 +896,7 @@
     </span>
   </footer>
 </div>
+</div><!-- /cockpit-panel-drawer -->
 
 <div class="toast" id="toast"></div>
 
@@ -1308,12 +1617,410 @@ function openExternal(url) {
   window.open(url, '_blank', 'noopener,noreferrer');
 }
 
-// Auto-refresh status every 30s + tier badge on boot.
+// ─── W219 — Auth gate ────────────────────────────────────────────
+let _magicCooldownTimer = null;
+
+function authShowStatus(msg, kind = '') {
+  const s = $('authStatus');
+  s.textContent = msg;
+  s.className = 'auth-status show ' + kind;
+}
+
+async function authBootCheck() {
+  // Try to fetch /api/auth/meeet/status. If the user already has a
+  // token persisted, skip the auth screen entirely and show the
+  // voice cockpit straight away.
+  try {
+    const r = await fetch(API + '/api/auth/meeet/status', { method: 'GET' });
+    if (r.status === 401) { showAuthGate(); return; }
+    const d = await r.json();
+    if (d && d.connected) { showCockpit(); return; }
+  } catch (e) {
+    // Backend unreachable. Still show the auth screen so the user can
+    // pick "Skip — local-only" while they wait for the backend.
+    $('authSkipLink').style.display = 'inline';
+  }
+  showAuthGate();
+}
+
+function showAuthGate() {
+  $('authScreen').classList.add('show');
+  $('voiceCockpit').classList.remove('show');
+  // After 3s of waiting, if the user still hasn't authed, expose the
+  // "Skip — local-only mode" link so they're never stuck.
+  setTimeout(() => { $('authSkipLink').style.display = 'inline'; }, 3000);
+}
+
+function showCockpit() {
+  $('authScreen').classList.remove('show');
+  $('voiceCockpit').classList.add('show');
+  // Kick off the post-auth init exactly once.
+  if (!window.__tarsCockpitInit) {
+    window.__tarsCockpitInit = true;
+    cockpitInit();
+  }
+}
+
+async function authMagicLink() {
+  const email = ($('authEmail').value || '').trim().toLowerCase();
+  if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
+    authShowStatus('Enter a valid email.', 'fail');
+    return;
+  }
+  const btn = $('authMagicLinkBtn');
+  btn.disabled = true;
+  authShowStatus('Sending magic link…', '');
+  try {
+    const r = await fetch(API + '/api/auth/meeet/magic-link-start', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    const d = await r.json();
+    if (d && d.ok && d.sent) {
+      authShowStatus(`Check your email — link sent to ${email}.`, 'ok');
+      // 60s cooldown before re-send.
+      let left = 60;
+      btn.textContent = `Re-send (${left}s)`;
+      clearInterval(_magicCooldownTimer);
+      _magicCooldownTimer = setInterval(() => {
+        left -= 1;
+        if (left <= 0) {
+          clearInterval(_magicCooldownTimer);
+          btn.textContent = 'Re-send';
+          btn.disabled = false;
+        } else {
+          btn.textContent = `Re-send (${left}s)`;
+        }
+      }, 1000);
+    } else if (d && d.error === 'meeet_unreachable') {
+      authShowStatus('meeet.world is unreachable. You can use "Skip — local-only" below.', 'fail');
+      $('authSkipLink').style.display = 'inline';
+      btn.disabled = false;
+    } else {
+      authShowStatus('Could not send link. Try again or use OAuth.', 'fail');
+      btn.disabled = false;
+    }
+  } catch (e) {
+    authShowStatus(`Failed: ${e.message}. Use "Skip — local-only" if the backend is down.`, 'fail');
+    $('authSkipLink').style.display = 'inline';
+    btn.disabled = false;
+  }
+}
+
+async function authOAuth(provider) {
+  authShowStatus(`Opening ${provider} sign-in in your browser…`, '');
+  try {
+    const r = await fetch(API + `/api/auth/meeet/oauth/${provider}/start`);
+    const d = await r.json();
+    if (d && d.redirect_url) {
+      openExternal(d.redirect_url);
+      authShowStatus('Finish sign-in in your browser. We will pick up the response automatically.', 'ok');
+    } else {
+      authShowStatus('Could not start OAuth.', 'fail');
+    }
+  } catch (e) {
+    authShowStatus(`Failed: ${e.message}`, 'fail');
+  }
+}
+
+async function authSkipLocal() {
+  // Local-only mode — write a synthetic token so subsequent boots
+  // skip the auth screen. Tier defaults to FREE.
+  try {
+    await fetch(API + '/api/auth/meeet/exchange', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: 'local-only-' + Date.now() }),
+    });
+  } catch (_e) { /* still proceed — token may already exist */ }
+  toast('Local-only mode. You can connect meeet.world later from Settings.', 'ok');
+  showCockpit();
+}
+
+// ─── W219 — Deep-link bridge: tars://auth?token=… ───────────────
+function _parseAuthDeeplink(url) {
+  try {
+    const u = new URL(url);
+    if (u.protocol !== 'tars:') return null;
+    if (u.hostname !== 'auth' && !u.pathname.includes('auth')) return null;
+    return u.searchParams.get('token');
+  } catch (e) { return null; }
+}
+
+async function _handleAuthDeeplinkUrls(urls) {
+  for (const url of (urls || [])) {
+    const token = _parseAuthDeeplink(url);
+    if (!token) continue;
+    try {
+      const r = await fetch(API + '/api/auth/meeet/exchange', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token }),
+      });
+      if (r.ok) {
+        const d = await r.json();
+        toast(`✓ connected as ${d.account || 'meeet user'}`, 'ok');
+        // Emit a JS event so the cockpit listens once + mounts UI.
+        window.dispatchEvent(new CustomEvent('tars://auth-success', { detail: d }));
+        showCockpit();
+        return;
+      }
+    } catch (e) { /* fall through */ }
+  }
+}
+
+// Subscribe to Tauri's `tars://deeplink` event (emitted from main.rs).
+(function wireDeepLink() {
+  try {
+    if (window.__TAURI__ && window.__TAURI__.event && window.__TAURI__.event.listen) {
+      window.__TAURI__.event.listen('tars://deeplink', (event) => {
+        _handleAuthDeeplinkUrls(event.payload || []);
+      });
+    }
+  } catch (_e) { /* not running inside Tauri — auth screen still works via OAuth-popup */ }
+})();
+
+// ─── W220 — Voice cockpit ────────────────────────────────────────
+const VC = {
+  recognition: null,
+  listening: false,
+  speaking: false,
+  audioCtx: null,
+  analyser: null,
+  micStream: null,
+  rafId: null,
+  lang: 'ru-RU',
+};
+
+function vcSetState(state /* idle | listening | speaking */) {
+  const el = $('voiceCockpit');
+  el.classList.remove('state-idle', 'state-listening', 'state-speaking');
+  el.classList.add('state-' + state);
+}
+
+function vcAddLine(kind, text) {
+  const tr = $('vcTranscript');
+  const node = document.createElement('div');
+  node.className = 'line ' + kind;
+  if (kind === 'user') node.textContent = `> ${text}`;
+  else if (kind === 'tars') node.textContent = `TARS: ${text}`;
+  else node.textContent = text;
+  tr.appendChild(node);
+  tr.scrollTop = tr.scrollHeight;
+}
+
+async function _startMicLevel() {
+  try {
+    VC.micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    VC.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const src = VC.audioCtx.createMediaStreamSource(VC.micStream);
+    VC.analyser = VC.audioCtx.createAnalyser();
+    VC.analyser.fftSize = 256;
+    src.connect(VC.analyser);
+    const data = new Uint8Array(VC.analyser.frequencyBinCount);
+    const tick = () => {
+      if (!VC.analyser) return;
+      VC.analyser.getByteTimeDomainData(data);
+      // Compute peak amplitude normalized 0..1.
+      let peak = 0;
+      for (let i = 0; i < data.length; i++) {
+        const v = Math.abs(data[i] - 128) / 128;
+        if (v > peak) peak = v;
+      }
+      // Smooth a bit so the monolith doesn't jitter.
+      const level = Math.min(1, peak * 1.4);
+      $('monolithWrap').style.setProperty('--mic-level', level.toFixed(3));
+      $('vcMic').style.setProperty('--mic-level', level.toFixed(3));
+      VC.rafId = requestAnimationFrame(tick);
+    };
+    tick();
+  } catch (e) {
+    vcAddLine('system', `Microphone unavailable: ${e.message}`);
+  }
+}
+
+function _stopMicLevel() {
+  if (VC.rafId) cancelAnimationFrame(VC.rafId);
+  VC.rafId = null;
+  if (VC.micStream) {
+    VC.micStream.getTracks().forEach(t => t.stop());
+    VC.micStream = null;
+  }
+  if (VC.audioCtx) { try { VC.audioCtx.close(); } catch (_e) {} VC.audioCtx = null; }
+  VC.analyser = null;
+  $('monolithWrap').style.setProperty('--mic-level', 0);
+  $('vcMic').style.setProperty('--mic-level', 0);
+}
+
+function _initRecognition() {
+  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!SR) {
+    vcAddLine('system', 'Speech recognition not supported in this WebView.');
+    return null;
+  }
+  const rec = new SR();
+  rec.continuous = true;
+  rec.interimResults = true;
+  rec.lang = VC.lang;
+  rec.onresult = (event) => {
+    for (let i = event.resultIndex; i < event.results.length; i++) {
+      const r = event.results[i];
+      if (r.isFinal) {
+        const text = (r[0].transcript || '').trim();
+        if (text) {
+          vcAddLine('user', text);
+          _dispatchTranscript(text);
+        }
+      }
+    }
+  };
+  rec.onerror = (e) => vcAddLine('system', `STT error: ${e.error || 'unknown'}`);
+  rec.onend = () => {
+    if (VC.listening) {
+      // Auto-restart so continuous=true behaves on WebKit.
+      try { rec.start(); } catch (_e) {}
+    }
+  };
+  return rec;
+}
+
+async function toggleListening() {
+  if (VC.listening) {
+    VC.listening = false;
+    try { VC.recognition && VC.recognition.stop(); } catch (_e) {}
+    _stopMicLevel();
+    vcSetState(VC.speaking ? 'speaking' : 'idle');
+    $('vcMicHint').textContent = 'Tap to speak · ⌘⇧Space';
+    return;
+  }
+  if (!VC.recognition) VC.recognition = _initRecognition();
+  if (!VC.recognition) return;
+  VC.listening = true;
+  vcSetState('listening');
+  $('vcMicHint').textContent = 'Listening…';
+  await _startMicLevel();
+  try { VC.recognition.start(); } catch (_e) { /* already started */ }
+}
+
+async function _dispatchTranscript(text) {
+  try {
+    const r = await fetch(API + '/api/voice/command', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ transcript: text, lang: VC.lang }),
+    });
+    if (!r.ok) {
+      vcAddLine('system', `Voice command HTTP ${r.status}`);
+      return;
+    }
+    const d = await r.json();
+    const reply = d.reply || '(no reply)';
+    vcAddLine('tars', reply);
+    _executeAction(d.action, d.action_payload);
+    _speak(reply);
+  } catch (e) {
+    vcAddLine('system', `Dispatch failed: ${e.message}`);
+  }
+}
+
+function _executeAction(action, _payload) {
+  if (!action) return;
+  if (action === 'reload') { setTimeout(() => window.location.reload(), 800); return; }
+  if (action === 'run_doctor') {
+    vcOpenDrawer();
+    const b = document.querySelector('nav.tabs button[data-tab="status"]');
+    if (b) b.click();
+    refreshAll();
+    return;
+  }
+  if (action.startsWith('open_tab:')) {
+    const tab = action.split(':')[1];
+    vcOpenDrawer();
+    const b = document.querySelector(`nav.tabs button[data-tab="${tab}"]`);
+    if (b) b.click();
+    return;
+  }
+  if (action === 'show_today') {
+    vcOpenDrawer();
+    const b = document.querySelector('nav.tabs button[data-tab="status"]');
+    if (b) b.click();
+    refreshBriefing();
+    return;
+  }
+}
+
+function _speak(text) {
+  if (!text || !window.speechSynthesis) return;
+  try {
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = VC.lang;
+    u.onstart = () => { VC.speaking = true; vcSetState('speaking'); };
+    u.onend = () => {
+      VC.speaking = false;
+      vcSetState(VC.listening ? 'listening' : 'idle');
+    };
+    window.speechSynthesis.speak(u);
+  } catch (_e) {}
+}
+
+function vcOpenDrawer() { $('cockpitDrawer').classList.add('show'); }
+function vcCloseDrawer() { $('cockpitDrawer').classList.remove('show'); }
+
+document.addEventListener('keydown', (e) => {
+  // Cmd/Ctrl + Shift + Space → toggle listening (Tauri also wires this
+  // globally, but we listen locally too so it works in plain browser).
+  if (e.code === 'Space' && e.shiftKey && (e.metaKey || e.ctrlKey)) {
+    e.preventDefault();
+    toggleListening();
+  }
+  if (e.key === 'Escape') vcCloseDrawer();
+});
+
+function cockpitInit() {
+  // After auth succeeds — reuse the existing data-loaders but show
+  // them only when the drawer opens. The voice cockpit itself only
+  // needs the tier badge + connection chip live.
+  refreshTierBadge();
+  _vcRefreshConnectionChip();
+  setInterval(_vcRefreshConnectionChip, 15000);
+  setInterval(refreshTierBadge, 60000);
+  // Greet briefly.
+  vcAddLine('tars', VC.lang.startsWith('ru') ? 'Готов к работе.' : 'Ready when you are.');
+}
+
+async function _vcRefreshConnectionChip() {
+  try {
+    const r = await fetch(API + '/api/health', { method: 'GET' });
+    const ok = r.ok;
+    $('vcDot').style.background = ok ? 'var(--ok)' : 'var(--fail)';
+    $('vcDot').style.boxShadow = ok ? '0 0 8px var(--ok)' : '0 0 8px var(--fail)';
+    $('vcConnState').textContent = ok ? 'connected' : 'offline';
+  } catch (e) {
+    $('vcDot').style.background = 'var(--fail)';
+    $('vcConnState').textContent = 'offline';
+  }
+  // Mirror tier into the chip.
+  try {
+    const d = await fetchJSON('/api/entitlements');
+    $('vcTier').textContent = (d.tier || 'free').toUpperCase();
+  } catch (_e) {}
+}
+
+// Listen for the auth-success event (fired by deep-link handler).
+window.addEventListener('tars://auth-success', () => { showCockpit(); });
+
+// Boot — gate on auth, then show the voice cockpit.
+authBootCheck();
+
+// Auto-refresh status every 30s + tier badge on boot — only when the
+// status tab is the active one inside the drawer.
 maybeShowWelcome();
-refreshAll();
-refreshTierBadge();
-setInterval(() => { if (activeTab === 'status') refreshAll(); }, 30000);
-setInterval(refreshTierBadge, 60000);
+setInterval(() => {
+  if (activeTab === 'status' && $('cockpitDrawer').classList.contains('show')) {
+    refreshAll();
+  }
+}, 30000);
 </script>
 </body>
 </html>

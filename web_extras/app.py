@@ -86,6 +86,8 @@ from web_extras.routers import briefing as briefing_router
 from web_extras.routers import digest as digest_router
 # Wave 217 — /api/a11y accessibility helpers (OCR-to-speech)
 from web_extras.routers import accessibility as a11y_router
+# W220 — /api/voice/command dispatcher for the full-screen voice cockpit
+from web_extras.routers import voice_command as voice_command_router
 
 START_TS = time.time()
 log = logging.getLogger("tars.app")
@@ -823,6 +825,8 @@ app.include_router(briefing_router.router)
 app.include_router(digest_router.router)
 # W217 — accessibility helpers
 app.include_router(a11y_router.router)
+# W220 — voice-command dispatcher for the full-screen cockpit
+app.include_router(voice_command_router.router)
 
 
 async def _health_payload() -> dict[str, object]:
