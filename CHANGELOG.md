@@ -9,6 +9,81 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
+## v10.0.0-rc.1 — Wave A + B + C bundled (2026-05-15)
+
+Wave A (W237-W249, originally v9.3.0-beta1), Wave B (W250-W259), and
+Wave C (W260-W263) into a single release candidate. Three waves of
+work close the Cursor parity gap, ship TARS-unique edge, and move
+beyond Cursor into surfaces it structurally cannot serve.
+
+Full release notes: [`docs/RELEASE_NOTES_v10.0-rc1.md`](docs/RELEASE_NOTES_v10.0-rc1.md).
+
+### Wave A (W237-W249) — bundled
+Cursor parity panels, Cmd+K palette v2, codebase indexer v0, unified
+WS event bus, tier-cap UX, privacy mode. See
+[`docs/RELEASE_NOTES_v9.3.0-beta1.md`](docs/RELEASE_NOTES_v9.3.0-beta1.md).
+
+### Wave B (W250-W259)
+- **W250 — macOS codesign + notarize pipeline + Apple Developer setup guide.**
+- **W252 — Marketing collateral for v9.3.0-beta1** (twitter, HN, PH, blog, demo spec).
+- **W253 — Voice-driven Composer** — multi-file edits via voice with diff preview + receipt anchoring. `backend/core/composer/`.
+- **W254 — `tars-tab` VS Code extension scaffold** — chat + composer bridge + receipt panel. `vscode-extension/`.
+- **W255 — Receipt-anchored audit explorer** — searchable timeline + Solana proof + export bundle.
+- **W256 — Domain-pack-aware composer** — per-pack prompts, rules, action vocabulary.
+- **W257 — SOC2 Type II readiness doc + GDPR export + annual compliance bundle.** `docs/SOC2_TYPE_II_READINESS.md`, `web_extras/routers/gdpr.py`, `scripts/COMPLIANCE-BUNDLE.command`.
+- **W258 + W259 — Real launchd bg-agents + VS Code marketplace publish prep.**
+
+### Wave C (W260-W263)
+- **W260 — T2T code review handoff** — composer plans flow between
+  agents with signed approval contract. Reviewer earns $MEEET via
+  meeet.world relayer escrow. `backend/core/t2t_review/`.
+- **W261 — Agent marketplace v0** — third-party agents via the Skill
+  SDK; browse + install + rate; 70/30 split via meeet.world payouts.
+- **W262 — Voice-first pair programming in Composer** — wake-word →
+  STT → composer plan → narrate → accept by voice → diff applied →
+  TTS confirmation + receipt. 20-min zero-click sessions verified.
+- **W263 — On-prem TARS deployment kit.** Full self-hosted stack for
+  enterprise / fund / regulated deployments:
+  - `scripts/ONPREM-DEPLOY/docker-compose.yml` (backend + watchdog
+    + Postgres + nginx + optional meeet-mock)
+  - `scripts/ONPREM-DEPLOY/Dockerfile.{backend,frontend}`
+  - `scripts/ONPREM-DEPLOY/install.sh` — one-line installer
+    (`curl -L https://meeet.world/install-tars-onprem | bash`)
+  - `scripts/ONPREM-DEPLOY/tars-onprem.service` (systemd unit)
+  - `scripts/ONPREM-DEPLOY/.env.onprem.example`
+  - `backend/core/onprem/local_auth.py` — HS256 JWT + SAML/OIDC bridge
+  - `backend/core/onprem/pg_migrations.py` — Postgres schema parity
+    with the ~21 SQLite stores; idempotent migrator at boot
+  - `docs/ONPREM_DEPLOYMENT_GUIDE.md` — 435-line operator playbook
+
+### Release prep (W264)
+- Version bumps: 9.3.0-beta.1 → 10.0.0-rc.1 in tauri.conf.json,
+  Cargo.toml, package.json (`desktop`, `experiments/neural-showcase-v3`),
+  all version constants in `web_extras/app.py`, `backend/core/mcp/tools.py`,
+  `backend/core/observability/otel.py`, `backend/core/product/manifest.py`,
+  `web_extras/routers/github.py`, `web_extras/routers/awareness.py`.
+- `scripts/RELEASE-v10.0-rc1.command` — same template as W251's
+  RELEASE script, for the new version.
+- README banner refreshed to v10.0.0-rc.1; `TARS_MASTER_DOC.md` §2
+  inventory updated with Wave B/C items; §6 roadmap marks Wave A/B/C
+  complete (only v10.0 GA polish remains); `PROJECT_INDEX.md` adds
+  the on-prem guide.
+
+### Operator-blocked (still pending after Wave C)
+- Apple Developer .p12 in CI → signed .dmg per release tag.
+- Brother's `/api/billing/{usage,topup,tier}` endpoints going live
+  for cloud reconciliation (on-prem fallback path ships in W263).
+- VS Code marketplace first publish (scaffold ready; gate after rc1 soak).
+- One paying on-prem customer running the v10.0 image end-to-end.
+
+### Credits
+- Operator: alienram@icloud.com
+- Wave B + C built by: Claude (Sonnet) in W250-W263.
+- Pushed via `scripts/auto-push.command`.
+
+---
+
+
 ## v9.3.0-beta1 — Cursor parity wave + meeet.world billing rails (2026-05-15)
 
 Wave A (W237-W249) bundled into one beta tag. 13 waves close the

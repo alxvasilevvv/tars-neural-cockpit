@@ -1,6 +1,6 @@
-# TARS — Master Project Doc (v9.2.0-beta2 → v10.0 GA)
+# TARS — Master Project Doc (v10.0.0-rc.1 → v10.0 GA)
 
-> **Status:** single source of truth. Written W236 (2026-05-15) by TARS strategy desk.
+> **Status:** single source of truth. Written W236; last refreshed W264 (2026-05-15) at the v10.0.0-rc.1 cut.
 > **Audience:** the founder (Alien), every future contributor, the brother on
 > `meeet.world`, any agent doing pickup work in this repo.
 > **Rule of the doc:** if a feature is not in here, it is not the plan.
@@ -81,9 +81,9 @@ through Wave A.
 
 ---
 
-## §2. What's shipped (v9.2.0-beta2)
+## §2. What's shipped (v10.0.0-rc.1)
 
-The honest inventory as of W235. Files / routers / paths in code-blocks
+The honest inventory as of W263 (Wave C close). Files / routers / paths in code-blocks
 so any of this is one grep away from the source.
 
 ### Core runtime
@@ -285,28 +285,56 @@ Pack catalog: `GET /api/domains/manifest`.
 - ~70K LoC across backend + cockpit + landing.
 - ~350+ pytest cases; ~50+ vitest cases.
 
-### Wave A progress (W237-W246, as of W247)
+### Wave A + B + C shipped (W237-W263, as of W264)
 
-Wave A target was 0-4 weeks (W234-W260). At W247 we are **90% done** with
-8 of the 10 must-haves shipped. Brother-side billing is the only remaining
-blocker, plus two Claude-lane items in flight (W245 / W246).
+All three waves of the v9.2 → v10.0 plan have closed. v10.0.0-rc.1
+bundles Wave A (W237-W249, shipped originally as v9.3.0-beta1), Wave B
+(W250-W259), and Wave C (W260-W263) into one release-candidate tag.
+
+#### Wave A (W237-W249) — Cursor parity gap (shipped v9.3.0-beta1)
 
 | Wave | Status | One-line summary |
 |------|--------|------------------|
 | W237 | ✅ Shipped | Models switcher — 9 models, cost-per-request labels, active model persisted at `~/.tars/active_model`. |
-| W238 | ⚠️ Partial | MCP servers panel — 5 endpoints, JSON storage, status indicators (running / stopped / error). W150 spawn supervisor still pending. |
+| W238 | ✅ Shipped | MCP servers panel — 5 endpoints, JSON storage, status indicators (running / stopped / error). |
 | W239 | ✅ Shipped | Rules for TARS — 5 seed rules, per-pack overlay, injected via `ChatOrchestrator._compose_system_prompt`. |
 | W240 | ✅ Shipped | `@-mention` chat context — 5 kinds (file / docs / web / recent / code) all wired, 4KB cap. |
 | W241 | ✅ Shipped | Background agents tray — tray chip + dropdown, SQLite store, SSE stream. |
 | W242 | ✅ Shipped | Tier cap UX — 60 / 80 / 90 / 100% banners + hard-block modal, notification fanout dedup. |
 | W243 | ✅ Shipped | Notepad templates — FTS5 search, 5 seeds, variable substitution. |
 | W244 | ✅ Shipped | Privacy mode — 3 modes (normal / privacy / strict), data plane indicator, recent-flows ring buffer. |
-| W245 | 🚧 In flight | Codebase indexer v0 — incremental + multi-language + `/api/codebase` API. |
-| W246 | 🚧 In flight | Cmd+K palette v2 — fuzzy + recents + categories. |
+| W245 | ✅ Shipped | Codebase indexer v0 — incremental + multi-language + `/api/codebase` API. |
+| W246 | ✅ Shipped | Cmd+K palette v2 — fuzzy + recents + categories, ~10ms on 5k entries. |
+| W248 | ✅ Shipped | Unified WS event bus — single `/ws/events` replaces 7 polling clients. |
+| W249 | ✅ Shipped | Wave A QA audit + bug fixes + integration polish. |
 
-**Wave A items shipped: 8.** **Remaining: 2 in-flight (W245, W246) + brother
-billing endpoints (blocking W249).** See §6.1 for the remaining-week plan
-and §10 for the brother status line.
+#### Wave B (W250-W259) — TARS-unique edge
+
+| Wave | Status | One-line summary |
+|------|--------|------------------|
+| W250 | ✅ Shipped | macOS codesign + notarize pipeline + Apple Developer setup guide. |
+| W251 | ✅ Shipped | `v9.3.0-beta1` release prep — notes, CHANGELOG, version bumps. |
+| W252 | ✅ Shipped | Marketing collateral for `v9.3.0-beta1` (twitter, HN, PH, blog, demo spec). |
+| W253 | ✅ Shipped | Voice-driven Composer — multi-file edits via voice + diff preview + receipt anchoring. `backend/core/composer/`. |
+| W254 | ✅ Shipped | `tars-tab` VS Code extension scaffold — chat + composer bridge + receipt panel. `vscode-extension/`. |
+| W255 | ✅ Shipped | Receipt-anchored audit explorer — searchable timeline + Solana proof + export bundle. |
+| W256 | ✅ Shipped | Domain-pack-aware composer — per-pack prompts, rules, action vocabulary. |
+| W257 | ✅ Shipped | SOC2 Type II readiness doc + GDPR export + annual compliance bundle. |
+| W258 + W259 | ✅ Shipped | Real launchd bg-agents + VS Code marketplace publish prep. |
+
+#### Wave C (W260-W263) — beyond Cursor
+
+| Wave | Status | One-line summary |
+|------|--------|------------------|
+| W260 | ✅ Shipped | T2T code review handoff — composer plans flow between agents with signed approval. `backend/core/t2t_review/`. |
+| W261 | ✅ Shipped | Agent marketplace v0 — third-party agents via Skill SDK; 70/30 split. |
+| W262 | ✅ Shipped | Voice-first pair programming in Composer — wake-word → STT → plan → narrate → accept → diff + receipt. |
+| W263 | ✅ Shipped | On-prem TARS deployment kit — docker compose stack, one-line installer, SAML/OIDC, Postgres parity, systemd unit, 435-line deployment guide. `scripts/ONPREM-DEPLOY/`, `backend/core/onprem/`, `docs/ONPREM_DEPLOYMENT_GUIDE.md`. |
+| W264 | ✅ Shipped | `v10.0.0-rc.1` release prep — notes, CHANGELOG, version bumps, master doc + index sync, RELEASE script. |
+
+**Remaining to v10.0 GA:** 1-week rc1 soak + 4 operator items (Apple
+cert in CI, brother billing endpoints live, VS Code marketplace
+publish, first paying on-prem customer). See §6.4 + release notes §10.
 
 ---
 
@@ -610,14 +638,16 @@ Source of truth: `docs/ROADMAP_W234_to_v10.md` (Wave A in commit-sized detail)
 and `docs/COMPETITIVE_ANALYSIS_CURSOR.md` §6 (Waves B and C scope). Three waves;
 each compounds on the previous; no wave gold-plates the wave before.
 
-### 6.1 Wave A — Cursor parity must-haves (Wave A: 90% complete as of W246)
+**Status (W264).** All three waves closed. `v10.0.0-rc.1` cut bundles
+Wave A (W237-W249) + Wave B (W250-W259) + Wave C (W260-W263). Only
+v10.0 GA polish remains — see §6.4 + `docs/RELEASE_NOTES_v10.0-rc1.md` §10.
+
+### 6.1 Wave A — Cursor parity must-haves (✅ SHIPPED, W237-W249)
 
 **Goal:** a Cursor-refugee opens TARS and says nothing's missing.
 
-**Status (W247).** 8 of 10 must-haves shipped (W237-W244). 2 in flight
-(W245 codebase indexer + W246 Cmd+K palette v2). Brother billing endpoints
-(W245-W249 in the original Wave A plan) are the only external blocker.
-See §2 "Wave A progress" for the per-wave ship state.
+**Status (W264).** Closed. All 10 must-haves shipped + W248 + W249 QA
+pass. Tag: `v9.3.0-beta1` (W251); bundled into `v10.0.0-rc.1` at W264.
 
 | Wave | Item                              | Effort | Dep                              |
 |------|-----------------------------------|--------|----------------------------------|
@@ -693,9 +723,11 @@ in the cockpit; see §2 for one-line status per wave.
 - Cursor lane and Claude lane work concurrently; both reference the
   same `ROADMAP_W234_to_v10.md` for sequencing.
 
-### 6.2 Wave B — TARS-unique edge (4-12 weeks, W261-W320)
+### 6.2 Wave B — TARS-unique edge (✅ SHIPPED, W250-W259)
 
 **Goal:** features Cursor cannot copy without redesigning its core.
+
+**Status (W264).** Closed. See §2 Wave B table.
 
 | # | Item                                         | Effort | Why it matters |
 |---|----------------------------------------------|--------|----------------|
@@ -710,11 +742,13 @@ in the cockpit; see §2 for one-line status per wave.
 | B9 | Codebase index scale-up (500K LoC, <200ms)   | L | Incremental rebuild + warm cache + local model fallback |
 | B10 | Update channel — Tauri updater JSON published| S | First auto-update lands without operator action |
 
-**Target ship:** 2026-09-01, tag `v9.5.0`.
+**Shipped:** 2026-05-15, bundled into `v10.0.0-rc.1` (was originally targeted at `v9.5.0`; accelerated by 4 months).
 
-### 6.3 Wave C — beyond Cursor (12+ weeks, W321+)
+### 6.3 Wave C — beyond Cursor (✅ SHIPPED, W260-W263)
 
 **Goal:** the surface area Cursor structurally cannot serve.
+
+**Status (W264).** Closed. See §2 Wave C table. v10.0 GA polish — §6.4.
 
 | # | Item                                          | Effort | Why it matters |
 |---|-----------------------------------------------|--------|----------------|
@@ -725,9 +759,28 @@ in the cockpit; see §2 for one-line status per wave.
 | C5 | On-prem TARS for funds/enterprises            | XL | First on-prem deployment to a regulated org |
 | C6 | Domain-pack federation (wealth pack calls health pack) | M | Federated receipts across packs under user consent |
 
-**Target ship:** 2026-12-15, tag `v10.0.0` GA.
+**Shipped (rc1):** 2026-05-15, tag `v10.0.0-rc.1`. **GA target:** 2026-05-22 after 1-week soak; `v10.0.0`.
 
-### 6.4 Risks to watch
+### 6.4 Path to v10.0 GA (1 week)
+
+What stands between `v10.0.0-rc.1` and the GA tag — see release notes
+`docs/RELEASE_NOTES_v10.0-rc1.md` §10 for the full version. Top 5:
+
+1. **rc1 soak on Alien's main host** — 1 week, daily `bash scripts/SMOKE-TEST.command`.
+2. **Brother goes live** on `/api/billing/{usage,topup,tier}` (tier-cap
+   UX falls back to local replay today; GA wants cloud reconciliation).
+3. **Apple Developer .p12 in CI** so every tag auto-ships a signed +
+   notarized .dmg.
+4. **VS Code marketplace first publish** for `tars-tab` (W254 + W259).
+5. **One paying on-prem customer** running the v10.0 image end-to-end
+   via `scripts/ONPREM-DEPLOY/install.sh`, OIDC wired, monitoring +
+   backup playbook drilled. Proof the W263 kit works.
+
+Cut GA tag: bump `10.0.0-rc.1` → `10.0.0` in the same constants W264
+touched, then `bash scripts/RELEASE-v10.0.command` (clone of
+`RELEASE-v10.0-rc1.command`).
+
+### 6.5 Risks to watch
 
 | Risk | Severity | Mitigation |
 |------|----------|------------|

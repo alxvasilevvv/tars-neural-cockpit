@@ -52,7 +52,7 @@ def _service_name() -> str:
 
 
 def _service_version() -> str:
-    return os.getenv("OTEL_SERVICE_VERSION") or "9.3.0-beta.1"
+    return os.getenv("OTEL_SERVICE_VERSION") or "10.0.0-rc.1"
 
 
 def init_otel() -> bool:

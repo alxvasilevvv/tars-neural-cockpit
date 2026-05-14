@@ -8,6 +8,7 @@ __pycache__/
 .env.*
 !.env.example
 !**/.env.example
+!**/.env.onprem.example
 .env.local
 node_modules/
 dist/

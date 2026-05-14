@@ -1,6 +1,6 @@
 [package]
 name = "tars-desktop"
-version = "9.3.0-beta.1"
+version = "10.0.0-rc.1"
 description = "TARS — local-first neural cockpit (Tauri shell)"
 authors = ["meeet.world"]
 edition = "2021"

@@ -51,7 +51,7 @@ async def _produce(limit: int) -> AsyncIterator[str]:
         {
             "service": "tars",
             "trace_id": trace_id,
-            "version": "9.3.0-beta.1",
+            "version": "10.0.0-rc.1",
             "domains": domain_slugs,
             "interval_s": PULSE_INTERVAL_S,
         },

@@ -51,7 +51,7 @@ router = APIRouter(prefix="/api/connectors/github", tags=["connectors"])
 _GITHUB_API = "https://api.github.com"
 _DEFAULT_TIMEOUT_S = 12.0
 _CACHE_TTL_S = 60.0
-_USER_AGENT = "TARS-cockpit/9.3.0-beta.1 (+https://tars.meeet.world)"
+_USER_AGENT = "TARS-cockpit/10.0.0-rc.1 (+https://tars.meeet.world)"
 
 # url -> (expires_at, payload_json, status, headers)
 _CACHE: dict[str, tuple[float, Any, int, dict[str, str]]] = {}

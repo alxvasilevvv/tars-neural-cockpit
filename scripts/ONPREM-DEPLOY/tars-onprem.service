@@ -1,0 +1,61 @@
+# scripts/ONPREM-DEPLOY/tars-onprem.service — W263
+#
+# systemd unit for Linux deployment of the on-prem stack. Install with:
+#
+#   sudo cp scripts/ONPREM-DEPLOY/tars-onprem.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now tars-onprem.service
+#
+# Status:    systemctl status tars-onprem
+# Logs:      journalctl -u tars-onprem -f
+# Restart:   sudo systemctl restart tars-onprem
+#
+# This unit shells out to docker compose; the heavy lifting is in
+# docker-compose.yml. We use Type=oneshot+RemainAfterExit because
+# `docker compose up -d` returns once containers are started, and the
+# container restart policies handle process supervision from there.
+
+[Unit]
+Description=TARS on-prem stack (docker compose)
+Documentation=https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/ONPREM_DEPLOYMENT_GUIDE.md
+After=docker.service network-online.target
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+
+# Override these if you installed somewhere other than /opt/tars or run
+# the service as a non-root user (recommended in prod).
+Environment=TARS_ONPREM_DIR=/opt/tars
+WorkingDirectory=/opt/tars/scripts/ONPREM-DEPLOY
+
+# Pre-check: docker daemon reachable.
+ExecStartPre=/usr/bin/docker info
+
+# Up — pulls latest images for the pinned tag, then brings stack up.
+ExecStart=/usr/bin/docker compose --env-file .env.onprem -f docker-compose.yml up -d --remove-orphans
+
+# Reload — picks up env changes without taking the stack down.
+ExecReload=/usr/bin/docker compose --env-file .env.onprem -f docker-compose.yml up -d --remove-orphans
+
+# Down on stop. --remove-orphans cleans up any stale containers from a
+# previous topology.
+ExecStop=/usr/bin/docker compose --env-file .env.onprem -f docker-compose.yml down
+
+# Don't kill containers on restart — let compose orchestrate.
+KillMode=none
+
+# A simple liveness gate: after start, hit /health up to 30 times at 4s
+# intervals before declaring success.
+ExecStartPost=/bin/sh -c 'for i in $(seq 1 30); do curl -fsS http://127.0.0.1/health && exit 0; sleep 4; done; exit 1'
+
+# Resource hardening — adjust to taste.
+TimeoutStartSec=600
+TimeoutStopSec=120
+Restart=on-failure
+RestartSec=10s
+
+[Install]
+WantedBy=multi-user.target

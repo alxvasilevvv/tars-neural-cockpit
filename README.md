@@ -3,29 +3,33 @@
 > Billed through [`meeet.world`](https://meeet.world). Cursor-grade polish.
 > 7 life-domain packs. Voice-first. Sovereign data. On-chain proof.
 
-[![version](https://img.shields.io/badge/version-9.3.0--beta1-blue)](docs/RELEASE_NOTES_v9.3.0-beta1.md)
-[![platform](https://img.shields.io/badge/platform-macOS-lightgrey)](docs/WHAT_WORKS_v9.2.0-beta2.md)
+[![version](https://img.shields.io/badge/version-10.0.0--rc1-blueviolet)](docs/RELEASE_NOTES_v10.0-rc1.md)
+[![platform](https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20on--prem-lightgrey)](docs/ONPREM_DEPLOYMENT_GUIDE.md)
 [![tests](https://img.shields.io/badge/pytest-400%2B%20passed-brightgreen)](docs/SMOKE-TEST-RESULTS.md)
 [![meeet](https://img.shields.io/badge/meeet.world-integrated-7c3aed)](docs/HANDOFF_v9.2.0-beta2_FOR_BROTHER.md)
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 
-## What's new in v9.3.0-beta1 (Wave A — Cursor parity)
+## What's new in v10.0.0-rc.1 (Wave A + B + C bundled)
 
-- **Cursor parity panels** (W237-W240) — Models switcher with live cost
-  labels, MCP servers panel, rules system (`.tars/rules.yml` + per-pack
-  overlay), @-mention context (`@file:`, `@docs:`, `@web:`, `@recent:`,
-  `@code:`, `@agent:`). The four panels TARS was missing.
-- **Cmd+K palette v2** (W246) — fuzzy search across actions / files /
-  docs / recents / agents / settings. ~10ms on 5k entries.
-- **Codebase indexer v0** (W245) — tree-sitter incremental index, multi-
-  language, SQLite + `sqlite-vec`. `/api/codebase/search`.
-- **Unified WS event bus** (W248) — single `/ws/events` replaces seven
-  polling clients across the cockpit.
-- **Tier cap UX** (W242) — soft 80% / hard 100% blocks with topup prompt,
-  wired through the W235 consumption console.
-- **Privacy mode + data plane** (W244) — `local` / `cloud` /
-  `cloud_redacted` toggle with always-visible status bar.
-- **Background agents tray** (W241) + **notepad templates** (W243).
+Three waves of work close the Cursor parity gap, ship TARS-unique edge,
+and move beyond Cursor into surfaces it structurally cannot serve.
+
+- **Wave A (W237-W249)** — Cursor parity panels, Cmd+K palette v2,
+  codebase indexer v0, unified WS event bus, tier-cap UX, privacy mode.
+  Originally shipped as `v9.3.0-beta1`.
+- **Wave B (W250-W259)** — Voice-driven Composer (W253) with diff
+  preview + receipt anchoring, `tars-tab` VS Code extension scaffold
+  (W254), receipt-anchored audit explorer (W255), domain-pack-aware
+  composer (W256), SOC2 + GDPR + compliance bundle (W257), real
+  launchd bg-agents + VS Code marketplace publish prep (W258 + W259).
+- **Wave C (W260-W263)** — T2T code review handoff (W260), agent
+  marketplace v0 (W261), voice-first pair programming in Composer
+  (W262), **on-prem TARS deployment kit** (W263) with one-line
+  installer, Postgres parity, SAML/OIDC bridge, systemd unit, and a
+  435-line operator playbook.
+
+Path to GA: 1-week rc1 soak + 4 operator items
+([release notes §10](docs/RELEASE_NOTES_v10.0-rc1.md)).
 
 ## Read first
 

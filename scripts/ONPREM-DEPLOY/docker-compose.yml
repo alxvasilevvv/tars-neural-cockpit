@@ -1,0 +1,157 @@
+# scripts/ONPREM-DEPLOY/docker-compose.yml — W263
+#
+# Self-hosted TARS stack for enterprise customers who cannot or will not
+# call out to meeet.world. Everything that the cockpit needs lives in
+# this compose file:
+#
+#   - backend       FastAPI (uvicorn) on :8765 — same code as the
+#                   /Applications/TARS.app sidecar; Postgres-backed at
+#                   scale instead of SQLite.
+#   - watchdog      keeps the backend up; mirrors scripts/backend-watchdog.command.
+#   - postgres      replaces ~/.tars/*.sqlite for multi-user scale.
+#   - nginx         reverse-proxy in front of backend + cockpit assets.
+#                   Terminates TLS (operator drops cert in ./certs/).
+#   - meeet-mock    optional — only spun up when ONPREM_MOCK_MEEET=1.
+#                   Stands in for the brother's cloud endpoints
+#                   (auth, billing, ingest) so air-gapped sites still
+#                   exercise the full code path.
+#
+# Bring up:   bash scripts/ONPREM-DEPLOY/install.sh
+# Stop:       docker compose -f scripts/ONPREM-DEPLOY/docker-compose.yml down
+# Logs:       docker compose -f scripts/ONPREM-DEPLOY/docker-compose.yml logs -f backend
+
+version: "3.9"
+
+name: tars-onprem
+
+services:
+  # ── 1. Backend (FastAPI / uvicorn) ─────────────────────────────────
+  backend:
+    build:
+      context: ../..
+      dockerfile: scripts/ONPREM-DEPLOY/Dockerfile.backend
+    image: tars/backend:10.0.0-rc.1
+    container_name: tars-backend
+    restart: unless-stopped
+    env_file:
+      - .env.onprem
+    environment:
+      # Force on-prem mode — flips backend/core/onprem/local_auth.py in
+      # place of the meeet.world auth handshake.
+      MEEET_MODE: onprem
+      TARS_AUTH_LOCAL: "1"
+      # Postgres connection — backend/core/onprem/pg_migrations.py mirrors
+      # the SQLite schema and runs Alembic up on boot.
+      TARS_DB_DRIVER: postgresql+psycopg
+      TARS_DB_URL: postgresql+psycopg://tars:${POSTGRES_PASSWORD:-tars}@postgres:5432/tars
+      # No outbound calls in default on-prem profile.
+      MEEET_INGEST_URL: ""
+      MEEET_BILLING_BASE_URL: ""
+      # Receipts still hash-chain locally; on-chain anchor is opt-in via
+      # ANCHOR_SOLANA_RPC_URL (operator decides if outbound is allowed).
+    depends_on:
+      postgres:
+        condition: service_healthy
+    expose:
+      - "8765"
+    volumes:
+      - tars-data:/root/.tars
+      - ./logs:/var/log/tars
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8765/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ── 2. Watchdog — restarts backend if heartbeat goes stale ─────────
+  watchdog:
+    image: tars/backend:10.0.0-rc.1
+    container_name: tars-watchdog
+    restart: unless-stopped
+    entrypoint: ["python", "-m", "backend.core.daemon.watchdog"]
+    environment:
+      WATCHDOG_TARGET_URL: http://backend:8765/health
+      WATCHDOG_INTERVAL_S: "15"
+      WATCHDOG_RESTART_CMD: ""  # docker restart handled by compose
+    depends_on:
+      - backend
+    volumes:
+      - ./logs:/var/log/tars
+
+  # ── 3. Postgres (replaces SQLite for scale) ────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: tars-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: tars
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-tars}
+      POSTGRES_DB: tars
+    volumes:
+      - tars-pg:/var/lib/postgresql/data
+      - ./pg-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tars -d tars"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  # ── 4. nginx reverse-proxy + cockpit static assets ─────────────────
+  nginx:
+    build:
+      context: ../..
+      dockerfile: scripts/ONPREM-DEPLOY/Dockerfile.frontend
+    image: tars/frontend:10.0.0-rc.1
+    container_name: tars-nginx
+    restart: unless-stopped
+    ports:
+      - "${TARS_HTTP_PORT:-80}:80"
+      - "${TARS_HTTPS_PORT:-443}:443"
+    depends_on:
+      - backend
+    volumes:
+      - ./certs:/etc/nginx/certs:ro
+      - ./logs/nginx:/var/log/nginx
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "-", "http://127.0.0.1/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  # ── 5. Optional meeet.world mock — only when --profile mock-meeet ──
+  # Compose profile keeps it off by default; enable with:
+  #   docker compose --profile mock-meeet up -d
+  meeet-mock:
+    image: tars/backend:10.0.0-rc.1
+    container_name: tars-meeet-mock
+    profiles: ["mock-meeet"]
+    restart: unless-stopped
+    entrypoint:
+      - python
+      - -m
+      - backend.core.onprem.meeet_mock_server
+    environment:
+      MOCK_BIND: 0.0.0.0:8766
+      MOCK_TIER: business
+      MOCK_BALANCE_USD: "1000.00"
+    expose:
+      - "8766"
+
+volumes:
+  tars-data:
+    driver: local
+  tars-pg:
+    driver: local
+
+# Bring everything up:
+#   cp scripts/ONPREM-DEPLOY/.env.onprem.example scripts/ONPREM-DEPLOY/.env.onprem
+#   (edit secrets)
+#   docker compose -f scripts/ONPREM-DEPLOY/docker-compose.yml up -d
+#
+# Health check:
+#   curl -fsS http://localhost/health
+#
+# Update to next release (zero-downtime if behind nginx LB):
+#   docker compose -f scripts/ONPREM-DEPLOY/docker-compose.yml pull
+#   docker compose -f scripts/ONPREM-DEPLOY/docker-compose.yml up -d --no-deps backend

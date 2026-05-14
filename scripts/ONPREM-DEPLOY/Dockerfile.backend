@@ -1,0 +1,71 @@
+# scripts/ONPREM-DEPLOY/Dockerfile.backend — W263
+#
+# Builds the TARS FastAPI sidecar as an OCI image for self-hosted
+# deployments. Pinned to Python 3.12 (same minor as the .app sidecar).
+#
+# Build:
+#   docker build -f scripts/ONPREM-DEPLOY/Dockerfile.backend \
+#       -t tars/backend:10.0.0-rc.1 .
+#
+# Image surface:
+#   /app                — repo checkout (backend/ + web_extras/ + scripts/)
+#   /root/.tars         — persistent state (mount a volume)
+#   /var/log/tars       — runtime logs
+#
+# Entrypoint: uvicorn web_extras.app:app --host 0.0.0.0 --port 8765
+
+FROM python:3.12-slim-bookworm AS base
+
+# Pinned for reproducible builds; bump only with intent.
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
+
+# Native deps for tree-sitter (W245 codebase indexer), pillow (vision),
+# psycopg (postgres), zbar (ocr).
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      build-essential \
+      libpq5 libpq-dev \
+      libjpeg-dev zlib1g-dev \
+      libtesseract-dev tesseract-ocr \
+      ca-certificates \
+      curl wget \
+      git \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# Dependency install first — keeps the layer cache fat & re-usable.
+COPY requirements.txt /app/requirements.txt
+RUN pip install --upgrade pip && \
+    pip install -r /app/requirements.txt && \
+    pip install \
+        "uvicorn[standard]==0.30.6" \
+        "psycopg[binary,pool]==3.2.1" \
+        "alembic==1.13.2" \
+        "prometheus-client==0.20.0"
+
+# App source.
+COPY backend /app/backend
+COPY web_extras /app/web_extras
+COPY scripts /app/scripts
+COPY data /app/data
+
+# Drop privileges — never run uvicorn as root in prod.
+RUN groupadd -r tars && useradd -r -g tars -d /home/tars -m tars && \
+    mkdir -p /home/tars/.tars /var/log/tars && \
+    chown -R tars:tars /home/tars /var/log/tars /app
+
+USER tars
+ENV HOME=/home/tars
+
+# /health is the canonical liveness probe.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
+    CMD curl -fsS http://127.0.0.1:8765/health || exit 1
+
+EXPOSE 8765
+
+# Run Alembic migrations on boot before uvicorn starts. pg_migrations.py
+# is idempotent — re-runs on every container start are safe.
+ENTRYPOINT ["/bin/sh", "-c", "python -m backend.core.onprem.pg_migrations && exec uvicorn web_extras.app:app --host 0.0.0.0 --port 8765 --workers ${UVICORN_WORKERS:-2} --log-level ${UVICORN_LOG_LEVEL:-info}"]

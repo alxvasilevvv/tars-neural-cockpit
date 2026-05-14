@@ -18,9 +18,9 @@ restate it in the master doc — link to it instead.**
 
 | Doc | What it is | Last touched |
 |---|---|---|
-| [TARS_MASTER_DOC.md](TARS_MASTER_DOC.md) | Single source of truth — North Star, architecture, roadmap, operator manual, brother brief, anti-patterns. ~1260 lines. | W247 |
+| [TARS_MASTER_DOC.md](TARS_MASTER_DOC.md) | Single source of truth — North Star, architecture, roadmap, operator manual, brother brief, anti-patterns. ~1320 lines. | W264 |
 | [README.md](README.md) | Repo front door — banner, what's new, quick start, pointer to master doc. | W236 |
-| [PROJECT_INDEX.md](PROJECT_INDEX.md) | This file. | W247 |
+| [PROJECT_INDEX.md](PROJECT_INDEX.md) | This file. | W264 |
 | [CURRENT_STATUS.md](CURRENT_STATUS.md) | Daily-glance snapshot — last 10 commits, what works, brother dependencies, next 3 shipping. ~80 lines. | W247 |
 
 ## Strategy
@@ -50,6 +50,7 @@ restate it in the master doc — link to it instead.**
 | [docs/SECURITY_BASELINE.md](docs/SECURITY_BASELINE.md) | Hardening defaults, key handling. | W79 |
 | [docs/OBSERVABILITY.md](docs/OBSERVABILITY.md) | OpenTelemetry contract, request_id propagation. | W32 |
 | [docs/MEEET_INTEGRATION_MAP.md](docs/MEEET_INTEGRATION_MAP.md) | Per-endpoint contract for the `meeet.world` integration surface. | W148 |
+| [docs/ONPREM_DEPLOYMENT_GUIDE.md](docs/ONPREM_DEPLOYMENT_GUIDE.md) | **W263 — On-prem deployment playbook.** 435 lines. Hardware reqs, one-line install, IdP setup (SAML/OIDC), backup/restore, Prometheus + OTel monitoring, air-gapped path, hardening checklist. Pairs with `scripts/ONPREM-DEPLOY/` + `backend/core/onprem/`. | W263 |
 | [docs/contracts/](docs/contracts/) | JSON Schema event contracts (per-version). | various |
 
 ## Operations
@@ -134,6 +135,8 @@ restate it in the master doc — link to it instead.**
 | [docs/RELEASE_NOTES_v9.1.4.md](docs/RELEASE_NOTES_v9.1.4.md) | v9.1.4 | Windows daemon parity + `--watch` mode + 3 new checks. |
 | [docs/RELEASE_NOTES_v9.2.0-beta1.md](docs/RELEASE_NOTES_v9.2.0-beta1.md) | v9.2.0-beta1 | Control Center cockpit + AI Clone webhook + first usage event. |
 | [docs/RELEASE_NOTES_v9.2.0-beta2.md](docs/RELEASE_NOTES_v9.2.0-beta2.md) | v9.2.0-beta2 | Auth gate + voice cockpit + meeet handshake + consumption console. |
+| [docs/RELEASE_NOTES_v9.3.0-beta1.md](docs/RELEASE_NOTES_v9.3.0-beta1.md) | v9.3.0-beta1 | Wave A — Cursor parity panels + Cmd+K v2 + codebase indexer + WS event bus + tier cap UX + privacy mode. |
+| [docs/RELEASE_NOTES_v10.0-rc1.md](docs/RELEASE_NOTES_v10.0-rc1.md) | v10.0.0-rc.1 | Wave A + B + C bundled — voice Composer + VS Code ext + audit explorer + SOC2 + T2T + marketplace + voice pair-prog + on-prem kit. |
 | [CHANGELOG.md](CHANGELOG.md) | (rolling) | Top-level rolling changelog. |
 | [docs/CHANGELOG_PUBLIC.md](docs/CHANGELOG_PUBLIC.md) | (rolling) | User-facing changelog (auto-generated from commits). |
 | [docs/CHANGELOG_AGENTS.md](docs/CHANGELOG_AGENTS.md) | (rolling) | Per-edit log for agents. Append, don't rewrite. |
