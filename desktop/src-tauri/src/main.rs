@@ -140,6 +140,23 @@ fn main() {
                 eprintln!("[tars.desktop] sidecar.spawn failed: {err}");
             }
 
+            // ─── W226: DevTools auto-open via env flag ───────────────
+            // If `TARS_DEVTOOLS=1` is set in the environment, open the
+            // DevTools window on boot. The `devtools` Cargo feature on
+            // `tauri` enables right-click → "Inspect Element" on every
+            // WebView at compile time; this just toggles the auto-open
+            // for headless live-debug runs. Soft-fails if the window
+            // can't be found (e.g. before setup is complete).
+            #[cfg(any(debug_assertions, feature = "devtools"))]
+            if std::env::var("TARS_DEVTOOLS").as_deref() == Ok("1") {
+                if let Some(win) = app.get_webview_window("main") {
+                    win.open_devtools();
+                    info!("tars.desktop.devtools.opened reason=env=TARS_DEVTOOLS=1");
+                } else {
+                    warn!("tars.desktop.devtools.no_main_window");
+                }
+            }
+
             // ─── Global shortcut: Cmd/Ctrl+Shift+Space ───────────────
             // Spotlight-style summon. The handler is registered up
             // above on the plugin builder; here we just register the

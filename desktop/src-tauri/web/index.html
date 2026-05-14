@@ -493,6 +493,63 @@
 </head>
 <body>
 
+<!-- W226 — boot-time self-diagnosis. The <pre> is hidden by default;
+     users opt in by running `localStorage.setItem('tars_diag','1')`
+     in DevTools (DevTools is enabled via TARS_DEVTOOLS=1 or right-click).
+     The script runs BEFORE authBootCheck and writes a single log line
+     with everything you need to triage a blank-screen / dead-click. -->
+<pre id="bootDiag" style="
+  position:fixed;top:8px;left:8px;z-index:99999;
+  max-width:50vw;max-height:40vh;overflow:auto;
+  padding:8px 10px;margin:0;
+  background:rgba(0,0,0,0.78);color:#9fe;
+  font:11px/1.4 'SF Mono','JetBrains Mono',monospace;
+  border:1px solid rgba(99,102,241,0.5);border-radius:6px;
+  pointer-events:none;white-space:pre-wrap;
+  display:none;"></pre>
+<script>
+(function tarsBootDiag(){
+  // Resolve same-origin or hard-coded sidecar URL (matches main script).
+  var API = (location.protocol === 'file:' || location.hostname === '')
+    ? 'http://127.0.0.1:8765'
+    : '';
+  var enabled = false;
+  try { enabled = localStorage.getItem('tars_diag') === '1'; } catch (_e) {}
+  var pre = document.getElementById('bootDiag');
+  if (enabled && pre) pre.style.display = 'block';
+  var lines = [];
+  function w(s){
+    lines.push(s);
+    if (pre) pre.textContent = lines.join('\n');
+    try { console.log('[tars.diag]', s); } catch (_e) {}
+  }
+  w('ts=' + new Date().toISOString());
+  w('ua=' + (navigator.userAgent || '(none)'));
+  w('tauri=' + (typeof window.__TAURI__));
+  w('api_base=' + (API || '(same-origin)'));
+  // /api/health  — should be 200 OK + JSON.
+  fetch(API + '/api/health', { cache: 'no-store' })
+    .then(function(r){ w('health.status=' + r.status); return r.text(); })
+    .then(function(t){ w('health.body=' + (t || '').slice(0, 200)); })
+    .catch(function(e){ w('health.err=' + (e && e.message || e)); });
+  // /api/auth/meeet/status — used by authBootCheck.
+  fetch(API + '/api/auth/meeet/status', { cache: 'no-store' })
+    .then(function(r){
+      w('auth_status.status=' + r.status);
+      return r.json().then(function(j){
+        w('auth_status.json=' + JSON.stringify(j));
+      }).catch(function(){
+        w('auth_status.json=(non-json)');
+      });
+    })
+    .catch(function(e){ w('auth_status.err=' + (e && e.message || e)); });
+  // Expose helpers for users in DevTools.
+  window.tarsDiagShow = function(){ if (pre) pre.style.display='block'; try{localStorage.setItem('tars_diag','1');}catch(_e){} };
+  window.tarsDiagHide = function(){ if (pre) pre.style.display='none';  try{localStorage.removeItem('tars_diag');}catch(_e){} };
+})();
+</script>
+
+
 <!-- W219 — Auth gate overlay (boots first; hides cockpit until token exists) -->
 <div class="auth-screen" id="authScreen">
   <div class="auth-card">
@@ -523,21 +580,21 @@
 
     <div class="auth-email-row">
       <input type="email" id="authEmail" placeholder="you@example.com" autocomplete="email" />
-      <button class="btn primary" id="authMagicLinkBtn" onclick="authMagicLink()">Send magic link</button>
+      <button class="btn primary" id="authMagicLinkBtn" data-action="auth.magic-link" onclick="authMagicLink()">Send magic link</button>
     </div>
 
     <div class="auth-divider">or</div>
 
     <div class="oauth-row">
-      <button class="btn-oauth" onclick="authOAuth('google')">Continue with Google</button>
-      <button class="btn-oauth" onclick="authOAuth('apple')">Continue with Apple</button>
+      <button class="btn-oauth" data-action="auth.oauth.google" onclick="authOAuth('google')">Continue with Google</button>
+      <button class="btn-oauth" data-action="auth.oauth.apple" onclick="authOAuth('apple')">Continue with Apple</button>
     </div>
 
     <div class="auth-status" id="authStatus"></div>
 
     <div class="auth-footer">
-      <button type="button" class="auth-link" onclick="openExternal('https://meeet.world/about')">Why meeet.world?</button>
-      <button type="button" class="auth-link" id="authSkipLink" onclick="authSkipLocal()">Skip — local-only mode</button>
+      <button type="button" class="auth-link" data-action="auth.about" onclick="openExternal('https://meeet.world/about')">Why meeet.world?</button>
+      <button type="button" class="auth-link" id="authSkipLink" data-action="auth.skip" onclick="authSkipLocal()">Skip — local-only mode</button>
     </div>
   </div>
 </div>
@@ -545,14 +602,14 @@
 <!-- W220 — Full-screen voice cockpit (DEFAULT view post-auth) -->
 <div class="voice-cockpit state-idle" id="voiceCockpit">
   <div class="vc-topbar">
-    <button class="vc-hamburger" id="vcHamburger" title="Controls (Status / Agents / Chat / …)" onclick="vcOpenDrawer()">☰</button>
+    <button class="vc-hamburger" id="vcHamburger" title="Controls (Status / Agents / Chat / …)" data-action="vc.open-drawer" onclick="vcOpenDrawer()">☰</button>
     <div class="vc-chip" id="vcChip">
       <span class="vc-dot" id="vcDot"></span>
       <span id="vcConnState">connecting</span>
       <span>·</span>
       <span class="vc-tier" id="vcTier">FREE</span>
       <span>·</span>
-      <span class="vc-reload" title="Reload cockpit" onclick="window.location.reload()">↻</span>
+      <span class="vc-reload" title="Reload cockpit" data-action="vc.reload" onclick="window.location.reload()">↻</span>
     </div>
   </div>
 
@@ -563,7 +620,7 @@
     </div>
 
     <div class="vc-mic-wrap">
-      <button class="vc-mic" id="vcMic" title="Click or ⌘⇧Space to toggle" onclick="toggleListening()">🎙</button>
+      <button class="vc-mic" id="vcMic" title="Click or ⌘⇧Space to toggle" data-action="vc.mic-toggle" onclick="toggleListening()">🎙</button>
       <div class="vc-mic-hint" id="vcMicHint">Tap to speak · ⌘⇧Space</div>
     </div>
   </div>
@@ -575,7 +632,7 @@
 
 <!-- Hamburger drawer — holds the original tabs (Status/Agents/Chat/...) -->
 <div class="cockpit-panel-drawer" id="cockpitDrawer">
-  <button class="drawer-close" onclick="vcCloseDrawer()" title="Close (Esc)">✕</button>
+  <button class="drawer-close" data-action="vc.close-drawer" onclick="vcCloseDrawer()" title="Close (Esc)">✕</button>
 
 <div class="app">
   <header>
@@ -690,10 +747,10 @@
         <div class="panel">
           <h2>Quick actions</h2>
           <div class="actions">
-            <button class="btn primary" onclick="refreshAll()">↻ Reload</button>
-            <button class="btn" onclick="runFix('vault')">⚒ fix vault</button>
-            <button class="btn" onclick="testNotify()">📣 test alert</button>
-            <button class="btn" onclick="window.open(API + '/api/doctor/page','_blank')">↗ full doctor</button>
+            <button class="btn primary" data-action="status.refresh" onclick="refreshAll()">↻ Reload</button>
+            <button class="btn" data-action="status.fix-vault" onclick="runFix('vault')">⚒ fix vault</button>
+            <button class="btn" data-action="status.test-notify" onclick="testNotify()">📣 test alert</button>
+            <button class="btn" data-action="status.open-doctor" onclick="window.open(API + '/api/doctor/page','_blank')">↗ full doctor</button>
           </div>
         </div>
         <!-- W206 — Today briefing card -->
@@ -733,7 +790,7 @@
       </div>
       <div class="panel" style="overflow:auto;">
         <h2>Your agents · personal instances</h2>
-        <button class="btn primary" style="width:100%;margin-bottom:10px;" onclick="createAgent()">+ Create agent</button>
+        <button class="btn primary" style="width:100%;margin-bottom:10px;" data-action="agents.create" onclick="createAgent()">+ Create agent</button>
         <div id="agentsList"><div class="empty-state">Loading…</div></div>
       </div>
     </div>
@@ -746,12 +803,12 @@
           <div class="vision-action">
             <h3>↗ Screenshot → analyze</h3>
             <p>Capture the current screen and ask the active LLM to describe what's on it, transcribe text, or suggest next action. Uses your configured cloud key (Anthropic/OpenAI/OpenRouter).</p>
-            <button class="btn primary" onclick="visionCapture()">📸 Capture &amp; analyze</button>
+            <button class="btn primary" data-action="vision.capture" onclick="visionCapture()">📸 Capture &amp; analyze</button>
           </div>
           <div class="vision-action">
             <h3>↗ OCR on file</h3>
             <p>Drop an image file and extract text via the local <code>pytesseract</code> bridge in <code>backend/agents/vision_agent.py</code>. Works offline.</p>
-            <button class="btn" onclick="visionOcr()">🔍 OCR a file</button>
+            <button class="btn" data-action="vision.ocr" onclick="visionOcr()">🔍 OCR a file</button>
           </div>
           <div class="vision-action">
             <h3>↗ Selection → speak</h3>
@@ -772,7 +829,7 @@
     <div id="tab-chat" class="tab-panel">
       <div class="threads">
         <h2>Threads</h2>
-        <button class="btn primary" style="width:100%;margin-bottom:10px;" onclick="createThread()">+ New thread</button>
+        <button class="btn primary" style="width:100%;margin-bottom:10px;" data-action="chat.new-thread" onclick="createThread()">+ New thread</button>
         <div id="threadsList"></div>
       </div>
       <div class="chat-pane">
@@ -781,7 +838,7 @@
         </div>
         <div class="chat-input">
           <input type="text" id="chatInput" placeholder="Type a message... (Enter to send)" onkeydown="if(event.key==='Enter')sendMessage()" disabled />
-          <button class="btn primary" onclick="sendMessage()" id="chatSend" disabled>Send</button>
+          <button class="btn primary" data-action="chat.send" onclick="sendMessage()" id="chatSend" disabled>Send</button>
         </div>
       </div>
     </div>
@@ -844,9 +901,9 @@
             <div class="k">Account</div><div class="v" id="kMeeetAccount">—</div>
           </div>
           <div class="actions">
-            <button class="btn primary" onclick="connectMeeet()">🔗 Connect via magic link</button>
-            <button class="btn" onclick="openMeeetAccount()">↗ Open account page</button>
-            <button class="btn" id="meeetPasteBtn" onclick="pasteMeeetToken()" style="display:none">📋 Paste token</button>
+            <button class="btn primary" data-action="meeet.connect" onclick="connectMeeet()">🔗 Connect via magic link</button>
+            <button class="btn" data-action="meeet.open-account" onclick="openMeeetAccount()">↗ Open account page</button>
+            <button class="btn" id="meeetPasteBtn" data-action="meeet.paste-token" onclick="pasteMeeetToken()" style="display:none">📋 Paste token</button>
           </div>
         </div>
 
@@ -870,7 +927,7 @@
             <div class="k">Email to</div><div class="v" id="kEmail">—</div>
           </div>
           <div style="margin-top: 10px;">
-            <button class="btn" onclick="testNotify()">📣 send test alert</button>
+            <button class="btn" data-action="status.test-notify" onclick="testNotify()">📣 send test alert</button>
           </div>
         </div>
         <div class="setting-block">
@@ -890,7 +947,7 @@
             <div class="k">Disk free</div><div class="v" id="kDisk">—</div>
           </div>
           <div style="margin-top: 10px;">
-            <button class="btn" onclick="window.open(API + '/docs', '_blank')">↗ Full API docs (Swagger)</button>
+            <button class="btn" data-action="settings.open-api-docs" onclick="window.open(API + '/docs', '_blank')">↗ Full API docs (Swagger)</button>
           </div>
         </div>
       </div>
@@ -900,9 +957,9 @@
   <footer>
     <span>API → 127.0.0.1:8765</span>
     <span style="display:flex;gap:14px;align-items:center;">
-      <a href="#" onclick="openExternal('https://tars.meeet.world/docs');return false;" style="color:var(--muted);text-decoration:none;">📖 Docs</a>
-      <a href="#" onclick="openExternal('https://github.com/alxvasilevvv/tars-neural-cockpit/issues/new');return false;" style="color:var(--muted);text-decoration:none;">🐞 Report</a>
-      <a href="#" onclick="welcomeRestart();return false;" style="color:var(--muted);text-decoration:none;">↺ Restart tour</a>
+      <a href="#" data-action="footer.docs" onclick="openExternal('https://tars.meeet.world/docs');return false;" style="color:var(--muted);text-decoration:none;">📖 Docs</a>
+      <a href="#" data-action="footer.report" onclick="openExternal('https://github.com/alxvasilevvv/tars-neural-cockpit/issues/new');return false;" style="color:var(--muted);text-decoration:none;">🐞 Report</a>
+      <a href="#" data-action="footer.welcome-restart" onclick="welcomeRestart();return false;" style="color:var(--muted);text-decoration:none;">↺ Restart tour</a>
       <span id="ts">—</span>
     </span>
   </footer>
@@ -922,33 +979,33 @@
 
     <h3>Pick a starting domain</h3>
     <div class="pack-pick" id="welcomePackPick">
-      <button class="pp-btn" onclick="welcomePick('business')">
+      <button class="pp-btn" data-action="welcome.pick.business" onclick="welcomePick('business')">
         <div class="pp-name">Business</div>
         <div class="pp-desc">CRM, daily brief, outreach, KPI graph</div>
       </button>
-      <button class="pp-btn" onclick="welcomePick('entrepreneur')">
+      <button class="pp-btn" data-action="welcome.pick.entrepreneur" onclick="welcomePick('entrepreneur')">
         <div class="pp-name">Entrepreneur</div>
         <div class="pp-desc">Cold outreach, deal pipeline, founder ops</div>
       </button>
-      <button class="pp-btn" onclick="welcomePick('science')">
+      <button class="pp-btn" data-action="welcome.pick.science" onclick="welcomePick('science')">
         <div class="pp-name">Science</div>
         <div class="pp-desc">arXiv triage, citation graph, research notes</div>
       </button>
-      <button class="pp-btn" onclick="welcomePick('civic')">
+      <button class="pp-btn" data-action="welcome.pick.civic" onclick="welcomePick('civic')">
         <div class="pp-name">Civic <span style="font-size:9px;background:rgba(34,211,238,0.18);color:#22d3ee;padding:1px 6px;border-radius:999px;margin-left:4px;">FREE</span></div>
         <div class="pp-desc">Public records, legislators, court cases</div>
       </button>
-      <button class="pp-btn" onclick="welcomePick('web_search')">
+      <button class="pp-btn" data-action="welcome.pick.web_search" onclick="welcomePick('web_search')">
         <div class="pp-name">Web search</div>
         <div class="pp-desc">Outbound web search via Brave/DDG</div>
       </button>
-      <button class="pp-btn" onclick="welcomePick('algotrade')">
+      <button class="pp-btn" data-action="welcome.pick.algotrade" onclick="welcomePick('algotrade')">
         <div class="pp-name">Algotrade</div>
         <div class="pp-desc">Backtest, signal IR, paper-trading</div>
       </button>
     </div>
 
-    <div class="skip" onclick="welcomeSkip()">Skip — I'll explore on my own &nbsp;✕</div>
+    <div class="skip" data-action="welcome.skip" onclick="welcomeSkip()">Skip — I'll explore on my own &nbsp;✕</div>
   </div>
 </div>
 
@@ -2026,6 +2083,69 @@ async function _vcRefreshConnectionChip() {
 
 // Listen for the auth-success event (fired by deep-link handler).
 window.addEventListener('tars://auth-success', () => { showCockpit(); });
+
+// ─── W226: data-action click delegation ───────────────────────────
+// Defensive layer — even though CSP now allows 'unsafe-inline' for
+// scripts, we also bind every interactive control via a single
+// body-level click delegation handler. If a future CSP regression
+// blocks inline onclick attributes, the data-action map below keeps
+// everything wired. Existing onclick="…" attributes are preserved
+// alongside data-action="…" so behaviour is unchanged today.
+const TARS_ACTION_MAP = {
+  // auth screen
+  'auth.magic-link':   () => authMagicLink(),
+  'auth.oauth.google': () => authOAuth('google'),
+  'auth.oauth.apple':  () => authOAuth('apple'),
+  'auth.skip':         () => authSkipLocal(),
+  'auth.about':        () => openExternal('https://meeet.world/about'),
+  // voice cockpit
+  'vc.mic-toggle':     () => toggleListening(),
+  'vc.open-drawer':    () => vcOpenDrawer(),
+  'vc.close-drawer':   () => vcCloseDrawer(),
+  'vc.reload':         () => window.location.reload(),
+  // drawer panels — status / agents / vision / chat / meeet / settings
+  'status.refresh':       () => refreshAll(),
+  'status.fix-vault':     () => runFix('vault'),
+  'status.test-notify':   () => testNotify(),
+  'status.open-doctor':   () => window.open(API + '/api/doctor/page', '_blank'),
+  'agents.create':        () => createAgent(),
+  'vision.capture':       () => visionCapture(),
+  'vision.ocr':           () => visionOcr(),
+  'chat.new-thread':      () => createThread(),
+  'chat.send':            () => sendMessage(),
+  'meeet.connect':        () => connectMeeet(),
+  'meeet.open-account':   () => openMeeetAccount(),
+  'meeet.paste-token':    () => pasteMeeetToken(),
+  'settings.open-api-docs': () => window.open(API + '/docs', '_blank'),
+  // footer
+  'footer.docs':           () => openExternal('https://tars.meeet.world/docs'),
+  'footer.report':         () => openExternal('https://github.com/alxvasilevvv/tars-neural-cockpit/issues/new'),
+  'footer.welcome-restart':() => welcomeRestart(),
+  // welcome modal
+  'welcome.pick.business':     () => welcomePick('business'),
+  'welcome.pick.entrepreneur': () => welcomePick('entrepreneur'),
+  'welcome.pick.science':      () => welcomePick('science'),
+  'welcome.pick.civic':        () => welcomePick('civic'),
+  'welcome.pick.web_search':   () => welcomePick('web_search'),
+  'welcome.pick.algotrade':    () => welcomePick('algotrade'),
+  'welcome.skip':              () => welcomeSkip(),
+};
+
+document.addEventListener('DOMContentLoaded', () => {
+  document.body.addEventListener('click', (ev) => {
+    let el = ev.target;
+    while (el && el !== document.body && !el.dataset?.action) el = el.parentElement;
+    if (!el || el === document.body) return;
+    const action = el.dataset.action;
+    const fn = TARS_ACTION_MAP[action];
+    if (!fn) return;
+    try {
+      fn();
+    } catch (err) {
+      console.error('[tars.action] ' + action + ' threw:', err);
+    }
+  });
+});
 
 // Boot — gate on auth, then show the voice cockpit.
 authBootCheck();

@@ -12,7 +12,7 @@ tauri-build = { version = "2.0", features = [] }
 [dependencies]
 # `tray-icon` feature ships the menu-bar tray (macOS) / system-tray
 # (Windows/Linux) APIs as part of core Tauri 2.x. Wave 59 wires it.
-tauri = { version = "2.0", features = ["tray-icon"] }
+tauri = { version = "2.0", features = ["tray-icon", "devtools"] }
 tauri-plugin-shell = "2.0"
 tauri-plugin-notification = "2.0"
 tauri-plugin-updater = "2.0"
