@@ -128,6 +128,21 @@ check_status() {
   check_status POST /api/voice/command '{"transcript":"проверка","lang":"ru-RU"}'
   echo ""
 
+  echo "── Wave A (W237-W248) ──"
+  check_status GET  /api/providers/list
+  check_status GET  /api/providers/active
+  check_status GET  /api/mcp/servers
+  check_status GET  /api/rules
+  check_status GET  /api/mentions/kinds
+  check_status GET  /api/bg_agents
+  check_status GET  /api/usage/cap_status
+  check_status GET  /api/notepads
+  check_status GET  /api/privacy/config
+  check_status GET  /api/codebase/status
+  check_status GET  /api/palette/actions
+  check_status GET  /api/realtime/topics
+  echo ""
+
   echo "── system checks ──"
 
   if launchctl list 2>/dev/null | grep -q "com.tars.backend-watchdog"; then

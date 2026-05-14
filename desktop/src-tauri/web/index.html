@@ -4989,6 +4989,59 @@ const TARS_ACTION_MAP = {
   'welcome.pick.web_search':   () => welcomePick('web_search'),
   'welcome.pick.algotrade':    () => welcomePick('algotrade'),
   'welcome.skip':              () => welcomeSkip(),
+  // W249 — fill gaps so click delegation works for every Wave A surface.
+  // W242 cap UX
+  'cap.dismiss':            () => capDismissBanner(),
+  'cap.topup':              () => capModalTopup(),
+  'cap.bypass':             () => capModalBypass(),
+  // W238 MCP servers panel
+  'mcp.add-server':         () => openMcpAddModal(),
+  'mcp.cancel':             () => closeMcpAddModal(),
+  'mcp.save':               () => saveMcpServer(),
+  'mcp.refresh':            () => loadMcpServers(),
+  'mcp.toggle':             (el) => {
+    if (!el || !el.dataset) return;
+    const sid = el.getAttribute('data-server-id') || '';
+    const en = (el.getAttribute('data-enabled') || 'false') === 'true';
+    if (sid) toggleMcpServer(sid, en);
+  },
+  'mcp.delete':             (el) => {
+    if (!el || !el.dataset) return;
+    const sid = el.getAttribute('data-server-id') || '';
+    const nm  = el.getAttribute('data-server-name') || '';
+    if (sid) deleteMcpServer(sid, nm);
+  },
+  // W244 privacy
+  'privacy.refresh':        () => loadPrivacy(),
+  'privacy.refresh-flows':  () => loadDataPlane(),
+  // W239 rules
+  'rules.add':              () => addRule(),
+  'rules.save':             () => saveRules(),
+  'rules.preview':          () => previewRulesPrompt(),
+  'rules.refresh':          () => loadRules(),
+  'rules.preview.close':    () => closeRulesPreview(),
+  'rules.delete':           (el) => {
+    if (!el) return;
+    const rid = el.getAttribute('data-rule-id') || '';
+    if (rid) removeRule(rid);
+  },
+  // W243 notepads (row actions inside list)
+  'notepads.use':           (el) => {
+    if (!el) return;
+    const nid = el.getAttribute('data-notepad-id') || '';
+    if (nid) useNotepad(nid);
+  },
+  'notepads.edit':          (el) => {
+    if (!el) return;
+    const nid = el.getAttribute('data-notepad-id') || '';
+    openNotepadEditor(nid || undefined);
+  },
+  'notepads.delete-row':    (el) => {
+    if (!el) return;
+    const nid = el.getAttribute('data-notepad-id') || '';
+    const title = el.getAttribute('data-notepad-title') || '';
+    if (nid) quickDeleteNotepad(nid, title);
+  },
 };
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -5000,7 +5053,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const fn = TARS_ACTION_MAP[action];
     if (!fn) return;
     try {
-      fn();
+      fn(el, ev);
     } catch (err) {
       console.error('[tars.action] ' + action + ' threw:', err);
     }
