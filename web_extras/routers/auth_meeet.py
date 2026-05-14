@@ -107,3 +107,71 @@ async def disconnect() -> dict[str, Any]:
         except OSError as exc:
             raise HTTPException(status_code=500, detail={"error": "unlink_failed", "message": str(exc)})
     return {"ok": True, "disconnected": True}
+
+
+# ─── W219 — Magic-link + OAuth start ────────────────────────────────────
+
+
+def _meeet_base() -> str:
+    return os.getenv("MEEET_BASE_URL", "https://meeet.world").rstrip("/")
+
+
+class MagicLinkRequest(BaseModel):
+    """Wrap pydantic EmailStr if available; fall back to plain str so the
+    router still loads on dev machines without pydantic[email] extras."""
+
+    email: str = Field(..., min_length=3, max_length=320)
+
+
+@router.post("/magic-link-start")
+async def magic_link_start(req: MagicLinkRequest) -> dict[str, Any]:
+    """Ask meeet.world to mail a magic-link to the user.
+
+    Returns ``{ok: true, sent: true}`` if the brother's endpoint accepted
+    the request. Returns ``{ok: false, error: "meeet_unreachable"}`` on
+    connection error so the UI can offer a "Skip — local-only" path.
+    """
+    email = (req.email or "").strip().lower()
+    if "@" not in email:
+        raise HTTPException(status_code=422, detail={"error": "bad_email"})
+
+    try:
+        import httpx
+    except ImportError:
+        return {"ok": False, "error": "httpx_unavailable"}
+
+    base = _meeet_base()
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            r = await client.post(
+                f"{base}/api/magic-link/start",
+                json={"email": email, "client": "tars-desktop"},
+            )
+        if 200 <= r.status_code < 300:
+            return {"ok": True, "sent": True, "email": email}
+        return {
+            "ok": False,
+            "error": "meeet_rejected",
+            "status": r.status_code,
+            "body": r.text[:200],
+        }
+    except Exception as exc:
+        logger.warning("auth.meeet.magic_link.unreachable: %s", exc)
+        return {"ok": False, "error": "meeet_unreachable", "message": str(exc)}
+
+
+@router.get("/oauth/{provider}/start")
+async def oauth_start(provider: str) -> dict[str, Any]:
+    """Return the meeet.world OAuth start URL for ``provider``.
+
+    The frontend opens this URL in the default browser; meeet.world
+    handles the IdP dance and finally redirects to ``tars://auth?token=…``
+    which the Tauri deep-link handler picks up.
+    """
+    provider = (provider or "").strip().lower()
+    if provider not in {"google", "apple"}:
+        raise HTTPException(status_code=400, detail={"error": "unsupported_provider"})
+
+    base = _meeet_base()
+    redirect_url = f"{base}/api/oauth/{provider}/start?return=tars://auth"
+    return {"ok": True, "provider": provider, "redirect_url": redirect_url}
