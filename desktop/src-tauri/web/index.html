@@ -1536,6 +1536,8 @@
     <button data-tab="marketplace">Plugins <span class="count" id="mpCount">·</span></button>
     <button data-tab="usage">Usage <span class="count" id="usageCount">·</span></button>
     <button data-tab="audit">Audit <span class="count" id="auditCount">·</span></button>
+    <!-- W260 -- REVIEW: inbox + outbox of T2T code-review handoffs. -->
+    <button data-tab="review">Review <span class="count" id="reviewCount">·</span></button>
     <button data-tab="settings">Settings</button>
   </nav>
 
@@ -1815,6 +1817,28 @@
     </div>
 
     <!-- SETTINGS TAB -->
+    <!-- W260 -- REVIEW TAB: incoming peer reviews + outgoing review status. -->
+    <div id="tab-review" class="tab-panel">
+      <div class="panel" style="max-height: calc(100vh - 200px); overflow: auto;">
+        <h2>Code review handoff <span style="color:var(--muted);font-weight:400;font-size:11px;">T2T (W260)</span></h2>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:12px;">Reviews flow between peer TARS instances over signed envelopes. Approval auto-applies the plan on the sender's side.</div>
+
+        <section style="margin-bottom:18px;">
+          <h3 style="font-size:13px;margin:0 0 8px;">Inbox <span id="t2tInboxCount" style="color:var(--muted);font-weight:400;font-size:11px;">·</span></h3>
+          <div id="t2tInboxRows"><div class="empty-state">Loading…</div></div>
+        </section>
+
+        <section>
+          <h3 style="font-size:13px;margin:0 0 8px;">Outbox <span id="t2tOutboxCount" style="color:var(--muted);font-weight:400;font-size:11px;">·</span></h3>
+          <div id="t2tOutboxRows"><div class="empty-state">Loading…</div></div>
+        </section>
+
+        <div style="margin-top:14px;">
+          <button class="btn" onclick="t2tReviewRefresh()">Refresh</button>
+        </div>
+      </div>
+    </div>
+
     <div id="tab-settings" class="tab-panel">
       <div class="panel" style="max-height: calc(100vh - 200px); overflow: auto;">
         <h2>Settings</h2>
@@ -2283,8 +2307,29 @@
   <div class="cmp-foot">
     <span class="cmp-result" id="composerResult"></span>
     <button class="btn" data-action="composer.reject" onclick="composerReject()" id="composerRejectBtn" disabled>Reject</button>
+    <!-- W260 -- T2T code-review handoff: send the current plan to a peer TARS instead of approving locally. -->
+    <button class="btn" data-action="composer.send.review" onclick="composerOpenSendReviewModal()" id="composerSendReviewBtn" disabled>Send for review</button>
     <button class="btn" data-action="composer.rollback" onclick="composerRollback()" id="composerRollbackBtn" style="display:none;">Rollback</button>
     <button class="btn primary" data-action="composer.approve" onclick="composerApprove()" id="composerApproveBtn" disabled>Approve all</button>
+  </div>
+</div>
+
+<!-- W260 -- T2T review send modal + REVIEW drawer tab. Built on top of the W82 peers list. -->
+<div id="t2tReviewModal" role="dialog" aria-label="Send plan for review" style="display:none;position:fixed;inset:0;z-index:9000;background:rgba(0,0,0,0.55);align-items:center;justify-content:center;">
+  <div style="background:var(--panel,#111);border:1px solid var(--panel-edge,#333);border-radius:10px;max-width:480px;width:90%;padding:18px;">
+    <h2 style="margin:0 0 12px;font-size:15px;">Send for review</h2>
+    <p style="font-size:12px;color:var(--muted);margin:0 0 12px;">Ship this plan + diffs to a peer TARS for a signed second-opinion. Approval auto-applies the plan locally.</p>
+    <label style="display:block;font-size:11px;color:var(--muted);margin-bottom:4px;">Recipient TARS id</label>
+    <input id="t2tReviewPeerId" type="text" placeholder="peer_tars_id (from W82 peers list)" style="width:100%;padding:6px 8px;border:1px solid var(--panel-edge);background:rgba(0,0,0,0.4);color:var(--text);border-radius:4px;margin-bottom:10px;font-family:monospace;font-size:12px;">
+    <label style="display:block;font-size:11px;color:var(--muted);margin-bottom:4px;">Peer URL (optional override)</label>
+    <input id="t2tReviewPeerUrl" type="text" placeholder="https://peer.example/tars" style="width:100%;padding:6px 8px;border:1px solid var(--panel-edge);background:rgba(0,0,0,0.4);color:var(--text);border-radius:4px;margin-bottom:10px;font-family:monospace;font-size:12px;">
+    <label style="display:block;font-size:11px;color:var(--muted);margin-bottom:4px;">Comment (optional)</label>
+    <textarea id="t2tReviewComment" rows="3" placeholder="What should they look at?" style="width:100%;padding:6px 8px;border:1px solid var(--panel-edge);background:rgba(0,0,0,0.4);color:var(--text);border-radius:4px;margin-bottom:12px;font-size:12px;"></textarea>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn" onclick="closeT2TReviewModal()">Cancel</button>
+      <button class="btn primary" onclick="composerSendForReview()">Send</button>
+    </div>
+    <div id="t2tReviewModalStatus" style="font-size:11px;color:var(--muted);margin-top:10px;"></div>
   </div>
 </div>
 
@@ -6265,6 +6310,7 @@ async function composerPlanFromTranscript(transcript) {
   document.getElementById('composerOps').innerHTML = '<div class="empty-state" style="padding:14px 0;color:var(--muted);">Calling planner...</div>';
   document.getElementById('composerApproveBtn').disabled = true;
   document.getElementById('composerRejectBtn').disabled = true;
+  const _sendBtn = document.getElementById('composerSendReviewBtn'); if (_sendBtn) _sendBtn.disabled = true;
   document.getElementById('composerRollbackBtn').style.display = 'none';
   document.getElementById('composerResult').textContent = '';
   try {
@@ -6352,6 +6398,167 @@ async function composerReject() {
     document.getElementById('composerResult').textContent = `Network error: ${e.message}`;
   }
 }
+
+
+// ---------------------------------------------------------------------------
+// W260 — T2T code-review handoff (send + inbox + outbox).
+// ---------------------------------------------------------------------------
+
+function composerOpenSendReviewModal() {
+  if (!composerCurrentPlan) return;
+  document.getElementById('t2tReviewModalStatus').textContent = '';
+  document.getElementById('t2tReviewPeerId').value = '';
+  document.getElementById('t2tReviewPeerUrl').value = '';
+  document.getElementById('t2tReviewComment').value = '';
+  document.getElementById('t2tReviewModal').style.display = 'flex';
+}
+
+function closeT2TReviewModal() {
+  document.getElementById('t2tReviewModal').style.display = 'none';
+}
+
+async function composerSendForReview() {
+  if (!composerCurrentPlan) return;
+  const peer_id = (document.getElementById('t2tReviewPeerId').value || '').trim();
+  const peer_url = (document.getElementById('t2tReviewPeerUrl').value || '').trim();
+  const comment = (document.getElementById('t2tReviewComment').value || '').trim();
+  const status = document.getElementById('t2tReviewModalStatus');
+  if (!peer_id) { status.textContent = 'Recipient TARS id is required.'; return; }
+  status.textContent = 'Signing + sending…';
+  try {
+    const body = { plan_id: composerCurrentPlan.plan_id, recipient_tars_id: peer_id };
+    if (peer_url) body.peer_url = peer_url;
+    if (comment) body.comment = comment;
+    const r = await fetch(`${API}/api/t2t/review/send`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const d = await r.json();
+    if (d.ok) {
+      const peerLabel = peer_id;
+      document.getElementById('composerResult').textContent =
+        `Sent for review · waiting (${peerLabel})`;
+      document.getElementById('composerApproveBtn').disabled = true;
+      document.getElementById('composerRejectBtn').disabled = true;
+      const sb = document.getElementById('composerSendReviewBtn');
+      if (sb) sb.disabled = true;
+      status.textContent = `Review id: ${d.review_id} · delivered=${d.delivered}`;
+      setTimeout(closeT2TReviewModal, 1200);
+    } else {
+      status.textContent = `Send failed: ${d.detail || d.error || 'unknown'}`;
+    }
+  } catch (e) {
+    status.textContent = `Network error: ${e.message}`;
+  }
+}
+
+async function t2tReviewLoadInbox() {
+  const host = document.getElementById('t2tInboxRows');
+  const cnt = document.getElementById('t2tInboxCount');
+  if (!host) return;
+  try {
+    const r = await fetch(`${API}/api/t2t/review/inbox`);
+    const d = await r.json();
+    if (!d.ok && d.error === 'disabled') {
+      host.innerHTML = '<div class="empty-state">T2T review module disabled.</div>';
+      if (cnt) cnt.textContent = '0';
+      return;
+    }
+    const items = (d.items || []);
+    if (cnt) cnt.textContent = String(items.length);
+    if (!items.length) {
+      host.innerHTML = '<div class="empty-state">No incoming reviews.</div>';
+      return;
+    }
+    host.innerHTML = items.map(it => {
+      const ago = Math.round((Date.now() / 1000 - (it.received_at || 0)));
+      const isPending = it.state === 'pending';
+      const actions = isPending
+        ? `<button class="btn primary" onclick="t2tReviewApprove('${it.review_id}')">Approve</button>
+           <button class="btn" onclick="t2tReviewReject('${it.review_id}')">Reject</button>`
+        : `<span style="color:var(--muted);font-size:11px;">${it.state}</span>`;
+      return `<div style="border:1px solid var(--panel-edge,#333);border-radius:6px;padding:10px;margin-bottom:8px;">
+        <div style="font-family:monospace;font-size:11px;color:var(--text);">${it.review_id}</div>
+        <div style="font-size:11px;color:var(--muted);">From <code>${it.sender_tars_id}</code> · plan <code>${it.plan_id}</code> · ${ago}s ago</div>
+        <div style="margin-top:8px;display:flex;gap:8px;">${actions}</div>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    host.innerHTML = `<div class="empty-state">Inbox error: ${e.message}</div>`;
+  }
+}
+
+async function t2tReviewLoadOutbox() {
+  const host = document.getElementById('t2tOutboxRows');
+  const cnt = document.getElementById('t2tOutboxCount');
+  if (!host) return;
+  try {
+    const r = await fetch(`${API}/api/t2t/review/outbox`);
+    const d = await r.json();
+    if (!d.ok && d.error === 'disabled') {
+      host.innerHTML = '<div class="empty-state">T2T review module disabled.</div>';
+      if (cnt) cnt.textContent = '0';
+      return;
+    }
+    const items = (d.items || []);
+    if (cnt) cnt.textContent = String(items.length);
+    if (!items.length) {
+      host.innerHTML = '<div class="empty-state">No sent reviews yet.</div>';
+      return;
+    }
+    host.innerHTML = items.map(it => {
+      const stateColor = ({pending:'#f59e0b',approved:'#22c55e',rejected:'#f43f5e',applied:'#22d3ee',failed:'#f43f5e'})[it.state] || 'var(--muted)';
+      return `<div style="border:1px solid var(--panel-edge,#333);border-radius:6px;padding:10px;margin-bottom:8px;">
+        <div style="font-family:monospace;font-size:11px;color:var(--text);">${it.review_id} → <code>${it.recipient_tars_id}</code></div>
+        <div style="font-size:11px;color:var(--muted);">plan <code>${it.plan_id}</code> · <span style="color:${stateColor};">${it.state}</span></div>
+        ${it.comment ? `<div style="font-size:11px;color:var(--muted);margin-top:4px;">"${escapeHtmlSafe ? escapeHtmlSafe(it.comment) : it.comment}"</div>` : ''}
+      </div>`;
+    }).join('');
+  } catch (e) {
+    host.innerHTML = `<div class="empty-state">Outbox error: ${e.message}</div>`;
+  }
+}
+
+async function t2tReviewApprove(review_id) {
+  if (!confirm('Approve this review? The sender will auto-apply the plan once they receive your signed verdict.')) return;
+  try {
+    const r = await fetch(`${API}/api/t2t/review/${review_id}/approve`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}',
+    });
+    const d = await r.json();
+    if (!d.ok) alert(`Approve failed: ${d.detail || 'unknown'}`);
+  } catch (e) {
+    alert(`Network error: ${e.message}`);
+  }
+  t2tReviewRefresh();
+}
+
+async function t2tReviewReject(review_id) {
+  const reason = prompt('Rejection reason (required):');
+  if (!reason) return;
+  try {
+    const r = await fetch(`${API}/api/t2t/review/${review_id}/reject`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason }),
+    });
+    const d = await r.json();
+    if (!d.ok) alert(`Reject failed: ${d.detail || 'unknown'}`);
+  } catch (e) {
+    alert(`Network error: ${e.message}`);
+  }
+  t2tReviewRefresh();
+}
+
+function t2tReviewRefresh() {
+  t2tReviewLoadInbox();
+  t2tReviewLoadOutbox();
+}
+
+// Auto-refresh when the REVIEW tab becomes visible.
+document.addEventListener('DOMContentLoaded', () => {
+  const reviewBtn = document.querySelector('nav.tabs button[data-tab="review"]');
+  if (reviewBtn) reviewBtn.addEventListener('click', () => setTimeout(t2tReviewRefresh, 50));
+});
 
 async function composerRollback() {
   if (!composerCurrentPlan) return;
