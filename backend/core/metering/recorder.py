@@ -34,7 +34,7 @@ import uuid
 from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable, Optional
+from typing import Any, Iterable, Literal, Optional
 
 
 log = logging.getLogger("tars.metering")
@@ -635,3 +635,303 @@ def healthz() -> dict[str, Any]:
 
 def new_trace_id() -> str:
     return uuid.uuid4().hex
+
+
+# ── W242: soft/hard cap UX ─────────────────────────────────────────────
+
+#: Bucket thresholds — kept as floats so a 79.9% reading correctly maps
+#: to ``"60"`` not ``"80"``. Order matters: descending so the first match
+#: wins in :func:`cap_alert_level`.
+CAP_BUCKETS: tuple[tuple[str, float], ...] = (
+    ("100", 1.00),
+    ("90", 0.90),
+    ("80", 0.80),
+    ("60", 0.60),
+)
+
+#: meeet.world billing surface — where the operator tops up.
+TOPUP_URL_DEFAULT = "https://meeet.world/account/billing"
+
+
+def _bypass_cap() -> bool:
+    """Operators set ``TARS_BYPASS_CAP=1`` to disarm the hard block.
+
+    Dev / smoke / CI all flip this so a metered test that fills the
+    cap doesn't 429 the rest of the suite.
+    """
+
+    val = (os.environ.get("TARS_BYPASS_CAP") or "").strip().lower()
+    return val in ("1", "true", "yes", "on")
+
+
+def cap_alert_level() -> Literal["none", "60", "80", "90", "100"]:
+    """Bucket current spend → one of {none, 60, 80, 90, 100}.
+
+    Reads :func:`current_balance_local` so it shares the meeet-aware
+    source of truth with the cockpit panels. Always returns a string;
+    UI code can compare it directly.
+    """
+
+    try:
+        bal = current_balance_local()
+        pct = float(bal.get("pct_of_hard") or 0.0)
+    except Exception as exc:  # noqa: BLE001
+        log.debug("metering.cap_alert_level failed: %s", exc)
+        return "none"
+    for level, threshold in CAP_BUCKETS:
+        if pct >= threshold:
+            return level  # type: ignore[return-value]
+    return "none"
+
+
+def is_request_allowed() -> tuple[bool, dict[str, Any]]:
+    """Hard-cap gate for the LLM hot path.
+
+    Returns ``(allowed, info)`` where ``info`` always carries:
+
+    ``percent_used``  — 0.0..1.0 fraction of the hard cap consumed.
+    ``tier``          — resolved operator tier (FREE/PRO/…).
+    ``level``         — bucket string from :func:`cap_alert_level`.
+    ``reason_if_blocked`` — empty when allowed.
+    ``suggest_topup_url`` — meeet.world billing deep-link.
+    ``bypassed``      — true if ``TARS_BYPASS_CAP=1`` short-circuited.
+
+    The middleware never raises on telemetry hiccups: a balance read
+    failure returns ``(True, {})`` so a metering outage can't bring
+    down chat.
+    """
+
+    info: dict[str, Any] = {
+        "percent_used": 0.0,
+        "tier": resolve_tier(),
+        "level": "none",
+        "reason_if_blocked": "",
+        "suggest_topup_url": TOPUP_URL_DEFAULT,
+        "bypassed": False,
+    }
+    try:
+        bal = current_balance_local()
+    except Exception as exc:  # noqa: BLE001
+        log.debug("metering.is_request_allowed balance failed: %s", exc)
+        return True, info
+
+    pct = float(bal.get("pct_of_hard") or 0.0)
+    info["percent_used"] = round(pct, 4)
+    info["tier"] = str(bal.get("tier") or resolve_tier())
+    info["level"] = cap_alert_level()
+    info["spent_usd"] = float(bal.get("spent_usd") or 0.0)
+    info["hard_cap_usd"] = float(bal.get("hard_cap_usd") or 0.0)
+    info["soft_cap_usd"] = float(bal.get("soft_cap_usd") or 0.0)
+    info["remaining_usd"] = float(bal.get("remaining_usd") or 0.0)
+
+    if pct < 1.0:
+        return True, info
+
+    # Hard cap hit. Allow the dev override but tag it so we can audit.
+    if _bypass_cap():
+        info["bypassed"] = True
+        info["reason_if_blocked"] = ""
+        return True, info
+    info["reason_if_blocked"] = "monthly_hard_cap_reached"
+    return False, info
+
+
+# ── notification fanout dedup (W66 fanout_all) ─────────────────────────
+#
+# We notify at most once per (level, month) pair. The state lives in
+# the same usage.sqlite mirror so it survives process restarts.
+
+_NOTIFY_SCHEMA = """
+CREATE TABLE IF NOT EXISTS cap_notify_log (
+    month_iso   TEXT NOT NULL,
+    level       TEXT NOT NULL,
+    sent_at     REAL NOT NULL,
+    PRIMARY KEY (month_iso, level)
+);
+"""
+
+
+def _ensure_notify_table() -> None:
+    with _db_lock:
+        conn = _open_db()
+        try:
+            conn.executescript(_NOTIFY_SCHEMA)
+        finally:
+            conn.close()
+
+
+def _already_notified(month_iso: str, level: str) -> bool:
+    _ensure_notify_table()
+    with _db_lock:
+        conn = _open_db()
+        try:
+            cur = conn.execute(
+                "SELECT 1 FROM cap_notify_log WHERE month_iso = ? AND level = ? LIMIT 1",
+                (month_iso, level),
+            )
+            return cur.fetchone() is not None
+        finally:
+            conn.close()
+
+
+def _mark_notified(month_iso: str, level: str) -> None:
+    _ensure_notify_table()
+    with _db_lock:
+        conn = _open_db()
+        try:
+            conn.execute(
+                "INSERT OR IGNORE INTO cap_notify_log (month_iso, level, sent_at)"
+                " VALUES (?, ?, ?)",
+                (month_iso, level, time.time()),
+            )
+        finally:
+            conn.close()
+
+
+def reset_cap_notify_log() -> None:
+    """Test-only: drop the dedup table so a fresh run can re-notify."""
+
+    _ensure_notify_table()
+    with _db_lock:
+        conn = _open_db()
+        try:
+            conn.execute("DELETE FROM cap_notify_log")
+        finally:
+            conn.close()
+
+
+def maybe_fire_cap_notification(level: str, info: dict[str, Any]) -> dict[str, Any]:
+    """Fire a W66 notification fanout for ``level`` at most once / month.
+
+    Returns ``{"fired": bool, "level": str, "skipped_reason": str}``.
+    Levels ``"60"``, ``"80"``, ``"90"``, ``"100"`` are eligible; ``"none"``
+    is a no-op. Caller is the chat middleware (and the cap_status
+    router); failures inside :func:`fanout_all` never propagate.
+    """
+
+    out: dict[str, Any] = {"fired": False, "level": level, "skipped_reason": ""}
+    if level not in {"60", "80", "90", "100"}:
+        out["skipped_reason"] = "level_below_threshold"
+        return out
+
+    month_iso = datetime.now(timezone.utc).strftime("%Y-%m")
+    try:
+        if _already_notified(month_iso, level):
+            out["skipped_reason"] = "already_notified_this_month"
+            return out
+    except Exception as exc:  # noqa: BLE001
+        log.debug("metering.cap_notify dedup check failed: %s", exc)
+        # Fall through — better to risk a duplicate than skip notifying.
+
+    # Receipt-ledger entry (best effort, always recorded).
+    try:
+        from backend.core.receipts.dispatch import record as receipt_record
+
+        asyncio.get_event_loop().create_task(  # type: ignore[func-returns-value]
+            receipt_record(
+                type="cap_alert",
+                actor="tars",
+                resource=f"cap/{level}",
+                payload={
+                    "level": level,
+                    "month": month_iso,
+                    "info": info,
+                },
+            )
+        )
+    except RuntimeError:
+        # No running loop (tests / sync caller) — run synchronously.
+        try:
+            from backend.core.receipts.dispatch import record as receipt_record
+
+            asyncio.run(
+                receipt_record(
+                    type="cap_alert",
+                    actor="tars",
+                    resource=f"cap/{level}",
+                    payload={
+                        "level": level,
+                        "month": month_iso,
+                        "info": info,
+                    },
+                )
+            )
+        except Exception as exc:  # noqa: BLE001
+            log.debug("metering.cap_notify receipt failed: %s", exc)
+    except Exception as exc:  # noqa: BLE001
+        log.debug("metering.cap_notify receipt schedule failed: %s", exc)
+
+    # 60% is banner-only — never wakes iMessage / email. Fanout only
+    # for the louder levels.
+    if level in {"80", "90", "100"}:
+        try:
+            from backend.core.notifications import fanout_all
+
+            change = {
+                "topic": "tars.cap_alert",
+                "level": level,
+                "tier": info.get("tier"),
+                "percent_used": info.get("percent_used"),
+                "spent_usd": info.get("spent_usd"),
+                "hard_cap_usd": info.get("hard_cap_usd"),
+                "topup_url": info.get("suggest_topup_url") or TOPUP_URL_DEFAULT,
+                "message": (
+                    f"TARS spending alert: {level}% of monthly cap reached"
+                    f" on tier {info.get('tier') or 'FREE'}."
+                ),
+            }
+            fanout_all(change)
+        except Exception as exc:  # noqa: BLE001
+            log.debug("metering.cap_notify fanout failed: %s", exc)
+
+    try:
+        _mark_notified(month_iso, level)
+    except Exception as exc:  # noqa: BLE001
+        log.debug("metering.cap_notify mark failed: %s", exc)
+    out["fired"] = True
+    return out
+
+
+def cap_status() -> dict[str, Any]:
+    """Single source of truth for the cockpit banner + 429 envelope."""
+
+    allowed, info = is_request_allowed()
+    level = info.get("level") or cap_alert_level()
+    bal = current_balance_local()
+    # Compute next-month-start ISO so the modal can say "wait until …".
+    now = datetime.now(timezone.utc)
+    if now.month == 12:
+        next_month = datetime(now.year + 1, 1, 1, tzinfo=timezone.utc)
+    else:
+        next_month = datetime(now.year, now.month + 1, 1, tzinfo=timezone.utc)
+
+    actions: list[dict[str, str]] = []
+    if level in {"60", "80"}:
+        actions.append({"kind": "view_console", "label": "View console"})
+    if level in {"80", "90", "100"}:
+        actions.append({
+            "kind": "topup",
+            "label": "Open meeet.world billing",
+            "href": TOPUP_URL_DEFAULT,
+        })
+    if level == "100":
+        actions.append({"kind": "wait_for_reset", "label": "Wait — show me cockpit anyway"})
+
+    return {
+        "ok": True,
+        "level": level,
+        "allowed": bool(allowed),
+        "percent_used": float(info.get("percent_used") or 0.0),
+        "tier": info.get("tier") or bal.get("tier"),
+        "spent_usd": float(bal.get("spent_usd") or 0.0),
+        "hard_cap_usd": float(bal.get("hard_cap_usd") or 0.0),
+        "soft_cap_usd": float(bal.get("soft_cap_usd") or 0.0),
+        "remaining_usd": float(bal.get("remaining_usd") or 0.0),
+        "requests_used": int(bal.get("requests_used") or 0),
+        "requests_cap": int(bal.get("requests_cap") or 0),
+        "next_month_start": next_month.isoformat(),
+        "topup_url": TOPUP_URL_DEFAULT,
+        "bypassed": bool(info.get("bypassed")),
+        "actions": actions,
+        "reason_if_blocked": info.get("reason_if_blocked") or "",
+    }

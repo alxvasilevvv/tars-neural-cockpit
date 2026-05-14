@@ -102,6 +102,46 @@ class ChatOrchestrator:
             )
             return
 
+        # W242 — soft/hard cap gate. Hard-cap (100%) blocks the turn
+        # before any tokens are spent. 60/80/90 fall through to the
+        # voice path but trigger a notification fanout at most once
+        # per level per month (see maybe_fire_cap_notification).
+        try:
+            from backend.core.metering import (
+                is_request_allowed as _cap_allowed,
+                maybe_fire_cap_notification as _cap_notify,
+            )
+
+            allowed, cap_info = _cap_allowed()
+            level = str(cap_info.get("level") or "none")
+            if not allowed:
+                yield StreamEvent(
+                    kind="error",
+                    data={
+                        "error": "cap_hit",
+                        "level": "100",
+                        "hint": "Topup or wait for next month",
+                        "topup_url": cap_info.get("suggest_topup_url"),
+                        "percent_used": cap_info.get("percent_used"),
+                        "tier": cap_info.get("tier"),
+                    },
+                )
+                # Notify the loud levels (80/90/100) before bailing.
+                try:
+                    _cap_notify(level, cap_info)
+                except Exception:
+                    pass
+                return
+            # Allowed path — still fan out warnings on 60/80/90 buckets.
+            if level in {"60", "80", "90"}:
+                try:
+                    _cap_notify(level, cap_info)
+                except Exception:
+                    pass
+        except Exception:
+            # Telemetry outage must never block chat — fail open.
+            pass
+
         history = await self.store.list_messages(
             thread_id, limit=history_limit
         )

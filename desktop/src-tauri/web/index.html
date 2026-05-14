@@ -535,6 +535,120 @@
   .vc-chip .vc-reload:hover { color: var(--accent-hot); }
   .vc-chip .vc-tier { color: var(--accent-hot); font-weight: 700; }
 
+  /* W242 — cap banner above transcript */
+  .cap-banner {
+    display: none;
+    position: absolute; top: 56px; left: 18px; right: 18px;
+    padding: 10px 14px; border-radius: 10px;
+    font-size: 13px; line-height: 1.45;
+    z-index: 3;
+    border: 1px solid;
+    background: rgba(17, 19, 28, 0.92);
+    backdrop-filter: blur(8px);
+    align-items: center; gap: 12px;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.45);
+  }
+  .cap-banner.show { display: flex; }
+  .cap-banner.level-60,
+  .cap-banner.level-80 {
+    border-color: rgba(245, 158, 11, 0.65);
+    color: #fde68a;
+    box-shadow: 0 6px 24px rgba(245, 158, 11, 0.18);
+  }
+  .cap-banner.level-90 {
+    border-color: rgba(239, 68, 68, 0.7);
+    color: #fecaca;
+    box-shadow: 0 6px 24px rgba(239, 68, 68, 0.22);
+  }
+  .cap-banner .cap-icon {
+    width: 22px; height: 22px; flex: 0 0 22px;
+    display: inline-flex; align-items: center; justify-content: center;
+    font-size: 14px; font-weight: 700;
+  }
+  .cap-banner .cap-body { flex: 1; min-width: 0; }
+  .cap-banner .cap-title { font-weight: 600; }
+  .cap-banner .cap-hint { color: var(--muted); font-size: 12px; }
+  .cap-banner .cap-actions { display: flex; gap: 6px; }
+  .cap-banner .cap-actions button {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.12);
+    color: inherit;
+    padding: 4px 10px; border-radius: 8px; font-size: 12px;
+    cursor: pointer; transition: background .15s;
+  }
+  .cap-banner .cap-actions button:hover { background: rgba(255,255,255,0.12); }
+  .cap-banner .cap-close {
+    background: transparent; border: 0; color: inherit;
+    cursor: pointer; opacity: 0.6; padding: 2px 6px; font-size: 14px;
+  }
+  .cap-banner .cap-close:hover { opacity: 1; }
+
+  /* W242 — persistent toast for 80% level */
+  .cap-toast {
+    display: none;
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    z-index: 1600;
+    padding: 10px 16px; border-radius: 999px;
+    background: rgba(245, 158, 11, 0.16);
+    border: 1px solid rgba(245, 158, 11, 0.6);
+    color: #fde68a; font-size: 12px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5);
+  }
+  .cap-toast.show { display: block; animation: cap-toast-in .25s ease-out; }
+  @keyframes cap-toast-in {
+    from { opacity: 0; transform: translate(-50%, 8px); }
+    to   { opacity: 1; transform: translate(-50%, 0); }
+  }
+
+  /* W242 — full-screen hard-cap modal */
+  .cap-modal {
+    display: none;
+    position: fixed; inset: 0; z-index: 2000;
+    background: rgba(5, 5, 9, 0.92);
+    backdrop-filter: blur(12px);
+    align-items: center; justify-content: center;
+    padding: 24px;
+  }
+  .cap-modal.show { display: flex; }
+  .cap-modal .cap-modal-card {
+    max-width: 460px; width: 100%;
+    background: linear-gradient(180deg, #15131a 0%, #0a0a12 100%);
+    border: 1px solid rgba(239, 68, 68, 0.5);
+    border-radius: 16px;
+    padding: 28px;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.8), 0 0 60px rgba(239, 68, 68, 0.15);
+  }
+  .cap-modal .cap-modal-title {
+    font-size: 18px; font-weight: 700; color: #fecaca; margin-bottom: 8px;
+  }
+  .cap-modal .cap-modal-body {
+    font-size: 14px; color: var(--text); margin-bottom: 6px; line-height: 1.5;
+  }
+  .cap-modal .cap-modal-meta {
+    font-size: 12px; color: var(--muted); margin-bottom: 18px;
+  }
+  .cap-modal .cap-modal-actions {
+    display: flex; gap: 10px; flex-wrap: wrap;
+  }
+  .cap-modal .cap-modal-actions button {
+    flex: 1; min-width: 0;
+    padding: 10px 14px; border-radius: 10px;
+    font-size: 13px; font-weight: 600; cursor: pointer;
+    border: 1px solid; transition: all .15s;
+  }
+  .cap-modal .btn-topup {
+    background: rgba(99, 102, 241, 0.15);
+    border-color: rgba(99, 102, 241, 0.6);
+    color: #c7d2fe;
+  }
+  .cap-modal .btn-topup:hover { background: rgba(99, 102, 241, 0.28); }
+  .cap-modal .btn-bypass {
+    background: transparent;
+    border-color: rgba(255,255,255,0.12);
+    color: var(--muted);
+  }
+  .cap-modal .btn-bypass:hover { color: var(--text); border-color: rgba(255,255,255,0.3); }
+
   .vc-stage {
     flex: 1; display: flex; align-items: center; justify-content: center;
     position: relative;
@@ -1021,6 +1135,17 @@
     </div>
   </div>
 
+  <!-- W242 — cap banner (above transcript, conditional render) -->
+  <div class="cap-banner" id="capBanner" role="status" aria-live="polite">
+    <span class="cap-icon" id="capBannerIcon">!</span>
+    <div class="cap-body">
+      <div class="cap-title" id="capBannerTitle">Budget alert</div>
+      <div class="cap-hint" id="capBannerHint"></div>
+    </div>
+    <div class="cap-actions" id="capBannerActions"></div>
+    <button class="cap-close" data-action="cap.dismiss" onclick="capDismissBanner()" title="Dismiss for this session">×</button>
+  </div>
+
   <div class="vc-stage">
     <!-- W230 Layer D: particle dust canvas (below everything) -->
     <canvas class="vc-particles" id="vcParticles" aria-hidden="true"></canvas>
@@ -1307,6 +1432,7 @@
         <div class="chat-input">
           <div class="mention-chips" id="mentionChips"></div>
           <input type="text" id="chatInput" placeholder="Type a message... (@ for context)" disabled autocomplete="off" />
+          <button class="btn" data-action="notepads.open" onclick="openNotepadsPicker()" id="notepadsBtn" title="Notepads (W243)" style="white-space:nowrap;">📒 Notepads</button>
           <button class="btn primary" data-action="chat.send" onclick="sendMessage()" id="chatSend" disabled>Send</button>
           <div id="mentionDropdown" role="listbox" aria-label="Mention context source"></div>
         </div>
@@ -3792,8 +3918,184 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
+// ─── W242: soft/hard cap UX banner + modal ───────────────────────
+// Poll /api/usage/cap_status every 60s; render banner / modal / toast
+// based on the bucket (none/60/80/90/100). 100% blocks via a modal
+// the user can dismiss with "show me cockpit anyway" if they want.
+window._capState = { level: 'none', dismissed: false, lastToast: 0 };
+window._capPollHandle = null;
+
+async function capRefresh() {
+  try {
+    const r = await fetch(API + '/api/usage/cap_status');
+    if (!r.ok) return;
+    const d = await r.json();
+    if (!d || !d.ok) return;
+    _capRender(d);
+  } catch (e) {
+    // Silent — banner stays at its last state if the endpoint hiccups.
+  }
+}
+
+function _capRender(d) {
+  const level = String(d.level || 'none');
+  const prev = window._capState.level;
+  window._capState.level = level;
+  const banner = $('capBanner');
+  const modal = $('capModal');
+  const toast = $('capToast');
+  if (!banner) return;
+  // Hard-cap modal (100%) — always render, never auto-dismiss.
+  if (level === '100' && !window._capState.bypassConfirmed) {
+    _capShowModal(d);
+    banner.classList.remove('show');
+    if (toast) toast.classList.remove('show');
+    return;
+  }
+  if (modal) modal.classList.remove('show');
+
+  if (level === 'none' || window._capState.dismissed) {
+    banner.classList.remove('show');
+    if (toast) toast.classList.remove('show');
+    return;
+  }
+
+  // Reset banner per level (clears stale tones).
+  banner.classList.remove('level-60','level-80','level-90');
+  banner.classList.add('level-' + level);
+  banner.classList.add('show');
+
+  const pct = Math.round((Number(d.percent_used || 0)) * 100);
+  const tier = d.tier || 'FREE';
+  const spent = Number(d.spent_usd || 0).toFixed(2);
+  const hard = Number(d.hard_cap_usd || 0).toFixed(2);
+  const titleEl = $('capBannerTitle');
+  const hintEl = $('capBannerHint');
+  const iconEl = $('capBannerIcon');
+  const actionsEl = $('capBannerActions');
+  if (level === '60') {
+    iconEl.textContent = 'i';
+    titleEl.textContent = '60% of monthly budget used';
+    hintEl.textContent = `${tier} · $${spent} of $${hard} · ${pct}%`;
+  } else if (level === '80') {
+    iconEl.textContent = '!';
+    titleEl.textContent = '80% — slow down';
+    hintEl.textContent = `${tier} · $${spent} of $${hard} · consider conserving requests`;
+  } else if (level === '90') {
+    iconEl.textContent = '!';
+    titleEl.textContent = 'Approaching limit — top up or wait';
+    hintEl.textContent = `${tier} · $${spent} of $${hard} · ${pct}% used`;
+  }
+  // Render actions.
+  if (actionsEl) {
+    actionsEl.innerHTML = '';
+    (d.actions || []).forEach(a => {
+      if (a.kind === 'view_console') {
+        const b = document.createElement('button');
+        b.textContent = 'View console';
+        b.onclick = () => { try { vcOpenDrawer(); setTab('usage'); } catch(e){} };
+        actionsEl.appendChild(b);
+      } else if (a.kind === 'topup') {
+        const b = document.createElement('button');
+        b.textContent = a.label || 'Top up';
+        b.onclick = () => { try { openExternal(a.href || 'https://meeet.world/account/billing'); } catch(e){} };
+        actionsEl.appendChild(b);
+      }
+    });
+  }
+  // Persistent toast for 80%: every 30min, only if banner is still active.
+  if (toast && level === '80') {
+    const now = Date.now();
+    if (now - (window._capState.lastToast || 0) >= 30 * 60 * 1000) {
+      window._capState.lastToast = now;
+      toast.textContent = '80% — slow down. View console for details.';
+      toast.classList.add('show');
+      setTimeout(() => { toast.classList.remove('show'); }, 8000);
+    }
+  } else if (toast) {
+    toast.classList.remove('show');
+  }
+  // Reset dismiss on level escalation.
+  if (prev !== level) window._capState.dismissed = false;
+}
+
+function _capShowModal(d) {
+  const modal = $('capModal');
+  if (!modal) return;
+  const nextMonth = d.next_month_start || '';
+  let nextLabel = nextMonth;
+  try {
+    const dt = new Date(nextMonth);
+    if (!isNaN(dt.getTime())) {
+      nextLabel = dt.toLocaleDateString([], { year: 'numeric', month: 'long', day: 'numeric' });
+    }
+  } catch(e) {}
+  const tier = d.tier || 'FREE';
+  $('capModalBody').textContent = `Monthly budget reached on tier ${tier}. New LLM requests are paused until you top up or until the new month starts.`;
+  $('capModalMeta').textContent = `Topup at meeet.world or wait until ${nextLabel}.`;
+  modal.classList.add('show');
+}
+
+function capDismissBanner() {
+  window._capState.dismissed = true;
+  const banner = $('capBanner');
+  if (banner) banner.classList.remove('show');
+  const toast = $('capToast');
+  if (toast) toast.classList.remove('show');
+}
+
+function capModalTopup() {
+  try { openExternal('https://meeet.world/account/billing'); } catch(e) {}
+}
+
+function capModalBypass() {
+  // Lets the operator continue using local-only / non-LLM features
+  // while the cap is still hot. New LLM requests still 429 server-side.
+  window._capState.bypassConfirmed = true;
+  const modal = $('capModal');
+  if (modal) modal.classList.remove('show');
+  if (typeof showToast === 'function') {
+    showToast('Cockpit shown. LLM requests will keep failing until you top up.', 'warn');
+  }
+}
+
+function capBoot() {
+  capRefresh();
+  if (window._capPollHandle) clearInterval(window._capPollHandle);
+  window._capPollHandle = setInterval(capRefresh, 60000);
+}
+
+// Wire dismiss for ESC on banner only (modal is sticky on purpose).
+document.addEventListener('keydown', (ev) => {
+  if (ev.key === 'Escape') {
+    const banner = $('capBanner');
+    if (banner && banner.classList.contains('show')) capDismissBanner();
+  }
+});
+
+// Kick off cap polling alongside auth boot.
+try { capBoot(); } catch(e) {}
+
 // Boot — gate on auth, then show the voice cockpit.
 authBootCheck();
+
+// Add the cap modal + toast to the body once on first run so the
+// JS handlers above find their targets. (Inline insert keeps everything
+// in this single bundle file.)
+(function _ensureCapDom(){
+  if (document.getElementById('capModal')) return;
+  const modal = document.createElement('div');
+  modal.className = 'cap-modal';
+  modal.id = 'capModal';
+  modal.setAttribute('role','dialog');
+  modal.setAttribute('aria-modal','true');
+  modal.innerHTML = '\n    <div class="cap-modal-card">\n      <div class="cap-modal-title">Monthly budget reached</div>\n      <div class="cap-modal-body" id="capModalBody">New LLM requests are paused.</div>\n      <div class="cap-modal-meta" id="capModalMeta"></div>\n      <div class="cap-modal-actions">\n        <button class="btn-topup" data-action="cap.topup" onclick="capModalTopup()">Open meeet.world billing</button>\n        <button class="btn-bypass" data-action="cap.bypass" onclick="capModalBypass()">Wait — show me cockpit anyway</button>\n      </div>\n    </div>';
+  document.body.appendChild(modal);
+  const toast = document.createElement('div');
+  toast.className = 'cap-toast';
+  toast.id = 'capToast';
+  document.body.appendChild(toast);
+})();
 
 // Auto-refresh status every 30s + tier badge on boot — only when the
 // status tab is the active one inside the drawer.

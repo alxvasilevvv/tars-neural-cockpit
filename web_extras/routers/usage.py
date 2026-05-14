@@ -28,9 +28,11 @@ from backend.core.usage import default_price_table, get_ledger
 from backend.core.metering import (
     aggregate_month,
     aggregate_today,
+    cap_status as metering_cap_status,
     current_balance_local,
     get_recent_events,
     healthz as metering_healthz,
+    maybe_fire_cap_notification,
     resolve_tier,
     retry_failed_sync,
     subscribe,
@@ -172,3 +174,33 @@ async def usage_retry_failed() -> dict[str, Any]:
 @router.get("/healthz")
 async def usage_healthz() -> dict[str, Any]:
     return metering_healthz()
+
+
+# ── W242 — soft/hard cap UX ───────────────────────────────────────────
+
+@router.get("/cap_status")
+async def usage_cap_status() -> dict[str, Any]:
+    """One-shot payload feeding the cockpit cap banner + modal.
+
+    Shape mirrors what the frontend banner needs to render directly:
+
+    ``level`` — ``"none" | "60" | "80" | "90" | "100"``
+    ``allowed`` — bool (hard-cap gate)
+    ``percent_used`` — 0.0..1.0
+    ``actions`` — short list of {kind,label[,href]} the UI renders
+                  as buttons inside the banner / modal.
+
+    Calling this endpoint also fires the W66 notification fanout for
+    the current level — at most once per (level, month) pair (see
+    :func:`maybe_fire_cap_notification`). 60% is banner-only.
+    """
+
+    payload = metering_cap_status()
+    # Best-effort notification dedup — never break the response.
+    try:
+        maybe_fire_cap_notification(
+            payload.get("level") or "none", payload
+        )
+    except Exception:
+        pass
+    return payload
