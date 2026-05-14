@@ -82,6 +82,8 @@ from web_extras.routers import auth_meeet as auth_meeet_router
 from web_extras.routers import public_proof as public_proof_router
 # Wave 206 — /api/briefing/today daily-briefing snapshot
 from web_extras.routers import briefing as briefing_router
+# Wave 209 — /api/digest weekly digest run+latest
+from web_extras.routers import digest as digest_router
 
 START_TS = time.time()
 log = logging.getLogger("tars.app")
@@ -815,6 +817,8 @@ app.include_router(auth_meeet_router.router)
 app.include_router(public_proof_router.router)
 # W206 — daily briefing snapshot
 app.include_router(briefing_router.router)
+# W209 — weekly digest
+app.include_router(digest_router.router)
 
 
 async def _health_payload() -> dict[str, object]:
