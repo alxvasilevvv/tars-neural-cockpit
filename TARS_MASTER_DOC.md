@@ -638,9 +638,14 @@ Source of truth: `docs/ROADMAP_W234_to_v10.md` (Wave A in commit-sized detail)
 and `docs/COMPETITIVE_ANALYSIS_CURSOR.md` §6 (Waves B and C scope). Three waves;
 each compounds on the previous; no wave gold-plates the wave before.
 
-**Status (W264).** All three waves closed. `v10.0.0-rc.1` cut bundles
-Wave A (W237-W249) + Wave B (W250-W259) + Wave C (W260-W263). Only
-v10.0 GA polish remains — see §6.4 + `docs/RELEASE_NOTES_v10.0-rc1.md` §10.
+**Status (W267).** All three waves closed + W266/W267 GA-hardening
+landed. `v10.0.0-rc.1` cut bundles Wave A (W237-W249) + Wave B
+(W250-W259) + Wave C (W260-W263); W266 ships the perf suite and W267
+the FINAL-QA-GATE + RELEASE-v10.0 + GA checklist. **v10.0 GA target
+met from inside the repo** — the GA tag drops the moment the 5
+external checklist items (rc1 soak / brother billing / Apple cert /
+VS Code publish / first on-prem customer) flip green. See §6.4 +
+`docs/V10_GA_CHECKLIST.md`.
 
 ### 6.1 Wave A — Cursor parity must-haves (✅ SHIPPED, W237-W249)
 
@@ -764,7 +769,8 @@ in the cockpit; see §2 for one-line status per wave.
 ### 6.4 Path to v10.0 GA (1 week)
 
 What stands between `v10.0.0-rc.1` and the GA tag — see release notes
-`docs/RELEASE_NOTES_v10.0-rc1.md` §10 for the full version. Top 5:
+`docs/RELEASE_NOTES_v10.0-rc1.md` §10 + the operator-facing
+`docs/V10_GA_CHECKLIST.md` (W267) for the full version. Top 5:
 
 1. **rc1 soak on Alien's main host** — 1 week, daily `bash scripts/SMOKE-TEST.command`.
 2. **Brother goes live** on `/api/billing/{usage,topup,tier}` (tier-cap
@@ -776,9 +782,41 @@ What stands between `v10.0.0-rc.1` and the GA tag — see release notes
    via `scripts/ONPREM-DEPLOY/install.sh`, OIDC wired, monitoring +
    backup playbook drilled. Proof the W263 kit works.
 
-Cut GA tag: bump `10.0.0-rc.1` → `10.0.0` in the same constants W264
-touched, then `bash scripts/RELEASE-v10.0.command` (clone of
-`RELEASE-v10.0-rc1.command`).
+**Status (W267).** Claude-lane perf + QA gating is **DONE**: the
+GA target is met from inside the repo. Only the 5 external items
+above remain — see `docs/V10_GA_CHECKLIST.md` for the 30-item
+operator-facing checklist (groups A-G).
+
+| Wave | Status | One-line summary |
+|------|--------|------------------|
+| W266 | ✅ Shipped | Perf benchmarks — 5 SLOs (chat/voice/metering/audit/composer) + `scripts/RUN-PERF-SUITE.command` + `docs/PERF_REPORT_v10.0.md`. |
+| W267 | ✅ Shipped | Final QA gate — `scripts/FINAL-QA-GATE.command` (8 sub-gates) + `docs/V10_GA_CHECKLIST.md` (30 items) + `scripts/RELEASE-v10.0.command` (10.0.0-rc.1 → 10.0.0). |
+
+**The five SLOs (from W266):**
+
+| Path | SLO |
+|------|-----|
+| Chat | p95 < 2.5s @ 100 concurrent |
+| Voice command | p95 < 800ms @ 50 concurrent |
+| Usage metering | 1000/s sustained, zero drops |
+| Audit timeline | p95 < 200ms with 10k receipts |
+| Composer plan | p95 < 4s @ 20 concurrent |
+
+**What FINAL-QA-GATE blocks on (8 sub-gates):**
+
+1. `pytest tests/` (excluding `-m perf`) — full unit + integration sweep
+2. `SMOKE-TEST.command` — 60+ route smoke
+3. `RUN-PERF-SUITE.command` — all 5 SLOs green
+4. `spctl --assess` on `/Applications/TARS.app` — signed + notarized
+5. `bash -n` on every `scripts/*.command` — no shell syntax bugs
+6. Doc render — every md link in repo root + `docs/` resolves
+7. JSON + YAML validation — every config parses cleanly
+8. Version consistency — 9 source files agree on the current version constant
+
+Cut GA tag: `bash scripts/RELEASE-v10.0.command` (auto-bumps
+`10.0.0-rc.1` → `10.0.0`, runs FINAL-QA-GATE, tags, pushes, builds,
+publishes GH release, attaches `.dmg`, publishes VS Code extension,
+announces).
 
 ### 6.5 Risks to watch
 

@@ -1,81 +1,94 @@
 # CURRENT_STATUS — daily-glance snapshot
 
-> Live one-pager. If you want the full story, open `TARS_MASTER_DOC.md`.
-> If you want the doc map, open `PROJECT_INDEX.md`. This page is the
-> 60-second pulse check.
+> Live one-pager. Full story: `TARS_MASTER_DOC.md`. Doc map:
+> `PROJECT_INDEX.md`. This page is the 60-second pulse check.
 
-**Last updated:** 2026-05-15 (W247). **Tag in flight:** `v9.3.0` once
-W245/W246/brother-billing land.
+**Last updated:** 2026-05-15 (W267). **Tag in flight:** `v10.0.0` —
+rc1 → GA the moment the 5 external items below flip green.
 
 ---
 
-## Last 10 commits
+## v10.0.0-rc.1 → v10.0 GA delta
+
+| Wave | Status | What landed |
+|---|---|---|
+| W264 | ✅ Shipped | `v10.0.0-rc.1` cut — Wave A + B + C bundled. |
+| W265 | ✅ Shipped | brother mock at `/api/_meeet_mock` so cockpit doesn't block while brother ships. |
+| W266 | ✅ Shipped | Perf suite — 5 SLOs (chat/voice/metering/audit/composer). |
+| W267 | ✅ Shipped | Final QA gate + v10.0 GA checklist + RELEASE-v10.0 script. |
+
+**From inside the repo, GA is DONE.** Only the 5 external checklist
+items remain (see `docs/V10_GA_CHECKLIST.md`).
+
+---
+
+## The 5 SLOs (W266) — what we're gating on
+
+| Path | SLO target |
+|------|------------|
+| Chat | p95 < 2.5s @ 100 concurrent |
+| Voice command | p95 < 800ms @ 50 concurrent |
+| Usage metering | 1000/s sustained, zero drops |
+| Audit timeline | p95 < 200ms with 10k receipts |
+| Composer plan | p95 < 4s @ 20 concurrent |
+
+Run on the GA host: `bash scripts/RUN-PERF-SUITE.command` →
+`docs/PERF_REPORT_v10.0.md` regenerates with live numbers. Any
+regression prints a suggested fix in the failing bench's assertion.
+
+---
+
+## FINAL-QA-GATE (W267) blocks on 8 sub-gates
+
+1. `pytest tests/` (excl. `-m perf`)
+2. `SMOKE-TEST.command` (60+ routes 2xx)
+3. `RUN-PERF-SUITE.command` (all 5 SLOs)
+4. `spctl --assess` on `/Applications/TARS.app`
+5. `bash -n` on every `scripts/*.command`
+6. Doc render — md link integrity
+7. JSON + YAML validation
+8. Version consistency across 9 source files
+
+`bash scripts/FINAL-QA-GATE.command` prints a single go/no-go report.
+`bash scripts/RELEASE-v10.0.command` aborts immediately if FINAL-QA-GATE fails.
+
+---
+
+## What's left for the operator (the 5 external items)
+
+These can't be closed from inside the repo — see
+`docs/V10_GA_CHECKLIST.md` for the 30-item breakdown:
+
+1. **rc1 soak on Alien's main host** — 1 week, daily SMOKE-TEST.
+2. **Brother live on billing** — `/api/billing/{usage_event,balance,topup}` + reconciliation (groups A1-A5).
+3. **Apple Developer cert in CI** — `.p12` + secrets configured so every tag ships a signed `.dmg` (B1-B5).
+4. **VS Code marketplace first publish** — `tars-tab` listed (C1-C4).
+5. **First paying on-prem customer** — proves W263 kit works (D1-D5).
+
+When all 5 are green: `bash scripts/RELEASE-v10.0.command`.
+
+---
+
+## Recent commits (Claude lane)
 
 | SHA | Wave | Subject |
 |---|---|---|
-| `2ef99c0` | W243 | Notepad templates — save/recall/share AI workflows |
-| `096759d` | W241 | Background agents tray + long-running task status |
-| `30c8127` | W244 | Privacy mode + data plane |
-| `4d9b76d` | W242 | Tier cap UX — soft warnings + hard block + topup prompt |
-| `15065b1` | W240 | `@-mention` chat context — file / docs / web / recent / code resolvers |
-| `246cfc2` | W239 | Rules system — `.tars/rules.yml` + per-pack overlay + Settings editor |
-| `480297f` | W238 | MCP servers panel — UI + toggles + status |
-| `190ca1c` | W237 | Models switcher with cost-per-request labels |
-| `bf550b8` | W236 | Master project documentation (`TARS_MASTER_DOC.md` + `PROJECT_INDEX.md` + README upgrade) |
-| `1b248ce` | W235 | Consumption console + usage metering middleware + meeet.world billing event ingest |
-
-W247 (this commit) lands the master-doc sync immediately after.
+| `(this)` | W266+W267 | perf benchmarks + final QA gate + v10.0 GA checklist + release script |
+| _prior_ | W264 | `v10.0.0-rc.1` release prep — notes, CHANGELOG, version bumps, master doc + index sync, RELEASE script |
+| _prior_ | W263 | On-prem TARS deployment kit (docker compose, OIDC, systemd, 435-line guide) |
+| _prior_ | W262 | Voice-first pair programming in Composer |
+| _prior_ | W261 | Agent marketplace v0 — third-party agents via Skill SDK (70/30 split) |
+| _prior_ | W260 | T2T code review handoff with signed approval |
+| _prior_ | W257 | SOC2 Type II readiness + GDPR export + compliance bundle |
+| _prior_ | W256 | Domain-pack-aware composer |
+| _prior_ | W255 | Receipt-anchored audit explorer |
+| _prior_ | W254 | `tars-tab` VS Code extension scaffold |
 
 ---
 
-## What's working right now (end-user can use today)
-
-- **Voice cockpit** — full-screen monolith, wake-word + STT (whisper.cpp / OpenAI fallback) + TTS, text-input fallback under the mic.
-- **Auth gate** — magic-link + OAuth via `meeet.world`, or "Skip — local-only mode" for FREE forever.
-- **Models switcher (W237)** — 9 models, cost-per-request labels, choice persisted at `~/.tars/active_model`.
-- **MCP servers panel (W238)** — 5 endpoints, JSON storage, running / stopped / error indicators (spawn supervisor still pending).
-- **Rules for TARS (W239)** — `.tars/rules.yml`, per-pack overlay, injected into every chat system prompt.
-- **`@-mention` chat context (W240)** — file / docs / web / recent / code, 4KB cap.
-- **Background agents tray (W241)** — tray chip + dropdown, SQLite store, SSE stream.
-- **Tier cap UX (W242)** — 60 / 80 / 90 / 100% banners + hard-block modal + de-duped notification fanout.
-- **Notepad templates (W243)** — FTS5 search, 5 seeds, variable substitution.
-- **Privacy mode (W244)** — normal / privacy / strict, data-plane indicator, recent-flows ring buffer.
-- **Consumption console (W235)** — `/api/usage/console`, per-action / per-model / per-day aggregation.
-- **All v9.2.0-beta2 surface** — receipts ledger, Solana anchor, 7 domain packs, Cowork, vision/OCR, daemon + tars-doctor, iMessage / Telegram / Email bridges, AI Clone v0.2.
-
----
-
-## What needs brother (blocking the `v9.3.0` cut)
-
-TARS-side is **ready and waiting**. Brother on `api.meeet.world` ships:
-
-1. `POST /api/billing/usage_event` — HMAC-signed `UsageEvent` ingest, debits balance, idempotency on `trace_id`.
-2. `GET /api/billing/balance` — `{tier, balance_usd, balance_meeet, period_start, period_end}`.
-3. `POST /api/billing/topup` — Solana ($MEEET) + card processor flow.
-4. Reconciliation handshake — daily drift check via `scripts/reconcile-meeet-billing.py`, alert on >$0.50 drift.
-
-Auth-side 4 endpoints (magic-link start / redeem, OAuth start, `/api/me`)
-are the **other** brother dep — already specced in `docs/HANDOFF_v9.2.0-beta2_FOR_BROTHER.md`,
-runnable check via `scripts/CHECK-MEEET-LIVE.command`.
-
-`BRIDGE_SHARED_SECRET` distributed W194. Schemas live in
-`backend/core/usage/schema.py` and `backend/core/receipts/schema.py`.
-
----
-
-## Next 3 things shipping (Claude lane)
-
-| # | Wave | Status | What |
-|---|------|--------|------|
-| 1 | W245 | 🚧 In flight | Codebase indexer v0 — incremental + multi-language + `/api/codebase` API. Closes Cursor parity row 6. |
-| 2 | W246 | 🚧 In flight | Cmd+K palette v2 — fuzzy + recents + categories. Final Wave A polish. |
-| 3 | W248 | ⏳ Pending | Unified WS real-time event bus — consolidate Watch-me-work + cowork + agents tray + doctor onto one stream. |
-
-After those land: `v9.3.0` tag (assuming brother is also live on his 4
-billing endpoints). Target ship date `2026-06-12`.
-
----
-
-**Status (W247):** Wave A 90% complete (8 of 10 must-haves shipped). 2 in
-flight Claude-side; 1 external dependency (brother billing). On track for
-`v9.3.0` by 2026-06-12.
+**Status (W267):** v10.0 GA is **DONE** Claude-side. The repo is in
+the cleanest state of its life — pytest green, smoke green, perf
+green (when the suite is run), version constants in lockstep,
+FINAL-QA-GATE wired. The next commit on this lane will be the actual
+GA tag, fired by `scripts/RELEASE-v10.0.command` once the 5 external
+items above flip green.
