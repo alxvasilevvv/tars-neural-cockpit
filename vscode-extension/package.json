@@ -1,0 +1,102 @@
+{
+  "name": "tars-tab",
+  "displayName": "TARS — voice + receipts inside VS Code",
+  "description": "Thin bridge: chat, voice composer, and signed receipts from your local TARS.app, surfaced inside VS Code without leaving the editor.",
+  "version": "0.1.0",
+  "publisher": "meeet-world",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "AI",
+    "Chat",
+    "Other"
+  ],
+  "keywords": [
+    "tars",
+    "voice",
+    "ai",
+    "agent",
+    "receipts",
+    "composer",
+    "meeet"
+  ],
+  "main": "./out/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "tars.openChat",
+        "title": "TARS: Open Chat",
+        "category": "TARS"
+      },
+      {
+        "command": "tars.composeFromSelection",
+        "title": "TARS: Compose Edit From Selection",
+        "category": "TARS"
+      },
+      {
+        "command": "tars.showReceipts",
+        "title": "TARS: Show Recent Receipts",
+        "category": "TARS"
+      }
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "tars-tab",
+          "title": "TARS",
+          "icon": "media/tars-icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "tars-tab": [
+        {
+          "type": "webview",
+          "id": "tars.chatView",
+          "name": "Chat"
+        },
+        {
+          "type": "webview",
+          "id": "tars.composerView",
+          "name": "Composer Plans"
+        },
+        {
+          "type": "webview",
+          "id": "tars.receiptsView",
+          "name": "Receipts"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "TARS",
+      "properties": {
+        "tars.backendUrl": {
+          "type": "string",
+          "default": "http://127.0.0.1:8765",
+          "description": "Base URL of the local TARS backend (default: http://127.0.0.1:8765). Change this if you have moved the backend or are testing against a remote tunnel."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^20.10.0",
+    "@types/vscode": "^1.85.0",
+    "@vscode/vsce": "^2.24.0",
+    "typescript": "^5.3.3"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/meeet-world/tars"
+  }
+}

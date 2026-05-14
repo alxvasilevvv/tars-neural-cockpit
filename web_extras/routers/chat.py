@@ -53,7 +53,7 @@ from fastapi import (
     Query,
     UploadFile,
 )
-from fastapi.responses import FileResponse, PlainTextResponse, StreamingResponse
+from fastapi.responses import FileResponse, HTMLResponse, PlainTextResponse, StreamingResponse
 
 from backend.core.attachments import (
     IngestError,
@@ -809,3 +809,129 @@ async def retrieve_for_thread(
 def _encode_sse(event: str, data: Any) -> str:
     payload = json.dumps(data, separators=(",", ":"))
     return f"event: {event}\ndata: {payload}\n\n"
+
+
+# ----------------------------------------------------------------------
+# /api/chat/embed — minimal HTML page suitable for embedding in a Webview
+# (used by the tars-tab VS Code extension and any other host that wants
+# to render the chat surface in an iframe without loading the full
+# cockpit shell).
+# ----------------------------------------------------------------------
+
+
+_EMBED_HTML = """<!doctype html>
+<html lang=\"en\">
+<head>
+  <meta charset=\"utf-8\"/>
+  <meta name=\"viewport\" content=\"width=device-width,initial-scale=1\"/>
+  <title>TARS chat</title>
+  <style>
+    html,body{margin:0;padding:0;height:100%;background:#0c0c10;color:#e7e7ee;
+      font:14px/1.45 -apple-system,BlinkMacSystemFont,\"Segoe UI\",sans-serif}
+    #app{display:flex;flex-direction:column;height:100%}
+    #log{flex:1;overflow:auto;padding:14px 16px}
+    .msg{margin:0 0 12px;padding:8px 12px;border-radius:10px;max-width:90%}
+    .msg.u{background:#1a2233;align-self:flex-end}
+    .msg.a{background:#15151c;border:1px solid #2a2a33}
+    .row{display:flex;flex-direction:column;gap:6px}
+    #bar{display:flex;gap:8px;padding:10px;border-top:1px solid #20202a;background:#0e0e14}
+    #q{flex:1;padding:9px 11px;border-radius:8px;border:1px solid #2a2a33;background:#15151c;color:#fff;font:inherit}
+    button{padding:9px 14px;border-radius:8px;border:1px solid #3b3b48;background:#1a1a22;color:#fff;cursor:pointer}
+    button:disabled{opacity:.5;cursor:default}
+    .hint{padding:18px 16px;opacity:.7;font-size:13px}
+  </style>
+</head>
+<body>
+<div id=\"app\">
+  <div id=\"log\" class=\"row\">
+    <div class=\"hint\">TARS chat embed. Type a message below — runs against the local backend.</div>
+  </div>
+  <form id=\"bar\">
+    <input id=\"q\" placeholder=\"Ask TARS…\" autocomplete=\"off\" autofocus />
+    <button id=\"send\" type=\"submit\">Send</button>
+  </form>
+</div>
+<script>
+(function(){
+  const log = document.getElementById('log');
+  const form = document.getElementById('bar');
+  const q = document.getElementById('q');
+  const send = document.getElementById('send');
+  let threadId = null;
+
+  function add(role, text){
+    const d = document.createElement('div');
+    d.className = 'msg ' + (role === 'user' ? 'u' : 'a');
+    d.textContent = text;
+    log.appendChild(d);
+    log.scrollTop = log.scrollHeight;
+    return d;
+  }
+
+  async function ensureThread(){
+    if (threadId) return threadId;
+    const r = await fetch('/api/chat/threads', {method:'POST', headers:{'content-type':'application/json'}, body:'{}'});
+    if (!r.ok) throw new Error('thread create failed: ' + r.status);
+    const j = await r.json();
+    threadId = j.thread?.thread_id || j.thread_id || null;
+    if (!threadId) throw new Error('no thread id in response');
+    return threadId;
+  }
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const text = q.value.trim();
+    if (!text) return;
+    q.value = '';
+    send.disabled = true;
+    add('user', text);
+    const out = add('assistant', '…');
+    try {
+      const tid = await ensureThread();
+      const r = await fetch('/api/chat/threads/' + encodeURIComponent(tid) + '/messages',
+        {method:'POST', headers:{'content-type':'application/json'},
+         body: JSON.stringify({content:text})});
+      if (!r.ok) { out.textContent = '[error ' + r.status + ']'; return; }
+      const reader = r.body.getReader();
+      const dec = new TextDecoder();
+      let buf = '';
+      let acc = '';
+      while (true) {
+        const {value, done} = await reader.read();
+        if (done) break;
+        buf += dec.decode(value, {stream:true});
+        // SSE: events split by blank lines
+        const parts = buf.split('\\n\\n');
+        buf = parts.pop() || '';
+        for (const p of parts) {
+          const data = p.split('\\n').filter(l => l.startsWith('data: ')).map(l => l.slice(6)).join('');
+          if (!data) continue;
+          try {
+            const ev = JSON.parse(data);
+            if (ev?.delta) { acc += ev.delta; out.textContent = acc; }
+            else if (ev?.text) { acc += ev.text; out.textContent = acc; }
+          } catch { /* non-JSON SSE frame */ }
+        }
+      }
+      if (!acc) out.textContent = '[no response]';
+    } catch (err) {
+      out.textContent = '[network error: ' + (err && err.message || err) + ']';
+    } finally {
+      send.disabled = false;
+      q.focus();
+    }
+  });
+})();
+</script>
+</body>
+</html>
+"""
+
+
+@router.get("/embed", response_class=HTMLResponse)
+async def chat_embed() -> HTMLResponse:
+    """Minimal HTML chat surface for embedding in a VS Code Webview /
+    other iframe hosts. Talks to ``/api/chat/threads`` on the same
+    origin so no CORS config is needed when both are served from the
+    same backend port."""
+    return HTMLResponse(content=_EMBED_HTML, status_code=200)
