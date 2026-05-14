@@ -319,8 +319,19 @@
     margin-top: 22px; font-size: 11px; color: var(--muted-2);
     display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
   }
-  .auth-card .auth-footer a { color: var(--accent); text-decoration: none; cursor: pointer; }
-  .auth-card .auth-footer a:hover { color: var(--accent-hot); }
+  .auth-card .auth-footer a,
+  .auth-card .auth-footer .auth-link {
+    color: var(--accent);
+    text-decoration: none;
+    cursor: pointer;
+    background: transparent;
+    border: 0;
+    padding: 4px 8px;
+    font: inherit;
+    pointer-events: auto;
+  }
+  .auth-card .auth-footer a:hover,
+  .auth-card .auth-footer .auth-link:hover { color: var(--accent-hot); }
 
   /* ─── W220 Voice cockpit ─────────────────────────────────────── */
   .voice-cockpit {
@@ -525,8 +536,8 @@
     <div class="auth-status" id="authStatus"></div>
 
     <div class="auth-footer">
-      <a onclick="openExternal('https://meeet.world/about')">Why meeet.world?</a>
-      <a id="authSkipLink" style="display:none" onclick="authSkipLocal()">Skip — local-only mode</a>
+      <button type="button" class="auth-link" onclick="openExternal('https://meeet.world/about')">Why meeet.world?</button>
+      <button type="button" class="auth-link" id="authSkipLink" onclick="authSkipLocal()">Skip — local-only mode</button>
     </div>
   </div>
 </div>
