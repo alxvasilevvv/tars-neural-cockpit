@@ -96,6 +96,12 @@ from web_extras.routers import mcp_panel as mcp_panel_router
 from web_extras.routers import providers as providers_router
 # W240 — /api/mentions @-mention chat context resolver
 from web_extras.routers import mentions as mentions_router
+# W244 -- /api/privacy/* privacy mode + data plane indicators
+from web_extras.routers import privacy as privacy_router
+# W243 — /api/notepads notepad templates (Cursor-style reusable AI workflows)
+from web_extras.routers import notepads as notepads_router
+# W241 — /api/bg_agents background-agent tray + long-running task status
+from web_extras.routers import bg_agents as bg_agents_router
 
 START_TS = time.time()
 log = logging.getLogger("tars.app")
@@ -860,6 +866,12 @@ app.include_router(mcp_panel_router.router)  # W238 — MCP servers panel
 app.include_router(providers_router.router)
 # W240 — /api/mentions @-mention chat context resolver
 app.include_router(mentions_router.router)
+# W244 -- /api/privacy/* config + data plane
+app.include_router(privacy_router.router)
+# W243 — /api/notepads notepad templates (Cursor-style reusable AI workflows)
+app.include_router(notepads_router.router)
+# W241 — /api/bg_agents background-agent tray + long-running task status
+app.include_router(bg_agents_router.router)
 
 
 async def _health_payload() -> dict[str, object]:

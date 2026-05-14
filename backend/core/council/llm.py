@@ -19,6 +19,7 @@ import urllib.error
 import urllib.request
 from typing import Any, Mapping
 
+from backend.core.privacy import check_can_call
 from backend.core.vault import get_secret
 
 from .voices import Proposal, Voice
@@ -195,6 +196,13 @@ class AnthropicVoice(Voice):
         if not key:
             return _unavailable_proposal(self.model, reason="api_key_missing")
 
+        # W244 privacy gate -- privacy / strict modes block cloud LLMs.
+        allowed, reason = check_can_call("anthropic", source="council.llm")
+        if not allowed:
+            return _unavailable_proposal(
+                self.model, reason=f"privacy_block:{reason}"
+            )
+
         topic = str(context.get("topic") or "").lower()
         body = {
             "model": self.anthropic_model,
@@ -295,6 +303,13 @@ class OpenAIVoice(Voice):
         key = _resolve_openai_key()
         if not key:
             return _unavailable_proposal(self.model, reason="api_key_missing")
+
+        # W244 privacy gate -- privacy / strict modes block cloud LLMs.
+        allowed, reason = check_can_call("openai", source="council.llm")
+        if not allowed:
+            return _unavailable_proposal(
+                self.model, reason=f"privacy_block:{reason}"
+            )
 
         topic = str(context.get("topic") or "").lower()
         body = {

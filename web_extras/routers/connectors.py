@@ -42,6 +42,7 @@ from backend.core.connectors import gmail as gmail_conn
 from backend.core.connectors import registry
 from backend.core.connectors import slack as slack_conn
 from backend.core.connectors import telegram as telegram_conn
+from backend.core.privacy import check_can_call
 
 
 log = logging.getLogger("tars.connectors")
@@ -71,6 +72,21 @@ def _not_configured(spec: registry.ConnectorSpec) -> HTTPException:
             "hint": f"set {', '.join(spec.env_vars)}",
         },
     )
+
+
+def _privacy_gate(name: str) -> None:
+    """W244 -- block outbound connector calls under privacy/strict mode."""
+    allowed, reason = check_can_call(name.lower(), source=f"connectors.{name}")
+    if not allowed:
+        raise HTTPException(
+            status_code=451,
+            detail={
+                "ok": False,
+                "error": "privacy_block",
+                "reason": reason,
+                "connector": name,
+            },
+        )
 
 
 def _wrap(spec: registry.ConnectorSpec, fn, *args, **kwargs):
@@ -154,6 +170,7 @@ async def slack_channels(
     limit: int = Query(default=200, ge=1, le=1000),
 ) -> dict[str, Any]:
     spec = _get_spec("slack")
+    _privacy_gate("slack")
     if not spec.is_configured():
         raise _not_configured(spec)
     client = _wrap(spec, slack_conn.SlackClient.from_stored_token)
@@ -167,6 +184,7 @@ async def slack_messages(
     limit: int = Query(default=20, ge=1, le=200),
 ) -> dict[str, Any]:
     spec = _get_spec("slack")
+    _privacy_gate("slack")
     if not spec.is_configured():
         raise _not_configured(spec)
     client = _wrap(spec, slack_conn.SlackClient.from_stored_token)
@@ -204,6 +222,7 @@ async def gmail_threads(
     max: int = Query(default=20, ge=1, le=100),
 ) -> dict[str, Any]:
     spec = _get_spec("gmail")
+    _privacy_gate("gmail")
     if not spec.is_configured():
         raise _not_configured(spec)
     client = _wrap(spec, gmail_conn.GmailClient.from_stored_token)
@@ -214,6 +233,7 @@ async def gmail_threads(
 @router.get("/gmail/threads/{thread_id}")
 async def gmail_read_thread(thread_id: str) -> dict[str, Any]:
     spec = _get_spec("gmail")
+    _privacy_gate("gmail")
     if not spec.is_configured():
         raise _not_configured(spec)
     client = _wrap(spec, gmail_conn.GmailClient.from_stored_token)
@@ -229,6 +249,7 @@ async def calendar_today(
     calendar_id: str = Query(default="primary"),
 ) -> dict[str, Any]:
     spec = _get_spec("calendar")
+    _privacy_gate("calendar")
     if not spec.is_configured():
         raise _not_configured(spec)
     client = _wrap(spec, calendar_conn.CalendarClient.from_stored_token)
@@ -241,6 +262,7 @@ async def calendar_upcoming(
     calendar_id: str = Query(default="primary"),
 ) -> dict[str, Any]:
     spec = _get_spec("calendar")
+    _privacy_gate("calendar")
     if not spec.is_configured():
         raise _not_configured(spec)
     client = _wrap(spec, calendar_conn.CalendarClient.from_stored_token)

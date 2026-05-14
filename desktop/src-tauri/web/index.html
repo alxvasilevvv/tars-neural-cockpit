@@ -237,6 +237,91 @@
   .vision-action h3 { margin: 0 0 6px; font-size: 12px; color: var(--accent-hot); letter-spacing: .08em; text-transform: uppercase; }
   .vision-action p { font-size: 11px; color: var(--muted); line-height: 1.5; margin: 0 0 10px; }
 
+  /* W241 — Background agents tray (header chip + dropdown + status dots) */
+  .bg-tray { position: relative; display: inline-flex; align-items: center; }
+  .bg-tray-btn {
+    background: rgba(8,12,24,0.55); border: 1px solid var(--panel-edge);
+    color: var(--text); border-radius: 999px; padding: 4px 10px;
+    cursor: pointer; font: 600 11px ui-monospace, 'JetBrains Mono', Menlo, monospace;
+    display: inline-flex; align-items: center; gap: 6px; transition: border-color .15s, background .15s;
+  }
+  .bg-tray-btn:hover { border-color: var(--accent); background: rgba(99,102,241,0.08); }
+  .bg-tray-btn .bg-icon { font-size: 13px; line-height: 1; }
+  .bg-tray-btn .bg-count {
+    min-width: 16px; padding: 0 5px; border-radius: 999px;
+    background: linear-gradient(120deg,#22d3ee,#818cf8);
+    color: #05050a; font-weight: 700; font-size: 10px; text-align: center;
+  }
+  .bg-tray-btn.idle .bg-count { background: rgba(107,114,128,0.35); color: var(--muted); }
+  .bg-tray-panel {
+    position: absolute; top: calc(100% + 6px); right: 0; z-index: 60;
+    width: 360px; max-height: 420px; overflow: auto;
+    background: rgba(10,14,28,0.97); backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--panel-edge); border-radius: 10px;
+    box-shadow: 0 16px 36px rgba(0,0,0,0.55); display: none;
+  }
+  .bg-tray-panel.open { display: block; }
+  .bg-tray-panel .head {
+    padding: 10px 12px; border-bottom: 1px solid var(--panel-edge);
+    font-size: 11px; letter-spacing: .12em; text-transform: uppercase;
+    color: var(--muted); display: flex; justify-content: space-between; align-items: center;
+  }
+  .bg-task-row {
+    padding: 10px 12px; border-bottom: 1px solid rgba(255,255,255,0.04);
+    display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: center;
+  }
+  .bg-task-row:last-child { border-bottom: none; }
+  .bg-task-row .title {
+    font-size: 12px; font-weight: 600; color: var(--text);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    display: flex; align-items: center; gap: 6px;
+  }
+  .bg-task-row .meta { font-size: 10px; color: var(--muted); margin-top: 3px; }
+  .bg-task-row .step { font-size: 10px; color: var(--muted); margin-top: 2px; font-style: italic; }
+  .bg-task-row .progress {
+    height: 4px; background: rgba(255,255,255,0.06); border-radius: 999px;
+    overflow: hidden; margin-top: 6px;
+  }
+  .bg-task-row .progress .bar {
+    height: 100%; background: linear-gradient(90deg,#22d3ee,#818cf8);
+    transition: width .25s ease;
+  }
+  .bg-task-row .actions { display: flex; flex-direction: column; gap: 4px; }
+  .bg-task-row .actions button {
+    font-size: 10px; padding: 3px 8px; border-radius: 4px;
+    border: 1px solid var(--panel-edge); background: transparent;
+    color: var(--text); cursor: pointer; font-family: inherit;
+  }
+  .bg-task-row .actions button:hover { border-color: var(--accent); color: var(--accent); }
+  .bg-task-row .actions button.danger:hover { border-color: #fda4af; color: #fda4af; }
+  .bg-empty { padding: 18px 12px; text-align: center; color: var(--muted); font-size: 11px; }
+
+  /* W241 status dots — cyan-pulse / amber / green / red / grey */
+  .bg-dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .bg-dot.running {
+    background: #22d3ee; box-shadow: 0 0 6px rgba(34,211,238,0.7);
+    animation: bg-pulse 1.4s ease-in-out infinite;
+  }
+  .bg-dot.awaiting_input { background: #f59e0b; box-shadow: 0 0 6px rgba(245,158,11,0.6); }
+  .bg-dot.done { background: #22c55e; }
+  .bg-dot.error { background: #ef4444; box-shadow: 0 0 5px rgba(239,68,68,0.5); }
+  .bg-dot.cancelled { background: #6b7280; }
+  @keyframes bg-pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50%      { opacity: 0.55; transform: scale(0.78); }
+  }
+
+  /* W241 — AGENTS tab Background tasks section */
+  .bg-section { margin-bottom: 14px; padding: 12px; border: 1px solid var(--panel-edge);
+                border-radius: 10px; background: rgba(0,0,0,0.22); }
+  .bg-section h3 {
+    margin: 0 0 8px; font-size: 11px; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--accent-hot);
+    display: flex; justify-content: space-between; align-items: center;
+  }
+  .bg-section .bg-task-row { padding: 8px 4px; }
+
   /* W237 — Active model switcher */
   #modelTable { width: 100%; border-collapse: collapse; font-size: 12px; }
   #modelTable tr.model-row { cursor: pointer; transition: background 0.15s; border-bottom: 1px solid var(--panel-edge); }
@@ -273,6 +358,36 @@
   #tab-settings .mcp-toggle::after { content:''; position:absolute; top:1px; left:1px; width:16px; height:16px; border-radius:50%; background:#ddd; transition: transform .15s; }
   #tab-settings .mcp-toggle.on::after { transform: translateX(16px); }
   #tab-settings code { background: rgba(0,0,0,0.4); padding: 2px 6px; border-radius: 4px; color: var(--text); font-size: 11px; }
+
+  /* W243 — Notepads */
+  .np-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+  .np-card {
+    padding: 12px; border-radius: 10px; background: rgba(0,0,0,0.30);
+    border: 1px solid var(--panel-edge); cursor: pointer; transition: all .12s;
+    display: flex; flex-direction: column; min-height: 130px;
+  }
+  .np-card:hover { border-color: var(--accent); background: rgba(129,140,248,0.08); transform: translateY(-1px); }
+  .np-card .np-title { font-size: 12px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+  .np-card .np-preview { font-size: 11px; color: var(--muted); line-height: 1.45; flex: 1; word-break: break-word; }
+  .np-card .np-meta { display: flex; gap: 6px; align-items: center; margin-top: 8px; flex-wrap: wrap; }
+  .np-tag { font-size: 9px; padding: 1px 6px; border-radius: 999px; background: rgba(99,102,241,0.12); color: var(--accent); letter-spacing: .04em; }
+  .np-pack { font-size: 9px; padding: 1px 6px; border-radius: 3px; background: rgba(34,211,238,0.12); color: #22d3ee; letter-spacing: .04em; text-transform: uppercase; }
+  .np-count { font-size: 10px; color: var(--muted); margin-left: auto; }
+  .np-var { background: rgba(167,139,250,0.22); color: #c4b5fd; padding: 1px 3px; border-radius: 3px; font-family: 'JetBrains Mono', ui-monospace, monospace; }
+
+  /* Settings notepad row (compact) */
+  #notepadsList .np-row { display: grid; grid-template-columns: 1.5fr 2fr 0.7fr 80px 110px; gap: 8px; align-items: center; padding: 8px 0; border-top: 1px solid rgba(255,255,255,0.04); font-size: 11px; }
+  #notepadsList .np-row.head { color: var(--muted); font-size: 10px; letter-spacing: 0.08em; text-transform: uppercase; border-top: none; }
+  #notepadsList .np-row .np-title { font-weight: 600; }
+  #notepadsList .np-row .np-body-mini { color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #notepadsList .np-row .np-actions { display: flex; gap: 6px; justify-content: flex-end; }
+
+  /* Notepad picker modal */
+  #notepadsPickerModal .welcome-card { max-width: 900px; }
+  #notepadsPickerModal .np-filters { display: flex; gap: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+  #notepadsPickerModal input.np-search { flex: 1; min-width: 200px; padding: 6px 10px; background: rgba(0,0,0,0.4); border: 1px solid var(--panel-edge); border-radius: 6px; color: var(--text); font-size: 12px; }
+  #notepadsPickerModal select.np-pack-select { padding: 6px 10px; background: rgba(0,0,0,0.4); border: 1px solid var(--panel-edge); border-radius: 6px; color: var(--text); font-size: 12px; }
+  #notepadsPickerGrid { max-height: 60vh; overflow: auto; padding-right: 4px; }
 
   /* USAGE TAB (W235) — consumption console */
   #tab-usage .usage-grid {
@@ -1304,11 +1419,33 @@
     </svg>
     <div class="badge">v9.2.0-beta1 · local</div>
     <div class="tier-pill" id="tierPill" title="Subscription tier">FREE</div>
+    <!-- W244 -- data plane indicator chip (live destination of last outbound) -->
+    <div class="pill" id="dataPlaneChip" title="Data plane: where is my data going?" style="cursor:pointer" onclick="openPrivacyPanel()">
+      <span id="dpIcon" style="font-size:11px;line-height:1;">⚡</span>
+      <span class="live" id="dpDest">local</span>
+    </div>
+    <!-- W241 — Background agents tray icon (running count) -->
+    <div class="bg-tray" id="bgTray">
+      <button class="bg-tray-btn idle" id="bgTrayBtn" type="button" title="Background agents"
+              onclick="toggleBgTrayPanel(event)">
+        <span class="bg-icon">🤖</span>
+        <span class="bg-count" id="bgTrayCount">0</span>
+      </button>
+      <div class="bg-tray-panel" id="bgTrayPanel" role="dialog" aria-label="Background agents">
+        <div class="head">
+          <span>Background agents</span>
+          <span id="bgTrayPanelMeta">—</span>
+        </div>
+        <div id="bgTrayList"><div class="bg-empty">No background agents.</div></div>
+      </div>
+    </div>
     <div class="pill">
       <span class="live" id="apiStatus">connecting…</span>
       <span class="dot" id="apiDot"></span>
     </div>
   </header>
+  <!-- W244 -- privacy banner shows under topbar when mode != normal -->
+  <div id="privacyBanner" style="display:none;padding:8px 14px;font-size:11.5px;letter-spacing:0.02em;border-bottom:1px solid var(--panel-edge);"></div>
 
   <nav class="tabs">
     <button class="active" data-tab="status">Status</button>
@@ -1378,6 +1515,14 @@
     <!-- AGENTS TAB -->
     <div id="tab-agents" class="tab-panel">
       <div class="panel" style="overflow:auto;">
+        <!-- W241 — Background tasks section -->
+        <div class="bg-section" id="bgTasksSection">
+          <h3>
+            <span>Background tasks</span>
+            <span id="bgTasksMeta" style="font-size:10px;color:var(--muted);">—</span>
+          </h3>
+          <div id="bgTasksList"><div class="bg-empty">No background tasks yet.</div></div>
+        </div>
         <h2>Domain packs · pre-built agent kinds</h2>
         <div id="packsList"><div class="empty-state">Loading…</div></div>
       </div>
@@ -1632,6 +1777,70 @@
           </div>
         </div>
 
+        <!-- W244 -- Privacy mode + data sovereignty indicators -->
+        <div class="setting-block" id="privacyBlock" style="border-color: rgba(6,182,212,0.4); background: linear-gradient(135deg, rgba(6,182,212,0.06), rgba(139,92,246,0.05));">
+          <h3 style="color:#06b6d4;">🔒 PRIVACY MODE · DATA SOVEREIGNTY</h3>
+          <p style="font-size: 11px; color: var(--muted); line-height: 1.6; margin: 4px 0 12px;">
+            Decide what leaves your machine. <b>Normal</b>: cloud LLMs +
+            meeet telemetry + connectors all flow. <b>Privacy</b>: cloud
+            LLMs blocked, only <code>local:*</code> models allowed.
+            <b>Strict</b>: no outbound network at all — local stack only.
+            Config persists in <code>~/.tars/privacy.json</code>.
+          </p>
+          <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">
+            <label class="privacy-mode-radio" data-mode="normal" style="flex:1 1 30%;min-width:130px;border:1px solid var(--panel-edge);padding:10px;border-radius:8px;cursor:pointer;">
+              <input type="radio" name="pmode" value="normal" style="margin-right:6px;">
+              <b>Normal</b>
+              <div style="font-size:10px;color:var(--muted);margin-top:4px;line-height:1.4;">Cloud LLMs + meeet + connectors</div>
+            </label>
+            <label class="privacy-mode-radio" data-mode="privacy" style="flex:1 1 30%;min-width:130px;border:1px solid var(--panel-edge);padding:10px;border-radius:8px;cursor:pointer;">
+              <input type="radio" name="pmode" value="privacy" style="margin-right:6px;">
+              <b style="color:#06b6d4;">🔒 Privacy</b>
+              <div style="font-size:10px;color:var(--muted);margin-top:4px;line-height:1.4;">Local models only — cloud LLM blocked</div>
+            </label>
+            <label class="privacy-mode-radio" data-mode="strict" style="flex:1 1 30%;min-width:130px;border:1px solid var(--panel-edge);padding:10px;border-radius:8px;cursor:pointer;">
+              <input type="radio" name="pmode" value="strict" style="margin-right:6px;">
+              <b style="color:#a78bfa;">🛡 Strict</b>
+              <div style="font-size:10px;color:var(--muted);margin-top:4px;line-height:1.4;">No outbound network at all</div>
+            </label>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px;font-size:11px;">
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+              <input type="checkbox" id="pToggleCloud"> block cloud LLMs
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+              <input type="checkbox" id="pToggleMeeet"> block meeet telemetry
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+              <input type="checkbox" id="pToggleConnectors"> block outbound connectors
+            </label>
+            <label style="display:flex;align-items:center;gap:6px;cursor:pointer;">
+              <input type="checkbox" id="pToggleLocalOnly"> local-only models
+            </label>
+          </div>
+          <div style="font-size:10px;color:var(--muted);letter-spacing:0.08em;margin:14px 0 6px;">DATA PLANE · LAST 50 FLOWS</div>
+          <div id="dataPlaneTableWrap" style="border-radius:8px;border:1px solid var(--panel-edge);background:rgba(0,0,0,0.18);max-height:240px;overflow:auto;">
+            <table style="width:100%;border-collapse:collapse;font-size:10.5px;">
+              <thead>
+                <tr style="color:var(--muted);text-align:left;">
+                  <th style="padding:6px 8px;font-weight:500;">time</th>
+                  <th style="padding:6px 8px;font-weight:500;">source</th>
+                  <th style="padding:6px 8px;font-weight:500;">destination</th>
+                  <th style="padding:6px 8px;font-weight:500;">kind</th>
+                  <th style="padding:6px 8px;font-weight:500;">status</th>
+                </tr>
+              </thead>
+              <tbody id="dataPlaneTbody">
+                <tr><td colspan="5" style="padding:14px;color:var(--muted);text-align:center;">No flows recorded yet — trigger any action to populate.</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div style="margin-top:10px;display:flex;gap:8px;">
+            <button class="btn" data-action="privacy.refresh" onclick="loadPrivacy()">↻ Refresh</button>
+            <button class="btn" data-action="privacy.refresh-flows" onclick="loadDataPlane()">↻ Flows only</button>
+          </div>
+        </div>
+
         <!-- W239 - Rules for TARS (Cursor-style Rules for AI equivalent) -->
         <div class="setting-block" id="rulesBlock">
           <h3>RULES FOR TARS</h3>
@@ -1650,6 +1859,22 @@
           <div id="rulesPackWrap" style="margin-top:14px; display:none;">
             <div style="font-size:10px; color:var(--muted); letter-spacing:0.08em; margin-bottom:6px;">PACK OVERLAY (read-only)</div>
             <div id="rulesPackList" style="font-size:11px; opacity:0.7;"></div>
+          </div>
+        </div>
+
+        <!-- W243 — Notepad templates -->
+        <div class="setting-block" id="notepadsBlock">
+          <h3>NOTEPADS</h3>
+          <p style="font-size: 11px; color: var(--muted); line-height: 1.6; margin: 4px 0 10px;">
+            Reusable AI workflow templates. Click any card in CHAT → "📒 Notepads" to drop the body into the chat input.
+            Use <code>{name}</code> placeholders for variables — TARS prompts you to fill them on insertion.
+            Stored in <code>~/.tars/notepads.sqlite</code>.
+          </p>
+          <div id="notepadsList" style="font-size:11px;"><div class="empty-state" style="padding:14px 0;color:var(--muted);">Loading…</div></div>
+          <div style="margin-top: 10px; display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn primary" data-action="notepads.new" onclick="openNotepadEditor()">+ New notepad</button>
+            <button class="btn" data-action="notepads.seed" onclick="seedNotepads()">Seed defaults</button>
+            <button class="btn" data-action="notepads.refresh" onclick="loadNotepadsSettings()">↻ Refresh</button>
           </div>
         </div>
       </div>
@@ -2501,7 +2726,177 @@ async function loadSettings() {
   } catch (e) { toast(`✗ settings load: ${e.message}`, 'fail'); }
   loadModels();
   try { await loadRules(); } catch (e) { console.warn('rules load failed', e); }
+  try { await loadPrivacy(); } catch (e) { console.warn('privacy load failed', e); }
 }
+
+// W244 -- privacy mode + data plane indicators
+let _privacyCfg = null;
+async function loadPrivacy() {
+  try {
+    const res = await fetchJSON('/api/privacy/config?flows_limit=50');
+    const cfg = (res && res.config) || { mode: 'normal' };
+    _privacyCfg = cfg;
+    applyPrivacyUi(cfg);
+    renderDataPlaneRows((res && res.recent_flows) || []);
+  } catch (e) {
+    console.warn('privacy load:', e);
+  }
+}
+
+function applyPrivacyUi(cfg) {
+  // Banner
+  const banner = $('privacyBanner');
+  if (banner) {
+    if (cfg.mode === 'privacy') {
+      banner.style.display = 'block';
+      banner.style.background = 'linear-gradient(90deg, rgba(6,182,212,0.15), rgba(6,182,212,0.05))';
+      banner.style.color = '#06b6d4';
+      banner.innerHTML = '🔒 <b>Privacy mode</b> -- cloud LLMs blocked. local models only.';
+    } else if (cfg.mode === 'strict') {
+      banner.style.display = 'block';
+      banner.style.background = 'linear-gradient(90deg, rgba(6,182,212,0.18), rgba(139,92,246,0.18))';
+      banner.style.color = '#a78bfa';
+      banner.innerHTML = '🛡 <b>Strict mode</b> -- no outbound network. Local stack only.';
+    } else {
+      banner.style.display = 'none';
+    }
+  }
+  // Radios
+  document.querySelectorAll('input[name="pmode"]').forEach(r => {
+    r.checked = (r.value === cfg.mode);
+    r.onchange = () => updatePrivacy({ mode: r.value });
+  });
+  document.querySelectorAll('.privacy-mode-radio').forEach(lbl => {
+    const active = lbl.getAttribute('data-mode') === cfg.mode;
+    lbl.style.borderColor = active ? 'rgba(6,182,212,0.6)' : 'var(--panel-edge)';
+    lbl.style.background = active ? 'rgba(6,182,212,0.08)' : 'transparent';
+  });
+  // Toggles
+  const pairs = [
+    ['pToggleCloud',      'block_cloud_llm'],
+    ['pToggleMeeet',      'block_meeet_telemetry'],
+    ['pToggleConnectors', 'block_outbound_connectors'],
+    ['pToggleLocalOnly',  'local_only_models'],
+  ];
+  pairs.forEach(([id, key]) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.checked = !!cfg[key];
+    el.onchange = () => updatePrivacy({ [key]: el.checked });
+  });
+}
+
+async function updatePrivacy(patch) {
+  try {
+    const res = await fetch(API + '/api/privacy/config', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(patch),
+    });
+    const body = await res.json().catch(() => ({}));
+    if (body && body.ok && body.config) {
+      _privacyCfg = body.config;
+      applyPrivacyUi(body.config);
+      const label = body.config.mode === 'normal' ? 'Normal' : body.config.mode === 'privacy' ? 'Privacy' : 'Strict';
+      toast(`✓ Privacy: ${label}`, 'ok');
+    }
+  } catch (e) {
+    toast(`✗ privacy update: ${e.message}`, 'fail');
+  }
+}
+
+async function loadDataPlane() {
+  try {
+    const res = await fetchJSON('/api/privacy/data_plane?limit=50');
+    renderDataPlaneRows((res && res.recent_flows) || []);
+    if (res && res.last_outbound) updateDataPlaneChip(res.last_outbound);
+    else updateDataPlaneChip(null);
+  } catch (e) { /* ignore */ }
+}
+
+function renderDataPlaneRows(rows) {
+  const tb = $('dataPlaneTbody');
+  if (!tb) return;
+  if (!rows || rows.length === 0) {
+    tb.innerHTML = '<tr><td colspan="5" style="padding:14px;color:var(--muted);text-align:center;">No flows recorded yet -- trigger any action to populate.</td></tr>';
+    return;
+  }
+  tb.innerHTML = rows.map(r => {
+    const t = new Date((r.ts || 0) * 1000).toLocaleTimeString();
+    const statusColor = r.allowed ? '#22c55e' : '#ef4444';
+    const statusText = r.allowed ? 'allowed' : ('blocked: ' + (r.reason || ''));
+    const kindBg = (
+      r.kind === 'llm'        ? 'rgba(167,139,250,0.18)' :
+      r.kind === 'telemetry'  ? 'rgba(99,102,241,0.18)' :
+      r.kind === 'connector'  ? 'rgba(34,197,94,0.16)'  :
+      r.kind === 'local'      ? 'rgba(107,114,128,0.18)' :
+                                'rgba(255,255,255,0.06)'
+    );
+    return `<tr style="border-top:1px solid rgba(255,255,255,0.04);">`
+      + `<td style="padding:6px 8px;color:var(--muted);">${t}</td>`
+      + `<td style="padding:6px 8px;">${escapeHtml(r.source || '-')}</td>`
+      + `<td style="padding:6px 8px;font-weight:600;">${escapeHtml(r.dest || '-')}</td>`
+      + `<td style="padding:6px 8px;"><span style="padding:1px 6px;border-radius:6px;background:${kindBg};font-size:10px;">${r.kind || '-'}</span></td>`
+      + `<td style="padding:6px 8px;color:${statusColor};font-size:10px;">${escapeHtml(statusText)}</td>`
+      + `</tr>`;
+  }).join('');
+}
+
+function escapeHtml(s) {
+  return String(s || '').replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));
+}
+
+function updateDataPlaneChip(lastOutbound) {
+  const dest = $('dpDest');
+  const icon = $('dpIcon');
+  const chip = $('dataPlaneChip');
+  if (!dest || !icon || !chip) return;
+  if (lastOutbound && lastOutbound.dest) {
+    dest.textContent = lastOutbound.dest;
+    const k = lastOutbound.kind;
+    icon.textContent = k === 'llm' ? '🧠' : k === 'telemetry' ? '📡' : k === 'connector' ? '🔗' : '⚡';
+    chip.title = `Last outbound: ${lastOutbound.dest} (${k})`;
+  } else {
+    dest.textContent = 'local';
+    icon.textContent = '💻';
+    chip.title = 'Locally only -- no outbound network calls yet';
+  }
+}
+
+function openPrivacyPanel() {
+  // Switch to the Settings tab; the cockpit's tab switcher delegates
+  // off ``[data-tab]`` so we just click the right button.
+  const btn = document.querySelector('nav.tabs button[data-tab="settings"]');
+  if (btn) btn.click();
+  // Scroll the privacy block into view.
+  const blk = $('privacyBlock');
+  if (blk) setTimeout(() => blk.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
+}
+
+// Live data-plane chip via SSE; falls back to polling if EventSource
+// fails (e.g. backend down). The cockpit calls this once on boot.
+let _dataPlaneSse = null;
+function startDataPlaneStream() {
+  if (_dataPlaneSse) return;
+  try {
+    _dataPlaneSse = new EventSource(API + '/api/privacy/data_plane/stream?interval_s=2');
+    _dataPlaneSse.onmessage = (ev) => {
+      try {
+        const data = JSON.parse(ev.data || '{}');
+        if (data && data.last_outbound !== undefined) updateDataPlaneChip(data.last_outbound);
+        if (data && data.config) {
+          _privacyCfg = data.config;
+          applyPrivacyUi(data.config);
+        }
+        if (data && data.recent_flows) renderDataPlaneRows(data.recent_flows);
+      } catch {}
+    };
+    _dataPlaneSse.onerror = () => { try { _dataPlaneSse && _dataPlaneSse.close(); } catch {}; _dataPlaneSse = null; };
+  } catch (e) {
+    setInterval(loadDataPlane, 5000);
+  }
+}
+window.addEventListener('load', () => { try { startDataPlaneStream(); } catch {} });
 
 // W237 — Active model switcher
 async function loadModels() {

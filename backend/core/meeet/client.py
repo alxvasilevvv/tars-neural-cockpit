@@ -22,6 +22,7 @@ import time
 
 from typing import Iterable, TYPE_CHECKING
 
+from backend.core.privacy import check_can_call
 from .config import MeeetConfig, load_config
 from .events import TARSEvent
 from .store import MeeetStore, get_store
@@ -119,6 +120,20 @@ class MeeetClient:
                 pass
 
         if not self.config.enabled or not self.config.ingest_url:
+            return body
+
+        # W244 privacy gate -- strict mode + block_meeet_telemetry skip
+        # the outbound push. Local durable buffer still wrote the event,
+        # so a later mode flip + replay can drain it.
+        allowed, p_reason = check_can_call("meeet.world", source="meeet.client")
+        if not allowed:
+            if event_id:
+                try:
+                    await self.store.mark_pushed(
+                        event_id, error=f"privacy_block:{p_reason}"
+                    )
+                except Exception:
+                    pass
             return body
 
         push_error: str | None = None
