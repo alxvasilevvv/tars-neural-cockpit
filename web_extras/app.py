@@ -94,6 +94,8 @@ from web_extras.routers import rules as rules_router
 from web_extras.routers import mcp_panel as mcp_panel_router
 # W237 — /api/providers models switcher (list / active / set_active)
 from web_extras.routers import providers as providers_router
+# W240 — /api/mentions @-mention chat context resolver
+from web_extras.routers import mentions as mentions_router
 
 START_TS = time.time()
 log = logging.getLogger("tars.app")
@@ -856,6 +858,8 @@ app.include_router(rules_router.router)
 app.include_router(mcp_panel_router.router)  # W238 — MCP servers panel
 # W237 — /api/providers models switcher
 app.include_router(providers_router.router)
+# W240 — /api/mentions @-mention chat context resolver
+app.include_router(mentions_router.router)
 
 
 async def _health_payload() -> dict[str, object]:

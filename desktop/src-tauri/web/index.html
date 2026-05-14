@@ -208,6 +208,16 @@
   /* Settings tab */
   #tab-settings .setting-block { padding: 14px; border-radius: 10px; background: rgba(0,0,0,0.25); border: 1px solid var(--panel-edge); margin-bottom: 12px; }
   #tab-settings .setting-block h3 { margin: 0 0 8px; font-size: 12px; color: var(--accent); letter-spacing: 0.08em; }
+  #tab-settings .mcp-row { display:grid; grid-template-columns: 1fr 1fr 60px 80px 160px; gap:8px; align-items:center; padding:6px 0; border-top:1px solid rgba(255,255,255,0.04); }
+  #tab-settings .mcp-row.head { color: var(--muted); font-size:10px; letter-spacing:0.08em; text-transform:uppercase; border-top:none; }
+  #tab-settings .mcp-dot { display:inline-block; width:8px; height:8px; border-radius:50%; margin-right:6px; vertical-align:middle; background:#666; }
+  #tab-settings .mcp-dot.running { background:#22c55e; box-shadow:0 0 6px rgba(34,197,94,0.7); }
+  #tab-settings .mcp-dot.stopped { background:#666; }
+  #tab-settings .mcp-dot.error { background:#ef4444; box-shadow:0 0 6px rgba(239,68,68,0.7); }
+  #tab-settings .mcp-toggle { cursor:pointer; user-select:none; width:36px; height:20px; border-radius:999px; background:rgba(255,255,255,0.08); border:1px solid var(--panel-edge); position:relative; }
+  #tab-settings .mcp-toggle.on { background: rgba(99,102,241,0.4); }
+  #tab-settings .mcp-toggle::after { content:''; position:absolute; top:1px; left:1px; width:16px; height:16px; border-radius:50%; background:#ddd; transition: transform .15s; }
+  #tab-settings .mcp-toggle.on::after { transform: translateX(16px); }
   #tab-settings code { background: rgba(0,0,0,0.4); padding: 2px 6px; border-radius: 4px; color: var(--text); font-size: 11px; }
 
   /* USAGE TAB (W235) — consumption console */
@@ -1421,6 +1431,24 @@
             <button class="btn" data-action="settings.open-api-docs" onclick="window.open(API + '/docs', '_blank')">↗ Full API docs (Swagger)</button>
           </div>
         </div>
+
+        <!-- W238 — MCP servers panel -->
+        <div class="setting-block" id="mcpServersBlock">
+          <h3>MCP SERVERS</h3>
+          <p style="font-size: 11px; color: var(--muted); line-height: 1.6; margin: 4px 0 10px;">
+            External MCP servers TARS knows about. Toggle to enable/disable; status reflects
+            the latest known state. Config persists in <code>~/.tars/mcp_servers.json</code>.
+          </p>
+          <div id="mcpErrBanner" style="display:none;margin-bottom:10px;padding:8px 10px;border-radius:6px;background:rgba(239,68,68,0.12);border:1px solid rgba(239,68,68,0.4);color:#fca5a5;font-size:11px;">
+            <span id="mcpErrText"></span>
+            <a href="#" id="mcpErrLogs" onclick="openExternal('file://' + (window.HOME || '') + '/.tars/logs');return false;" style="color:#fca5a5;text-decoration:underline;margin-left:8px;">View logs</a>
+          </div>
+          <div id="mcpServersTable" style="font-size:11px;"></div>
+          <div style="margin-top: 10px;">
+            <button class="btn primary" data-action="mcp.add-server" onclick="openMcpAddModal()">+ Add server</button>
+            <button class="btn" data-action="mcp.refresh" onclick="loadMcpServers()">↻ Refresh</button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -1438,6 +1466,32 @@
 </div><!-- /cockpit-panel-drawer -->
 
 <div class="toast" id="toast"></div>
+
+<!-- W238 — MCP add-server modal -->
+<div class="welcome-modal" id="mcpAddModal" style="display:none;">
+  <div class="welcome-card" style="max-width:520px;text-align:left;">
+    <h1 style="font-size:18px;">Add MCP server</h1>
+    <p class="tagline" style="font-size:11px;">Cursor-style entry. Args are comma-separated; env is one KEY=value per line.</p>
+    <div style="display:flex;flex-direction:column;gap:8px;margin:10px 0;">
+      <label style="font-size:10px;color:var(--muted);">Name
+        <input id="mcpName" type="text" placeholder="my-mcp-server" style="width:100%;padding:6px 8px;background:rgba(0,0,0,0.4);border:1px solid var(--panel-edge);border-radius:6px;color:var(--text);font-size:12px;">
+      </label>
+      <label style="font-size:10px;color:var(--muted);">Command
+        <input id="mcpCommand" type="text" placeholder="npx" style="width:100%;padding:6px 8px;background:rgba(0,0,0,0.4);border:1px solid var(--panel-edge);border-radius:6px;color:var(--text);font-size:12px;">
+      </label>
+      <label style="font-size:10px;color:var(--muted);">Args (comma-separated)
+        <input id="mcpArgs" type="text" placeholder="-y, @modelcontextprotocol/server-filesystem, ~/Documents" style="width:100%;padding:6px 8px;background:rgba(0,0,0,0.4);border:1px solid var(--panel-edge);border-radius:6px;color:var(--text);font-size:12px;">
+      </label>
+      <label style="font-size:10px;color:var(--muted);">Env (one KEY=value per line)
+        <textarea id="mcpEnv" rows="3" placeholder="API_TOKEN=..." style="width:100%;padding:6px 8px;background:rgba(0,0,0,0.4);border:1px solid var(--panel-edge);border-radius:6px;color:var(--text);font-size:12px;font-family:monospace;"></textarea>
+      </label>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn" data-action="mcp.cancel" onclick="closeMcpAddModal()">Cancel</button>
+      <button class="btn primary" data-action="mcp.save" onclick="saveMcpServer()">Save</button>
+    </div>
+  </div>
+</div>
 
 <!-- W205 — Welcome onboarding modal -->
 <div class="welcome-modal" id="welcomeModal">
@@ -2057,6 +2111,9 @@ async function loadSettings() {
     const dsk = await fetchJSON('/api/doctor/disk_space').catch(() => ({}));
     const dskR = dsk.result || dsk;
     $('kDisk').textContent = (dskR.details && dskR.details.free_gb) ? dskR.details.free_gb + ' GB' : '—';
+
+    await loadMcpServers();
+    startMcpPolling();
   } catch (e) { toast(`✗ settings load: ${e.message}`, 'fail'); }
   loadModels();
 }
@@ -2123,6 +2180,110 @@ async function loadModels() {
     const tbody = $('modelTbody');
     if (tbody) tbody.innerHTML = `<tr><td colspan="5" style="color:var(--bad); padding:14px;">Failed to load models: ${escapeHtml(e.message)}</td></tr>`;
   }
+}
+
+// --- W238 MCP servers panel ---
+let MCP_POLL_TIMER = null;
+async function loadMcpServers() {
+  try {
+    const rows = await fetchJSON('/api/mcp/servers').catch(() => []);
+    const list = Array.isArray(rows) ? rows : [];
+    const head = `<div class="mcp-row head"><div>NAME</div><div>COMMAND</div><div>ENV</div><div>STATUS</div><div>ACTIONS</div></div>`;
+    const body = list.map(r => mcpRowHTML(r)).join('') || `<div style="color:var(--muted);padding:8px 0;">(no servers — click + Add server)</div>`;
+    const el = document.getElementById('mcpServersTable');
+    if (el) el.innerHTML = head + body;
+    const err = list.find(r => r && r.error);
+    const banner = document.getElementById('mcpErrBanner');
+    if (banner) {
+      if (err) {
+        banner.style.display = 'block';
+        document.getElementById('mcpErrText').textContent = `${err.name}: ${err.error}`;
+      } else {
+        banner.style.display = 'none';
+      }
+    }
+  } catch (e) { /* swallow */ }
+}
+function mcpRowHTML(r) {
+  const dotClass = r.status === 'running' ? 'running' : (r.status === 'error' ? 'error' : 'stopped');
+  const envCount = (r.env_keys_set || []).length;
+  const toggleCls = r.enabled ? 'mcp-toggle on' : 'mcp-toggle';
+  return `<div class="mcp-row" data-mcp-id="${escapeHtml(r.id || '')}">
+    <div>${escapeHtml(r.name || '—')}</div>
+    <div><code>${escapeHtml(r.command || '')}</code></div>
+    <div>${envCount} key${envCount===1?'':'s'}</div>
+    <div><span class="mcp-dot ${dotClass}"></span>${escapeHtml(r.status || 'stopped')}</div>
+    <div style="display:flex;gap:4px;align-items:center;">
+      <div class="${toggleCls}" data-action="mcp.toggle" onclick="toggleMcpServer('${escapeHtml(r.id || '')}', ${r.enabled ? 'true' : 'false'})" title="${r.enabled ? 'disable' : 'enable'}"></div>
+      <button class="btn" style="font-size:10px;padding:2px 6px;" data-action="mcp.delete" onclick="deleteMcpServer('${escapeHtml(r.id || '')}', '${escapeHtml(r.name || '')}')">✕</button>
+    </div>
+  </div>`;
+}
+async function toggleMcpServer(id, current) {
+  if (!id) return;
+  try {
+    await fetchJSON(`/api/mcp/servers/${encodeURIComponent(id)}`, {
+      method: 'PUT',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({enabled: !current}),
+    });
+    await loadMcpServers();
+    toast(`✓ MCP ${!current ? 'enabled' : 'disabled'}`, 'ok');
+  } catch (e) { toast('✗ MCP toggle: ' + e.message, 'fail'); }
+}
+async function deleteMcpServer(id, name) {
+  if (!id) return;
+  if (!confirm(`Delete MCP server "${name}"?`)) return;
+  try {
+    await fetchJSON(`/api/mcp/servers/${encodeURIComponent(id)}`, {method: 'DELETE'});
+    await loadMcpServers();
+    toast('✓ MCP server deleted', 'ok');
+  } catch (e) { toast('✗ MCP delete: ' + e.message, 'fail'); }
+}
+function openMcpAddModal() {
+  const m = document.getElementById('mcpAddModal');
+  if (m) { m.style.display = 'flex'; }
+  ['mcpName','mcpCommand','mcpArgs','mcpEnv'].forEach(id => { const e = document.getElementById(id); if (e) e.value = ''; });
+}
+function closeMcpAddModal() {
+  const m = document.getElementById('mcpAddModal');
+  if (m) m.style.display = 'none';
+}
+async function saveMcpServer() {
+  const name = (document.getElementById('mcpName').value || '').trim();
+  const command = (document.getElementById('mcpCommand').value || '').trim();
+  const argsRaw = (document.getElementById('mcpArgs').value || '');
+  const envRaw = (document.getElementById('mcpEnv').value || '');
+  if (!name) { toast('Name is required', 'fail'); return; }
+  if (!command) { toast('Command is required', 'fail'); return; }
+  const args = argsRaw.split(',').map(s => s.trim()).filter(Boolean);
+  const env = {};
+  envRaw.split(/\r?\n/).forEach(line => {
+    const eq = line.indexOf('=');
+    if (eq > 0) {
+      const k = line.slice(0, eq).trim();
+      const v = line.slice(eq + 1).trim();
+      if (k) env[k] = v;
+    }
+  });
+  try {
+    await fetchJSON('/api/mcp/servers', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({name, command, args, env}),
+    });
+    closeMcpAddModal();
+    await loadMcpServers();
+    toast('✓ MCP server added', 'ok');
+  } catch (e) { toast('✗ MCP add: ' + e.message, 'fail'); }
+}
+function startMcpPolling() {
+  if (MCP_POLL_TIMER) return;
+  MCP_POLL_TIMER = setInterval(() => {
+    if (activeTab === 'settings') {
+      loadMcpServers();
+    }
+  }, 10000);
 }
 
 function escapeHtml(s) {
