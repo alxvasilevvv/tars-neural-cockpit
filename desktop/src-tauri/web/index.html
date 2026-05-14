@@ -1937,6 +1937,77 @@
   </div>
 </div>
 
+<!-- W243 — Notepads picker modal -->
+<div class="welcome-modal" id="notepadsPickerModal" style="display:none;">
+  <div class="welcome-card" style="text-align:left;">
+    <h1 style="font-size:18px;">📒 Notepads</h1>
+    <p class="tagline" style="font-size:11px;">Click any card to insert its body into the chat input. Variables like <code class="np-var">{name}</code> prompt you to fill them.</p>
+    <div class="np-filters">
+      <input type="text" class="np-search" id="npSearchInput" placeholder="Search title or body…" oninput="onNotepadSearch()" />
+      <select class="np-pack-select" id="npPackSelect" onchange="onNotepadPackChange()">
+        <option value="__all__">All packs</option>
+        <option value="">— no pack —</option>
+        <option value="entrepreneur">entrepreneur</option>
+        <option value="health">health</option>
+        <option value="business">business</option>
+        <option value="science">science</option>
+        <option value="civic">civic</option>
+        <option value="algotrade">algotrade</option>
+      </select>
+    </div>
+    <div id="notepadsPickerGrid"><div class="empty-state" style="padding:20px; text-align:center; color:var(--muted);">Loading…</div></div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px;">
+      <button class="btn" data-action="notepads.picker.close" onclick="closeNotepadsPicker()">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- W243 — Notepad editor modal (create / edit) -->
+<div class="welcome-modal" id="notepadEditorModal" style="display:none;">
+  <div class="welcome-card" style="max-width:680px;text-align:left;">
+    <h1 style="font-size:18px;" id="npEditorTitle">New notepad</h1>
+    <p class="tagline" style="font-size:11px;">Use <code class="np-var">{name}</code> placeholders for variables — TARS will prompt to fill them when you "Use" this notepad.</p>
+    <input type="hidden" id="npEditorId" value="" />
+    <div style="display:flex;flex-direction:column;gap:8px;margin:10px 0;">
+      <label style="font-size:10px;color:var(--muted);">Title
+        <input id="npEditorTitleInput" type="text" placeholder="My reusable template" style="width:100%;padding:6px 8px;background:rgba(0,0,0,0.4);border:1px solid var(--panel-edge);border-radius:6px;color:var(--text);font-size:12px;">
+      </label>
+      <label style="font-size:10px;color:var(--muted);">Body
+        <textarea id="npEditorBodyInput" rows="7" oninput="updateEditorVarsHint()" placeholder="Write a cold outreach email to {company} about {value_prop}." style="width:100%;padding:6px 8px;background:rgba(0,0,0,0.4);border:1px solid var(--panel-edge);border-radius:6px;color:var(--text);font-size:12px;font-family:inherit;"></textarea>
+      </label>
+      <label style="font-size:10px;color:var(--muted);">Tags (comma-separated)
+        <input id="npEditorTagsInput" type="text" placeholder="outreach, email" style="width:100%;padding:6px 8px;background:rgba(0,0,0,0.4);border:1px solid var(--panel-edge);border-radius:6px;color:var(--text);font-size:12px;">
+      </label>
+      <label style="font-size:10px;color:var(--muted);">Pack (optional)
+        <input id="npEditorPackInput" type="text" placeholder="entrepreneur · health · business · …" style="width:100%;padding:6px 8px;background:rgba(0,0,0,0.4);border:1px solid var(--panel-edge);border-radius:6px;color:var(--text);font-size:12px;">
+      </label>
+      <div style="font-size:10px;color:var(--muted);">Detected variables: <span id="npEditorVarsHint">—</span></div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:space-between;">
+      <button class="btn" id="npEditorDeleteBtn" data-action="notepads.delete" onclick="deleteNotepadFromEditor()" style="display:none;color:#fca5a5;">Delete</button>
+      <div style="display:flex;gap:8px;margin-left:auto;">
+        <button class="btn" data-action="notepads.editor.cancel" onclick="closeNotepadEditor()">Cancel</button>
+        <button class="btn primary" data-action="notepads.editor.save" onclick="saveNotepadFromEditor()">Save</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- W243 — Notepad variable-fill modal -->
+<div class="welcome-modal" id="notepadFillModal" style="display:none;">
+  <div class="welcome-card" style="max-width:520px;text-align:left;">
+    <h1 style="font-size:18px;">Fill variables</h1>
+    <p class="tagline" style="font-size:11px;" id="npFillSubtitle">This notepad has placeholders. Fill them in to insert into chat.</p>
+    <input type="hidden" id="npFillPadId" value="" />
+    <div id="npFillFields" style="display:flex;flex-direction:column;gap:8px;margin:12px 0;"></div>
+    <div style="font-size:10px;color:var(--muted);margin-bottom:10px;">Leave blank to keep the literal <code class="np-var">{placeholder}</code>.</div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;">
+      <button class="btn" data-action="notepads.fill.cancel" onclick="closeNotepadFillModal()">Cancel</button>
+      <button class="btn primary" data-action="notepads.fill.insert" onclick="insertNotepadWithVars()">Insert into chat</button>
+    </div>
+  </div>
+</div>
+
 <!-- W205 — Welcome onboarding modal -->
 <div class="welcome-modal" id="welcomeModal">
   <div class="welcome-card">
@@ -4500,6 +4571,178 @@ setInterval(() => {
     refreshAll();
   }
 }, 30000);
+
+// ─── W241: Background agents tray ───
+// Polls /api/bg_agents every 4s, paints the header chip count,
+// refreshes the dropdown, and re-renders the AGENTS-tab "Background
+// tasks" section. SSE (GET /api/bg_agents/stream) is the long-term
+// push path — polling is the safe fallback.
+
+const BG_STATUS_LABEL = {
+  running: 'running', awaiting_input: 'needs input',
+  done: 'done', error: 'error', cancelled: 'cancelled',
+};
+
+let _bgTasksCache = [];
+let _bgStreamSrc = null;
+
+function _bgEscape(s) {
+  return String(s == null ? '' : s).replace(/[&<>"']/g, c => ({
+    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+  }[c]));
+}
+
+function _bgIsRunning(t) {
+  return t && (t.status === 'running' || t.status === 'awaiting_input');
+}
+
+function _bgRenderRow(t) {
+  const pct = (t.progress_pct == null) ? null : Math.max(0, Math.min(100, t.progress_pct));
+  const status = t.status || 'running';
+  const title = _bgEscape(t.title || ('agent ' + (t.agent_id || '').slice(0, 6)));
+  const step = t.current_step ? `<div class="step">${_bgEscape(t.current_step)}</div>` : '';
+  const meta = `<div class="meta">${_bgEscape(t.pack || '')} · ${_bgEscape(BG_STATUS_LABEL[status] || status)}</div>`;
+  const bar = (pct != null)
+    ? `<div class="progress"><div class="bar" style="width:${pct}%"></div></div>`
+    : '';
+  const canCancel = _bgIsRunning(t);
+  const cancelBtn = canCancel
+    ? `<button class="danger" onclick="bgCancelTask('${_bgEscape(t.id)}', event)">Cancel</button>`
+    : '';
+  return `<div class="bg-task-row" data-bg-id="${_bgEscape(t.id)}">
+    <div>
+      <div class="title"><span class="bg-dot ${status}"></span>${title}</div>
+      ${meta}
+      ${step}
+      ${bar}
+    </div>
+    <div class="actions">
+      <button onclick="bgOpenTask('${_bgEscape(t.id)}', event)">Open</button>
+      ${cancelBtn}
+    </div>
+  </div>`;
+}
+
+function _bgRenderTray(items) {
+  _bgTasksCache = Array.isArray(items) ? items : [];
+  const running = _bgTasksCache.filter(_bgIsRunning).length;
+  const total = _bgTasksCache.length;
+  // Header chip
+  const btn = $('bgTrayBtn');
+  const cnt = $('bgTrayCount');
+  if (btn && cnt) {
+    cnt.textContent = String(running);
+    if (running > 0) btn.classList.remove('idle');
+    else btn.classList.add('idle');
+    btn.setAttribute('title', running
+      ? `${running} background agent${running === 1 ? '' : 's'} running`
+      : (total ? `${total} recent background task${total === 1 ? '' : 's'}` : 'No background agents'));
+  }
+  // Dropdown panel (top 5)
+  const list = $('bgTrayList');
+  const meta = $('bgTrayPanelMeta');
+  if (list) {
+    const top = _bgTasksCache.slice(0, 5);
+    list.innerHTML = top.length
+      ? top.map(t => _bgRenderRow(t)).join('')
+      : '<div class="bg-empty">No background agents.</div>';
+    if (meta) meta.textContent = `${running}/${total}`;
+  }
+  // AGENTS tab section
+  const sec = $('bgTasksList');
+  const secMeta = $('bgTasksMeta');
+  if (sec) {
+    sec.innerHTML = _bgTasksCache.length
+      ? _bgTasksCache.map(t => _bgRenderRow(t)).join('')
+      : '<div class="bg-empty">No background tasks yet. Spawn one from the chat or a playbook.</div>';
+    if (secMeta) secMeta.textContent = `${running} running · ${total} total`;
+  }
+}
+
+async function bgRefresh() {
+  try {
+    const r = await fetch(`${API}/api/bg_agents`, { headers: { 'Accept': 'application/json' } });
+    if (!r.ok) return;
+    const data = await r.json();
+    _bgRenderTray(Array.isArray(data) ? data : []);
+  } catch (_) { /* offline / not mounted — ignore */ }
+}
+
+function toggleBgTrayPanel(ev) {
+  if (ev && ev.stopPropagation) ev.stopPropagation();
+  const panel = $('bgTrayPanel');
+  if (!panel) return;
+  const open = panel.classList.toggle('open');
+  if (open) bgRefresh();
+}
+
+// Click-outside auto-close
+document.addEventListener('click', (ev) => {
+  const panel = $('bgTrayPanel');
+  const tray = $('bgTray');
+  if (!panel || !tray) return;
+  if (!panel.classList.contains('open')) return;
+  if (!tray.contains(ev.target)) panel.classList.remove('open');
+});
+
+async function bgCancelTask(taskId, ev) {
+  if (ev && ev.stopPropagation) ev.stopPropagation();
+  try {
+    const r = await fetch(`${API}/api/bg_agents/${encodeURIComponent(taskId)}/cancel`, { method: 'POST' });
+    if (r.ok) {
+      if (typeof toast === 'function') toast('✓ task cancelled', 'ok');
+      bgRefresh();
+    } else if (typeof toast === 'function') {
+      toast('cancel failed (' + r.status + ')', 'fail');
+    }
+  } catch (e) {
+    if (typeof toast === 'function') toast('cancel error: ' + e.message, 'fail');
+  }
+}
+
+async function bgOpenTask(taskId, ev) {
+  if (ev && ev.stopPropagation) ev.stopPropagation();
+  try {
+    const r = await fetch(`${API}/api/bg_agents/${encodeURIComponent(taskId)}`);
+    if (!r.ok) {
+      if (typeof toast === 'function') toast('task not found', 'fail');
+      return;
+    }
+    const t = await r.json();
+    const lines = [];
+    lines.push(`Title: ${t.title}`);
+    lines.push(`Status: ${t.status}  ·  ${t.progress_pct == null ? '—' : t.progress_pct + '%'}`);
+    if (t.current_step) lines.push(`Step: ${t.current_step}`);
+    if (t.result_summary) lines.push(`Result: ${t.result_summary}`);
+    if (t.trace_id) lines.push(`Trace: ${t.trace_id}`);
+    lines.push('');
+    lines.push('Events:');
+    (t.events || []).forEach(e => {
+      lines.push(`  ${e.ts || ''}  ${e.kind || ''}  ${e.step || ''}${e.pct != null ? ' ' + e.pct + '%' : ''}`);
+    });
+    alert(lines.join('\n'));
+  } catch (e) {
+    if (typeof toast === 'function') toast('open error: ' + e.message, 'fail');
+  }
+}
+
+// SSE stream for state changes (best-effort; falls back to polling).
+function _bgConnectStream() {
+  if (typeof EventSource === 'undefined') return;
+  try {
+    if (_bgStreamSrc) { _bgStreamSrc.close(); _bgStreamSrc = null; }
+    _bgStreamSrc = new EventSource(`${API}/api/bg_agents/stream`);
+    _bgStreamSrc.onmessage = () => { bgRefresh(); };
+    _bgStreamSrc.onerror = () => {
+      // Browser will auto-reconnect; if it gives up, polling keeps us fresh.
+    };
+  } catch (_) { /* ignore */ }
+}
+
+// Boot: prime tray + poll every 4s. SSE attaches on top.
+bgRefresh();
+_bgConnectStream();
+setInterval(bgRefresh, 4000);
 </script>
 </body>
 </html>
