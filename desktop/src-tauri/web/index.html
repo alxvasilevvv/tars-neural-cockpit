@@ -501,6 +501,47 @@
     #tab-usage .usage-grid { grid-template-columns: 1fr; }
   }
 
+  /* AUDIT TAB (W255) -- receipt-anchored audit explorer */
+  #tab-audit { display: none; height: 100%; }
+  #tab-audit.active { display: grid; grid-template-columns: 40% 35% 25%; gap: 12px; min-height: 0; }
+  #tab-audit .audit-panel { display: flex; flex-direction: column; min-height: 0; }
+  #tab-audit .audit-panel > h2 { margin: 0 0 10px 0; font-size: 13px; letter-spacing: 0.02em; }
+  #tab-audit .audit-search { width: 100%; box-sizing: border-box; padding: 6px 10px; background: rgba(255,255,255,0.04); border: 1px solid var(--panel-edge); border-radius: 6px; color: var(--text); font-size: 12px; margin-bottom: 8px; }
+  #tab-audit .audit-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 10px; }
+  #tab-audit .audit-chip { padding: 4px 10px; font-size: 10.5px; border-radius: 99px; background: rgba(255,255,255,0.05); border: 1px solid var(--panel-edge); color: var(--muted); cursor: pointer; transition: all 0.15s; }
+  #tab-audit .audit-chip:hover { background: rgba(255,255,255,0.10); color: var(--text); }
+  #tab-audit .audit-chip.active { background: rgba(99,102,241,0.20); border-color: rgba(99,102,241,0.50); color: var(--text); }
+  #tab-audit .audit-timeline { flex: 1; overflow: auto; border: 1px solid var(--panel-edge); border-radius: 8px; }
+  #tab-audit .audit-row { padding: 9px 11px; border-bottom: 1px solid rgba(255,255,255,0.04); cursor: pointer; transition: background 0.12s; }
+  #tab-audit .audit-row:hover { background: rgba(255,255,255,0.04); }
+  #tab-audit .audit-row.selected { background: rgba(99,102,241,0.08); border-left: 2px solid var(--accent); padding-left: 9px; }
+  #tab-audit .audit-row-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 11.5px; }
+  #tab-audit .audit-row-kind { color: var(--accent); font-weight: 600; }
+  #tab-audit .audit-row-ts { color: var(--muted); font-size: 10.5px; white-space: nowrap; }
+  #tab-audit .audit-row-summary { font-size: 11px; color: var(--text); margin-top: 3px; line-height: 1.4; overflow: hidden; text-overflow: ellipsis; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+  #tab-audit .audit-row-meta { display: flex; gap: 8px; font-size: 10px; color: var(--muted); margin-top: 4px; font-family: ui-monospace, monospace; }
+  #tab-audit .audit-anchored-badge { padding: 1px 6px; border-radius: 99px; background: rgba(34,197,94,0.18); color: #86efac; font-family: -apple-system, system-ui, sans-serif; }
+  #tab-audit .audit-not-anchored { padding: 1px 6px; border-radius: 99px; background: rgba(255,255,255,0.05); color: var(--muted); font-family: -apple-system, system-ui, sans-serif; }
+  #tab-audit .audit-detail-body { flex: 1; overflow: auto; }
+  #tab-audit .audit-detail-chain { display: flex; align-items: center; gap: 6px; margin-bottom: 12px; font-size: 10px; font-family: ui-monospace, monospace; flex-wrap: wrap; }
+  #tab-audit .audit-detail-chain .hop { padding: 4px 8px; background: rgba(255,255,255,0.04); border: 1px solid var(--panel-edge); border-radius: 4px; }
+  #tab-audit .audit-detail-chain .hop.current { background: rgba(99,102,241,0.18); border-color: rgba(99,102,241,0.50); color: var(--text); }
+  #tab-audit .audit-detail-chain .arrow { color: var(--muted); }
+  #tab-audit .audit-detail-json { background: #0a0a0a; border: 1px solid var(--panel-edge); border-radius: 6px; padding: 10px; font-family: ui-monospace, monospace; font-size: 10.5px; color: #cdd6f4; max-height: 320px; overflow: auto; white-space: pre-wrap; word-break: break-all; }
+  #tab-audit .audit-verify-result { margin-top: 10px; padding: 10px; border-radius: 6px; font-size: 11.5px; line-height: 1.5; }
+  #tab-audit .audit-verify-result.ok { background: rgba(34,197,94,0.10); border: 1px solid rgba(34,197,94,0.30); color: #86efac; }
+  #tab-audit .audit-verify-result.fail { background: rgba(239,68,68,0.10); border: 1px solid rgba(239,68,68,0.30); color: #fca5a5; }
+  #tab-audit .audit-actions { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  #tab-audit .audit-export-form { display: flex; flex-direction: column; gap: 10px; }
+  #tab-audit .audit-export-form label { font-size: 11px; color: var(--muted); }
+  #tab-audit .audit-export-form input, #tab-audit .audit-export-form select { width: 100%; box-sizing: border-box; padding: 6px 10px; background: rgba(255,255,255,0.04); border: 1px solid var(--panel-edge); border-radius: 6px; color: var(--text); font-size: 12px; }
+  #tab-audit .audit-export-out { margin-top: 10px; font-size: 10.5px; color: var(--muted); line-height: 1.55; }
+  #tab-audit .audit-empty { padding: 18px; text-align: center; color: var(--muted); font-size: 11.5px; }
+  @media (max-width: 1100px) {
+    #tab-audit.active { grid-template-columns: 1fr; grid-auto-rows: min-content; }
+  }
+
+
   /* W205 — Welcome onboarding modal (first-launch only) */
   .welcome-modal {
     position: fixed; inset: 0; z-index: 2000;
@@ -1485,6 +1526,7 @@
     <button data-tab="vision">Vision</button>
     <button data-tab="marketplace">Plugins <span class="count" id="mpCount">·</span></button>
     <button data-tab="usage">Usage <span class="count" id="usageCount">·</span></button>
+    <button data-tab="audit">Audit <span class="count" id="auditCount">·</span></button>
     <button data-tab="settings">Settings</button>
   </nav>
 
@@ -1648,6 +1690,66 @@
         <h2>Plugins · marketplace v0</h2>
         <div id="marketplaceRows">
           <div class="empty-state">Loading…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- AUDIT TAB (W255) -- receipt-anchored audit explorer -->
+    <div id="tab-audit" class="tab-panel">
+      <!-- Timeline (left) -->
+      <div class="panel audit-panel" id="auditPanelTimeline">
+        <h2>Timeline <span style="color:var(--muted);font-weight:400;font-size:11px;" id="auditTimelineSubtitle">last 100 receipts</span></h2>
+        <input type="text" class="audit-search" id="auditSearch" placeholder="Search kind / summary / payload..." />
+        <div class="audit-chips" id="auditChips">
+          <span class="audit-chip active" data-audit-filter="all">all</span>
+          <span class="audit-chip" data-audit-filter="composer">composer</span>
+          <span class="audit-chip" data-audit-filter="voice">voice</span>
+          <span class="audit-chip" data-audit-filter="file-drop">file-drop</span>
+          <span class="audit-chip" data-audit-filter="llm-call">llm-call</span>
+          <span class="audit-chip" data-audit-filter="only_anchored">anchored only</span>
+        </div>
+        <div class="audit-timeline" id="auditTimeline">
+          <div class="audit-empty">Loading...</div>
+        </div>
+      </div>
+
+      <!-- Detail (center) -->
+      <div class="panel audit-panel" id="auditPanelDetail">
+        <h2>Receipt detail</h2>
+        <div class="audit-detail-body" id="auditDetailBody">
+          <div class="audit-empty">Pick a receipt on the left to see its hash chain, signature, and Solana anchor.</div>
+        </div>
+        <div class="audit-actions" id="auditActions" style="display:none;">
+          <button class="btn primary" data-action="audit.verify" onclick="auditVerifySelected()">Verify</button>
+          <button class="btn" data-action="audit.copy-url" onclick="auditCopyPublicUrl()">Copy receipt URL</button>
+          <button class="btn" data-action="audit.copy-hash" onclick="auditCopyHash()">Copy hash</button>
+        </div>
+      </div>
+
+      <!-- Export (right) -->
+      <div class="panel audit-panel" id="auditPanelExport">
+        <h2>Compliance export</h2>
+        <div class="audit-export-form">
+          <div>
+            <label for="auditExportFrom">From (date)</label>
+            <input type="date" id="auditExportFrom" />
+          </div>
+          <div>
+            <label for="auditExportTo">To (date)</label>
+            <input type="date" id="auditExportTo" />
+          </div>
+          <div>
+            <label for="auditExportFormat">Format</label>
+            <select id="auditExportFormat">
+              <option value="json">JSON</option>
+              <option value="csv">CSV</option>
+              <option value="pdf">PDF (compliance bundle)</option>
+            </select>
+          </div>
+          <button class="btn primary" data-action="audit.export" onclick="auditRunExport()">Export</button>
+        </div>
+        <div class="audit-export-out" id="auditExportOut">
+          PDF bundle includes: cover page (date range, hash-chain summary, Solana anchor tx ids), one row per receipt, Ed25519 signature footer.
         </div>
       </div>
     </div>
@@ -2286,6 +2388,7 @@ document.querySelectorAll('nav.tabs button').forEach(b => {
     if (activeTab === 'vision') {/* nothing to fetch */}
     if (activeTab === 'marketplace') loadMarketplace();
     if (activeTab === 'usage') loadUsage();
+    if (activeTab === 'audit') loadAudit();
     if (activeTab === 'settings') loadSettings();
   });
 });
@@ -6082,6 +6185,233 @@ window.tarsComposer = {
   open: openComposerPanel,
   close: closeComposerPanel,
 };
+
+// ===== AUDIT TAB (W255) =====================================================
+let _AUDIT_STATE = {
+  receipts: [], selected: null, kind: null, onlyAnchored: false, q: '', loaded: false,
+};
+
+function _auditFmtTime(ts) {
+  if (!ts) return '-';
+  try { return new Date(ts * 1000).toISOString().replace('T', ' ').slice(0, 19) + 'Z'; }
+  catch (e) { return String(ts); }
+}
+function _auditEscape(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+async function loadAudit() {
+  _AUDIT_STATE.loaded = true;
+  await _auditFetchTimeline();
+}
+
+async function _auditFetchTimeline() {
+  const tl = $('auditTimeline');
+  if (!tl) return;
+  tl.innerHTML = '<div class="audit-empty">Loading...</div>';
+  const qs = new URLSearchParams();
+  qs.set('limit', '100');
+  if (_AUDIT_STATE.kind) qs.set('kind', _AUDIT_STATE.kind);
+  if (_AUDIT_STATE.q) qs.set('q', _AUDIT_STATE.q);
+  if (_AUDIT_STATE.onlyAnchored) qs.set('only_anchored', 'true');
+  try {
+    const d = await fetchJSON('/api/audit/timeline?' + qs.toString());
+    _AUDIT_STATE.receipts = d.items || [];
+    _renderAuditTimeline();
+    const cnt = $('auditCount'); if (cnt) cnt.textContent = String(_AUDIT_STATE.receipts.length);
+    const sub = $('auditTimelineSubtitle');
+    if (sub) {
+      const tag = d.privacy_mode && d.privacy_mode !== 'normal' ? ' - privacy:' + d.privacy_mode : '';
+      sub.textContent = (_AUDIT_STATE.receipts.length || 0) + ' receipts' + tag;
+    }
+  } catch (e) {
+    tl.innerHTML = '<div class="audit-empty">offline - ' + _auditEscape(e.message || e) + '</div>';
+  }
+}
+
+function _renderAuditTimeline() {
+  const tl = $('auditTimeline');
+  if (!tl) return;
+  if (!_AUDIT_STATE.receipts.length) {
+    tl.innerHTML = '<div class="audit-empty">No receipts yet. Take an action - this fills in real-time.</div>';
+    return;
+  }
+  tl.innerHTML = _AUDIT_STATE.receipts.map(r => {
+    const sel = (r.hash === _AUDIT_STATE.selected) ? ' selected' : '';
+    const badge = r.anchored
+      ? '<span class="audit-anchored-badge">anchored</span>'
+      : '<span class="audit-not-anchored">pending</span>';
+    return '<div class="audit-row' + sel + '" data-audit-hash="' + _auditEscape(r.hash) + '" '
+      + 'onclick="auditSelectReceipt(\'' + _auditEscape(r.hash) + '\')">'
+      + '<div class="audit-row-top"><span class="audit-row-kind">' + _auditEscape(r.kind) + '</span>'
+      + '<span class="audit-row-ts">' + _auditFmtTime(r.ts) + '</span></div>'
+      + '<div class="audit-row-summary">' + _auditEscape(r.summary || r.actor || '-') + '</div>'
+      + '<div class="audit-row-meta"><span>' + _auditEscape(r.hash_short || '') + '</span>' + badge + '</div>'
+      + '</div>';
+  }).join('');
+}
+
+async function auditSelectReceipt(hash) {
+  _AUDIT_STATE.selected = hash;
+  _renderAuditTimeline();
+  const body = $('auditDetailBody');
+  const acts = $('auditActions');
+  if (!body) return;
+  body.innerHTML = '<div class="audit-empty">Loading receipt...</div>';
+  if (acts) acts.style.display = 'none';
+  try {
+    const d = await fetchJSON('/api/audit/receipt/' + encodeURIComponent(hash));
+    _renderAuditDetail(d);
+    if (acts) acts.style.display = '';
+  } catch (e) {
+    body.innerHTML = '<div class="audit-empty">error: ' + _auditEscape(e.message || e) + '</div>';
+  }
+}
+
+function _renderAuditDetail(d) {
+  const body = $('auditDetailBody');
+  if (!body || !d || !d.receipt) return;
+  const r = d.receipt;
+  const prev = d.prev_hash, next = d.next_hash;
+  const chain =
+    '<div class="audit-detail-chain">'
+    + (prev ? '<span class="hop" title="' + _auditEscape(prev) + '">' + _auditEscape((prev || '').slice(0,8)) + '</span>'
+            : '<span class="hop" style="opacity:0.45;">genesis</span>')
+    + '<span class="arrow">&rarr;</span>'
+    + '<span class="hop current" title="' + _auditEscape(r.hash) + '">' + _auditEscape((r.hash || '').slice(0,8)) + '</span>'
+    + '<span class="arrow">&rarr;</span>'
+    + (next ? '<span class="hop" title="' + _auditEscape(next) + '">' + _auditEscape((next || '').slice(0,8)) + '</span>'
+            : '<span class="hop" style="opacity:0.45;">tip</span>')
+    + '</div>';
+  const anchor = d.anchor || {};
+  let anchorRow = '';
+  if (anchor.anchored && anchor.solana_signature) {
+    anchorRow = '<div style="margin-bottom:10px;font-size:11px;">'
+      + '<span class="audit-anchored-badge">anchored</span> '
+      + '<a href="#" onclick="openExternal(\'' + _auditEscape(anchor.explorer_url || '') + '\');return false;" '
+      + 'style="color:var(--accent);text-decoration:none;font-size:10.5px;">view on Solana &rarr;</a>'
+      + '<div style="font-size:10px;color:var(--muted);margin-top:3px;font-family:ui-monospace,monospace;">'
+      + 'tx ' + _auditEscape((anchor.solana_signature || '').slice(0,32)) + '...</div>'
+      + '</div>';
+  } else {
+    anchorRow = '<div style="margin-bottom:10px;font-size:11px;color:var(--muted);">'
+      + '<span class="audit-not-anchored">pending</span> '
+      + '<span style="font-size:10px;">will roll into ' + _auditEscape(anchor.day || 'today') + ' Merkle root</span></div>';
+  }
+  const pretty = JSON.stringify(r, null, 2);
+  body.innerHTML = chain + anchorRow
+    + '<pre class="audit-detail-json">' + _auditEscape(pretty) + '</pre>'
+    + '<div id="auditVerifyArea"></div>';
+  body.dataset.publicUrl = d.public_url || '';
+  body.dataset.hash = r.hash || '';
+}
+
+async function auditVerifySelected() {
+  if (!_AUDIT_STATE.selected) return;
+  const area = $('auditVerifyArea');
+  if (area) area.innerHTML = '<div class="audit-verify-result">Verifying...</div>';
+  try {
+    const d = await fetchJSON('/api/audit/verify/' + encodeURIComponent(_AUDIT_STATE.selected));
+    let cls = d.verified ? 'ok' : 'fail';
+    let html = '<div class="audit-verify-result ' + cls + '">';
+    html += (d.verified ? '&#10003; Verified' : '&#10007; Verification failed') + '<br/>';
+    html += '<span style="font-size:10.5px;opacity:0.85;">'
+      + 'signature: ' + (d.signature_ok ? 'ok' : 'FAIL')
+      + ' &middot; merkle-proof: ' + (d.merkle_proof_ok ? 'ok' : 'FAIL')
+      + ' &middot; anchored: ' + (d.anchored ? 'yes' : 'no');
+    if (d.solana_tx) {
+      html += '<br/><a href="#" onclick="openExternal(\'' + _auditEscape(d.explorer_url || '') + '\');return false;" '
+        + 'style="color:var(--accent);text-decoration:none;">Solana tx ' + _auditEscape((d.solana_tx||'').slice(0,12)) + '...</a>';
+    }
+    html += '</span></div>';
+    if (area) area.innerHTML = html;
+  } catch (e) {
+    if (area) area.innerHTML = '<div class="audit-verify-result fail">error: ' + _auditEscape(e.message || e) + '</div>';
+  }
+}
+
+function auditCopyPublicUrl() {
+  const body = $('auditDetailBody');
+  if (!body || !body.dataset.publicUrl) return;
+  try { navigator.clipboard.writeText(body.dataset.publicUrl); } catch(e) {}
+}
+function auditCopyHash() {
+  const body = $('auditDetailBody');
+  if (!body || !body.dataset.hash) return;
+  try { navigator.clipboard.writeText(body.dataset.hash); } catch(e) {}
+}
+
+(function _wireAuditControls(){
+  const tryWire = () => {
+    const chips = document.getElementById('auditChips');
+    const search = document.getElementById('auditSearch');
+    if (!chips || !search) return false;
+    if (chips.dataset._wired) return true;
+    chips.dataset._wired = '1';
+    chips.querySelectorAll('.audit-chip').forEach(c => {
+      c.addEventListener('click', () => {
+        const v = c.dataset.auditFilter || 'all';
+        if (v === 'only_anchored') {
+          _AUDIT_STATE.onlyAnchored = !_AUDIT_STATE.onlyAnchored;
+          c.classList.toggle('active', _AUDIT_STATE.onlyAnchored);
+        } else {
+          chips.querySelectorAll('.audit-chip').forEach(x => {
+            if ((x.dataset.auditFilter || 'all') !== 'only_anchored') x.classList.remove('active');
+          });
+          c.classList.add('active');
+          _AUDIT_STATE.kind = (v === 'all') ? null : v;
+        }
+        if (_AUDIT_STATE.loaded) _auditFetchTimeline();
+      });
+    });
+    let timer = null;
+    search.addEventListener('input', () => {
+      _AUDIT_STATE.q = search.value.trim();
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => { if (_AUDIT_STATE.loaded) _auditFetchTimeline(); }, 200);
+    });
+    return true;
+  };
+  if (!tryWire()) document.addEventListener('DOMContentLoaded', tryWire);
+})();
+
+async function auditRunExport() {
+  const fromEl = $('auditExportFrom');
+  const toEl = $('auditExportTo');
+  const fmtEl = $('auditExportFormat');
+  const outEl = $('auditExportOut');
+  if (!fromEl || !toEl || !fmtEl || !outEl) return;
+  const fromTs = fromEl.value ? Math.floor(new Date(fromEl.value + 'T00:00:00Z').getTime() / 1000) : null;
+  const toTs = toEl.value ? Math.floor(new Date(toEl.value + 'T23:59:59Z').getTime() / 1000) : null;
+  const fmt = fmtEl.value;
+  outEl.innerHTML = 'Exporting...';
+  try {
+    const resp = await fetch(API + '/api/receipts/export', {
+      method: 'POST', headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({from: fromTs, to: toTs, format: fmt}),
+    });
+    if (resp.status === 501) {
+      const j = await resp.json();
+      outEl.innerHTML = '<span style="color:#fcd34d;">PDF unavailable:</span> '
+        + _auditEscape(j.hint || 'install reportlab.') + '<br/>'
+        + '<span style="font-size:10px;">Try JSON or CSV instead.</span>';
+      return;
+    }
+    const j = await resp.json();
+    if (!j.ok) {
+      outEl.innerHTML = '<span style="color:#fca5a5;">error:</span> ' + _auditEscape(j.error || 'export_failed');
+      return;
+    }
+    const url = API + (j.download_url || ('/api/receipts/export/' + j.job_id));
+    outEl.innerHTML = 'Ready: <a href="' + url + '" target="_blank" style="color:var(--accent);">'
+      + _auditEscape(j.filename || 'download') + '</a> &middot; ' + j.count + ' receipts &middot; ' + _auditEscape(j.format || fmt);
+  } catch (e) {
+    outEl.innerHTML = '<span style="color:#fca5a5;">error:</span> ' + _auditEscape(e.message || e);
+  }
+}
+// ===== /AUDIT TAB ===========================================================
+
 </script>
 </body>
 </html>

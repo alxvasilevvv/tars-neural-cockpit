@@ -59,6 +59,7 @@ from web_extras.routers import doctor as doctor_router
 from web_extras.routers import org as org_router
 from web_extras.routers import outreach as outreach_router
 from web_extras.routers import receipts as receipts_router
+from web_extras.routers import audit as audit_router_w255  # W255 -- receipt-anchored audit explorer
 from web_extras.routers import scheduler as scheduler_router
 # Wave 102 — /api/files document & file management surface.
 from web_extras.routers import files as files_router
@@ -916,6 +917,10 @@ app.include_router(org_router.router)
 app.include_router(outreach_router.router)
 app.include_router(receipts_router.router)
 app.include_router(receipts_router.audit_router)  # Wave 123: /api/audit/list alias
+# W255 -- /api/audit/timeline /api/audit/receipt /api/audit/verify
+app.include_router(audit_router_w255.router)
+# W255 -- /api/receipts/export + /api/receipts/export/{job_id}
+app.include_router(audit_router_w255.export_router)
 app.include_router(scheduler_router.router)
 app.include_router(files_router.router)
 app.include_router(reports_router.router)
