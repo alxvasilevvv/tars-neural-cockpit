@@ -88,6 +88,12 @@ from web_extras.routers import digest as digest_router
 from web_extras.routers import accessibility as a11y_router
 # W220 — /api/voice/command dispatcher for the full-screen voice cockpit
 from web_extras.routers import voice_command as voice_command_router
+# W239 — /api/rules: operator-defined rules folded into the system prompt
+from web_extras.routers import rules as rules_router
+# W238 — /api/mcp/* desktop panel for external MCP servers
+from web_extras.routers import mcp_panel as mcp_panel_router
+# W237 — /api/providers models switcher (list / active / set_active)
+from web_extras.routers import providers as providers_router
 
 START_TS = time.time()
 log = logging.getLogger("tars.app")
@@ -845,6 +851,11 @@ app.include_router(digest_router.router)
 app.include_router(a11y_router.router)
 # W220 — voice-command dispatcher for the full-screen cockpit
 app.include_router(voice_command_router.router)
+# W239 — rules system (operator-defined system-prompt overlays)
+app.include_router(rules_router.router)
+app.include_router(mcp_panel_router.router)  # W238 — MCP servers panel
+# W237 — /api/providers models switcher
+app.include_router(providers_router.router)
 
 
 async def _health_payload() -> dict[str, object]:

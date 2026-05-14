@@ -183,6 +183,28 @@
   .vision-action h3 { margin: 0 0 6px; font-size: 12px; color: var(--accent-hot); letter-spacing: .08em; text-transform: uppercase; }
   .vision-action p { font-size: 11px; color: var(--muted); line-height: 1.5; margin: 0 0 10px; }
 
+  /* W237 — Active model switcher */
+  #modelTable { width: 100%; border-collapse: collapse; font-size: 12px; }
+  #modelTable tr.model-row { cursor: pointer; transition: background 0.15s; border-bottom: 1px solid var(--panel-edge); }
+  #modelTable tr.model-row:hover:not(.disabled) { background: rgba(0,255,255,0.04); }
+  #modelTable tr.model-row.active { background: linear-gradient(90deg, rgba(0,255,255,0.10), rgba(0,255,255,0.02)); border-left: 2px solid var(--accent); }
+  #modelTable tr.model-row.disabled { opacity: 0.5; cursor: not-allowed; }
+  #modelTable td { padding: 9px 10px; vertical-align: middle; }
+  #modelTable td.cell-radio { width: 28px; }
+  #modelTable td.cell-label { font-weight: 500; color: var(--text); }
+  #modelTable tr.model-row.active td.cell-label { color: var(--accent); }
+  #modelTable td.cell-cost { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--muted); font-size: 11px; white-space: nowrap; }
+  #modelTable td.cell-ctx { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; color: var(--muted); font-size: 11px; text-align: right; }
+  .model-radio { width: 14px; height: 14px; border-radius: 50%; border: 1.5px solid var(--muted); display: inline-block; vertical-align: middle; }
+  .model-row.active .model-radio { border-color: var(--accent); background: radial-gradient(circle at center, var(--accent) 0%, var(--accent) 40%, transparent 50%); box-shadow: 0 0 6px rgba(0,255,255,0.5); }
+  .provider-badge { display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 10px; letter-spacing: 0.04em; text-transform: uppercase; background: rgba(255,255,255,0.06); color: var(--muted); border: 1px solid var(--panel-edge); margin-right: 6px; }
+  .avail-dot { display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: var(--muted); margin-right: 6px; vertical-align: middle; }
+  .avail-dot.on { background: var(--ok); box-shadow: 0 0 5px rgba(120,255,150,0.5); }
+  .model-tag { display: inline-block; padding: 1px 6px; border-radius: 3px; font-size: 10px; background: rgba(0,255,255,0.08); color: var(--accent); border: 1px solid rgba(0,255,255,0.18); margin-left: 4px; }
+  .model-tag.expensive { color: #f7c948; background: rgba(247,201,72,0.08); border-color: rgba(247,201,72,0.20); }
+  .model-tag.cheap, .model-tag.fast { color: #78d278; background: rgba(120,210,120,0.08); border-color: rgba(120,210,120,0.20); }
+  .model-tag.recommended { color: #a78bfa; background: rgba(167,139,250,0.10); border-color: rgba(167,139,250,0.25); }
+  .model-hint { font-size: 10px; color: var(--muted); margin-top: 2px; font-style: italic; }
   /* Settings tab */
   #tab-settings .setting-block { padding: 14px; border-radius: 10px; background: rgba(0,0,0,0.25); border: 1px solid var(--panel-edge); margin-bottom: 12px; }
   #tab-settings .setting-block h3 { margin: 0 0 8px; font-size: 12px; color: var(--accent); letter-spacing: 0.08em; }
@@ -1351,6 +1373,22 @@
             Keys live in <code>.env</code> at repo root. Edit + restart backend.
           </div>
         </div>
+        <!-- W237 — Active model switcher -->
+        <div class="setting-block" id="activeModelBlock">
+          <h3>ACTIVE MODEL</h3>
+          <p style="font-size: 11px; color: var(--muted); line-height: 1.55; margin: 4px 0 10px;">
+            Click a row to switch the default model TARS uses for chat + agents.
+            Cost is per 1K tokens (input / output). Availability follows your
+            <code>.env</code> API keys.
+          </p>
+          <div id="modelTableWrap" style="overflow:hidden; border-radius:8px; border:1px solid var(--panel-edge); background:rgba(0,0,0,0.18);">
+            <table id="modelTable">
+              <tbody id="modelTbody">
+                <tr><td colspan="5" style="color:var(--muted); padding:14px;">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
         <div class="setting-block">
           <h3>NOTIFICATIONS</h3>
           <div class="kv">
@@ -2020,6 +2058,71 @@ async function loadSettings() {
     const dskR = dsk.result || dsk;
     $('kDisk').textContent = (dskR.details && dskR.details.free_gb) ? dskR.details.free_gb + ' GB' : '—';
   } catch (e) { toast(`✗ settings load: ${e.message}`, 'fail'); }
+  loadModels();
+}
+
+// W237 — Active model switcher
+async function loadModels() {
+  try {
+    const res = await fetchJSON('/api/providers/list');
+    const rows = (res && res.models) || [];
+    const tbody = $('modelTbody');
+    if (!tbody) return;
+    if (rows.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" style="color:var(--muted); padding:14px;">No models registered.</td></tr>';
+      return;
+    }
+    const envHint = { anthropic: 'ANTHROPIC_API_KEY', openai: 'OPENAI_API_KEY', openrouter: 'OPENROUTER_API_KEY', google: 'GOOGLE_API_KEY' };
+    tbody.innerHTML = rows.map(m => {
+      const cost = `$${m.in_per_1k_usd.toFixed(4)} in / $${m.out_per_1k_usd.toFixed(4)} out per 1K`;
+      const ctx = m.context_window ? `${(m.context_window / 1000).toFixed(0)}K ctx` : '';
+      const tags = (m.tags || []).map(t => `<span class="model-tag ${escapeHtml(t)}">${escapeHtml(t)}</span>`).join('');
+      const cls = ['model-row'];
+      if (m.active) cls.push('active');
+      if (!m.available) cls.push('disabled');
+      const hint = !m.available ? `<div class="model-hint">Set ${escapeHtml(envHint[m.provider] || m.provider.toUpperCase() + '_API_KEY')} in .env</div>` : '';
+      return `<tr class="${cls.join(' ')}" data-model-id="${escapeHtml(m.id)}" data-available="${m.available}">
+        <td class="cell-radio"><span class="model-radio"></span></td>
+        <td class="cell-label">
+          <span class="avail-dot ${m.available ? 'on' : ''}"></span>
+          <span class="provider-badge">${escapeHtml(m.provider)}</span>
+          ${escapeHtml(m.label)}
+          ${tags}
+          ${hint}
+        </td>
+        <td class="cell-cost">${cost}</td>
+        <td class="cell-ctx">${ctx}</td>
+      </tr>`;
+    }).join('');
+    // Click → set_active
+    tbody.querySelectorAll('tr.model-row').forEach(tr => {
+      tr.addEventListener('click', async () => {
+        if (tr.dataset.available !== 'true') {
+          toast(`✗ model unavailable — set API key in .env`, 'fail');
+          return;
+        }
+        const id = tr.dataset.modelId;
+        if (tr.classList.contains('active')) return;
+        try {
+          const res = await fetchJSON('/api/providers/set_active', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ model_id: id }),
+          });
+          if (res && res.ok) {
+            const label = (tr.querySelector('.cell-label')?.textContent || id).trim().split('\n')[0];
+            toast(`✓ Active model: ${label}`, 'ok');
+            loadModels();
+          } else {
+            toast(`✗ switch failed`, 'fail');
+          }
+        } catch (e) { toast(`✗ ${e.message}`, 'fail'); }
+      });
+    });
+  } catch (e) {
+    const tbody = $('modelTbody');
+    if (tbody) tbody.innerHTML = `<tr><td colspan="5" style="color:var(--bad); padding:14px;">Failed to load models: ${escapeHtml(e.message)}</td></tr>`;
+  }
 }
 
 function escapeHtml(s) {
