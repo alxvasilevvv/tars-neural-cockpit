@@ -75,6 +75,9 @@ from web_extras.routers import perf as perf_router
 # Wave 110 — /api/workspaces multi-tenant Workspaces MVP (additive).
 # Schema-only foundation; v9.3 wires data fencing on existing stores.
 from web_extras.routers import workspaces as workspaces_router
+# Wave 203 — /api/vision (capture+analyze + OCR) and /api/auth/meeet (1-click).
+from web_extras.routers import vision as vision_router
+from web_extras.routers import auth_meeet as auth_meeet_router
 
 START_TS = time.time()
 log = logging.getLogger("tars.app")
@@ -801,6 +804,9 @@ app.include_router(qa_router.router)
 # imports, same contract.
 from web_extras.routers import cowork as cowork_router  # noqa: E402
 app.include_router(cowork_router.router)
+# W203 — vision + meeet-auth endpoints for the new TARS.app control center.
+app.include_router(vision_router.router)
+app.include_router(auth_meeet_router.router)
 
 
 async def _health_payload() -> dict[str, object]:
