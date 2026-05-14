@@ -111,6 +111,8 @@ from web_extras.routers import codebase as codebase_router
 from web_extras.routers import palette as palette_router
 # W253 — /api/composer voice-driven Composer (multi-file edits with diff preview)
 from web_extras.routers import composer as composer_router
+# W257 — /api/gdpr/* GDPR data-subject access (export/delete/cancel) for BUSINESS tier
+from web_extras.routers import gdpr as gdpr_router
 
 START_TS = time.time()
 log = logging.getLogger("tars.app")
@@ -980,6 +982,8 @@ app.include_router(realtime_router.router)
 app.include_router(codebase_router.router)
 # W253 — /api/composer voice-driven Composer
 app.include_router(composer_router.router)
+# W257 — GDPR endpoints
+app.include_router(gdpr_router.router)
 
 
 async def _health_payload() -> dict[str, object]:
