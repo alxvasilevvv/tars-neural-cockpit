@@ -593,6 +593,121 @@
   }
   .welcome-card .skip:hover { color: var(--text); }
 
+  /* ─── W269 — 60-sec voice-first first-launch tour ─────────── */
+  .ttfv-overlay {
+    position: fixed; inset: 0; z-index: 2500;
+    background: radial-gradient(ellipse at center, rgba(15,18,30,0.92) 0%, rgba(5,6,10,0.97) 70%);
+    backdrop-filter: blur(10px);
+    display: none; flex-direction: column;
+    align-items: center; justify-content: center;
+    animation: ttfvFadeIn 0.5s ease-out;
+  }
+  .ttfv-overlay.show { display: flex; }
+  @keyframes ttfvFadeIn { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
+  .ttfv-stage {
+    width: min(720px, 92vw); padding: 36px 40px 28px;
+    background: linear-gradient(160deg, rgba(99,102,241,0.10), rgba(139,92,246,0.06)), rgba(7,8,13,0.92);
+    border: 1px solid rgba(139,92,246,0.45);
+    border-radius: 22px;
+    box-shadow: 0 30px 100px rgba(0,0,0,0.75), inset 0 1px 0 rgba(255,255,255,0.06);
+    text-align: center;
+  }
+  .ttfv-progress { display: flex; gap: 6px; justify-content: center; margin-bottom: 22px; }
+  .ttfv-progress .dot {
+    width: 36px; height: 4px; border-radius: 2px;
+    background: rgba(255,255,255,0.10); transition: background 0.3s;
+  }
+  .ttfv-progress .dot.done { background: linear-gradient(90deg, #818cf8, #a78bfa); }
+  .ttfv-progress .dot.active { background: #a5b4fc; box-shadow: 0 0 12px rgba(165,180,252,0.6); }
+  .ttfv-eyebrow {
+    font-size: 10px; letter-spacing: 0.24em; color: var(--accent-hot, #a78bfa);
+    text-transform: uppercase; margin-bottom: 12px;
+  }
+  .ttfv-headline {
+    font-size: 22px; line-height: 1.3; margin: 0 0 8px;
+    background: linear-gradient(90deg, #ffffff, #c7d2fe 60%, #a5b4fc);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    font-weight: 600;
+  }
+  .ttfv-sub {
+    color: var(--muted); font-size: 13px; line-height: 1.6;
+    margin: 0 auto 22px; max-width: 480px; min-height: 36px;
+  }
+  .ttfv-capture {
+    margin: 18px auto 6px; max-width: 480px;
+    padding: 14px 16px; border-radius: 14px;
+    background: rgba(0,0,0,0.4); border: 1px solid rgba(139,92,246,0.25);
+    font-size: 13px; color: var(--text); min-height: 44px; text-align: left;
+    white-space: pre-wrap;
+  }
+  .ttfv-capture.empty { color: var(--muted-2, #6b7280); font-style: italic; text-align: center; }
+  .ttfv-mic-hint {
+    display: inline-flex; align-items: center; gap: 8px;
+    margin-top: 12px; padding: 10px 18px;
+    border: 1px solid rgba(139,92,246,0.3); border-radius: 999px;
+    font-size: 12px; color: var(--muted); letter-spacing: 0.08em;
+    background: rgba(0,0,0,0.3);
+  }
+  .ttfv-mic-hint .pulse {
+    width: 8px; height: 8px; border-radius: 50%;
+    background: #818cf8; box-shadow: 0 0 0 0 rgba(129,140,248,0.7);
+  }
+  .ttfv-mic-hint.recording .pulse { animation: ttfvPulse 1.2s infinite; background: #ef4444; }
+  @keyframes ttfvPulse {
+    0%   { box-shadow: 0 0 0 0 rgba(239,68,68,0.7); }
+    70%  { box-shadow: 0 0 0 10px rgba(239,68,68,0); }
+    100% { box-shadow: 0 0 0 0 rgba(239,68,68,0); }
+  }
+  .ttfv-text-fallback {
+    display: none; margin: 12px auto 0; max-width: 480px;
+  }
+  .ttfv-overlay.text-mode .ttfv-text-fallback { display: block; }
+  .ttfv-overlay.text-mode .ttfv-mic-hint { display: none; }
+  .ttfv-text-fallback input {
+    width: 100%; padding: 12px 14px; border-radius: 10px;
+    border: 1px solid rgba(139,92,246,0.3); background: rgba(0,0,0,0.4);
+    color: var(--text); font-family: inherit; font-size: 13px;
+  }
+  .ttfv-actions {
+    display: flex; gap: 10px; justify-content: center;
+    margin-top: 18px;
+  }
+  .ttfv-btn {
+    padding: 9px 18px; border-radius: 10px;
+    border: 1px solid rgba(139,92,246,0.4);
+    background: rgba(0,0,0,0.4); color: var(--text);
+    font-family: inherit; font-size: 12px; cursor: pointer;
+    letter-spacing: 0.06em; transition: all 0.15s;
+  }
+  .ttfv-btn:hover { background: rgba(129,140,248,0.15); border-color: var(--accent, #818cf8); }
+  .ttfv-btn.primary {
+    background: linear-gradient(90deg, rgba(99,102,241,0.35), rgba(139,92,246,0.35));
+    border-color: rgba(165,180,252,0.6);
+  }
+  .ttfv-skip {
+    margin-top: 14px; font-size: 11px; color: var(--muted-2, #6b7280);
+    cursor: pointer; letter-spacing: 0.06em;
+  }
+  .ttfv-skip:hover { color: var(--text); }
+  .ttfv-result-stream {
+    margin-top: 14px; padding: 14px 16px; border-radius: 12px;
+    background: rgba(0,0,0,0.45); border: 1px solid rgba(99,102,241,0.25);
+    font-size: 12px; color: var(--text); text-align: left;
+    max-height: 220px; overflow: auto; white-space: pre-wrap;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    line-height: 1.55;
+  }
+  .ttfv-reprompt {
+    margin-top: 10px; font-size: 11px; color: #fbbf24;
+    opacity: 0; transition: opacity 0.3s;
+  }
+  .ttfv-reprompt.show { opacity: 1; }
+  .ttfv-timer {
+    position: absolute; top: 16px; right: 22px;
+    font-size: 10px; color: var(--muted); letter-spacing: 0.16em;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+  }
+
   .toast {
     position: fixed; bottom: 50px; left: 50%; transform: translateX(-50%);
     background: var(--panel); border: 1px solid var(--panel-edge); border-radius: 10px;
@@ -1867,6 +1982,18 @@
           </div>
         </div>
 
+        <!-- W269 — Replay first-launch voice tour -->
+        <div class="setting-block">
+          <h3>ONBOARDING</h3>
+          <p style="font-size: 11px; color: var(--muted); line-height: 1.6; margin: 4px 0 10px;">
+            Re-run the 60-second voice-first tour you saw on first launch.
+            Useful for demos, or if you skipped through and want to see it again.
+          </p>
+          <div class="actions">
+            <button class="btn" data-action="onboarding.replay" onclick="ttfvReplay()">↺ Replay first-launch tour</button>
+          </div>
+        </div>
+
         <div class="setting-block">
           <h3>API KEYS</h3>
           <div class="kv" id="apiKeyKv">
@@ -2439,6 +2566,45 @@
     </div>
 
     <div class="skip" data-action="welcome.skip" onclick="welcomeSkip()">Skip — I'll explore on my own &nbsp;✕</div>
+  </div>
+</div>
+
+<!-- W269 — 60-sec voice-first first-launch tour overlay -->
+<div class="ttfv-overlay" id="ttfvOverlay" role="dialog" aria-modal="true" aria-label="TARS first-launch tour">
+  <div class="ttfv-timer" id="ttfvTimer">00.0s</div>
+  <div class="ttfv-stage">
+    <div class="ttfv-progress" id="ttfvProgress">
+      <div class="dot" data-step="1"></div>
+      <div class="dot" data-step="2"></div>
+      <div class="dot" data-step="3"></div>
+      <div class="dot" data-step="4"></div>
+      <div class="dot" data-step="5"></div>
+    </div>
+    <div class="ttfv-eyebrow" id="ttfvEyebrow">Step 1 of 5</div>
+    <h2 class="ttfv-headline" id="ttfvHeadline">Hi. I'm TARS.</h2>
+    <p class="ttfv-sub" id="ttfvSub">Press space and tell me your name.</p>
+
+    <div class="ttfv-capture empty" id="ttfvCapture">(your reply will appear here)</div>
+
+    <div class="ttfv-text-fallback">
+      <input id="ttfvTextInput" type="text" placeholder="Type your reply and press Enter…" autocomplete="off" />
+    </div>
+
+    <div class="ttfv-mic-hint" id="ttfvMicHint">
+      <span class="pulse"></span>
+      <span>Hold <strong style="color:var(--text);">SPACE</strong> to talk</span>
+    </div>
+
+    <div class="ttfv-reprompt" id="ttfvReprompt">Still there? Take your time — I'll wait.</div>
+
+    <div class="ttfv-result-stream" id="ttfvResultStream" style="display:none;"></div>
+
+    <div class="ttfv-actions" id="ttfvActions" style="display:none;">
+      <button class="ttfv-btn" id="ttfvNoBtn" onclick="ttfvAnswerYesNo(false)">No, thanks</button>
+      <button class="ttfv-btn primary" id="ttfvYesBtn" onclick="ttfvAnswerYesNo(true)">Yes, remember it</button>
+    </div>
+
+    <div class="ttfv-skip" data-action="ttfv.skip" onclick="ttfvSkip()">Skip the tour &nbsp;✕</div>
   </div>
 </div>
 
@@ -4464,10 +4630,471 @@ async function visionOcr() {
   inp.click();
 }
 
+// ─── W269 — 60-sec voice-first first-launch tour (TTFV) ──────
+// Five steps, each <= 10s, total target 50-60s from auth to first
+// agent result. Measures TTFV (time-to-first-value) and POSTs every
+// step to /api/onboarding/event so we can graph the funnel.
+//
+// State machine lives in TTFV.* — no globals on window beyond a single
+// __tarsTTFV namespace for debugging.
+const TTFV = {
+  sessionId: null,
+  startedAt: 0,
+  step: 0,                 // 0 = not running
+  recognition: null,
+  recording: false,
+  capturedText: '',
+  userName: '',
+  userTask: '',
+  pickedPack: '',
+  ttsLang: 'en-US',
+  pauseTimer: null,
+  pauseMs: 20000,          // 20s drop-off threshold
+  textMode: false,         // mic-permission fallback
+  timerId: null,
+  resolvers: { capture: null, yesno: null, confirm: null },
+};
+window.__tarsTTFV = TTFV;
+
+function ttfvMaybeStart() {
+  let done = '0';
+  try { done = localStorage.getItem('tars_first_launch_done') || '0'; } catch (_e) {}
+  if (done === '1') return;
+  ttfvStart();
+}
+
+function ttfvReplay() {
+  // Wired into SETTINGS — clears the flag and restarts the tour.
+  try { localStorage.removeItem('tars_first_launch_done'); } catch (_e) {}
+  ttfvStart();
+}
+
+function ttfvStart() {
+  TTFV.sessionId = (crypto && crypto.randomUUID ? crypto.randomUUID() : ('s-' + Date.now())).slice(0, 16);
+  TTFV.startedAt = Date.now();
+  TTFV.step = 0;
+  TTFV.capturedText = '';
+  TTFV.userName = TTFV.userTask = TTFV.pickedPack = '';
+  TTFV.textMode = !ttfvHasSpeechRecognition();
+  $('ttfvOverlay').classList.add('show');
+  $('ttfvOverlay').classList.toggle('text-mode', TTFV.textMode);
+  ttfvTimerStart();
+  // Probe mic permission upfront. If denied, drop to text mode.
+  ttfvProbeMic().then((ok) => {
+    if (!ok) {
+      TTFV.textMode = true;
+      $('ttfvOverlay').classList.add('text-mode');
+    }
+    ttfvRunFlow().catch((e) => { console.error('ttfv flow error', e); });
+  });
+}
+
+function ttfvHasSpeechRecognition() {
+  return !!(window.SpeechRecognition || window.webkitSpeechRecognition);
+}
+
+async function ttfvProbeMic() {
+  if (TTFV.textMode) return false;
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return false;
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    stream.getTracks().forEach(t => t.stop());
+    return true;
+  } catch (_e) {
+    return false;
+  }
+}
+
+async function ttfvRunFlow() {
+  await ttfvStepGreet();
+  await ttfvStepTask();
+  await ttfvStepConfirm();
+  await ttfvStepResult();
+  await ttfvStepFinish();
+}
+
+// step renderers
+async function ttfvStepGreet() {
+  ttfvEnter(1, "Hi. I'm TARS.", 'Press space and tell me your name.');
+  ttfvSpeak("Hi. I'm TARS. Press space and tell me your name.");
+  const name = await ttfvCapture(8000);
+  TTFV.userName = (name || 'friend').split(/\s+/)[0].slice(0, 32);
+  ttfvLogEvent(1, true, { name_len: (name || '').length });
+  ttfvSpeak(`Got it, ${TTFV.userName}. Now tell me one thing you want help with today.`);
+  ttfvShowSub(`Got it, ${TTFV.userName}. Now tell me one thing you want help with today.`);
+}
+
+async function ttfvStepTask() {
+  ttfvEnter(2, 'What can I work on?', 'One sentence. Press space and tell me.');
+  const task = await ttfvCapture(12000);
+  TTFV.userTask = (task || '').slice(0, 280) || 'help me draft a cold outreach email';
+  ttfvShowHeadline('Picking the right agent for that...');
+  ttfvShowSub(TTFV.userTask);
+  ttfvSpeak('Picking the right agent for that.');
+  let pack = 'entrepreneur';
+  try {
+    const r = await fetch(API + '/api/agents/route', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text: TTFV.userTask }),
+    });
+    if (r.ok) {
+      const d = await r.json();
+      if (d && d.pack) pack = d.pack;
+    }
+  } catch (_e) { /* offline */ }
+  TTFV.pickedPack = pack;
+  ttfvLogEvent(2, true, { pack, task_len: TTFV.userTask.length });
+  ttfvShowHeadline(`I'll use the ${prettyPackName(pack)} agent.`);
+  ttfvShowSub('Press space to confirm.');
+  ttfvSpeak(`Got it. I'll use the ${prettyPackName(pack)} agent. Press space to confirm.`);
+}
+
+async function ttfvStepConfirm() {
+  ttfvEnter(3, 'Ready when you are.', 'Press space to start.');
+  await ttfvWaitConfirm(10000);
+  ttfvLogEvent(3, true, {});
+  ttfvShowHeadline('Drafting now.');
+  ttfvShowSub("You'll see the result in a moment.");
+  ttfvSpeak("Drafting now. You'll see the result in a moment.");
+  await ttfvRunAgent();
+}
+
+async function ttfvStepResult() {
+  ttfvEnter(4, 'Done.', 'Want me to remember this task style for future emails?');
+  $('ttfvActions').style.display = 'flex';
+  ttfvSpeak('Done. Want me to remember this task style for future emails?');
+  const yes = await ttfvWaitYesNo(10000);
+  ttfvLogEvent(4, true, { remember: !!yes });
+}
+
+async function ttfvStepFinish() {
+  ttfvEnter(5, "You're set up.",
+    'Press the mic anytime to talk to me. Press hamburger for all my tabs.');
+  $('ttfvActions').style.display = 'none';
+  ttfvSpeak("Perfect. You're set up. Press the mic anytime to talk to me. Press hamburger to open all my tabs. That's it.");
+  try { localStorage.setItem('tars_first_launch_done', '1'); localStorage.setItem('tars_onboarded', '1'); } catch (_e) {}
+  ttfvLogEvent(5, true, {
+    total_ms: Date.now() - TTFV.startedAt,
+    name: TTFV.userName, pack: TTFV.pickedPack,
+  });
+  await ttfvSleep(2200);
+  ttfvClose();
+  if (typeof toast === 'function') {
+    const secs = ((Date.now() - TTFV.startedAt) / 1000).toFixed(1);
+    toast(`✓ First value in ${secs}s — welcome aboard.`, 'ok');
+  }
+}
+
+function ttfvEnter(step, headline, sub) {
+  TTFV.step = step;
+  document.querySelectorAll('#ttfvProgress .dot').forEach((d) => {
+    const s = +d.dataset.step;
+    d.classList.toggle('done', s < step);
+    d.classList.toggle('active', s === step);
+  });
+  $('ttfvEyebrow').textContent = `Step ${step} of 5`;
+  ttfvShowHeadline(headline);
+  ttfvShowSub(sub);
+  $('ttfvCapture').textContent = '(your reply will appear here)';
+  $('ttfvCapture').classList.add('empty');
+  $('ttfvResultStream').style.display = 'none';
+  $('ttfvResultStream').textContent = '';
+  $('ttfvReprompt').classList.remove('show');
+  ttfvLogEvent(step, false, { entered: true });
+}
+function ttfvShowHeadline(t) { $('ttfvHeadline').textContent = t; }
+function ttfvShowSub(t) { $('ttfvSub').textContent = t; }
+
+function prettyPackName(slug) {
+  const map = {
+    entrepreneur: 'entrepreneur', business: 'business',
+    science: 'science', civic: 'civic',
+    web_search: 'web search', algotrade: 'algotrade',
+  };
+  return map[slug] || (slug || '').replace(/_/g, ' ');
+}
+
+function ttfvSpeak(text) {
+  if (!text || !window.speechSynthesis) return;
+  try {
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = TTFV.ttsLang;
+    u.rate = 1.05;
+    u.pitch = 0.95;
+    window.speechSynthesis.speak(u);
+  } catch (_e) {}
+}
+
+function ttfvCapture(timeoutMs) {
+  return new Promise((resolve) => {
+    TTFV.resolvers.capture = resolve;
+    TTFV.capturedText = '';
+    ttfvArmPauseTimer();
+    if (TTFV.textMode) {
+      const input = $('ttfvTextInput');
+      input.value = '';
+      input.disabled = false;
+      input.focus();
+      const onKey = (e) => {
+        if (e.key === 'Enter') {
+          input.removeEventListener('keydown', onKey);
+          input.disabled = true;
+          ttfvDisarmPauseTimer();
+          if (TTFV.resolvers.capture === resolve) {
+            TTFV.resolvers.capture = null;
+            resolve(input.value.trim());
+          }
+        }
+      };
+      input.addEventListener('keydown', onKey);
+      setTimeout(() => {
+        if (TTFV.resolvers.capture === resolve) {
+          input.removeEventListener('keydown', onKey);
+          input.disabled = true;
+          ttfvDisarmPauseTimer();
+          TTFV.resolvers.capture = null;
+          resolve(input.value.trim() || '');
+        }
+      }, timeoutMs);
+    } else {
+      setTimeout(() => {
+        if (TTFV.resolvers.capture === resolve) {
+          ttfvStopRecognition();
+          ttfvDisarmPauseTimer();
+          TTFV.resolvers.capture = null;
+          resolve(TTFV.capturedText.trim());
+        }
+      }, timeoutMs);
+    }
+  });
+}
+
+function ttfvWaitConfirm(timeoutMs) {
+  return new Promise((resolve) => {
+    TTFV.resolvers.confirm = resolve;
+    ttfvArmPauseTimer();
+    setTimeout(() => {
+      if (TTFV.resolvers.confirm === resolve) {
+        ttfvDisarmPauseTimer();
+        TTFV.resolvers.confirm = null;
+        resolve(true);
+      }
+    }, timeoutMs);
+  });
+}
+
+function ttfvWaitYesNo(timeoutMs) {
+  return new Promise((resolve) => {
+    TTFV.resolvers.yesno = resolve;
+    ttfvArmPauseTimer();
+    setTimeout(() => {
+      if (TTFV.resolvers.yesno === resolve) {
+        ttfvDisarmPauseTimer();
+        TTFV.resolvers.yesno = null;
+        resolve(false);
+      }
+    }, timeoutMs);
+  });
+}
+
+function ttfvAnswerYesNo(v) {
+  if (TTFV.resolvers.yesno) {
+    const r = TTFV.resolvers.yesno;
+    TTFV.resolvers.yesno = null;
+    ttfvDisarmPauseTimer();
+    r(!!v);
+  }
+}
+
+document.addEventListener('keydown', (e) => {
+  if (!TTFV.step) return;
+  if (e.code !== 'Space') {
+    if (TTFV.resolvers.confirm) {
+      const r = TTFV.resolvers.confirm;
+      TTFV.resolvers.confirm = null;
+      ttfvDisarmPauseTimer();
+      r(true);
+    }
+    return;
+  }
+  if (TTFV.textMode) return;
+  if (e.repeat || TTFV.recording) return;
+  const t = e.target;
+  if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+  e.preventDefault();
+  if (TTFV.resolvers.confirm) {
+    const r = TTFV.resolvers.confirm;
+    TTFV.resolvers.confirm = null;
+    ttfvDisarmPauseTimer();
+    r(true);
+    return;
+  }
+  if (TTFV.resolvers.capture) ttfvStartRecognition();
+});
+
+document.addEventListener('keyup', (e) => {
+  if (!TTFV.step || e.code !== 'Space') return;
+  if (TTFV.textMode) return;
+  if (TTFV.recording) ttfvStopRecognition();
+});
+
+function ttfvStartRecognition() {
+  const Ctor = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!Ctor) return;
+  if (TTFV.recognition) { try { TTFV.recognition.stop(); } catch (_e) {} }
+  const rec = new Ctor();
+  rec.lang = TTFV.ttsLang;
+  rec.interimResults = true;
+  rec.continuous = false;
+  rec.onresult = (ev) => {
+    let final = '', interim = '';
+    for (let i = ev.resultIndex; i < ev.results.length; i++) {
+      const tx = ev.results[i][0].transcript;
+      if (ev.results[i].isFinal) final += tx; else interim += tx;
+    }
+    TTFV.capturedText = (TTFV.capturedText + ' ' + final).trim();
+    const display = (TTFV.capturedText + ' ' + interim).trim();
+    if (display) {
+      $('ttfvCapture').textContent = display;
+      $('ttfvCapture').classList.remove('empty');
+    }
+  };
+  rec.onerror = () => { TTFV.recording = false; $('ttfvMicHint').classList.remove('recording'); };
+  rec.onend = () => { TTFV.recording = false; $('ttfvMicHint').classList.remove('recording'); };
+  TTFV.recognition = rec;
+  TTFV.recording = true;
+  $('ttfvMicHint').classList.add('recording');
+  try { rec.start(); } catch (_e) { TTFV.recording = false; }
+}
+
+function ttfvStopRecognition() {
+  TTFV.recording = false;
+  $('ttfvMicHint').classList.remove('recording');
+  if (TTFV.recognition) { try { TTFV.recognition.stop(); } catch (_e) {} }
+  if (TTFV.resolvers.capture) {
+    const r = TTFV.resolvers.capture;
+    TTFV.resolvers.capture = null;
+    ttfvDisarmPauseTimer();
+    r(TTFV.capturedText.trim());
+  }
+}
+
+async function ttfvRunAgent() {
+  const stream = $('ttfvResultStream');
+  stream.style.display = 'block';
+  stream.textContent = '';
+  let result = '';
+  try {
+    const r = await fetch(API + '/api/composer/plan', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        goal: TTFV.userTask,
+        pack: TTFV.pickedPack || 'entrepreneur',
+        budget_steps: 1,
+      }),
+    });
+    if (r.ok) {
+      const d = await r.json();
+      result = (d && (d.summary || d.plan || d.text || JSON.stringify(d).slice(0, 600))) || '';
+    }
+  } catch (_e) { /* fall through */ }
+  if (!result) {
+    result = `Drafting "${TTFV.userTask}" via ${prettyPackName(TTFV.pickedPack || 'entrepreneur')} agent...\n\n` +
+      `(Backend offline — this is a placeholder so you can see the flow.\n` +
+      ` Plug in OpenAI / Anthropic / OpenRouter in Settings to get the real output.)`;
+  }
+  await ttfvTypeOut(stream, result, 14);
+}
+
+async function ttfvTypeOut(el, text, perCharMs) {
+  for (let i = 0; i < text.length; i += 4) {
+    el.textContent = text.slice(0, i + 4);
+    el.scrollTop = el.scrollHeight;
+    await ttfvSleep(perCharMs);
+  }
+  el.textContent = text;
+}
+
+function ttfvSleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+function ttfvArmPauseTimer() {
+  ttfvDisarmPauseTimer();
+  TTFV.pauseTimer = setTimeout(() => {
+    $('ttfvReprompt').classList.add('show');
+    ttfvSpeak("Still there? Take your time — I'll wait.");
+    ttfvLogEvent(TTFV.step, false, { dropoff: true, reprompt: true });
+  }, TTFV.pauseMs);
+}
+function ttfvDisarmPauseTimer() {
+  if (TTFV.pauseTimer) { clearTimeout(TTFV.pauseTimer); TTFV.pauseTimer = null; }
+  $('ttfvReprompt').classList.remove('show');
+}
+
+function ttfvTimerStart() {
+  ttfvTimerStop();
+  TTFV.timerId = setInterval(() => {
+    const sec = ((Date.now() - TTFV.startedAt) / 1000);
+    $('ttfvTimer').textContent = sec.toFixed(1) + 's';
+  }, 100);
+}
+function ttfvTimerStop() {
+  if (TTFV.timerId) { clearInterval(TTFV.timerId); TTFV.timerId = null; }
+}
+
+function ttfvLogEvent(step, completed, meta) {
+  try {
+    fetch(API + '/api/onboarding/event', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        step: Math.max(1, Math.min(5, step | 0)),
+        elapsed_ms: Date.now() - TTFV.startedAt,
+        completed: !!completed,
+        session_id: TTFV.sessionId,
+        meta: meta || {},
+      }),
+      keepalive: true,
+    }).catch(() => {});
+  } catch (_e) {}
+}
+
+function ttfvSkip() {
+  try { localStorage.setItem('tars_first_launch_done', '1'); localStorage.setItem('tars_onboarded', '1'); } catch (_e) {}
+  try {
+    fetch(API + '/api/onboarding/skip', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        session_id: TTFV.sessionId,
+        elapsed_ms: Date.now() - TTFV.startedAt,
+        reason: 'user_skipped',
+      }),
+      keepalive: true,
+    }).catch(() => {});
+  } catch (_e) {}
+  ttfvClose();
+}
+
+function ttfvClose() {
+  TTFV.step = 0;
+  ttfvDisarmPauseTimer();
+  ttfvTimerStop();
+  ttfvStopRecognition();
+  try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (_e) {}
+  $('ttfvOverlay').classList.remove('show');
+}
+
 // ─── W205 — Welcome onboarding (first-launch only) ───
 function maybeShowWelcome() {
   try {
     if (localStorage.getItem('tars_onboarded') === '1') return;
+    // W269 — if the voice-first tour is still running (or hasn't run
+    // yet), defer the pack-pick modal: the tour creates a starter
+    // agent automatically and marks ``tars_onboarded=1`` on finish.
+    if (localStorage.getItem('tars_first_launch_done') !== '1') return;
   } catch (_e) { /* localStorage may be unavailable */ }
   $('welcomeModal').classList.add('show');
 }
@@ -4563,6 +5190,8 @@ function showCockpit() {
   }
   // W230 — start the cinematic visual layers.
   _vcBootCinematic();
+  // W269 — first-launch voice tour (skippable; runs once per device).
+  try { ttfvMaybeStart(); } catch (e) { console.warn('ttfv start failed', e); }
 }
 
 async function authMagicLink() {
@@ -5330,6 +5959,9 @@ const TARS_ACTION_MAP = {
   'welcome.pick.web_search':   () => welcomePick('web_search'),
   'welcome.pick.algotrade':    () => welcomePick('algotrade'),
   'welcome.skip':              () => welcomeSkip(),
+  // W269 — onboarding tour
+  'onboarding.replay':         () => ttfvReplay(),
+  'ttfv.skip':                 () => ttfvSkip(),
   // W249 — fill gaps so click delegation works for every Wave A surface.
   // W242 cap UX
   'cap.dismiss':            () => capDismissBanner(),

@@ -117,6 +117,7 @@ from web_extras.routers import t2t_review as t2t_review_router
 from web_extras.routers import agent_marketplace as agent_marketplace_router
 # W257 — /api/gdpr/* GDPR data-subject access (export/delete/cancel) for BUSINESS tier
 from web_extras.routers import gdpr as gdpr_router
+from web_extras.routers import onboarding as onboarding_router
 
 START_TS = time.time()
 log = logging.getLogger("tars.app")
@@ -994,6 +995,8 @@ app.include_router(t2t_review_router.router)
 app.include_router(agent_marketplace_router.router)
 # W257 — GDPR endpoints
 app.include_router(gdpr_router.router)
+# W269 — 60-sec voice-first onboarding telemetry
+app.include_router(onboarding_router.router)
 
 
 async def _health_payload() -> dict[str, object]:

@@ -3,7 +3,7 @@
 > Live one-pager. Full story: `TARS_MASTER_DOC.md`. Doc map:
 > `PROJECT_INDEX.md`. This page is the 60-second pulse check.
 
-**Last updated:** 2026-05-15 (W267). **Tag in flight:** `v10.0.0` —
+**Last updated:** 2026-05-15 (W269). **Tag in flight:** `v10.0.0` —
 rc1 → GA the moment the 5 external items below flip green.
 
 ---
@@ -16,6 +16,7 @@ rc1 → GA the moment the 5 external items below flip green.
 | W265 | ✅ Shipped | brother mock at `/api/_meeet_mock` so cockpit doesn't block while brother ships. |
 | W266 | ✅ Shipped | Perf suite — 5 SLOs (chat/voice/metering/audit/composer). |
 | W267 | ✅ Shipped | Final QA gate + v10.0 GA checklist + RELEASE-v10.0 script. |
+| W269 | ✅ Shipped | 60-sec voice-first onboarding — TTFV <60s target via 5-step voice tour, drop-off recovery, SQLite telemetry. |
 
 **From inside the repo, GA is DONE.** Only the 5 external checklist
 items remain (see `docs/V10_GA_CHECKLIST.md`).
@@ -73,7 +74,8 @@ When all 5 are green: `bash scripts/RELEASE-v10.0.command`.
 
 | SHA | Wave | Subject |
 |---|---|---|
-| `(this)` | W266+W267 | perf benchmarks + final QA gate + v10.0 GA checklist + release script |
+| `(this)` | W269 | 60-sec voice-first onboarding — TTFV measurement + scripted first-launch flow |
+| _prior_ | W266+W267 | perf benchmarks + final QA gate + v10.0 GA checklist + release script |
 | _prior_ | W264 | `v10.0.0-rc.1` release prep — notes, CHANGELOG, version bumps, master doc + index sync, RELEASE script |
 | _prior_ | W263 | On-prem TARS deployment kit (docker compose, OIDC, systemd, 435-line guide) |
 | _prior_ | W262 | Voice-first pair programming in Composer |
@@ -85,6 +87,11 @@ When all 5 are green: `bash scripts/RELEASE-v10.0.command`.
 | _prior_ | W254 | `tars-tab` VS Code extension scaffold |
 
 ---
+
+**TTFV:** <60s target via 5-step voice-first onboarding (W269). Step
+timings + funnel land in `~/.tars/onboarding.sqlite` via
+`/api/onboarding/{event,stats,skip}`; final-step completion also rides
+W235 metering so marketing sees a single headline number.
 
 **Status (W267):** v10.0 GA is **DONE** Claude-side. The repo is in
 the cleanest state of its life — pytest green, smoke green, perf
