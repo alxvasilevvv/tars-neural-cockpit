@@ -2798,6 +2798,7 @@ async function loadSettings() {
   loadModels();
   try { await loadRules(); } catch (e) { console.warn('rules load failed', e); }
   try { await loadPrivacy(); } catch (e) { console.warn('privacy load failed', e); }
+  try { await loadNotepadsSettings(); } catch (e) { console.warn('notepads load failed', e); }
 }
 
 // W244 -- privacy mode + data plane indicators
@@ -3167,6 +3168,306 @@ async function previewRulesPrompt() {
 function closeRulesPreview() {
   const m = document.getElementById('rulesPreviewModal');
   if (m) m.style.display = 'none';
+}
+
+// --- W243 Notepad templates ---
+const NP_VAR_RE = /\{([a-zA-Z_][a-zA-Z0-9_]*)\}/g;
+
+function extractNotepadVars(body) {
+  const seen = new Set();
+  const out = [];
+  let m;
+  NP_VAR_RE.lastIndex = 0;
+  while ((m = NP_VAR_RE.exec(body || '')) !== null) {
+    if (!seen.has(m[1])) { seen.add(m[1]); out.push(m[1]); }
+  }
+  return out;
+}
+
+function escNP(s) {
+  return String(s == null ? '' : s)
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function highlightVars(body) {
+  const esc = escNP(body);
+  return esc.replace(/\{([a-zA-Z_][a-zA-Z0-9_]*)\}/g, (_, n) => `<span class="np-var">{${n}}</span>`);
+}
+
+async function openNotepadsPicker() {
+  const m = document.getElementById('notepadsPickerModal');
+  if (!m) return;
+  m.style.display = 'flex';
+  const s = document.getElementById('npSearchInput'); if (s) s.value = '';
+  const p = document.getElementById('npPackSelect'); if (p) p.value = '__all__';
+  await renderNotepadsPicker();
+}
+
+function closeNotepadsPicker() {
+  const m = document.getElementById('notepadsPickerModal');
+  if (m) m.style.display = 'none';
+}
+
+let NP_SEARCH_DEBOUNCE = null;
+function onNotepadSearch() {
+  if (NP_SEARCH_DEBOUNCE) clearTimeout(NP_SEARCH_DEBOUNCE);
+  NP_SEARCH_DEBOUNCE = setTimeout(() => renderNotepadsPicker(), 200);
+}
+function onNotepadPackChange() { renderNotepadsPicker(); }
+
+async function renderNotepadsPicker() {
+  const grid = document.getElementById('notepadsPickerGrid');
+  if (!grid) return;
+  const q = (document.getElementById('npSearchInput').value || '').trim();
+  const packSel = document.getElementById('npPackSelect').value;
+  const params = new URLSearchParams();
+  if (q) params.set('q', q);
+  if (packSel !== '__all__') params.set('pack', packSel);
+  params.set('limit', '100');
+  try {
+    const r = await fetchJSON('/api/notepads?' + params.toString());
+    const items = (r && r.items) || [];
+    if (!items.length) {
+      grid.innerHTML = `<div class="empty-state" style="padding:20px;text-align:center;color:var(--muted);">No notepads. Try <b>Seed defaults</b> in Settings → Notepads.</div>`;
+      return;
+    }
+    grid.innerHTML = `<div class="np-grid">${items.map(np => `
+      <div class="np-card" data-action="notepads.use" onclick="useNotepad('${np.id}')">
+        <div class="np-title">${escNP(np.title)}</div>
+        <div class="np-preview">${highlightVars(String(np.body || '').slice(0, 100))}${(np.body || '').length > 100 ? '…' : ''}</div>
+        <div class="np-meta">
+          ${(np.tags || []).slice(0, 3).map(t => `<span class="np-tag">${escNP(t)}</span>`).join('')}
+          ${np.pack ? `<span class="np-pack">${escNP(np.pack)}</span>` : ''}
+          <span class="np-count" title="Times used">↺ ${np.usage_count || 0}</span>
+        </div>
+      </div>
+    `).join('')}</div>`;
+  } catch (e) {
+    grid.innerHTML = `<div class="empty-state" style="color:#fca5a5;padding:20px;">Failed to load: ${escNP(e.message || e)}</div>`;
+  }
+}
+
+async function useNotepad(padId) {
+  try {
+    const r = await fetchJSON('/api/notepads/' + encodeURIComponent(padId));
+    const np = r && r.notepad;
+    if (!np) { toast('Notepad not found', 'fail'); return; }
+    const vars = np.variables || extractNotepadVars(np.body);
+    if (!vars.length) {
+      await insertNotepadBody(padId, {});
+      return;
+    }
+    document.getElementById('npFillPadId').value = padId;
+    document.getElementById('npFillSubtitle').textContent =
+      `"${np.title}" — ${vars.length} variable${vars.length === 1 ? '' : 's'}.`;
+    const fields = document.getElementById('npFillFields');
+    fields.innerHTML = vars.map(v => `
+      <label style="font-size:10px;color:var(--muted);">${escNP(v)}
+        <input type="text" data-np-var="${escNP(v)}" placeholder="value for {${escNP(v)}}" style="width:100%;padding:6px 8px;background:rgba(0,0,0,0.4);border:1px solid var(--panel-edge);border-radius:6px;color:var(--text);font-size:12px;">
+      </label>
+    `).join('');
+    closeNotepadsPicker();
+    document.getElementById('notepadFillModal').style.display = 'flex';
+    setTimeout(() => {
+      const first = fields.querySelector('input[data-np-var]');
+      if (first) first.focus();
+    }, 60);
+  } catch (e) {
+    toast('Use failed: ' + (e.message || e), 'fail');
+  }
+}
+
+function closeNotepadFillModal() {
+  document.getElementById('notepadFillModal').style.display = 'none';
+}
+
+async function insertNotepadWithVars() {
+  const padId = document.getElementById('npFillPadId').value;
+  const inputs = document.querySelectorAll('#npFillFields input[data-np-var]');
+  const values = {};
+  inputs.forEach(inp => {
+    const k = inp.getAttribute('data-np-var');
+    const v = inp.value;
+    if (k && v) values[k] = v;
+  });
+  closeNotepadFillModal();
+  await insertNotepadBody(padId, values);
+}
+
+async function insertNotepadBody(padId, variables) {
+  try {
+    const r = await fetchJSON('/api/notepads/' + encodeURIComponent(padId) + '/use', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ variables: variables || {} }),
+    });
+    const body = (r && r.body) || '';
+    closeNotepadsPicker();
+    const chatTab = document.querySelector('nav.tabs button[data-tab="chat"]');
+    if (chatTab && typeof activeTab !== 'undefined' && activeTab !== 'chat') chatTab.click();
+    const input = document.getElementById('chatInput');
+    if (input) {
+      const existing = (input.value || '').trim();
+      input.value = existing ? existing + '\n\n' + body : body;
+      input.focus();
+      try { input.setSelectionRange(input.value.length, input.value.length); } catch (e) {}
+    }
+    toast('Notepad inserted (used ' + ((r && r.usage_count) || 0) + 'x)', 'ok');
+    if (document.getElementById('notepadsList')) loadNotepadsSettings().catch(() => {});
+  } catch (e) {
+    toast('Insert failed: ' + (e.message || e), 'fail');
+  }
+}
+
+async function loadNotepadsSettings() {
+  const wrap = document.getElementById('notepadsList');
+  if (!wrap) return;
+  try {
+    const r = await fetchJSON('/api/notepads?limit=200');
+    const items = (r && r.items) || [];
+    if (!items.length) {
+      wrap.innerHTML = `<div class="empty-state" style="color:var(--muted);padding:14px 0;">No notepads. Click <b>Seed defaults</b> to ship 5 starter templates.</div>`;
+      return;
+    }
+    const head = `<div class="np-row head"><div>TITLE</div><div>BODY</div><div>PACK</div><div>USED</div><div>ACTIONS</div></div>`;
+    const rows = items.map(np => `
+      <div class="np-row">
+        <div class="np-title">${escNP(np.title)}</div>
+        <div class="np-body-mini">${escNP(String(np.body || '').slice(0, 80))}${(np.body || '').length > 80 ? '…' : ''}</div>
+        <div>${np.pack ? `<span class="np-pack">${escNP(np.pack)}</span>` : `<span style="color:var(--muted);font-size:10px;">—</span>`}</div>
+        <div style="color:var(--muted);">↺ ${np.usage_count || 0}</div>
+        <div class="np-actions">
+          <button class="btn" data-action="notepads.edit" onclick="openNotepadEditor('${np.id}')">Edit</button>
+          <button class="btn" data-action="notepads.delete-row" onclick="quickDeleteNotepad('${np.id}', ${JSON.stringify(np.title)})" style="color:#fca5a5;">Delete</button>
+        </div>
+      </div>
+    `).join('');
+    wrap.innerHTML = head + rows;
+  } catch (e) {
+    wrap.innerHTML = `<div class="empty-state" style="color:#fca5a5;padding:14px 0;">Failed to load: ${escNP(e.message || e)}</div>`;
+  }
+}
+
+async function seedNotepads() {
+  try {
+    const r = await fetchJSON('/api/notepads/seed');
+    if (r && r.skipped) {
+      toast('Already seeded — ' + (r.count || 0) + ' notepads', 'ok');
+    } else {
+      toast('Seeded ' + (((r && r.seeded) || []).length) + ' default notepads', 'ok');
+    }
+    await loadNotepadsSettings();
+  } catch (e) {
+    toast('Seed failed: ' + (e.message || e), 'fail');
+  }
+}
+
+async function quickDeleteNotepad(padId, title) {
+  if (!confirm('Delete notepad "' + title + '"?')) return;
+  try {
+    await fetchJSON('/api/notepads/' + encodeURIComponent(padId), { method: 'DELETE' });
+    toast('Notepad deleted', 'ok');
+    await loadNotepadsSettings();
+  } catch (e) {
+    toast('Delete failed: ' + (e.message || e), 'fail');
+  }
+}
+
+async function openNotepadEditor(padId) {
+  const m = document.getElementById('notepadEditorModal');
+  if (!m) return;
+  document.getElementById('npEditorId').value = padId || '';
+  document.getElementById('npEditorTitleInput').value = '';
+  document.getElementById('npEditorBodyInput').value = '';
+  document.getElementById('npEditorTagsInput').value = '';
+  document.getElementById('npEditorPackInput').value = '';
+  document.getElementById('npEditorVarsHint').textContent = '—';
+  const delBtn = document.getElementById('npEditorDeleteBtn');
+  if (padId) {
+    document.getElementById('npEditorTitle').textContent = 'Edit notepad';
+    if (delBtn) delBtn.style.display = '';
+    try {
+      const r = await fetchJSON('/api/notepads/' + encodeURIComponent(padId));
+      const np = r && r.notepad;
+      if (np) {
+        document.getElementById('npEditorTitleInput').value = np.title || '';
+        document.getElementById('npEditorBodyInput').value = np.body || '';
+        document.getElementById('npEditorTagsInput').value = (np.tags || []).join(', ');
+        document.getElementById('npEditorPackInput').value = np.pack || '';
+        updateEditorVarsHint();
+      }
+    } catch (e) {
+      toast('Load failed: ' + (e.message || e), 'fail');
+    }
+  } else {
+    document.getElementById('npEditorTitle').textContent = 'New notepad';
+    if (delBtn) delBtn.style.display = 'none';
+  }
+  m.style.display = 'flex';
+  setTimeout(() => document.getElementById('npEditorTitleInput').focus(), 60);
+}
+
+function closeNotepadEditor() {
+  document.getElementById('notepadEditorModal').style.display = 'none';
+}
+
+function updateEditorVarsHint() {
+  const body = document.getElementById('npEditorBodyInput').value;
+  const vars = extractNotepadVars(body);
+  const el = document.getElementById('npEditorVarsHint');
+  if (!el) return;
+  el.innerHTML = vars.length
+    ? vars.map(v => `<span class="np-var">{${escNP(v)}}</span>`).join(' ')
+    : '<span style="opacity:0.6;">none</span>';
+}
+
+async function saveNotepadFromEditor() {
+  const padId = document.getElementById('npEditorId').value;
+  const title = document.getElementById('npEditorTitleInput').value.trim();
+  const body = document.getElementById('npEditorBodyInput').value;
+  const tagsRaw = document.getElementById('npEditorTagsInput').value;
+  const pack = document.getElementById('npEditorPackInput').value.trim();
+  if (!title) { toast('Title required', 'fail'); return; }
+  if (!body.trim()) { toast('Body required', 'fail'); return; }
+  const tags = tagsRaw.split(',').map(s => s.trim()).filter(Boolean);
+  const payload = { title, body, tags, pack: pack || null };
+  try {
+    if (padId) {
+      await fetchJSON('/api/notepads/' + encodeURIComponent(padId), {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      toast('Notepad updated', 'ok');
+    } else {
+      await fetchJSON('/api/notepads', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      toast('Notepad created', 'ok');
+    }
+    closeNotepadEditor();
+    await loadNotepadsSettings();
+  } catch (e) {
+    toast('Save failed: ' + (e.message || e), 'fail');
+  }
+}
+
+async function deleteNotepadFromEditor() {
+  const padId = document.getElementById('npEditorId').value;
+  if (!padId) return;
+  const title = document.getElementById('npEditorTitleInput').value || 'this notepad';
+  if (!confirm('Delete "' + title + '"?')) return;
+  try {
+    await fetchJSON('/api/notepads/' + encodeURIComponent(padId), { method: 'DELETE' });
+    closeNotepadEditor();
+    toast('Notepad deleted', 'ok');
+    await loadNotepadsSettings();
+  } catch (e) {
+    toast('Delete failed: ' + (e.message || e), 'fail');
+  }
 }
 
 // --- W238 MCP servers panel ---
@@ -4347,6 +4648,17 @@ const TARS_ACTION_MAP = {
   'vision.ocr':           () => visionOcr(),
   'chat.new-thread':      () => createThread(),
   'chat.send':            () => sendMessage(),
+  // W243 notepads
+  'notepads.open':           () => openNotepadsPicker(),
+  'notepads.picker.close':   () => closeNotepadsPicker(),
+  'notepads.new':            () => openNotepadEditor(),
+  'notepads.seed':           () => seedNotepads(),
+  'notepads.refresh':        () => loadNotepadsSettings(),
+  'notepads.editor.cancel':  () => closeNotepadEditor(),
+  'notepads.editor.save':    () => saveNotepadFromEditor(),
+  'notepads.delete':         () => deleteNotepadFromEditor(),
+  'notepads.fill.cancel':    () => closeNotepadFillModal(),
+  'notepads.fill.insert':    () => insertNotepadWithVars(),
   'meeet.connect':        () => connectMeeet(),
   'meeet.open-account':   () => openMeeetAccount(),
   'meeet.paste-token':    () => pasteMeeetToken(),
