@@ -580,7 +580,12 @@
   </main>
   <footer>
     <span>API → 127.0.0.1:8765</span>
-    <span id="ts">—</span>
+    <span style="display:flex;gap:14px;align-items:center;">
+      <a href="#" onclick="openExternal('https://tars.meeet.world/docs');return false;" style="color:var(--muted);text-decoration:none;">📖 Docs</a>
+      <a href="#" onclick="openExternal('https://github.com/alxvasilevvv/tars-neural-cockpit/issues/new');return false;" style="color:var(--muted);text-decoration:none;">🐞 Report</a>
+      <a href="#" onclick="welcomeRestart();return false;" style="color:var(--muted);text-decoration:none;">↺ Restart tour</a>
+      <span id="ts">—</span>
+    </span>
   </footer>
 </div>
 
@@ -1253,6 +1258,22 @@ async function welcomePick(pack) {
 function welcomeSkip() {
   try { localStorage.setItem('tars_onboarded', '1'); } catch (_e) {}
   $('welcomeModal').classList.remove('show');
+}
+
+function welcomeRestart() {
+  // W208 — let the user re-run the welcome flow from the footer.
+  try { localStorage.removeItem('tars_onboarded'); } catch (_e) {}
+  $('welcomeModal').classList.add('show');
+}
+
+function openExternal(url) {
+  try {
+    if (window.__TAURI__ && window.__TAURI__.shell && window.__TAURI__.shell.open) {
+      window.__TAURI__.shell.open(url);
+      return;
+    }
+  } catch (_e) {}
+  window.open(url, '_blank', 'noopener,noreferrer');
 }
 
 // Auto-refresh status every 30s + tier badge on boot.
