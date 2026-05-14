@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- W229 — macOS asks for mic consent on first MediaRecorder use.
+       Without this key, getUserMedia() silently rejects in a signed
+       Tauri build. Plain English so the system prompt makes sense. -->
+  <key>NSMicrophoneUsageDescription</key>
+  <string>TARS uses your microphone for voice commands.</string>
+</dict>
+</plist>

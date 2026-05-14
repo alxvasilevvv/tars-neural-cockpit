@@ -43,6 +43,7 @@ from backend.core.voice import (
     synthesize,
 )
 from backend.core.voice.transcribe import (
+    NoSTTBackend,
     TranscribeError,
     is_configured as stt_is_configured,
     transcribe_bytes,
@@ -79,44 +80,64 @@ async def health_endpoint() -> dict[str, Any]:
 
 @router.post("/transcribe")
 async def transcribe_endpoint(
-    file: UploadFile = File(...),
+    audio: UploadFile | None = File(default=None),
+    file: UploadFile | None = File(default=None),
     language: str | None = Form(default=None),
     model: str | None = Form(default=None),
     x_tars_session_id: str | None = Header(default=None),
     x_meeet_trace_id: str | None = Header(default=None),
 ) -> dict[str, Any]:
-    """Wave 73 Feature 1 — Whisper-backed STT.
+    """W229 — Whisper-backed STT for the Tauri WKWebView cockpit.
 
-    Multipart file in (mp3/wav/webm/m4a/...), JSON out::
+    Multipart in (field ``audio`` or back-compat ``file``), JSON out::
 
-        {text, language, duration_ms, model, provider, ...}
+        {ok, text, lang, engine, ...}
 
-    Returns 503 ``stt_not_configured`` when no key is set so the
-    cockpit can flip the mic button to "configure" instead of
-    silently failing.
+    Engine priority: whisper.cpp → OpenAI Whisper → faster-whisper.
+    Returns 503 with ``{ok:false, error:"no_stt_backend", hint:...}``
+    when nothing is configured so the cockpit can show a useful
+    message instead of silently failing.
+
+    Caps audio at 25 MiB (HTTP 413).
     """
 
-    config = stt_is_configured()
-    if not config["configured"]:
-        raise HTTPException(
-            status_code=503,
-            detail={
-                "error": "stt_not_configured",
-                "hint": "set OPENAI_API_KEY (or WHISPER_LOCAL_PATH for local)",
-            },
-        )
+    # Accept either field name. ``audio`` is the W229 contract; ``file``
+    # was the original Wave 73 contract — keep it working.
+    upload = audio or file
+    if upload is None:
+        raise HTTPException(status_code=422, detail="audio_field_required")
 
-    audio = await file.read()
-    if not audio:
-        raise HTTPException(status_code=400, detail="audio_empty")
+    config = stt_is_configured()
+    audio_bytes = await upload.read()
+
+    # Hard cap before doing any work.
+    if len(audio_bytes) > 25 * 1024 * 1024:
+        raise HTTPException(status_code=413, detail="audio_too_large")
+
+    # Empty audio is allowed — return an empty-text envelope so the
+    # cockpit can decide whether to retry or surface a hint. This
+    # mirrors the desktop expectation in W229 ("empty audio -> 200
+    # with empty text or 503").
+    if not audio_bytes:
+        return {
+            "ok": True,
+            "text": "",
+            "lang": language or "en",
+            "engine": config.get("provider") or "noop",
+            "duration_ms": 0,
+            "elapsed_ms": 0,
+            "model": config.get("model"),
+            "provider": config.get("provider") or "noop",
+            "trace_id": None,
+        }
 
     parent_trace = (x_meeet_trace_id or "").strip() or None
     trace_id = parent_trace or new_trace_id()
     meeet = get_meeet_client()
     base_payload = {
-        "bytes_in": len(audio),
-        "content_type": file.content_type,
-        "filename": file.filename,
+        "bytes_in": len(audio_bytes),
+        "content_type": upload.content_type,
+        "filename": upload.filename,
         "language_hint": language,
         "model_override": model,
         "session_id": x_tars_session_id,
@@ -125,11 +146,26 @@ async def transcribe_endpoint(
         await meeet.emit("voice.stt.requested", base_payload)
         try:
             result = await transcribe_bytes(
-                audio,
-                content_type=file.content_type,
-                filename=file.filename,
+                audio_bytes,
+                content_type=upload.content_type,
+                filename=upload.filename,
                 language=language,
                 model=model,
+            )
+        except NoSTTBackend:
+            await meeet.emit(
+                "voice.stt.failed",
+                {**base_payload, "error": "no_stt_backend"},
+            )
+            # Graceful envelope so the cockpit can show the hint
+            # inline instead of treating it as a hard failure.
+            raise HTTPException(
+                status_code=503,
+                detail={
+                    "ok": False,
+                    "error": "no_stt_backend",
+                    "hint": "Set OPENAI_API_KEY or install whisper.cpp (WHISPER_CPP_BIN).",
+                },
             )
         except TranscribeError as exc:
             err_str = str(exc)
@@ -137,8 +173,6 @@ async def transcribe_endpoint(
                 "voice.stt.failed",
                 {**base_payload, "error": err_str[:200]},
             )
-            # 503 keeps the cockpit honest — the engine is missing /
-            # transient. 400 only for empty body, handled above.
             raise HTTPException(status_code=503, detail=err_str) from exc
 
         await meeet.emit(
@@ -152,8 +186,24 @@ async def transcribe_endpoint(
                 "provider": result.get("provider"),
             },
         )
-    result["trace_id"] = trace_id
-    return result
+
+    # Normalise to the W229 spec shape while keeping legacy fields.
+    return {
+        "ok": True,
+        "text": result.get("text", ""),
+        "lang": result.get("language") or language or "en",
+        "engine": result.get("provider") or "unknown",
+        "language": result.get("language"),
+        "duration_ms": result.get("duration_ms"),
+        "elapsed_ms": result.get("elapsed_ms"),
+        "model": result.get("model"),
+        "provider": result.get("provider"),
+        "segments_count": result.get("segments_count"),
+        "bytes_in": result.get("bytes_in"),
+        "ext": result.get("ext"),
+        "trace_id": trace_id,
+    }
+
 
 
 @router.post("/speak")

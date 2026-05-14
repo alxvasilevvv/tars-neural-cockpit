@@ -1863,13 +1863,15 @@ const VC = {
   audioCtx: null,
   analyser: null,
   micStream: null,
+  recorder: null,    // W229 — MediaRecorder
+  chunks: [],        // W229 — captured audio chunks
   rafId: null,
   lang: 'ru-RU',
 };
 
-function vcSetState(state /* idle | listening | speaking */) {
+function vcSetState(state /* idle | listening | thinking | speaking */) {
   const el = $('voiceCockpit');
-  el.classList.remove('state-idle', 'state-listening', 'state-speaking');
+  el.classList.remove('state-idle', 'state-listening', 'state-thinking', 'state-speaking');
   el.classList.add('state-' + state);
 }
 
@@ -1884,34 +1886,30 @@ function vcAddLine(kind, text) {
   tr.scrollTop = tr.scrollHeight;
 }
 
-async function _startMicLevel() {
-  try {
-    VC.micStream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    VC.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-    const src = VC.audioCtx.createMediaStreamSource(VC.micStream);
-    VC.analyser = VC.audioCtx.createAnalyser();
-    VC.analyser.fftSize = 256;
-    src.connect(VC.analyser);
-    const data = new Uint8Array(VC.analyser.frequencyBinCount);
-    const tick = () => {
-      if (!VC.analyser) return;
-      VC.analyser.getByteTimeDomainData(data);
-      // Compute peak amplitude normalized 0..1.
-      let peak = 0;
-      for (let i = 0; i < data.length; i++) {
-        const v = Math.abs(data[i] - 128) / 128;
-        if (v > peak) peak = v;
-      }
-      // Smooth a bit so the monolith doesn't jitter.
-      const level = Math.min(1, peak * 1.4);
-      $('monolithWrap').style.setProperty('--mic-level', level.toFixed(3));
-      $('vcMic').style.setProperty('--mic-level', level.toFixed(3));
-      VC.rafId = requestAnimationFrame(tick);
-    };
-    tick();
-  } catch (e) {
-    vcAddLine('system', `Microphone unavailable: ${e.message}`);
-  }
+// W229 — Replace webkitSpeechRecognition (unsupported in Tauri WKWebView)
+// with MediaRecorder → POST /api/voice/transcribe. Keep the
+// --mic-level RMS loop the monolith visual reads from.
+
+function _vcMicLevelLoop() {
+  if (!VC.analyser) return;
+  const data = new Uint8Array(VC.analyser.frequencyBinCount);
+  const tick = () => {
+    if (!VC.analyser) return;
+    VC.analyser.getByteTimeDomainData(data);
+    // RMS over the buffer, normalised 0..1.
+    let sum = 0;
+    for (let i = 0; i < data.length; i++) {
+      const v = (data[i] - 128) / 128;
+      sum += v * v;
+    }
+    const rms = Math.sqrt(sum / data.length);
+    const level = Math.min(1, rms * 2.2);
+    document.documentElement.style.setProperty('--mic-level', level.toFixed(3));
+    const mw = $('monolithWrap'); if (mw) mw.style.setProperty('--mic-level', level.toFixed(3));
+    const mb = $('vcMic'); if (mb) mb.style.setProperty('--mic-level', level.toFixed(3));
+    VC.rafId = requestAnimationFrame(tick);
+  };
+  tick();
 }
 
 function _stopMicLevel() {
@@ -1923,58 +1921,118 @@ function _stopMicLevel() {
   }
   if (VC.audioCtx) { try { VC.audioCtx.close(); } catch (_e) {} VC.audioCtx = null; }
   VC.analyser = null;
-  $('monolithWrap').style.setProperty('--mic-level', 0);
-  $('vcMic').style.setProperty('--mic-level', 0);
+  document.documentElement.style.setProperty('--mic-level', 0);
+  const mw = $('monolithWrap'); if (mw) mw.style.setProperty('--mic-level', 0);
+  const mb = $('vcMic'); if (mb) mb.style.setProperty('--mic-level', 0);
 }
 
-function _initRecognition() {
-  const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SR) {
-    vcAddLine('system', 'Speech recognition not supported in this WebView.');
-    return null;
+async function vcMicStart() {
+  if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+    vcAddLine('system', 'Mic not available in this WebView. Press ↻ to reload, or check macOS Privacy → Microphone → TARS.');
+    return;
   }
-  const rec = new SR();
-  rec.continuous = true;
-  rec.interimResults = true;
-  rec.lang = VC.lang;
-  rec.onresult = (event) => {
-    for (let i = event.resultIndex; i < event.results.length; i++) {
-      const r = event.results[i];
-      if (r.isFinal) {
-        const text = (r[0].transcript || '').trim();
-        if (text) {
-          vcAddLine('user', text);
-          _dispatchTranscript(text);
-        }
-      }
+  try {
+    VC.micStream = await navigator.mediaDevices.getUserMedia({
+      audio: { echoCancellation: true, noiseSuppression: true },
+    });
+    VC.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const source = VC.audioCtx.createMediaStreamSource(VC.micStream);
+    VC.analyser = VC.audioCtx.createAnalyser();
+    VC.analyser.fftSize = 1024;
+    source.connect(VC.analyser);
+    _vcMicLevelLoop();
+
+    const mime = (window.MediaRecorder && MediaRecorder.isTypeSupported('audio/webm;codecs=opus'))
+      ? 'audio/webm;codecs=opus'
+      : (window.MediaRecorder && MediaRecorder.isTypeSupported('audio/webm'))
+        ? 'audio/webm'
+        : (window.MediaRecorder && MediaRecorder.isTypeSupported('audio/mp4'))
+          ? 'audio/mp4'
+          : '';
+    if (!window.MediaRecorder) {
+      vcAddLine('system', 'MediaRecorder unavailable in this WebView.');
+      _stopMicLevel();
+      vcSetState('idle');
+      return;
     }
-  };
-  rec.onerror = (e) => vcAddLine('system', `STT error: ${e.error || 'unknown'}`);
-  rec.onend = () => {
-    if (VC.listening) {
-      // Auto-restart so continuous=true behaves on WebKit.
-      try { rec.start(); } catch (_e) {}
+    const opts = mime ? { mimeType: mime } : {};
+    VC.recorder = new MediaRecorder(VC.micStream, opts);
+    VC.chunks = [];
+    VC.recorder.ondataavailable = (e) => { if (e.data && e.data.size > 0) VC.chunks.push(e.data); };
+    VC.recorder.onstop = async () => {
+      const blobMime = VC.recorder.mimeType || mime || 'audio/webm';
+      const blob = new Blob(VC.chunks, { type: blobMime });
+      VC.chunks = [];
+      _stopMicLevel();
+      await vcTranscribeAndDispatch(blob, blobMime);
+    };
+    VC.recorder.start();
+    VC.listening = true;
+    vcSetState('listening');
+    $('vcMicHint').textContent = 'Listening… tap to stop';
+  } catch (err) {
+    vcAddLine('system', `Mic error: ${err.message || err.name || 'unknown'}. Check macOS Privacy → Microphone → TARS.`);
+    _stopMicLevel();
+    vcSetState('idle');
+  }
+}
+
+function vcMicStop() {
+  if (!VC.listening) return;
+  VC.listening = false;
+  $('vcMicHint').textContent = 'Transcribing…';
+  vcSetState('thinking');
+  try {
+    if (VC.recorder && VC.recorder.state === 'recording') VC.recorder.stop();
+  } catch (_e) {}
+}
+
+async function vcTranscribeAndDispatch(blob, mime) {
+  const ext = (mime && mime.indexOf('mp4') >= 0) ? 'mp4'
+            : (mime && mime.indexOf('webm') >= 0) ? 'webm'
+            : 'webm';
+  const fd = new FormData();
+  fd.append('audio', blob, `voice.${ext}`);
+  fd.append('lang', VC.lang || 'en-US');
+  let text = '';
+  try {
+    const r = await fetch(API + '/api/voice/transcribe', { method: 'POST', body: fd });
+    let d = null;
+    try { d = await r.json(); } catch (_je) { d = null; }
+    if (!r.ok) {
+      const det = (d && (d.detail || d)) || {};
+      const err = det.error || `http_${r.status}`;
+      const hint = det.hint || '';
+      vcAddLine('system', `STT failed: ${err}. ${hint}`);
+      $('vcMicHint').textContent = 'Tap to speak · ⌘⇧Space';
+      vcSetState(VC.speaking ? 'speaking' : 'idle');
+      return;
     }
-  };
-  return rec;
+    if (!d || d.ok === false || !d.text) {
+      const why = (d && (d.error || d.hint)) || 'empty result';
+      vcAddLine('system', `STT failed: ${why}`);
+      $('vcMicHint').textContent = 'Tap to speak · ⌘⇧Space';
+      vcSetState(VC.speaking ? 'speaking' : 'idle');
+      return;
+    }
+    text = d.text;
+  } catch (e) {
+    vcAddLine('system', `STT request failed: ${e.message}`);
+    $('vcMicHint').textContent = 'Tap to speak · ⌘⇧Space';
+    vcSetState(VC.speaking ? 'speaking' : 'idle');
+    return;
+  }
+  vcAddLine('user', text);
+  await _dispatchTranscript(text);
+  $('vcMicHint').textContent = 'Tap to speak · ⌘⇧Space';
 }
 
 async function toggleListening() {
   if (VC.listening) {
-    VC.listening = false;
-    try { VC.recognition && VC.recognition.stop(); } catch (_e) {}
-    _stopMicLevel();
-    vcSetState(VC.speaking ? 'speaking' : 'idle');
-    $('vcMicHint').textContent = 'Tap to speak · ⌘⇧Space';
-    return;
+    vcMicStop();
+  } else {
+    await vcMicStart();
   }
-  if (!VC.recognition) VC.recognition = _initRecognition();
-  if (!VC.recognition) return;
-  VC.listening = true;
-  vcSetState('listening');
-  $('vcMicHint').textContent = 'Listening…';
-  await _startMicLevel();
-  try { VC.recognition.start(); } catch (_e) { /* already started */ }
 }
 
 async function _dispatchTranscript(text) {
