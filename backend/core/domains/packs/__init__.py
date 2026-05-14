@@ -11,6 +11,7 @@ reference the leaves through the registry.
 from . import (  # noqa: F401
     algotrade,
     business,
+    civic,           # W204 — public-records pack, free for all tiers
     entrepreneur,
     mlm,
     science,
@@ -25,6 +26,7 @@ register_default_composites()
 __all__ = [
     "algotrade",
     "business",
+    "civic",
     "entrepreneur",
     "mlm",
     "science",
