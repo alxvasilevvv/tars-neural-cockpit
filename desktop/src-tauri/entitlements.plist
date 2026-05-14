@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <!-- W250 — Hardened-runtime entitlements for TARS.app codesigning + notarization. -->
+  <!-- Apple requires the hardened runtime (the runtime option to codesign) for     -->
+  <!-- notarization. Each com.apple.security.cs.* key below opts out of a specific  -->
+  <!-- hardened-runtime protection — keep them OFF unless we know we need them.     -->
+  <!-- See docs/APPLE_SIGNING_SETUP.md for the end-to-end workflow.                 -->
+
+  <!-- We do not JIT-compile code at runtime. -->
+  <key>com.apple.security.cs.allow-jit</key>
+  <false/>
+
+  <!-- We do not allocate writable+executable memory pages. -->
+  <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
+  <false/>
+
+  <!-- Library validation MUST be disabled. The Tauri shell launches a Python/uvicorn -->
+  <!-- sidecar (desktop/src-tauri/binaries/tars-sidecar) whose embedded interpreter   -->
+  <!-- dlopens dynamic libraries (libpython, .so plugins) signed with a different    -->
+  <!-- Team ID. With library validation on, dyld refuses to load them.               -->
+  <key>com.apple.security.cs.disable-library-validation</key>
+  <true/>
+
+  <!-- DYLD_* / LD_* env vars are an attack surface; keep them disabled. -->
+  <key>com.apple.security.cs.allow-dyld-environment-variables</key>
+  <false/>
+
+  <!-- Outbound HTTP to meeet.world + LLM providers + local sidecar. -->
+  <key>com.apple.security.network.client</key>
+  <true/>
+
+  <!-- Local-only server: the bundled sidecar binds 127.0.0.1:8765. -->
+  <key>com.apple.security.network.server</key>
+  <true/>
+
+  <!-- Voice cockpit (W220) needs microphone access for MediaRecorder. -->
+  <key>com.apple.security.device.microphone</key>
+  <true/>
+
+  <!-- File-drop / Universal File Drop / file picker: user explicitly grants each   -->
+  <!-- file/folder via NSOpenPanel or drag-drop. No broad disk access.              -->
+  <key>com.apple.security.files.user-selected.read-write</key>
+  <true/>
+</dict>
+</plist>

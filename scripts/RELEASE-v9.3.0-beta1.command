@@ -138,6 +138,23 @@ if ! bash "${REPO}/scripts/REBUILD-TARS-APP.command"; then
 fi
 ok "TARS.app built and installed to /Applications"
 
+# ── W250 — notarization gate ─────────────────────────────────────────
+# A release tag MUST ship a signed + notarized bundle. If APPLE_TEAM_ID is
+# configured in .env, REBUILD-TARS-APP.command above already ran the sign
+# pipeline; verify spctl actually accepts the bundle. If creds are NOT
+# configured, abort — releasing an unsigned bundle ships a broken
+# experience to every macOS user.
+APPLE_TEAM_ID_LIVE="$(grep -E '^[[:space:]]*APPLE_TEAM_ID=[^[:space:]]' "${REPO}/.env" 2>/dev/null | tail -1 | cut -d= -f2- || true)"
+if [ -z "${APPLE_TEAM_ID_LIVE:-}" ]; then
+  fail "Apple Developer creds not configured in .env" \
+       "set APPLE_TEAM_ID + APPLE_DEVELOPER_ID_APPLICATION + APPLE_NOTARY_PROFILE per docs/APPLE_SIGNING_SETUP.md — a release tag must ship a signed bundle"
+fi
+if ! spctl --assess --type execute --verbose /Applications/TARS.app 2>&1 | grep -q "accepted"; then
+  fail "TARS.app is not notarized (spctl rejected the bundle)" \
+       "scripts/REBUILD-TARS-APP.command should have signed it; check .SIGN-AND-NOTARIZE.txt and re-run scripts/SIGN-AND-NOTARIZE.command manually"
+fi
+ok "TARS.app notarized + stapled (spctl: accepted)"
+
 # Find the generated .dmg (Tauri puts it under desktop/src-tauri/target/<target>/release/bundle/dmg/)
 DMG=""
 for candidate in \

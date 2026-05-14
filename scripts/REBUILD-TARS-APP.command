@@ -105,10 +105,40 @@ rm -rf "$APP_DST"
 cp -R "$APP_SRC" "$APP_DST"
 echo "    ✓ copied"
 
-# ── clear Gatekeeper quarantine ──────────────────────────────────────
+# ── clear Gatekeeper quarantine (fallback when unsigned) ─────────────
 echo "── clear Gatekeeper quarantine ──"
 xattr -cr "$APP_DST" 2>/dev/null || true
 echo "    ✓ cleared"
+
+# ── auto sign + notarize when Apple creds are configured (W250) ──────
+# If .env has APPLE_TEAM_ID, APPLE_DEVELOPER_ID_APPLICATION, and
+# APPLE_NOTARY_PROFILE set, run scripts/SIGN-AND-NOTARIZE.command so the
+# installed bundle is properly signed + stapled and launches without
+# Gatekeeper friction. Without these creds we keep the `xattr -cr`
+# workaround above and just open the unsigned app — fine for dev,
+# unacceptable for distribution.
+APPLE_OK=0
+if [[ -f "${REPO}/.env" ]]; then
+  if grep -qE '^[[:space:]]*APPLE_TEAM_ID=[^[:space:]]' "${REPO}/.env" \
+  && grep -qE '^[[:space:]]*APPLE_DEVELOPER_ID_APPLICATION=[^[:space:]]' "${REPO}/.env" \
+  && grep -qE '^[[:space:]]*APPLE_NOTARY_PROFILE=[^[:space:]]' "${REPO}/.env"; then
+    APPLE_OK=1
+  fi
+fi
+if [[ $APPLE_OK -eq 1 ]]; then
+  echo ""
+  echo "── auto sign + notarize (Apple creds detected in .env) ──"
+  if bash "${REPO}/scripts/SIGN-AND-NOTARIZE.command"; then
+    echo "    ✓ signed + notarized + stapled"
+  else
+    echo "    ✗ sign/notarize failed — bundle is installed but UNSIGNED."
+    echo "      see .SIGN-AND-NOTARIZE.txt and re-run scripts/SIGN-AND-NOTARIZE.command"
+  fi
+else
+  echo ""
+  echo "── skip sign + notarize (Apple creds not in .env) ──"
+  echo "    Configure codesigning per docs/APPLE_SIGNING_SETUP.md when ready."
+fi
 
 # ── launch ───────────────────────────────────────────────────────────
 echo "── launching ──"
