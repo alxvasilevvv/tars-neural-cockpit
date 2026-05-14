@@ -31,6 +31,7 @@ use tauri::{
     Emitter, Manager,
 };
 use tauri_plugin_global_shortcut::{Code, GlobalShortcutExt, Modifiers, Shortcut, ShortcutState};
+use tauri_plugin_deep_link::DeepLinkExt;  // W202: needed for app.deep_link()
 
 /// Show + focus + unminimize the main window in one call. Used by the
 /// tray click handler, the global shortcut, and deep-link arrivals.
@@ -41,6 +42,41 @@ fn focus_main_window(app: &tauri::AppHandle) {
         let _ = win.set_focus();
     } else {
         warn!("tars.desktop.focus_main: no `main` window registered");
+    }
+}
+
+/// W203 — Capture the current screen via macOS `screencapture` and
+/// return it as a base64 PNG data URL. Wired to the cockpit's Vision
+/// tab "📸 Capture & analyze" button (calls `invoke('vision_capture_screen')`).
+///
+/// On non-macOS the command returns an empty string and lets the
+/// cockpit fall back to `getDisplayMedia()`.
+#[tauri::command]
+fn vision_capture_screen() -> Result<String, String> {
+    #[cfg(target_os = "macos")]
+    {
+        use std::process::Command;
+        // Write to a temp file then read it back as base64. -x suppresses
+        // the camera-click sound. -t png picks the format.
+        let tmp = std::env::temp_dir().join(format!("tars-vision-{}.png", std::process::id()));
+        let status = Command::new("screencapture")
+            .args(["-x", "-t", "png", tmp.to_str().unwrap_or("/tmp/tars-vision.png")])
+            .status()
+            .map_err(|e| format!("screencapture spawn failed: {e}"))?;
+        if !status.success() {
+            return Err(format!("screencapture exit={status:?}"));
+        }
+        let bytes = std::fs::read(&tmp).map_err(|e| format!("read png failed: {e}"))?;
+        // Best-effort cleanup; ignore errors.
+        let _ = std::fs::remove_file(&tmp);
+        use base64::{engine::general_purpose, Engine};
+        let b64 = general_purpose::STANDARD.encode(&bytes);
+        Ok(format!("data:image/png;base64,{b64}"))
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        // Linux/Windows: cockpit falls back to getDisplayMedia()
+        Err("screen_capture_not_implemented_on_this_os".into())
     }
 }
 
@@ -68,6 +104,8 @@ fn main() {
     );
 
     tauri::Builder::default()
+        // ─── Invoke handlers (W203) ──────────────────────────────────
+        .invoke_handler(tauri::generate_handler![vision_capture_screen])
         // ─── Plugins ──────────────────────────────────────────────────
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_notification::init())
