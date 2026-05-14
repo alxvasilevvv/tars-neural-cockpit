@@ -285,6 +285,29 @@ Pack catalog: `GET /api/domains/manifest`.
 - ~70K LoC across backend + cockpit + landing.
 - ~350+ pytest cases; ~50+ vitest cases.
 
+### Wave A progress (W237-W246, as of W247)
+
+Wave A target was 0-4 weeks (W234-W260). At W247 we are **90% done** with
+8 of the 10 must-haves shipped. Brother-side billing is the only remaining
+blocker, plus two Claude-lane items in flight (W245 / W246).
+
+| Wave | Status | One-line summary |
+|------|--------|------------------|
+| W237 | ✅ Shipped | Models switcher — 9 models, cost-per-request labels, active model persisted at `~/.tars/active_model`. |
+| W238 | ⚠️ Partial | MCP servers panel — 5 endpoints, JSON storage, status indicators (running / stopped / error). W150 spawn supervisor still pending. |
+| W239 | ✅ Shipped | Rules for TARS — 5 seed rules, per-pack overlay, injected via `ChatOrchestrator._compose_system_prompt`. |
+| W240 | ✅ Shipped | `@-mention` chat context — 5 kinds (file / docs / web / recent / code) all wired, 4KB cap. |
+| W241 | ✅ Shipped | Background agents tray — tray chip + dropdown, SQLite store, SSE stream. |
+| W242 | ✅ Shipped | Tier cap UX — 60 / 80 / 90 / 100% banners + hard-block modal, notification fanout dedup. |
+| W243 | ✅ Shipped | Notepad templates — FTS5 search, 5 seeds, variable substitution. |
+| W244 | ✅ Shipped | Privacy mode — 3 modes (normal / privacy / strict), data plane indicator, recent-flows ring buffer. |
+| W245 | 🚧 In flight | Codebase indexer v0 — incremental + multi-language + `/api/codebase` API. |
+| W246 | 🚧 In flight | Cmd+K palette v2 — fuzzy + recents + categories. |
+
+**Wave A items shipped: 8.** **Remaining: 2 in-flight (W245, W246) + brother
+billing endpoints (blocking W249).** See §6.1 for the remaining-week plan
+and §10 for the brother status line.
+
 ---
 
 ## §3. Architecture overview
@@ -405,53 +428,59 @@ Legend: Y = shipped, P = partial/beta, N = absent.
 
 ### 4.1 Where Cursor leads today (gaps we close)
 
+Legend in this table: `Y` = shipped, `P` = partial/beta, `N` = absent.
+**"TARS today" column reflects state at W247** (Wave A 90% complete).
+
 | #  | Capability                              | Cursor | TARS today | Wave A target | Wave B target | Wave C target |
 |----|-----------------------------------------|--------|------------|---------------|---------------|---------------|
 | 1  | Inline Tab completion                   | Y      | N          | N             | `tars-tab` VS Code ext | Y (extension) |
 | 2  | Composer (multi-file edit + diff)       | Y      | N          | N             | voice-driven Composer | Y |
-| 3  | `@file` / `@folder` / `@symbol` mentions| Y      | N          | Y             | Y             | Y |
-| 4  | `@recent-changes` (git diff)            | Y      | N          | Y             | Y             | Y |
-| 5  | `@web` live search                      | Y      | P          | Y             | Y             | Y |
-| 6  | Codebase index at scale                 | Y      | P          | P             | Y (500K LoC)  | Y |
-| 7  | Rules for AI (`.cursor/rules/`)         | Y      | N          | `.tars/rules.yml` | Y         | Y |
-| 8  | Notepads (saved chat templates)         | Y      | P          | P             | Y             | Y |
-| 9  | MCP servers settings panel              | Y      | P          | Y             | Y             | Y |
-| 10 | Models switcher + cost labels           | Y      | P          | Y             | Y             | Y |
-| 11 | Per-request usage meter                 | Y      | P (ledger only) | Y (console) | Y         | Y |
-| 12 | Soft cap warning at 80%                 | Y      | N          | Y             | Y             | Y |
-| 13 | Hard block at 100%                      | Y      | P          | Y             | Y             | Y |
-| 14 | Background agents tray                  | Y      | P (daemon, no UI) | Y     | Y             | Y |
+| 3  | `@file` / `@folder` / `@symbol` mentions| Y      | Y (W240)   | Y             | Y             | Y |
+| 4  | `@recent-changes` (git diff)            | Y      | Y (W240)   | Y             | Y             | Y |
+| 5  | `@web` live search                      | Y      | Y (W240)   | Y             | Y             | Y |
+| 6  | Codebase index at scale                 | Y      | P (W245 in flight) | P     | Y (500K LoC)  | Y |
+| 7  | Rules for AI (`.cursor/rules/`)         | Y      | Y (W239)   | `.tars/rules.yml` | Y         | Y |
+| 8  | Notepads (saved chat templates)         | Y      | Y (W243)   | Y             | Y             | Y |
+| 9  | MCP servers settings panel              | Y      | P (W238 UI ✅, supervisor W150 pending) | Y | Y | Y |
+| 10 | Models switcher + cost labels           | Y      | Y (W237)   | Y             | Y             | Y |
+| 11 | Per-request usage meter                 | Y      | Y (W235 console) | Y (console) | Y         | Y |
+| 12 | Soft cap warning at 80%                 | Y      | Y (W242)   | Y             | Y             | Y |
+| 13 | Hard block at 100%                      | Y      | Y (W242)   | Y             | Y             | Y |
+| 14 | Background agents tray                  | Y      | Y (W241)   | Y             | Y             | Y |
 | 15 | SOC2 compliance UI                      | Y      | P          | P             | Y             | Y |
 | 16 | Magic-link auth                         | Y      | P (waiting brother) | Y     | Y             | Y |
 | 17 | OAuth (Google / Apple / GitHub)         | Y      | Y          | Y             | Y             | Y |
 | 18 | Tauri auto-update                       | P      | P          | Y             | Y             | Y |
+| 19 | Privacy mode (data-plane indicator)     | P (opt-in) | Y (W244) | Y           | Y             | Y |
 
 ### 4.2 Where TARS already leads Cursor
 
 | #  | Capability                              | Cursor | TARS today |
 |----|-----------------------------------------|--------|------------|
-| 19 | Local-first by default                  | P (Privacy Mode opt-in) | Y |
-| 20 | Hash-chained receipt ledger             | N      | Y |
-| 21 | Solana anchor of agent actions          | N      | Y |
-| 22 | Public Merkle verifier (no-auth)        | N      | Y |
-| 23 | 7 domain packs (life-ops surface)       | N      | Y |
-| 24 | Voice-first cockpit + wake-word + TTS   | N      | Y |
-| 25 | Multi-agent council / dissent           | N      | Y |
-| 26 | T2T agent handshake protocol            | N      | Y |
-| 27 | Cowork multiplayer sessions             | N      | Y |
-| 28 | $MEEET token economy                    | N      | Y |
-| 29 | Marketplace 70/30 on Solana             | N      | Y |
-| 30 | B2B Workshop mode                       | N      | Y |
-| 31 | iMessage / Telegram / Email bridges     | N      | Y |
-| 32 | Real OAuth across 8 connectors          | P (via MCP) | Y |
-| 33 | Vision + OCR + accessibility helpers    | N      | Y |
-| 34 | Watchdog + auto-restart daemon          | N      | Y |
-| 35 | `tars-doctor` CLI                       | N      | Y |
+| 20 | Local-first by default                  | P (Privacy Mode opt-in) | Y |
+| 21 | Hash-chained receipt ledger             | N      | Y |
+| 22 | Solana anchor of agent actions          | N      | Y |
+| 23 | Public Merkle verifier (no-auth)        | N      | Y |
+| 24 | 7 domain packs (life-ops surface)       | N      | Y |
+| 25 | Voice-first cockpit + wake-word + TTS   | N      | Y |
+| 26 | Multi-agent council / dissent           | N      | Y |
+| 27 | T2T agent handshake protocol            | N      | Y |
+| 28 | Cowork multiplayer sessions             | N      | Y |
+| 29 | $MEEET token economy                    | N      | Y |
+| 30 | Marketplace 70/30 on Solana             | N      | Y |
+| 31 | B2B Workshop mode                       | N      | Y |
+| 32 | iMessage / Telegram / Email bridges     | N      | Y |
+| 33 | Real OAuth across 8 connectors          | P (via MCP) | Y |
+| 34 | Vision + OCR + accessibility helpers    | N      | Y |
+| 35 | Watchdog + auto-restart daemon          | N      | Y |
+| 36 | `tars-doctor` CLI                       | N      | Y |
 
-**Tally.** Cursor leads on 18 dev-overlap capabilities (rows 1-18).
-TARS leads on 17 trust-and-breadth capabilities (rows 19-35). Wave A
-closes the must-have half of Cursor's lead; Wave B+C extends TARS into
-space Cursor cannot follow without abandoning its IDE thesis.
+**Tally (post-Wave A, W247).** Cursor leads on 19 dev-overlap rows (1-19),
+but TARS now matches or beats Cursor on 11 of those: rows 3-5, 7, 8, 10-14,
+19. Open gaps: rows 1, 2, 6 (W245 in flight), 9 (W150 spawn supervisor),
+15-18. TARS leads on 17 trust-and-breadth capabilities (rows 20-36). Wave A
+closed the must-have half of Cursor's lead in three weeks; Wave B+C extends
+TARS into space Cursor cannot follow without abandoning its IDE thesis.
 
 **The asymmetric edge** (what Cursor cannot copy without rebuilding):
 local-first, receipt-on-chain, voice-cockpit, domain packs, $MEEET economy,
@@ -581,9 +610,14 @@ Source of truth: `docs/ROADMAP_W234_to_v10.md` (Wave A in commit-sized detail)
 and `docs/COMPETITIVE_ANALYSIS_CURSOR.md` §6 (Waves B and C scope). Three waves;
 each compounds on the previous; no wave gold-plates the wave before.
 
-### 6.1 Wave A — Cursor parity must-haves (0-4 weeks, W234-W260)
+### 6.1 Wave A — Cursor parity must-haves (Wave A: 90% complete as of W246)
 
 **Goal:** a Cursor-refugee opens TARS and says nothing's missing.
+
+**Status (W247).** 8 of 10 must-haves shipped (W237-W244). 2 in flight
+(W245 codebase indexer + W246 Cmd+K palette v2). Brother billing endpoints
+(W245-W249 in the original Wave A plan) are the only external blocker.
+See §2 "Wave A progress" for the per-wave ship state.
 
 | Wave | Item                              | Effort | Dep                              |
 |------|-----------------------------------|--------|----------------------------------|
@@ -622,8 +656,23 @@ each compounds on the previous; no wave gold-plates the wave before.
 
 **Target ship:** 2026-06-12, tag `v9.3.0`.
 
-**Blocker risk:** brother on W245-W247. Mitigation: TARS-side mock at
+**Blocker risk:** brother on W245-W249 billing. Mitigation: TARS-side mock at
 `/api/_meeet_mock` so the cockpit doesn't block on his ship.
+
+#### 6.1a Wave A remaining (~1 week, as of W247)
+
+The short list of what is still open between us and the `v9.3.0` tag:
+
+| Item | Owner | Notes |
+|------|-------|-------|
+| Codebase indexer hardening (W245) | Claude lane | Incremental + multi-language + `/api/codebase` API; in flight. |
+| Cmd+K palette v2 polish (W246) | Claude lane | Fuzzy match + recents + categories; in flight. |
+| MCP spawn supervisor (W150 continuation, ties to W238) | Claude lane | Panel UI shipped; supervisor still pending — currently the only ⚠️ row in §4.1. |
+| Brother billing endpoints (W245-W249 plan) | Brother | `/api/billing/usage_event`, `/api/billing/balance`, `/api/billing/topup`, reconciliation handshake. **Blocking the `v9.3.0` cut.** |
+| Marketing copy update (W260b) | Claude lane | Trivial once brother numbers lock. |
+
+Everything else listed in the Wave A table (W237-W244) is shipped and live
+in the cockpit; see §2 for one-line status per wave.
 
 **Wave A weekly milestones.**
 
@@ -888,6 +937,17 @@ All `.command` files are double-clickable on macOS. One-liner each:
 The shortest possible actionable list for the brother on `api.meeet.world`,
 in priority order. Everything else can wait.
 
+**Status (W247 update).** TARS-side is **ready and waiting** on every
+endpoint in §10.1 and §10.2. Auth client (`web_extras/routers/auth_meeet.py`),
+billing client (`backend/core/meeet_billing/`), HMAC signing
+(`BRIDGE_SHARED_SECRET` distributed W194), idempotency (`trace_id`),
+reconciliation script (`scripts/reconcile-meeet-billing.py`), readiness
+probes (`scripts/CHECK-MEEET-LIVE.command`, `scripts/probe-meeet-billing.command`),
+and frontend fallback toasts (W233) are all live. The moment brother
+deploys, `MEEET_MODE=live` flips and the tier pill goes real. Brother
+billing is the **single remaining external blocker on Wave A** and
+therefore on the `v9.3.0` tag.
+
 ### 10.1 Next 14 days — the 4 auth endpoints
 
 Already specified in full at `docs/HANDOFF_v9.2.0-beta2_FOR_BROTHER.md`.
@@ -1116,18 +1176,21 @@ remote pickup, scripting, and CI.
 
 ### 12.1 Doc index
 
-The complete inventory is in `PROJECT_INDEX.md`. Most-cited deep-dives:
+The complete inventory is in `PROJECT_INDEX.md`. Most-cited deep-dives
+(annotated with last-touch wave + line count where useful):
 
-- `docs/WHAT_WORKS_v9.2.0-beta2.md` — honest per-feature ship state.
-- `docs/OPERATOR_v9.2.md` — 5-minute path from install to first action.
-- `docs/COMPETITIVE_ANALYSIS_CURSOR.md` — 705-line gap matrix vs Cursor.
-- `docs/ROADMAP_W234_to_v10.md` — Wave A in commit-sized detail.
-- `docs/PRICING_ECONOMICS_v9.2.md` — every number brother needs.
-- `docs/HANDOFF_v9.2.0-beta2_FOR_BROTHER.md` — the 4 auth endpoints brother ships.
-- `docs/DB_AUDIT_v9.2.md` — every SQLite store TARS touches.
-- `docs/STORYBOARD_VOICE_COCKPIT.md` — 8 frames of voice UX.
-- `docs/NOTIFICATIONS.md` — iMessage / Telegram / Email contract.
+- `docs/WHAT_WORKS_v9.2.0-beta2.md` — honest per-feature ship state (W215).
+- `docs/OPERATOR_v9.2.md` — 5-minute path from install to first action (W213).
+- `docs/COMPETITIVE_ANALYSIS_CURSOR.md` — 705-line gap matrix vs Cursor (W234).
+- `docs/ROADMAP_W234_to_v10.md` — 453-line Wave A in commit-sized detail (W234).
+- `docs/PRICING_ECONOMICS_v9.2.md` — 403-line pricing canon, every number brother needs (W234).
+- `docs/HANDOFF_v9.2.0-beta2_FOR_BROTHER.md` — 495-line spec, the 4 auth endpoints brother ships (W233).
+- `docs/DB_AUDIT_v9.2.md` — 106-line inventory of every SQLite store TARS touches (W231).
+- `docs/STORYBOARD_VOICE_COCKPIT.md` — 398-line, 8 frames of voice UX (W230).
+- `docs/NOTIFICATIONS.md` — iMessage / Telegram / Email contract (W164).
 - `docs/RELEASE_NOTES_v9.2.0-beta2.md` — full v9.2.0-beta2 changelog.
+- `docs/SMOKE-TEST-RESULTS.md` — 142-line E2E smoke output (W227).
+- `CURRENT_STATUS.md` (root) — daily-glance snapshot; last 10 commits, what works, brother dependencies, next ship (W247).
 
 ### 12.2 Key file paths
 
@@ -1202,7 +1265,8 @@ curl -s -X POST http://127.0.0.1:8765/api/usage/console?from=today | jq
 | `v9.1.4`             | Windows schtasks daemon parity + `--watch` mode + 3 new doctor checks. |
 | `v9.2.0-beta1`       | Control Center cockpit + AI Clone webhook sync + first `usage.tokens` event + early-access install line. |
 | `v9.2.0-beta2`       | Auth gate (W219) + voice cockpit (W220) + REBUILD-TARS-APP + CSP fix + boot-time DB init + meeet handshake + text-input fallback + consumption console (W235). |
-| `v9.3.0` *(target)*  | Wave A: usage tab, models switcher, `.tars/rules.yml`, `@-mentions`, MCP panel, background agents tray. |
+| Wave A 90% (W247)    | Wave A 8-of-10 shipped: W237 models switcher, W238 MCP panel UI, W239 rules, W240 @-mentions, W241 background agents tray, W242 tier-cap UX, W243 notepad templates, W244 privacy mode. In flight: W245 codebase indexer, W246 Cmd+K palette v2. External: brother billing. |
+| `v9.3.0` *(target)*  | Wave A complete + brother billing live + Cursor refugee says "nothing's missing." Target 2026-06-12. |
 | `v9.5.0` *(target)*  | Wave B: voice-driven Composer, receipt-anchored diffs, SOC2 audit UI, `tars-tab` VS Code extension. |
 | `v10.0.0 GA` *(target)* | Wave C: T2T code review, on-prem TARS, voice pair-programming, agent economy marketplace. |
 

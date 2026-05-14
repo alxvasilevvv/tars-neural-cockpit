@@ -1,6 +1,8 @@
 # PROJECT_INDEX — every doc in the repo, one line each
 
-> **Status:** maintained alongside `TARS_MASTER_DOC.md`. Updated W236.
+> **Status:** maintained alongside `TARS_MASTER_DOC.md`. Updated W247
+> (was W236; refreshed at Wave A 90% mark to add line counts on
+> most-cited deep-dives and confirm W-tags of last touch).
 > **How to read this file:** if you are looking for *anything* about TARS,
 > start here. Find the right doc, click through. If you can't find what you
 > need, that's a doc gap — fix it.
@@ -16,17 +18,18 @@ restate it in the master doc — link to it instead.**
 
 | Doc | What it is | Last touched |
 |---|---|---|
-| [TARS_MASTER_DOC.md](TARS_MASTER_DOC.md) | Single source of truth — North Star, architecture, roadmap, operator manual, brother brief, anti-patterns. | W236 |
+| [TARS_MASTER_DOC.md](TARS_MASTER_DOC.md) | Single source of truth — North Star, architecture, roadmap, operator manual, brother brief, anti-patterns. ~1260 lines. | W247 |
 | [README.md](README.md) | Repo front door — banner, what's new, quick start, pointer to master doc. | W236 |
-| [PROJECT_INDEX.md](PROJECT_INDEX.md) | This file. | W236 |
+| [PROJECT_INDEX.md](PROJECT_INDEX.md) | This file. | W247 |
+| [CURRENT_STATUS.md](CURRENT_STATUS.md) | Daily-glance snapshot — last 10 commits, what works, brother dependencies, next 3 shipping. ~80 lines. | W247 |
 
 ## Strategy
 
 | Doc | What it is | Last touched |
 |---|---|---|
 | [docs/COMPETITIVE_ANALYSIS_CURSOR.md](docs/COMPETITIVE_ANALYSIS_CURSOR.md) | 705-line gap matrix vs Cursor: where we lead, where we lag, surgical closure plan. | W234 |
-| [docs/ROADMAP_W234_to_v10.md](docs/ROADMAP_W234_to_v10.md) | Wave A in commit-sized detail (W234-W260) + Wave B/C scope. | W234 |
-| [docs/PRICING_ECONOMICS_v9.2.md](docs/PRICING_ECONOMICS_v9.2.md) | Tier numbers, provider costs, markup policy, anti-abuse rules. The numbers brother needs. | W234 |
+| [docs/ROADMAP_W234_to_v10.md](docs/ROADMAP_W234_to_v10.md) | 453-line Wave A in commit-sized detail (W234-W260) + Wave B/C scope. | W234 |
+| [docs/PRICING_ECONOMICS_v9.2.md](docs/PRICING_ECONOMICS_v9.2.md) | 403-line tier numbers, provider costs, markup policy, anti-abuse rules. The numbers brother needs. | W234 |
 | [docs/MASTER_ROADMAP_v9.1_to_v10.0.md](docs/MASTER_ROADMAP_v9.1_to_v10.0.md) | Six-month north star, predating Wave A. Superseded by the trio above but kept for context. | W148 |
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Pre-v9.2 roadmap. Historical. | W74 |
 | [docs/ROADMAP_v9.2_v10.md](docs/ROADMAP_v9.2_v10.md) | Earlier v9.2->v10 plan. Superseded by W234 trio. | W188 |
@@ -38,9 +41,9 @@ restate it in the master doc — link to it instead.**
 
 | Doc | What it is | Last touched |
 |---|---|---|
-| [docs/DB_AUDIT_v9.2.md](docs/DB_AUDIT_v9.2.md) | Every SQLite store, JSON blob, and directory under `~/.tars/`. Where data lives. | W231 |
-| [docs/STORYBOARD_VOICE_COCKPIT.md](docs/STORYBOARD_VOICE_COCKPIT.md) | 8 frames of voice cockpit UX — Boot / Idle / Listen / Think / Speak / Error / Drawer / Reduced-motion. | W230 |
-| [docs/HANDOFF_v9.2.0-beta2_FOR_BROTHER.md](docs/HANDOFF_v9.2.0-beta2_FOR_BROTHER.md) | The 4 auth endpoints brother ships. Sequence diagrams, env vars, acceptance criteria. | W233 |
+| [docs/DB_AUDIT_v9.2.md](docs/DB_AUDIT_v9.2.md) | 106-line audit of every SQLite store, JSON blob, and directory under `~/.tars/`. Where data lives. | W231 |
+| [docs/STORYBOARD_VOICE_COCKPIT.md](docs/STORYBOARD_VOICE_COCKPIT.md) | 398-line, 8 frames of voice cockpit UX — Boot / Idle / Listen / Think / Speak / Error / Drawer / Reduced-motion. | W230 |
+| [docs/HANDOFF_v9.2.0-beta2_FOR_BROTHER.md](docs/HANDOFF_v9.2.0-beta2_FOR_BROTHER.md) | 495-line spec — the 4 auth endpoints brother ships. Sequence diagrams, env vars, acceptance criteria. **Re-confirmed W247.** | W233 |
 | [docs/NOTIFICATIONS.md](docs/NOTIFICATIONS.md) | iMessage / Telegram / Email contract for the notification fanout. | W164 |
 | [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) | Trust boundaries + adversary model. | W79 |
 | [docs/SECURITY.md](docs/SECURITY.md) | Public security posture, disclosure policy. | W79 |
@@ -58,7 +61,7 @@ restate it in the master doc — link to it instead.**
 | [docs/OPERATOR_LAUNCH_PLAYBOOK.md](docs/OPERATOR_LAUNCH_PLAYBOOK.md) | Pre-launch playbook. Historical. | W64 |
 | [docs/WHAT_WORKS_v9.2.0-beta2.md](docs/WHAT_WORKS_v9.2.0-beta2.md) | Honest per-feature ship state as of beta2. | W215 |
 | [docs/WHAT_WORKS.md](docs/WHAT_WORKS.md) | Earlier WHAT_WORKS. Superseded by `_v9.2.0-beta2`. | W215 |
-| [docs/SMOKE-TEST-RESULTS.md](docs/SMOKE-TEST-RESULTS.md) | Latest E2E smoke output. | W227 |
+| [docs/SMOKE-TEST-RESULTS.md](docs/SMOKE-TEST-RESULTS.md) | 142-line latest E2E smoke output. | W227 |
 | [docs/QA_DEEP_2026-05-01.md](docs/QA_DEEP_2026-05-01.md) | Deep QA pass before beta2 ship. | W197 |
 | [docs/QA_LOCAL_SETUP.md](docs/QA_LOCAL_SETUP.md) | How to run QA locally. | W197 |
 | [docs/QA_PASSPORT_v9.2.0-beta1.md](docs/QA_PASSPORT_v9.2.0-beta1.md) | beta1 QA passport. | W198 |
@@ -169,6 +172,8 @@ restate it in the master doc — link to it instead.**
 
 ---
 
-**Doc count:** ~95 markdown files under `docs/` + 4 at the root. If you
+**Doc count:** ~95 markdown files under `docs/` + 5 at the root
+(`README.md`, `TARS_MASTER_DOC.md`, `PROJECT_INDEX.md`, `CURRENT_STATUS.md`,
+`CHANGELOG.md`, plus `CLAUDE.md` + `HANDOFF_INSTRUCTIONS.md`). If you
 write a new doc, add it here, and link it from the relevant master-doc
 section.
