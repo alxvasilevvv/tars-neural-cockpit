@@ -1877,6 +1877,45 @@
             <button class="btn" data-action="notepads.refresh" onclick="loadNotepadsSettings()">↻ Refresh</button>
           </div>
         </div>
+
+        <!-- W245 — Codebase indexer -->
+        <div class="setting-block" id="codebaseBlock">
+          <h3>CODEBASE INDEX</h3>
+          <p style="font-size: 11px; color: var(--muted); line-height: 1.6; margin: 4px 0 10px;">
+            Cursor-style <code>@codebase</code> search. Point at a repo root, TARS embeds + indexes every supported file
+            (Python / TS / JS / Markdown / Rust / Go and more) into <code>~/.tars/codebase.sqlite</code>.
+            Re-runs are incremental — only files whose <code>mtime</code> drifted get re-embedded.
+          </p>
+          <div style="display:flex; gap:8px; align-items:center; margin-bottom:10px; flex-wrap:wrap;">
+            <input id="codebaseRootInput" type="text" placeholder="/path/to/repo"
+              style="flex:1; min-width:220px; padding:6px 10px; background:rgba(0,0,0,0.4);
+                     border:1px solid var(--panel-edge); border-radius:6px; color:var(--text); font-size:12px;"/>
+            <button class="btn primary" data-action="codebase.index"
+              onclick="kickOffCodebaseIndex()">Index now</button>
+            <button class="btn" data-action="codebase.index.force"
+              onclick="kickOffCodebaseIndex(true)" title="Wipe + re-embed every file">Force re-index</button>
+          </div>
+          <div id="codebaseStatusRow" style="font-size:11px; color:var(--muted); margin-bottom:8px;">
+            <span id="codebaseStatusText">Loading status…</span>
+          </div>
+          <div id="codebaseProgressWrap" style="display:none; margin-bottom:8px;">
+            <div style="font-size:10px; color:var(--muted); margin-bottom:4px;">
+              <span id="codebaseProgressLabel">Indexing…</span>
+            </div>
+            <div style="height:6px; background:rgba(0,0,0,0.3); border-radius:3px; overflow:hidden;">
+              <div id="codebaseProgressBar"
+                style="height:100%; width:0%; background:var(--accent); transition:width .3s;"></div>
+            </div>
+          </div>
+          <label style="display:flex; gap:8px; align-items:center; font-size:11px; cursor:pointer;">
+            <input id="codebaseWatchToggle" type="checkbox" onchange="toggleCodebaseWatch()"/>
+            <span>Enable file watcher (re-index changed files every 30 s)</span>
+          </label>
+          <div style="margin-top:10px;">
+            <button class="btn" data-action="codebase.refresh" onclick="loadCodebaseStatus()">↻ Refresh status</button>
+            <button class="btn" data-action="codebase.search" onclick="openCodebaseSearchDialog()">🔎 Search codebase</button>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -2004,6 +2043,29 @@
     <div style="display:flex;gap:8px;justify-content:flex-end;">
       <button class="btn" data-action="notepads.fill.cancel" onclick="closeNotepadFillModal()">Cancel</button>
       <button class="btn primary" data-action="notepads.fill.insert" onclick="insertNotepadWithVars()">Insert into chat</button>
+    </div>
+  </div>
+</div>
+
+<!-- W245 — Codebase search dialog -->
+<div class="welcome-modal" id="codebaseSearchModal" style="display:none;">
+  <div class="welcome-card" style="max-width:720px;text-align:left;">
+    <h1 style="font-size:18px;">@codebase: search</h1>
+    <p class="tagline" style="font-size:11px;">Cosine-similarity search over your indexed repo. Hit Enter to run.</p>
+    <div style="display:flex;gap:8px;margin:12px 0;">
+      <input id="codebaseSearchInput" type="text" placeholder="Search the codebase…"
+        style="flex:1; padding:8px 10px; background:rgba(0,0,0,0.4); border:1px solid var(--panel-edge);
+               border-radius:6px; color:var(--text); font-size:13px;"
+        onkeydown="if(event.key==='Enter'){runCodebaseSearch()}"/>
+      <button class="btn primary" data-action="codebase.search.run" onclick="runCodebaseSearch()">Search</button>
+    </div>
+    <div id="codebaseSearchResults"
+      style="max-height:50vh; overflow:auto; font-size:11px; padding-right:4px;
+             border-top:1px solid var(--panel-edge); padding-top:10px;">
+      <div class="empty-state" style="padding:14px 0;color:var(--muted);">No results yet.</div>
+    </div>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px;">
+      <button class="btn" data-action="codebase.search.close" onclick="closeCodebaseSearchDialog()">Close</button>
     </div>
   </div>
 </div>
@@ -2883,6 +2945,164 @@ async function loadSettings() {
   try { await loadRules(); } catch (e) { console.warn('rules load failed', e); }
   try { await loadPrivacy(); } catch (e) { console.warn('privacy load failed', e); }
   try { await loadNotepadsSettings(); } catch (e) { console.warn('notepads load failed', e); }
+  try { await loadCodebaseStatus(); } catch (e) { console.warn('codebase load failed', e); }
+}
+
+// W245 — Codebase indexer panel
+let _codebaseTraceId = null;
+let _codebaseProgressTimer = null;
+async function loadCodebaseStatus() {
+  try {
+    const r = await fetch('/api/codebase/status');
+    if (!r.ok) throw new Error(r.status);
+    const j = await r.json();
+    const st = j.status || {};
+    const txt = document.getElementById('codebaseStatusText');
+    if (!txt) return;
+    const last = st.last_indexed_at
+      ? new Date(st.last_indexed_at * 1000).toLocaleString()
+      : 'never';
+    const root = st.last_root || '(no root indexed)';
+    txt.innerHTML =
+      '<b>' + (st.files_indexed || 0) + '</b> files / <b>' + (st.chunks_total || 0) + '</b> chunks · '
+      + 'last: ' + last + ' · ' + (st.size_mb || 0) + ' MB · ' + (st.embedder || '—')
+      + '<br/><span style="opacity:0.7;">root: ' + root + '</span>';
+    // Pre-fill the input with the previously indexed root for convenience.
+    const inp = document.getElementById('codebaseRootInput');
+    if (inp && !inp.value && st.last_root) inp.value = st.last_root;
+    // Sync watcher toggle.
+    const toggle = document.getElementById('codebaseWatchToggle');
+    if (toggle && st.watcher_active_for && st.last_root) {
+      toggle.checked = st.watcher_active_for.indexOf(st.last_root) >= 0;
+    }
+  } catch (e) {
+    const txt = document.getElementById('codebaseStatusText');
+    if (txt) txt.textContent = 'status unavailable: ' + (e.message || e);
+  }
+}
+
+async function kickOffCodebaseIndex(force) {
+  const inp = document.getElementById('codebaseRootInput');
+  const root = (inp && inp.value || '').trim();
+  if (!root) { alert('Enter a repo root first.'); return; }
+  try {
+    const r = await fetch('/api/codebase/index', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ root: root, force: !!force }),
+    });
+    if (!r.ok) throw new Error(r.status);
+    const j = await r.json();
+    _codebaseTraceId = j.trace_id;
+    document.getElementById('codebaseProgressWrap').style.display = 'block';
+    document.getElementById('codebaseProgressLabel').textContent = 'Indexing… (trace ' + j.trace_id + ')';
+    document.getElementById('codebaseProgressBar').style.width = '5%';
+    if (_codebaseProgressTimer) clearInterval(_codebaseProgressTimer);
+    _codebaseProgressTimer = setInterval(pollCodebaseProgress, 1000);
+  } catch (e) {
+    alert('Index kickoff failed: ' + (e.message || e));
+  }
+}
+
+async function pollCodebaseProgress() {
+  if (!_codebaseTraceId) return;
+  try {
+    const r = await fetch('/api/codebase/index/' + encodeURIComponent(_codebaseTraceId));
+    if (!r.ok) return;
+    const j = await r.json();
+    const p = j.progress || {};
+    const bar = document.getElementById('codebaseProgressBar');
+    const label = document.getElementById('codebaseProgressLabel');
+    const scanned = p.files_scanned || 0;
+    const indexed = p.files_indexed || 0;
+    if (label) {
+      label.textContent = 'Indexed ' + indexed + ' · scanned ' + scanned + ' · ' + (p.state || '');
+    }
+    if (p.state === 'done') {
+      if (bar) bar.style.width = '100%';
+      clearInterval(_codebaseProgressTimer);
+      _codebaseProgressTimer = null;
+      setTimeout(() => {
+        document.getElementById('codebaseProgressWrap').style.display = 'none';
+        loadCodebaseStatus();
+      }, 800);
+    } else {
+      // Indeterminate-ish: pulse based on indexed count.
+      if (bar) bar.style.width = Math.min(95, 5 + (indexed * 2)) + '%';
+    }
+  } catch (e) { /* keep polling */ }
+}
+
+async function toggleCodebaseWatch() {
+  const toggle = document.getElementById('codebaseWatchToggle');
+  const inp = document.getElementById('codebaseRootInput');
+  const root = (inp && inp.value || '').trim();
+  if (!root) {
+    if (toggle) toggle.checked = false;
+    alert('Enter a repo root first.');
+    return;
+  }
+  try {
+    await fetch('/api/codebase/watch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ root: root, enable: !!(toggle && toggle.checked) }),
+    });
+    loadCodebaseStatus();
+  } catch (e) {
+    alert('Watcher toggle failed: ' + (e.message || e));
+  }
+}
+
+function openCodebaseSearchDialog() {
+  const m = document.getElementById('codebaseSearchModal');
+  if (!m) return;
+  m.style.display = 'flex';
+  const inp = document.getElementById('codebaseSearchInput');
+  if (inp) { inp.value = ''; setTimeout(() => inp.focus(), 50); }
+  const res = document.getElementById('codebaseSearchResults');
+  if (res) res.innerHTML = '<div class="empty-state" style="padding:14px 0;color:var(--muted);">Type a query and press Enter.</div>';
+}
+function closeCodebaseSearchDialog() {
+  const m = document.getElementById('codebaseSearchModal');
+  if (m) m.style.display = 'none';
+}
+async function runCodebaseSearch() {
+  const inp = document.getElementById('codebaseSearchInput');
+  const res = document.getElementById('codebaseSearchResults');
+  const q = (inp && inp.value || '').trim();
+  if (!q) return;
+  if (res) res.innerHTML = '<div class="empty-state" style="padding:14px 0;color:var(--muted);">Searching…</div>';
+  try {
+    const r = await fetch('/api/codebase/search', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ query: q, limit: 10 }),
+    });
+    if (!r.ok) throw new Error(r.status);
+    const j = await r.json();
+    const hits = j.hits || [];
+    if (!hits.length) {
+      if (res) res.innerHTML = '<div class="empty-state" style="padding:14px 0;color:var(--muted);">No matches. Try indexing a root first.</div>';
+      return;
+    }
+    const rows = hits.map(h => {
+      const sym = h.symbol ? ' · <code>' + h.symbol + '</code>' : '';
+      const snip = (h.snippet || '').replace(/</g, '&lt;');
+      return (
+        '<div style="padding:8px 0;border-bottom:1px solid var(--panel-edge);">'
+        + '<div style="font-size:11px;color:var(--accent);">'
+        + h.path + ':' + h.line + sym + ' · score=' + h.score
+        + '</div>'
+        + '<pre style="font-size:10px;color:var(--muted);white-space:pre-wrap;margin:4px 0 0;">'
+        + snip + '</pre>'
+        + '</div>'
+      );
+    }).join('');
+    if (res) res.innerHTML = rows;
+  } catch (e) {
+    if (res) res.innerHTML = '<div class="empty-state" style="padding:14px 0;color:#fca5a5;">Search failed: ' + (e.message || e) + '</div>';
+  }
 }
 
 // W244 -- privacy mode + data plane indicators
@@ -4743,6 +4963,13 @@ const TARS_ACTION_MAP = {
   'notepads.delete':         () => deleteNotepadFromEditor(),
   'notepads.fill.cancel':    () => closeNotepadFillModal(),
   'notepads.fill.insert':    () => insertNotepadWithVars(),
+  // W245 codebase indexer
+  'codebase.index':          () => kickOffCodebaseIndex(false),
+  'codebase.index.force':    () => kickOffCodebaseIndex(true),
+  'codebase.refresh':        () => loadCodebaseStatus(),
+  'codebase.search':         () => openCodebaseSearchDialog(),
+  'codebase.search.run':     () => runCodebaseSearch(),
+  'codebase.search.close':   () => closeCodebaseSearchDialog(),
   'meeet.connect':        () => connectMeeet(),
   'meeet.open-account':   () => openMeeetAccount(),
   'meeet.paste-token':    () => pasteMeeetToken(),

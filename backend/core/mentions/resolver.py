@@ -474,6 +474,33 @@ async def _resolve_code(query: str) -> MentionResolved:
             title=title,
             content="(usage: @code:symbol or @code:phrase)",
         )
+    # W245 codebase indexer — preferred surface. Wraps the W135
+    # sqlite-vec code RAG when present, otherwise serves from its
+    # own hash-embedded SQLite. Either way the resolver doesn't have
+    # to care which one is wired.
+    try:
+        from backend.core import codebase as _codebase
+    except Exception:
+        _codebase = None  # type: ignore[assignment]
+    if _codebase is not None:
+        try:
+            results = await asyncio.to_thread(
+                _codebase.search, query, MAX_CODE_HITS  # type: ignore[arg-type]
+            )
+        except Exception:
+            results = []
+        if results:
+            hits = [
+                {
+                    "path": h.path,
+                    "line": h.line,
+                    "text": h.snippet,
+                    "symbol": h.symbol,
+                    "score": h.score,
+                }
+                for h in results
+            ]
+            return _format_code_hits(query, hits, source="codebase")
     # W135 sqlite-vec code RAG — try a couple of import surfaces.
     code_rag = None
     for mod_path in (
