@@ -101,7 +101,7 @@ async def _handle_version(_params: dict[str, Any]) -> dict[str, Any]:
 
         version = current_version()
     except Exception:  # noqa: BLE001
-        version = "9.1.x"
+        version = "9.3.0-beta.1"
     from . import CONTRACT_VERSION
 
     return {

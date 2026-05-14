@@ -9,6 +9,80 @@ The format is loosely based on [Keep a Changelog](https://keepachangelog.com).
 
 ---
 
+## v9.3.0-beta1 — Cursor parity wave + meeet.world billing rails (2026-05-15)
+
+Wave A (W237-W249) bundled into one beta tag. 13 waves close the
+Cursor parity gap and wire the billing rails the W235 consumption
+console was waiting for. All additive — no breaking changes, no
+migrations. Auto-bootstrap from W231 covers new SQLite stores.
+
+Full release notes: [`docs/RELEASE_NOTES_v9.3.0-beta1.md`](docs/RELEASE_NOTES_v9.3.0-beta1.md).
+
+### Cursor parity panels
+- **W237 — Models switcher with cost labels.** Per-request cost
+  estimate in the cockpit header dropdown; council mode shows
+  combined per-turn cost; voice command "switch to claude haiku".
+  `web_extras/routers/models.py`, `experiments/neural-showcase-v3/src/components/ModelSwitcher.tsx`.
+- **W238 — MCP servers panel.** New `/settings/mcp` with toggles +
+  health badges + Test connection (real `tools/list` round-trip).
+  Surfaces the W150 real MCP bridge. `web_extras/routers/mcp_admin.py`.
+- **W239 — Rules system.** `.tars/rules.yml` + per-pack overlay +
+  Settings YAML editor. Pack overlay > project > defaults.
+  `backend/core/rules/`, `web_extras/routers/rules.py`.
+- **W240 — @-mention chat context.** Unified resolver for `@file:`,
+  `@docs:`, `@web:`, `@recent:`, `@code:`, `@agent:`. Tokens inline
+  as system context on send. `web_extras/routers/mentions.py`.
+
+### UI/UX
+- **W241 — Background agents tray.** Long-running tasks (codebase
+  index, batch agents, weekly digest) get progress / cancel / retry.
+  Persisted across reloads. `web_extras/routers/tasks.py`.
+- **W242 — Tier cap UX.** Soft warning at 80%, hard 402 block at
+  100%, one-tap topup prompt back to meeet.world dashboard.
+- **W243 — Notepad templates.** Save / slash-recall / share-via-URL
+  AI workflows. `web_extras/routers/notepad.py`.
+- **W244 — Privacy mode + data plane.** Three planes (`local`,
+  `cloud`, `cloud_redacted`) with always-visible status bar.
+  `backend/core/privacy/redactor.py`.
+- **W246 — Cmd+K palette v2.** Fuzzy across actions / files / docs
+  / recents / agents / settings. ~10ms on 5k entries. Recents bubble,
+  categories collapse. Replaces v1 (W57).
+
+### Backend
+- **W245 — Codebase indexer v0.** Tree-sitter incremental index over
+  TS/JS/Py/Rust/Go/Swift. SQLite + `sqlite-vec`. `/api/codebase/index`,
+  `/api/codebase/search`, `/api/codebase/symbols`. ~600ms cold for
+  50k LOC, ~30ms warm. `backend/core/codebase/`.
+- **W248 — Unified WS real-time event bus.** Single
+  `/ws/events?topics=...` replaces seven polling clients. Typed
+  envelopes, exponential backoff, falls back to polling after 3x
+  failure. `backend/core/events/bus.py`, `web_extras/routers/events_ws.py`.
+
+### Billing rails (wired)
+- **W235 follow-through.** Every metered action emits a `usage.tokens`
+  or `usage.action` event through the W248 bus and the meeet.world
+  ingest pipe. W242 tier cap reads local replay + brother's
+  `/api/billing/usage` (tie-breaker).
+
+### Docs + QA
+- **W247 — Master doc sync.** Cursor parity scorecard: 6 of 8 rows
+  flip PARTIAL → DONE. Roadmap marks Wave A SHIPPED.
+- **W249 — Wave A QA audit.** Per-feature pytest sweep, tsc clean,
+  smoke green. Bug fixes folded back into the Wave A commits.
+
+### Operator-blocked (still pending after Wave A)
+- Apple Developer .p12 → CI signed .dmg (notarization).
+- Brother's `/api/billing/{usage,topup,tier}` endpoints — W242 falls
+  back to local replay store until they ship.
+- Windows / Linux signed installer parity.
+
+### Credits
+- Operator: alienram@icloud.com
+- Wave A built by: Claude (Sonnet) in a sustained ~6-hour pass on `main`.
+- Pushed via `scripts/auto-push.command`.
+
+---
+
 ## v9.1.0 — B2B Production Suite addendum (2026-05-10)
 
 A two-week post-Workshop sprint that landed the full B2B operational

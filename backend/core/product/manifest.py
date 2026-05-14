@@ -186,7 +186,7 @@ def _placeholder_url(version: str, filename: str) -> str:
 # only accepts Mac filenames. Listing Win/Linux entries here would
 # advertise downloads that 404 in the proxy. Keep the wire-shape
 # strict: Mac-only until the cross-target CI matrix lands.
-_DEFAULT_VERSION = "9.1.0"
+_DEFAULT_VERSION = "9.3.0-beta.1"
 _DEFAULT_NOTES = (
     "v9.1.0 — Mac-only desktop release. Wallets, council agents, "
     "entitlements/roles, OCR vision, Entrepreneur pack. Win/Linux "

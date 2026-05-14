@@ -3,25 +3,29 @@
 > Billed through [`meeet.world`](https://meeet.world). Cursor-grade polish.
 > 7 life-domain packs. Voice-first. Sovereign data. On-chain proof.
 
-[![version](https://img.shields.io/badge/version-9.2.0--beta2-blue)](docs/RELEASE_NOTES_v9.2.0-beta2.md)
+[![version](https://img.shields.io/badge/version-9.3.0--beta1-blue)](docs/RELEASE_NOTES_v9.3.0-beta1.md)
 [![platform](https://img.shields.io/badge/platform-macOS-lightgrey)](docs/WHAT_WORKS_v9.2.0-beta2.md)
-[![tests](https://img.shields.io/badge/pytest-350%2B%20passed-brightgreen)](docs/SMOKE-TEST-RESULTS.md)
+[![tests](https://img.shields.io/badge/pytest-400%2B%20passed-brightgreen)](docs/SMOKE-TEST-RESULTS.md)
 [![meeet](https://img.shields.io/badge/meeet.world-integrated-7c3aed)](docs/HANDOFF_v9.2.0-beta2_FOR_BROTHER.md)
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
 
-## What's new in v9.2.0-beta2
+## What's new in v9.3.0-beta1 (Wave A — Cursor parity)
 
-- **Voice cockpit** (W220 + W229 + W230) — cinematic monolith, MediaRecorder
-  STT, full-screen `/api/voice/command`, text-input fallback when STT not
-  configured (W232).
-- **Auth gate** (W219) — `meeet.world` magic-link + Google/Apple OAuth +
-  `tars://` deep-link handler. Token persists at `~/.tars/meeet_token`.
-- **Consumption console** (W235) — `/api/usage/console`, metering middleware,
-  per-action cost ledger. The foundation for Wave A's Cursor-parity usage tab.
-- **Live `meeet.world` handshake** (W233) — `CHECK-MEEET-LIVE.command` probes
-  the 4 brother endpoints and flips `MEEET_MODE` to `live` on green.
-- **Boot-time DB init** (W231) — 21 SQLite stores auto-create on first boot;
-  no migration step needed.
+- **Cursor parity panels** (W237-W240) — Models switcher with live cost
+  labels, MCP servers panel, rules system (`.tars/rules.yml` + per-pack
+  overlay), @-mention context (`@file:`, `@docs:`, `@web:`, `@recent:`,
+  `@code:`, `@agent:`). The four panels TARS was missing.
+- **Cmd+K palette v2** (W246) — fuzzy search across actions / files /
+  docs / recents / agents / settings. ~10ms on 5k entries.
+- **Codebase indexer v0** (W245) — tree-sitter incremental index, multi-
+  language, SQLite + `sqlite-vec`. `/api/codebase/search`.
+- **Unified WS event bus** (W248) — single `/ws/events` replaces seven
+  polling clients across the cockpit.
+- **Tier cap UX** (W242) — soft 80% / hard 100% blocks with topup prompt,
+  wired through the W235 consumption console.
+- **Privacy mode + data plane** (W244) — `local` / `cloud` /
+  `cloud_redacted` toggle with always-visible status bar.
+- **Background agents tray** (W241) + **notepad templates** (W243).
 
 ## Read first
 
