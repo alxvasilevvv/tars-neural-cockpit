@@ -148,6 +148,28 @@ class ChatOrchestrator:
         except Exception:
             pass
 
+        # W240 — Resolve @-mentions before the voice sees the text.
+        # The original operator_text is what we persist (so chat
+        # history shows what the user actually typed). The
+        # rewritten string is what flows into the LLM: context
+        # blocks prepended, raw @kind:query tokens stripped from
+        # the question body.
+        effective_text = operator_text or ""
+        try:
+            from backend.core.mentions import (
+                extract_mentions as _extract,
+                inject_context as _inject,
+                resolve_mentions as _resolve,
+            )
+
+            _parsed = _extract(operator_text or "")
+            if _parsed:
+                _resolved = await _resolve(_parsed)
+                effective_text = _inject(operator_text or "", _resolved)
+        except Exception:
+            # Never crash the chat turn over a resolver hiccup.
+            effective_text = operator_text or ""
+
         with trace_scope(
             session=session_id or thread.last_session_id,
             route="edge",
@@ -257,7 +279,7 @@ class ChatOrchestrator:
                 async for chunk in self.voice.stream(
                     thread,
                     history,
-                    operator_text,
+                    effective_text,
                     attachments,
                     **voice_kwargs,
                 ):
@@ -801,6 +823,23 @@ class ChatOrchestrator:
 
             return VisionPayload()
 
+    @staticmethod
+    def _apply_rules(prompt: str | None, thread: Thread) -> str | None:
+        """W239 — fold the operator's Rules-for-TARS into the system prompt.
+
+        Defensive: any failure in the rules layer (missing YAML lib,
+        corrupt ~/.tars/rules.yml, IO error) returns the original
+        prompt unchanged so the chat path keeps working.
+        """
+
+        try:
+            from backend.core.rules import inject_rules_into_prompt  # noqa: PLC0415
+
+            pack = getattr(thread, "pack_slug", None)
+            return inject_rules_into_prompt(prompt, pack)
+        except Exception:
+            return prompt
+
     def _compose_system_prompt(
         self,
         thread: Thread,
@@ -819,9 +858,12 @@ class ChatOrchestrator:
             if has and block:
                 vision_block = block.rstrip() + "\n"
         if not retrieved and not vision_block:
-            return base
+            return self._apply_rules(base, thread)
         if not retrieved and vision_block:
-            return f"{(base or '').rstrip()}\n\n{vision_block}".lstrip()
+            return self._apply_rules(
+                f"{(base or '').rstrip()}\n\n{vision_block}".lstrip(),
+                thread,
+            )
         # Inject reference materials with stable [chunk_N] citation
         # markers — so the assistant can ground answers in real files.
         lines = [
@@ -858,5 +900,7 @@ class ChatOrchestrator:
         if vision_block:
             block = block.rstrip() + "\n\n" + vision_block
         if base:
-            return f"{base.rstrip()}\n\n{block}"
-        return block
+            composed = f"{base.rstrip()}\n\n{block}"
+        else:
+            composed = block
+        return self._apply_rules(composed, thread)

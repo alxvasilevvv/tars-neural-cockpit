@@ -147,9 +147,63 @@
   .msg.user { background: rgba(129,140,248,0.12); border: 1px solid rgba(129,140,248,0.2); margin-left: auto; }
   .msg.assistant { background: rgba(255,255,255,0.03); border: 1px solid var(--panel-edge); }
   .msg .meta { font-size: 10px; color: var(--muted); margin-bottom: 4px; letter-spacing: 0.08em; text-transform: uppercase; }
-  .chat-input { display: flex; gap: 8px; padding: 12px; border-top: 1px solid var(--panel-edge); }
-  .chat-input input { flex: 1; background: rgba(0,0,0,0.3); border: 1px solid var(--panel-edge); border-radius: 8px; color: var(--text); padding: 10px 12px; font-family: inherit; font-size: 13px; }
+  .chat-input { display: flex; gap: 8px; padding: 12px; border-top: 1px solid var(--panel-edge); position: relative; flex-wrap: wrap; }
+  .chat-input input { flex: 1; min-width: 200px; background: rgba(0,0,0,0.3); border: 1px solid var(--panel-edge); border-radius: 8px; color: var(--text); padding: 10px 12px; font-family: inherit; font-size: 13px; }
   .chat-input input:focus { outline: none; border-color: var(--accent); }
+
+  /* W240 — @-mention chips + dropdown */
+  .mention-chips { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 12px 8px; width: 100%; }
+  .mention-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 4px 8px 4px 10px; border-radius: 999px;
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    font-size: 11px; color: var(--text);
+    background: rgba(8, 12, 24, 0.55);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid transparent;
+    background-clip: padding-box;
+    position: relative;
+  }
+  .mention-chip::before {
+    content: ''; position: absolute; inset: 0; z-index: -1;
+    border-radius: inherit; padding: 1px;
+    background: linear-gradient(120deg, #22d3ee, #818cf8, #c084fc);
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor; mask-composite: exclude;
+  }
+  .mention-chip .kind { color: #22d3ee; font-weight: 600; }
+  .mention-chip .q { color: var(--text); opacity: 0.85; }
+  .mention-chip .x {
+    cursor: pointer; padding: 0 4px; border-radius: 4px;
+    color: var(--muted); transition: color 0.12s, background 0.12s;
+  }
+  .mention-chip .x:hover { color: #fda4af; background: rgba(253,164,175,0.12); }
+  #mentionDropdown {
+    position: absolute; bottom: calc(100% + 6px); left: 12px;
+    z-index: 50; min-width: 280px; max-width: 420px;
+    background: rgba(10, 14, 28, 0.96);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid var(--panel-edge); border-radius: 10px;
+    box-shadow: 0 12px 30px rgba(0,0,0,0.45);
+    overflow: hidden; display: none;
+  }
+  #mentionDropdown.open { display: block; }
+  .mention-option {
+    padding: 8px 12px; cursor: pointer; display: grid;
+    grid-template-columns: 70px 1fr; gap: 10px; align-items: center;
+    font-size: 12px; border-bottom: 1px solid rgba(255,255,255,0.04);
+  }
+  .mention-option:last-child { border-bottom: none; }
+  .mention-option:hover, .mention-option.active {
+    background: linear-gradient(90deg, rgba(34,211,238,0.10), rgba(192,132,252,0.10));
+  }
+  .mention-option .label {
+    font-family: 'JetBrains Mono', ui-monospace, monospace;
+    color: #22d3ee; font-weight: 600;
+  }
+  .mention-option .preview { color: var(--muted); font-size: 11px; }
 
   /* Activity / Receipts tab */
   #tab-activity .activity-row { padding: 10px 0; border-bottom: 1px solid var(--panel-edge); display: grid; grid-template-columns: 120px 1fr 80px; gap: 12px; align-items: center; font-size: 12px; }
@@ -1251,8 +1305,10 @@
           <div class="chat-empty">Select or create a thread.<br/><br/>Chat uses your configured LLM provider key.<br/>Set <code>ANTHROPIC_API_KEY</code> or <code>OPENROUTER_API_KEY</code> in <code>.env</code>.</div>
         </div>
         <div class="chat-input">
-          <input type="text" id="chatInput" placeholder="Type a message... (Enter to send)" onkeydown="if(event.key==='Enter')sendMessage()" disabled />
+          <div class="mention-chips" id="mentionChips"></div>
+          <input type="text" id="chatInput" placeholder="Type a message... (@ for context)" disabled autocomplete="off" />
           <button class="btn primary" data-action="chat.send" onclick="sendMessage()" id="chatSend" disabled>Send</button>
+          <div id="mentionDropdown" role="listbox" aria-label="Mention context source"></div>
         </div>
       </div>
     </div>
@@ -1449,6 +1505,27 @@
             <button class="btn" data-action="mcp.refresh" onclick="loadMcpServers()">↻ Refresh</button>
           </div>
         </div>
+
+        <!-- W239 - Rules for TARS (Cursor-style Rules for AI equivalent) -->
+        <div class="setting-block" id="rulesBlock">
+          <h3>RULES FOR TARS</h3>
+          <p style="font-size: 11px; color: var(--muted); line-height: 1.6; margin: 4px 0 10px;">
+            Plain-English rules folded into TARS's system prompt every chat turn.
+            Stored in <code>~/.tars/rules.yml</code>. Pack-specific rules from the
+            active domain are shown read-only below.
+          </p>
+          <div id="rulesGlobalList" style="font-size:11px;"></div>
+          <div style="margin-top: 10px; display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn" data-action="rules.add" onclick="addRule()">+ Add rule</button>
+            <button class="btn primary" data-action="rules.save" id="rulesSaveBtn" onclick="saveRules()" disabled>Save</button>
+            <button class="btn" data-action="rules.preview" onclick="previewRulesPrompt()">Preview prompt</button>
+            <button class="btn" data-action="rules.refresh" onclick="loadRules()">Refresh</button>
+          </div>
+          <div id="rulesPackWrap" style="margin-top:14px; display:none;">
+            <div style="font-size:10px; color:var(--muted); letter-spacing:0.08em; margin-bottom:6px;">PACK OVERLAY (read-only)</div>
+            <div id="rulesPackList" style="font-size:11px; opacity:0.7;"></div>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -1466,6 +1543,22 @@
 </div><!-- /cockpit-panel-drawer -->
 
 <div class="toast" id="toast"></div>
+
+<!-- W239 - Rules-for-TARS preview modal -->
+<div class="welcome-modal" id="rulesPreviewModal" style="display:none;">
+  <div class="welcome-card" style="max-width:680px;text-align:left;">
+    <h1 style="font-size:18px;">Preview injected prompt</h1>
+    <p class="tagline" style="font-size:11px;">
+      This is what TARS sees as the system prompt with your enabled rules folded in.
+      The <code style="background:rgba(99,102,241,0.18);padding:1px 4px;border-radius:3px;">## Rules</code>
+      block is highlighted.
+    </p>
+    <pre id="rulesPreviewOut" style="max-height:420px;overflow:auto;background:rgba(0,0,0,0.4);border:1px solid var(--panel-edge);border-radius:6px;padding:10px;font-size:11px;font-family:monospace;white-space:pre-wrap;color:var(--text);"></pre>
+    <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:10px;">
+      <button class="btn primary" data-action="rules.preview.close" onclick="closeRulesPreview()">Close</button>
+    </div>
+  </div>
+</div>
 
 <!-- W238 — MCP add-server modal -->
 <div class="welcome-modal" id="mcpAddModal" style="display:none;">
@@ -2116,6 +2209,7 @@ async function loadSettings() {
     startMcpPolling();
   } catch (e) { toast(`✗ settings load: ${e.message}`, 'fail'); }
   loadModels();
+  try { await loadRules(); } catch (e) { console.warn('rules load failed', e); }
 }
 
 // W237 — Active model switcher
@@ -2180,6 +2274,142 @@ async function loadModels() {
     const tbody = $('modelTbody');
     if (tbody) tbody.innerHTML = `<tr><td colspan="5" style="color:var(--bad); padding:14px;">Failed to load models: ${escapeHtml(e.message)}</td></tr>`;
   }
+}
+
+// --- W239 Rules for TARS ---
+let _rulesState = { global: [], pack_overlay: [], active_pack: null, dirty: false };
+
+async function loadRules() {
+  try {
+    const d = await fetchJSON('/api/rules');
+    _rulesState.global = (d.global || []).map(r => ({ ...r }));
+    _rulesState.pack_overlay = d.pack_overlay || [];
+    _rulesState.active_pack = d.active_pack || null;
+    _rulesState.dirty = false;
+    renderRules();
+  } catch (e) {
+    const list = document.getElementById('rulesGlobalList');
+    if (list) list.innerHTML = `<div class="empty-state">Rules load failed: ${escapeHtml(e.message || String(e))}</div>`;
+  }
+}
+
+function renderRules() {
+  const list = document.getElementById('rulesGlobalList');
+  const saveBtn = document.getElementById('rulesSaveBtn');
+  if (!list) return;
+  if (!_rulesState.global.length) {
+    list.innerHTML = '<div class="empty-state">No rules yet. Click + Add rule.</div>';
+  } else {
+    list.innerHTML = _rulesState.global.map((r) => `
+      <div class="rule-row" style="display:grid;grid-template-columns:24px 1fr 28px;gap:8px;align-items:center;padding:6px 0;border-top:1px solid rgba(255,255,255,0.04);">
+        <input type="checkbox" data-rule-toggle="${escapeHtml(r.id)}" ${r.enabled ? 'checked' : ''}
+          onchange="toggleRule('${escapeHtml(r.id)}', this.checked)" style="cursor:pointer;">
+        <input type="text" value="${escapeHtml(r.text)}" data-rule-text="${escapeHtml(r.id)}"
+          oninput="editRuleText('${escapeHtml(r.id)}', this.value)"
+          style="width:100%;padding:4px 6px;background:rgba(0,0,0,0.4);border:1px solid var(--panel-edge);border-radius:4px;color:var(--text);font-size:11px;">
+        <button class="btn" data-action="rules.delete" onclick="removeRule('${escapeHtml(r.id)}')"
+          style="padding:2px 8px;font-size:13px;line-height:1;" title="Remove">x</button>
+      </div>
+    `).join('');
+  }
+  if (saveBtn) saveBtn.disabled = !_rulesState.dirty;
+
+  const packWrap = document.getElementById('rulesPackWrap');
+  const packList = document.getElementById('rulesPackList');
+  if (_rulesState.pack_overlay && _rulesState.pack_overlay.length) {
+    packWrap.style.display = '';
+    packList.innerHTML = _rulesState.pack_overlay.map(r => `
+      <div style="display:flex;gap:6px;align-items:center;padding:4px 0;border-top:1px solid rgba(255,255,255,0.04);">
+        <span style="font-size:9px;background:rgba(99,102,241,0.18);color:#a5b4fc;padding:1px 6px;border-radius:999px;">${escapeHtml(r.pack || 'pack')}</span>
+        <span style="opacity:${r.enabled ? 1 : 0.5};text-decoration:${r.enabled ? 'none' : 'line-through'};">${escapeHtml(r.text)}</span>
+      </div>
+    `).join('');
+  } else {
+    packWrap.style.display = 'none';
+    packList.innerHTML = '';
+  }
+}
+
+function addRule() {
+  const id = 'rule-' + Math.random().toString(36).slice(2, 10);
+  _rulesState.global.push({ id, text: '', enabled: true, scope: 'global', pack: null });
+  _rulesState.dirty = true;
+  renderRules();
+}
+
+function toggleRule(id, enabled) {
+  const r = _rulesState.global.find(x => x.id === id);
+  if (!r) return;
+  r.enabled = !!enabled;
+  _rulesState.dirty = true;
+  const saveBtn = document.getElementById('rulesSaveBtn');
+  if (saveBtn) saveBtn.disabled = false;
+}
+
+function editRuleText(id, text) {
+  const r = _rulesState.global.find(x => x.id === id);
+  if (!r) return;
+  r.text = text;
+  _rulesState.dirty = true;
+  const saveBtn = document.getElementById('rulesSaveBtn');
+  if (saveBtn) saveBtn.disabled = false;
+}
+
+function removeRule(id) {
+  _rulesState.global = _rulesState.global.filter(r => r.id !== id);
+  _rulesState.dirty = true;
+  renderRules();
+}
+
+async function saveRules() {
+  try {
+    const body = { rules: _rulesState.global.map(r => ({
+      id: r.id, text: r.text, enabled: !!r.enabled, scope: 'global',
+    }))};
+    const r = await fetch(API + '/api/rules', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) {
+      const msg = await r.text();
+      throw new Error('HTTP ' + r.status + ': ' + msg.slice(0, 120));
+    }
+    toast('Rules saved', 'ok');
+    await loadRules();
+  } catch (e) {
+    toast('Save failed: ' + (e.message || e), 'fail');
+  }
+}
+
+async function previewRulesPrompt() {
+  try {
+    const body = { system_prompt: 'You are TARS, a local-first AI cockpit.' };
+    const r = await fetch(API + '/api/rules/preview', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    const d = await r.json();
+    const pre = document.getElementById('rulesPreviewOut');
+    if (pre) {
+      const inj = String(d.injected || '');
+      const safe = escapeHtml(inj);
+      const highlighted = safe.replace(/(## Rules[\s\S]*?)(\n\n|$)/,
+        '<span style="background:rgba(99,102,241,0.18);display:inline-block;padding:2px 4px;border-radius:4px;">$1</span>$2');
+      pre.innerHTML = highlighted;
+    }
+    const m = document.getElementById('rulesPreviewModal');
+    if (m) m.style.display = 'flex';
+  } catch (e) {
+    toast('Preview failed: ' + (e.message || e), 'fail');
+  }
+}
+
+function closeRulesPreview() {
+  const m = document.getElementById('rulesPreviewModal');
+  if (m) m.style.display = 'none';
 }
 
 // --- W238 MCP servers panel ---
