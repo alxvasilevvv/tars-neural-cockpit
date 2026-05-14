@@ -315,6 +315,7 @@
   .auth-card .auth-status.show { display: block; }
   .auth-card .auth-status.ok { color: var(--ok); border-color: rgba(34,197,94,0.3); }
   .auth-card .auth-status.fail { color: var(--fail); border-color: rgba(239,68,68,0.3); }
+  .auth-card .auth-status.warn { color: var(--warn); border-color: rgba(245,158,11,0.35); }
   .auth-card .auth-footer {
     margin-top: 22px; font-size: 11px; color: var(--muted-2);
     display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
@@ -489,6 +490,222 @@
   }
   .cockpit-panel-drawer .drawer-close:hover { background: rgba(255,255,255,0.10); }
   .cockpit-panel-drawer .app { height: 100%; }
+
+  /* ─── W230 — Cinematic JARVIS-grade voice cockpit ───────────── */
+  /* Layer A: monolith core + scan line + breath */
+  .vc-stage {
+    --vc-strip-a: #06b6d4;
+    --vc-strip-b: #8b5cf6;
+    --vc-ring: rgba(167,139,250,0.7);
+    --vc-hud: #06b6d4;
+    --vc-hud-soft: rgba(6,182,212,0.18);
+    --vc-glitch: #a78bfa;
+    transition: transform .28s cubic-bezier(.2,.8,.2,1);
+  }
+  .voice-cockpit.drawer-open .vc-stage { transform: translateX(120px); }
+
+  /* New layered monolith — sits inside .monolith-wrap, augments the
+     legacy .monolith block already declared above. */
+  .monolith-core {
+    position: absolute; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    pointer-events: none;
+  }
+  .monolith-strip {
+    position: absolute; top: 14%; bottom: 14%;
+    left: 50%; width: 14px; transform: translateX(-50%);
+    border-radius: 4px;
+    background: linear-gradient(180deg,
+      var(--vc-strip-a) 0%, var(--vc-strip-b) 50%, var(--vc-strip-a) 100%);
+    opacity: calc(0.35 + (var(--mic-level, 0) * 0.55));
+    filter: blur(0.4px);
+    box-shadow:
+      0 0 18px var(--vc-strip-a),
+      0 0 36px rgba(139,92,246,0.45);
+    transform-origin: center;
+    transition: opacity .12s linear;
+  }
+  .voice-cockpit.state-listening .monolith-strip {
+    transform: translateX(-50%) scaleY(calc(1 + var(--mic-level, 0) * 0.05));
+  }
+  .voice-cockpit.state-speaking .monolith-strip {
+    background:
+      linear-gradient(180deg, transparent 0%, var(--vc-strip-a) 50%, transparent 100%),
+      linear-gradient(180deg, var(--vc-strip-b), var(--vc-strip-a));
+    background-size: 100% 200%, 100% 100%;
+    background-repeat: no-repeat;
+    animation: monolith-speak-flow 2s linear infinite;
+    opacity: 0.95;
+  }
+  @keyframes monolith-speak-flow {
+    0%   { background-position: 0 -100%, 0 0; }
+    100% { background-position: 0 200%,  0 0; }
+  }
+  .monolith-scan {
+    position: absolute; top: -4%; left: 0; right: 0; height: 3px;
+    background: linear-gradient(90deg, transparent, var(--vc-strip-a), transparent);
+    opacity: 0; pointer-events: none;
+    box-shadow: 0 0 14px var(--vc-strip-a);
+    border-radius: 2px;
+  }
+  .voice-cockpit.state-listening .monolith-scan {
+    animation: monolith-scan 2.5s ease-in-out infinite;
+  }
+  @keyframes monolith-scan {
+    0%   { top: -4%; opacity: 0; }
+    10%  { opacity: 0.9; }
+    90%  { opacity: 0.9; }
+    100% { top: 104%; opacity: 0; }
+  }
+  .monolith-glitch {
+    position: absolute; inset: 0; pointer-events: none;
+    opacity: 0;
+  }
+  .voice-cockpit.state-thinking .monolith-glitch {
+    opacity: 1;
+    background:
+      repeating-linear-gradient(0deg,
+        transparent 0 2px, rgba(167,139,250,0.18) 2px 3px);
+    mix-blend-mode: screen;
+    animation: glitch-scan 0.24s ease-in-out 3;
+  }
+  @keyframes glitch-scan {
+    0%, 100% { clip-path: inset(0 0 0 0); transform: translateX(0); }
+    25%      { clip-path: inset(10% 0 70% 0); transform: translateX(2px); }
+    50%      { clip-path: inset(60% 0 20% 0); transform: translateX(-3px); }
+    75%      { clip-path: inset(35% 0 45% 0); transform: translateX(1px); }
+  }
+
+  /* Layer B: SVG rings stage (centred on monolith, viewBox -250..250) */
+  .vc-rings {
+    position: absolute; inset: 0;
+    pointer-events: none;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .vc-rings svg {
+    width: min(540px, 90vmin); height: min(540px, 90vmin);
+    overflow: visible;
+  }
+  .ring-inner, .ring-middle, .ring-outer { transform-origin: 0 0; transition: opacity .35s cubic-bezier(.2,.8,.2,1); }
+  .ring-inner  circle { fill: none; stroke: var(--vc-ring); stroke-width: 1.2;
+    stroke-dasharray: 4 6; animation: ring-spin-cw 18s linear infinite; }
+  .ring-middle line  { stroke: var(--vc-ring); stroke-width: 1.6; }
+  .ring-outer  path  { fill: none; stroke: var(--vc-strip-b); stroke-width: 1.4; opacity: 0.85; }
+
+  .voice-cockpit.state-idle .ring-inner  { opacity: 0; }
+  .voice-cockpit.state-idle .ring-middle { opacity: 0.08; }
+  .voice-cockpit.state-idle .ring-outer  { opacity: 0; }
+
+  .voice-cockpit.state-listening .ring-inner  { opacity: 0.85; }
+  .voice-cockpit.state-listening .ring-middle { opacity: calc(0.2 + (var(--mic-level, 0) * 0.8)); }
+  .voice-cockpit.state-listening .ring-outer  { opacity: 0.9; }
+  .voice-cockpit.state-listening .ring-middle line { opacity: calc(0.2 + (var(--mic-level, 0) * 0.8)); }
+
+  .voice-cockpit.state-thinking .ring-inner  circle {
+    stroke-dasharray: 400 600; animation: ring-spin-cw 0.7s linear infinite;
+    stroke: var(--vc-strip-a);
+  }
+  .voice-cockpit.state-thinking .ring-outer  { opacity: 0.4; transform: scale(0.7); transition: transform .4s cubic-bezier(.7,0,.84,0), opacity .35s; }
+  .voice-cockpit.state-thinking .ring-middle { opacity: 0.15; }
+
+  .voice-cockpit.state-speaking .ring-inner  { opacity: 0.95; }
+  .voice-cockpit.state-speaking .ring-inner circle {
+    stroke-dasharray: 0; stroke: var(--vc-strip-a); animation: ring-spin-cw 30s linear infinite;
+  }
+  .voice-cockpit.state-speaking .ring-middle { opacity: 0.4; }
+  .voice-cockpit.state-speaking .ring-outer  { opacity: 0.7; }
+  .voice-cockpit.state-speaking .ring-outer path { stroke: var(--vc-strip-a); }
+
+  @keyframes ring-spin-cw  { from { transform: rotate(0); } to { transform: rotate(360deg); } }
+  @keyframes ring-spin-ccw { from { transform: rotate(0); } to { transform: rotate(-360deg); } }
+  .ring-middle { animation: ring-spin-ccw 42s linear infinite; }
+
+  /* Layer C: HUD scaffolding — top-left readout, top-right latency,
+     bottom-left transcript log. Glass-morphism, cyan 9px monospace. */
+  .vc-hud {
+    position: absolute; pointer-events: none;
+    font-family: 'JetBrains Mono','SF Mono',ui-monospace,monospace;
+    color: var(--vc-hud);
+    font-size: 9px; letter-spacing: 0.12em; text-transform: uppercase;
+    padding: 8px 10px;
+    background: var(--vc-hud-soft);
+    border: 1px solid rgba(6,182,212,0.30);
+    border-radius: 6px;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    line-height: 1.55;
+    box-shadow: inset 0 0 12px rgba(6,182,212,0.10);
+  }
+  .vc-hud b { font-weight: 700; color: #c4f1ff; }
+  .vc-hud-tl { top: 60px; left: 22px; }
+  .vc-hud-tr { top: 60px; right: 22px; text-align: right; }
+  .vc-hud-bl { bottom: 30vh; left: 22px; max-width: 280px; }
+  .vc-hud-bl .h-row { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .vc-hud .lat-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--ok); box-shadow: 0 0 6px var(--ok); margin-right: 4px; vertical-align: 1px; }
+  .vc-hud .lat-dot.warn { background: var(--warn); box-shadow: 0 0 6px var(--warn); }
+  .vc-hud .lat-dot.fail { background: var(--fail); box-shadow: 0 0 6px var(--fail); }
+
+  /* Layer D: particle canvas — below monolith, above stage bg */
+  .vc-particles {
+    position: absolute; inset: 0;
+    pointer-events: none;
+    z-index: 0;
+    opacity: calc(0.3 + (var(--mic-level, 0) * 0.7));
+    transition: opacity .25s linear;
+  }
+  .vc-rings    { z-index: 1; }
+  .monolith-wrap { z-index: 2; position: relative; }
+
+  /* Action-dispatched tag chip (Frame 7) */
+  .vc-action-tag {
+    position: absolute; top: 56px; left: 50%; transform: translate(-50%, -32px);
+    padding: 6px 14px; border-radius: 999px;
+    background: rgba(6,182,212,0.16);
+    border: 1px solid rgba(6,182,212,0.55);
+    color: #c4f1ff;
+    font-family: 'JetBrains Mono','SF Mono',ui-monospace,monospace;
+    font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase;
+    box-shadow: 0 0 24px rgba(6,182,212,0.45);
+    opacity: 0; pointer-events: none; z-index: 5;
+    animation: tag-drop 2.5s cubic-bezier(.34,1.56,.64,1) forwards;
+  }
+  @keyframes tag-drop {
+    0%   { opacity: 0; transform: translate(-50%, -32px); }
+    20%  { opacity: 1; transform: translate(-50%, 0); }
+    80%  { opacity: 1; transform: translate(-50%, 0); }
+    100% { opacity: 0; transform: translate(-50%, -16px); }
+  }
+  .vc-flash {
+    position: absolute; inset: 0; pointer-events: none; z-index: 4;
+    background: radial-gradient(closest-side, rgba(6,182,212,0.22), transparent 65%);
+    opacity: 0;
+    animation: vc-flash-fade .32s ease-out forwards;
+  }
+  @keyframes vc-flash-fade {
+    0%   { opacity: 0; }
+    40%  { opacity: 0.6; }
+    100% { opacity: 0; }
+  }
+
+  /* Reduced-motion fallback — kill everything that moves. */
+  @media (prefers-reduced-motion: reduce) {
+    .monolith,
+    .monolith-strip,
+    .monolith-scan,
+    .monolith-glitch,
+    .ring-inner circle,
+    .ring-middle,
+    .ring-outer path,
+    .vc-action-tag,
+    .vc-flash,
+    .voice-cockpit.drawer-open .vc-stage {
+      animation: none !important;
+      transition: opacity .15s linear !important;
+    }
+    .monolith-scan { display: none; }
+    .vc-particles { opacity: 0.18 !important; }
+  }
 </style>
 </head>
 <body>
@@ -614,9 +831,61 @@
   </div>
 
   <div class="vc-stage">
+    <!-- W230 Layer D: particle dust canvas (below everything) -->
+    <canvas class="vc-particles" id="vcParticles" aria-hidden="true"></canvas>
+
+    <!-- W230 Layer B: concentric rings (between particles + monolith) -->
+    <div class="vc-rings" aria-hidden="true">
+      <svg viewBox="-250 -250 500 500" xmlns="http://www.w3.org/2000/svg">
+        <g class="ring-outer"  id="vcRingOuter"><path id="vcRingOuterPath" d=""></path></g>
+        <g class="ring-middle" id="vcRingMiddle">
+          <!-- 16 ticks at every 22.5deg, r=120..134 -->
+          <line x1="0" y1="-134" x2="0" y2="-120"/>
+          <line x1="51.3" y1="-123.9" x2="45.9" y2="-110.9" transform="rotate(22.5)"/>
+          <line x1="94.8" y1="-94.8" x2="84.9" y2="-84.9" transform="rotate(45)"/>
+          <line x1="123.9" y1="-51.3" x2="110.9" y2="-45.9" transform="rotate(67.5)"/>
+          <line x1="134" y1="0" x2="120" y2="0" transform="rotate(90)"/>
+          <line x1="123.9" y1="51.3" x2="110.9" y2="45.9" transform="rotate(112.5)"/>
+          <line x1="94.8" y1="94.8" x2="84.9" y2="84.9" transform="rotate(135)"/>
+          <line x1="51.3" y1="123.9" x2="45.9" y2="110.9" transform="rotate(157.5)"/>
+          <line x1="0" y1="134" x2="0" y2="120" transform="rotate(180)"/>
+          <line x1="-51.3" y1="123.9" x2="-45.9" y2="110.9" transform="rotate(202.5)"/>
+          <line x1="-94.8" y1="94.8" x2="-84.9" y2="84.9" transform="rotate(225)"/>
+          <line x1="-123.9" y1="51.3" x2="-110.9" y2="45.9" transform="rotate(247.5)"/>
+          <line x1="-134" y1="0" x2="-120" y2="0" transform="rotate(270)"/>
+          <line x1="-123.9" y1="-51.3" x2="-110.9" y2="-45.9" transform="rotate(292.5)"/>
+          <line x1="-94.8" y1="-94.8" x2="-84.9" y2="-84.9" transform="rotate(315)"/>
+          <line x1="-51.3" y1="-123.9" x2="-45.9" y2="-110.9" transform="rotate(337.5)"/>
+        </g>
+        <g class="ring-inner"  id="vcRingInner"><circle cx="0" cy="0" r="80"/></g>
+      </svg>
+    </div>
+
     <div class="monolith-wrap" id="monolithWrap">
       <div class="monolith-glow"></div>
       <div class="monolith"></div>
+      <!-- W230 Layer A: monolith core augments -->
+      <div class="monolith-core" aria-hidden="true">
+        <div class="monolith-strip"></div>
+        <div class="monolith-scan"></div>
+        <div class="monolith-glitch"></div>
+      </div>
+    </div>
+
+    <!-- W230 Layer C: HUD scaffolding -->
+    <div class="vc-hud vc-hud-tl" aria-hidden="true">
+      <div>STATE   <b id="vcHudState">IDLE</b></div>
+      <div>LEVEL   <b id="vcHudLevel">0.00</b></div>
+      <div>TIER    <b id="vcHudTier">FREE</b></div>
+    </div>
+    <div class="vc-hud vc-hud-tr" aria-hidden="true">
+      <div><span class="lat-dot" id="vcHudLatDot"></span>LAT <b id="vcHudLat">— ms</b></div>
+      <div>RTT /api/health</div>
+    </div>
+    <div class="vc-hud vc-hud-bl" id="vcHudLog" aria-hidden="true">
+      <div class="h-row">> <span id="vcHudUser">—</span></div>
+      <div class="h-row">< <span id="vcHudTars">standing by</span></div>
+      <div class="h-row">  <span id="vcHudStatus">status: idle</span></div>
     </div>
 
     <div class="vc-mic-wrap">
@@ -1733,12 +2002,19 @@ function showCockpit() {
     window.__tarsCockpitInit = true;
     cockpitInit();
   }
+  // W230 — start the cinematic visual layers.
+  _vcBootCinematic();
 }
 
 async function authMagicLink() {
-  const email = ($('authEmail').value || '').trim().toLowerCase();
+  // W230 — client-side validation BEFORE any fetch, so empty/garbage
+  // inputs never see the raw Pydantic "string did not match expected
+  // pattern" message. Warn tone, focus the input, bail early.
+  const input = $('authEmail');
+  const email = (input && input.value || '').trim().toLowerCase();
   if (!email || !/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) {
-    authShowStatus('Enter a valid email.', 'fail');
+    authShowStatus('Please enter a valid email like you@meeet.world', 'warn');
+    if (input) input.focus();
     return;
   }
   const btn = $('authMagicLinkBtn');
@@ -1750,7 +2026,23 @@ async function authMagicLink() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email }),
     });
-    const d = await r.json();
+    // Some failure shapes return non-JSON; tolerate that.
+    let d = null;
+    try { d = await r.json(); } catch (_je) { d = null; }
+    // Backend (W230) maps EmailStr failures to a friendly envelope.
+    // Map both 4xx envelopes and the legacy "bad_email" 422 detail.
+    if (!r.ok) {
+      const det = (d && (d.detail || d)) || {};
+      const err = det.error || d?.error || `http_${r.status}`;
+      if (err === 'invalid_email' || err === 'bad_email') {
+        authShowStatus(det.hint || 'Please enter a valid email like you@meeet.world', 'warn');
+        if (input) input.focus();
+      } else {
+        authShowStatus(`Could not send link (${err}). Try OAuth or skip.`, 'fail');
+      }
+      btn.disabled = false;
+      return;
+    }
     if (d && d.ok && d.sent) {
       authShowStatus(`Check your email — link sent to ${email}.`, 'ok');
       // 60s cooldown before re-send.
@@ -1767,6 +2059,10 @@ async function authMagicLink() {
           btn.textContent = `Re-send (${left}s)`;
         }
       }, 1000);
+    } else if (d && (d.error === 'invalid_email' || d.error === 'bad_email')) {
+      authShowStatus(d.hint || 'Please enter a valid email like you@meeet.world', 'warn');
+      if (input) input.focus();
+      btn.disabled = false;
     } else if (d && d.error === 'meeet_unreachable') {
       authShowStatus('meeet.world is unreachable. You can use "Skip — local-only" below.', 'fail');
       $('authSkipLink').style.display = 'inline';
@@ -1869,10 +2165,26 @@ const VC = {
   lang: 'ru-RU',
 };
 
+// W230 — Cinematic state machine + HUD/rings/particles/hum drivers.
+// State drives: body[data-vc-state] + .voice-cockpit.state-* + audio
+// hum volume + HUD readout. JS NEVER sets inline animation styles —
+// CSS selectors do the work; we just flip the data-attribute.
 function vcSetState(state /* idle | listening | thinking | speaking */) {
   const el = $('voiceCockpit');
   el.classList.remove('state-idle', 'state-listening', 'state-thinking', 'state-speaking');
   el.classList.add('state-' + state);
+  document.body.dataset.vcState = state;
+  // HUD readout — keep cheap (no layout thrash, just textContent).
+  const hud = $('vcHudState'); if (hud) hud.textContent = state.toUpperCase();
+  const hs  = $('vcHudStatus'); if (hs) hs.textContent = 'status: ' + state;
+  // Hum: idle 0.06, listening 0.12, thinking 0.10, speaking 0 (mute).
+  const vol = state === 'listening' ? 0.12
+            : state === 'thinking'  ? 0.10
+            : state === 'speaking'  ? 0.00
+            : 0.06;
+  _vcSetHumVolume(vol);
+  // Action chip flash hook — see _vcShowActionTag().
+  try { console.log('[tars.vc.state]', state); } catch (_e) {}
 }
 
 function vcAddLine(kind, text) {
@@ -1884,6 +2196,194 @@ function vcAddLine(kind, text) {
   else node.textContent = text;
   tr.appendChild(node);
   tr.scrollTop = tr.scrollHeight;
+  // Mirror short copy into HUD bottom-left log.
+  if (kind === 'user') { const e = $('vcHudUser'); if (e) e.textContent = text.slice(0, 80); }
+  else if (kind === 'tars') { const e = $('vcHudTars'); if (e) e.textContent = text.slice(0, 80); }
+}
+
+// ─── W230 Hum — Web Audio oscillator stack (80+120+160 Hz, LFO) ──
+const VC_HUM = { ctx: null, gain: null, oscs: [], lfo: null, target: 0 };
+function _vcInitHum() {
+  if (VC_HUM.ctx) return;
+  try {
+    const Ctx = window.AudioContext || window.webkitAudioContext;
+    if (!Ctx) return;
+    const ctx = new Ctx();
+    const master = ctx.createGain(); master.gain.value = 0; master.connect(ctx.destination);
+    // Three soft sines for a low cinematic drone.
+    [80, 120, 160].forEach((f, i) => {
+      const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = f;
+      const g = ctx.createGain(); g.gain.value = i === 0 ? 0.6 : (i === 1 ? 0.35 : 0.2);
+      o.connect(g); g.connect(master); o.start();
+      VC_HUM.oscs.push({ o, g });
+    });
+    // LFO — slow amplitude wobble so it feels alive, not a sine drone.
+    const lfo = ctx.createOscillator(); lfo.type = 'sine'; lfo.frequency.value = 0.18;
+    const lfoGain = ctx.createGain(); lfoGain.gain.value = 0.25;
+    lfo.connect(lfoGain); lfoGain.connect(master.gain); lfo.start();
+    VC_HUM.ctx = ctx; VC_HUM.gain = master; VC_HUM.lfo = lfo;
+  } catch (e) { console.warn('[tars.hum] init failed', e); }
+}
+function _vcSetHumVolume(v) {
+  VC_HUM.target = v;
+  if (!VC_HUM.gain || !VC_HUM.ctx) return;
+  try {
+    const now = VC_HUM.ctx.currentTime;
+    VC_HUM.gain.gain.cancelScheduledValues(now);
+    VC_HUM.gain.gain.linearRampToValueAtTime(v, now + 0.25);
+  } catch (_e) {}
+}
+
+// ─── W230 Outer ring FFT path driver (16 bins → cubic Bezier loop) ─
+function _vcRenderRingPath() {
+  const el = document.getElementById('vcRingOuterPath'); if (!el) return;
+  const N = 16; const R0 = 200;
+  // Pull a level from the same source the mic loop uses.
+  const lvl = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--mic-level')) || 0;
+  // Pseudo-FFT — if we have a real analyser, sample it; else animate by time.
+  const bins = new Array(N);
+  if (VC.analyser) {
+    const data = new Uint8Array(VC.analyser.frequencyBinCount);
+    VC.analyser.getByteFrequencyData(data);
+    const step = Math.max(1, Math.floor(data.length / N));
+    for (let i = 0; i < N; i++) bins[i] = data[i * step] / 255;
+  } else {
+    const t = performance.now() / 1000;
+    for (let i = 0; i < N; i++) bins[i] = 0.15 + 0.1 * Math.sin(t * 1.6 + i * 0.7);
+  }
+  // Build closed cubic-Bezier path through 16 points.
+  const pts = [];
+  for (let i = 0; i < N; i++) {
+    const a = (i / N) * Math.PI * 2;
+    const r = R0 + bins[i] * (30 + lvl * 60);
+    pts.push([Math.cos(a) * r, Math.sin(a) * r]);
+  }
+  let d = `M ${pts[0][0].toFixed(1)} ${pts[0][1].toFixed(1)}`;
+  for (let i = 0; i < N; i++) {
+    const p0 = pts[i];
+    const p1 = pts[(i + 1) % N];
+    const cx = (p0[0] + p1[0]) / 2;
+    const cy = (p0[1] + p1[1]) / 2;
+    d += ` Q ${p0[0].toFixed(1)} ${p0[1].toFixed(1)} ${cx.toFixed(1)} ${cy.toFixed(1)}`;
+  }
+  d += ' Z';
+  el.setAttribute('d', d);
+  VC._ringRaf = requestAnimationFrame(_vcRenderRingPath);
+}
+function _vcStartRingLoop() {
+  if (VC._ringRaf) return;
+  VC._ringRaf = requestAnimationFrame(_vcRenderRingPath);
+}
+
+// ─── W230 Particle dust (200 dots, slow drift, level-tied opacity) ─
+const VC_PARTICLES = { cv: null, ctx: null, dots: [], raf: null };
+function _vcInitParticles() {
+  const cv = document.getElementById('vcParticles'); if (!cv) return;
+  const ctx = cv.getContext('2d'); if (!ctx) return;
+  const dpr = Math.min(2, window.devicePixelRatio || 1);
+  const resize = () => {
+    cv.width  = cv.clientWidth  * dpr;
+    cv.height = cv.clientHeight * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  };
+  resize();
+  window.addEventListener('resize', resize, { passive: true });
+  // 200 particles concentrated in a 800×600 box around stage centre.
+  const cw = cv.clientWidth, ch = cv.clientHeight;
+  const cx = cw / 2, cy = ch / 2;
+  const dots = [];
+  for (let i = 0; i < 200; i++) {
+    const ox = (Math.random() - 0.5) * 800;
+    const oy = (Math.random() - 0.5) * 600;
+    dots.push({
+      x: cx + ox, y: cy + oy,
+      vx: (Math.random() - 0.5) * 0.08,
+      vy: (Math.random() - 0.5) * 0.08,
+      r: Math.random() * 1.4 + 0.4,
+      h: Math.random() < 0.3 ? '#a78bfa' : '#06b6d4',
+    });
+  }
+  VC_PARTICLES.cv = cv; VC_PARTICLES.ctx = ctx; VC_PARTICLES.dots = dots;
+  const tick = () => {
+    const cw2 = cv.clientWidth, ch2 = cv.clientHeight;
+    ctx.clearRect(0, 0, cw2, ch2);
+    for (const d of dots) {
+      d.x += d.vx; d.y += d.vy;
+      if (d.x < 0 || d.x > cw2) d.vx *= -1;
+      if (d.y < 0 || d.y > ch2) d.vy *= -1;
+      ctx.beginPath();
+      ctx.arc(d.x, d.y, d.r, 0, Math.PI * 2);
+      ctx.fillStyle = d.h;
+      ctx.globalAlpha = 0.55;
+      ctx.fill();
+    }
+    VC_PARTICLES.raf = requestAnimationFrame(tick);
+  };
+  VC_PARTICLES.raf = requestAnimationFrame(tick);
+}
+
+// ─── W230 HUD updaters — level chip every frame + latency ping ─────
+function _vcUpdateHudLevel() {
+  const lvl = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--mic-level')) || 0;
+  const e = $('vcHudLevel'); if (e) e.textContent = lvl.toFixed(2);
+  VC._hudRaf = requestAnimationFrame(_vcUpdateHudLevel);
+}
+async function _vcPingLatency() {
+  const t0 = performance.now();
+  try {
+    const r = await fetch(API + '/api/health', { cache: 'no-store' });
+    const ms = Math.round(performance.now() - t0);
+    const e = $('vcHudLat'); if (e) e.textContent = ms + ' ms';
+    const d = $('vcHudLatDot'); if (d) {
+      d.classList.remove('warn', 'fail');
+      if (!r.ok) d.classList.add('fail');
+      else if (ms > 500) d.classList.add('warn');
+    }
+  } catch (e) {
+    const el = $('vcHudLat'); if (el) el.textContent = 'offline';
+    const d  = $('vcHudLatDot'); if (d) { d.classList.remove('warn'); d.classList.add('fail'); }
+  }
+}
+
+// ─── W230 Action chip (Frame 7) — drops in when action dispatched ─
+function _vcShowActionTag(label) {
+  if (!label) return;
+  const stage = document.querySelector('.vc-stage'); if (!stage) return;
+  const tag = document.createElement('div');
+  tag.className = 'vc-action-tag';
+  tag.textContent = '▶ ' + label;
+  stage.appendChild(tag);
+  const flash = document.createElement('div'); flash.className = 'vc-flash';
+  stage.appendChild(flash);
+  setTimeout(() => { tag.remove(); flash.remove(); }, 2700);
+}
+
+// ─── W230 Boot — fire layers once cockpit becomes visible ─────────
+function _vcBootCinematic() {
+  if (window.__vcCinematicBooted) return;
+  window.__vcCinematicBooted = true;
+  vcSetState('idle');
+  document.documentElement.style.setProperty('--mic-level', '0');
+  // Particles → defer to idle to avoid blocking auth/cockpit boot.
+  const initP = () => _vcInitParticles();
+  if ('requestIdleCallback' in window) requestIdleCallback(initP, { timeout: 1500 });
+  else setTimeout(initP, 600);
+  // Ring path loop + HUD level loop start immediately (cheap).
+  _vcStartRingLoop();
+  _vcUpdateHudLevel();
+  // Latency ping every 5 s.
+  _vcPingLatency();
+  setInterval(_vcPingLatency, 5000);
+  // Hum init — needs a user gesture in some browsers, so we attach a
+  // one-shot click listener that resumes the AudioContext.
+  _vcInitHum();
+  const resumeHum = () => {
+    if (VC_HUM.ctx && VC_HUM.ctx.state === 'suspended') {
+      VC_HUM.ctx.resume().catch(() => {});
+    }
+  };
+  document.body.addEventListener('click', resumeHum, { once: true });
+  document.body.addEventListener('keydown', resumeHum, { once: true });
 }
 
 // W229 — Replace webkitSpeechRecognition (unsupported in Tauri WKWebView)
@@ -2058,8 +2558,10 @@ async function _dispatchTranscript(text) {
 
 function _executeAction(action, _payload) {
   if (!action) return;
-  if (action === 'reload') { setTimeout(() => window.location.reload(), 800); return; }
+  // W230 — short user-visible tag describing what we did.
+  if (action === 'reload') { _vcShowActionTag('reload'); setTimeout(() => window.location.reload(), 800); return; }
   if (action === 'run_doctor') {
+    _vcShowActionTag('opened doctor');
     vcOpenDrawer();
     const b = document.querySelector('nav.tabs button[data-tab="status"]');
     if (b) b.click();
@@ -2068,12 +2570,14 @@ function _executeAction(action, _payload) {
   }
   if (action.startsWith('open_tab:')) {
     const tab = action.split(':')[1];
+    _vcShowActionTag('opened ' + tab);
     vcOpenDrawer();
     const b = document.querySelector(`nav.tabs button[data-tab="${tab}"]`);
     if (b) b.click();
     return;
   }
   if (action === 'show_today') {
+    _vcShowActionTag('today briefing');
     vcOpenDrawer();
     const b = document.querySelector('nav.tabs button[data-tab="status"]');
     if (b) b.click();
@@ -2096,8 +2600,14 @@ function _speak(text) {
   } catch (_e) {}
 }
 
-function vcOpenDrawer() { $('cockpitDrawer').classList.add('show'); }
-function vcCloseDrawer() { $('cockpitDrawer').classList.remove('show'); }
+function vcOpenDrawer() {
+  $('cockpitDrawer').classList.add('show');
+  $('voiceCockpit').classList.add('drawer-open');
+}
+function vcCloseDrawer() {
+  $('cockpitDrawer').classList.remove('show');
+  $('voiceCockpit').classList.remove('drawer-open');
+}
 
 document.addEventListener('keydown', (e) => {
   // Cmd/Ctrl + Shift + Space → toggle listening (Tauri also wires this
@@ -2135,7 +2645,9 @@ async function _vcRefreshConnectionChip() {
   // Mirror tier into the chip.
   try {
     const d = await fetchJSON('/api/entitlements');
-    $('vcTier').textContent = (d.tier || 'free').toUpperCase();
+    const tier = (d.tier || 'free').toUpperCase();
+    $('vcTier').textContent = tier;
+    const ht = $('vcHudTier'); if (ht) ht.textContent = tier;
   } catch (_e) {}
 }
 

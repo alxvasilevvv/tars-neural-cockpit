@@ -98,11 +98,19 @@ class TestAuthMeeetOAuth(unittest.TestCase):
 
     # ─── /magic-link-start ─────────────────────────────────────────
     def test_magic_link_rejects_invalid_email(self) -> None:
+        # W230 — the backend now returns a friendly envelope instead of
+        # raising 422, so the frontend can show a user-friendly hint
+        # rather than the raw Pydantic "string did not match expected
+        # pattern" message.
         r = self.client.post(
             "/api/auth/meeet/magic-link-start",
             json={"email": "not-an-email"},
         )
-        self.assertEqual(r.status_code, 422)
+        self.assertEqual(r.status_code, 200)
+        body = r.json()
+        self.assertFalse(body["ok"])
+        self.assertEqual(body["error"], "invalid_email")
+        self.assertIn("hint", body)
 
     def test_magic_link_meeet_unreachable_graceful(self) -> None:
         # Point at a definitely-unreachable base so we exercise the

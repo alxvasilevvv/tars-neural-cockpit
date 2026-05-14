@@ -132,8 +132,18 @@ async def magic_link_start(req: MagicLinkRequest) -> dict[str, Any]:
     connection error so the UI can offer a "Skip — local-only" path.
     """
     email = (req.email or "").strip().lower()
-    if "@" not in email:
-        raise HTTPException(status_code=422, detail={"error": "bad_email"})
+    # W230 — return a friendly envelope instead of raising 422, so the
+    # frontend can render "Please enter a valid email like you@meeet.world"
+    # instead of the raw Pydantic "string did not match expected pattern"
+    # message that an EmailStr would produce.
+    import re
+    _email_re = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+    if not email or not _email_re.match(email):
+        return {
+            "ok": False,
+            "error": "invalid_email",
+            "hint": "Please enter a valid email like you@meeet.world",
+        }
 
     try:
         import httpx
