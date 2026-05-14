@@ -84,6 +84,8 @@ from web_extras.routers import public_proof as public_proof_router
 from web_extras.routers import briefing as briefing_router
 # Wave 209 — /api/digest weekly digest run+latest
 from web_extras.routers import digest as digest_router
+# Wave 217 — /api/a11y accessibility helpers (OCR-to-speech)
+from web_extras.routers import accessibility as a11y_router
 
 START_TS = time.time()
 log = logging.getLogger("tars.app")
@@ -819,6 +821,8 @@ app.include_router(public_proof_router.router)
 app.include_router(briefing_router.router)
 # W209 — weekly digest
 app.include_router(digest_router.router)
+# W217 — accessibility helpers
+app.include_router(a11y_router.router)
 
 
 async def _health_payload() -> dict[str, object]:
