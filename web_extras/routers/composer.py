@@ -361,3 +361,234 @@ async def switch_pack_endpoint(
     except Exception:  # noqa: BLE001
         pass
     return {"ok": True, **info}
+
+
+# ---------------------------------------------------------------------------
+# W262 -- Voice-first pair programming (continuous voice session in Composer).
+#
+# Two endpoints power the cockpit "Pair mode" toggle:
+#
+# 1. POST /api/composer/plans/{plan_id}/refine
+#    body {additional_transcript: str}
+#    -> re-runs plan_from_transcript with the accumulated transcript
+#       (original + new utterance) and returns the updated ops. Used
+#       every time the operator says something while pair mode is on.
+#
+# 2. POST /api/composer/voice-approve
+#    body {utterance: str}
+#    -> classifies the utterance into APPROVE / REJECT / UNCLEAR using
+#       a small phrase whitelist. The FE wires this to the Approve /
+#       Reject buttons when pair mode is on so the operator never has
+#       to touch the keyboard.
+#
+# Both endpoints are intentionally lean -- the heavy lifting (LLM
+# planner, safety fence) is already in backend.core.composer; we only
+# add the conversational glue here.
+# ---------------------------------------------------------------------------
+
+
+# Phrase whitelist for voice intent recognition.  Lowercase, trimmed.
+# Order matters: a longer match wins (we check substring containment).
+_VOICE_APPROVE_PHRASES: tuple[str, ...] = (
+    "approve",
+    "apply",
+    "ship it",
+    "looks good",
+    "lgtm",
+    "do it",
+    "go ahead",
+    "yes apply",
+    "yes go",
+    "make it so",
+    "send it",
+)
+_VOICE_REJECT_PHRASES: tuple[str, ...] = (
+    "reject",
+    "cancel",
+    "no don't",
+    "do not",
+    "stop",
+    "abort",
+    "scrap it",
+    "throw it out",
+    "discard",
+    "never mind",
+    "nevermind",
+)
+
+
+def _classify_voice_intent(utterance: str) -> tuple[str, str]:
+    """Return ``(intent, matched_phrase)``.
+
+    Intent is one of ``approve`` / ``reject`` / ``unclear``. The
+    matched phrase is the longest whitelist entry contained in the
+    (lower-cased) utterance, or ``""`` when no entry matched.
+    """
+
+    text = (utterance or "").strip().lower()
+    if not text:
+        return "unclear", ""
+
+    best_intent = "unclear"
+    best_phrase = ""
+    best_len = 0
+    for phrase in _VOICE_APPROVE_PHRASES:
+        if phrase in text and len(phrase) > best_len:
+            best_intent = "approve"
+            best_phrase = phrase
+            best_len = len(phrase)
+    for phrase in _VOICE_REJECT_PHRASES:
+        if phrase in text and len(phrase) > best_len:
+            best_intent = "reject"
+            best_phrase = phrase
+            best_len = len(phrase)
+    return best_intent, best_phrase
+
+
+@router.post("/plans/{plan_id}/refine")
+async def refine_plan(
+    plan_id: str,
+    payload: dict[str, Any] | None = Body(default=None),
+) -> dict[str, Any]:
+    """Re-run the planner with appended transcript text.
+
+    Body: ``{additional_transcript: str, project_root?: str}``.
+
+    Loads the existing plan, appends the new utterance to its
+    transcript, re-plans, then persists the refined plan **under the
+    same plan_id** so the FE doesn't need to rewire UI state. Returns
+    the updated plan JSON.
+    """
+
+    body = payload or {}
+    addition = str(body.get("additional_transcript") or "").strip()
+    if not addition:
+        raise HTTPException(status_code=400, detail="additional_transcript required")
+
+    store = _get_store()
+    if store is None:
+        raise HTTPException(status_code=503, detail="composer store disabled")
+    existing = await asyncio.to_thread(store.load_plan, plan_id)
+    if existing is None:
+        raise HTTPException(status_code=404, detail="plan not found")
+    if existing.state not in ("draft", "approved"):
+        # Refining an already-applied plan would be confusing; force a
+        # fresh /plan call instead.
+        raise HTTPException(
+            status_code=409,
+            detail=f"plan in state {existing.state!r}; cannot refine",
+        )
+
+    root = _resolve_root(body.get("project_root"))
+    if not root.exists():
+        raise HTTPException(
+            status_code=400,
+            detail=f"project_root not found: {root}",
+        )
+
+    # Concatenate the accumulated transcript so the planner sees the
+    # whole conversational thread, not just the latest utterance.
+    combined = (existing.transcript or "").strip()
+    if combined:
+        combined = combined + "\n" + addition
+    else:
+        combined = addition
+
+    try:
+        refined = await asyncio.to_thread(
+            plan_from_transcript, combined, root
+        )
+    except SafetyError as exc:
+        return {
+            "ok": False,
+            "error": "safety_violation",
+            "reason": exc.reason,
+            "op_index": exc.op_index,
+        }
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=f"planner failed: {exc}")
+
+    # Overlay the refined ops onto the existing plan_id so the FE
+    # keeps showing the same panel instead of swapping context.
+    refined.plan_id = existing.plan_id
+    refined.state = "draft"
+    try:
+        await asyncio.to_thread(store.save_plan, refined)
+    except Exception:  # noqa: BLE001
+        pass
+
+    # Receipt -- so the audit feed shows the conversation, not just
+    # the final apply.
+    try:
+        from backend.core.receipts.store import get_store as _rstore  # noqa: PLC0415
+
+        rs = _rstore()
+        if rs is not None:
+            await rs.append(
+                "composer.plan.refined",
+                "composer.pair",
+                refined.plan_id,
+                {
+                    "ops": len(refined.ops),
+                    "summary": refined.intent_summary,
+                    "additional_chars": len(addition),
+                    "total_transcript_chars": len(combined),
+                },
+            )
+    except Exception:  # noqa: BLE001
+        pass
+
+    return {
+        "ok": True,
+        "plan": refined.to_dict(),
+        "refined_from": existing.plan_id,
+        "addition_chars": len(addition),
+    }
+
+
+@router.post("/voice-approve")
+async def voice_approve(payload: dict[str, Any] | None = Body(default=None)) -> dict[str, Any]:
+    """Classify a voice utterance into approve / reject / unclear.
+
+    Body: ``{utterance: str, plan_id?: str}``.
+
+    The FE calls this after every Pair-mode utterance whose plain-text
+    classification reveals an approval intent. Returns the recognised
+    intent and the phrase that matched; the FE then triggers the
+    corresponding Approve / Reject endpoint on its own so the user
+    journey stays auditable.
+    """
+
+    body = payload or {}
+    utter = str(body.get("utterance") or "").strip()
+    plan_id = str(body.get("plan_id") or "").strip() or None
+    if not utter:
+        raise HTTPException(status_code=400, detail="utterance required")
+
+    intent, matched = _classify_voice_intent(utter)
+
+    # Receipt -- voice intents are a load-bearing audit trail.
+    try:
+        from backend.core.receipts.store import get_store as _rstore  # noqa: PLC0415
+
+        rs = _rstore()
+        if rs is not None:
+            await rs.append(
+                "composer.voice.intent",
+                "composer.pair",
+                plan_id or "(no-plan)",
+                {
+                    "intent": intent,
+                    "matched_phrase": matched,
+                    "utterance_chars": len(utter),
+                },
+            )
+    except Exception:  # noqa: BLE001
+        pass
+
+    return {
+        "ok": True,
+        "intent": intent,
+        "matched_phrase": matched,
+        "plan_id": plan_id,
+    }

@@ -113,6 +113,8 @@ from web_extras.routers import palette as palette_router
 from web_extras.routers import composer as composer_router
 # W260 -- T2T code-review handoff (composer plans flow between TARS peers).
 from web_extras.routers import t2t_review as t2t_review_router
+# W261 -- /api/marketplace/agents agent marketplace v0 (publish/install)
+from web_extras.routers import agent_marketplace as agent_marketplace_router
 # W257 — /api/gdpr/* GDPR data-subject access (export/delete/cancel) for BUSINESS tier
 from web_extras.routers import gdpr as gdpr_router
 
@@ -988,6 +990,8 @@ app.include_router(codebase_router.router)
 app.include_router(composer_router.router)
 # W260 -- T2T code-review handoff endpoints (/api/t2t/review/*).
 app.include_router(t2t_review_router.router)
+# W261 -- agent marketplace v0 (publish/install signed agent manifests)
+app.include_router(agent_marketplace_router.router)
 # W257 — GDPR endpoints
 app.include_router(gdpr_router.router)
 

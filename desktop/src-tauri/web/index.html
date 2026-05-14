@@ -891,6 +891,11 @@
     background: radial-gradient(closest-side, rgba(99,102,241,0.25), transparent 65%);
     pointer-events: none;
   }
+  /* W262 -- pair-mode visual feedback: monolith animations run faster. */
+  .voice-cockpit.pair-mode .monolith { animation-duration: calc(4s / var(--monolith-speed, 1)) !important; }
+  .voice-cockpit.pair-mode .monolith-strip { animation-duration: calc(2s / var(--monolith-speed, 1)) !important; }
+  .voice-cockpit.pair-mode .monolith-scan { animation-duration: calc(2.5s / var(--monolith-speed, 1)) !important; }
+
   @keyframes monolith-breath {
     0%,100% { transform: scaleY(1); opacity: 0.92; }
     50% { transform: scaleY(1.015); opacity: 1; }
@@ -2126,6 +2131,67 @@
             </div>
           </div>
         </div>
+
+        <!-- W261 — Agent marketplace v0 (publish + install signed agent manifests) -->
+        <div class="setting-block" id="agentMarketplaceBlock"
+             style="border-color: rgba(168,85,247,0.4); background: linear-gradient(135deg, rgba(168,85,247,0.06), rgba(99,102,241,0.05));">
+          <h3 style="color:#c084fc;">🛒 AGENT MARKETPLACE</h3>
+          <p style="font-size:11px;color:var(--muted);line-height:1.6;margin:4px 0 12px;">
+            Browse, install, and publish TARS agents. Manifests are
+            <strong>ed25519-signed</strong> with your W67 host key.
+            70/30 revenue share through meeet.world (W96).
+          </p>
+
+          <div class="actions" style="flex-wrap:wrap;gap:6px;margin-bottom:10px;">
+            <button class="btn primary" data-action="agentmkt.browse" onclick="loadAgentMarketplace()">🔍 Browse agents</button>
+            <button class="btn" data-action="agentmkt.installed" onclick="loadAgentMarketplaceInstalled()">📦 Installed</button>
+            <button class="btn" data-action="agentmkt.published" onclick="loadAgentMarketplacePublished()">📤 My published</button>
+            <button class="btn" data-action="agentmkt.publish" onclick="openAgentMarketplacePublishModal()">＋ Publish agent</button>
+          </div>
+
+          <div style="display:flex;gap:6px;margin-bottom:8px;font-size:11px;align-items:center;">
+            <label style="color:var(--muted);">Sort</label>
+            <select id="agentMktSort" onchange="loadAgentMarketplace()"
+                    style="background:rgba(0,0,0,0.4);border:1px solid var(--panel-edge);color:var(--text);font-size:11px;padding:3px 6px;border-radius:4px;">
+              <option value="installs">installs ↓</option>
+              <option value="rating">rating ↓</option>
+              <option value="recent">recent ↓</option>
+            </select>
+            <input id="agentMktPack" type="text" placeholder="pack filter (optional)"
+                   oninput="loadAgentMarketplace()"
+                   style="flex:1;background:rgba(0,0,0,0.4);border:1px solid var(--panel-edge);color:var(--text);font-size:11px;padding:3px 6px;border-radius:4px;">
+            <input id="agentMktQ" type="text" placeholder="search…"
+                   oninput="loadAgentMarketplace()"
+                   style="flex:1;background:rgba(0,0,0,0.4);border:1px solid var(--panel-edge);color:var(--text);font-size:11px;padding:3px 6px;border-radius:4px;">
+          </div>
+
+          <div id="agentMarketplaceList" style="max-height:340px;overflow:auto;border:1px solid var(--panel-edge);border-radius:6px;padding:6px;background:rgba(0,0,0,0.25);">
+            <div class="empty-state" style="color:var(--muted);font-size:11px;padding:8px;">Click "Browse agents" to load.</div>
+          </div>
+        </div>
+
+        <!-- W261 — Publish modal -->
+        <div id="agentMarketplacePublishModal" role="dialog" aria-label="Publish agent"
+             style="display:none;position:fixed;inset:0;z-index:9100;background:rgba(0,0,0,0.55);align-items:center;justify-content:center;">
+          <div style="background:var(--panel,#111);border:1px solid var(--panel-edge,#333);border-radius:10px;max-width:480px;width:90%;padding:18px;">
+            <h2 style="margin:0 0 12px;font-size:15px;">Publish agent to marketplace</h2>
+            <label style="display:block;font-size:11px;color:var(--muted);margin-bottom:6px;">Local agent</label>
+            <select id="agentMktPublishAgentId"
+                    style="width:100%;background:rgba(0,0,0,0.4);border:1px solid var(--panel-edge);color:var(--text);padding:6px 8px;border-radius:6px;margin-bottom:10px;"></select>
+            <label style="display:block;font-size:11px;color:var(--muted);margin-bottom:6px;">Version</label>
+            <input id="agentMktPublishVersion" type="text" value="0.1.0"
+                   style="width:100%;background:rgba(0,0,0,0.4);border:1px solid var(--panel-edge);color:var(--text);padding:6px 8px;border-radius:6px;margin-bottom:10px;">
+            <label style="display:block;font-size:11px;color:var(--muted);margin-bottom:6px;">Description (override)</label>
+            <textarea id="agentMktPublishDescription" rows="3" placeholder="What this agent does, in 1-2 lines."
+                      style="width:100%;background:rgba(0,0,0,0.4);border:1px solid var(--panel-edge);color:var(--text);padding:6px 8px;border-radius:6px;font-family:inherit;"></textarea>
+            <div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;">
+              <button class="btn" data-action="agentmkt.publish.cancel" onclick="closeAgentMarketplacePublishModal()">Cancel</button>
+              <button class="btn primary" data-action="agentmkt.publish.go" onclick="submitAgentMarketplacePublish()">Sign + publish</button>
+            </div>
+            <div id="agentMktPublishResult" style="margin-top:10px;font-size:11px;color:var(--muted);"></div>
+          </div>
+        </div>
+
       </div>
     </div>
 
@@ -2306,6 +2372,8 @@
   </div>
   <div class="cmp-foot">
     <span class="cmp-result" id="composerResult"></span>
+    <!-- W262 -- Pair mode toggle: continuous voice session that re-runs the planner per utterance. -->
+    <button class="btn" data-action="composer.pair.toggle" onclick="composerPairToggle()" id="composerPairBtn" title="Voice pair programming">🎙 Pair: off</button>
     <button class="btn" data-action="composer.reject" onclick="composerReject()" id="composerRejectBtn" disabled>Reject</button>
     <!-- W260 -- T2T code-review handoff: send the current plan to a peer TARS instead of approving locally. -->
     <button class="btn" data-action="composer.send.review" onclick="composerOpenSendReviewModal()" id="composerSendReviewBtn" disabled>Send for review</button>
@@ -7079,5 +7147,441 @@ function openSoc2Doc() {
 })();
 </script>
 
+<script>
+/* W261 - Agent marketplace v0 (settings -> Marketplace subsection)
+ * + W262 - Voice-first pair programming (Composer "Pair mode" toggle).
+ * Both load lazily; nothing here fires until the user clicks. */
+
+(function () {
+  // ---- W261 ----------------------------------------------------------
+  const API_AM = (typeof API === 'string' && API) ? API : '';
+
+  function _amEsc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({
+      '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'
+    })[c]);
+  }
+
+  async function loadAgentMarketplace() {
+    const list = document.getElementById('agentMarketplaceList');
+    if (!list) return;
+    list.innerHTML = '<div style="color:var(--muted);font-size:11px;padding:8px;">Loading...</div>';
+    const sort = (document.getElementById('agentMktSort') || {}).value || 'installs';
+    const pack = ((document.getElementById('agentMktPack') || {}).value || '').trim();
+    const q = ((document.getElementById('agentMktQ') || {}).value || '').trim();
+    const qs = new URLSearchParams({ sort });
+    if (pack) qs.set('pack', pack);
+    if (q) qs.set('q', q);
+    try {
+      const r = await fetch(`${API_AM}/api/marketplace/agents?${qs.toString()}`);
+      const d = await r.json();
+      const rows = (d && d.agents) || [];
+      if (!rows.length) {
+        list.innerHTML = '<div style="color:var(--muted);font-size:11px;padding:8px;">No agents in the registry yet.</div>';
+        return;
+      }
+      list.innerHTML = rows.map((row) => {
+        const ag = row.agent || {};
+        const stats = row.stats || {};
+        const uri = row.agent_uri || '';
+        const publisher = (row.publisher && row.publisher.tars_id) || 'unknown';
+        return `<div style="display:flex;justify-content:space-between;align-items:flex-start;gap:8px;padding:8px 6px;border-top:1px solid var(--panel-edge);">
+          <div style="flex:1;min-width:0;">
+            <div style="font-size:12px;font-weight:600;color:var(--text);">${_amEsc(ag.name || ag.id || '(unnamed)')}
+              <span style="font-size:10px;color:var(--muted);">v${_amEsc(ag.version || '0.1.0')} - pack: ${_amEsc(ag.pack_slug || 'general')}</span>
+            </div>
+            <div style="font-size:11px;color:var(--muted);margin-top:2px;line-height:1.4;">${_amEsc(ag.description || '')}</div>
+            <div style="font-size:10px;color:var(--muted);margin-top:4px;">
+              by ${_amEsc(publisher)} - installs ${Number(stats.installs || 0)} - rating ${Number(stats.rating || 0).toFixed(1)}
+            </div>
+          </div>
+          <button class="btn primary" data-action="agentmkt.install" style="font-size:11px;padding:4px 10px;"
+                  onclick="installAgentFromMarketplace('${_amEsc(uri).replace(/'/g, '&apos;')}')">Install</button>
+        </div>`;
+      }).join('');
+    } catch (e) {
+      list.innerHTML = '<div style="color:#fca5a5;font-size:11px;padding:8px;">Failed: ' + _amEsc(e.message || e) + '</div>';
+    }
+  }
+
+  async function installAgentFromMarketplace(agentUri) {
+    if (!agentUri) return;
+    try {
+      const r = await fetch(`${API_AM}/api/marketplace/agents/install`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ agent_uri: agentUri }),
+      });
+      const d = await r.json();
+      if (d && d.ok) {
+        if (typeof showToast === 'function') showToast(`Installed: ${d.name}`, 'ok');
+        else alert(`Installed: ${d.name}`);
+      } else {
+        if (typeof showToast === 'function') showToast('Install failed: ' + (d.detail || d.error || 'unknown'), 'err');
+        else alert('Install failed: ' + (d.detail || d.error || 'unknown'));
+      }
+    } catch (e) {
+      alert('Install failed: ' + (e.message || e));
+    }
+  }
+
+  async function loadAgentMarketplaceInstalled() {
+    const list = document.getElementById('agentMarketplaceList');
+    if (!list) return;
+    list.innerHTML = '<div style="color:var(--muted);font-size:11px;padding:8px;">Loading installed...</div>';
+    try {
+      const r = await fetch(`${API_AM}/api/marketplace/agents/installed`);
+      const d = await r.json();
+      const rows = (d && d.installed) || [];
+      if (!rows.length) {
+        list.innerHTML = '<div style="color:var(--muted);font-size:11px;padding:8px;">No agents installed yet.</div>';
+        return;
+      }
+      list.innerHTML = rows.map((row) => `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;padding:8px 6px;border-top:1px solid var(--panel-edge);">
+        <div style="flex:1;min-width:0;">
+          <div style="font-size:12px;color:var(--text);font-family:monospace;">${_amEsc(row.local_agent_id)}</div>
+          <div style="font-size:10px;color:var(--muted);">v${_amEsc(row.version || '?')} from ${_amEsc(row.publisher || 'unknown')}</div>
+        </div>
+        <button class="btn" style="font-size:11px;padding:4px 10px;color:#fca5a5;"
+                onclick="uninstallAgentFromMarketplace('${_amEsc(row.local_agent_id)}')">Uninstall</button>
+      </div>`).join('');
+    } catch (e) {
+      list.innerHTML = '<div style="color:#fca5a5;font-size:11px;padding:8px;">Failed: ' + _amEsc(e.message || e) + '</div>';
+    }
+  }
+
+  async function loadAgentMarketplacePublished() {
+    const list = document.getElementById('agentMarketplaceList');
+    if (!list) return;
+    list.innerHTML = '<div style="color:var(--muted);font-size:11px;padding:8px;">Loading published...</div>';
+    try {
+      const r = await fetch(`${API_AM}/api/marketplace/agents/published`);
+      const d = await r.json();
+      const rows = (d && d.published) || [];
+      if (!rows.length) {
+        list.innerHTML = '<div style="color:var(--muted);font-size:11px;padding:8px;">You haven\'t published any agents yet.</div>';
+        return;
+      }
+      list.innerHTML = rows.map((row) => `<div style="padding:8px 6px;border-top:1px solid var(--panel-edge);">
+        <div style="font-size:12px;font-family:monospace;color:var(--text);">${_amEsc(row.agent_id)} <span style="font-size:10px;color:var(--muted);">v${_amEsc(row.version)}</span></div>
+        <div style="font-size:10px;color:${row.upstream_ok ? '#4ade80' : '#fca5a5'};margin-top:2px;">${row.upstream_ok ? 'PUBLISHED' : 'UPSTREAM ERR: ' + _amEsc(row.upstream_err || '?')}</div>
+        <div style="font-size:10px;color:var(--muted);font-family:monospace;word-break:break-all;">${_amEsc(row.agent_uri)}</div>
+      </div>`).join('');
+    } catch (e) {
+      list.innerHTML = '<div style="color:#fca5a5;font-size:11px;padding:8px;">Failed: ' + _amEsc(e.message || e) + '</div>';
+    }
+  }
+
+  async function uninstallAgentFromMarketplace(agentId) {
+    if (!agentId) return;
+    if (!confirm('Uninstall agent ' + agentId + '?')) return;
+    try {
+      const r = await fetch(`${API_AM}/api/marketplace/agents/${encodeURIComponent(agentId)}/uninstall`, {
+        method: 'DELETE',
+      });
+      const d = await r.json();
+      if (d && d.ok) {
+        loadAgentMarketplaceInstalled();
+      } else {
+        alert('Uninstall failed: ' + (d.detail || d.error || 'unknown'));
+      }
+    } catch (e) {
+      alert('Uninstall failed: ' + (e.message || e));
+    }
+  }
+
+  async function openAgentMarketplacePublishModal() {
+    const modal = document.getElementById('agentMarketplacePublishModal');
+    const sel = document.getElementById('agentMktPublishAgentId');
+    if (!modal || !sel) return;
+    // Populate the local-agent picker from /api/agents.
+    sel.innerHTML = '<option value="">(loading agents...)</option>';
+    try {
+      const r = await fetch(`${API_AM}/api/agents`);
+      const d = await r.json();
+      const rows = (d && (d.agents || d.items)) || [];
+      if (!rows.length) {
+        sel.innerHTML = '<option value="">(no local agents)</option>';
+      } else {
+        sel.innerHTML = rows.map((a) =>
+          `<option value="${_amEsc(a.id)}">${_amEsc(a.name || a.id)} (${_amEsc(a.pack_slug || 'general')})</option>`
+        ).join('');
+      }
+    } catch (e) {
+      sel.innerHTML = '<option value="">(load failed: ' + _amEsc(e.message || e) + ')</option>';
+    }
+    modal.style.display = 'flex';
+    const out = document.getElementById('agentMktPublishResult');
+    if (out) out.textContent = '';
+  }
+
+  function closeAgentMarketplacePublishModal() {
+    const modal = document.getElementById('agentMarketplacePublishModal');
+    if (modal) modal.style.display = 'none';
+  }
+
+  async function submitAgentMarketplacePublish() {
+    const sel = document.getElementById('agentMktPublishAgentId');
+    const ver = document.getElementById('agentMktPublishVersion');
+    const desc = document.getElementById('agentMktPublishDescription');
+    const out = document.getElementById('agentMktPublishResult');
+    if (!sel || !sel.value) {
+      if (out) out.textContent = 'Pick a local agent first.';
+      return;
+    }
+    if (out) out.textContent = 'Signing + publishing...';
+    try {
+      const r = await fetch(`${API_AM}/api/marketplace/agents/publish`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          agent_id: sel.value,
+          version: (ver && ver.value) || '0.1.0',
+          description: (desc && desc.value) || '',
+        }),
+      });
+      const d = await r.json();
+      if (d && d.ok) {
+        if (out) out.innerHTML = (d.upstream_ok
+          ? '<span style="color:#4ade80;">OK</span> '
+          : '<span style="color:#fbbf24;">LOCAL ONLY</span> ')
+          + 'URI: <code style="font-size:10px;">' + _amEsc(d.agent_uri) + '</code>';
+        loadAgentMarketplacePublished();
+      } else {
+        if (out) out.innerHTML = '<span style="color:#fca5a5;">Failed:</span> ' + _amEsc(d.detail || d.error || 'unknown');
+      }
+    } catch (e) {
+      if (out) out.innerHTML = '<span style="color:#fca5a5;">Failed:</span> ' + _amEsc(e.message || e);
+    }
+  }
+
+  // Expose for inline handlers + Cmd+K palette (W246).
+  window.loadAgentMarketplace = loadAgentMarketplace;
+  window.loadAgentMarketplaceInstalled = loadAgentMarketplaceInstalled;
+  window.loadAgentMarketplacePublished = loadAgentMarketplacePublished;
+  window.installAgentFromMarketplace = installAgentFromMarketplace;
+  window.uninstallAgentFromMarketplace = uninstallAgentFromMarketplace;
+  window.openAgentMarketplacePublishModal = openAgentMarketplacePublishModal;
+  window.closeAgentMarketplacePublishModal = closeAgentMarketplacePublishModal;
+  window.submitAgentMarketplacePublish = submitAgentMarketplacePublish;
+
+  // W246 Cmd+K palette hook: surface "Install agent: <name>" suggestions.
+  // The palette layer reads window.tarsAgentMarketplace.paletteEntries()
+  // and merges the returned entries into its fuzzy index.
+  async function paletteEntries() {
+    try {
+      const r = await fetch(`${API_AM}/api/marketplace/agents?sort=installs&limit=20`);
+      const d = await r.json();
+      const rows = (d && d.agents) || [];
+      return rows.map((row) => {
+        const ag = row.agent || {};
+        return {
+          id: 'agent-install:' + (row.agent_uri || ag.id),
+          label: 'Install agent: ' + (ag.name || ag.id || 'unnamed'),
+          hint: 'pack ' + (ag.pack_slug || 'general') + ' - ' + Number((row.stats || {}).installs || 0) + ' installs',
+          category: 'Marketplace',
+          run: () => installAgentFromMarketplace(row.agent_uri),
+        };
+      });
+    } catch (e) {
+      return [];
+    }
+  }
+  window.tarsAgentMarketplace = { paletteEntries };
+  // If the palette has a registry hook, register eagerly.
+  try {
+    if (window.tarsPalette && typeof window.tarsPalette.registerSource === 'function') {
+      window.tarsPalette.registerSource('agent-marketplace', paletteEntries);
+    }
+  } catch (_e) { /* ignore */ }
+
+  // ---- W262 ----------------------------------------------------------
+  // Pair mode: continuous voice session that re-runs the planner per
+  // utterance, narrates updates, and accepts spoken approve/reject.
+
+  const PAIR = {
+    on: false,
+    recog: null,       // SpeechRecognition instance
+    chunks: [],        // recent transcript chunks (for jitter dedup)
+    currentPlanId: null,
+    refining: false,
+  };
+
+  function _pairBtn() { return document.getElementById('composerPairBtn'); }
+  function _pairSummaryEl() { return document.getElementById('composerSummary'); }
+
+  function _setMonolithSpeed(mult) {
+    // W230 monolith - speed up the breath/scan animations while
+    // pair mode is on so the user sees the agent is "live".
+    try {
+      document.documentElement.style.setProperty('--monolith-speed', String(mult));
+      const cockpit = document.querySelector('.voice-cockpit');
+      if (cockpit) cockpit.classList.toggle('pair-mode', PAIR.on);
+    } catch (_e) { /* ignore */ }
+  }
+
+  async function _refinePlan(addition) {
+    if (!PAIR.currentPlanId || PAIR.refining) return;
+    PAIR.refining = true;
+    try {
+      const r = await fetch(`${API_AM}/api/composer/plans/${encodeURIComponent(PAIR.currentPlanId)}/refine`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ additional_transcript: addition }),
+      });
+      const d = await r.json();
+      if (d && d.ok && d.plan) {
+        // Re-render plan using the existing composer renderer if present.
+        if (typeof window.composerRenderPlan === 'function') {
+          window.composerRenderPlan(d.plan);
+        }
+        // TARS narrates back what it understood.
+        const summary = d.plan.intent_summary || '(no summary)';
+        const ops = (d.plan.ops || []).length;
+        const utter = `I'll ${summary}. ${ops} operation${ops === 1 ? '' : 's'} queued. Say approve or reject.`;
+        _narrate(utter);
+        const sumEl = _pairSummaryEl();
+        if (sumEl) sumEl.textContent = utter;
+      }
+    } catch (e) {
+      _narrate('I had trouble updating the plan. ' + (e.message || ''));
+    } finally {
+      PAIR.refining = false;
+    }
+  }
+
+  async function _maybeApprove(utterance) {
+    try {
+      const r = await fetch(`${API_AM}/api/composer/voice-approve`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ utterance, plan_id: PAIR.currentPlanId }),
+      });
+      const d = await r.json();
+      if (!d || !d.ok) return false;
+      if (d.intent === 'approve' && typeof window.composerApprove === 'function') {
+        _narrate('Applying.');
+        window.composerApprove();
+        return true;
+      }
+      if (d.intent === 'reject' && typeof window.composerReject === 'function') {
+        _narrate('Rejected.');
+        window.composerReject();
+        return true;
+      }
+      return false;
+    } catch (_e) {
+      return false;
+    }
+  }
+
+  function _narrate(text) {
+    // Prefer the in-app TTS hook if exposed; otherwise fall back to
+    // the browser's speechSynthesis so we still get audible feedback.
+    try {
+      if (window.tarsTTS && typeof window.tarsTTS.speak === 'function') {
+        window.tarsTTS.speak(text);
+        return;
+      }
+      if (window.speechSynthesis) {
+        const u = new SpeechSynthesisUtterance(text);
+        u.rate = 1.05;
+        window.speechSynthesis.speak(u);
+      }
+    } catch (_e) { /* ignore */ }
+  }
+
+  function _onUtterance(utterance) {
+    const text = (utterance || '').trim();
+    if (!text) return;
+    // De-dupe near-identical chunks the recogniser sometimes emits.
+    const last = PAIR.chunks[PAIR.chunks.length - 1] || '';
+    if (text === last) return;
+    PAIR.chunks.push(text);
+    if (PAIR.chunks.length > 32) PAIR.chunks.shift();
+    // First: try a voice-intent classification. If it triggers
+    // approve/reject we're done -- no need to re-plan.
+    _maybeApprove(text).then((handled) => {
+      if (handled) return;
+      // Otherwise refine the existing plan with this new utterance.
+      if (PAIR.currentPlanId) {
+        _refinePlan(text);
+      } else if (window.tarsComposer && typeof window.tarsComposer.plan === 'function') {
+        // No plan yet -- treat the utterance as the seed transcript.
+        window.tarsComposer.plan(text).then((plan) => {
+          if (plan && plan.plan_id) {
+            PAIR.currentPlanId = plan.plan_id;
+            _narrate('Plan ready. Say approve to apply.');
+          }
+        }).catch(() => {});
+      }
+    });
+  }
+
+  function _startRecog() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) {
+      _narrate('Voice recognition is not available in this browser.');
+      return null;
+    }
+    const r = new SR();
+    r.continuous = true;
+    r.interimResults = false;
+    r.lang = 'en-US';
+    r.onresult = (ev) => {
+      for (let i = ev.resultIndex; i < ev.results.length; i++) {
+        const res = ev.results[i];
+        if (res && res.isFinal) {
+          _onUtterance(res[0].transcript);
+        }
+      }
+    };
+    r.onerror = (ev) => {
+      console.warn('pair.recog.error', ev && ev.error);
+    };
+    r.onend = () => {
+      // Auto-restart while pair mode is on; the recogniser pauses on
+      // long silences and we want continuous listening.
+      if (PAIR.on) {
+        try { r.start(); } catch (_e) { /* ignore */ }
+      }
+    };
+    try { r.start(); } catch (_e) { /* already running */ }
+    return r;
+  }
+
+  function composerPairToggle() {
+    PAIR.on = !PAIR.on;
+    const btn = _pairBtn();
+    if (btn) btn.textContent = PAIR.on ? '🎙 Pair: ON' : '🎙 Pair: off';
+    if (btn) btn.classList.toggle('primary', PAIR.on);
+    _setMonolithSpeed(PAIR.on ? 2.5 : 1.0);
+    if (PAIR.on) {
+      // Pick up the currently-loaded plan id from the composer panel
+      // header (the W253 renderer stamps it there).
+      const meta = document.getElementById('composerMeta');
+      if (meta && meta.textContent) {
+        const m = meta.textContent.match(/(cmp_[0-9a-f]+)/);
+        if (m) PAIR.currentPlanId = m[1];
+      }
+      PAIR.recog = _startRecog();
+      _narrate('Pair mode on. I am listening.');
+      const sumEl = _pairSummaryEl();
+      if (sumEl) sumEl.textContent = 'Pair mode: listening. Speak naturally - I will re-plan in real time.';
+    } else {
+      try { PAIR.recog && PAIR.recog.stop(); } catch (_e) { /* ignore */ }
+      PAIR.recog = null;
+      _narrate('Pair mode off.');
+    }
+  }
+
+  window.composerPairToggle = composerPairToggle;
+  window.tarsComposerPair = {
+    isOn: () => PAIR.on,
+    setPlanId: (id) => { PAIR.currentPlanId = id; },
+    feed: _onUtterance,
+  };
+})();
+</script>
 </body>
 </html>
