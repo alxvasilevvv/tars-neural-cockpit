@@ -1,23 +1,54 @@
-# TARS
+# TARS — local-first, voice-native, receipt-anchored AI cockpit
 
-> Local-first **neural cockpit** released under [meeet.world](https://meeet.world).
-> Multi-model deliberation, planner-driven agents, self-custodial crypto
-> wallets, X25519-paired mobile companions — all on your laptop, all
-> encrypted at rest, all auditable.
+> Billed through [`meeet.world`](https://meeet.world). Cursor-grade polish.
+> 7 life-domain packs. Voice-first. Sovereign data. On-chain proof.
 
-[![version](https://img.shields.io/badge/version-9.1.0-blue)](docs/RELEASE_NOTES_v9.1.0.md)
-[![platform](https://img.shields.io/badge/platform-macOS-lightgrey)](docs/WHAT_WORKS.md#platform-support-v910)
-[![tests](https://img.shields.io/badge/pytest-595%20passed-brightgreen)](docs/LAUNCH_READINESS.md)
-[![vitest](https://img.shields.io/badge/vitest-50%20passed-brightgreen)](docs/LAUNCH_READINESS.md)
-[![tsc](https://img.shields.io/badge/tsc-clean-brightgreen)](docs/LAUNCH_READINESS.md)
-[![eval-suite](https://github.com/alxvasilevvv/tars-neural-cockpit/actions/workflows/eval-suite.yml/badge.svg?branch=main)](.github/workflows/eval-suite.yml)
-[![contract](https://img.shields.io/badge/meeet--contract-1.0.0-blue)](docs/contracts/)
+[![version](https://img.shields.io/badge/version-9.2.0--beta2-blue)](docs/RELEASE_NOTES_v9.2.0-beta2.md)
+[![platform](https://img.shields.io/badge/platform-macOS-lightgrey)](docs/WHAT_WORKS_v9.2.0-beta2.md)
+[![tests](https://img.shields.io/badge/pytest-350%2B%20passed-brightgreen)](docs/SMOKE-TEST-RESULTS.md)
+[![meeet](https://img.shields.io/badge/meeet.world-integrated-7c3aed)](docs/HANDOFF_v9.2.0-beta2_FOR_BROTHER.md)
 [![license](https://img.shields.io/badge/license-Apache--2.0-blue)](LICENSE)
-[![b2b-suite](https://img.shields.io/badge/B2B%20Production%20Suite-21%20pages-6366F1)](docs/audit/DISCOVERABILITY_2026-05-10.md)
 
-**Read in this order:** [`docs/WHAT_WORKS.md`](docs/WHAT_WORKS.md) (what
-ships) → [`docs/RELEASE_NOTES_v9.1.0.md`](docs/RELEASE_NOTES_v9.1.0.md)
-(what just changed) → [`docs/ROADMAP.md`](docs/ROADMAP.md) (what's coming).
+## What's new in v9.2.0-beta2
+
+- **Voice cockpit** (W220 + W229 + W230) — cinematic monolith, MediaRecorder
+  STT, full-screen `/api/voice/command`, text-input fallback when STT not
+  configured (W232).
+- **Auth gate** (W219) — `meeet.world` magic-link + Google/Apple OAuth +
+  `tars://` deep-link handler. Token persists at `~/.tars/meeet_token`.
+- **Consumption console** (W235) — `/api/usage/console`, metering middleware,
+  per-action cost ledger. The foundation for Wave A's Cursor-parity usage tab.
+- **Live `meeet.world` handshake** (W233) — `CHECK-MEEET-LIVE.command` probes
+  the 4 brother endpoints and flips `MEEET_MODE` to `live` on green.
+- **Boot-time DB init** (W231) — 21 SQLite stores auto-create on first boot;
+  no migration step needed.
+
+## Read first
+
+> **`TARS_MASTER_DOC.md`** — the single source of truth (1200+ lines).
+> Vision, architecture, Cursor parity scorecard, roadmap, pricing, operator
+> manual, brother brief, anti-patterns. Re-read §1 and §11 before saying yes
+> to any new feature.
+>
+> **`PROJECT_INDEX.md`** — every doc in the repo, one line each.
+
+## Quick start
+
+```bash
+# 1. One-click boot
+bash scripts/LAUNCH-NOW.command
+
+# 2. After UI changes
+bash scripts/REBUILD-TARS-APP.command
+
+# 3. Use
+open /Applications/TARS.app
+```
+
+If brother's `meeet.world` endpoints aren't live yet, click
+**"Skip — local-only mode"** on the auth screen and TARS runs FREE-tier
+forever. To verify brother readiness:
+`bash scripts/CHECK-MEEET-LIVE.command`.
 
 ---
 
