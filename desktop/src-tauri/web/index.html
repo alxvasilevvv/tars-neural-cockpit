@@ -188,6 +188,57 @@
   #tab-settings .setting-block h3 { margin: 0 0 8px; font-size: 12px; color: var(--accent); letter-spacing: 0.08em; }
   #tab-settings code { background: rgba(0,0,0,0.4); padding: 2px 6px; border-radius: 4px; color: var(--text); font-size: 11px; }
 
+  /* W205 — Welcome onboarding modal (first-launch only) */
+  .welcome-modal {
+    position: fixed; inset: 0; z-index: 2000;
+    background: rgba(7, 8, 13, 0.85);
+    backdrop-filter: blur(8px);
+    display: none; align-items: center; justify-content: center;
+    animation: welcomeFade 0.4s ease-out;
+  }
+  .welcome-modal.show { display: flex; }
+  @keyframes welcomeFade { from { opacity: 0; } to { opacity: 1; } }
+  .welcome-card {
+    max-width: 640px; width: 92%;
+    background: linear-gradient(160deg, rgba(99,102,241,0.10), rgba(139,92,246,0.06)), var(--panel);
+    border: 1px solid rgba(139,92,246,0.4);
+    border-radius: 18px; padding: 32px;
+    box-shadow: 0 30px 80px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.06);
+  }
+  .welcome-card h1 {
+    margin: 0 0 8px; font-size: 24px; font-weight: 700;
+    background: linear-gradient(90deg, #ffffff, #c7d2fe 60%, #a5b4fc);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    letter-spacing: 0.02em;
+  }
+  .welcome-card .tagline {
+    color: var(--muted); font-size: 13px; line-height: 1.7; margin: 0 0 22px;
+  }
+  .welcome-card h3 {
+    font-size: 11px; letter-spacing: 0.2em; color: var(--accent-hot);
+    text-transform: uppercase; margin: 18px 0 10px;
+  }
+  .welcome-card .pack-pick {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px;
+  }
+  .welcome-card .pp-btn {
+    text-align: left; padding: 12px 14px; border-radius: 10px;
+    background: rgba(0,0,0,0.3); border: 1px solid var(--panel-edge);
+    color: var(--text); cursor: pointer; transition: all 0.15s;
+    font-family: inherit;
+  }
+  .welcome-card .pp-btn:hover {
+    border-color: var(--accent); background: rgba(129,140,248,0.12);
+    transform: translateY(-1px);
+  }
+  .welcome-card .pp-btn .pp-name { font-weight: 600; font-size: 13px; }
+  .welcome-card .pp-btn .pp-desc { font-size: 10px; color: var(--muted); margin-top: 3px; line-height: 1.4; }
+  .welcome-card .skip {
+    margin-top: 24px; text-align: center;
+    font-size: 11px; color: var(--muted-2); cursor: pointer;
+  }
+  .welcome-card .skip:hover { color: var(--text); }
+
   .toast {
     position: fixed; bottom: 50px; left: 50%; transform: translateX(-50%);
     background: var(--panel); border: 1px solid var(--panel-edge); border-radius: 10px;
@@ -524,6 +575,47 @@
 </div>
 
 <div class="toast" id="toast"></div>
+
+<!-- W205 — Welcome onboarding modal -->
+<div class="welcome-modal" id="welcomeModal">
+  <div class="welcome-card">
+    <h1>Welcome to TARS</h1>
+    <p class="tagline">
+      Your local-first neural cockpit. Everything runs on your machine.
+      Connect to meeet.world later for cloud sync — for now let's just get you running.
+    </p>
+
+    <h3>Pick a starting domain</h3>
+    <div class="pack-pick" id="welcomePackPick">
+      <button class="pp-btn" onclick="welcomePick('business')">
+        <div class="pp-name">Business</div>
+        <div class="pp-desc">CRM, daily brief, outreach, KPI graph</div>
+      </button>
+      <button class="pp-btn" onclick="welcomePick('entrepreneur')">
+        <div class="pp-name">Entrepreneur</div>
+        <div class="pp-desc">Cold outreach, deal pipeline, founder ops</div>
+      </button>
+      <button class="pp-btn" onclick="welcomePick('science')">
+        <div class="pp-name">Science</div>
+        <div class="pp-desc">arXiv triage, citation graph, research notes</div>
+      </button>
+      <button class="pp-btn" onclick="welcomePick('civic')">
+        <div class="pp-name">Civic <span style="font-size:9px;background:rgba(34,211,238,0.18);color:#22d3ee;padding:1px 6px;border-radius:999px;margin-left:4px;">FREE</span></div>
+        <div class="pp-desc">Public records, legislators, court cases</div>
+      </button>
+      <button class="pp-btn" onclick="welcomePick('web_search')">
+        <div class="pp-name">Web search</div>
+        <div class="pp-desc">Outbound web search via Brave/DDG</div>
+      </button>
+      <button class="pp-btn" onclick="welcomePick('algotrade')">
+        <div class="pp-name">Algotrade</div>
+        <div class="pp-desc">Backtest, signal IR, paper-trading</div>
+      </button>
+    </div>
+
+    <div class="skip" onclick="welcomeSkip()">Skip — I'll explore on my own &nbsp;✕</div>
+  </div>
+</div>
 
 <script>
 const API = (window.location.protocol === 'file:' || window.location.hostname === '')
@@ -1105,7 +1197,41 @@ async function visionOcr() {
   inp.click();
 }
 
+// ─── W205 — Welcome onboarding (first-launch only) ───
+function maybeShowWelcome() {
+  try {
+    if (localStorage.getItem('tars_onboarded') === '1') return;
+  } catch (_e) { /* localStorage may be unavailable */ }
+  $('welcomeModal').classList.add('show');
+}
+
+async function welcomePick(pack) {
+  try { localStorage.setItem('tars_onboarded', '1'); } catch (_e) {}
+  try { localStorage.setItem('tars_pack', pack); } catch (_e) {}
+  $('welcomeModal').classList.remove('show');
+
+  // Create a starter agent for them in that pack so AGENTS tab isn't empty.
+  try {
+    await fetch(`${API}/api/agents`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: `My ${pack} agent`, pack_slug: pack }),
+    });
+  } catch (_e) { /* backend may be offline — that's fine, they can create later */ }
+
+  toast(`✓ ${pack} mode picked. AGENTS tab has your starter agent.`, 'ok');
+  // Jump straight to the AGENTS tab so they see something happen.
+  const agentsBtn = document.querySelector('nav.tabs button[data-tab="agents"]');
+  if (agentsBtn) agentsBtn.click();
+}
+
+function welcomeSkip() {
+  try { localStorage.setItem('tars_onboarded', '1'); } catch (_e) {}
+  $('welcomeModal').classList.remove('show');
+}
+
 // Auto-refresh status every 30s + tier badge on boot.
+maybeShowWelcome();
 refreshAll();
 refreshTierBadge();
 setInterval(() => { if (activeTab === 'status') refreshAll(); }, 30000);
