@@ -79,8 +79,8 @@ async def today() -> dict[str, Any]:
 
     # Agents count
     try:
-        from backend.core.agents.store import get_store as get_agents  # type: ignore
-        a = get_agents()
+        from backend.core.agents import get_agent_store  # type: ignore
+        a = get_agent_store()
         agents = await a.list_agents() if hasattr(a, "list_agents") else []
         last_pack = agents[0].pack_slug if agents and hasattr(agents[0], "pack_slug") else None
         out["sections"]["agents"] = {

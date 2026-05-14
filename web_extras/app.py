@@ -648,6 +648,24 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     init_otel()  # Wave 73 F6 — no-op unless OTEL_EXPORTER_OTLP_ENDPOINT set
 
+    # W231 — boot-time DB init + minimum seed so every cockpit tab
+    # has at least something to render on a fresh install. Never
+    # raises (the bootstrap module captures all per-step exceptions
+    # and logs them to stderr).
+    try:
+        from backend.core.storage import init_all_databases
+
+        boot = await init_all_databases()
+        log.info(
+            "storage bootstrap: ok=%s warn=%s elapsed_ms=%s seeded=%s",
+            len(boot.steps_ok),
+            len(boot.steps_warn),
+            boot.elapsed_ms,
+            list(boot.seeded.keys()),
+        )
+    except Exception as exc:
+        log.warning("storage bootstrap failed (continuing): %s", exc)
+
     await _verify_fts_on_boot()
 
     replay = asyncio.create_task(_replay_loop(), name="meeet-replay-loop")

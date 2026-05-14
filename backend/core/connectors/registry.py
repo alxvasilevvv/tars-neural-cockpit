@@ -156,6 +156,17 @@ def get(name: str) -> ConnectorSpec:
     return spec
 
 
+# W144/W231 — honest maturity badge per connector. \"real\" means
+# the OAuth flow + read endpoints have been live-tested; \"beta\" is
+# wired but expected to have gaps; \"stub\" means not yet implemented.
+_BADGES: dict[str, str] = {
+    "slack": "real",
+    "gmail": "real",
+    "calendar": "real",
+    "telegram": "beta",
+}
+
+
 def get_status() -> dict[str, Any]:
     """Status overview for all registered connectors -- no network."""
 
@@ -172,6 +183,7 @@ def get_status() -> dict[str, Any]:
                 "env_vars": list(spec.env_vars),
                 "configured": configured,
                 "connected": connected,
+                "badge": _BADGES.get(name, "beta"),
                 "token_age_s": _storage.token_age_s(_token_storage_key(name)),
                 "last_check_at": now,
             }
