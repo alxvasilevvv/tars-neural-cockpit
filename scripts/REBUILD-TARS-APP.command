@@ -93,6 +93,11 @@ if [[ ! -d "$APP_SRC" ]]; then
 fi
 echo "── artifact: $APP_SRC ──"
 
+# ── kill running TARS so cp -R doesn't hit a busy bundle ─────────────
+echo "── kill running TARS ──"
+pkill -f "TARS.app/Contents/MacOS/" 2>/dev/null && echo "  ✓ killed" || echo "  (not running)"
+sleep 1
+
 # ── install to /Applications ─────────────────────────────────────────
 APP_DST="/Applications/TARS.app"
 echo "── install → $APP_DST ──"

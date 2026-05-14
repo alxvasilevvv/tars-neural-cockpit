@@ -1638,20 +1638,26 @@ function authShowStatus(msg, kind = '') {
 }
 
 async function authBootCheck() {
-  // Try to fetch /api/auth/meeet/status. If the user already has a
-  // token persisted, skip the auth screen entirely and show the
-  // voice cockpit straight away.
-  try {
-    const r = await fetch(API + '/api/auth/meeet/status', { method: 'GET' });
-    if (r.status === 401) { showAuthGate(); return; }
-    const d = await r.json();
-    if (d && d.connected) { showCockpit(); return; }
-  } catch (e) {
-    // Backend unreachable. Still show the auth screen so the user can
-    // pick "Skip — local-only" while they wait for the backend.
-    $('authSkipLink').style.display = 'inline';
+  // W225 — retry up to 10s with backoff. The Tauri WebView often
+  // boots before the backend is ready to answer; without retry we
+  // fall through to showAuthGate even when a valid token exists.
+  showAuthGate(); // render auth-screen immediately so user isn't on a blank screen
+  const deadline = Date.now() + 10000;
+  while (Date.now() < deadline) {
+    try {
+      const r = await fetch(API + '/api/auth/meeet/status', { method: 'GET', cache: 'no-store' });
+      if (r.ok) {
+        const d = await r.json();
+        if (d && d.connected) { showCockpit(); return; }
+        // Backend responded but no token — stop retrying, user must auth.
+        $('authSkipLink').style.display = 'inline';
+        return;
+      }
+    } catch (e) { /* backend not up yet, will retry */ }
+    await new Promise(res => setTimeout(res, 500));
   }
-  showAuthGate();
+  // Gave up after 10s — show skip link so user is never stuck.
+  $('authSkipLink').style.display = 'inline';
 }
 
 function showAuthGate() {
