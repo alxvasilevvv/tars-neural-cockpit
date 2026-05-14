@@ -188,6 +188,90 @@
   #tab-settings .setting-block h3 { margin: 0 0 8px; font-size: 12px; color: var(--accent); letter-spacing: 0.08em; }
   #tab-settings code { background: rgba(0,0,0,0.4); padding: 2px 6px; border-radius: 4px; color: var(--text); font-size: 11px; }
 
+  /* USAGE TAB (W235) — consumption console */
+  #tab-usage .usage-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+  #tab-usage .usage-panel { display: flex; flex-direction: column; gap: 10px; }
+  #tab-usage .usage-panel-wide { grid-column: 1 / -1; }
+  #tab-usage .usage-panel-h {
+    font-size: 11px; color: var(--accent); letter-spacing: 0.08em;
+    text-transform: uppercase; display:flex; align-items:center; gap:8px;
+  }
+  #tab-usage .usage-big {
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 28px; font-weight: 600; color: var(--text);
+    letter-spacing: -0.01em;
+  }
+  #tab-usage .usage-big .usage-cap { font-size: 14px; color: var(--muted); font-weight: 400; }
+  #tab-usage .usage-sub { font-size: 11px; color: var(--muted); }
+  #tab-usage .usage-sparkline { width: 100%; height: 48px; opacity: 0.9; }
+  #tab-usage .usage-tier-pill {
+    font-size: 9px; padding: 2px 7px; border-radius: 4px;
+    background: rgba(129,140,248,0.18); color: var(--accent);
+    letter-spacing: 0.05em; font-weight: 600;
+  }
+  #tab-usage .usage-bar {
+    width: 100%; height: 8px; background: rgba(0,0,0,0.35);
+    border-radius: 6px; overflow: hidden; border: 1px solid var(--panel-edge);
+  }
+  #tab-usage .usage-bar-fill {
+    height: 100%; transition: width 0.4s ease, background 0.4s ease;
+    background: var(--accent);
+  }
+  #tab-usage .usage-table-wrap { max-height: 320px; overflow: auto; }
+  #tab-usage .usage-table {
+    width: 100%; border-collapse: collapse;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px;
+  }
+  #tab-usage .usage-table th {
+    text-align: left; padding: 6px 8px; color: var(--muted);
+    border-bottom: 1px solid var(--panel-edge); font-weight: 500;
+    text-transform: uppercase; letter-spacing: 0.05em; font-size: 9px;
+    background: rgba(0,0,0,0.25); position: sticky; top: 0;
+  }
+  #tab-usage .usage-table td {
+    padding: 5px 8px; border-bottom: 1px solid rgba(255,255,255,0.04);
+    color: var(--text);
+  }
+  #tab-usage .usage-table td.num { text-align: right; }
+  #tab-usage .usage-table .outcome-ok { color: #86efac; }
+  #tab-usage .usage-table .outcome-provider_error,
+  #tab-usage .usage-table .outcome-tars_error { color: #fca5a5; }
+  #tab-usage .usage-table .outcome-user_cancel { color: #fcd34d; }
+  #tab-usage .usage-pie-wrap {
+    display: flex; gap: 18px; align-items: center;
+  }
+  #tab-usage .usage-pie {
+    width: 130px; height: 130px; border-radius: 50%;
+    flex-shrink: 0; border: 2px solid rgba(0,0,0,0.4);
+    box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+    position: relative;
+  }
+  #tab-usage .usage-pie::after {
+    content:""; position: absolute; inset: 28%; border-radius: 50%;
+    background: rgba(7,8,13,0.92);
+  }
+  #tab-usage .usage-legend {
+    list-style: none; padding: 0; margin: 0; flex: 1;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 11px; max-height: 130px; overflow-y: auto;
+  }
+  #tab-usage .usage-legend li {
+    display: flex; align-items: center; gap: 6px; padding: 3px 0;
+    color: var(--text);
+  }
+  #tab-usage .usage-legend .swatch {
+    width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0;
+  }
+  #tab-usage .usage-legend .pct { color: var(--muted); margin-left: auto; }
+  @media (max-width: 760px) {
+    #tab-usage .usage-grid { grid-template-columns: 1fr; }
+  }
+
   /* W205 — Welcome onboarding modal (first-launch only) */
   .welcome-modal {
     position: fixed; inset: 0; z-index: 2000;
@@ -1024,6 +1108,7 @@
     <button data-tab="cowork">Cowork <span class="count" id="coCount">·</span></button>
     <button data-tab="vision">Vision</button>
     <button data-tab="marketplace">Plugins <span class="count" id="mpCount">·</span></button>
+    <button data-tab="usage">Usage <span class="count" id="usageCount">·</span></button>
     <button data-tab="settings">Settings</button>
   </nav>
 
@@ -1176,6 +1261,57 @@
         <h2>Plugins · marketplace v0</h2>
         <div id="marketplaceRows">
           <div class="empty-state">Loading…</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- USAGE TAB (W235) — consumption console -->
+    <div id="tab-usage" class="tab-panel">
+      <div class="panel" style="margin-bottom: 12px; display:flex; justify-content:space-between; align-items:center;">
+        <h2 style="margin:0;">Consumption console · live metering</h2>
+        <div style="display:flex; gap:8px; align-items:center;">
+          <button class="btn" data-action="usage.retry-failed" onclick="usageRetryFailed()" title="Drain failed events to meeet.world">↻ Sync to meeet</button>
+          <a href="#" data-action="usage.open-meeet" onclick="openExternal('https://meeet.world/account/billing');return false;" style="color:var(--accent); text-decoration:none; font-size:11px; padding:6px 10px; border:1px solid var(--panel-edge); border-radius:6px;">↗ meeet.world account</a>
+        </div>
+      </div>
+
+      <div class="usage-grid">
+        <!-- A. Today -->
+        <div class="panel usage-panel" id="usagePanelToday">
+          <div class="usage-panel-h">Today</div>
+          <div class="usage-big" id="usageToday">$0.00</div>
+          <div class="usage-sub">spent today · <span id="usageTodayEvents">0</span> events</div>
+          <svg class="usage-sparkline" id="usageSparkline" viewBox="0 0 240 48" preserveAspectRatio="none" aria-hidden="true">
+            <polyline points="" fill="none" stroke="var(--accent)" stroke-width="1.5" id="usageSparkPoly"></polyline>
+          </svg>
+        </div>
+
+        <!-- B. This month -->
+        <div class="panel usage-panel" id="usagePanelMonth">
+          <div class="usage-panel-h">This month <span id="usageTier" class="usage-tier-pill">FREE</span></div>
+          <div class="usage-big" id="usageMonth">$0.00 <span class="usage-cap">/ $3.00</span></div>
+          <div class="usage-bar"><div class="usage-bar-fill" id="usageBarFill" style="width:0%; background:var(--accent);"></div></div>
+          <div class="usage-sub"><span id="usageDaysLeft">— days left</span> · <span id="usageReqUsed">0</span>/<span id="usageReqCap">50</span> requests</div>
+        </div>
+
+        <!-- C. Recent events -->
+        <div class="panel usage-panel usage-panel-wide" id="usagePanelRecent">
+          <div class="usage-panel-h">Recent events <span id="usageRecentBadge" class="usage-tier-pill" style="background:rgba(34,197,94,0.18); color:#86efac;">live</span></div>
+          <div class="usage-table-wrap">
+            <table class="usage-table" id="usageRecentTable">
+              <thead><tr><th>time</th><th>model</th><th>action</th><th class="num">in/out</th><th class="num">$</th><th>outcome</th></tr></thead>
+              <tbody id="usageRecentBody"><tr><td colspan="6" style="text-align:center; padding:14px; color:var(--muted);">loading…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- D. Per-model breakdown -->
+        <div class="panel usage-panel" id="usagePanelBreakdown">
+          <div class="usage-panel-h">Per-model breakdown</div>
+          <div class="usage-pie-wrap">
+            <div class="usage-pie" id="usagePie" style="background: conic-gradient(rgba(255,255,255,0.06) 0 100%);"></div>
+            <ul class="usage-legend" id="usageLegend"><li style="color:var(--muted);">no spend yet</li></ul>
+          </div>
         </div>
       </div>
     </div>
@@ -1347,6 +1483,7 @@ document.querySelectorAll('nav.tabs button').forEach(b => {
     if (activeTab === 'cowork') loadCowork();
     if (activeTab === 'vision') {/* nothing to fetch */}
     if (activeTab === 'marketplace') loadMarketplace();
+    if (activeTab === 'usage') loadUsage();
     if (activeTab === 'settings') loadSettings();
   });
 });
@@ -1645,6 +1782,203 @@ async function loadMarketplace() {
     `).join('');
   } catch (e) {
     $('marketplaceRows').innerHTML = `<div class="empty-state">Failed: ${e.message}</div>`;
+  }
+}
+
+// ─── usage (W235 consumption console) ───
+let _usageSSE = null;
+let _usageSparkBuf = [];
+const _USAGE_COLORS = [
+  '#818cf8','#a78bfa','#22d3ee','#34d399','#f472b6',
+  '#facc15','#fb7185','#60a5fa','#c084fc','#4ade80'
+];
+
+function _fmtUsd(v) {
+  const n = Number(v || 0);
+  if (n === 0) return '$0.00';
+  if (n < 0.01) return '$' + n.toFixed(4);
+  return '$' + n.toFixed(2);
+}
+function _fmtTime(ts) {
+  try {
+    const d = new Date(Number(ts) * 1000);
+    return d.toLocaleTimeString([], { hour12: false });
+  } catch (e) { return '—'; }
+}
+function _daysLeftInMonth() {
+  const now = new Date();
+  const last = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0));
+  return Math.max(0, last.getUTCDate() - now.getUTCDate());
+}
+function _capColor(pct) {
+  if (pct >= 0.9) return '#ef4444';
+  if (pct >= 0.6) return '#f59e0b';
+  return '#22c55e';
+}
+
+async function loadUsage() {
+  try {
+    const d = await fetchJSON('/api/usage/console?recent_limit=50');
+    _renderUsageConsole(d);
+  } catch (e) {
+    const tbody = $('usageRecentBody');
+    if (tbody) tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:14px; color:var(--err);">offline — ' + (e.message || e) + '</td></tr>';
+  }
+  _ensureUsageStream();
+}
+
+function _renderUsageConsole(d) {
+  if (!d || !d.ok) return;
+  const today = d.today || {}, month = d.month || {}, bal = d.balance || {};
+  // A. Today
+  $('usageToday').textContent = _fmtUsd(today.cost_usd);
+  $('usageTodayEvents').textContent = today.events_count || 0;
+  // B. Month
+  $('usageTier').textContent = d.tier || bal.tier || 'FREE';
+  const hard = Number(bal.hard_cap_usd || 0);
+  const spent = Number(month.cost_usd || 0);
+  const pct = hard > 0 ? Math.min(1.0, spent / hard) : 0;
+  $('usageMonth').innerHTML = _fmtUsd(spent) + ' <span class="usage-cap">/ ' + _fmtUsd(hard) + '</span>';
+  const fill = $('usageBarFill');
+  fill.style.width = (pct * 100).toFixed(1) + '%';
+  fill.style.background = _capColor(pct);
+  $('usageDaysLeft').textContent = _daysLeftInMonth() + ' days left';
+  $('usageReqUsed').textContent = bal.requests_used || 0;
+  $('usageReqCap').textContent = bal.requests_cap || 0;
+  $('usageCount').textContent = today.events_count || 0;
+  // C. Recent table
+  _renderUsageRows(d.recent_events || []);
+  // D. Pie
+  _renderUsagePie(month.by_model || {});
+}
+
+function _renderUsageRows(rows) {
+  const tbody = $('usageRecentBody');
+  if (!tbody) return;
+  if (!rows.length) {
+    tbody.innerHTML = '<tr><td colspan="6" style="text-align:center; padding:14px; color:var(--muted);">no events yet — make an LLM call</td></tr>';
+    return;
+  }
+  tbody.innerHTML = rows.slice(0, 50).map(r => {
+    const oc = String(r.outcome || 'ok');
+    const model = (r.model || '').slice(0, 28);
+    const action = (r.action || '').slice(0, 18);
+    return '<tr>' +
+      '<td>' + _fmtTime(r.ts_utc) + '</td>' +
+      '<td title="' + (r.provider || '') + '">' + model + '</td>' +
+      '<td>' + action + '</td>' +
+      '<td class="num">' + (r.tokens_in || 0) + '/' + (r.tokens_out || 0) + '</td>' +
+      '<td class="num">' + _fmtUsd(r.cost_usd) + '</td>' +
+      '<td class="outcome-' + oc + '">' + oc + '</td>' +
+    '</tr>';
+  }).join('');
+}
+
+function _renderUsagePie(byModel) {
+  const entries = Object.entries(byModel || {}).filter(([, v]) => Number(v.cost_usd || 0) > 0);
+  const pie = $('usagePie');
+  const legend = $('usageLegend');
+  if (!pie || !legend) return;
+  if (!entries.length) {
+    pie.style.background = 'conic-gradient(rgba(255,255,255,0.06) 0 100%)';
+    legend.innerHTML = '<li style="color:var(--muted);">no spend yet</li>';
+    return;
+  }
+  entries.sort((a, b) => Number(b[1].cost_usd) - Number(a[1].cost_usd));
+  const total = entries.reduce((s, [, v]) => s + Number(v.cost_usd || 0), 0) || 1;
+  const stops = [];
+  const items = [];
+  let acc = 0;
+  entries.forEach(([model, v], i) => {
+    const pct = Number(v.cost_usd) / total;
+    const color = _USAGE_COLORS[i % _USAGE_COLORS.length];
+    const start = (acc * 100).toFixed(2) + '%';
+    acc += pct;
+    const end = (acc * 100).toFixed(2) + '%';
+    stops.push(color + ' ' + start + ' ' + end);
+    items.push(
+      '<li title="' + _fmtUsd(v.cost_usd) + '">' +
+      '<span class="swatch" style="background:' + color + '"></span>' +
+      '<span>' + (model || '(unknown)').slice(0, 22) + '</span>' +
+      '<span class="pct">' + (pct * 100).toFixed(1) + '%</span>' +
+      '</li>'
+    );
+  });
+  pie.style.background = 'conic-gradient(' + stops.join(',') + ')';
+  legend.innerHTML = items.join('');
+}
+
+function _renderSparkline(values) {
+  const poly = $('usageSparkPoly');
+  if (!poly) return;
+  if (!values.length) { poly.setAttribute('points', ''); return; }
+  const w = 240, h = 48;
+  const max = Math.max(...values, 0.0001);
+  const step = w / Math.max(values.length - 1, 1);
+  const pts = values.map((v, i) => (i * step).toFixed(1) + ',' + ((1 - (v / max)) * (h - 4) + 2).toFixed(1)).join(' ');
+  poly.setAttribute('points', pts);
+}
+
+function _ensureUsageStream() {
+  if (_usageSSE) return;
+  try {
+    _usageSSE = new EventSource(API + '/api/usage/stream');
+    _usageSSE.addEventListener('usage', (msgEv) => {
+      try {
+        const ev = JSON.parse(msgEv.data);
+        // Prepend to table
+        const tbody = $('usageRecentBody');
+        if (tbody) {
+          // Drop "no events yet" placeholder.
+          if (tbody.children.length === 1 && tbody.children[0].children.length === 1) {
+            tbody.innerHTML = '';
+          }
+          const tr = document.createElement('tr');
+          const oc = String(ev.outcome || 'ok');
+          tr.innerHTML =
+            '<td>' + _fmtTime(ev.ts_utc) + '</td>' +
+            '<td title="' + (ev.provider || '') + '">' + (ev.model || '').slice(0, 28) + '</td>' +
+            '<td>' + (ev.action || '').slice(0, 18) + '</td>' +
+            '<td class="num">' + (ev.tokens_in || 0) + '/' + (ev.tokens_out || 0) + '</td>' +
+            '<td class="num">' + _fmtUsd(ev.cost_usd) + '</td>' +
+            '<td class="outcome-' + oc + '">' + oc + '</td>';
+          tbody.insertBefore(tr, tbody.firstChild);
+          while (tbody.children.length > 50) tbody.removeChild(tbody.lastChild);
+        }
+        // Bump sparkline
+        _usageSparkBuf.push(Number(ev.cost_usd || 0));
+        if (_usageSparkBuf.length > 60) _usageSparkBuf.shift();
+        _renderSparkline(_usageSparkBuf);
+        // Cheap re-pull of totals to refresh panels A/B/D
+        loadUsage();
+      } catch (err) {
+        console.warn('usage.stream parse error:', err);
+      }
+    });
+    _usageSSE.onerror = () => {
+      if (_usageSSE) { try { _usageSSE.close(); } catch (e) {} }
+      _usageSSE = null;
+      // Auto-reconnect when user revisits the tab.
+    };
+  } catch (e) {
+    console.warn('SSE not supported in this WebView:', e);
+  }
+}
+
+async function usageRetryFailed() {
+  const btn = document.querySelector('[data-action="usage.retry-failed"]');
+  if (btn) { btn.disabled = true; btn.textContent = '… syncing'; }
+  try {
+    const r = await fetch(API + '/api/usage/retry_failed', { method: 'POST' });
+    const d = await r.json();
+    if (typeof showToast === 'function') {
+      showToast('Sync: drained ' + (d.drained || 0) + ', failing ' + (d.still_failing || 0));
+    }
+    loadUsage();
+  } catch (e) {
+    if (typeof showToast === 'function') showToast('Sync failed: ' + (e.message || e), 'err');
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '↻ Sync to meeet'; }
   }
 }
 
@@ -2766,6 +3100,9 @@ const TARS_ACTION_MAP = {
   'meeet.open-account':   () => openMeeetAccount(),
   'meeet.paste-token':    () => pasteMeeetToken(),
   'settings.open-api-docs': () => window.open(API + '/docs', '_blank'),
+  // usage tab (W235)
+  'usage.retry-failed':    () => usageRetryFailed(),
+  'usage.open-meeet':      () => openExternal('https://meeet.world/account/billing'),
   // footer
   'footer.docs':           () => openExternal('https://tars.meeet.world/docs'),
   'footer.report':         () => openExternal('https://github.com/alxvasilevvv/tars-neural-cockpit/issues/new'),

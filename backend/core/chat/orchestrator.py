@@ -375,6 +375,54 @@ class ChatOrchestrator:
                 },
             )
 
+            # W235 — metering middleware: feed the consumption console.
+            # Never let telemetry failures break the chat reply.
+            try:
+                from backend.core.metering import (
+                    UsageEvent,
+                    compute_cost_usd,
+                    record_usage,
+                    resolve_tier,
+                )
+
+                provider_model = str(self.voice.model or "")
+                if ":" in provider_model:
+                    _provider, _model = provider_model.split(":", 1)
+                elif "/" in provider_model:
+                    _provider, _model = provider_model.split("/", 1)
+                else:
+                    _provider, _model = ("local", provider_model)
+                _outcome = "ok"
+                if voice_error:
+                    _outcome = "provider_error"
+                _cost_usd = float(cost_usd or 0.0)
+                if _outcome != "ok":
+                    _cost_usd = 0.0  # never charge for failures
+                elif _cost_usd == 0.0:
+                    _cost_usd = compute_cost_usd(
+                        _provider, _model, tokens_in, tokens_out
+                    )
+                record_usage(
+                    UsageEvent(
+                        trace_id=str(trace_id),
+                        ts_utc=time.time(),
+                        provider=_provider,
+                        model=_model,
+                        action="chat.message",
+                        tokens_in=int(tokens_in),
+                        tokens_out=int(tokens_out),
+                        latency_ms=round(voice_latency_ms, 3),
+                        cost_usd=round(_cost_usd, 6),
+                        cost_meeet=round(_cost_usd * 100.0, 4),
+                        outcome=_outcome,
+                        tier=resolve_tier(),
+                        agent_id="chat.orchestrator",
+                        domain_pack="",
+                    )
+                )
+            except Exception:  # noqa: BLE001
+                pass
+
             # Persist tool calls with final status snapshots.
             for tc in tool_calls:
                 await self.store.upsert_tool_call(tc)
