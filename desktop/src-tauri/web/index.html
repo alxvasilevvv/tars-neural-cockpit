@@ -6275,6 +6275,16 @@ const TARS_ACTION_MAP = {
   'composer.send.review':         () => composerOpenSendReviewModal(),
   'gdpr.delete':                  () => gdprStartDelete(),
   'gdpr.export':                  () => gdprStartExport(),
+  // W275 — close last 8 inline-onclick deps. If a future CSP regression
+  // blocks `onclick=`, the click-delegation handler still routes these
+  // through TARS_ACTION_MAP. Today they coexist with inline onclicks.
+  'mem.refresh':                  () => memRefresh(),
+  'mem.search':                   () => memSearch(),
+  'voice.pick':                   () => voicePickerOnChange(),
+  'voice.lang':                   () => langPickerOnChange(),
+  'voice.preview':                () => voicePreview(),
+  'voice.test':                   () => voiceTest(),
+  'voice.clone':                  () => voiceClone(),
 };
 
 document.addEventListener('DOMContentLoaded', () => {
