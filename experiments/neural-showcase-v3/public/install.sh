@@ -29,7 +29,7 @@ set -euo pipefail
 # B-017: source repo is private, so we no longer hit github.com /
 # api.github.com directly (those return 404 to anonymous callers).
 # Everything routes through the same-origin tars.meeet.world surface:
-#   - GET /api/product/version    → { version: "9.1.0", ... }
+#   - GET /api/product/version    → { version: "10.0.0-rc.1", ... }
 #   - GET /dl/<filename>          → Pages Function proxies to GitHub
 #                                   via GITHUB_RELEASE_TOKEN (op env)
 TARS_ORIGIN="${TARS_ORIGIN:-https://tars.meeet.world}"

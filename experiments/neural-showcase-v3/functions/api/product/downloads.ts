@@ -66,6 +66,50 @@ const DL_BASE = "https://tars.meeet.world/dl";
 
 const RELEASES: Release[] = [
   {
+    version: "10.0.0-rc.1",
+    channel: "stable",
+    released_at: "2026-05-15T00:00:00Z",
+    notes:
+      "v10 release candidate. Voice cockpit (ElevenLabs Multilingual v2, 29 langs + RU). Persistent conversation memory (sqlite-vec + FTS5). Seven domain packs (wealth/health/family/product/brand/entrepreneur/civic). Composer plans + executor. Audit ledger + GDPR export. Background agents tray. Cmd+K v2 + @-mentions + codebase indexer. T2T marketplace (Stake/Quest/Arena/Discovery/Wallet). On-prem deploy stack. SOC2 Type II readiness pack.",
+    artifacts: [
+      {
+        os: "macos",
+        arch: "arm64",
+        kind: "dmg",
+        filename: "TARS_10.0.0-rc.1_aarch64.dmg",
+        url: `${DL_BASE}/TARS_10.0.0-rc.1_aarch64.dmg`,
+      },
+      {
+        os: "macos",
+        arch: "x64",
+        kind: "dmg",
+        filename: "TARS_10.0.0-rc.1_x64.dmg",
+        url: `${DL_BASE}/TARS_10.0.0-rc.1_x64.dmg`,
+      },
+      {
+        os: "windows",
+        arch: "x64",
+        kind: "exe",
+        filename: "TARS_10.0.0-rc.1_x64-setup.exe",
+        url: `${DL_BASE}/TARS_10.0.0-rc.1_x64-setup.exe`,
+      },
+      {
+        os: "linux",
+        arch: "x64",
+        kind: "appimage",
+        filename: "TARS_10.0.0-rc.1_amd64.AppImage",
+        url: `${DL_BASE}/TARS_10.0.0-rc.1_amd64.AppImage`,
+      },
+      {
+        os: "linux",
+        arch: "x64",
+        kind: "deb",
+        filename: "TARS_10.0.0-rc.1_amd64.deb",
+        url: `${DL_BASE}/TARS_10.0.0-rc.1_amd64.deb`,
+      },
+    ],
+  },
+  {
     version: "9.1.0",
     channel: "stable",
     released_at: "2026-05-04T11:10:56Z",
