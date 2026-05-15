@@ -120,7 +120,12 @@ Pack catalog: `GET /api/domains/manifest`.
 - `POST /api/voice/command` (W220) — full-screen cockpit command intake.
 - Text-input fallback (W232) under the mic so the cockpit is usable when no
   STT backend is configured.
-- TTS: XTTS-v2 voice cloning (W39) + per-persona SSML prosody (W43).
+- TTS: **ElevenLabs Multilingual v2 (W274)** — natural human voices in 29
+  languages incl. Russian, sub-second latency, emotion-aware. Curated 6-voice
+  picker in cockpit Settings (Rachel/Adam/Charlie/Sarah/Daniel/Bella).
+  Gracefully falls back to `window.speechSynthesis` when no API key. Local
+  MP3 cache at `~/.tars/tts_cache/` (LRU 100MB).
+- Legacy TTS: XTTS-v2 voice cloning (W39) + per-persona SSML prosody (W43).
 
 ### Auth (`meeet.world`)
 

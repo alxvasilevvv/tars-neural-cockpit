@@ -70,11 +70,35 @@ When all 5 are green: `bash scripts/RELEASE-v10.0.command`.
 
 ---
 
+
+## W274 — Premium voice + persistent memory (2026-05-15)
+
+- TARS now speaks with **ElevenLabs Multilingual v2** — 29 languages
+  including Russian, sub-second latency, emotion-aware. Robotic
+  `speechSynthesis` voice is gone when an API key is configured.
+- 6 curated voices ship in the cockpit Settings picker (Rachel /
+  Adam / Charlie / Sarah / Daniel / Bella). Each shows lang flags +
+  preview button.
+- New Memory tab in the drawer renders **persistent conversation
+  history** — sessions list, timeline view, FTS5 semantic search
+  across every session. Storage at `~/.tars/conversations.sqlite`.
+- 6 new endpoints: `POST /api/a11y/speak`, `GET /api/a11y/voices`,
+  `POST /api/a11y/voice-clone`, `GET /api/conversations`,
+  `GET /api/conversations/search`, `GET /api/conversations/sessions`,
+  `DELETE /api/conversations/session/{id}` (plus turn/exchange/context).
+- Fallback: no `ELEVENLABS_API_KEY` -> browser speechSynthesis, never
+  silent.
+- Cost guidance: Starter plan ($5/mo) covers ~30K chars (≈10 min of
+  voice per day) — enough for daily demos and trial usage.
+
 ## Recent commits (Claude lane)
 
 | SHA | Wave | Subject |
 |---|---|---|
-| `(this)` | W269 | 60-sec voice-first onboarding — TTFV measurement + scripted first-launch flow |
+| `(this)` | W274 | Premium ElevenLabs TTS + conversation memory layer — natural multilingual voice (29 langs) + persistent context |
+| _prior_ | W273 | DEMO-READY.command pre-flight + demo orchestration + final smoke + rebuild |
+| _prior_ | W272 | Presentation deck for v10.0.0-rc.1 demo |
+| _prior_ | W269 | 60-sec voice-first onboarding — TTFV measurement + scripted first-launch flow |
 | _prior_ | W266+W267 | perf benchmarks + final QA gate + v10.0 GA checklist + release script |
 | _prior_ | W264 | `v10.0.0-rc.1` release prep — notes, CHANGELOG, version bumps, master doc + index sync, RELEASE script |
 | _prior_ | W263 | On-prem TARS deployment kit (docker compose, OIDC, systemd, 435-line guide) |

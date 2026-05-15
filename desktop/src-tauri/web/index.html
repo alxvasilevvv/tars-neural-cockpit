@@ -1733,6 +1733,8 @@
     <button class="active" data-tab="status">Status</button>
     <button data-tab="agents">Agents <span class="count" id="agCount">·</span></button>
     <button data-tab="chat">Chat <span class="count" id="threadCount">·</span></button>
+    <!-- W274 -- MEMORY: persistent conversation history. -->
+    <button data-tab="memory">Memory <span class="count" id="memCount">·</span></button>
     <button data-tab="activity">Activity <span class="count" id="actCount">·</span></button>
     <button data-tab="connectors">Connectors <span class="count" id="connCount">·</span></button>
     <button data-tab="cowork">Cowork <span class="count" id="coCount">·</span></button>
@@ -2027,6 +2029,39 @@
       </div>
     </div>
 
+    <!-- W274 -- MEMORY TAB: sessions left, timeline center, search right -->
+    <div id="tab-memory" class="tab-panel">
+      <div class="panel" style="max-height: calc(100vh - 200px); overflow: auto;">
+        <h2>Conversation memory <span style="color:var(--muted);font-weight:400;font-size:11px;">persistent (W274)</span></h2>
+        <div style="font-size:11px;color:var(--muted);margin-bottom:12px;">TARS remembers every chat session locally at <code>~/.tars/conversations.sqlite</code>. Click a session to scroll its turns; semantic search spans every session.</div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px;">
+          <section>
+            <h3 style="font-size:13px;margin:0 0 8px;">Sessions <span id="memSessCount" style="color:var(--muted);font-weight:400;font-size:11px;">·</span></h3>
+            <div id="memSessions"><div class="skel-shimmer skel-card" style="height:56px;"></div></div>
+          </section>
+
+          <section>
+            <h3 style="font-size:13px;margin:0 0 8px;">Timeline <span id="memTimelineHint" style="color:var(--muted);font-weight:400;font-size:11px;">— click a session</span></h3>
+            <div id="memTimeline" style="font-size:12px;line-height:1.55;"></div>
+          </section>
+
+          <section>
+            <h3 style="font-size:13px;margin:0 0 8px;">Semantic search</h3>
+            <div style="display:flex;gap:6px;margin-bottom:8px;">
+              <input id="memSearchInput" type="text" placeholder="Search across all sessions…" style="flex:1;padding:6px 8px;background:rgba(0,0,0,0.35);border:1px solid var(--panel-edge);border-radius:6px;color:var(--fg);font-size:12px;" />
+              <button class="btn" data-action="mem.search" onclick="memSearch()">Search</button>
+            </div>
+            <div id="memSearchResults" style="font-size:12px;line-height:1.55;color:var(--muted);">Type a query above.</div>
+          </section>
+        </div>
+
+        <div style="margin-top:14px;">
+          <button class="btn" data-action="mem.refresh" onclick="memRefresh()">Refresh</button>
+        </div>
+      </div>
+    </div>
+
     <!-- SETTINGS TAB -->
     <!-- W260 -- REVIEW TAB: incoming peer reviews + outgoing review status. -->
     <div id="tab-review" class="tab-panel">
@@ -2071,6 +2106,47 @@
             <button class="btn" data-action="meeet.open-account" onclick="openMeeetAccount()">↗ Open account page</button>
             <button class="btn" id="meeetPasteBtn" data-action="meeet.paste-token" onclick="pasteMeeetToken()" style="display:none">📋 Paste token</button>
           </div>
+        </div>
+
+
+        <!-- W274 — Voice & Language: ElevenLabs Multilingual v2 -->
+        <div class="setting-block" data-w274 id="settingVoice">
+          <h3>VOICE &amp; LANGUAGE <span style="color:var(--muted);font-weight:400;font-size:11px;">ElevenLabs Multilingual v2 (W274)</span></h3>
+          <p style="font-size: 11px; color: var(--muted); line-height: 1.6; margin: 4px 0 10px;">
+            Premium natural voice for TARS — 29 languages including Russian, sub-second latency, emotion-aware. Falls back to browser TTS when <code>ELEVENLABS_API_KEY</code> isn't set.
+          </p>
+          <div class="kv" style="margin-bottom: 10px;">
+            <div class="k">Engine</div><div class="v" id="kVoiceEngine">—</div>
+            <div class="k">Active voice</div><div class="v" id="kVoiceActive">—</div>
+            <div class="k">Language</div><div class="v" id="kVoiceLang">—</div>
+          </div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px;">
+            <label style="font-size:11px;color:var(--muted);">
+              Voice
+              <select id="voicePicker" data-action="voice.pick" onchange="voicePickerOnChange()" style="width:100%;margin-top:4px;padding:6px;background:rgba(0,0,0,0.35);border:1px solid var(--panel-edge);border-radius:6px;color:var(--fg);font-size:12px;">
+                <option value="">Loading…</option>
+              </select>
+            </label>
+            <label style="font-size:11px;color:var(--muted);">
+              Language
+              <select id="langPicker" data-action="voice.lang" onchange="langPickerOnChange()" style="width:100%;margin-top:4px;padding:6px;background:rgba(0,0,0,0.35);border:1px solid var(--panel-edge);border-radius:6px;color:var(--fg);font-size:12px;">
+                <option value="auto">Auto-detect</option>
+                <option value="en-US">English (US)</option>
+                <option value="ru-RU">Русский</option>
+                <option value="es-ES">Español</option>
+                <option value="zh-CN">中文</option>
+                <option value="ja-JP">日本語</option>
+                <option value="de-DE">Deutsch</option>
+                <option value="fr-FR">Français</option>
+              </select>
+            </label>
+          </div>
+          <div class="actions">
+            <button class="btn" data-action="voice.preview" onclick="voicePreview()">▶ Preview voice</button>
+            <button class="btn" data-action="voice.test" onclick="voiceTest()">🎙 Test sentence</button>
+            <button class="btn" data-action="voice.clone" onclick="voiceClone()">🧬 Voice clone (Creator)</button>
+          </div>
+          <div id="voiceHint" style="font-size:11px;color:var(--muted);margin-top:8px;"></div>
         </div>
 
         <!-- W269 — Replay first-launch voice tour -->
@@ -5918,18 +5994,81 @@ function _executeAction(action, _payload) {
   }
 }
 
-function _speak(text) {
-  if (!text || !window.speechSynthesis) return;
+// W274 — Premium TTS via ElevenLabs Multilingual v2 with browser fallback.
+// Voice + lang come from localStorage (Voice & Language picker in Settings).
+async function _speak(text) {
+  if (!text || VC.muted) return;
+  // Cancel any prior browser-TTS playback so we never overlap with cloud audio.
+  try { window.speechSynthesis && window.speechSynthesis.cancel(); } catch (_e) {}
+  // Stop a still-playing cloud audio element if present.
+  if (VC._audio) { try { VC._audio.pause(); } catch (_e) {} VC._audio = null; }
+  const voiceId = localStorage.getItem('tars_voice_id') || 'IKne3meq5aSn9XLyUdCD';
+  const lang = (localStorage.getItem('tars_lang') || VC.lang || 'auto');
   try {
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = VC.lang;
-    u.onstart = () => { VC.speaking = true; vcSetState('speaking'); };
-    u.onend = () => {
-      VC.speaking = false;
-      vcSetState(VC.listening ? 'listening' : 'idle');
-    };
-    window.speechSynthesis.speak(u);
-  } catch (_e) {}
+    const r = await fetch(API + '/api/a11y/speak', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        text: String(text).slice(0, 5000),
+        voice_id: voiceId,
+        lang: lang,
+      }),
+    });
+    const d = await r.json().catch(() => ({}));
+    // Branch 1 — backend says "use browser TTS" (no key OR transient failure).
+    if (d && d.use_browser_tts) {
+      if (!window.speechSynthesis) return;
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = (lang && lang !== 'auto') ? lang : (VC.lang || 'ru-RU');
+      u.onstart = () => { VC.speaking = true; vcSetState('speaking'); };
+      u.onend = () => {
+        VC.speaking = false;
+        vcSetState(VC.listening ? 'listening' : 'idle');
+      };
+      window.speechSynthesis.speak(u);
+      return;
+    }
+    // Branch 2 — premium MP3 base64 data URL from ElevenLabs.
+    if (d && d.audio_url) {
+      const audio = new Audio(d.audio_url);
+      VC._audio = audio;
+      VC.speaking = true;
+      vcSetState('speaking');
+      audio.onended = () => {
+        VC.speaking = false;
+        VC._audio = null;
+        vcSetState(VC.listening ? 'listening' : 'idle');
+      };
+      audio.onerror = () => {
+        VC.speaking = false;
+        VC._audio = null;
+        vcSetState(VC.listening ? 'listening' : 'idle');
+      };
+      try { await audio.play(); } catch (_e) {
+        // Autoplay blocked — fall back to browser TTS silently.
+        if (window.speechSynthesis) {
+          const u = new SpeechSynthesisUtterance(text);
+          u.lang = (lang && lang !== 'auto') ? lang : (VC.lang || 'ru-RU');
+          window.speechSynthesis.speak(u);
+        }
+      }
+      return;
+    }
+    // Branch 3 — backend returned an unexpected shape; degrade.
+    if (window.speechSynthesis) {
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = (lang && lang !== 'auto') ? lang : (VC.lang || 'ru-RU');
+      window.speechSynthesis.speak(u);
+    }
+  } catch (_e) {
+    // Network error — last-resort browser fallback so the user is never stranded silent.
+    if (!window.speechSynthesis) return;
+    try {
+      const u = new SpeechSynthesisUtterance(text);
+      u.lang = (lang && lang !== 'auto') ? lang : (VC.lang || 'ru-RU');
+      window.speechSynthesis.speak(u);
+    } catch (_e2) {}
+  }
 }
 
 function vcOpenDrawer() {
@@ -8339,6 +8478,188 @@ function openSoc2Doc() {
     setPlanId: (id) => { PAIR.currentPlanId = id; },
     feed: _onUtterance,
   };
+
+// ═══════════════════════════════════════════════════════════════════════════
+// W274 — Memory tab + Voice & Language picker handlers
+// ═══════════════════════════════════════════════════════════════════════════
+const TARS_VOICES_FALLBACK = [
+  { voice_id: '21m00Tcm4TlvDq8ikWAM', name: 'Rachel', gender: 'female', lang_codes: ['en','ru'], description: 'Calm English narration (29 langs via multilingual_v2)', default: true },
+  { voice_id: 'pNInz6obpgDQGcFmaJgB', name: 'Adam',    gender: 'male',   lang_codes: ['en','ru'], description: 'Deep male — TARS persona match' },
+  { voice_id: 'IKne3meq5aSn9XLyUdCD', name: 'Charlie', gender: 'male',   lang_codes: ['en','ru','ja','zh'], description: 'Multi-purpose, natural Russian + Asian langs' },
+  { voice_id: 'EXAVITQu4vr4xnSDxMaL', name: 'Sarah',   gender: 'female', lang_codes: ['en','ru'], description: 'Warm conversational female' },
+  { voice_id: 'onwK4e9ZLuTAKqWW03F9', name: 'Daniel',  gender: 'male',   lang_codes: ['en','ru'], description: 'British narrator' },
+  { voice_id: 'XB0fDUnXU5powFXDhCwa', name: 'Bella',   gender: 'female', lang_codes: ['en','ru'], description: 'Energetic expressive female' },
+];
+
+let MEM_STATE = { sessions: [], active: null, voices: [], engine: 'browser' };
+
+function _memEscape(s) {
+  return String(s || '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+async function memRefresh() {
+  const host = document.getElementById('memSessions');
+  if (!host) return;
+  host.innerHTML = '<div class="skel-shimmer skel-card" style="height:56px;"></div>';
+  try {
+    const r = await fetch(API + '/api/conversations/sessions?limit=50');
+    const d = await r.json();
+    const sessions = (d && d.sessions) || [];
+    MEM_STATE.sessions = sessions;
+    document.getElementById('memSessCount').textContent = sessions.length;
+    const memCount = document.getElementById('memCount');
+    if (memCount) memCount.textContent = sessions.length;
+    if (sessions.length === 0) {
+      host.innerHTML = '<div style="font-size:12px;color:var(--muted);">No conversations yet. Start a chat in the Chat tab — every turn is remembered.</div>';
+      return;
+    }
+    host.innerHTML = sessions.map(s => {
+      const label = _memEscape(s.label || s.summary || '(no topic)');
+      return `<div class="memSessionRow" data-sid="${_memEscape(s.id)}" onclick="memOpenSession('${_memEscape(s.id)}')" style="padding:8px 10px;border:1px solid var(--panel-edge);border-radius:6px;margin-bottom:6px;cursor:pointer;background:rgba(0,0,0,0.2);">
+        <div style="font-size:12px;color:var(--fg);">${label}</div>
+        <div style="font-size:11px;color:var(--muted);margin-top:2px;">${_memEscape(s.summary || '')} · ${s.turn_count || 0} turns</div>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    host.innerHTML = `<div style="font-size:12px;color:#f87171;">Memory unavailable: ${_memEscape(e.message)}</div>`;
+  }
+}
+
+async function memOpenSession(sid) {
+  MEM_STATE.active = sid;
+  const host = document.getElementById('memTimeline');
+  const hint = document.getElementById('memTimelineHint');
+  if (hint) hint.textContent = '— ' + sid.slice(0, 24);
+  host.innerHTML = '<div class="skel-shimmer skel-card" style="height:32px;"></div>';
+  try {
+    const r = await fetch(API + '/api/conversations?session_id=' + encodeURIComponent(sid) + '&limit=100');
+    const d = await r.json();
+    const turns = (d && d.turns) || [];
+    if (turns.length === 0) { host.innerHTML = '<div style="color:var(--muted);">(empty session)</div>'; return; }
+    host.innerHTML = turns.map(t => {
+      const who = t.role === 'tars' ? 'TARS' : 'You';
+      const cls = t.role === 'tars' ? 'tars' : 'user';
+      const when = new Date((t.ts_utc || 0) * 1000).toLocaleString();
+      return `<div style="padding:6px 0;border-bottom:1px dashed var(--panel-edge);">
+        <div style="font-size:10px;color:var(--muted);margin-bottom:2px;">${_memEscape(who)} · ${_memEscape(when)}</div>
+        <div class="line ${cls}" style="white-space:pre-wrap;">${_memEscape(t.text)}</div>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    host.innerHTML = `<div style="color:#f87171;">Open failed: ${_memEscape(e.message)}</div>`;
+  }
+}
+
+async function memSearch() {
+  const q = (document.getElementById('memSearchInput').value || '').trim();
+  const host = document.getElementById('memSearchResults');
+  if (!q) { host.innerHTML = 'Type a query above.'; return; }
+  host.innerHTML = '<div class="skel-shimmer skel-card" style="height:32px;"></div>';
+  try {
+    const r = await fetch(API + '/api/conversations/search?q=' + encodeURIComponent(q) + '&limit=10');
+    const d = await r.json();
+    const rows = (d && d.results) || [];
+    if (rows.length === 0) { host.innerHTML = '<div style="color:var(--muted);">No matches.</div>'; return; }
+    host.innerHTML = rows.map(t => {
+      const who = t.role === 'tars' ? 'TARS' : 'You';
+      const sid = _memEscape(t.session_id || '');
+      return `<div style="padding:6px 0;border-bottom:1px dashed var(--panel-edge);">
+        <div style="font-size:10px;color:var(--muted);">${who} · session ${sid.slice(0,10)}…</div>
+        <div style="font-size:12px;color:var(--fg);cursor:pointer;" onclick="memOpenSession('${sid}')">${_memEscape((t.text || '').slice(0, 240))}</div>
+      </div>`;
+    }).join('');
+  } catch (e) {
+    host.innerHTML = `<div style="color:#f87171;">Search failed: ${_memEscape(e.message)}</div>`;
+  }
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  const memBtn = document.querySelector('nav.tabs button[data-tab="memory"]');
+  if (memBtn) memBtn.addEventListener('click', () => setTimeout(memRefresh, 50));
+  // Pre-fill the language picker from saved choice.
+  const lang = localStorage.getItem('tars_lang') || 'auto';
+  const lp = document.getElementById('langPicker');
+  if (lp) lp.value = lang;
+  // Init voice picker.
+  setTimeout(initVoicePicker, 200);
+});
+
+// ─── Voice & Language picker ───────────────────────────────────────────────
+async function initVoicePicker() {
+  const sel = document.getElementById('voicePicker');
+  if (!sel) return;
+  let voices = TARS_VOICES_FALLBACK;
+  let engine = 'browser';
+  try {
+    const r = await fetch(API + '/api/a11y/voices');
+    const d = await r.json();
+    if (d && d.voices && d.voices.length) {
+      voices = d.voices;
+      engine = d.engine || 'browser';
+    }
+  } catch (_e) { /* fall through with fallback list */ }
+  MEM_STATE.voices = voices;
+  MEM_STATE.engine = engine;
+  const saved = localStorage.getItem('tars_voice_id') || (voices.find(v => v.default) || voices[0]).voice_id;
+  sel.innerHTML = voices.map(v => {
+    const flags = (v.lang_codes || []).slice(0, 4).join('/');
+    return `<option value="${_memEscape(v.voice_id)}" ${v.voice_id === saved ? 'selected' : ''}>${_memEscape(v.name)} · ${_memEscape(v.gender || '')} · ${_memEscape(flags)}</option>`;
+  }).join('');
+  localStorage.setItem('tars_voice_id', saved);
+  const ke = document.getElementById('kVoiceEngine'); if (ke) ke.textContent = engine === 'elevenlabs' ? 'ElevenLabs Multilingual v2' : 'Browser (no API key)';
+  const ka = document.getElementById('kVoiceActive'); if (ka) { const v = voices.find(x => x.voice_id === saved); ka.textContent = v ? v.name : saved; }
+  const kl = document.getElementById('kVoiceLang'); if (kl) kl.textContent = localStorage.getItem('tars_lang') || 'auto';
+  const hint = document.getElementById('voiceHint');
+  if (hint) hint.textContent = engine === 'elevenlabs'
+    ? '29 supported languages — Russian, English, Spanish, Mandarin, Japanese and more.'
+    : 'Add ELEVENLABS_API_KEY to .env and restart backend to unlock premium voice. Browser TTS active for now.';
+}
+
+function voicePickerOnChange() {
+  const sel = document.getElementById('voicePicker');
+  if (!sel) return;
+  localStorage.setItem('tars_voice_id', sel.value);
+  const v = (MEM_STATE.voices || []).find(x => x.voice_id === sel.value);
+  const ka = document.getElementById('kVoiceActive'); if (ka && v) ka.textContent = v.name;
+}
+
+function langPickerOnChange() {
+  const sel = document.getElementById('langPicker');
+  if (!sel) return;
+  localStorage.setItem('tars_lang', sel.value);
+  const kl = document.getElementById('kVoiceLang'); if (kl) kl.textContent = sel.value;
+  if (typeof VC !== 'undefined' && sel.value && sel.value !== 'auto') {
+    try { VC.lang = sel.value; } catch (_e) {}
+  }
+}
+
+function voicePreview() {
+  const v = (MEM_STATE.voices || []).find(x => x.voice_id === (document.getElementById('voicePicker') || {}).value);
+  if (!v || !v.sample_url) { _speak('Voice preview unavailable — playing sample sentence via TTS.'); return; }
+  try {
+    const a = new Audio(v.sample_url);
+    a.play().catch(() => _speak('This is a preview of ' + v.name + '.'));
+  } catch (_e) { _speak('This is a preview of ' + (v ? v.name : 'the selected voice') + '.'); }
+}
+
+function voiceTest() {
+  const lang = localStorage.getItem('tars_lang') || 'auto';
+  const sample = lang.startsWith('ru')
+    ? 'Привет. Я TARS, ваш персональный ассистент. Готов помочь.'
+    : 'Hello. I am TARS, your personal assistant. Ready when you are.';
+  _speak(sample);
+}
+
+async function voiceClone() {
+  try {
+    const r = await fetch(API + '/api/a11y/voice-clone', { method: 'POST' });
+    const d = await r.json();
+    alert(d.hint || (d.ok ? 'Voice clone created: ' + d.voice_id : 'Voice clone unavailable.'));
+  } catch (e) {
+    alert('Voice clone failed: ' + e.message);
+  }
+}
+
 })();
 </script>
 </body>

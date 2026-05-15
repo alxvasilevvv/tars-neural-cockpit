@@ -119,6 +119,8 @@ from web_extras.routers import agent_marketplace as agent_marketplace_router
 # W257 — /api/gdpr/* GDPR data-subject access (export/delete/cancel) for BUSINESS tier
 from web_extras.routers import gdpr as gdpr_router
 from web_extras.routers import onboarding as onboarding_router
+# W274 — /api/conversations persistent conversation memory
+from web_extras.routers import conversations as conversations_router
 
 START_TS = time.time()
 log = logging.getLogger("tars.app")
@@ -1004,6 +1006,8 @@ app.include_router(agent_marketplace_router.router)
 app.include_router(gdpr_router.router)
 # W269 — 60-sec voice-first onboarding telemetry
 app.include_router(onboarding_router.router)
+# W274 — persistent conversation memory layer
+app.include_router(conversations_router.router)
 
 
 async def _health_payload() -> dict[str, object]:

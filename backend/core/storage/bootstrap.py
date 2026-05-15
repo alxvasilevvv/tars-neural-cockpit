@@ -525,6 +525,83 @@ def _demo_seed_mcp_server() -> dict[str, object]:
     return {"seeded": True, "name": demo_name, "config_path": str(_config_path())}
 
 
+
+def _demo_seed_conversations() -> dict[str, object]:
+    """W274 — Seed 3 demo conversation sessions for the memory tab demo."""
+
+    if os.getenv("TARS_DEMO_SEED") != "1":
+        return {"seeded": False, "reason": "demo_flag_not_set"}
+
+    try:
+        from backend.core.memory.conversation import (
+            ConversationTurn,
+            get_conversation_memory,
+        )
+    except Exception as exc:  # pragma: no cover
+        return {"seeded": False, "reason": f"import_failed: {exc}"}
+
+    mem = get_conversation_memory()
+    existing = {row["id"] for row in mem.list_sessions(limit=200)}
+
+    demo: list[tuple[str, str, list[tuple[str, str]]]] = [
+        (
+            "demo_session_q3",
+            "Q3 outreach planning",
+            [
+                ("user", "Plan our Q3 outreach to the top 50 funds — what's the right cadence?"),
+                ("tars", "I'd open with a 3-touch sequence: warm intro, value drop, ask. Roughly day 0 / +5 / +12. Want me to draft the first email in your voice?"),
+                ("user", "Yes — keep it under 90 words, friendly but professional."),
+                ("tars", "Draft attached to the Outreach inbox. 84 words, opens with their recent portfolio move, closes with a Tuesday/Thursday slot ask."),
+                ("user", "Great. Schedule the follow-ups."),
+                ("tars", "Scheduled. Sequence will pause if anyone replies."),
+            ],
+        ),
+        (
+            "demo_session_health",
+            "Health check-up prep",
+            [
+                ("user", "I have a physical next Monday. What should I prep?"),
+                ("tars", "Fast 8 hours before bloodwork, bring your medication list, and bring questions for your doctor. Want me to compile your last six months of sleep + activity data?"),
+                ("user", "Yes, summarize sleep + steps + any meds I refilled."),
+                ("tars", "Done — one-page summary in your Documents. Average 7h12m sleep, 8,400 steps/day, two refills (Vitamin D, magnesium)."),
+                ("user", "Send a copy to my doctor."),
+                ("tars", "Sent via secure email. Receipt logged."),
+            ],
+        ),
+        (
+            "demo_session_code",
+            "Code review session",
+            [
+                ("user", "Walk me through the new payment retry logic."),
+                ("tars", "The retry uses exponential backoff capped at 5 attempts, with idempotency keys on every charge. Tests cover the timeout + duplicate-key paths. Want a diff summary?"),
+                ("user", "Yes, focus on edge cases."),
+                ("tars", "Edge cases: network-flap mid-charge, duplicate webhook delivery, partial refund race. All three have explicit tests. Coverage 94% on the retry module."),
+                ("user", "Approve it."),
+                ("tars", "Approved. Plan ID composer_pay_retry_v3 applied. Receipt anchored."),
+            ],
+        ),
+    ]
+
+    seeded = 0
+    base = time.time() - 86_400 * 2  # two days ago, three sessions over recent days
+    for idx, (sid, label, turns) in enumerate(demo):
+        if sid in existing:
+            continue
+        mem.ensure_session(sid, label=label)
+        ts0 = base + idx * 18_000  # spread sessions 5h apart
+        for t_idx, (role, text) in enumerate(turns):
+            mem.add_turn(ConversationTurn(
+                id=f"{sid}_t{t_idx}",
+                session_id=sid,
+                role=role,
+                text=text,
+                ts_utc=ts0 + t_idx * 45.0,
+            ))
+        seeded += 1
+
+    return {"seeded": bool(seeded), "count": seeded}
+
+
 def _demo_seed_notepads() -> dict[str, object]:
     """W273 — seed the 5 stock notepad templates so the cockpit list is
     non-empty for the demo. Gated by TARS_DEMO_SEED=1 but the underlying
@@ -630,6 +707,14 @@ async def init_all_databases() -> BootstrapResult:
     except Exception as exc:
         result.steps_warn.append(("demo_seed_mcp", str(exc)[:240]))
         _stderr(f"warn: demo_seed_mcp: {exc}")
+
+    # W274 — seed 3 demo conversations for the Memory tab demo
+    try:
+        result.seeded["demo_conversations"] = _demo_seed_conversations()
+        _stderr(f"seed: demo_conversations: {result.seeded['demo_conversations']}")
+    except Exception as exc:
+        result.steps_warn.append(("demo_seed_conversations", str(exc)[:240]))
+        _stderr(f"warn: demo_seed_conversations: {exc}")
 
     # W273 — seed notepad templates so the Notepads tab is non-empty for the demo
     try:

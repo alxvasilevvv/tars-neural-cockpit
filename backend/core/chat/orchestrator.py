@@ -179,6 +179,29 @@ class ChatOrchestrator:
         op_msg = Message.from_operator(thread.id, operator_text)
         await self.store.insert_message(op_msg)
 
+        # W274 — persistent conversation memory (operator side).
+        # Fire-and-forget; never blocks the chat path.
+        try:
+            from backend.core.memory.conversation import (
+                ConversationTurn as _CTurn,
+                get_conversation_memory as _get_conv_mem,
+            )
+
+            def _conv_record_op() -> None:
+                try:
+                    _mem = _get_conv_mem()
+                    _mem.add_turn(_CTurn(
+                        id="",
+                        session_id=session_id or thread.last_session_id or thread.id,
+                        role="user",
+                        text=operator_text or "",
+                    ))
+                except Exception:
+                    pass
+            asyncio.create_task(asyncio.to_thread(_conv_record_op))
+        except Exception:
+            pass
+
         # Wave 73 Feature 4 — feed the AI Clone v0.1 style store.
         # Best-effort fire-and-forget; never raises, never blocks
         # the chat write path.
@@ -422,6 +445,32 @@ class ChatOrchestrator:
             # `message.started` and the persisted row line up.
             assistant_msg = self._with_id(assistant_msg, assistant_id)
             await self.store.insert_message(assistant_msg)
+
+            # W274 — persistent conversation memory (TARS side).
+            try:
+                from backend.core.memory.conversation import (
+                    ConversationTurn as _CTurn,
+                    get_conversation_memory as _get_conv_mem,
+                )
+
+                _reply_text = getattr(assistant_msg, "text", None) or getattr(assistant_msg, "content", None) or ""
+
+                def _conv_record_tars() -> None:
+                    try:
+                        _mem = _get_conv_mem()
+                        _mem.add_turn(_CTurn(
+                            id="",
+                            session_id=session_id or thread.last_session_id or thread.id,
+                            role="tars",
+                            text=str(_reply_text),
+                            tokens_in=int(tokens_in or 0),
+                            tokens_out=int(tokens_out or 0),
+                        ))
+                    except Exception:
+                        pass
+                asyncio.create_task(asyncio.to_thread(_conv_record_tars))
+            except Exception:
+                pass
 
             # Emit usage event so the cost ledger sees the chat turn.
             await client.emit(
