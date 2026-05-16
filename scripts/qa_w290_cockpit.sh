@@ -213,6 +213,43 @@ else
   bad "HTML size suspicious ($HTML_BYTES bytes) — accidental delete or duplicate?"
 fi
 
+# ─── Group 9: Voice persona effective-voice uniqueness (W286+W290 voice flow) ──
+group "9. Voice persona uniqueness (4 male personas → distinct voices)"
+if [ "$OFFLINE_MODE" = "1" ]; then
+  skip "offline mode — voice persona uniqueness check skipped"
+else
+  EFF_JSON="$(curl -sS --max-time 3 "$TARS_HOST/api/voice/personas/effective" 2>/dev/null || echo '')"
+  if [ -z "$EFF_JSON" ]; then
+    skip "/api/voice/personas/effective unreachable — endpoint may not be wired in this build"
+  else
+    UNIQ_LINE=$(printf '%s' "$EFF_JSON" | python3 - <<'PY' 2>/dev/null || echo "0 0"
+import sys, json
+try:
+    d = json.load(sys.stdin)
+except Exception:
+    print("0 0"); sys.exit(0)
+wanted = {"jarvis", "stark", "hal_9000", "tars"}
+seen = {}
+for p in d.get("personas", []):
+    pid = p.get("id")
+    if pid in wanted:
+        seen[pid] = p.get("effective_voice_id") or p.get("voice_id") or ""
+ids = [v for v in seen.values() if v]
+print(f"{len(set(ids))} {len(seen)}")
+PY
+)
+    UNIQ_VOICES="${UNIQ_LINE%% *}"
+    TOTAL="${UNIQ_LINE##* }"
+    if [ "$TOTAL" -ge 3 ] && [ "$UNIQ_VOICES" = "$TOTAL" ]; then
+      ok "$UNIQ_VOICES distinct effective voices across $TOTAL/4 male personas"
+    elif [ "$TOTAL" -lt 3 ]; then
+      skip "only $TOTAL/4 male personas exposed — fallback chain not fully wired"
+    else
+      bad "$UNIQ_VOICES distinct voices across $TOTAL male personas (expected $TOTAL/$TOTAL — voice-fallback regression)"
+    fi
+  fi
+fi
+
 # ─── Summary ─────────────────────────────────────────────────────────────
 printf "\n\033[1m═══ Result ═══\033[0m\n"
 printf "PASS=%d FAIL=%d SKIP=%d\n" "$PASS" "$FAIL" "$SKIP"

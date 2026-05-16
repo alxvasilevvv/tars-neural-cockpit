@@ -44,29 +44,33 @@ const PROXY_CACHE_SECONDS = 300; // 5 min for redirect + asset listing.
 const BODY_CACHE_SECONDS = 3600; // 1 h for binary body (release immutable).
 
 // Strict allowlist — only filenames produced by the
-// `release-desktop-tagged.yml` workflow for known release tags. New
-// release? Add the assets here in the same PR that bumps the tag.
+// `release-desktop-tagged.yml` workflow for known release tags.
+//
+// To add a new version: append to SUPPORTED_VERSIONS. The 6 platform
+// artifacts get auto-generated; updater channel files
+// (latest.json + latest.json.sig) + the Tauri .app.tar.gz are
+// version-independent, added once.
+//
+// CROSS-VALIDATION: see `[file].test.ts` — the W291 sentinel test
+// reads the live `public/install.sh` and asserts every filename it
+// can build is in this set. Bump SUPPORTED_VERSIONS in the SAME PR
+// that bumps the install funnel's TARS_VERSION.
+const SUPPORTED_VERSIONS = ["9.1.0", "8.4.0"];
+function platformArtifactsForVersion(version: string): string[] {
+  return [
+    `TARS_${version}_aarch64.dmg`,
+    `TARS_${version}_x64.dmg`,
+    `TARS_${version}_amd64.AppImage`,
+    `TARS_${version}_amd64.deb`,
+    `TARS_${version}_x64-setup.exe`,
+    `TARS_${version}_x64_en-US.msi`,
+  ];
+}
 const ALLOWED_FILENAMES = new Set<string>([
-  // v9.1.0 — current stable. Wave 142 update: the actual published
-  // release ships full cross-platform matrix (Mac arm64 + Linux deb/
-  // AppImage + Windows exe/msi + Tauri .app.tar.gz). Names below
-  // mirror the artifact names in the live GitHub Release.
-  "TARS_9.1.0_aarch64.dmg",
-  "TARS_9.1.0_x64.dmg",
-  "TARS_9.1.0_amd64.AppImage",
-  "TARS_9.1.0_amd64.deb",
-  "TARS_9.1.0_x64-setup.exe",
-  "TARS_9.1.0_x64_en-US.msi",
-  "TARS_aarch64.app.tar.gz",
-  "latest.json", // Tauri updater channel manifest
+  ...SUPPORTED_VERSIONS.flatMap(platformArtifactsForVersion),
+  "TARS_aarch64.app.tar.gz", // Tauri update bundle (version-independent name)
+  "latest.json",             // Tauri updater channel manifest
   "latest.json.sig",
-  // v8.4.0 — previous stable, kept for any pinned installers in the wild
-  "TARS_8.4.0_aarch64.dmg",
-  "TARS_8.4.0_x64.dmg",
-  "TARS_8.4.0_x64-setup.exe",
-  "TARS_8.4.0_x64_en-US.msi",
-  "TARS_8.4.0_amd64.AppImage",
-  "TARS_8.4.0_amd64.deb",
 ]);
 
 // Map filename → release tag. Naming convention is `TARS_<version>_…`
@@ -365,6 +369,8 @@ export const onRequest: PagesFunction<Env> = async (context) => {
 export const __test = {
   ALLOWED_FILENAMES,
   LATEST_TAG,
+  SUPPORTED_VERSIONS,
+  platformArtifactsForVersion,
   tagForFilename,
   fetchAsset,
 };

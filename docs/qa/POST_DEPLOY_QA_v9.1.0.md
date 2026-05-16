@@ -37,7 +37,7 @@ older than `v9.1.0`.
 curl -sS "$TARS_HOST/" | grep -oE 'href="[^"]*dl/[^"]+"' | head -5
 ```
 
-**Pass:** at least one `href="/dl/tars-mac-arm64.dmg"` (or equivalent installer
+**Pass:** at least one `href="/dl/TARS_9.1.0_aarch64.dmg"` (or equivalent installer
 path) returned. FAIL if all install hrefs point at `coming-soon`, `/install`
 without a path, or absolute github.com (means CTA hasn't been wired through
 dl-proxy yet).
@@ -54,87 +54,112 @@ script body starts with `#!/usr/bin/env bash` and contains
 `scripts/INSTALL-FRESH-TARS.command` reference. FAIL if 404 or returns
 HTML (proxy mis-routed).
 
-## 4. dl-proxy HEAD — installer exists at the expected path
+## 4. dl-proxy HEAD — все 9 артефактов отдают 200/302
 
 ```bash
-curl -sSI "$TARS_HOST/dl/tars-mac-arm64.dmg" | head -10
+ASSETS=(
+  TARS_9.1.0_aarch64.dmg          # mac Apple Silicon
+  TARS_9.1.0_x64.dmg              # mac Intel
+  TARS_9.1.0_amd64.AppImage       # linux portable
+  TARS_9.1.0_amd64.deb            # linux deb
+  TARS_9.1.0_x64-setup.exe        # windows NSIS
+  TARS_9.1.0_x64_en-US.msi        # windows MSI
+  TARS_aarch64.app.tar.gz         # Tauri update bundle
+  latest.json
+  latest.json.sig
+)
+for F in "${ASSETS[@]}"; do
+  CODE=$(curl -sS -o /dev/null -w "%{http_code}" -I "$TARS_HOST/dl/$F")
+  echo "$F → $CODE"
+done
 ```
 
-**Pass:** `HTTP/2 200` (or 302 to a valid GitHub releases URL) + `content-type:
-application/x-apple-diskimage` (or `application/octet-stream`) + non-zero
-`content-length` (~50–80 MB). FAIL on 404, redirect to a draft release, or
-zero content-length.
+**Pass:** все 9 артефактов отдают `200`, `302`, или `200` со streamed
+octet-stream (см. `[file].ts:216 streamAsset`). FAIL если хотя бы один даёт
+`404` — либо опечатка имени, либо релиз не пересобран, либо
+`GITHUB_RELEASE_TOKEN` не задеплоен в Pages env.
 
-## 5. Partial GET — Range requests work for large installers
+## 5. Partial GET — Range работает для самого большого инсталлера
 
 ```bash
-curl -sS -H "Range: bytes=0-1023" -o /tmp/tars_head.bin -w "http:%{http_code} size:%{size_download}\n" \
-  "$TARS_HOST/dl/tars-mac-arm64.dmg"
+curl -sS -H "Range: bytes=0-1023" -o /tmp/tars_head.bin \
+  -w "http:%{http_code} size:%{size_download}\n" \
+  "$TARS_HOST/dl/TARS_9.1.0_aarch64.dmg"
 file /tmp/tars_head.bin
 ```
 
-**Pass:** `http:206`, `size:1024`. `file` reports `data` (binary header).
-FAIL if `200` (range not honored) or `206` with wrong size — Cloudflare
-edge config drift.
+**Pass:** `http:206`, `size:1024`. `file` reports `data`. FAIL `200` (Range
+проигнорирован worker'ом) или `206` с другим размером (edge cache drift).
 
-## 6. Allowlist guard — only known installer paths resolve
+## 6. Allowlist guard — out-of-list дают `404 not_in_allowlist`
 
 ```bash
-for P in tars-mac-arm64.dmg tars-mac-x64.dmg tars-windows.msi tars-linux.AppImage; do
+# Известные — должны проходить
+for P in TARS_9.1.0_aarch64.dmg TARS_9.1.0_x64.dmg \
+         TARS_9.1.0_x64_en-US.msi TARS_9.1.0_amd64.AppImage; do
   CODE=$(curl -sS -o /dev/null -w "%{http_code}" -I "$TARS_HOST/dl/$P")
-  echo "$P → $CODE"
+  echo "OK    $P → $CODE"
 done
-echo ""
-# Out-of-allowlist should 404
-for P in evil.sh ../../../etc/passwd random.zip tars-mac-arm64.dmg.bak; do
+echo "---"
+# Out-of-allowlist — должны давать 404 + error body
+for P in evil.sh ../../../etc/passwd random.zip \
+         TARS_9.1.0_aarch64.dmg.bak TARS_9.9.9_arbitrary.dmg; do
   CODE=$(curl -sS -o /dev/null -w "%{http_code}" -I "$TARS_HOST/dl/$P")
-  echo "GUARD $P → $CODE"
+  ERR=$(curl -sS "$TARS_HOST/dl/$P" | grep -o '"error":"[^"]*"' | head -1)
+  echo "GUARD $P → $CODE ($ERR)"
 done
 ```
 
-**Pass:** known installers return `200` (or `302`); guard rows return `404`.
-FAIL if any guard row returns `200` — open redirect / path traversal in the
-worker.
+**Pass:** OK-строки — `200`/`302`; GUARD-строки — `404` +
+`"error":"not_in_allowlist"`. FAIL на любой `200` в GUARD.
 
-## 7. Method guard — only GET/HEAD allowed
+## 7. Method guard — только GET/HEAD
 
 ```bash
 for M in POST PUT DELETE PATCH OPTIONS; do
-  CODE=$(curl -sS -o /dev/null -w "%{http_code}" -X "$M" "$TARS_HOST/dl/tars-mac-arm64.dmg")
+  CODE=$(curl -sS -o /dev/null -w "%{http_code}" -X "$M" \
+         "$TARS_HOST/dl/TARS_9.1.0_aarch64.dmg")
   echo "$M → $CODE"
 done
 ```
 
-**Pass:** every non-GET/HEAD method returns `405` or `403`. FAIL on `200`
-(installer worker accepting writes) or `500` (worker crashed).
+**Pass:** все `405` + ответный header `allow: GET, HEAD` (см. `[file].ts:282`).
+FAIL на `200` или `500`.
 
-## 8. Rosetta fallback — x64 dmg path resolves on Apple-Silicon
-
-```bash
-curl -sSI "$TARS_HOST/dl/tars-mac-x64.dmg" | head -10
-```
-
-**Pass:** `HTTP/2 200` (or 302). FAIL if 404 — we promised "Intel Mac users
-get the x64 build" and that promise is broken.
-
-## 9. W142 stability — dl-proxy still resolves draft releases correctly
+## 8. Rosetta fallback — x64 dmg редиректит на arm64 с диагностическим header
 
 ```bash
-# This is the regression that W142 fixed: dl-proxy looking up DRAFT releases
-# instead of published. Re-probe to make sure CF Pages didn't regress it.
-curl -sS "$TARS_HOST/dl/_meta?tag=$TARS_TAG" 2>/dev/null | head -20
+curl -sSI "$TARS_HOST/dl/TARS_9.1.0_x64.dmg" | grep -iE 'HTTP|location|x-tars-fallback'
 ```
 
-**Pass:** JSON response with `"tag":"v9.1.0"`, `"draft":false`, `"published":true`.
-FAIL on `draft:true` (proxy is grabbing draft instead of stable) — ping the
-W142 owner before announcing.
+**Pass:** `HTTP/2 302` + `location: /dl/TARS_9.1.0_aarch64.dmg` +
+`x-tars-fallback: rosetta` + `x-tars-fallback-from: TARS_9.1.0_x64.dmg`
+(см. `[file].ts:319-328`). FAIL если 404 — Intel-юзерам обещано "ставится
+через Rosetta", и обещание сломано.
+
+## 9. W142 smart-fallback — by-tag empty не приводит к 404
+
+```bash
+# Дёргаем артефакт дважды с salt'ом, чтобы CDN не кэшировал.
+SALT=$(date +%s)
+for I in 1 2; do
+  CODE=$(curl -sS -o /dev/null -w "%{http_code}" -I \
+         "$TARS_HOST/dl/TARS_9.1.0_aarch64.dmg?_=$SALT$I")
+  echo "probe $I → $CODE"
+done
+```
+
+**Pass:** оба пробинга — `200`/`302`. Косвенно подтверждает что Pages
+Function успешно дотягивается до релиза (либо by-tag, либо через
+draft-list fallback `[file].ts:181-213`). FAIL `404 asset_not_found_in_release`
+— CI publish был отменён мид-flight, fallback не работает.
 
 ## 10. Cache headers — installer + landing are cached correctly
 
 ```bash
 curl -sSI "$TARS_HOST/" | grep -i 'cache-control\|cf-cache-status\|age'
 echo "---"
-curl -sSI "$TARS_HOST/dl/tars-mac-arm64.dmg" | grep -i 'cache-control\|cf-cache-status\|age'
+curl -sSI "$TARS_HOST/dl/TARS_9.1.0_aarch64.dmg" | grep -i 'cache-control\|cf-cache-status\|age'
 ```
 
 **Pass for landing:** `cache-control` mentions `s-maxage` ≤ 600 (allow fast

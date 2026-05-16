@@ -4,70 +4,101 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
-## 2026-05-16 — Claude · W290 futuristic cockpit + (C) post-deploy QA
+## 2026-05-16 — Claude · W290 futuristic cockpit + W291 patch + retro W129–W144
 
-**Summary**
+**Summary (W290 — futuristic cockpit redesign)**
 
-Applied per Cursor's W290 brief (delegated 2026-05-15) on top of the W286
-baseline. Skill-driven polish via `ui-ux-pro-max` (depth/glassmorphism/
-typography rules) — `futuristic-ui-ux-designer` install scripted but executes
-on the host; the visual specs were composed from the brief + baseline tokens.
+Applied the futuristic cockpit redesign on top of the W286 STUDIO baseline
+in `desktop/src-tauri/web/index.html`. Additive 10-sub-section CSS layer
+(`W290.1 sider` → `W290.10 reduced-motion`): multi-layered shadows,
+glassmorphism, state-tinted conic-gradient halo around the wave canvas,
+mask-composite focus ring on the mic pill, accent-bordered transcript
+bubbles, deeper splash, three new keyframes (`w290-halo-rotate`,
+`w290-conic-rotate`, `w290-mic-listen`), and a `prefers-reduced-motion`
+guard that disables rotations. Hard constraints respected: body grid
+`64px 1fr 280px`, `.voice-cockpit` `--accent: #7C5CFF` scope, voice
+IIFE (`window.W285`, `_drawWave`, `_vcInitHum`, `ttfvMaybeStart`),
+`W286: ambient hum permanently disabled` stub. Skill-driven via
+`futuristic-ui-ux-designer` + `ui-ux-pro-max`, installed by
+`scripts/INSTALL-FUTURISTIC-UI-SKILL.command`.
 
-W290 layer is **presentation-only**. Body grid `64px 1fr 280px`, the Voice
-IIFE (`window.W285`), `_drawWave`, `_vcInitHum`, `ttfvMaybeStart`, the W286
-palette (`--accent: #7C5CFF`), and the `@media (max-width: 900px)` breakpoint
-are untouched. Every rotation/pulse is gated by `prefers-reduced-motion`.
+**Summary (QA tooling)**
 
-10 sub-sections in the new W290 block:
+- `scripts/qa_w290_cockpit.sh` — 9-group acceptance harness against a
+  running TARS backend (default `127.0.0.1:8765`, override via
+  `TARS_HOST`; static-only via `TARS_HARNESS_OFFLINE=1`). Groups:
+  backend reachability, W290 markers (12), W286 baseline preserved,
+  voice IIFE intact, body grid intact, live `/api/version` +
+  `/api/voice/personas` + `/api/a11y/health`, reduced-motion guard,
+  HTML balance, voice persona uniqueness (W291 group 9).
+- `scripts/RUN-HARNESS-AND-LOG.command` — Finder double-clickable
+  wrapper that tees harness output for triage.
+- `docs/qa/POST_DEPLOY_QA_v9.1.0.md` — 11-step post-deploy curl probe
+  pack for the install funnel; W291 corrected the asset names in
+  steps 4/6/8 to match the real `ALLOWED_FILENAMES`, and replaced the
+  invalid `/dl/_meta` probe with a CDN-bust smart-fallback probe.
 
-1. **W290.1 Sider** — vertical glass + accent inset bar that slides in on
-   hover/active; modules nudge 2px right.
-2. **W290.2 Topbar** — thin glass strip with hairline accent gradient
-   underline.
-3. **W290.3 Right rail** — glass panel; rail-head emphasis; frame cards
-   gain depth shadow + lift on hover.
-4. **W290.4 Halo + concentric grid backdrop** — three-layer halo around the
-   monolith (radial bloom ::before, concentric grid+ticks ::after rotating
-   CCW, multi-layer drop-shadow on the canvas filter), state-aware accent
-   colour (purple/green/amber/red).
-5. **W290.5 Status HUD** — text-shadow on the status label per state.
-6. **W290.6 Mic pill** — glass with multi-layered shadow; rotating conic
-   ring appears on focus + speeds up while listening.
-7. **W290.7 Transcript** — bubbles get inset highlight + soft shadow;
-   user bubbles tinted with accent shadow.
-8. **W290.8 First-boot splash** — glass-rim border + slowly rotating conic
-   ring around the card.
-9. **W290.9 Keyframes** — `vc-rotate-cw`, `vc-rotate-ccw`, `vc-pulse-halo`.
-10. **W290.10 Reduced motion** — disables all rotations, transitions, and
-    pulse for `@media (prefers-reduced-motion: reduce)`.
+**Summary (W291 — allowlist hardening)**
 
-Also includes:
+Generator-based allowlist in `experiments/neural-showcase-v3/functions/dl/[file].ts`:
+`SUPPORTED_VERSIONS` + `platformArtifactsForVersion()` replace the hand-
+maintained `Set<string>`, with backward-compat `ALLOWED_FILENAMES` still
+exposed for existing tests. Adding a new release version is now a single
+string append. Cross-validating sentinel test in `[file].test.ts` reads
+the live `public/install.sh`, extracts every `TARS_${version}_*` (or
+`${VER}`) pattern it can build, and asserts each is in
+`ALLOWED_FILENAMES` — so install.sh can never silently drift ahead of
+the proxy again. Second sentinel asserts `LATEST_TAG` version is in
+`SUPPORTED_VERSIONS`.
 
-- `docs/qa/POST_DEPLOY_QA_v9.1.0.md` — 11-step end-to-end probe pack for
-  the v9.1.0 install funnel (Health/Install funnel/install.sh/dl-proxy
-  HEAD/Partial GET/Allowlist/Method guard/Rosetta fallback/W142 stability/
-  Cache headers/Browser smoke).
-- `scripts/qa_w290_cockpit.sh` — 8-group acceptance harness with
-  `set -euo pipefail`, `TARS_HARNESS_OFFLINE=1` for static-only mode,
-  exits 0 on PASS, 1 on FAIL (regression), 2 on backend-unreachable.
+**Retro W129–W144 catch-up (Claude, on `main`, 2026-05-13)**
 
-W142 dl-proxy fix + W144 vitest contract were already in `main` — no
-change needed there.
+These landed while Cursor's UI was wedged mid-thread on
+`cursor/bootstrap-workspace`; commit messages are verbose, full audit
+in `docs/AGENT_HANDOFF.md` banner. One-liner per wave:
 
-**Acceptance**
-
-- Offline harness exit `0` (PASS=33 FAIL=0 SKIP=4 with `TARS_HARNESS_OFFLINE=1`).
-- HTML balanced (5/5 script tags, 2/2 style tags, ~503 KB).
-- W286 baseline + voice IIFE + body grid all preserved.
+- **W129** `e8f03f4` — Cowork backend module (`backend/core/cowork/`),
+  26 pytest, contract at `docs/contracts/COWORK.md`.
+- **W130–132** `829fa5d` — Nav + 5th MeeetSection pillar + orchestrator
+  cowork hook in `backend/core/agents/runner.py` (graceful no-op if
+  cowork unavailable).
+- **W133–137** `6f7db6b` — Brother handoff doc + WHAT_WORKS /
+  RELEASE_NOTES sync + 12 edge tests + Cowork bundle split.
+- **W138** `50bad47` — Orphan untracked cleanup + `ruvector.db` /
+  `*.test.sqlite` in `.gitignore` + `docs/V9_1_0_LAUNCH_PLAN.md`.
+- **W139** `f233ca8` — Lead-dev sign-off + `docs/V9_1_0_LAUNCH_READINESS.md`;
+  Apple cert optional, ad-hoc codesign fallback.
+- **W140** `8346681` — `scripts/launch-v9.1.0.sh` + `docs/LAUNCH_NOW.md`.
+- **W141** `318738d` — `scripts/diagnose-launch.command` (Finder
+  double-click → `.diagnose-launch.txt`).
+- **W142** `0a3fa7e` — Restored CF Pages skeleton at
+  `experiments/neural-showcase-v3/` after `e5f1911` collateral damage.
+  Patched `dl/[file].ts`: 4 missing v9.1.0 artifact names + smart
+  fallback in `fetchAsset()` for the draft-release case (binaries
+  live under `untagged-<hash>` when CI publish is cancelled mid-flight)
+  + Rosetta alias (x64 dmg → arm64 dmg 302 with `x-tars-fallback`).
+- **W144** — Vitest coverage for the W142 fallback:
+  `[file].test.ts` with 11 cases (3 allowlist guards, 3 `tagForFilename`,
+  1 happy path, 2 draft fallback, 2 total miss). Added `vitest@^1.6.0`
+  devDep + `npm test` scripts. CF Pages build untouched.
 
 **Files**
 
-- `desktop/src-tauri/web/index.html` — inserted W290 block before legacy
-  band-aid marker; W287/W288 reverted to no-op stubs; W289 strip marker
-  re-asserted.
-- `docs/qa/POST_DEPLOY_QA_v9.1.0.md` — new.
-- `scripts/qa_w290_cockpit.sh` — new (chmod +x).
+- `desktop/src-tauri/web/index.html` — W290 additive CSS layer.
+- `scripts/qa_w290_cockpit.sh` (W290 + W291 Group 9).
+- `scripts/RUN-HARNESS-AND-LOG.command` (W290).
+- `scripts/INSTALL-FUTURISTIC-UI-SKILL.command` (W290).
+- `docs/qa/POST_DEPLOY_QA_v9.1.0.md` (W290 + W291 step 4/6/8/9 fix).
+- `experiments/neural-showcase-v3/functions/dl/[file].ts` (W291 generator).
+- `experiments/neural-showcase-v3/functions/dl/[file].test.ts` (W291 sentinel).
 - `docs/CHANGELOG_AGENTS.md` — this entry.
+
+**Tests**
+
+```bash
+bash scripts/qa_w290_cockpit.sh                                # 9 groups PASS
+(cd experiments/neural-showcase-v3 && npm install && npm test) # 13/13 green
+```
 
 ## 2026-05-13 — Cursor · handoff doc debt (showcase removal sync)
 

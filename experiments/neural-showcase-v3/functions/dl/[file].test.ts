@@ -18,11 +18,19 @@
 // We mock global fetch with vi.fn(). No `@cloudflare/vitest-pool-workers`
 // — these are pure unit tests for the Function's internal logic.
 
+import * as fs from "node:fs";
+import * as path from "node:path";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 import { __test } from "./[file]";
 
-const { ALLOWED_FILENAMES, LATEST_TAG, tagForFilename, fetchAsset } = __test;
+const {
+  ALLOWED_FILENAMES,
+  LATEST_TAG,
+  SUPPORTED_VERSIONS,
+  tagForFilename,
+  fetchAsset,
+} = __test;
 
 // ── Minimal Env stub. The real PagesFunction Env has more fields but
 // only GITHUB_RELEASE_TOKEN + GITHUB_REPO are read by fetchAsset.
@@ -219,5 +227,59 @@ describe("fetchAsset() — total miss", () => {
 
     const asset = await fetchAsset(env, "v9.1.0", "TARS_9.1.0_aarch64.dmg");
     expect(asset).toBe(null);
+  });
+});
+
+// ─── W291 sentinel ──────────────────────────────────────────────────────
+// Cross-validates that every TARS_<ver>_<asset> filename the live
+// `public/install.sh` can build is in `ALLOWED_FILENAMES`. If the
+// install funnel ever bumps `version` past `SUPPORTED_VERSIONS`, this
+// test fires before deploy — no silent `404 not_in_allowlist` in prod.
+//
+// install.sh uses `${version}` (derived from the live
+// `/api/product/version` response), but historic / future variants
+// may use `${VER}`. The regex below accepts BOTH forms.
+describe("sentinel — install.sh ↔ allowlist sync (W291)", () => {
+  test("every filename install.sh can build is in ALLOWED_FILENAMES", () => {
+    // Read the live install.sh that CF Pages serves. If this path
+    // changes, update the sentinel — but never let install.sh drift
+    // out of sync with the allowlist silently.
+    const installShPath = path.resolve(__dirname, "../../public/install.sh");
+    const text = fs.readFileSync(installShPath, "utf-8");
+
+    // install.sh derives `version` from `/api/product/version` at
+    // runtime — there is no compile-time fallback string. We use the
+    // newest SUPPORTED_VERSIONS entry as the substitution to verify
+    // the proxy can serve whatever install.sh asks for at that
+    // version. (Sentinel test #2 below pins LATEST_TAG into
+    // SUPPORTED_VERSIONS, closing the loop.)
+    const ver = SUPPORTED_VERSIONS[0];
+    expect(ver, "SUPPORTED_VERSIONS must have at least one entry").toBeTruthy();
+
+    // Match BOTH `TARS_${VER}_…` (operator-spec style) and
+    // `TARS_${version}_…` (current install.sh style).
+    const patterns = Array.from(
+      text.matchAll(/TARS_\$\{(?:VER|version)\}_[A-Za-z0-9._\-]+/g),
+    ).map((m) => m[0].replace(/\$\{(?:VER|version)\}/, ver));
+
+    expect(
+      patterns.length,
+      "install.sh must reference at least one TARS_<ver>_* asset",
+    ).toBeGreaterThanOrEqual(3);
+
+    for (const name of patterns) {
+      expect(
+        ALLOWED_FILENAMES.has(name),
+        `install.sh references "${name}" but ALLOWED_FILENAMES is missing it — bump SUPPORTED_VERSIONS in [file].ts`,
+      ).toBe(true);
+    }
+  });
+
+  test("SUPPORTED_VERSIONS includes the LATEST_TAG version", () => {
+    const latestVer = LATEST_TAG.replace(/^v/, "");
+    expect(
+      SUPPORTED_VERSIONS.includes(latestVer),
+      `LATEST_TAG=${LATEST_TAG} but SUPPORTED_VERSIONS=${JSON.stringify(SUPPORTED_VERSIONS)} — add "${latestVer}" to the list`,
+    ).toBe(true);
   });
 });
