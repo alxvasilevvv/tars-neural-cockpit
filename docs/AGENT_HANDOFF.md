@@ -3,7 +3,7 @@
 Pick this up if you are continuing the work in a fresh chat. Read this file
 plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 
-> **>>> SYNC: Cursor · 2026-05-16 evening · W297+W298 voice tuning + HUD overlay redesign (LATEST) <<<**
+> **>>> SYNC: Cursor · 2026-05-16 late · W299 visual system + W298 HUD shipped + voice (LATEST) <<<**
 >
 > Continuation after operator listened to W294/W295 voices and reviewed the
 > cockpit visually. Verdict: **voice still felt "TTS narrator", design "everything is broken"**.
@@ -38,18 +38,20 @@ plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 > ``OPENAI_API_KEY`` to ``.env``, ``gpt-4o-mini-tts`` automatically takes
 > over — no code change needed.
 >
-> **W298 HUD overlay (in progress)** — dispatched a frontend subagent to
-> add a cohesive HUD/Sci-Fi FUI layer over the existing W286→W290→W292→W294
-> baseline. Five additive elements (additive constraint enforced, all
-> scoped to ``body.cockpit-active``, all reduced-motion-safe): corner
-> brackets on the monolith, top scrolling ticker strip, right-edge
-> telemetry rail, **first-boot language picker converted from plain
-> numbered text to a 6-card glass grid with HUD framing** (fixes the
-> "stuck terminal" look operator screenshotted), bottom HUD strip +
-> 3% scanlines, and a W294 status-row reflow fix that stops the
-> ``IDLE — TAP MIC`` label being truncated by the TEST VOICE button at
-> narrow viewports. Subagent is still running; will commit under a
-> separate W298 entry after operator reviews the screenshot.
+> **W298 HUD overlay — SHIPPED** (`fe4c211`, +918 lines additive on
+> `desktop/src-tauri/web/index.html`). Harness PASS; operator changelog
+> `908c8df`. Cohesive Sci-Fi FUI: ticker, corner brackets, telemetry rail,
+> 7-card language picker, bottom HUD strip, scanlines — all scoped
+> ``body.cockpit-active``, reduced-motion safe.
+>
+> **W299 cockpit visual system (`bca25af`)** — addresses "нет дизайна":
+> Outfit + JetBrains Mono (Google Fonts ``<link>``); center column layered
+> depth (no flat `--bg` read); glass topbar + chip; graded stage spotlight;
+> glass transcript bubbles (user / TARS / system); heavier mic dock. Tauri
+> CSP extended for ``fonts.googleapis.com`` + ``fonts.gstatic.com``.
+> **W291 UX:** ``_w291ProbeBackend()`` moved into same one-shot init as
+> ``cockpitInit()`` so duplicate backend-offline transcript lines cannot
+> appear; clearer RU hint references ``make backend-tars-up``.
 >
 > **Test suite** — ``./.venv/bin/python -m pytest tests/ -x`` after W298:
 > **571 passed, 1 failed, 2 skipped**. The lone failure
@@ -71,12 +73,14 @@ plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 > per-call cinematic option, $0.015/min, honours rich instructions which
 > are already wired per-persona).
 >
-> Commits on ``main`` since W296:
+> Commits on ``main`` since W296 (voice + HUD + design wave):
 > - ``7b04405`` cursor — W297 cinematic voice tuning (per-persona ElevenLabs settings + better voice IDs)
 > - ``b3b036a`` cursor — W298 voice: extreme ElevenLabs tuning for free-tier cinematic delivery
 > - ``d8035d7`` cursor — docs: W298 voice tuning changelog entry
-> - **pending** — W298 HUD overlay layer (frontend subagent in flight)
-> - **pending** — .gitignore scratch-pattern expansion (this sync)
+> - ``14a461d`` cursor — chore: W298 scratch-pattern gitignore + agent handoff sync
+> - ``fe4c211`` cursor — feat(desktop): W298 HUD overlay layer
+> - ``908c8df`` cursor — docs: W298 HUD overlay changelog entry
+> - ``bca25af`` cursor — feat(desktop): W299 cockpit visual system + font CSP + W291 probe dedupe
 
 ---
 
