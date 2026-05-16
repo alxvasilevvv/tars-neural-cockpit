@@ -23,6 +23,10 @@ L9 status: Rust sidecar is implemented; remaining work is bundled backend binary
 - `.env.example`
 - `docs/PHASE_L_ROADMAP.md`
 
+**Commit**
+
+- `ac2e270` fix(tests): asyncio.run for Python 3.12 + voice env + L9 roadmap sync (W304)
+
 ## 2026-05-16 — Cursor · W303 onboarding `/state` + mock OAuth landing
 
 **Summary**
