@@ -83,7 +83,7 @@ plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 > - ``fe4c211`` cursor — feat(desktop): W298 HUD overlay layer
 > - ``908c8df`` cursor — docs: W298 HUD overlay changelog entry
 > - ``bca25af`` cursor — feat(desktop): W299 cockpit visual system + font CSP + W291 probe dedupe
-> - ``683dbd0`` cursor — feat(desktop): W301 MASTER token bridge + gold cockpit remap
+> - ``6176766`` cursor — feat(desktop): W301 MASTER token bridge + gold cockpit remap
 
 ---
 

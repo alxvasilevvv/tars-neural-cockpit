@@ -22,7 +22,7 @@ under cockpit uses cyan + `#CA8A04`.
 
 **Commit**
 
-- `683dbd0` W301 — MASTER cockpit token bridge + gold chrome remap
+- `6176766` W301 — MASTER cockpit token bridge + gold chrome remap
 
 ## 2026-05-16 — Cursor · W298 voice extreme tuning (free-tier cinematic)
 
