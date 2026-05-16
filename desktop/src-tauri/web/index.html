@@ -3279,6 +3279,249 @@
 
   /* === END W292 PREMIUM LAYER === */
 
+  /* === W294 PREMIUM POLISH + PERSONA PICKER (cursor) === */
+  /* Additive on top of W290+W292. No selectors outside `.voice-cockpit` or new
+     `.w294-*` namespaces. Heroicons-style inline SVGs only — no emoji.
+     Sections: 1 picker shell, 2 picker menu, 3 test-voice button, 4 rail hairline,
+     5 toast, 6 keyframes + reduced-motion guard. */
+
+  /* W294.1 — Persona picker shell */
+  .voice-cockpit .w294-persona-shell {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    margin-left: 10px;
+    opacity: 0;
+    transform: translateY(6px);
+    animation: w294-picker-in 520ms cubic-bezier(.22,.61,.36,1) 80ms forwards;
+  }
+  .voice-cockpit .w294-persona-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 30px;
+    padding: 0 12px;
+    border-radius: 999px;
+    background: linear-gradient(180deg, rgba(28,26,42,0.72) 0%, rgba(18,18,26,0.62) 100%);
+    border: 1px solid rgba(124,92,255,0.22);
+    color: #e9eaf2;
+    font: 500 11px/1 system-ui, -apple-system, "SF Pro Text", sans-serif;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    backdrop-filter: blur(14px) saturate(150%);
+    -webkit-backdrop-filter: blur(14px) saturate(150%);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.05), 0 4px 12px rgba(0,0,0,0.30);
+    transition: transform 200ms cubic-bezier(.22,.61,.36,1), box-shadow 200ms ease, border-color 200ms ease, background 200ms ease;
+  }
+  .voice-cockpit .w294-persona-btn:hover {
+    border-color: rgba(124,92,255,0.42);
+    background: linear-gradient(180deg, rgba(34,30,52,0.78) 0%, rgba(22,22,32,0.68) 100%);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 6px 18px rgba(0,0,0,0.40), 0 0 18px rgba(124,92,255,0.18);
+  }
+  .voice-cockpit .w294-persona-btn:focus-visible {
+    outline: none;
+    border-color: rgba(124,92,255,0.60);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 0 0 2px rgba(124,92,255,0.30), 0 0 22px rgba(124,92,255,0.30);
+  }
+  .voice-cockpit .w294-persona-btn[aria-expanded="true"] {
+    border-color: rgba(124,92,255,0.55);
+    background: linear-gradient(180deg, rgba(40,32,62,0.80) 0%, rgba(24,22,34,0.70) 100%);
+  }
+  .voice-cockpit .w294-persona-btn .w294-icon { width: 14px; height: 14px; color: var(--accent, #7C5CFF); flex: 0 0 auto; }
+  .voice-cockpit .w294-persona-btn .w294-persona-label { text-transform: uppercase; font-size: 10px; color: #9ca0b3; }
+  .voice-cockpit .w294-persona-btn .w294-persona-name { font-size: 11px; font-weight: 600; color: #e9eaf2; letter-spacing: 0.02em; }
+  .voice-cockpit .w294-persona-btn .w294-chevron { width: 12px; height: 12px; color: #9ca0b3; transition: transform 220ms ease; }
+  .voice-cockpit .w294-persona-btn[aria-expanded="true"] .w294-chevron { transform: rotate(180deg); }
+
+  /* W294.2 — Persona picker menu */
+  .voice-cockpit .w294-persona-menu {
+    position: absolute;
+    top: calc(100% + 8px);
+    right: 0;
+    min-width: 240px;
+    max-width: 280px;
+    padding: 6px;
+    border-radius: 14px;
+    background: linear-gradient(180deg, rgba(20,20,30,0.92) 0%, rgba(12,12,20,0.96) 100%);
+    border: 1px solid rgba(124,92,255,0.26);
+    backdrop-filter: blur(22px) saturate(170%);
+    -webkit-backdrop-filter: blur(22px) saturate(170%);
+    box-shadow: 0 16px 48px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.02) inset, 0 0 32px rgba(124,92,255,0.18);
+    z-index: 90;
+    display: none;
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+    transform-origin: top right;
+    transition: opacity 200ms cubic-bezier(.22,.61,.36,1), transform 200ms cubic-bezier(.22,.61,.36,1);
+  }
+  .voice-cockpit .w294-persona-menu.is-open { display: block; opacity: 1; transform: translateY(0) scale(1); }
+  .voice-cockpit .w294-persona-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    cursor: pointer;
+    color: #e9eaf2;
+    background: transparent;
+    border: 1px solid transparent;
+    transition: background 160ms ease, border-color 160ms ease, transform 160ms ease;
+  }
+  .voice-cockpit .w294-persona-item + .w294-persona-item { margin-top: 2px; }
+  .voice-cockpit .w294-persona-item:hover,
+  .voice-cockpit .w294-persona-item:focus-visible {
+    background: rgba(124,92,255,0.08);
+    border-color: rgba(124,92,255,0.22);
+    outline: none;
+  }
+  .voice-cockpit .w294-persona-item[aria-checked="true"] {
+    background: rgba(124,92,255,0.14);
+    border-color: rgba(124,92,255,0.36);
+  }
+  .voice-cockpit .w294-persona-item .w294-persona-dot {
+    flex: 0 0 auto;
+    width: 8px; height: 8px;
+    margin-top: 5px;
+    border-radius: 50%;
+    background: rgba(255,255,255,0.10);
+    box-shadow: 0 0 0 1px rgba(255,255,255,0.06);
+  }
+  .voice-cockpit .w294-persona-item[aria-checked="true"] .w294-persona-dot {
+    background: var(--accent, #7C5CFF);
+    box-shadow: 0 0 0 1px rgba(124,92,255,0.40), 0 0 10px rgba(124,92,255,0.55);
+  }
+  .voice-cockpit .w294-persona-item .w294-persona-text { flex: 1 1 auto; min-width: 0; }
+  .voice-cockpit .w294-persona-item .w294-persona-title { font: 600 12px/1.25 system-ui, sans-serif; letter-spacing: 0.01em; color: #e9eaf2; }
+  .voice-cockpit .w294-persona-item .w294-persona-sub {
+    margin-top: 2px;
+    font: 400 10.5px/1.35 system-ui, sans-serif;
+    color: #9ca0b3;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  /* W294.3 — Test-voice button (next to mic pill) */
+  .voice-cockpit .w294-test-voice {
+    position: absolute;
+    left: calc(50% + 56px);
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 24px);
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    height: 44px;
+    padding: 0 16px;
+    border-radius: 22px;
+    background: linear-gradient(180deg, rgba(28,26,42,0.78) 0%, rgba(18,18,26,0.68) 100%);
+    border: 1px solid rgba(124,92,255,0.28);
+    color: #e9eaf2;
+    font: 600 11px/1 system-ui, -apple-system, sans-serif;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    cursor: pointer;
+    z-index: 12;
+    backdrop-filter: blur(16px) saturate(160%);
+    -webkit-backdrop-filter: blur(16px) saturate(160%);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 6px 18px rgba(0,0,0,0.40), 0 0 16px rgba(124,92,255,0.16);
+    opacity: 0;
+    transform: translateY(6px);
+    animation: w294-picker-in 560ms cubic-bezier(.22,.61,.36,1) 120ms forwards;
+    transition: transform 220ms cubic-bezier(.22,.61,.36,1), box-shadow 220ms ease, border-color 220ms ease, background 220ms ease;
+  }
+  .voice-cockpit .w294-test-voice:hover {
+    transform: translateY(-2px);
+    border-color: rgba(124,92,255,0.55);
+    background: linear-gradient(180deg, rgba(40,32,62,0.86) 0%, rgba(22,22,32,0.74) 100%);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 12px 28px rgba(0,0,0,0.50), 0 0 28px rgba(124,92,255,0.32);
+  }
+  .voice-cockpit .w294-test-voice:focus-visible {
+    outline: none;
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 0 0 2px rgba(124,92,255,0.40), 0 0 28px rgba(124,92,255,0.40);
+  }
+  .voice-cockpit .w294-test-voice:active { transform: translateY(0); }
+  .voice-cockpit .w294-test-voice[disabled],
+  .voice-cockpit .w294-test-voice.is-playing {
+    cursor: progress;
+    pointer-events: none;
+    opacity: 0.85;
+  }
+  .voice-cockpit .w294-test-voice .w294-icon {
+    width: 16px; height: 16px;
+    color: var(--accent, #7C5CFF);
+    flex: 0 0 auto;
+  }
+  @media (max-width: 900px) {
+    .voice-cockpit .w294-test-voice {
+      left: 50%;
+      transform: translateX(-50%) translateY(6px);
+      bottom: 78px;
+    }
+    .voice-cockpit .w294-test-voice:hover { transform: translateX(-50%) translateY(-2px); }
+  }
+
+  /* W294.4 — Right-rail hairline separator */
+  .voice-cockpit #vcRail .w294-rail-hairline {
+    display: block;
+    height: 1px;
+    margin: 10px 14px;
+    background: linear-gradient(90deg, transparent 0%, rgba(124,92,255,0.30) 50%, transparent 100%);
+    border: 0;
+    opacity: 0.85;
+  }
+
+  /* W294.5 — Glass toast (failure, auto-fading) */
+  .w294-toast {
+    position: fixed;
+    right: 24px;
+    bottom: 28px;
+    z-index: 9999;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    max-width: 360px;
+    padding: 12px 16px;
+    border-radius: 12px;
+    background: linear-gradient(180deg, rgba(60,18,24,0.78) 0%, rgba(28,10,14,0.86) 100%);
+    border: 1px solid rgba(239,68,68,0.40);
+    color: #ffd7d7;
+    font: 500 12px/1.35 system-ui, -apple-system, sans-serif;
+    letter-spacing: 0.01em;
+    backdrop-filter: blur(18px) saturate(160%);
+    -webkit-backdrop-filter: blur(18px) saturate(160%);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.55), 0 0 22px rgba(239,68,68,0.20), inset 0 1px 0 rgba(255,255,255,0.04);
+    opacity: 0;
+    transform: translateY(6px);
+    animation: w294-toast-cycle 3000ms cubic-bezier(.22,.61,.36,1) forwards;
+    pointer-events: none;
+  }
+  .w294-toast .w294-icon { width: 16px; height: 16px; color: #ff8a8a; flex: 0 0 auto; }
+
+  /* W294.6 — Keyframes + reduced-motion guard */
+  @keyframes w294-picker-in {
+    0%   { opacity: 0; transform: translateY(6px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes w294-toast-cycle {
+    0%   { opacity: 0; transform: translateY(6px); }
+    12%  { opacity: 1; transform: translateY(0); }
+    78%  { opacity: 1; transform: translateY(0); }
+    100% { opacity: 0; transform: translateY(-2px); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .voice-cockpit .w294-persona-shell,
+    .voice-cockpit .w294-test-voice,
+    .voice-cockpit .w294-persona-menu,
+    .voice-cockpit .w294-persona-btn .w294-chevron,
+    .w294-toast {
+      animation: none !important;
+      transition: none !important;
+      opacity: 1 !important;
+      transform: none !important;
+    }
+    .voice-cockpit .w294-test-voice:hover { transform: none !important; }
+  }
+  /* === END W294 LAYER === */
+
   /* === LEGACY BAND-AID REMOVED ABOVE — old W283 revert/glue follows for ref === */
   /* W282-REVERT: legacy block (kept for marker, no-op below) */
 
@@ -11383,5 +11626,426 @@ async function voiceClone() {
 
 })();
 </script>
+
+<script>
+/* === W294 PREMIUM POLISH + PERSONA PICKER (cursor) ===
+   Additive on top of W290+W292. Does NOT touch the voice IIFE internals
+   (`_drawWave`, `_vcInitHum`, `ttfvMaybeStart`) and does NOT modify the
+   W286 ambient-hum stubs. Reuses existing globals: API, vcAddLine,
+   $('vcDot'), $('vcConnState'), $('vcMic').
+   Sections:
+     W294.JS.1  Persona picker (build + open/close + persist + tooltip)
+     W294.JS.2  Test-voice button (POST /api/voice/speak, plays mp3,
+                reuses w290-mic-listen animation on mic pill)
+     W294.JS.3  Toast (subtle red glass, 3s auto-fade)
+     W294.JS.4  Online-state poll @2s on /api/a11y/health
+                (the W286-era _vcRefreshConnectionChip still runs on 15s
+                for tier mirroring; W294 just keeps the chip authoritative
+                against the actual TTS-aware /api/a11y/health endpoint).
+*/
+(function w294Boot() {
+  'use strict';
+
+  // Reuse the same API base resolution the rest of the page uses.
+  var W294_API = (function () {
+    try {
+      if (typeof API === 'string' && API) return API;
+    } catch (_) { /* API may be inside a different IIFE scope */ }
+    if (window && window.__JCC_API_BASE) return window.__JCC_API_BASE;
+    if (location && location.protocol === 'file:') return 'http://127.0.0.1:8765';
+    return (location && location.origin) || 'http://127.0.0.1:8765';
+  })();
+
+  var W294_STORAGE_KEY = 'tars.voice.persona';
+  var W294_DEFAULT_PERSONA = 'jarvis';
+  var W294_DEMO_LINES = {
+    jarvis:   "Good evening, sir. All systems are nominal and running at peak efficiency.",
+    stark:    "Alright, here's the deal — I just rebuilt the suit's flight stabilizer in twelve seconds.",
+    hal9000:  "I am completely operational, and all my circuits are functioning perfectly.",
+    tars:     "Mission status: nominal. Honesty parameter: ninety percent. Adjusting now.",
+    glados:   "Oh. You again. How… wonderful.",
+    operator: "Backend online. Awaiting your instruction."
+  };
+
+  // Heroicons (24x24 outline) inline SVGs.
+  var W294_SVG = {
+    user:
+      '<svg class="w294-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+      '<path d="M15.75 7.5a3.75 3.75 0 1 1-7.5 0 3.75 3.75 0 0 1 7.5 0Z"/>' +
+      '<path d="M4.5 20.25a7.5 7.5 0 0 1 15 0"/></svg>',
+    chevron:
+      '<svg class="w294-chevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+      '<path d="m6 9 6 6 6-6"/></svg>',
+    play:
+      '<svg class="w294-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+      '<path d="M5.25 5.653c0-.856.917-1.398 1.667-.986l11.54 6.347a1.125 1.125 0 0 1 0 1.972l-11.54 6.347a1.125 1.125 0 0 1-1.667-.986V5.653Z"/></svg>',
+    warning:
+      '<svg class="w294-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+      '<path d="M12 9v3.75m9-.75a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9 3.75h.008v.008H12v-.008Z"/></svg>'
+  };
+
+  function w294Esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];
+    });
+  }
+
+  function w294PrefersReducedMotion() {
+    try { return window.matchMedia('(prefers-reduced-motion: reduce)').matches; }
+    catch (_) { return false; }
+  }
+
+  /* ── W294.JS.3 — Toast ──────────────────────────────────────────────── */
+  function w294Toast(message) {
+    try {
+      var prev = document.querySelector('.w294-toast');
+      if (prev && prev.parentNode) prev.parentNode.removeChild(prev);
+      var t = document.createElement('div');
+      t.className = 'w294-toast';
+      t.setAttribute('role', 'status');
+      t.setAttribute('aria-live', 'polite');
+      t.innerHTML = W294_SVG.warning + '<span>' + w294Esc(message) + '</span>';
+      document.body.appendChild(t);
+      var ttl = w294PrefersReducedMotion() ? 2400 : 3000;
+      setTimeout(function () { if (t && t.parentNode) t.parentNode.removeChild(t); }, ttl + 60);
+    } catch (e) { /* defensive: toast is cosmetic */ }
+  }
+
+  /* ── W294.JS.1 — Persona picker ─────────────────────────────────────── */
+  var W294_state = {
+    personas: [],            // [{id, name, short, character, ...}]
+    activeId: W294_DEFAULT_PERSONA,
+    mounted: false,
+    fetchTried: false
+  };
+
+  function w294LoadPersisted() {
+    try {
+      var v = localStorage.getItem(W294_STORAGE_KEY);
+      if (v && typeof v === 'string') W294_state.activeId = v;
+    } catch (_) { /* private mode / disabled storage */ }
+  }
+  function w294SavePersisted(id) {
+    try { localStorage.setItem(W294_STORAGE_KEY, String(id)); } catch (_) {}
+  }
+
+  function w294FindPersona(id) {
+    for (var i = 0; i < W294_state.personas.length; i++) {
+      if (W294_state.personas[i].id === id) return W294_state.personas[i];
+    }
+    return null;
+  }
+
+  function w294UpdateButtonLabel() {
+    var btn = document.getElementById('w294PersonaBtn');
+    if (!btn) return;
+    var p = w294FindPersona(W294_state.activeId) || w294FindPersona(W294_DEFAULT_PERSONA);
+    var label = (p && (p.name || p.id)) || W294_state.activeId;
+    var nameEl = btn.querySelector('.w294-persona-name');
+    if (nameEl) nameEl.textContent = label;
+    var character = (p && p.character) ? String(p.character) : '';
+    btn.setAttribute('title', character || 'Active voice persona');
+  }
+
+  function w294RenderMenuItems() {
+    var menu = document.getElementById('w294PersonaMenu');
+    if (!menu) return;
+    var parts = [];
+    for (var i = 0; i < W294_state.personas.length; i++) {
+      var p = W294_state.personas[i];
+      var checked = (p.id === W294_state.activeId) ? 'true' : 'false';
+      var sub = p.character || p.short || p.description || '';
+      parts.push(
+        '<div class="w294-persona-item" role="menuitemradio" tabindex="0"' +
+        ' data-persona-id="' + w294Esc(p.id) + '"' +
+        ' aria-checked="' + checked + '"' +
+        ' title="' + w294Esc(sub) + '">' +
+          '<span class="w294-persona-dot" aria-hidden="true"></span>' +
+          '<span class="w294-persona-text">' +
+            '<span class="w294-persona-title">' + w294Esc(p.name || p.id) + '</span>' +
+            '<span class="w294-persona-sub">' + w294Esc(sub) + '</span>' +
+          '</span>' +
+        '</div>'
+      );
+    }
+    menu.innerHTML = parts.join('');
+    var items = menu.querySelectorAll('.w294-persona-item');
+    for (var k = 0; k < items.length; k++) {
+      items[k].addEventListener('click', function () { w294PickPersona(this.getAttribute('data-persona-id')); });
+      items[k].addEventListener('keydown', function (ev) {
+        if (ev.key === 'Enter' || ev.key === ' ') {
+          ev.preventDefault();
+          w294PickPersona(this.getAttribute('data-persona-id'));
+        }
+      });
+    }
+  }
+
+  function w294PickPersona(id) {
+    if (!id) return;
+    W294_state.activeId = id;
+    w294SavePersisted(id);
+    w294UpdateButtonLabel();
+    w294RenderMenuItems();
+    w294CloseMenu();
+  }
+
+  function w294OpenMenu() {
+    var btn = document.getElementById('w294PersonaBtn');
+    var menu = document.getElementById('w294PersonaMenu');
+    if (!btn || !menu) return;
+    menu.classList.add('is-open');
+    btn.setAttribute('aria-expanded', 'true');
+    document.addEventListener('click', w294DocCloseHandler, true);
+    document.addEventListener('keydown', w294EscCloseHandler, true);
+  }
+  function w294CloseMenu() {
+    var btn = document.getElementById('w294PersonaBtn');
+    var menu = document.getElementById('w294PersonaMenu');
+    if (menu) menu.classList.remove('is-open');
+    if (btn) btn.setAttribute('aria-expanded', 'false');
+    document.removeEventListener('click', w294DocCloseHandler, true);
+    document.removeEventListener('keydown', w294EscCloseHandler, true);
+  }
+  function w294DocCloseHandler(ev) {
+    var shell = document.getElementById('w294PersonaShell');
+    if (!shell || shell.contains(ev.target)) return;
+    w294CloseMenu();
+  }
+  function w294EscCloseHandler(ev) { if (ev.key === 'Escape') w294CloseMenu(); }
+
+  function w294BuildPicker(anchor) {
+    if (!anchor || document.getElementById('w294PersonaShell')) return;
+    var shell = document.createElement('div');
+    shell.className = 'w294-persona-shell';
+    shell.id = 'w294PersonaShell';
+    shell.innerHTML =
+      '<button type="button" class="w294-persona-btn" id="w294PersonaBtn"' +
+      ' aria-haspopup="menu" aria-expanded="false" aria-label="Voice persona">' +
+        W294_SVG.user +
+        '<span class="w294-persona-label">VOICE</span>' +
+        '<span class="w294-persona-name">' + w294Esc(W294_state.activeId) + '</span>' +
+        W294_SVG.chevron +
+      '</button>' +
+      '<div class="w294-persona-menu" id="w294PersonaMenu" role="menu" aria-label="Voice personas"></div>';
+    anchor.appendChild(shell);
+    var btn = shell.querySelector('#w294PersonaBtn');
+    btn.addEventListener('click', function (ev) {
+      ev.stopPropagation();
+      var menu = document.getElementById('w294PersonaMenu');
+      if (menu && menu.classList.contains('is-open')) w294CloseMenu();
+      else w294OpenMenu();
+    });
+    btn.addEventListener('keydown', function (ev) {
+      if (ev.key === 'ArrowDown' || ev.key === 'Enter' || ev.key === ' ') {
+        ev.preventDefault();
+        w294OpenMenu();
+        var first = document.querySelector('#w294PersonaMenu .w294-persona-item');
+        if (first) first.focus();
+      }
+    });
+  }
+
+  function w294FallbackPersonas() {
+    // Used only when the API is unreachable; keeps the picker usable.
+    return [
+      { id: 'jarvis',   name: 'J.A.R.V.I.S.',  character: 'Calm British butler.' },
+      { id: 'stark',    name: 'Tony Stark',    character: 'Charismatic American — Iron Man.' },
+      { id: 'hal9000',  name: 'HAL 9000',      character: 'Calm clinical AI.' },
+      { id: 'tars',     name: 'TARS',          character: 'Interstellar TARS.' },
+      { id: 'glados',   name: 'GLaDOS',        character: 'Sardonic synthetic.' },
+      { id: 'operator', name: 'Operator',      character: 'Neutral cockpit voice.' }
+    ];
+  }
+
+  async function w294LoadPersonas() {
+    W294_state.fetchTried = true;
+    try {
+      var r = await fetch(W294_API + '/api/voice/personas', { method: 'GET' });
+      if (!r.ok) throw new Error('http ' + r.status);
+      var d = await r.json();
+      var list = (d && Array.isArray(d.personas)) ? d.personas : [];
+      if (list.length === 0) throw new Error('empty');
+      W294_state.personas = list;
+      var defaultId = (d && d.default_persona_id) ? String(d.default_persona_id) : W294_DEFAULT_PERSONA;
+      if (!w294FindPersona(W294_state.activeId)) W294_state.activeId = defaultId;
+    } catch (_e) {
+      W294_state.personas = w294FallbackPersonas();
+      if (!w294FindPersona(W294_state.activeId)) W294_state.activeId = W294_DEFAULT_PERSONA;
+    }
+    w294UpdateButtonLabel();
+    w294RenderMenuItems();
+  }
+
+  /* ── W294.JS.2 — Test-voice button ──────────────────────────────────── */
+  function w294DemoLineFor(personaId) {
+    return W294_DEMO_LINES[personaId] || W294_DEMO_LINES[W294_DEFAULT_PERSONA] || 'Voice test.';
+  }
+
+  function w294MicListenOn() {
+    // Reuse the existing W290 keyframe via the .vc-mic-wrap focus-within state.
+    // We can't focus a button without side-effects, so mirror the visual by
+    // toggling the cockpit state class which W290.6 already keys off of.
+    try {
+      var cockpit = document.getElementById('voiceCockpit');
+      if (cockpit && !cockpit.classList.contains('state-listening')) {
+        cockpit.classList.add('state-listening');
+        cockpit.setAttribute('data-w294-listen-marker', '1');
+      }
+    } catch (_) {}
+  }
+  function w294MicListenOff() {
+    try {
+      var cockpit = document.getElementById('voiceCockpit');
+      if (cockpit && cockpit.getAttribute('data-w294-listen-marker') === '1') {
+        cockpit.classList.remove('state-listening');
+        cockpit.removeAttribute('data-w294-listen-marker');
+      }
+    } catch (_) {}
+  }
+
+  async function w294PlayTestVoice() {
+    var btn = document.getElementById('w294TestVoiceBtn');
+    if (btn && btn.classList.contains('is-playing')) return;
+    var persona = W294_state.activeId || W294_DEFAULT_PERSONA;
+    var text = w294DemoLineFor(persona);
+    if (btn) { btn.classList.add('is-playing'); btn.setAttribute('aria-busy', 'true'); }
+    w294MicListenOn();
+
+    var blobUrl = null;
+    var audio = null;
+    function cleanup() {
+      w294MicListenOff();
+      if (btn) { btn.classList.remove('is-playing'); btn.removeAttribute('aria-busy'); }
+      if (blobUrl) { try { URL.revokeObjectURL(blobUrl); } catch (_) {} }
+    }
+
+    try {
+      var resp = await fetch(W294_API + '/api/voice/speak', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: text, persona: persona })
+      });
+      if (!resp.ok) {
+        cleanup();
+        w294Toast('Test voice failed (HTTP ' + resp.status + ')');
+        return;
+      }
+      var blob = await resp.blob();
+      blobUrl = URL.createObjectURL(blob);
+      audio = new Audio(blobUrl);
+      audio.addEventListener('ended', cleanup, { once: true });
+      audio.addEventListener('error', function () {
+        cleanup();
+        w294Toast('Test voice playback failed');
+      }, { once: true });
+      try { await audio.play(); }
+      catch (playErr) {
+        cleanup();
+        w294Toast('Audio play blocked: ' + (playErr && playErr.message ? playErr.message : 'unknown'));
+      }
+    } catch (e) {
+      cleanup();
+      w294Toast('Test voice unreachable: ' + (e && e.message ? e.message : 'network'));
+    }
+  }
+
+  function w294BuildTestButton(stage) {
+    if (!stage || document.getElementById('w294TestVoiceBtn')) return;
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.id = 'w294TestVoiceBtn';
+    b.className = 'w294-test-voice';
+    b.setAttribute('aria-label', 'Test active voice persona');
+    b.setAttribute('title', 'Speak a sample line in the active persona');
+    b.innerHTML = W294_SVG.play + '<span>Test voice</span>';
+    b.addEventListener('click', w294PlayTestVoice);
+    stage.appendChild(b);
+  }
+
+  /* ── W294.JS.4 — Online-state poll @2s ──────────────────────────────── */
+  // The W286-era _vcRefreshConnectionChip() at line ~8308 already polls every
+  // 15s via /api/health for tier mirroring. W294 adds a faster /api/a11y/health
+  // poll (2s) so the badge flips green within ~2s after a backend restart.
+  var W294_HEALTH_TIMER = null;
+  async function w294HealthTick() {
+    var dot = document.getElementById('vcDot');
+    var label = document.getElementById('vcConnState');
+    if (!dot || !label) return;
+    var ok = false;
+    try {
+      var r = await fetch(W294_API + '/api/a11y/health', { method: 'GET' });
+      if (r.ok) {
+        var d = await r.json().catch(function () { return {}; });
+        ok = !!(d && d.ok);
+      }
+    } catch (_) { ok = false; }
+    if (ok) {
+      dot.style.background = 'var(--ok)';
+      dot.style.boxShadow = '0 0 8px var(--ok)';
+      // Only overwrite text if we'd actually be improving the signal.
+      if (label.textContent !== 'connected') label.textContent = 'connected';
+    } else {
+      dot.style.background = 'var(--fail)';
+      dot.style.boxShadow = '0 0 8px var(--fail)';
+      if (label.textContent !== 'offline') label.textContent = 'offline';
+    }
+  }
+
+  /* ── W294.JS.5 — Mount + boot ───────────────────────────────────────── */
+  function w294AddRailHairline() {
+    try {
+      var head = document.querySelector('#vcRail .vc-rail-head');
+      if (head && !head.nextElementSibling) return; // empty rail — skip
+      if (head && head.parentNode && !head.parentNode.querySelector('.w294-rail-hairline')) {
+        var hr = document.createElement('hr');
+        hr.className = 'w294-rail-hairline';
+        hr.setAttribute('aria-hidden', 'true');
+        head.parentNode.insertBefore(hr, head.nextSibling);
+      }
+    } catch (_) {}
+  }
+
+  function w294Mount() {
+    if (W294_state.mounted) return;
+    var topbar = document.querySelector('.voice-cockpit .vc-topbar');
+    var stage = document.querySelector('.voice-cockpit .vc-stage');
+    if (!topbar || !stage) {
+      // Cockpit not visible yet — try again shortly.
+      setTimeout(w294Mount, 500);
+      return;
+    }
+    W294_state.mounted = true;
+    w294LoadPersisted();
+    w294BuildPicker(topbar);
+    w294BuildTestButton(stage);
+    w294AddRailHairline();
+    w294UpdateButtonLabel();
+    // Async load + render.
+    w294LoadPersonas();
+    // Start the 2s online-state poll.
+    if (W294_HEALTH_TIMER == null) {
+      w294HealthTick();
+      W294_HEALTH_TIMER = setInterval(w294HealthTick, 2000);
+    }
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', w294Mount, { once: true });
+  } else {
+    w294Mount();
+  }
+
+  // Expose a tiny debug surface (read-only inspection from devtools).
+  window.W294 = Object.freeze({
+    getActivePersona: function () { return W294_state.activeId; },
+    listPersonas:     function () { return W294_state.personas.slice(); },
+    testVoice:        w294PlayTestVoice,
+    healthTick:       w294HealthTick
+  });
+})();
+/* === END W294 LAYER === */
+</script>
+
 </body>
 </html>
