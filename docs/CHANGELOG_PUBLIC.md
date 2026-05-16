@@ -69,7 +69,7 @@ Both pass in isolation; the suite-wide leak source is a separate sweep.
 
 **Commit**
 
-- `<pending>` test: stabilize Python 3.12 suite (W305 — 38 → 2 failures)
+- `9eda795` test: stabilize Python 3.12 suite (W305 — 38 → 2 failures)
 
 ## 2026-05-16 — Cursor · W304 asyncio 3.12 + voice env + L9 roadmap sync
 
