@@ -22,6 +22,10 @@ callsites touched by shell CSS. **W286** `:root` `--accent*`,
 - `desktop/src-tauri/web/index.html`
 - `scripts/qa_w290_cockpit.sh`
 
+**Commit**
+
+- `7bf2342` feat(desktop): W302 Control Center shell = MASTER gold palette
+
 ## 2026-05-17 — Cursor · W301 MASTER token bridge + gold cockpit remap
 
 **Summary**

@@ -91,7 +91,7 @@ plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 > - ``908c8df`` cursor — docs: W298 HUD overlay changelog entry
 > - ``bca25af`` cursor — feat(desktop): W299 cockpit visual system + font CSP + W291 probe dedupe
 > - ``6176766`` cursor — feat(desktop): W301 MASTER token bridge + gold cockpit remap
-> - W302 — feat(desktop): Control Center shell = MASTER palette + QA harness (see changelog top entry)
+> - ``7bf2342`` cursor — feat(desktop): W302 Control Center shell = MASTER palette + QA harness
 
 ---
 
