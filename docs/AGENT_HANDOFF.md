@@ -3,9 +3,39 @@
 Pick this up if you are continuing the work in a fresh chat. Read this file
 plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 
-> **>>> SYNC: Cursor · 2026-05-17 · W308 step 2 (port cockpit + hero from W307 refs → multi-page Vite project at apps/cockpit/) · W308 step 1 (apply W307 verdict in tokens.css + MASTER.md) · W308 step 0 (Path C scaffold) · W307 design verdict (Claude) · W306 order-dependent fixes (38 → 0) · W305 py3.12 stabilization · W304 py3.12 + OPENAI env + L9 doc sync <<<**
+> **>>> SYNC: Cursor · 2026-05-17 · W308 step 3 (wire apps/cockpit/dist/ into Tauri pipeline; legacy SPA archived to desktop/src-tauri/web-legacy/) · W308 step 2 (port cockpit + hero from W307 refs → multi-page Vite project at apps/cockpit/) · W308 step 1 (apply W307 verdict in tokens.css + MASTER.md) · W308 step 0 (Path C scaffold) · W307 design verdict (Claude) · W306 order-dependent fixes (38 → 0) · W305 py3.12 stabilization · W304 py3.12 + OPENAI env + L9 doc sync <<<**
 >
-> **W308 step 2 (this wave)** — operator delegated ("делай всё
+> **W308 step 3 (this wave)** — operator delegated ("делай всё
+> остальное без остановки"). The Tauri desktop now ships
+> `apps/cockpit/dist/` as its frontend. The frozen pre-built React
+> SPA that used to live under `desktop/src-tauri/web/` was moved via
+> `git mv` to `desktop/src-tauri/web-legacy/` (full history preserved,
+> safe rollback). `desktop/scripts/package-cockpit.sh` is rewritten:
+> it now `pnpm install`s + `pnpm build`s `apps/cockpit/` and rsyncs
+> `dist/` into `desktop/src-tauri/web/`. `--skip-build` shortcuts the
+> install/build when CI already has a fresh `dist/`. `--legacy`
+> emergency-stages the archived bundle. Tauri hooks
+> (`beforeBuildCommand: pnpm cockpit:package`,
+> `beforeDevCommand: pnpm serve:web`) are unchanged — they just point
+> at a real source tree now instead of a frozen artifact.
+>
+> **Verification.** `bash desktop/scripts/package-cockpit.sh --skip-build`
+> stages 4 HTMLs + CSS + JS into `web/`. `pnpm run serve:web` returns
+> 200 on `/`, `/cockpit.html`, `/hero.html`, `/preview.html`. Drift
+> smoke test (`tests/test_cockpit_tokens_sync.py`) still 6/6 green.
+> Build size: ~21 kB raw / ~7 kB gzipped vs the legacy ~5 MB SPA.
+>
+> **Known functional regression (intended for this step, carry-over
+> to W309+).** The legacy `Cockpit-*.js` (~169 kB) shipped
+> mic-capture, websocket-to-sidecar (`ws://127.0.0.1:8765`), and
+> the conversation strand renderer. The new `cockpit.html` is a
+> static shell — visually correct, behaviorally inert. Restoring
+> these behaviors (probably as per-page TS modules under
+> `apps/cockpit/src/pages/`) is the natural next wave. Until then,
+> `bash desktop/scripts/package-cockpit.sh --legacy` re-stages the
+> archived bundle if a release blocker appears.
+>
+> **W308 step 2 (previous wave)** — operator delegated ("делай всё
 > остальное без остановки"). The cockpit and marketing-hero surfaces
 > from Claude's W307 reference (`docs/design/W307_refs/{cockpit,hero}.html`)
 > are now ported into `apps/cockpit/` as a proper **multi-page Vite

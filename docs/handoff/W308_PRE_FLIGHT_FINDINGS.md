@@ -1,13 +1,16 @@
 # W308 — pre-flight findings (read before starting migration)
 
-> **Status.** Steps 0–2 shipped. Path **C** picked (see below). Cursor
-> built the new minimal cockpit shell under `apps/cockpit/`; live
-> tokens live in `apps/cockpit/src/styles/tokens.css` and are guarded
-> against MASTER.md drift by `tests/test_cockpit_tokens_sync.py`. The
-> Claude W307 verdict was applied in step 1; the actual cockpit and
-> hero surfaces (ported from `docs/design/W307_refs/`) ship in step 2.
-> Step 3 (replace the frozen Tauri bundle with `apps/cockpit/dist/`)
-> is queued.
+> **Status.** Steps 0–3 shipped. Path **C** complete. Cursor built the
+> new minimal cockpit shell under `apps/cockpit/`; live tokens live in
+> `apps/cockpit/src/styles/tokens.css` and are guarded against
+> MASTER.md drift by `tests/test_cockpit_tokens_sync.py`. The Claude
+> W307 verdict was applied in step 1; the actual cockpit and hero
+> surfaces (ported from `docs/design/W307_refs/`) ship in step 2.
+> Step 3 wires `apps/cockpit/dist/` into the Tauri pipeline: the
+> frozen shipping bundle has been moved to
+> `desktop/src-tauri/web-legacy/` for rollback, and
+> `desktop/scripts/package-cockpit.sh` now builds `apps/cockpit/`
+> and stages its dist into `desktop/src-tauri/web/`.
 > **Owner of W308.** Cursor (this agent).
 > **Why this doc exists.** While Claude was running the design pass I
 > mapped where the current MASTER tokens *actually live in shipping
@@ -26,6 +29,7 @@
 | 2026-05-17 | Stack: Vite + vanilla TypeScript, no framework | MASTER contract is plain CSS variables + semantic HTML. React/Vue would add ~45KB minified for zero benefit at this stage. Step 0 bundle is 13KB raw / 5KB gzipped. |
 | 2026-05-17 | **Step 1 shipped** — W307 verdict applied (5 open-question taste calls + ~10 hard-rule changes, see table below) | Operator delegated again ("выбери ты"). Migration cost = zero (no call-sites yet); single revert undoes any taste call. Bundle grows to 18KB raw / 6KB gzipped. |
 | 2026-05-17 | **Step 2 shipped** — cockpit + hero surfaces ported from `docs/design/W307_refs/{cockpit,hero}.html` into the new multi-page Vite project. Landing index added; `tokens-preview` moved to `/preview.html`. | Operator ("делай всё остальное без остановки"). Side-by-side parity check vs reference passes; intentional deltas are documented (greeting bigger, accent fills enforce black text, ambient vs alert pulses split). Bundle: 4 pages, ~19 kB gzipped total. |
+| 2026-05-17 | **Step 3 shipped** — `desktop/src-tauri/web/` is now the staged output of `apps/cockpit/dist/`; the frozen pre-built React SPA was moved to `desktop/src-tauri/web-legacy/` via `git mv` (history preserved). `desktop/scripts/package-cockpit.sh` rewritten to actually build (`pnpm install && pnpm build` in `apps/cockpit/`) and rsync `dist/` into `web/`. `--legacy` flag added for emergency parity checks. Tauri hooks unchanged (`beforeBuildCommand: pnpm cockpit:package`, `beforeDevCommand: pnpm serve:web`). | Operator ("делай всё остальное без остановки"). Path C is complete: cockpit now has a real source tree → reproducible build → Tauri shell. The new bundle is ~21 kB raw vs the legacy ~5 MB SPA. **Known functional regression** (intended for this step, see "Carry-over" below): the legacy `Cockpit-*.js` (~169 kB) contained mic/WS/conversation behavior that the new vanilla-TS pages do not yet implement; the new cockpit is currently a polished static shell. Restoring runtime behavior is a separate wave (W309+). |
 
 ---
 
@@ -149,11 +153,29 @@ the W307 verdict.
       (served from `docs/design/W307_refs/`) passes — intentional
       deltas (bigger greeting, `--cta-text-on-accent`, ambient vs
       alert pulse split) match the W307 verdict.
-- [ ] **Step 3 (queued):** wire `apps/cockpit/dist/` into
-      `desktop/scripts/package-cockpit.sh`; replace
-      `desktop/src-tauri/web/` content. Drop the "just check it
-      exists" stub and rebuild the bundle as part of the desktop
-      release pipeline.
+- [x] **Step 3 shipped (operator delegated "делай всё остальное без
+      остановки").** Frozen pre-built React SPA moved via `git mv` to
+      `desktop/src-tauri/web-legacy/` (history preserved + safe
+      rollback). `desktop/scripts/package-cockpit.sh` rewritten:
+      builds `apps/cockpit/` and rsyncs `dist/` into
+      `desktop/src-tauri/web/`. `--skip-build` flag for CI when dist
+      is pre-built; `--legacy` flag stages the legacy bundle for
+      emergency parity. Tauri hooks unchanged. New `web/` committed
+      so release pipeline doesn't require Node bootstrap. Verified:
+      `pnpm run serve:web` returns 200 on `/`, `/cockpit.html`,
+      `/hero.html`, `/preview.html`. Drift smoke test still passes
+      (6/6).
+- [ ] **Carry-over for W309+ (functional restore):** the legacy
+      `desktop/src-tauri/web-legacy/assets/Cockpit-*.js` (~169 kB)
+      implemented mic capture, websocket connection to the sidecar
+      (`ws://127.0.0.1:8765`), and the conversation strand renderer.
+      The new `apps/cockpit/cockpit.html` is currently a static
+      shell — visually correct, behaviorally inert. Restoring the
+      behaviors (probably as small per-page TS modules under
+      `apps/cockpit/src/pages/`) is the natural next wave. The
+      legacy bundle is committed under `web-legacy/` to read from,
+      and `bash desktop/scripts/package-cockpit.sh --legacy` can
+      temporarily stage it back if release blockers appear.
 
 ---
 

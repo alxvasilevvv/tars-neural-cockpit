@@ -4,6 +4,81 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-17 — Cursor · W308 step 3 (wire apps/cockpit/dist/ into Tauri pipeline)
+
+**Summary**
+
+Operator delegated ("делай всё остальное без остановки"). The Tauri
+desktop now ships `apps/cockpit/dist/` as its frontend instead of the
+frozen pre-built React SPA that has lived under `desktop/src-tauri/web/`
+since the experiments/neural-showcase-v3 SPA was deleted in `e5f1911`.
+The legacy bundle is preserved (via `git mv` so history follows the
+rename) at `desktop/src-tauri/web-legacy/` for emergency rollback and
+as the reference for the next wave (restoring functional behaviors).
+
+**Pipeline changes:**
+- `desktop/scripts/package-cockpit.sh` rewritten. Was: 6-line stub
+  that verified the bundle existed. Now: `pnpm install && pnpm build`
+  in `apps/cockpit/`, then `rsync apps/cockpit/dist/ → desktop/src-tauri/web/`.
+- Flags: `--skip-build` (CI uses pre-built dist), `--legacy` (re-stage
+  the legacy SPA for emergency parity checks).
+- Tauri config (`tauri.conf.json`) unchanged. `frontendDist: ./web`,
+  `beforeBuildCommand: pnpm cockpit:package`,
+  `beforeDevCommand: pnpm serve:web` — now they point at a real
+  source tree instead of a frozen artifact.
+
+**Bundle changes (desktop/src-tauri/web/):**
+- Old: 41 minified JS chunks (~5 MB), React + Spline + howler +
+  opentype + navmesh + physics + gaussian-splat-compression +
+  one 582 kB pre-rendered `index.html` containing the entire SPA.
+- New: 4 HTML pages (`index`, `cockpit`, `hero`, `preview`),
+  one 6 kB shared CSS, two small JS chunks (preview + main).
+  Total ~21 kB raw / ~7 kB gzipped.
+
+**Documentation:**
+- `apps/cockpit/README.md` already reflects the multi-page build.
+- `docs/handoff/W308_PRE_FLIGHT_FINDINGS.md`: step 3 marked done;
+  decision log entry; carry-over for W309+ (functional restore of
+  mic/WS/conversation behaviors lost when the SPA was archived).
+- `docs/AGENT_HANDOFF.md`: SYNC line + per-wave block.
+
+**Files**
+
+- `desktop/scripts/package-cockpit.sh` (rewritten)
+- `desktop/src-tauri/web/` (replaced with built cockpit dist)
+- `desktop/src-tauri/web-legacy/` (new — `git mv` of old `web/`,
+  plus the two pre-W289/W290 `index.html.bak-*` backups)
+- `docs/AGENT_HANDOFF.md`
+- `docs/CHANGELOG_AGENTS.md`
+- `docs/handoff/W308_PRE_FLIGHT_FINDINGS.md`
+
+**Verification**
+
+- `bash desktop/scripts/package-cockpit.sh --skip-build` → OK,
+  stages cockpit.html / hero.html / index.html / preview.html.
+- `pnpm --filter @tars/cockpit build` → clean, 4 HTML pages, total
+  ~73 kB raw / ~19 kB gzipped (incl. inline page CSS in HTMLs).
+- `cd desktop && pnpm run serve:web` then `curl http://127.0.0.1:5173/`
+  returns 200 (and `/cockpit.html` returns 301 → `/cockpit`, which
+  is `serve`'s clean-URL behavior — Tauri loads either).
+- `pytest tests/test_cockpit_tokens_sync.py -q` → 6/6 pass.
+
+**Known carry-over (W309+)**
+
+The legacy `Cockpit-CWJnxhRj.js` (~169 kB) implemented:
+- microphone capture pipeline,
+- websocket connection to the local sidecar (`ws://127.0.0.1:8765`),
+- the conversation strand renderer.
+
+The new `apps/cockpit/cockpit.html` is currently a static shell —
+visually correct per W307, behaviorally inert. Restoring these
+behaviors (likely as small per-page TS modules in
+`apps/cockpit/src/pages/`) is the natural next wave. Until that
+ships, `bash desktop/scripts/package-cockpit.sh --legacy` re-stages
+the archived SPA if a release blocker appears.
+
+---
+
 ## 2026-05-17 — Cursor · W308 step 2 (port cockpit + hero surfaces)
 
 **Summary**
