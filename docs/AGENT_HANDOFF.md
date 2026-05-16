@@ -3,7 +3,7 @@
 Pick this up if you are continuing the work in a fresh chat. Read this file
 plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 
-> **>>> SYNC: Cursor · 2026-05-17 · W301 MASTER cockpit tokens + gold remap (+ W299/W298 baseline) <<<**
+> **>>> SYNC: Cursor · 2026-05-16 · W302 Control Center shell = MASTER (+ W301 cockpit tokens) <<<**
 >
 > Continuation after operator listened to W294/W295 voices and reviewed the
 > cockpit visually. Verdict: **voice still felt "TTS narrator", design "everything is broken"**.
@@ -55,6 +55,13 @@ plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 > cockpit chrome remapped to gold per design system; W298 HUD cyan aligned to
 > ``--color-hud``; monolith stage uses cyan + ``#CA8A04``.
 >
+> **W302** — non–``cockpit-active`` Control Center chrome (early ``:root``,
+> radials, header/tabs/buttons/auth gradients, stray hex scaffolding) migrated
+> from indigo/violet to MASTER gold ``#CA8A04`` with cyan/teal pairs; **W286**
+> ``:root`` ``--accent*`` / ``--border-accent`` are gold everywhere; monospace
+> shell touches use **Fira Code**; ``scripts/qa_w290_cockpit.sh`` accepts
+> ``--accent`` ``#CA8A04``.
+>
 > **Test suite** — ``./.venv/bin/python -m pytest tests/ -x`` after W298:
 > **571 passed, 1 failed, 2 skipped**. The lone failure
 > (``test_cap_ux.py::test_hard_cap_blocks_chat_with_429_envelope``) is a
@@ -84,6 +91,7 @@ plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 > - ``908c8df`` cursor — docs: W298 HUD overlay changelog entry
 > - ``bca25af`` cursor — feat(desktop): W299 cockpit visual system + font CSP + W291 probe dedupe
 > - ``6176766`` cursor — feat(desktop): W301 MASTER token bridge + gold cockpit remap
+> - W302 — feat(desktop): Control Center shell = MASTER palette + QA harness (see changelog top entry)
 
 ---
 

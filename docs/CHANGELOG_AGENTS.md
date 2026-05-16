@@ -4,6 +4,24 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-16 — Cursor · W302 Control Center shell = MASTER palette
+
+**Summary**
+
+Non–`cockpit-active` chrome (early W270 `:root`, body radials,
+header/tab/button/panel edges, gradients, sparkle arrays) migrated off
+Tailwind-esque indigo/violet to MASTER gold `#CA8A04` (+ cyan/teal ramps for
+paired gradients). **Fira Code** replaces **JetBrains Mono** in monospace
+callsites touched by shell CSS. **W286** `:root` `--accent*`,
+`--border-accent`, re-pointed off legacy violet. QA harness `:root`
+`--accent` check now accepts either `#7C5CFF` (legacy) or `#CA8A04` /
+`#ca8a04`.
+
+**Files**
+
+- `desktop/src-tauri/web/index.html`
+- `scripts/qa_w290_cockpit.sh`
+
 ## 2026-05-17 — Cursor · W301 MASTER token bridge + gold cockpit remap
 
 **Summary**
@@ -11,8 +29,8 @@ factual; prose belongs in `AGENT_HANDOFF.md`.
 Canonical `design-system/tars/MASTER.md` OLED + gold `--color-*` tokens
 applied on `body.cockpit-active`, bridged onto W286 semantics (`--bg`,
 `--accent`, `--text-primary`, …). Legacy violet cockpit chrome
-`rgba(124,92,255,*)` remapped to gold `rgba(202,138,4,*)`; `:root`
-`--border-accent` / `--accent-soft` stay violet for the non-cockpit shell.
+`rgba(124,92,255,*)` remapped to gold `rgba(202,138,4,*)`; W302 extended the
+same gold vocabulary to Control Center `:root`/gradients outside cockpit.
 W298 HUD tokens reference MASTER `--color-hud`; monolith `--vc-strip-*`
 under cockpit uses cyan + `#CA8A04`.
 

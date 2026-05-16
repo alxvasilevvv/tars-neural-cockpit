@@ -4,6 +4,24 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-16 — Cursor · W302 Control Center shell = MASTER palette
+
+**Summary**
+
+Non–`cockpit-active` chrome (early W270 `:root`, body radials,
+header/tab/button/panel edges, gradients, sparkle arrays) migrated off
+Tailwind-esque indigo/violet to MASTER gold `#CA8A04` (+ cyan/teal ramps for
+paired gradients). **Fira Code** replaces **JetBrains Mono** in monospace
+callsites touched by shell CSS. **W286** `:root` `--accent*`,
+`--border-accent`, re-pointed off legacy violet. QA harness `:root`
+`--accent` check now accepts either `#7C5CFF` (legacy) or `#CA8A04` /
+`#ca8a04`.
+
+**Files**
+
+- `desktop/src-tauri/web/index.html`
+- `scripts/qa_w290_cockpit.sh`
+
 ## 2026-05-17 — Cursor · W301 MASTER token bridge + gold cockpit remap
 
 **Summary**
@@ -11,8 +29,8 @@ factual; prose belongs in `AGENT_HANDOFF.md`.
 Canonical `design-system/tars/MASTER.md` OLED + gold `--color-*` tokens
 applied on `body.cockpit-active`, bridged onto W286 semantics (`--bg`,
 `--accent`, `--text-primary`, …). Legacy violet cockpit chrome
-`rgba(124,92,255,*)` remapped to gold `rgba(202,138,4,*)`; `:root`
-`--border-accent` / `--accent-soft` stay violet for the non-cockpit shell.
+`rgba(124,92,255,*)` remapped to gold `rgba(202,138,4,*)`; W302 extended the
+same gold vocabulary to Control Center `:root`/gradients outside cockpit.
 W298 HUD tokens reference MASTER `--color-hud`; monolith `--vc-strip-*`
 under cockpit uses cyan + `#CA8A04`.
 
@@ -2509,30 +2527,6 @@ operator-only paste-ins (`BRIDGE_SHARED_SECRET` on Pages prod env +
 
 `>>> SYNC: Cursor · 2026-05-04 · launch-ready (CI green, Plan B sealed, Node 24 opt-in)`
 
-## 2026-05-04 — Cursor · prod: tars.meeet.world live via Cloudflare Pages Git integration (Plan B)
-
-**Summary**
-
-Operator wired a **new** Pages project **`tars-meeet-git`** to GitHub
-(account `b746402b…`, repo `alxvasilevvv/tars-neural-cockpit`, branch `main`,
-root `experiments/neural-showcase-v3`, build `npm ci && npm run build:cf`,
-output `dist`, env `NODE_VERSION=20`, `VITE_TARS_API=https://tars.meeet.world`).
-Custom domain **`tars.meeet.world`** moved off legacy `tars-meeet` (Direct
-Upload) onto `tars-meeet-git`. Smoke `curl -sI https://tars.meeet.world/`
-→ **200**, `x-tars-contract: 1.0.0`, `x-tars-trace-id`, `x-tars-subdomain`,
-`tars_session_id` cookie on `.meeet.world`. `/install`, `/cockpit`,
-`/dl/TARS-8.4.0-arm64.dmg`, `/install.sh` → **200**. Pages Functions
-(`/api/product/downloads`) live (`contract_version 1.0.0`).
-
-**No `CLOUDFLARE_API_TOKEN`** in GitHub secrets — Plan B path is now
-production. Plan A (wrangler) remains documented as fallback.
-
-**Files**
-
-- `docs/TARS_MEEET_OPS_TODO.md` (top blurb + CURRENT STATE: Plan B is prod)
-- `docs/CHANGELOG_PUBLIC.md` (regenerated)
-- `docs/CHANGELOG_AGENTS.md` (this entry)
-
 ---
 
-_Showing the most recent 60 of 253 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 254 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
