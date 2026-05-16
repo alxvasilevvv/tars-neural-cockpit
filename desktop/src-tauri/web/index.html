@@ -730,83 +730,233 @@
   .empty-state { color: var(--muted); text-align: center; padding: 30px 20px; font-size: 12px; line-height: 1.6; }
   .empty-state a { color: var(--accent); text-decoration: none; }
 
-  /* ─── W219 Auth gate overlay ─────────────────────────────────── */
+  /* ─── W279 Auth gate — studio-grade redesign ─────────────────── */
   .auth-screen {
     position: fixed; inset: 0; z-index: 3000;
-    background: radial-gradient(900px 600px at 50% 30%, rgba(99,102,241,0.18), transparent 60%), #07080d;
+    background:
+      radial-gradient(900px 600px at 18% 18%, rgba(99,102,241,0.22), transparent 60%),
+      radial-gradient(700px 500px at 82% 78%, rgba(139,92,246,0.18), transparent 60%),
+      radial-gradient(500px 400px at 50% 100%, rgba(6,182,212,0.10), transparent 65%),
+      #050608;
     display: none; align-items: center; justify-content: center;
-    overflow: auto;
+    overflow: auto; padding: 24px;
   }
   .auth-screen.show { display: flex; }
-  .auth-card {
-    width: min(520px, 92vw);
-    background: var(--panel);
-    border: 1px solid rgba(139,92,246,0.35);
-    border-radius: 18px; padding: 32px;
-    box-shadow: 0 30px 80px rgba(0,0,0,0.7), inset 0 1px 0 rgba(255,255,255,0.06);
-    text-align: center;
+  /* Animated noise + grid overlay */
+  .auth-screen::before {
+    content: ''; position: absolute; inset: 0; pointer-events: none;
+    background-image:
+      linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+    background-size: 56px 56px;
+    mask-image: radial-gradient(ellipse 60% 50% at 50% 50%, #000 30%, transparent 80%);
+    -webkit-mask-image: radial-gradient(ellipse 60% 50% at 50% 50%, #000 30%, transparent 80%);
+    opacity: 0.6;
   }
-  .auth-card .auth-logo { display: flex; justify-content: center; margin-bottom: 18px; }
-  .auth-card .auth-logo .logo-svg { height: 56px; }
-  .auth-card h1 {
-    margin: 0 0 6px; font-size: 22px; font-weight: 700;
-    background: linear-gradient(90deg, #ffffff, #c7d2fe 60%, #a5b4fc);
-    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  .auth-screen::after {
+    content: ''; position: absolute; inset: 0; pointer-events: none;
+    background: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='200' height='200'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/></svg>");
+    background-size: 200px 200px;
+    opacity: 0.04; mix-blend-mode: overlay;
+  }
+  .auth-card {
+    position: relative; z-index: 1;
+    width: min(460px, 100%);
+    background:
+      linear-gradient(180deg, rgba(20,22,28,0.85) 0%, rgba(10,12,18,0.92) 100%);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 22px; padding: 40px 36px 32px;
+    backdrop-filter: blur(24px) saturate(1.1);
+    -webkit-backdrop-filter: blur(24px) saturate(1.1);
+    box-shadow:
+      0 24px 64px rgba(0,0,0,0.5),
+      0 2px 0 rgba(255,255,255,0.04) inset,
+      0 -2px 40px rgba(99,102,241,0.08) inset;
+    text-align: left;
+    animation: auth-card-in 0.7s cubic-bezier(.22,.94,.4,1) both;
+  }
+  /* Subtle gradient border glow */
+  .auth-card::before {
+    content: ''; position: absolute; inset: -1px; border-radius: 22px;
+    background: linear-gradient(135deg, rgba(99,102,241,0.4), transparent 30%, transparent 70%, rgba(139,92,246,0.3));
+    -webkit-mask: linear-gradient(#000, #000) content-box, linear-gradient(#000, #000);
+    mask: linear-gradient(#000, #000) content-box, linear-gradient(#000, #000);
+    -webkit-mask-composite: xor; mask-composite: exclude;
+    padding: 1px; pointer-events: none; opacity: 0.7;
+  }
+  @keyframes auth-card-in {
+    from { opacity: 0; transform: translateY(20px) scale(0.98); }
+    to   { opacity: 1; transform: translateY(0)    scale(1);    }
+  }
+  .auth-card > * { animation: auth-stagger 0.5s cubic-bezier(.22,.94,.4,1) backwards; }
+  .auth-card > *:nth-child(1) { animation-delay: 0.10s; }
+  .auth-card > *:nth-child(2) { animation-delay: 0.18s; }
+  .auth-card > *:nth-child(3) { animation-delay: 0.24s; }
+  .auth-card > *:nth-child(4) { animation-delay: 0.30s; }
+  .auth-card > *:nth-child(5) { animation-delay: 0.36s; }
+  .auth-card > *:nth-child(6) { animation-delay: 0.42s; }
+  .auth-card > *:nth-child(7) { animation-delay: 0.48s; }
+  @keyframes auth-stagger {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Brand mark — pulsing T inside a rounded square */
+  .auth-card .auth-logo {
+    display: flex; align-items: center; gap: 14px; margin-bottom: 28px;
+  }
+  .auth-card .auth-mark {
+    width: 44px; height: 44px; border-radius: 12px;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6 60%, #ec4899);
+    display: grid; place-items: center;
+    color: #fff; font: 700 18px/1 "Inter","SF Pro Display",-apple-system,system-ui,sans-serif;
     letter-spacing: 0.02em;
+    box-shadow:
+      0 8px 24px rgba(99,102,241,0.4),
+      inset 0 1px 0 rgba(255,255,255,0.3),
+      inset 0 -2px 0 rgba(0,0,0,0.2);
+    animation: auth-mark-breath 4s ease-in-out infinite;
+  }
+  @keyframes auth-mark-breath {
+    0%, 100% { transform: scale(1);    box-shadow: 0 8px 24px rgba(99,102,241,0.4),  inset 0 1px 0 rgba(255,255,255,0.3), inset 0 -2px 0 rgba(0,0,0,0.2); }
+    50%      { transform: scale(1.04); box-shadow: 0 12px 32px rgba(139,92,246,0.55), inset 0 1px 0 rgba(255,255,255,0.4), inset 0 -2px 0 rgba(0,0,0,0.2); }
+  }
+  .auth-card .auth-wordmark {
+    font: 700 28px/1 "Inter","SF Pro Display",-apple-system,system-ui,sans-serif;
+    letter-spacing: 0.18em;
+    background: linear-gradient(135deg, #ffffff 0%, #d5d5f0 60%, #a5b4fc 100%);
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+
+  .auth-card h1 {
+    margin: 0 0 8px; font: 600 22px/1.2 "Inter","SF Pro Display",-apple-system,system-ui,sans-serif;
+    letter-spacing: -0.01em;
+    color: #f5f5f0;
   }
   .auth-card .auth-sub {
-    color: var(--muted); font-size: 13px; line-height: 1.6; margin: 0 0 22px;
+    color: #8a8880; font: 400 14px/1.55 "Inter",-apple-system,system-ui,sans-serif;
+    margin: 0 0 28px;
   }
-  .auth-card .auth-email-row { display: flex; gap: 8px; margin-bottom: 14px; }
+  .auth-card label.auth-field-label {
+    display: block; margin-bottom: 8px;
+    font: 500 11px/1 "Inter",-apple-system,system-ui,sans-serif;
+    letter-spacing: 0.10em; text-transform: uppercase;
+    color: #6a6860;
+  }
+
+  .auth-card .auth-email-row {
+    display: flex; gap: 10px; margin-bottom: 6px;
+    position: relative;
+  }
+  .auth-card .auth-email-wrap {
+    flex: 1; position: relative;
+  }
   .auth-card input[type="email"] {
-    flex: 1; background: rgba(0,0,0,0.35); border: 1px solid var(--panel-edge);
-    border-radius: 10px; padding: 12px 14px; color: var(--text);
-    font-family: inherit; font-size: 13px;
+    width: 100%; box-sizing: border-box;
+    background: rgba(0,0,0,0.35);
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 12px; padding: 13px 16px;
+    color: #f5f5f0;
+    font: 400 14px/1.4 "Inter",-apple-system,system-ui,sans-serif;
+    letter-spacing: -0.005em;
+    transition: border-color .2s, box-shadow .2s, background .2s;
   }
-  .auth-card input[type="email"]:focus { outline: none; border-color: var(--accent); }
+  .auth-card input[type="email"]::placeholder { color: rgba(138,136,128,0.55); }
+  .auth-card input[type="email"]:hover { border-color: rgba(255,255,255,0.18); background: rgba(0,0,0,0.4); }
+  .auth-card input[type="email"]:focus {
+    outline: none; border-color: rgba(99,102,241,0.65);
+    background: rgba(0,0,0,0.5);
+    box-shadow: 0 0 0 4px rgba(99,102,241,0.15);
+  }
+  .auth-card .btn.primary {
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    border: 1px solid rgba(139,92,246,0.6); color: #fff;
+    border-radius: 12px; padding: 0 22px; min-height: 46px;
+    font: 500 14px/1 "Inter",-apple-system,system-ui,sans-serif;
+    letter-spacing: -0.01em; cursor: pointer; white-space: nowrap;
+    box-shadow: 0 8px 24px rgba(99,102,241,0.35), inset 0 1px 0 rgba(255,255,255,0.18);
+    transition: transform .15s, box-shadow .15s;
+  }
+  .auth-card .btn.primary:hover { transform: translateY(-1px); box-shadow: 0 12px 32px rgba(99,102,241,0.5), inset 0 1px 0 rgba(255,255,255,0.25); }
+  .auth-card .btn.primary:active { transform: translateY(0); }
+
   .auth-card .auth-divider {
-    display: flex; align-items: center; gap: 10px;
-    color: var(--muted-2); font-size: 10px; letter-spacing: .2em;
-    text-transform: uppercase; margin: 18px 0;
+    display: flex; align-items: center; gap: 14px;
+    color: rgba(138,136,128,0.65); font: 500 10px/1 "Inter",-apple-system,system-ui,sans-serif;
+    letter-spacing: 0.22em; text-transform: uppercase;
+    margin: 22px 0 18px;
   }
   .auth-card .auth-divider::before,
   .auth-card .auth-divider::after {
-    content: ''; flex: 1; height: 1px; background: var(--panel-edge);
+    content: ''; flex: 1; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(255,255,255,0.10), transparent);
   }
-  .auth-card .oauth-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+  .auth-card .oauth-row {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 10px;
+  }
   .auth-card .btn-oauth {
-    background: rgba(255,255,255,0.04); color: var(--text);
-    border: 1px solid var(--panel-edge); border-radius: 10px;
-    padding: 12px; font-family: inherit; font-size: 13px;
-    cursor: pointer; transition: all .15s;
+    display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+    background: rgba(255,255,255,0.04);
+    color: #e5e7eb;
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 12px;
+    padding: 12px 14px; min-height: 46px;
+    font: 500 13px/1 "Inter",-apple-system,system-ui,sans-serif;
+    letter-spacing: -0.005em; cursor: pointer;
+    transition: all .18s cubic-bezier(.2,.8,.2,1);
   }
-  .auth-card .btn-oauth:hover { background: rgba(255,255,255,0.08); border-color: var(--accent); }
+  .auth-card .btn-oauth:hover {
+    background: rgba(255,255,255,0.07);
+    border-color: rgba(255,255,255,0.20);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(0,0,0,0.3);
+  }
+  .auth-card .btn-oauth:active { transform: translateY(0); }
+  .auth-card .btn-oauth svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+  /* Soft, professional status callout */
   .auth-card .auth-status {
-    margin-top: 14px; padding: 10px; border-radius: 8px;
-    background: rgba(0,0,0,0.25); border: 1px solid var(--panel-edge);
-    font-size: 11px; color: var(--muted); display: none;
+    margin-top: 16px; padding: 12px 14px; border-radius: 10px;
+    background: rgba(0,0,0,0.30);
+    border: 1px solid rgba(255,255,255,0.08);
+    font: 400 12px/1.5 "Inter",-apple-system,system-ui,sans-serif;
+    color: #b6b3a8; display: none;
+    display: none; align-items: flex-start; gap: 10px;
   }
-  .auth-card .auth-status.show { display: block; }
-  .auth-card .auth-status.ok { color: var(--ok); border-color: rgba(34,197,94,0.3); }
-  .auth-card .auth-status.fail { color: var(--fail); border-color: rgba(239,68,68,0.3); }
-  .auth-card .auth-status.warn { color: var(--warn); border-color: rgba(245,158,11,0.35); }
+  .auth-card .auth-status.show { display: flex; }
+  .auth-card .auth-status::before {
+    content: ''; flex-shrink: 0; width: 6px; height: 6px; border-radius: 50%;
+    margin-top: 7px;
+    background: rgba(255,255,255,0.4);
+  }
+  .auth-card .auth-status.ok   { color: #a7f3d0; border-color: rgba(16,185,129,0.25); background: rgba(16,185,129,0.06); }
+  .auth-card .auth-status.ok::before   { background: #10b981; box-shadow: 0 0 8px #10b981; }
+  .auth-card .auth-status.warn { color: #fcd34d; border-color: rgba(245,158,11,0.25); background: rgba(245,158,11,0.06); }
+  .auth-card .auth-status.warn::before { background: #f59e0b; box-shadow: 0 0 8px #f59e0b; }
+  .auth-card .auth-status.fail { color: #fca5a5; border-color: rgba(244,63,94,0.25); background: rgba(244,63,94,0.06); }
+  .auth-card .auth-status.fail::before { background: #f43f5e; box-shadow: 0 0 8px #f43f5e; }
+  .auth-card .auth-status.info { color: #c4f1ff; border-color: rgba(6,182,212,0.25); background: rgba(6,182,212,0.06); }
+  .auth-card .auth-status.info::before { background: #06b6d4; box-shadow: 0 0 8px #06b6d4; }
+
   .auth-card .auth-footer {
-    margin-top: 22px; font-size: 11px; color: var(--muted-2);
+    margin-top: 24px; padding-top: 22px;
+    border-top: 1px solid rgba(255,255,255,0.06);
     display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+    font: 400 12px/1 "Inter",-apple-system,system-ui,sans-serif;
   }
   .auth-card .auth-footer a,
   .auth-card .auth-footer .auth-link {
-    color: var(--accent);
-    text-decoration: none;
-    cursor: pointer;
-    background: transparent;
-    border: 0;
-    padding: 4px 8px;
-    font: inherit;
-    pointer-events: auto;
+    color: rgba(167,139,250,0.85);
+    text-decoration: none; cursor: pointer;
+    background: transparent; border: 0; padding: 4px 0;
+    font: inherit; pointer-events: auto;
+    transition: color .15s;
   }
   .auth-card .auth-footer a:hover,
-  .auth-card .auth-footer .auth-link:hover { color: var(--accent-hot); }
+  .auth-card .auth-footer .auth-link:hover { color: #c4b5fd; }
+  .auth-card .auth-footer .auth-link.muted { color: rgba(138,136,128,0.7); }
+  .auth-card .auth-footer .auth-link.muted:hover { color: #c4b5fd; }
 
   /* ─── W220 Voice cockpit ─────────────────────────────────────── */
   .voice-cockpit {
@@ -1399,6 +1549,1478 @@
     border-color: var(--accent-hot);
     background: linear-gradient(120deg, rgba(99,102,241,0.28), rgba(139,92,246,0.28));
   }
+
+  /* ════════════════════════════════════════════════════════════════════
+     W277 — Premium cinematic upgrades for voice cockpit
+     • Aurora gradient washes (background)
+     • Perspective floor grid (sci-fi horizon)
+     • Bilateral audio-reactive frequency bars
+     • Mouse-parallax tilt on monolith
+     • Volumetric scan beam (periodic 360° sweep)
+     • Status constellation (4 dots pulsing around monolith)
+     • Film grain texture overlay
+     • Boot-sequence typewriter
+     ════════════════════════════════════════════════════════════════════ */
+
+  /* ─── Aurora layer — soft pulsing color washes ──────────────────── */
+  .vc-aurora {
+    position: absolute; inset: 0; pointer-events: none; z-index: 0;
+    background:
+      radial-gradient(ellipse 60% 50% at 18% 22%, rgba(99,102,241,0.22) 0%, transparent 55%),
+      radial-gradient(ellipse 50% 40% at 82% 38%, rgba(139,92,246,0.18) 0%, transparent 60%),
+      radial-gradient(ellipse 65% 35% at 50% 92%, rgba(6,182,212,0.14) 0%, transparent 65%);
+    animation: vc-aurora-drift 18s ease-in-out infinite;
+    mix-blend-mode: screen;
+  }
+  @keyframes vc-aurora-drift {
+    0%, 100% { transform: translate3d(0, 0, 0) scale(1); opacity: 0.85; }
+    33%      { transform: translate3d(-1.5%, 1%, 0) scale(1.04); opacity: 1; }
+    66%      { transform: translate3d(1.5%, -1%, 0) scale(0.97); opacity: 0.9; }
+  }
+  .voice-cockpit.state-listening .vc-aurora { animation-duration: 6s; }
+  .voice-cockpit.state-thinking  .vc-aurora { animation-duration: 3s; filter: hue-rotate(-30deg) saturate(1.2); }
+  .voice-cockpit.state-speaking  .vc-aurora { animation-duration: 8s; filter: hue-rotate(20deg); }
+
+  /* ─── Perspective floor grid — receding sci-fi horizon ──────────── */
+  .vc-grid-floor {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 50%; pointer-events: none;
+    z-index: 0; opacity: 0.55;
+    perspective: 800px; perspective-origin: 50% 0%;
+    overflow: hidden;
+    mask-image: linear-gradient(to top, #000 30%, transparent 100%);
+    -webkit-mask-image: linear-gradient(to top, #000 30%, transparent 100%);
+  }
+  .vc-grid-floor::before {
+    content: ''; position: absolute; inset: -20% 0 0 0;
+    transform-origin: top center;
+    transform: rotateX(72deg);
+    background-image:
+      linear-gradient(rgba(99,102,241,0.30) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(99,102,241,0.30) 1px, transparent 1px);
+    background-size: 56px 56px;
+    animation: vc-grid-scroll 12s linear infinite;
+  }
+  @keyframes vc-grid-scroll {
+    from { background-position: 0 0,        0 0; }
+    to   { background-position: 0 56px, 56px 0; }
+  }
+  .voice-cockpit.state-listening .vc-grid-floor::before {
+    background-image:
+      linear-gradient(rgba(167,139,250,0.45) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(167,139,250,0.45) 1px, transparent 1px);
+    animation-duration: 6s;
+  }
+  .voice-cockpit.state-speaking .vc-grid-floor::before {
+    background-image:
+      linear-gradient(rgba(6,182,212,0.45) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(6,182,212,0.45) 1px, transparent 1px);
+    animation-duration: 4s;
+  }
+
+  /* ─── Bilateral audio frequency bars beside monolith ────────────── */
+  .vc-freq {
+    position: absolute; top: 50%; transform: translateY(-50%);
+    display: flex; gap: 4px; align-items: center;
+    pointer-events: none; z-index: 1;
+    opacity: calc(0.45 + (var(--mic-level, 0) * 0.55));
+    transition: opacity .15s linear;
+  }
+  .vc-freq.left  { left: calc(50% - 220px); flex-direction: row-reverse; }
+  .vc-freq.right { left: calc(50% + 184px); }
+  .vc-freq .bar {
+    width: 3px; border-radius: 2px;
+    background: linear-gradient(180deg, var(--vc-strip-a, #06b6d4), var(--vc-strip-b, #8b5cf6));
+    box-shadow: 0 0 8px rgba(99,102,241,0.5);
+    transform-origin: center;
+  }
+  .vc-freq .bar:nth-child(1)  { height: calc(8px  + var(--mic-level, 0) * 22px); animation: vc-bar-pulse 1.2s ease-in-out infinite 0.00s; }
+  .vc-freq .bar:nth-child(2)  { height: calc(14px + var(--mic-level, 0) * 36px); animation: vc-bar-pulse 1.2s ease-in-out infinite 0.05s; }
+  .vc-freq .bar:nth-child(3)  { height: calc(22px + var(--mic-level, 0) * 58px); animation: vc-bar-pulse 1.2s ease-in-out infinite 0.10s; }
+  .vc-freq .bar:nth-child(4)  { height: calc(32px + var(--mic-level, 0) * 82px); animation: vc-bar-pulse 1.2s ease-in-out infinite 0.15s; }
+  .vc-freq .bar:nth-child(5)  { height: calc(40px + var(--mic-level, 0) * 110px);animation: vc-bar-pulse 1.2s ease-in-out infinite 0.20s; }
+  .vc-freq .bar:nth-child(6)  { height: calc(32px + var(--mic-level, 0) * 82px); animation: vc-bar-pulse 1.2s ease-in-out infinite 0.25s; }
+  .vc-freq .bar:nth-child(7)  { height: calc(22px + var(--mic-level, 0) * 58px); animation: vc-bar-pulse 1.2s ease-in-out infinite 0.30s; }
+  .vc-freq .bar:nth-child(8)  { height: calc(14px + var(--mic-level, 0) * 36px); animation: vc-bar-pulse 1.2s ease-in-out infinite 0.35s; }
+  .vc-freq .bar:nth-child(9)  { height: calc(8px  + var(--mic-level, 0) * 22px); animation: vc-bar-pulse 1.2s ease-in-out infinite 0.40s; }
+  @keyframes vc-bar-pulse {
+    0%, 100% { transform: scaleY(0.6); opacity: 0.55; }
+    50%      { transform: scaleY(1.0); opacity: 1; }
+  }
+  .voice-cockpit.state-speaking .vc-freq .bar { animation-duration: 0.6s; }
+  .voice-cockpit.state-listening .vc-freq .bar { animation-duration: 0.4s; }
+  .voice-cockpit.state-idle .vc-freq { opacity: 0.18; }
+
+  /* ─── Status constellation — dots around monolith ───────────────── */
+  .vc-constellation {
+    position: absolute; inset: 0; pointer-events: none; z-index: 1;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .vc-constellation .node {
+    position: absolute; width: 6px; height: 6px; border-radius: 50%;
+    background: var(--ok, #10b981);
+    box-shadow: 0 0 12px currentColor;
+    animation: vc-node-pulse 2.4s ease-in-out infinite;
+  }
+  .vc-constellation .node::after {
+    content: attr(data-label); position: absolute; top: 12px; left: 50%; transform: translateX(-50%);
+    font-family: 'JetBrains Mono','SF Mono',ui-monospace,monospace;
+    font-size: 8px; letter-spacing: 0.16em; text-transform: uppercase;
+    color: rgba(255,255,255,0.55); white-space: nowrap;
+  }
+  .vc-constellation .node.n1 { top: 22%; left: calc(50% - 200px); animation-delay: 0.0s; color: #06b6d4; }
+  .vc-constellation .node.n2 { top: 22%; left: calc(50% + 200px); animation-delay: 0.3s; color: #8b5cf6; }
+  .vc-constellation .node.n3 { top: 68%; left: calc(50% - 200px); animation-delay: 0.6s; color: #10b981; }
+  .vc-constellation .node.n4 { top: 68%; left: calc(50% + 200px); animation-delay: 0.9s; color: #f59e0b; }
+  @keyframes vc-node-pulse {
+    0%, 100% { opacity: 0.45; transform: scale(0.85); }
+    50%      { opacity: 1;   transform: scale(1.15); }
+  }
+
+  /* ─── Volumetric scan beam — 360° sweep around stage every 6s ──── */
+  .vc-scan-beam {
+    position: absolute; inset: 0; pointer-events: none; z-index: 1;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .vc-scan-beam::before {
+    content: ''; width: 520px; height: 520px; border-radius: 50%;
+    background: conic-gradient(
+      from 0deg,
+      transparent 0deg,
+      rgba(6,182,212,0.45) 6deg,
+      rgba(139,92,246,0.30) 12deg,
+      transparent 18deg,
+      transparent 360deg
+    );
+    mask: radial-gradient(circle, transparent 38%, #000 39%, #000 50%, transparent 51%);
+    -webkit-mask: radial-gradient(circle, transparent 38%, #000 39%, #000 50%, transparent 51%);
+    animation: vc-scan-rotate 6s linear infinite;
+    opacity: 0.85;
+  }
+  @keyframes vc-scan-rotate {
+    from { transform: rotate(0deg); }
+    to   { transform: rotate(360deg); }
+  }
+  .voice-cockpit.state-idle .vc-scan-beam::before { opacity: 0.35; animation-duration: 14s; }
+
+  /* ─── Mouse parallax: tilt monolith on cursor move ──────────────── */
+  .monolith-wrap {
+    --tilt-x: 0deg; --tilt-y: 0deg;
+    transform: scale(calc(1 + (var(--mic-level) * 0.18)))
+               perspective(900px)
+               rotateX(var(--tilt-x))
+               rotateY(var(--tilt-y));
+    transition: transform .25s cubic-bezier(.2,.8,.2,1);
+  }
+
+  /* ─── Film grain — subtle moving noise overlay ──────────────────── */
+  .vc-grain {
+    position: absolute; inset: 0; pointer-events: none; z-index: 4;
+    opacity: 0.05; mix-blend-mode: overlay;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/></filter><rect width='100%25' height='100%25' filter='url(%23n)' opacity='0.65'/></svg>");
+    background-size: 160px 160px;
+    animation: vc-grain-shift 1.2s steps(4) infinite;
+  }
+  @keyframes vc-grain-shift {
+    0%   { transform: translate(0,0); }
+    25%  { transform: translate(-6%,3%); }
+    50%  { transform: translate(4%,-2%); }
+    75%  { transform: translate(-2%,5%); }
+    100% { transform: translate(0,0); }
+  }
+
+  /* ─── Boot typewriter — small bottom-center text on first render ── */
+  .vc-boot-line {
+    position: absolute; bottom: 38vh; left: 50%; transform: translateX(-50%);
+    font-family: 'JetBrains Mono','SF Mono',ui-monospace,monospace;
+    font-size: 10px; letter-spacing: 0.22em; text-transform: uppercase;
+    color: rgba(255,255,255,0.55); pointer-events: none; z-index: 3;
+    white-space: nowrap; overflow: hidden;
+    width: 0; max-width: 540px;
+    animation: vc-boot-type 2.6s steps(40) 0.4s forwards, vc-boot-fade 1.2s 5.5s forwards;
+  }
+  @keyframes vc-boot-type {
+    from { width: 0; }
+    to   { width: 540px; }
+  }
+  @keyframes vc-boot-fade {
+    from { opacity: 0.7; }
+    to   { opacity: 0; }
+  }
+
+  /* Reduced motion: kill ambient animations but keep state-specific  */
+  @media (prefers-reduced-motion: reduce) {
+    .vc-aurora, .vc-grid-floor::before, .vc-grain, .vc-scan-beam::before,
+    .vc-freq .bar, .vc-constellation .node, .vc-boot-line { animation: none !important; }
+    .vc-aurora { opacity: 0.5; }
+  }
+
+  /* Drawer-open: slide all ambient layers slightly so monolith doesn't compete */
+  .voice-cockpit.drawer-open .vc-aurora,
+  .voice-cockpit.drawer-open .vc-grid-floor,
+  .voice-cockpit.drawer-open .vc-constellation,
+  .voice-cockpit.drawer-open .vc-scan-beam,
+  .voice-cockpit.drawer-open .vc-freq {
+    transform: translateX(120px);
+    opacity: 0.6;
+  }
+
+  /* ════════════════════════════════════════════════════════════════════
+     W278 — TARS humanoid avatar, real-time waveform, custom cursor,
+     transition orchestration. SVG-only (no three.js to keep CSP clean).
+     ════════════════════════════════════════════════════════════════════ */
+
+  /* ─── TARS humanoid avatar ──────────────────────────────────────── */
+  .tars-avatar {
+    position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+    pointer-events: none; z-index: 3;
+  }
+  .tars-avatar svg {
+    width: 260px; height: 360px; overflow: visible;
+    filter: drop-shadow(0 12px 32px rgba(99,102,241,0.35));
+    animation: tars-breath 4.5s ease-in-out infinite;
+  }
+  @keyframes tars-breath {
+    0%, 100% { transform: translateY(0)    scale(1); }
+    50%      { transform: translateY(-4px) scale(1.012); }
+  }
+  /* Head/body plastic shading */
+  .ta-head, .ta-chest {
+    fill: url(#taPlastic);
+    stroke: rgba(255,255,255,0.18);
+    stroke-width: 1.2;
+  }
+  .ta-shadow { fill: rgba(0,0,0,0.6); }
+  .ta-accent { fill: url(#taAccent); }
+  /* Visor — dark glass with cyan reflection */
+  .ta-visor {
+    fill: #050810;
+    stroke: rgba(6,182,212,0.45);
+    stroke-width: 1;
+    filter: url(#taGlow);
+  }
+  .ta-visor-scan {
+    fill: rgba(6,182,212,0.85);
+    opacity: 0;
+    transform-origin: center;
+  }
+  /* Eyes — small bright LED dots */
+  .ta-eye {
+    fill: #06b6d4;
+    filter: url(#taGlow);
+    animation: tars-blink 5s ease-in-out infinite;
+  }
+  @keyframes tars-blink {
+    0%, 92%, 100% { transform: scaleY(1); }
+    94%           { transform: scaleY(0.1); }
+    96%           { transform: scaleY(1); }
+  }
+  /* Antenna */
+  .ta-antenna { stroke: rgba(255,255,255,0.5); stroke-width: 2; }
+  .ta-antenna-led { fill: var(--ok, #10b981); filter: url(#taGlow); animation: led-pulse 2.4s ease-in-out infinite; }
+  /* Chest emblem — meeet.world brand mark */
+  .ta-emblem {
+    fill: none;
+    stroke: rgba(139,92,246,0.85);
+    stroke-width: 1.5;
+    animation: emblem-pulse 3.2s ease-in-out infinite;
+  }
+  @keyframes emblem-pulse {
+    0%, 100% { opacity: 0.45; }
+    50%      { opacity: 1; }
+  }
+  /* Chest panel — small status LEDs */
+  .ta-led { animation: led-pulse 1.8s ease-in-out infinite; }
+  .ta-led.l1 { fill: #06b6d4; animation-delay: 0.0s; }
+  .ta-led.l2 { fill: #8b5cf6; animation-delay: 0.3s; }
+  .ta-led.l3 { fill: #10b981; animation-delay: 0.6s; }
+  .ta-led.l4 { fill: #f59e0b; animation-delay: 0.9s; }
+
+  /* State: listening — visor scan + eye glow ramp */
+  .voice-cockpit.state-listening .ta-visor-scan {
+    opacity: 0.85;
+    animation: ta-scan 1.4s ease-in-out infinite;
+  }
+  @keyframes ta-scan {
+    0%, 100% { transform: translateX(-32px); }
+    50%      { transform: translateX(32px); }
+  }
+  .voice-cockpit.state-listening .ta-eye {
+    fill: #a78bfa;
+    filter: drop-shadow(0 0 calc(4px + var(--mic-level,0)*14px) #a78bfa);
+  }
+  .voice-cockpit.state-listening .tars-avatar svg {
+    animation-duration: 2s;
+  }
+
+  /* State: thinking — head wobble + flicker */
+  .voice-cockpit.state-thinking .tars-avatar svg {
+    animation: tars-think 0.6s ease-in-out infinite;
+  }
+  @keyframes tars-think {
+    0%,100% { transform: rotate(-2deg); }
+    50%     { transform: rotate(2deg); }
+  }
+  .voice-cockpit.state-thinking .ta-eye { animation: ta-flicker 0.18s steps(2) infinite; }
+  @keyframes ta-flicker {
+    0%   { opacity: 1; }
+    50%  { opacity: 0.3; }
+    100% { opacity: 1; }
+  }
+
+  /* State: speaking — mouth slot pulses + eyes purple */
+  .voice-cockpit.state-speaking .ta-eye {
+    fill: #8b5cf6;
+    filter: drop-shadow(0 0 12px #8b5cf6);
+  }
+  .voice-cockpit.state-speaking .ta-mouth {
+    animation: ta-mouth-talk 0.4s ease-in-out infinite;
+  }
+  @keyframes ta-mouth-talk {
+    0%, 100% { transform: scaleY(0.6); }
+    50%      { transform: scaleY(1.4); }
+  }
+  .ta-mouth {
+    fill: rgba(6,182,212,0.8);
+    transform-origin: center;
+    filter: url(#taGlow);
+  }
+  .voice-cockpit.state-speaking .tars-avatar svg {
+    animation: tars-speak-bob 1s ease-in-out infinite;
+  }
+  @keyframes tars-speak-bob {
+    0%, 100% { transform: translateY(-2px) scale(1); }
+    50%      { transform: translateY(-6px) scale(1.02); }
+  }
+
+  /* Hide legacy monolith block when avatar is active (W278) */
+  .voice-cockpit.has-avatar .monolith,
+  .voice-cockpit.has-avatar .monolith-strip,
+  .voice-cockpit.has-avatar .monolith-scan,
+  .voice-cockpit.has-avatar .monolith-glitch,
+  .voice-cockpit.has-avatar .monolith::before,
+  .voice-cockpit.has-avatar .monolith::after {
+    display: none !important;
+  }
+
+  /* ─── Custom cursor (magnetic) ──────────────────────────────────── */
+  .vc-cursor {
+    position: fixed; top: 0; left: 0; pointer-events: none; z-index: 9999;
+    width: 28px; height: 28px; margin: -14px 0 0 -14px;
+    border: 1.5px solid rgba(167,139,250,0.7);
+    border-radius: 50%;
+    backdrop-filter: blur(2px);
+    transition: width .18s, height .18s, margin .18s, border-color .18s, background .18s;
+    mix-blend-mode: screen;
+    opacity: 0;
+  }
+  .vc-cursor.live { opacity: 1; }
+  .vc-cursor.over-hot {
+    width: 44px; height: 44px; margin: -22px 0 0 -22px;
+    border-color: rgba(6,182,212,0.95);
+    background: rgba(6,182,212,0.12);
+  }
+  .vc-cursor-dot {
+    position: fixed; top: 0; left: 0; pointer-events: none; z-index: 9999;
+    width: 6px; height: 6px; margin: -3px 0 0 -3px;
+    border-radius: 50%; background: #a78bfa;
+    box-shadow: 0 0 8px #a78bfa;
+    opacity: 0;
+  }
+  .vc-cursor-dot.live { opacity: 1; }
+  /* Hide default cursor on hot zones to let our custom one shine */
+  body.has-custom-cursor .vc-mic,
+  body.has-custom-cursor .vc-text-send,
+  body.has-custom-cursor button:not(.drawer-close),
+  body.has-custom-cursor a { cursor: none; }
+
+  /* ─── Drawer / tab orchestration — stagger reveal ────────────────── */
+  .cockpit-panel-drawer.show .tab-content > * { animation: panel-stagger .4s cubic-bezier(.2,.8,.2,1) backwards; }
+  .cockpit-panel-drawer.show .tab-content > *:nth-child(1) { animation-delay: 0.05s; }
+  .cockpit-panel-drawer.show .tab-content > *:nth-child(2) { animation-delay: 0.10s; }
+  .cockpit-panel-drawer.show .tab-content > *:nth-child(3) { animation-delay: 0.15s; }
+  .cockpit-panel-drawer.show .tab-content > *:nth-child(4) { animation-delay: 0.20s; }
+  .cockpit-panel-drawer.show .tab-content > *:nth-child(5) { animation-delay: 0.25s; }
+  .cockpit-panel-drawer.show .tab-content > *:nth-child(n+6) { animation-delay: 0.30s; }
+  @keyframes panel-stagger {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Tab switch micro-fade */
+  .tab-content { animation: tab-fade .25s ease-out; }
+  @keyframes tab-fade {
+    from { opacity: 0; transform: translateY(6px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  /* Mouse-over breathing on TARS logo + chips */
+  .vc-hud b { animation: text-glow 3s ease-in-out infinite; }
+  @keyframes text-glow {
+    0%, 100% { text-shadow: 0 0 4px rgba(196,241,255,0.4); }
+    50%      { text-shadow: 0 0 12px rgba(196,241,255,0.9); }
+  }
+
+  /* ════════════════════════════════════════════════════════════════════
+     W280 — Studio-grade cockpit polish (unified with W279 auth tokens)
+     • Inter typography on prose, mono only for HUD/data
+     • Glassmorphism on topbar chips + drawer header
+     • Premium mic button (gradient + ring glow + breathe)
+     • Hamburger → real SVG icon, drawer tabs → pill chips with active glow
+     • Soft status callouts everywhere
+     ════════════════════════════════════════════════════════════════════ */
+
+  /* Topbar — glassmorphism + Inter */
+  .vc-topbar { padding: 18px 22px; }
+  .vc-hamburger {
+    background: rgba(20,22,28,0.55);
+    border: 1px solid rgba(255,255,255,0.10);
+    color: #e5e7eb; width: 40px; height: 40px; border-radius: 11px;
+    cursor: pointer; padding: 0;
+    display: flex; align-items: center; justify-content: center;
+    backdrop-filter: blur(12px) saturate(1.1);
+    -webkit-backdrop-filter: blur(12px) saturate(1.1);
+    transition: all .2s cubic-bezier(.2,.8,.2,1);
+  }
+  .vc-hamburger:hover {
+    background: rgba(99,102,241,0.18);
+    border-color: rgba(99,102,241,0.5);
+    transform: translateY(-1px);
+    box-shadow: 0 8px 20px rgba(99,102,241,0.25);
+  }
+  .vc-hamburger svg { width: 18px; height: 18px; stroke: currentColor; stroke-width: 2; fill: none; stroke-linecap: round; }
+
+  /* Chips — premium glass tone, Inter for labels */
+  .vc-chip {
+    padding: 8px 14px; border-radius: 999px;
+    background: rgba(20,22,28,0.55);
+    border: 1px solid rgba(255,255,255,0.10);
+    backdrop-filter: blur(12px) saturate(1.1);
+    -webkit-backdrop-filter: blur(12px) saturate(1.1);
+    font: 500 11px/1 "Inter",-apple-system,system-ui,sans-serif;
+    letter-spacing: 0.04em;
+    color: #d6d4ce;
+    transition: border-color .2s, background .2s;
+  }
+  .vc-chip:hover { border-color: rgba(99,102,241,0.4); background: rgba(20,22,28,0.7); }
+  .vc-chip .vc-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 10px var(--ok); }
+
+  /* Mic — premium gradient + breathing glow */
+  .vc-mic {
+    width: 86px; height: 86px; border-radius: 50%;
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 60%, #ec4899 100%);
+    border: 2px solid rgba(255,255,255,0.18);
+    cursor: pointer; color: #fff;
+    display: grid; place-items: center;
+    box-shadow:
+      0 0 calc(28px + (var(--mic-level, 0) * 100px)) rgba(167,139,250, calc(0.5 + (var(--mic-level, 0) * 0.5))),
+      inset 0 1px 0 rgba(255,255,255,0.25),
+      inset 0 -2px 0 rgba(0,0,0,0.18);
+    transition: transform .18s cubic-bezier(.2,.8,.2,1), box-shadow .12s linear;
+    font-size: 0;
+  }
+  .vc-mic::before {
+    content: '';
+    display: block;
+    width: 22px; height: 32px;
+    background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23ffffff' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M12 1a4 4 0 0 0-4 4v6a4 4 0 0 0 8 0V5a4 4 0 0 0-4-4z'/><path d='M19 10v1a7 7 0 0 1-14 0v-1'/><line x1='12' y1='18' x2='12' y2='22'/><line x1='8' y1='22' x2='16' y2='22'/></svg>");
+    background-size: contain; background-repeat: no-repeat; background-position: center;
+    filter: drop-shadow(0 1px 0 rgba(0,0,0,0.25));
+  }
+  .vc-mic:hover { transform: scale(1.06); }
+  .vc-mic:active { transform: scale(0.97); }
+  .voice-cockpit.state-listening .vc-mic {
+    background: linear-gradient(135deg, #06b6d4 0%, #8b5cf6 50%, #ec4899 100%);
+    border-color: rgba(6,182,212,0.85);
+    animation: mic-pulse 1.4s ease-in-out infinite;
+  }
+  @keyframes mic-pulse {
+    0%, 100% { transform: scale(1); }
+    50%      { transform: scale(1.05); }
+  }
+  .vc-mic-hint {
+    font: 500 10px/1 "Inter",-apple-system,system-ui,sans-serif;
+    letter-spacing: 0.14em; color: rgba(138,136,128,0.7);
+    text-transform: uppercase; margin-top: 14px;
+  }
+  .voice-cockpit.state-listening .vc-mic-hint { color: rgba(6,182,212,0.85); }
+
+  /* Text fallback input */
+  .vc-text-fallback {
+    background: rgba(20,22,28,0.65);
+    border: 1px solid rgba(255,255,255,0.10);
+    backdrop-filter: blur(14px) saturate(1.1);
+    -webkit-backdrop-filter: blur(14px) saturate(1.1);
+    border-radius: 999px; padding: 5px 6px 5px 18px;
+    transition: border-color .2s, box-shadow .2s, background .2s;
+  }
+  .vc-text-fallback:focus-within {
+    border-color: rgba(99,102,241,0.55);
+    background: rgba(20,22,28,0.8);
+    box-shadow: 0 0 0 4px rgba(99,102,241,0.12);
+  }
+  .vc-text-fallback input {
+    font: 400 14px/1.4 "Inter",-apple-system,system-ui,sans-serif;
+    color: #f5f5f0;
+  }
+  .vc-text-fallback input::placeholder { color: rgba(138,136,128,0.6); }
+  .vc-text-send {
+    width: 36px; height: 36px;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    box-shadow: 0 0 0 1px rgba(139,92,246,0.4), 0 6px 16px rgba(99,102,241,0.35);
+  }
+
+  /* Drawer — premium glass header + dock */
+  .cockpit-panel-drawer {
+    background: linear-gradient(180deg, rgba(10,12,18,0.96), rgba(7,8,13,0.98));
+    border-right: 1px solid rgba(255,255,255,0.08);
+    backdrop-filter: blur(20px) saturate(1.1);
+    -webkit-backdrop-filter: blur(20px) saturate(1.1);
+  }
+  .cockpit-panel-drawer .drawer-close {
+    width: 36px; height: 36px; border-radius: 10px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.08);
+    color: #d6d4ce;
+    display: grid; place-items: center; font-size: 18px; line-height: 1;
+    transition: all .15s;
+  }
+  .cockpit-panel-drawer .drawer-close:hover {
+    background: rgba(244,63,94,0.12);
+    border-color: rgba(244,63,94,0.4);
+    color: #fca5a5;
+  }
+
+  /* Bottom dock chips for AUDIT/REVIEW/SETTINGS */
+  .vc-stage > .vc-dock,
+  .vc-dock {
+    display: inline-flex; gap: 8px; padding: 6px;
+    background: rgba(20,22,28,0.55);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 14px;
+    backdrop-filter: blur(14px) saturate(1.1);
+    -webkit-backdrop-filter: blur(14px) saturate(1.1);
+    box-shadow: 0 12px 32px rgba(0,0,0,0.4);
+  }
+  .vc-dock-tab,
+  .nav-tab[data-action^="nav."] {
+    padding: 8px 16px; border-radius: 10px;
+    background: transparent;
+    border: 0;
+    color: rgba(214,212,206,0.65);
+    font: 500 11px/1 "Inter",-apple-system,system-ui,sans-serif;
+    letter-spacing: 0.10em; text-transform: uppercase;
+    cursor: pointer;
+    transition: all .15s;
+  }
+  .vc-dock-tab:hover,
+  .nav-tab[data-action^="nav."]:hover {
+    color: #f5f5f0;
+    background: rgba(255,255,255,0.04);
+  }
+  .vc-dock-tab.active,
+  .nav-tab.active[data-action^="nav."] {
+    color: #fff;
+    background: linear-gradient(135deg, rgba(99,102,241,0.85), rgba(139,92,246,0.85));
+    box-shadow: 0 4px 14px rgba(99,102,241,0.4);
+  }
+
+  /* Generic .panel — softer, more breathable inside drawer */
+  .cockpit-panel-drawer .panel {
+    background: rgba(255,255,255,0.02);
+    border: 1px solid rgba(255,255,255,0.06);
+    border-radius: 14px;
+  }
+  .cockpit-panel-drawer h2,
+  .cockpit-panel-drawer h3 {
+    font: 600 16px/1.3 "Inter",-apple-system,system-ui,sans-serif;
+    letter-spacing: -0.01em;
+    color: #f5f5f0;
+  }
+  .cockpit-panel-drawer p,
+  .cockpit-panel-drawer label,
+  .cockpit-panel-drawer li {
+    font: 400 13px/1.55 "Inter",-apple-system,system-ui,sans-serif;
+  }
+
+  /* Generic btn polish — gradient primary used app-wide */
+  .btn.primary {
+    background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+    border: 1px solid rgba(139,92,246,0.6);
+    color: #fff; border-radius: 10px; padding: 10px 18px;
+    font: 500 13px/1 "Inter",-apple-system,system-ui,sans-serif;
+    letter-spacing: -0.005em;
+    box-shadow: 0 6px 20px rgba(99,102,241,0.3), inset 0 1px 0 rgba(255,255,255,0.18);
+    transition: transform .15s, box-shadow .15s;
+  }
+  .btn.primary:hover { transform: translateY(-1px); box-shadow: 0 10px 28px rgba(99,102,241,0.45); }
+
+  /* Toast — match new design language */
+  .toast {
+    background: rgba(20,22,28,0.85);
+    border: 1px solid rgba(255,255,255,0.10);
+    backdrop-filter: blur(14px) saturate(1.1);
+    -webkit-backdrop-filter: blur(14px) saturate(1.1);
+    border-radius: 12px;
+    padding: 12px 18px;
+    font: 500 12px/1.4 "Inter",-apple-system,system-ui,sans-serif;
+  }
+
+  /* ════════════════════════════════════════════════════════════════════
+     W286 — STUDIO COCKPIT (single clean layer, replaces W230 → W285)
+     One layout. One palette. One typography. 4px rhythm. 3 animations.
+     ════════════════════════════════════════════════════════════════════ */
+  :root {
+    /* Surfaces (4 elevation levels) */
+    --bg:                 #0A0A0B;
+    --bg-elevated:        #0E0E11;
+    --surface:            #111114;
+    --surface-elevated:   #16161B;
+    --modal-glass:        rgba(20,20,24,0.82);
+
+    /* Borders */
+    --border-subtle:      rgba(255,255,255,0.06);
+    --border-strong:      rgba(255,255,255,0.12);
+    --border-accent:      rgba(124,92,255,0.40);
+
+    /* Text */
+    --text-primary:       #ECECEE;
+    --text-secondary:     #A8A8B0;
+    --text-muted:         #6B6B72;
+
+    /* Brand + state */
+    --accent:             #7C5CFF;
+    --accent-strong:      #6644FF;
+    --accent-soft:        rgba(124,92,255,0.14);
+    --success:            #34D399;
+    --warn:               #F5B544;
+    --error:              #EF4B4B;
+
+    /* 4px spacing rhythm */
+    --space-1: 4px;  --space-2: 8px;  --space-3: 12px; --space-4: 16px;
+    --space-5: 20px; --space-6: 24px; --space-7: 32px; --space-8: 40px;
+
+    /* Radii */
+    --radius-sm: 6px;  --radius-md: 10px;  --radius-lg: 16px;  --radius-pill: 999px;
+
+    /* Type */
+    --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+
+  /* ---------- 1. Kill all legacy decorative cruft ---------- */
+  .voice-cockpit .vc-aurora,
+  .voice-cockpit .vc-grid-floor,
+  .voice-cockpit .vc-particles,
+  .voice-cockpit .vc-scan-beam,
+  .voice-cockpit .vc-constellation,
+  .voice-cockpit .vc-freq,
+  .voice-cockpit .vc-boot-line,
+  .voice-cockpit .vc-grain,
+  .voice-cockpit .vc-rings,
+  .voice-cockpit .monolith-glow,
+  .voice-cockpit .monolith,
+  .voice-cockpit .monolith-core,
+  .voice-cockpit .monolith-strip,
+  .voice-cockpit .monolith-scan,
+  .voice-cockpit .monolith-glitch,
+  .voice-cockpit .tars-avatar,
+  .voice-cockpit .vc-hud,
+  .voice-cockpit .vc-hud-tl,
+  .voice-cockpit .vc-hud-tr,
+  .voice-cockpit .vc-hud-bl,
+  .voice-cockpit .vc-action-tag,
+  .voice-cockpit .vc-flash,
+  .voice-cockpit .vc-topbar::before,
+  .voice-cockpit .vc-topbar::after,
+  .voice-cockpit .vc-stage::before,
+  .voice-cockpit .vc-stage::after,
+  .voice-cockpit > .container.app,
+  .voice-cockpit .nav-tabs,
+  .voice-cockpit .vc-dock,
+  .voice-cockpit [data-nav-tabs="bottom"] { display: none !important; }
+
+  /* ---------- 2. Body grid + reset ---------- */
+  html, body {
+    background: var(--bg);
+    color: var(--text-primary);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+    margin: 0; padding: 0; overflow: hidden; height: 100vh;
+  }
+  body.cockpit-active {
+    display: grid;
+    grid-template-columns: 64px 1fr 280px;
+    grid-template-rows: 100vh;
+  }
+  @media (max-width: 900px) {
+    body.cockpit-active { grid-template-columns: 56px 1fr; }
+    #vcRail { display: none !important; }
+  }
+
+  /* ---------- 3. Sidebar (left rail) ---------- */
+  #vcSider {
+    grid-column: 1; grid-row: 1;
+    position: relative;
+    display: flex; flex-direction: column;
+    width: 64px;
+    background: var(--bg-elevated);
+    border-right: 1px solid var(--border-subtle);
+    padding: var(--space-3) var(--space-2);
+    z-index: 5;
+    transition: width 180ms ease;
+    overflow: hidden;
+  }
+  #vcSider:hover { width: 240px; }
+  .voice-cockpit.sider-expanded ~ #vcSider { width: 240px; }
+  #vcSider .vc-mode {
+    display: flex; align-items: center; gap: var(--space-3);
+    width: 100%; height: 44px;
+    padding: 0 var(--space-3);
+    margin-bottom: var(--space-1);
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    color: var(--text-secondary);
+    font-family: var(--font-sans); font-size: 13px; font-weight: 500;
+    cursor: pointer;
+    transition: background 140ms ease, color 140ms ease, border-color 140ms ease;
+  }
+  #vcSider .vc-mode svg { width: 18px; height: 18px; flex: 0 0 18px; stroke: currentColor; fill: none; stroke-width: 1.75; }
+  #vcSider .vc-mode .vc-mode-label { white-space: nowrap; opacity: 0; transition: opacity 140ms ease 40ms; }
+  #vcSider:hover .vc-mode .vc-mode-label { opacity: 1; }
+  #vcSider .vc-mode:hover { background: var(--surface); color: var(--text-primary); }
+  #vcSider .vc-mode.active {
+    background: var(--accent-soft);
+    color: var(--text-primary);
+    border-color: var(--border-accent);
+  }
+  #vcSider .vc-sider-spacer { flex: 1; }
+  #vcSider .vc-sider-foot {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-muted);
+    padding: var(--space-2) var(--space-3);
+    white-space: nowrap;
+    opacity: 0;
+    transition: opacity 140ms ease 40ms;
+  }
+  #vcSider:hover .vc-sider-foot { opacity: 1; }
+
+  /* ---------- 4. Right rail (agent frames) ---------- */
+  #vcRail {
+    grid-column: 3; grid-row: 1;
+    display: flex; flex-direction: column;
+    background: var(--bg-elevated);
+    border-left: 1px solid var(--border-subtle);
+  }
+  #vcRail .vc-rail-head {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: var(--space-4) var(--space-5);
+    border-bottom: 1px solid var(--border-subtle);
+    height: 56px; flex: 0 0 56px;
+  }
+  #vcRail .vc-rail-title {
+    font-size: 12px; font-weight: 600;
+    letter-spacing: 0.04em; text-transform: uppercase;
+    color: var(--text-secondary);
+  }
+  #vcRail .vc-rail-count {
+    font-family: var(--font-mono); font-size: 11px;
+    background: var(--surface); color: var(--text-secondary);
+    padding: 2px var(--space-2); border-radius: var(--radius-pill);
+    border: 1px solid var(--border-subtle);
+  }
+  #vcRail .vc-rail-body {
+    flex: 1; overflow-y: auto;
+    padding: var(--space-3);
+    display: flex; flex-direction: column; gap: var(--space-2);
+  }
+  #vcRail .vc-rail-body::-webkit-scrollbar { width: 6px; }
+  #vcRail .vc-rail-body::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+  #vcRail .vc-rail-empty {
+    color: var(--text-muted); font-size: 12px;
+    text-align: center; padding: var(--space-7) var(--space-3);
+    line-height: 1.6;
+  }
+  .vc-frame {
+    background: var(--surface-elevated);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-md);
+    padding: var(--space-3);
+    font-size: 12px;
+    transition: border-color 140ms ease;
+    animation: bubble-in 180ms ease both;
+  }
+  .vc-frame:hover { border-color: var(--border-strong); }
+  .vc-frame .vc-frame-head { display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-1); }
+  .vc-frame .vc-frame-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 3px rgba(124,92,255,0.18); }
+  .vc-frame .vc-frame-title { color: var(--text-primary); font-weight: 500; flex: 1; }
+  .vc-frame .vc-frame-time  { color: var(--text-muted); font-family: var(--font-mono); font-size: 10px; }
+  .vc-frame .vc-frame-body  { color: var(--text-secondary); line-height: 1.5; }
+
+  /* ---------- 5. Cockpit shell (center column, 4-row grid) ---------- */
+  .voice-cockpit.show {
+    grid-column: 2; grid-row: 1;
+    display: grid;
+    grid-template-rows: 56px 1fr auto 88px;
+    background: var(--bg);
+    position: relative;
+    overflow: hidden;
+  }
+
+  /* ---------- 6. Top bar (56px) ---------- */
+  .voice-cockpit .vc-topbar {
+    grid-row: 1;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 0 var(--space-5);
+    height: 56px;
+    border-bottom: 1px solid var(--border-subtle);
+    background: var(--bg);
+    position: relative; z-index: 2;
+  }
+  .voice-cockpit .vc-hamburger {
+    width: 32px; height: 32px;
+    background: transparent;
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    display: grid; place-items: center;
+    cursor: pointer;
+    transition: background 140ms ease, color 140ms ease;
+  }
+  .voice-cockpit .vc-hamburger svg { width: 16px; height: 16px; stroke: currentColor; stroke-width: 1.75; fill: none; }
+  .voice-cockpit .vc-hamburger:hover { background: var(--surface); color: var(--text-primary); }
+  .voice-cockpit .vc-chip {
+    display: inline-flex; align-items: center; gap: var(--space-2);
+    height: 28px; padding: 0 var(--space-3);
+    background: var(--surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-pill);
+    font-family: var(--font-sans); font-size: 12px;
+    color: var(--text-secondary);
+  }
+  .voice-cockpit .vc-chip .vc-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--text-muted);
+    transition: background 140ms ease, box-shadow 140ms ease;
+  }
+  .voice-cockpit .vc-chip .vc-tier { font-family: var(--font-mono); font-size: 10px; color: var(--text-muted); }
+  .voice-cockpit .vc-chip .vc-reload { cursor: pointer; color: var(--text-muted); }
+  .voice-cockpit .vc-chip .vc-reload:hover { color: var(--text-primary); }
+  /* 5-state chip colors */
+  .voice-cockpit.state-idle      .vc-dot { background: var(--text-muted); }
+  .voice-cockpit.state-listening .vc-dot { background: var(--accent);  box-shadow: 0 0 0 3px rgba(124,92,255,0.18); }
+  .voice-cockpit.state-speaking  .vc-dot { background: var(--success); box-shadow: 0 0 0 3px rgba(52,211,153,0.18); }
+  .voice-cockpit.state-thinking  .vc-dot { background: var(--warn);    animation: waveform-pulse 1.4s ease-in-out infinite; }
+  .voice-cockpit.state-error     .vc-dot { background: var(--error); }
+
+  /* ---------- 7. Stage (canvas waveform + status label) ---------- */
+  .voice-cockpit .vc-stage {
+    grid-row: 2;
+    position: relative;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: var(--space-6);
+    padding: var(--space-7) var(--space-6);
+    overflow: hidden;
+  }
+  .voice-cockpit .monolith-wrap {
+    position: relative;
+    width: 320px; height: 320px;
+    display: grid; place-items: center;
+    border-radius: 50%;
+    background: radial-gradient(circle at center,
+      rgba(124,92,255,0.10) 0%,
+      rgba(124,92,255,0.04) 35%,
+      transparent 70%);
+    animation: waveform-pulse 3.5s ease-in-out infinite;
+  }
+  .voice-cockpit.state-speaking .monolith-wrap {
+    background: radial-gradient(circle at center,
+      rgba(52,211,153,0.10) 0%, rgba(52,211,153,0.04) 35%, transparent 70%);
+  }
+  .voice-cockpit #vcWaveCanvas {
+    width: 320px; height: 320px;
+    display: block;
+    filter: drop-shadow(0 0 20px rgba(124,92,255,0.18));
+  }
+  .voice-cockpit .vc-status-label {
+    font-size: 14px; color: var(--text-secondary);
+    letter-spacing: 0.01em; font-weight: 500;
+    text-align: center;
+    min-height: 20px;
+  }
+  .voice-cockpit.state-idle      .vc-status-label::before { content: "Idle — tap mic or type"; }
+  .voice-cockpit.state-listening .vc-status-label::before { content: "Listening…"; color: var(--accent); }
+  .voice-cockpit.state-speaking  .vc-status-label::before { content: "Speaking…"; color: var(--success); }
+  .voice-cockpit.state-thinking  .vc-status-label::before { content: "Thinking…"; color: var(--warn); }
+  .voice-cockpit.state-error     .vc-status-label::before { content: "Offline — check connection"; color: var(--error); }
+
+  /* ---------- 8. Transcript (single column, max 720px) ---------- */
+  .voice-cockpit .vc-transcript {
+    grid-row: 3;
+    max-height: 280px;
+    overflow-y: auto;
+    padding: var(--space-4) var(--space-6);
+    border-top: 1px solid var(--border-subtle);
+    display: flex; flex-direction: column; gap: var(--space-3);
+    background: var(--bg);
+  }
+  .voice-cockpit .vc-transcript::-webkit-scrollbar { width: 6px; }
+  .voice-cockpit .vc-transcript::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 3px; }
+  .voice-cockpit .vc-transcript .line {
+    max-width: 70%; min-width: 80px;
+    padding: var(--space-3) var(--space-4);
+    border-radius: var(--radius-lg);
+    border: 1px solid var(--border-subtle);
+    font-family: var(--font-sans);
+    font-size: 14px; line-height: 1.55;
+    color: var(--text-primary);
+    background: var(--surface);
+    word-wrap: break-word;
+    white-space: pre-wrap;
+    animation: bubble-in 180ms ease both;
+  }
+  .voice-cockpit .vc-transcript .line.user {
+    align-self: flex-end;
+    background: var(--accent-soft);
+    border-color: var(--border-accent);
+  }
+  .voice-cockpit .vc-transcript .line.tars,
+  .voice-cockpit .vc-transcript .line.assistant { align-self: flex-start; }
+  .voice-cockpit .vc-transcript .line.system {
+    align-self: center;
+    background: transparent;
+    border: none;
+    max-width: 80%;
+    text-align: center;
+    font-size: 12px;
+    color: var(--text-muted);
+    padding: var(--space-1) var(--space-3);
+  }
+
+  /* ---------- 9. Input row (Raycast-style pill, bottom-anchored) ---------- */
+  /* The HTML has .vc-mic-wrap nested inside .vc-stage, so we pin it
+     absolutely to the bottom of the cockpit center column. */
+  .voice-cockpit .vc-mic-wrap {
+    position: absolute !important;
+    left: 50% !important;
+    bottom: 24px !important;
+    transform: translateX(-50%) !important;
+    width: min(720px, calc(100% - var(--space-8))) !important;
+    height: 56px !important;
+    margin: 0 !important;
+    padding: var(--space-2) !important;
+    display: flex !important; align-items: center !important; gap: var(--space-3) !important;
+    background: var(--surface-elevated) !important;
+    border: 1px solid var(--border-subtle) !important;
+    border-radius: var(--radius-pill) !important;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.35);
+    transition: border-color 140ms ease, box-shadow 140ms ease;
+    z-index: 12 !important;
+  }
+  /* Also pin the status label as a sibling that sits just above the input pill. */
+  .voice-cockpit .vc-status-label {
+    position: absolute !important;
+    left: 0; right: 0;
+    bottom: 96px !important;
+    text-align: center;
+    z-index: 8;
+  }
+  /* Pin the transcript above the status label, taking the bottom-third area. */
+  .voice-cockpit .vc-transcript {
+    position: absolute !important;
+    left: 0; right: 0;
+    bottom: 140px !important;
+    top: auto !important;
+    max-height: 32vh !important;
+    z-index: 4;
+  }
+  /* The stage now fills the full center column above the transcript. */
+  .voice-cockpit .vc-stage {
+    grid-row: 2 / span 3 !important;
+    padding-bottom: 200px !important;
+  }
+  .voice-cockpit .vc-mic-wrap:focus-within {
+    border-color: var(--border-accent);
+    box-shadow: 0 0 0 3px rgba(124,92,255,0.12);
+  }
+  .voice-cockpit .vc-mic {
+    width: 40px; height: 40px; flex: 0 0 40px;
+    border-radius: 50%;
+    border: 0;
+    background: linear-gradient(135deg, var(--accent) 0%, var(--accent-strong) 100%);
+    color: white;
+    cursor: pointer;
+    display: grid; place-items: center;
+    transition: transform 140ms ease, box-shadow 140ms ease;
+  }
+  .voice-cockpit .vc-mic::before {
+    content: "";
+    width: 14px; height: 18px;
+    background: white;
+    -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z'/><path d='M19 10v2a7 7 0 0 1-14 0v-2'/><line x1='12' y1='19' x2='12' y2='23'/><line x1='8' y1='23' x2='16' y2='23'/></svg>") center/contain no-repeat;
+            mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z'/><path d='M19 10v2a7 7 0 0 1-14 0v-2'/><line x1='12' y1='19' x2='12' y2='23'/><line x1='8' y1='23' x2='16' y2='23'/></svg>") center/contain no-repeat;
+  }
+  .voice-cockpit .vc-mic:hover { transform: scale(1.05); box-shadow: 0 4px 16px rgba(124,92,255,0.40); }
+  .voice-cockpit.state-listening .vc-mic {
+    box-shadow: 0 0 0 4px rgba(124,92,255,0.22), 0 4px 16px rgba(124,92,255,0.40);
+  }
+  .voice-cockpit .vc-mic-hint { display: none; }
+  .voice-cockpit .vc-text-fallback {
+    flex: 1;
+    display: flex; align-items: center; gap: var(--space-2);
+    height: 100%;
+    background: transparent;
+    border: 0;
+    padding: 0;
+    margin: 0;
+  }
+  .voice-cockpit .vc-text-fallback input {
+    flex: 1;
+    height: 100%;
+    background: transparent;
+    border: 0; outline: none;
+    color: var(--text-primary);
+    font-family: var(--font-sans); font-size: 14px;
+    padding: 0 var(--space-3);
+  }
+  .voice-cockpit .vc-text-fallback input::placeholder { color: var(--text-muted); }
+  .voice-cockpit .vc-text-send {
+    height: 32px; padding: 0 var(--space-3);
+    background: var(--surface);
+    border: 1px solid var(--border-subtle);
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    font-family: var(--font-mono); font-size: 11px;
+    cursor: pointer;
+    margin-right: var(--space-1);
+    transition: background 140ms ease, color 140ms ease;
+  }
+  .voice-cockpit .vc-text-send:hover { background: var(--surface-elevated); color: var(--text-primary); }
+
+  /* ---------- 10. First-boot splash (modal glass) ---------- */
+  #fbSplash {
+    position: fixed; inset: 0;
+    display: none;
+    place-items: center;
+    background: rgba(8,8,10,0.72);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    z-index: 100;
+    animation: fade-in 220ms ease;
+  }
+  #fbSplash.show { display: grid; }
+  #fbSplash .fb-card {
+    width: 420px; max-width: calc(100vw - var(--space-7));
+    background: var(--modal-glass);
+    border: 1px solid var(--border-strong);
+    border-radius: var(--radius-lg);
+    padding: var(--space-7);
+    text-align: center;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+    animation: bubble-in 320ms cubic-bezier(.2,.8,.2,1);
+  }
+  #fbSplash .fb-mark {
+    width: 56px; height: 56px; margin: 0 auto var(--space-4);
+    background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+    color: white; border-radius: var(--radius-md);
+    display: grid; place-items: center;
+    font-family: var(--font-mono); font-size: 22px; font-weight: 700;
+    box-shadow: 0 12px 32px rgba(124,92,255,0.32);
+  }
+  #fbSplash .fb-title { font-size: 22px; font-weight: 600; color: var(--text-primary); margin: 0 0 var(--space-2); letter-spacing: -0.01em; }
+  #fbSplash .fb-sub   { font-size: 13px; color: var(--text-secondary); line-height: 1.55; margin: 0 0 var(--space-5); }
+  #fbSplash .fb-btn {
+    height: 42px; padding: 0 var(--space-6);
+    background: var(--accent); color: white;
+    border: 0; border-radius: var(--radius-md);
+    font-family: var(--font-sans); font-size: 14px; font-weight: 500;
+    cursor: pointer;
+    transition: background 140ms ease, transform 140ms ease;
+  }
+  #fbSplash .fb-btn:hover { background: var(--accent-strong); transform: translateY(-1px); }
+  #fbSplash .fb-btn:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+  #fbSplash .fb-hint  { font-size: 11px; color: var(--text-muted); margin-top: var(--space-4); }
+  #fbSplash .fb-error { font-size: 12px; color: var(--error); margin-top: var(--space-2); min-height: 16px; }
+  #fbSplash .fb-skip  {
+    display: block;
+    margin: var(--space-3) auto 0;
+    background: transparent; border: 0;
+    color: var(--text-secondary); font-size: 12px;
+    cursor: pointer; text-decoration: underline; text-underline-offset: 3px;
+    padding: var(--space-2);
+  }
+  #fbSplash .fb-skip:hover { color: var(--text-primary); }
+
+  /* ---------- 11. Auth screen polish (W279 compatible) ---------- */
+  /* Auth screen keeps its existing styles; no override needed. */
+
+  /* ---------- 12. Drawer hard-reset (only open when explicitly .show) ---------- */
+  .cockpit-panel-drawer {
+    transform: translateX(-100%) !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+  }
+  .cockpit-panel-drawer.show {
+    transform: translateX(0) !important;
+    visibility: visible !important;
+    pointer-events: auto !important;
+  }
+
+
+  /* W289 — W287+W288 stripped (hard reset to W286 clean baseline). */
+
+  @keyframes waveform-pulse {
+    0%, 100% { transform: scale(1);    opacity: 1;   }
+    50%      { transform: scale(1.04); opacity: 0.85;}
+  }
+  @keyframes bubble-in {
+    from { opacity: 0; transform: translateY(4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+  }
+
+  /* ════════════════════════════════════════════════════════════════════
+     W290 — FUTURISTIC LAYER (Westworld + Apollo + Vision Pro)
+     Polish on top of W286 baseline. Touches presentation only —
+     never the body grid (64/1fr/280), Voice IIFE, _drawWave, or
+     the W286 palette. All motion respects prefers-reduced-motion.
+     ════════════════════════════════════════════════════════════════════ */
+
+  /* ---------- W290.1 — Sider (left modes rail, glass + accent inset) ---------- */
+  #vcSider {
+    background:
+      linear-gradient(180deg, rgba(20,20,28,0.72) 0%, rgba(12,12,18,0.88) 100%) !important;
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    border-right: 1px solid rgba(124,92,255,0.10);
+    box-shadow:
+      inset -1px 0 0 rgba(255,255,255,0.04),
+      inset 1px 0 0 rgba(124,92,255,0.06);
+  }
+  #vcSider .vc-mode {
+    position: relative;
+    transition:
+      transform 180ms cubic-bezier(.22,.61,.36,1),
+      background 160ms ease,
+      color 160ms ease;
+  }
+  #vcSider .vc-mode::before {
+    content: "";
+    position: absolute;
+    left: 0; top: 12px; bottom: 12px;
+    width: 2px;
+    background: var(--accent);
+    opacity: 0;
+    border-radius: 0 2px 2px 0;
+    transform: scaleY(0.6);
+    transform-origin: center;
+    transition: opacity 180ms ease, transform 220ms cubic-bezier(.22,.61,.36,1);
+  }
+  #vcSider .vc-mode:hover { transform: translateX(2px); }
+  #vcSider .vc-mode:hover::before,
+  #vcSider .vc-mode.active::before { opacity: 1; transform: scaleY(1); }
+  #vcSider .vc-mode.active {
+    background: linear-gradient(90deg, rgba(124,92,255,0.16) 0%, rgba(124,92,255,0.04) 100%);
+  }
+  #vcSider .vc-sider-foot {
+    color: rgba(200,196,228,0.55);
+    text-shadow: 0 0 12px rgba(124,92,255,0.20);
+  }
+
+  /* ---------- W290.2 — Topbar (thin glass strip with hairline accent) ---------- */
+  .voice-cockpit .vc-topbar {
+    background:
+      linear-gradient(180deg, rgba(16,16,22,0.78) 0%, rgba(16,16,22,0.55) 100%) !important;
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    box-shadow:
+      inset 0 -1px 0 rgba(124,92,255,0.08),
+      0 1px 12px rgba(0,0,0,0.45);
+  }
+  .voice-cockpit .vc-topbar > * { position: relative; z-index: 2; }
+  .voice-cockpit .vc-topbar::after {
+    content: "";
+    position: absolute;
+    left: 0; right: 0; bottom: -1px;
+    height: 1px;
+    background: linear-gradient(90deg,
+      transparent 0%,
+      rgba(124,92,255,0.35) 50%,
+      transparent 100%);
+    pointer-events: none;
+    z-index: 1;
+  }
+
+  /* ---------- W290.3 — Right rail (glass panel, depth-cued frames) ---------- */
+  #vcRail {
+    background:
+      linear-gradient(180deg, rgba(18,18,26,0.72) 0%, rgba(12,12,18,0.86) 100%) !important;
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    border-left: 1px solid rgba(124,92,255,0.10);
+    box-shadow:
+      inset 1px 0 0 rgba(255,255,255,0.04),
+      inset -1px 0 0 rgba(124,92,255,0.06);
+  }
+  #vcRail .vc-rail-head {
+    border-bottom: 1px solid rgba(255,255,255,0.04);
+    background:
+      linear-gradient(180deg, rgba(124,92,255,0.06) 0%, transparent 100%);
+  }
+  #vcRail .vc-rail-title {
+    text-shadow: 0 0 14px rgba(124,92,255,0.30);
+    letter-spacing: 0.06em;
+  }
+  #vcRail .vc-rail-count {
+    background: rgba(124,92,255,0.16);
+    color: var(--accent);
+    border: 1px solid rgba(124,92,255,0.28);
+    box-shadow: 0 0 12px rgba(124,92,255,0.20);
+  }
+  #vcRail .vc-frame {
+    background:
+      linear-gradient(180deg, rgba(28,28,40,0.55) 0%, rgba(20,20,30,0.55) 100%);
+    border: 1px solid rgba(255,255,255,0.04);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.04),
+      0 8px 24px rgba(0,0,0,0.35);
+    transition: transform 220ms cubic-bezier(.22,.61,.36,1), box-shadow 220ms ease;
+  }
+  #vcRail .vc-frame:hover {
+    transform: translateY(-1px);
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.06),
+      0 12px 32px rgba(0,0,0,0.45);
+  }
+
+  /* ---------- W290.4 — Halo + concentric grid backdrop on the monolith ---------- */
+  /* The visualiser canvas (#vcWaveCanvas) lives inside .monolith-wrap.
+     We add THREE layers of depth WITHOUT touching the canvas itself:
+       a. radial backdrop glow (::before)
+       b. concentric grid + tick ring (svg, ::after via background-image)
+       c. multi-layered drop-shadow on the canvas filter
+     All purely cosmetic — the canvas keeps drawing on top. */
+  .voice-cockpit .monolith-wrap {
+    position: relative;
+    isolation: isolate;
+  }
+  .voice-cockpit .monolith-wrap::before {
+    content: "";
+    position: absolute;
+    inset: -8%;
+    border-radius: 50%;
+    background:
+      radial-gradient(circle at 50% 50%,
+        rgba(124,92,255,0.22) 0%,
+        rgba(124,92,255,0.08) 30%,
+        rgba(124,92,255,0.00) 70%);
+    filter: blur(6px);
+    z-index: 0;
+    pointer-events: none;
+    animation: vc-pulse-halo 4.8s ease-in-out infinite;
+  }
+  .voice-cockpit .monolith-wrap::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: 50%;
+    background-image:
+      /* outer concentric ring */
+      radial-gradient(circle at 50% 50%, transparent 48%, rgba(124,92,255,0.18) 49%, transparent 50%),
+      /* mid concentric ring */
+      radial-gradient(circle at 50% 50%, transparent 38%, rgba(124,92,255,0.12) 39%, transparent 40%),
+      /* inner concentric ring */
+      radial-gradient(circle at 50% 50%, transparent 28%, rgba(124,92,255,0.10) 29%, transparent 30%),
+      /* faint hex-grid tile background */
+      linear-gradient(0deg,    rgba(124,92,255,0.04) 1px, transparent 1px),
+      linear-gradient(90deg,   rgba(124,92,255,0.04) 1px, transparent 1px);
+    background-size: 100% 100%, 100% 100%, 100% 100%, 24px 24px, 24px 24px;
+    background-position: center;
+    z-index: 1;
+    pointer-events: none;
+    mask-image: radial-gradient(circle at 50% 50%, black 0%, black 50%, transparent 70%);
+    -webkit-mask-image: radial-gradient(circle at 50% 50%, black 0%, black 50%, transparent 70%);
+    animation: vc-rotate-ccw 60s linear infinite;
+    transform-origin: center;
+  }
+  .voice-cockpit .monolith-wrap > * { position: relative; z-index: 2; }
+  .voice-cockpit #vcWaveCanvas {
+    filter:
+      drop-shadow(0 0 18px rgba(124,92,255,0.35))
+      drop-shadow(0 0 48px rgba(124,92,255,0.18)) !important;
+    transition: filter 360ms ease;
+  }
+  .voice-cockpit.state-listening #vcWaveCanvas {
+    filter:
+      drop-shadow(0 0 22px rgba(124,92,255,0.55))
+      drop-shadow(0 0 64px rgba(124,92,255,0.28)) !important;
+  }
+  .voice-cockpit.state-speaking #vcWaveCanvas {
+    filter:
+      drop-shadow(0 0 22px rgba(52,211,153,0.55))
+      drop-shadow(0 0 64px rgba(52,211,153,0.28)) !important;
+  }
+  .voice-cockpit.state-thinking #vcWaveCanvas {
+    filter:
+      drop-shadow(0 0 22px rgba(251,191,36,0.55))
+      drop-shadow(0 0 64px rgba(251,191,36,0.24)) !important;
+  }
+
+  /* ---------- W290.5 — Status HUD (state-aware glow on the label) ---------- */
+  .voice-cockpit .vc-status-label {
+    transition: color 240ms ease, text-shadow 240ms ease;
+  }
+  .voice-cockpit.state-idle      .vc-status-label { text-shadow: 0 0 12px rgba(124,92,255,0.18); }
+  .voice-cockpit.state-listening .vc-status-label { text-shadow: 0 0 14px rgba(124,92,255,0.55); }
+  .voice-cockpit.state-speaking  .vc-status-label { text-shadow: 0 0 14px rgba(52,211,153,0.55); }
+  .voice-cockpit.state-thinking  .vc-status-label { text-shadow: 0 0 14px rgba(251,191,36,0.55); }
+  .voice-cockpit.state-error     .vc-status-label { text-shadow: 0 0 14px rgba(248,113,113,0.55); }
+
+  /* ---------- W290.6 — Mic pill (glass + rotating conic ring on focus) ---------- */
+  .voice-cockpit .vc-mic-wrap {
+    background:
+      linear-gradient(180deg, rgba(28,28,40,0.78) 0%, rgba(18,18,28,0.78) 100%) !important;
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    border: 1px solid rgba(255,255,255,0.06) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.06),
+      inset 0 -1px 0 rgba(0,0,0,0.40),
+      0 16px 48px rgba(0,0,0,0.50),
+      0 0 0 1px rgba(124,92,255,0.0) !important;
+    transition:
+      box-shadow 220ms cubic-bezier(.22,.61,.36,1),
+      border-color 220ms ease;
+    position: relative;
+  }
+  .voice-cockpit .vc-mic-wrap:focus-within {
+    border-color: rgba(124,92,255,0.30) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.08),
+      inset 0 -1px 0 rgba(0,0,0,0.40),
+      0 16px 48px rgba(0,0,0,0.55),
+      0 0 0 4px rgba(124,92,255,0.10) !important;
+  }
+  .voice-cockpit .vc-mic-wrap::before {
+    content: "";
+    position: absolute;
+    inset: -2px;
+    border-radius: inherit;
+    padding: 2px;
+    background: conic-gradient(
+      from 0deg,
+      rgba(124,92,255,0.0) 0deg,
+      rgba(124,92,255,0.55) 60deg,
+      rgba(124,92,255,0.0) 120deg,
+      rgba(124,92,255,0.0) 360deg);
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+            mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+            mask-composite: exclude;
+    opacity: 0;
+    transition: opacity 220ms ease;
+    animation: vc-rotate-cw 5.4s linear infinite;
+    pointer-events: none;
+  }
+  .voice-cockpit .vc-mic-wrap:focus-within::before { opacity: 1; }
+  .voice-cockpit.state-listening .vc-mic-wrap::before { opacity: 1; animation-duration: 2.8s; }
+
+  /* ---------- W290.7 — Transcript bubbles (depth + soft shadow) ---------- */
+  .voice-cockpit .vc-transcript .line {
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.04),
+      0 4px 14px rgba(0,0,0,0.30);
+    backdrop-filter: blur(6px) saturate(140%);
+    -webkit-backdrop-filter: blur(6px) saturate(140%);
+  }
+  .voice-cockpit .vc-transcript .line.user {
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.06),
+      0 4px 14px rgba(124,92,255,0.18);
+  }
+
+  /* ---------- W290.8 — First-boot splash (glass-rim + conic logo) ---------- */
+  #fbSplash {
+    background:
+      radial-gradient(circle at 50% 0%, rgba(124,92,255,0.15) 0%, transparent 50%),
+      rgba(8,8,12,0.78) !important;
+    backdrop-filter: blur(28px) saturate(140%);
+    -webkit-backdrop-filter: blur(28px) saturate(140%);
+  }
+  #fbSplash .fb-card {
+    background:
+      linear-gradient(180deg, rgba(28,28,40,0.78) 0%, rgba(18,18,28,0.85) 100%) !important;
+    border: 1px solid rgba(255,255,255,0.08) !important;
+    box-shadow:
+      inset 0 1px 0 rgba(255,255,255,0.06),
+      0 24px 80px rgba(0,0,0,0.65),
+      0 0 0 1px rgba(124,92,255,0.10) !important;
+    position: relative;
+  }
+  #fbSplash .fb-card::before {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    background: conic-gradient(
+      from 90deg,
+      rgba(124,92,255,0.0),
+      rgba(124,92,255,0.30) 25%,
+      rgba(124,92,255,0.0) 50%,
+      rgba(124,92,255,0.30) 75%,
+      rgba(124,92,255,0.0) 100%);
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+            mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+            mask-composite: exclude;
+    padding: 1px;
+    opacity: 0.7;
+    pointer-events: none;
+    animation: vc-rotate-cw 22s linear infinite;
+  }
+
+  /* ---------- W290.9 — Keyframes (3 new, all reduced-motion-safe) ---------- */
+  @keyframes vc-rotate-cw  { from { transform: rotate(0); } to { transform: rotate(360deg); } }
+  @keyframes vc-rotate-ccw { from { transform: rotate(0); } to { transform: rotate(-360deg); } }
+  @keyframes vc-pulse-halo {
+    0%, 100% { transform: scale(1);    opacity: 0.85; }
+    50%      { transform: scale(1.04); opacity: 1;    }
+  }
+
+  /* ---------- W290.10 — Reduced motion (kill ALL rotations + pulse) ---------- */
+  @media (prefers-reduced-motion: reduce) {
+    .voice-cockpit .monolith-wrap::before,
+    .voice-cockpit .monolith-wrap::after,
+    .voice-cockpit .vc-mic-wrap::before,
+    #fbSplash .fb-card::before,
+    .voice-cockpit #vcWaveCanvas {
+      animation: none !important;
+      transition: none !important;
+    }
+    #vcSider .vc-mode { transition: none !important; }
+    #vcRail .vc-frame { transition: none !important; }
+  }
+
+  /* === END W290 FUTURISTIC LAYER === */
+
+  /* === LEGACY BAND-AID REMOVED ABOVE — old W283 revert/glue follows for ref === */
+  /* W282-REVERT: legacy block (kept for marker, no-op below) */
+
 </style>
 </head>
 <body>
@@ -1460,59 +3082,106 @@
 </script>
 
 
-<!-- W219 — Auth gate overlay (boots first; hides cockpit until token exists) -->
+<!-- W219/W279 — Studio-grade auth gate overlay -->
 <div class="auth-screen" id="authScreen">
   <div class="auth-card">
     <div class="auth-logo">
-      <svg class="logo-svg" viewBox="0 0 240 64" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="TARS">
-        <defs>
-          <linearGradient id="auth-body" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0%" stop-color="#1a1a2e"/><stop offset="55%" stop-color="#0f0f1a"/><stop offset="100%" stop-color="#05050a"/>
-          </linearGradient>
-          <linearGradient id="auth-text" x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0%" stop-color="#ffffff"/><stop offset="60%" stop-color="#c7d2fe"/><stop offset="100%" stop-color="#a5b4fc"/>
-          </linearGradient>
-        </defs>
-        <g transform="translate(8,6)">
-          <rect x="0" y="0" width="40" height="52" rx="3" fill="url(#auth-body)" stroke="#6366f1" stroke-opacity="0.6" stroke-width="0.8"/>
-          <g stroke="#000" stroke-opacity="0.6" stroke-width="0.4">
-            <line x1="0" y1="13.5" x2="40" y2="13.5"/><line x1="0" y1="26.5" x2="40" y2="26.5"/><line x1="0" y1="39.5" x2="40" y2="39.5"/>
-          </g>
-          <rect x="6" y="18" width="22" height="2.4" rx="1.2" fill="#8b5cf6"/>
-        </g>
-        <g transform="translate(64,0)">
-          <text x="0" y="40" font-family="'SF Mono','JetBrains Mono',monospace" font-size="32" font-weight="700" letter-spacing="6" fill="url(#auth-text)">TARS</text>
-        </g>
-      </svg>
+      <div class="auth-mark">T</div>
+      <span class="auth-wordmark">TARS</span>
     </div>
-    <h1>Sign in with meeet.world</h1>
-    <p class="auth-sub">Your TARS lives in your wallet.</p>
+
+    <h1>Welcome back.</h1>
+    <p class="auth-sub">Sign in with meeet.world to sync agents, receipts, and memory across devices. Or stay 100% local.</p>
 
     <div class="auth-email-row">
-      <input type="email" id="authEmail" placeholder="you@example.com" autocomplete="email" />
+      <div class="auth-email-wrap">
+        <input type="email" id="authEmail" placeholder="you@example.com" autocomplete="email" />
+      </div>
       <button class="btn primary" id="authMagicLinkBtn" data-action="auth.magic-link" onclick="authMagicLink()">Send magic link</button>
     </div>
 
-    <div class="auth-divider">or</div>
+    <div class="auth-divider">or continue with</div>
 
     <div class="oauth-row">
-      <button class="btn-oauth" data-action="auth.oauth.google" onclick="authOAuth('google')">Continue with Google</button>
-      <button class="btn-oauth" data-action="auth.oauth.apple" onclick="authOAuth('apple')">Continue with Apple</button>
+      <button class="btn-oauth" data-action="auth.oauth.google" onclick="authOAuth('google')">
+        <svg viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path fill="#FFC107" d="M43.6 20.5H42V20.4H24v7.2h11.3c-1.5 4.2-5.5 7.2-11.3 7.2-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.1-5.1C33.8 5.1 29.2 3.2 24 3.2 12.4 3.2 3 12.6 3 24.2s9.4 21 21 21 21-9.4 21-21c0-1.3-.1-2.5-.4-3.7z"/><path fill="#FF3D00" d="M5.3 14.3l5.9 4.3C12.7 14.6 17.9 11.2 24 11.2c3 0 5.8 1.1 7.9 3l5.1-5.1C33.8 5.1 29.2 3.2 24 3.2c-7.8 0-14.6 4.4-18.7 11.1z"/><path fill="#4CAF50" d="M24 45.2c5.1 0 9.7-1.9 13.2-5.1l-6.1-5.2c-2 1.5-4.5 2.4-7.2 2.4-5.7 0-10.6-3.7-12.3-8.8l-5.9 4.6C9.2 40.6 16 45.2 24 45.2z"/><path fill="#1976D2" d="M43.6 20.5H42V20.4H24v7.2h11.3c-.7 2-2 3.8-3.7 5l6.1 5.2c-.4.4 6.3-4.6 6.3-13.6 0-1.3-.1-2.5-.4-3.7z"/></svg>
+        Google
+      </button>
+      <button class="btn-oauth" data-action="auth.oauth.apple" onclick="authOAuth('apple')">
+        <svg viewBox="0 0 384 512" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path fill="#f5f5f0" d="M318.7 268.7c-.2-36.7 16.4-64.4 50-84.8-18.8-26.9-47.2-41.7-84.7-44.6-35.5-2.8-74.3 20.7-88.5 20.7-15 0-49.4-19.7-76.4-19.7C63.3 141.2 4 184.8 4 273.5q0 39.3 14.4 81.2c12.8 36.7 59 126.7 107.2 125.2 25.2-.6 43-17.9 75.8-17.9 31.8 0 48.3 17.9 76.4 17.9 48.6-.7 90.4-82.5 102.6-119.3-65.2-30.7-61.7-90-61.7-91.9zm-56.6-164.2c27.3-32.4 24.8-61.9 24-72.5-24.1 1.4-52 16.4-67.9 34.9-17.5 19.8-27.8 44.3-25.6 71.9 26.1 2 49.9-11.4 69.5-34.3z"/></svg>
+        Apple
+      </button>
     </div>
 
     <div class="auth-status" id="authStatus"></div>
 
     <div class="auth-footer">
-      <button type="button" class="auth-link" data-action="auth.about" onclick="openExternal('https://meeet.world/about')">Why meeet.world?</button>
-      <button type="button" class="auth-link" id="authSkipLink" data-action="auth.skip" onclick="authSkipLocal()">Skip — local-only mode</button>
+      <button type="button" class="auth-link muted" data-action="auth.about" onclick="openExternal('https://meeet.world/about')">Why meeet.world?</button>
+      <button type="button" class="auth-link" id="authSkipLink" data-action="auth.skip" onclick="authSkipLocal()">Continue local-only →</button>
     </div>
   </div>
 </div>
 
 <!-- W220 — Full-screen voice cockpit (DEFAULT view post-auth) -->
-<div class="voice-cockpit state-idle" id="voiceCockpit">
+<!-- W278 — custom cursor (ring + dot, magnetic) -->
+<div class="vc-cursor" id="vcCursor" aria-hidden="true"></div>
+<div class="vc-cursor-dot" id="vcCursorDot" aria-hidden="true"></div>
+
+<!-- W285 — first-boot voice onboarding splash. Hidden by default; FB.boot() opens it on first launch. -->
+<div id="fbSplash" role="dialog" aria-modal="true" aria-labelledby="fbTitle">
+  <div class="fb-card">
+    <div class="fb-mark">T</div>
+    <h1 class="fb-title" id="fbTitle">Welcome to TARS</h1>
+    <p class="fb-sub">Your personal AI cockpit — running locally, talking to you, acting on your apps when you ask.</p>
+    <button class="fb-btn" id="fbStartBtn" type="button">Tap to begin</button>
+    <p class="fb-hint">We will ask for microphone access. You will hear TARS, and TARS will hear you.</p>
+    <p class="fb-error" id="fbError"></p>
+    <button class="fb-skip" id="fbSkipBtn" type="button" style="display:none">Continue without microphone</button>
+  </div>
+</div>
+
+<!-- W285 — left mode sidebar -->
+<aside id="vcSider" aria-label="Modes">
+  <button class="vc-mode active" data-mode="cockpit" type="button" title="Cockpit">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2v6m0 8v6M2 12h6m8 0h6"/><circle cx="12" cy="12" r="4"/></svg>
+    <span class="vc-mode-label">Cockpit</span>
+  </button>
+  <button class="vc-mode" data-mode="chat" type="button" title="Chat">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/></svg>
+    <span class="vc-mode-label">Chat</span>
+  </button>
+  <button class="vc-mode" data-mode="project" type="button" title="Project">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+    <span class="vc-mode-label">Project</span>
+  </button>
+  <button class="vc-mode" data-mode="cowork" type="button" title="Cowork">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+    <span class="vc-mode-label">Cowork</span>
+  </button>
+  <button class="vc-mode" data-mode="solo" type="button" title="Solo">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+    <span class="vc-mode-label">Solo</span>
+  </button>
+  <div class="vc-sider-spacer"></div>
+  <div class="vc-sider-foot">v10.0 · meeet.world</div>
+</aside>
+
+<!-- W285 — right rail: live agent frames -->
+<aside id="vcRail" aria-label="Live agent frames">
+  <div class="vc-rail-head">
+    <span class="vc-rail-title">Agent frames</span>
+    <span class="vc-rail-count" id="vcRailCount">0</span>
+  </div>
+  <div class="vc-rail-body" id="vcRailBody">
+    <div class="vc-rail-empty" id="vcRailEmpty">No frames yet.<br>Frames appear as TARS works.</div>
+  </div>
+</aside>
+
+<div class="voice-cockpit state-idle has-avatar" id="voiceCockpit">
   <div class="vc-topbar">
-    <button class="vc-hamburger" id="vcHamburger" title="Controls (Status / Agents / Chat / …)" data-action="vc.open-drawer" onclick="vcOpenDrawer()">☰</button>
+    <button class="vc-hamburger" id="vcHamburger" title="Controls (Status / Agents / Chat / …)" data-action="vc.open-drawer" onclick="vcOpenDrawer()" aria-label="Open menu">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+    </button>
     <div class="vc-chip" id="vcChip">
       <span class="vc-dot" id="vcDot"></span>
       <span id="vcConnState">connecting</span>
@@ -1536,7 +3205,25 @@
 
   <div class="vc-stage">
     <!-- W230 Layer D: particle dust canvas (below everything) -->
+    <!-- W277 — premium ambient layers (aurora + grid + grain) -->
+    <div class="vc-aurora" aria-hidden="true"></div>
+    <div class="vc-grid-floor" aria-hidden="true"></div>
     <canvas class="vc-particles" id="vcParticles" aria-hidden="true"></canvas>
+    <div class="vc-scan-beam" aria-hidden="true"></div>
+    <div class="vc-constellation" aria-hidden="true">
+      <span class="node n1" data-label="API · OK"></span>
+      <span class="node n2" data-label="VOICE · READY"></span>
+      <span class="node n3" data-label="LEDGER · ⛓"></span>
+      <span class="node n4" data-label="AGENTS · 3"></span>
+    </div>
+    <div class="vc-freq left" aria-hidden="true">
+      <span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span>
+    </div>
+    <div class="vc-freq right" aria-hidden="true">
+      <span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span><span class="bar"></span>
+    </div>
+    <div class="vc-boot-line" aria-hidden="true">› TARS · cockpit online · v10.0.0-rc.1 · meeet.world</div>
+    <div class="vc-grain" aria-hidden="true"></div>
 
     <!-- W230 Layer B: concentric rings (between particles + monolith) -->
     <div class="vc-rings" aria-hidden="true">
@@ -1566,6 +3253,8 @@
     </div>
 
     <div class="monolith-wrap" id="monolithWrap">
+      <!-- W285 — real-time waveform canvas (FFT polar). Drawn by W285_canvasTick(). -->
+      <canvas id="vcWaveCanvas" width="760" height="760" aria-hidden="true"></canvas>
       <div class="monolith-glow"></div>
       <div class="monolith"></div>
       <!-- W230 Layer A: monolith core augments -->
@@ -1573,6 +3262,74 @@
         <div class="monolith-strip"></div>
         <div class="monolith-scan"></div>
         <div class="monolith-glitch"></div>
+      </div>
+
+      <!-- W278: TARS humanoid avatar (SVG, replaces monolith block) -->
+      <div class="tars-avatar" aria-hidden="true">
+        <svg viewBox="-130 -180 260 360" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="taPlastic" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%"  stop-color="#f0f1f5"/>
+              <stop offset="55%" stop-color="#cdd0d8"/>
+              <stop offset="100%" stop-color="#8d909a"/>
+            </linearGradient>
+            <linearGradient id="taAccent" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%"  stop-color="#8b5cf6"/>
+              <stop offset="100%" stop-color="#06b6d4"/>
+            </linearGradient>
+            <filter id="taGlow" x="-60%" y="-60%" width="220%" height="220%">
+              <feGaussianBlur stdDeviation="3"/>
+              <feMerge>
+                <feMergeNode/>
+                <feMergeNode in="SourceGraphic"/>
+              </feMerge>
+            </filter>
+          </defs>
+
+          <!-- Antenna -->
+          <line class="ta-antenna" x1="0" y1="-148" x2="0" y2="-122"/>
+          <circle class="ta-antenna-led" cx="0" cy="-152" r="4"/>
+
+          <!-- Head -->
+          <rect class="ta-head" x="-58" y="-120" width="116" height="92" rx="22" ry="22"/>
+          <!-- Side ear plates -->
+          <rect class="ta-accent" x="-72" y="-90" width="10" height="34" rx="3"/>
+          <rect class="ta-accent" x="62"  y="-90" width="10" height="34" rx="3"/>
+
+          <!-- Visor (dark glass) -->
+          <rect class="ta-visor" x="-46" y="-95" width="92" height="32" rx="6" ry="6"/>
+          <!-- Scan line inside visor -->
+          <rect class="ta-visor-scan" x="-4" y="-92" width="8" height="26" rx="2"/>
+          <!-- Eyes (LED dots) -->
+          <circle class="ta-eye" cx="-22" cy="-79" r="3.5"/>
+          <circle class="ta-eye" cx="22"  cy="-79" r="3.5"/>
+
+          <!-- Mouth / speaker grill -->
+          <rect class="ta-mouth" x="-14" y="-50" width="28" height="6" rx="2"/>
+
+          <!-- Neck shadow -->
+          <rect class="ta-shadow" x="-22" y="-32" width="44" height="14" rx="3"/>
+
+          <!-- Chest plate -->
+          <rect class="ta-chest" x="-78" y="-18" width="156" height="150" rx="18" ry="18"/>
+          <!-- Shoulder accents -->
+          <rect class="ta-accent" x="-92" y="-12" width="14" height="60" rx="6"/>
+          <rect class="ta-accent" x="78"  y="-12" width="14" height="60" rx="6"/>
+
+          <!-- Chest emblem (meeet diamond) -->
+          <path class="ta-emblem" d="M 0,18 L 28,46 L 0,74 L -28,46 Z"/>
+          <circle class="ta-emblem" cx="0" cy="46" r="6"/>
+
+          <!-- Chest status LEDs -->
+          <circle class="ta-led l1" cx="-50" cy="100" r="3"/>
+          <circle class="ta-led l2" cx="-30" cy="100" r="3"/>
+          <circle class="ta-led l3" cx="30"  cy="100" r="3"/>
+          <circle class="ta-led l4" cx="50"  cy="100" r="3"/>
+
+          <!-- Subtle inset highlights -->
+          <line stroke="rgba(255,255,255,0.18)" stroke-width="1" x1="-58" y1="-30" x2="58" y2="-30"/>
+          <line stroke="rgba(255,255,255,0.10)" stroke-width="1" x1="-78" y1="86" x2="78" y2="86"/>
+        </svg>
       </div>
     </div>
 
@@ -1593,7 +3350,7 @@
     </div>
 
     <div class="vc-mic-wrap">
-      <button class="vc-mic" id="vcMic" title="Click or ⌘⇧Space to toggle" data-action="vc.mic-toggle" onclick="toggleListening()">🎙</button>
+      <button class="vc-mic" id="vcMic" title="Click or ⌘⇧Space to toggle" data-action="vc.mic-toggle" onclick="toggleListening()" aria-label="Toggle microphone"></button>
       <div class="vc-mic-hint" id="vcMicHint">Tap to speak · ⌘⇧Space</div>
     </div>
 
@@ -4828,9 +6585,28 @@ window.__tarsTTFV = TTFV;
 function ttfvMaybeStart() {
   let done = '0';
   try { done = localStorage.getItem('tars_first_launch_done') || '0'; } catch (_e) {}
-  if (done === '1') return;
+  // W291 — in demo mode (?demo=1 or TARS_DEMO_SEED=1 baked in), always replay
+  // the greeting so the user can rehearse. Without this the greeting only
+  // fires the very first time per WKWebView container.
+  const isDemo = (
+    /(?:^|[?&])demo=1\b/.test(window.location.search) ||
+    localStorage.getItem('tars_demo_mode') === '1'
+  );
+  if (done === '1' && !isDemo) return;
+  // Clear in demo mode so the flag doesn't pile up.
+  if (isDemo) {
+    try { localStorage.removeItem('tars_first_launch_done'); } catch (_e) {}
+  }
   ttfvStart();
 }
+
+// W291 — Public helper: window.tarsReplayGreeting() — clears localStorage flag
+// and re-runs the welcome tour. Bound to Cmd+Shift+R inside the cockpit.
+window.tarsReplayGreeting = function() {
+  try { localStorage.removeItem('tars_first_launch_done'); } catch (_e) {}
+  try { localStorage.removeItem('tars_onboarded'); } catch (_e) {}
+  if (typeof ttfvStart === 'function') ttfvStart();
+};
 
 function ttfvReplay() {
   // Wired into SETTINGS — clears the flag and restarts the tour.
@@ -4985,7 +6761,20 @@ function prettyPackName(slug) {
 }
 
 function ttfvSpeak(text) {
-  if (!text || !window.speechSynthesis) return;
+  if (!text) return;
+  // W291 — Route greeting through _speak() so it uses ElevenLabs Adam (premium)
+  // when ELEVENLABS_API_KEY is configured. Previously this bypassed the
+  // backend and went straight to window.speechSynthesis (system voice).
+  // _speak() handles graceful fallback to speechSynthesis if backend is down
+  // or ElevenLabs returns use_browser_tts:true.
+  try {
+    if (typeof _speak === 'function') {
+      _speak(text);
+      return;
+    }
+  } catch (_e) { /* fall through to browser TTS */ }
+  // Fallback path — only used if _speak isn't defined yet (loading order).
+  if (!window.speechSynthesis) return;
   try {
     window.speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(text);
@@ -5352,15 +7141,77 @@ function showAuthGate() {
 function showCockpit() {
   $('authScreen').classList.remove('show');
   $('voiceCockpit').classList.add('show');
+  // W286 — enable the new body-grid layout (sider | center | rail).
+  document.body.classList.add('cockpit-active');
+  // W286-7 — force-close any drawer that might be open from a prior session.
+  const __dr = document.getElementById('cockpitDrawer');
+  if (__dr) __dr.classList.remove('show');
+
+  // Insert a status label under the canvas if missing.
+  if (!document.querySelector('.voice-cockpit .vc-status-label')) {
+    const __wrap = document.getElementById('monolithWrap');
+    if (__wrap && __wrap.parentElement) {
+      const __lbl = document.createElement('div');
+      __lbl.className = 'vc-status-label';
+      __wrap.parentElement.appendChild(__lbl);
+    }
+  }
   // Kick off the post-auth init exactly once.
   if (!window.__tarsCockpitInit) {
     window.__tarsCockpitInit = true;
     cockpitInit();
   }
-  // W230 — start the cinematic visual layers.
+  // W230 — start the cinematic visual layers (hum disabled, others kept for compat).
   _vcBootCinematic();
+  // W291 — Backend health probe: surface failure clearly so users see WHY
+  // mic clicks / text submits don't work, instead of silent dead-end.
+  _w291ProbeBackend();
   // W269 — first-launch voice tour (skippable; runs once per device).
   try { ttfvMaybeStart(); } catch (e) { console.warn('ttfv start failed', e); }
+}
+
+// W291 — Backend health probe. Runs once on cockpit show, surfaces concrete
+// failure modes (backend down, ElevenLabs missing, /api/voice/command 404, etc.)
+// via vcAddLine('system', ...) so the user sees what's broken.
+async function _w291ProbeBackend() {
+  let backendUp = false;
+  let elevenLabsOn = false;
+  let voiceCommandWired = false;
+  // 1. /api/a11y/health → tts_cloud_elevenlabs
+  try {
+    const r = await fetch(API + '/api/a11y/health', { method: 'GET' });
+    if (r.ok) {
+      backendUp = true;
+      const d = await r.json().catch(() => ({}));
+      elevenLabsOn = !!(d.capabilities && d.capabilities.tts_cloud_elevenlabs);
+    }
+  } catch (_e) { /* backendUp stays false */ }
+  // 2. /api/voice/command exists?
+  if (backendUp) {
+    try {
+      // OPTIONS or empty POST should give 405/422 (not 404). 404 = router not wired.
+      const r2 = await fetch(API + '/api/voice/command', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      voiceCommandWired = (r2.status !== 404);
+    } catch (_e) { voiceCommandWired = false; }
+  }
+  // Surface results
+  if (!backendUp) {
+    vcAddLine('system', '⚠ Backend on 127.0.0.1:8765 не отвечает. Запусти scripts/FINAL-DEMO-READY.command');
+    return;
+  }
+  if (!voiceCommandWired) {
+    vcAddLine('system', '⚠ /api/voice/command возвращает 404. Backend нужно перезапустить.');
+  }
+  if (!elevenLabsOn) {
+    vcAddLine('system', '⚠ ElevenLabs не активен. Проверь ELEVENLABS_API_KEY в .env и перезапусти backend.');
+  } else {
+    // All good — quietly confirm.
+    console.log('[W291] backend OK, ElevenLabs active, /api/voice/command wired.');
+  }
 }
 
 async function authMagicLink() {
@@ -5481,7 +7332,9 @@ async function authOAuth(provider) {
       openExternal(d.redirect_url);
       authShowStatus('Finish sign-in in your browser. We will pick up the response automatically.', 'ok');
     } else {
-      authShowStatus('Could not start OAuth.', 'fail');
+      // W279 — OAuth keys not yet wired in this build. Soft, informative.
+      authShowStatus(`${provider === 'apple' ? 'Apple' : 'Google'} OAuth is rolling out next week. For now use email magic link, or continue local-only.`, 'info');
+      if ($('authSkipLink')) $('authSkipLink').style.display = 'inline';
     }
   } catch (e) {
     // Transient network error (e.g. backend not up) — distinct toast,
@@ -5597,38 +7450,12 @@ function vcAddLine(kind, text) {
   else if (kind === 'tars') { const e = $('vcHudTars'); if (e) e.textContent = text.slice(0, 80); }
 }
 
-// ─── W230 Hum — Web Audio oscillator stack (80+120+160 Hz, LFO) ──
+// ─── W230 Hum — DISABLED in W286. The 3-oscillator cinematic drone
+// was distracting users at boot (constant low hum from speakers).
+// Functions stubbed to no-ops so legacy call sites don't break.
 const VC_HUM = { ctx: null, gain: null, oscs: [], lfo: null, target: 0 };
-function _vcInitHum() {
-  if (VC_HUM.ctx) return;
-  try {
-    const Ctx = window.AudioContext || window.webkitAudioContext;
-    if (!Ctx) return;
-    const ctx = new Ctx();
-    const master = ctx.createGain(); master.gain.value = 0; master.connect(ctx.destination);
-    // Three soft sines for a low cinematic drone.
-    [80, 120, 160].forEach((f, i) => {
-      const o = ctx.createOscillator(); o.type = 'sine'; o.frequency.value = f;
-      const g = ctx.createGain(); g.gain.value = i === 0 ? 0.6 : (i === 1 ? 0.35 : 0.2);
-      o.connect(g); g.connect(master); o.start();
-      VC_HUM.oscs.push({ o, g });
-    });
-    // LFO — slow amplitude wobble so it feels alive, not a sine drone.
-    const lfo = ctx.createOscillator(); lfo.type = 'sine'; lfo.frequency.value = 0.18;
-    const lfoGain = ctx.createGain(); lfoGain.gain.value = 0.25;
-    lfo.connect(lfoGain); lfoGain.connect(master.gain); lfo.start();
-    VC_HUM.ctx = ctx; VC_HUM.gain = master; VC_HUM.lfo = lfo;
-  } catch (e) { console.warn('[tars.hum] init failed', e); }
-}
-function _vcSetHumVolume(v) {
-  VC_HUM.target = v;
-  if (!VC_HUM.gain || !VC_HUM.ctx) return;
-  try {
-    const now = VC_HUM.ctx.currentTime;
-    VC_HUM.gain.gain.cancelScheduledValues(now);
-    VC_HUM.gain.gain.linearRampToValueAtTime(v, now + 0.25);
-  } catch (_e) {}
-}
+function _vcInitHum() { /* W286: ambient hum permanently disabled */ }
+function _vcSetHumVolume(_v) { /* W286: ambient hum permanently disabled */ }
 
 // ─── W230 Outer ring FFT path driver (16 bins → cubic Bezier loop) ─
 function _vcRenderRingPath() {
@@ -5754,6 +7581,79 @@ function _vcShowActionTag(label) {
   setTimeout(() => { tag.remove(); flash.remove(); }, 2700);
 }
 
+// ─── W278 Custom cursor — ring + dot with spring lag + magnetic hover ─
+function _vcInitCustomCursor() {
+  if (window.__vcCursorBooted) return;
+  window.__vcCursorBooted = true;
+  const ring = document.getElementById('vcCursor');
+  const dot  = document.getElementById('vcCursorDot');
+  if (!ring || !dot) return;
+  document.body.classList.add('has-custom-cursor');
+
+  let mx = window.innerWidth / 2, my = window.innerHeight / 2;
+  let rx = mx, ry = my;                  // ring (laggy)
+  let dx = mx, dy = my;                  // dot (fast)
+  let live = false;
+
+  const hot = 'a, button, .vc-mic, .vc-text-send, .nav-tab, .drawer-close, .pillar, .domain, .tier, [data-action]';
+  const isHot = (el) => el && el.matches && el.matches(hot);
+
+  window.addEventListener('mousemove', (e) => {
+    mx = e.clientX; my = e.clientY;
+    if (!live) {
+      live = true; ring.classList.add('live'); dot.classList.add('live');
+    }
+    const t = e.target;
+    const over = isHot(t) || (t && t.closest && t.closest(hot));
+    ring.classList.toggle('over-hot', !!over);
+  }, { passive: true });
+
+  window.addEventListener('mouseleave', () => {
+    live = false; ring.classList.remove('live'); dot.classList.remove('live');
+  });
+
+  const animate = () => {
+    // Spring lag for ring (smooth), 1:1 follow for dot (instant feel).
+    rx += (mx - rx) * 0.18;
+    ry += (my - ry) * 0.18;
+    dx += (mx - dx) * 0.45;
+    dy += (my - dy) * 0.45;
+    ring.style.transform = `translate3d(${rx}px, ${ry}px, 0)`;
+    dot.style.transform  = `translate3d(${dx}px, ${dy}px, 0)`;
+    requestAnimationFrame(animate);
+  };
+  animate();
+}
+
+// ─── W277 Mouse parallax — subtle 3D tilt of monolith on cursor ───
+function _vcInitParallax() {
+  if (window.__vcParallaxBooted) return;
+  window.__vcParallaxBooted = true;
+  const stage = document.querySelector('.vc-stage');
+  const wrap  = document.getElementById('monolithWrap');
+  if (!stage || !wrap) return;
+  let raf = 0;
+  const onMove = (e) => {
+    const r = stage.getBoundingClientRect();
+    const x = ((e.clientX - r.left) / r.width)  - 0.5;  // -0.5..0.5
+    const y = ((e.clientY - r.top)  / r.height) - 0.5;
+    if (raf) cancelAnimationFrame(raf);
+    raf = requestAnimationFrame(() => {
+      wrap.style.setProperty('--tilt-y', (x *  8).toFixed(2) + 'deg');
+      wrap.style.setProperty('--tilt-x', (y * -6).toFixed(2) + 'deg');
+    });
+  };
+  const onLeave = () => {
+    if (raf) cancelAnimationFrame(raf);
+    raf = requestAnimationFrame(() => {
+      wrap.style.setProperty('--tilt-x', '0deg');
+      wrap.style.setProperty('--tilt-y', '0deg');
+    });
+  };
+  stage.addEventListener('mousemove', onMove, { passive: true });
+  stage.addEventListener('mouseleave', onLeave, { passive: true });
+}
+
 // ─── W230 Boot — fire layers once cockpit becomes visible ─────────
 function _vcBootCinematic() {
   if (window.__vcCinematicBooted) return;
@@ -5764,6 +7664,10 @@ function _vcBootCinematic() {
   const initP = () => _vcInitParticles();
   if ('requestIdleCallback' in window) requestIdleCallback(initP, { timeout: 1500 });
   else setTimeout(initP, 600);
+  // W277 — parallax tilt (cheap, attaches on next idle tick).
+  setTimeout(_vcInitParallax, 400);
+  // W278 — custom cursor (also cheap).
+  setTimeout(_vcInitCustomCursor, 400);
   // Ring path loop + HUD level loop start immediately (cheap).
   _vcStartRingLoop();
   _vcUpdateHudLevel();
@@ -5789,9 +7693,13 @@ function _vcBootCinematic() {
 function _vcMicLevelLoop() {
   if (!VC.analyser) return;
   const data = new Uint8Array(VC.analyser.frequencyBinCount);
+  const freq = new Uint8Array(VC.analyser.frequencyBinCount);
+  // W278 — pre-resolve the 18 bar DOM nodes (9 left + 9 right) for FFT writes.
+  const bars = document.querySelectorAll('.vc-freq .bar');
   const tick = () => {
     if (!VC.analyser) return;
     VC.analyser.getByteTimeDomainData(data);
+    VC.analyser.getByteFrequencyData(freq);
     // RMS over the buffer, normalised 0..1.
     let sum = 0;
     for (let i = 0; i < data.length; i++) {
@@ -5803,6 +7711,25 @@ function _vcMicLevelLoop() {
     document.documentElement.style.setProperty('--mic-level', level.toFixed(3));
     const mw = $('monolithWrap'); if (mw) mw.style.setProperty('--mic-level', level.toFixed(3));
     const mb = $('vcMic'); if (mb) mb.style.setProperty('--mic-level', level.toFixed(3));
+    // W278 — write real FFT bin → bar heights. 9 bars per side, sample
+    // logarithmically across the lower 3/4 of the spectrum (the
+    // perceptually interesting band).
+    if (bars.length === 18) {
+      const N = freq.length;
+      const useN = Math.floor(N * 0.75); // skip the noisy top quartile
+      for (let i = 0; i < 9; i++) {
+        // Logarithmic bin selection so low frequencies don't dominate.
+        const t = (i + 0.5) / 9;
+        const idx = Math.floor(useN * Math.pow(t, 1.7));
+        const v = freq[idx] / 255; // 0..1
+        // Average two bars: left mirror + right
+        const h = Math.max(0.08, v).toFixed(3);
+        bars[i].style.height       = (12 + v * 90).toFixed(0) + 'px';  // left side (reversed in CSS row-reverse)
+        bars[9 + i].style.height   = (12 + v * 90).toFixed(0) + 'px';  // right side
+        bars[i].style.opacity      = (0.45 + v * 0.55).toFixed(3);
+        bars[9 + i].style.opacity  = (0.45 + v * 0.55).toFixed(3);
+      }
+    }
     VC.rafId = requestAnimationFrame(tick);
   };
   tick();
@@ -5955,7 +7882,12 @@ async function _dispatchTranscript(text) {
       return;
     }
     const d = await r.json();
-    const reply = d.reply || '(no reply)';
+    // W282 — voice safety net. Empty/whitespace reply means LLM stack
+    // didn't return — surface an actionable hint instead of silence.
+    let reply = (d.reply || '').trim();
+    if (!reply || reply === '(no reply)') {
+      reply = "I heard you, but the language model didn't respond. Check that ANTHROPIC_API_KEY (or OPENAI_API_KEY) is valid in .env and that the backend can reach the provider.";
+    }
     vcAddLine('tars', reply);
     _executeAction(d.action, d.action_payload);
     _speak(reply);
@@ -6086,6 +8018,16 @@ document.addEventListener('keydown', (e) => {
   if (e.code === 'Space' && e.shiftKey && (e.metaKey || e.ctrlKey)) {
     e.preventDefault();
     toggleListening();
+  }
+  // W291 — Cmd/Ctrl + Shift + R → replay first-launch greeting (ElevenLabs).
+  if ((e.code === 'KeyR' || e.key === 'r' || e.key === 'R') && e.shiftKey && (e.metaKey || e.ctrlKey)) {
+    e.preventDefault();
+    if (typeof window.tarsReplayGreeting === 'function') window.tarsReplayGreeting();
+  }
+  // W291 — Cmd/Ctrl + Shift + B → re-run "what's broken" backend probe.
+  if ((e.code === 'KeyB' || e.key === 'b' || e.key === 'B') && e.shiftKey && (e.metaKey || e.ctrlKey)) {
+    e.preventDefault();
+    if (typeof _w291ProbeBackend === 'function') _w291ProbeBackend();
   }
   if (e.key === 'Escape') vcCloseDrawer();
 });
@@ -6464,6 +8406,514 @@ try { capBoot(); } catch(e) {}
 // Boot — gate on auth, then show the voice cockpit.
 authBootCheck();
 
+// ═══════════════════════════════════════════════════════════════════════════
+// W285 — Studio cockpit polish + first-boot voice onboarding
+// ═══════════════════════════════════════════════════════════════════════════
+window.W285 = (function(){
+  const $ = (id) => document.getElementById(id);
+  const API = (window.__JCC_API_BASE || (location.origin || 'http://127.0.0.1:8765'));
+
+  // ─── Language menu + intros ──────────────────────────────────────────
+  const LANGS = [
+    { code: 'en-US', label: 'English',  voice: 'pNInz6obpgDQGcFmaJgB' },  // Adam — deep male
+    { code: 'ru-RU', label: 'Русский',  voice: 'pNInz6obpgDQGcFmaJgB' },
+    { code: 'es-ES', label: 'Español',  voice: 'pNInz6obpgDQGcFmaJgB' },
+    { code: 'zh-CN', label: '中文',     voice: 'IKne3meq5aSn9XLyUdCD' },  // Charlie multilingual
+    { code: 'ja-JP', label: '日本語',   voice: 'IKne3meq5aSn9XLyUdCD' },
+    { code: 'de-DE', label: 'Deutsch',  voice: 'pNInz6obpgDQGcFmaJgB' },
+    { code: 'fr-FR', label: 'Français', voice: 'pNInz6obpgDQGcFmaJgB' },
+  ];
+  const LANG_PROMPT_TEXT = (
+    'Pick your language:\n' +
+    LANGS.map((l, i) => `${i+1}. ${l.label}`).join('\n') +
+    '\n\nJust type a number and press enter.'
+  );
+  const EN_GREETING = "I am TARS. Your personal AI cockpit. Before we go any further — pick your language.";
+  const INTRO = {
+    'en-US': "I'm TARS. I run locally on this machine. I read your mail, calendar, code, and files, and I act on them when you ask. Nothing leaves this machine without your approval. Whenever you're ready — just talk to me, or press Command-Shift-Space.",
+    'ru-RU': "Я TARS. Работаю прямо на этой машине. Я читаю твою почту, календарь, код и файлы — и действую, когда ты попросишь. Без твоего разрешения ничего отсюда не уйдёт. Когда будешь готов — просто говори со мной, или жми Command-Shift-Space.",
+    'es-ES': "Soy TARS. Funciono localmente en esta máquina. Leo tu correo, calendario, código y archivos, y actúo cuando me lo pides. Nada sale de aquí sin tu permiso. Cuando estés listo — háblame, o pulsa Command-Shift-Space.",
+    'zh-CN': "我是 TARS。我在这台电脑上本地运行。我可以读取你的邮件、日历、代码和文件，并在你要求时采取行动。未经你的许可，任何数据都不会离开这台机器。准备好后，直接和我说话，或按 Command-Shift-Space。",
+    'ja-JP': "私はTARSです。このマシン上でローカルに動作します。あなたのメール、カレンダー、コード、ファイルを読み、お願いされたときに行動します。あなたの許可なくこのマシンを離れるデータはありません。準備ができたら、私に話しかけるか、Command-Shift-Spaceを押してください。",
+    'de-DE': "Ich bin TARS. Ich laufe lokal auf diesem Rechner. Ich lese deine Mails, deinen Kalender, deinen Code und deine Dateien — und handle, wenn du mich darum bittest. Ohne deine Erlaubnis verlässt nichts diesen Rechner. Wenn du bereit bist — sprich einfach mit mir, oder drücke Command-Shift-Space.",
+    'fr-FR': "Je suis TARS. Je tourne en local sur cette machine. Je lis ton courrier, ton calendrier, ton code et tes fichiers — et j'agis quand tu me le demandes. Rien ne quitte cette machine sans ton accord. Quand tu es prêt — parle-moi, ou appuie sur Command-Shift-Space.",
+  };
+
+  // ─── First-Boot state machine ────────────────────────────────────────
+  const FB = {
+    state: 'idle',
+    lang: 'en-US',
+    micStream: null,
+    audioEl: null,
+
+    async boot() {
+      // If already done — skip splash entirely.
+      try {
+        if (localStorage.getItem('tars_first_boot_done') === '1') {
+          this.state = 'done';
+          return;
+        }
+        // Backup check via backend (so localStorage wipe in dev doesn't re-trigger).
+        try {
+          const r = await fetch(API + '/api/onboarding/state', { cache: 'no-store' });
+          if (r.ok) {
+            const d = await r.json();
+            if (d && d.first_boot_done) {
+              localStorage.setItem('tars_first_boot_done', '1');
+              this.state = 'done';
+              return;
+            }
+          }
+        } catch (_) { /* offline — show splash */ }
+      } catch (_) { /* localStorage blocked — show splash anyway */ }
+
+      this.state = 'splash';
+      const splash = $('fbSplash');
+      const startBtn = $('fbStartBtn');
+      const skipBtn = $('fbSkipBtn');
+      if (!splash || !startBtn) return;
+      splash.classList.add('show');
+      startBtn.onclick = () => this.onStartClick();
+      skipBtn.onclick = () => this.onSkipClick();
+    },
+
+    async onStartClick() {
+      const startBtn = $('fbStartBtn');
+      const err = $('fbError');
+      const skipBtn = $('fbSkipBtn');
+      if (!startBtn) return;
+      if (this.state === 'greeting_en' || this.state === 'intro_localized') return;
+      startBtn.disabled = true;
+      startBtn.textContent = 'Speaking…';
+      err.textContent = '';
+
+      // W285 — fire mic-permission request in BACKGROUND. Don't block voice.
+      // Many users don't see the system dialog (hidden behind windows). Greeting
+      // doesn't need a working mic — only TTS out. STT comes later, when user
+      // actually clicks the mic button.
+      try {
+        navigator.mediaDevices.getUserMedia({ audio: true })
+          .then(stream => {
+            try { stream.getTracks().forEach(t => t.stop()); } catch(_){}
+          })
+          .catch(e => { console.info('[W285] mic permission deferred:', e && e.name); });
+      } catch (_) { /* ignore */ }
+
+      // Start EN greeting IMMEDIATELY — this is the user gesture moment, so
+      // audio playback is unblocked (Tauri/WKWebView autoplay policy).
+      this.state = 'greeting_en';
+      try {
+        await this.speak(EN_GREETING, 'en-US', LANGS[0].voice);
+      } catch (e) {
+        console.warn('[W285] greeting failed', e);
+      }
+
+      // Hide splash; show language picker in cockpit transcript.
+      this.hideSplash();
+      this.askForLanguage();
+    },
+
+    onSkipClick() {
+      // User refused mic — still proceed, fall back to text-only.
+      this.hideSplash();
+      this.state = 'awaiting_lang';
+      // Greet via speechSynthesis if available, then ask.
+      if (window.speechSynthesis) {
+        const u = new SpeechSynthesisUtterance(EN_GREETING);
+        u.rate = 0.95; u.pitch = 0.92;
+        window.speechSynthesis.speak(u);
+      }
+      this.askForLanguage();
+    },
+
+    hideSplash() {
+      const splash = $('fbSplash');
+      if (splash) splash.classList.remove('show');
+    },
+
+    askForLanguage() {
+      this.state = 'awaiting_lang';
+      // Render the menu bubble in transcript. Use existing vcAddLine if available.
+      if (typeof vcAddLine === 'function') {
+        vcAddLine('tars', LANG_PROMPT_TEXT);
+      } else {
+        // Fallback: directly inject into transcript.
+        const t = $('vcTranscript');
+        if (t) {
+          const d = document.createElement('div');
+          d.className = 'line tars';
+          d.style.whiteSpace = 'pre-line';
+          d.textContent = LANG_PROMPT_TEXT;
+          t.appendChild(d);
+        }
+      }
+      // Focus the text input so user can type a digit immediately.
+      const inp = $('vcTextInput');
+      if (inp) inp.focus();
+    },
+
+    handleLangPick(raw) {
+      const s = (raw || '').trim();
+      // Match a digit 1..7
+      const m = s.match(/^[1-7]\b/);
+      let idx = -1;
+      if (m) idx = parseInt(m[0], 10) - 1;
+      // Fallback: match by language NAME (case-insensitive substring)
+      if (idx < 0) {
+        const low = s.toLowerCase();
+        for (let i = 0; i < LANGS.length; i++) {
+          if (low.includes(LANGS[i].label.toLowerCase())) { idx = i; break; }
+        }
+      }
+      if (idx < 0 || idx >= LANGS.length) {
+        // Soft retry — re-prompt.
+        if (typeof vcAddLine === 'function') {
+          vcAddLine('tars', 'Just type a number from 1 to 7.');
+        }
+        return true; // we handled the message (don't let regular dispatcher run)
+      }
+      const lang = LANGS[idx];
+      this.lang = lang.code;
+      // Echo user's choice as a user line, then localized intro from TARS.
+      if (typeof vcAddLine === 'function') {
+        vcAddLine('user', `${idx+1}. ${lang.label}`);
+      }
+      this.state = 'intro_localized';
+      this.runIntro(lang).then(() => this.markDone());
+      return true;
+    },
+
+    async runIntro(lang) {
+      const text = INTRO[lang.code] || INTRO['en-US'];
+      if (typeof vcAddLine === 'function') {
+        vcAddLine('tars', text);
+      }
+      try {
+        await this.speak(text, lang.code, lang.voice);
+      } catch (e) {
+        console.warn('intro speak failed', e);
+      }
+    },
+
+    async markDone() {
+      this.state = 'done';
+      try { localStorage.setItem('tars_first_boot_done', '1'); } catch(_) {}
+      try {
+        await fetch(API + '/api/onboarding/state', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ first_boot_done: true, lang: this.lang }),
+        });
+      } catch (_) {}
+    },
+
+    async speak(text, lang, voiceId) {
+      // W285 — direct call to /api/a11y/speak, properly parse JSON response.
+      // Backend returns either:
+      //   {ok:true, engine:"elevenlabs", audio_url:"data:audio/mpeg;base64,..."}  → play it
+      //   {ok:true, use_browser_tts:true, hint:"..."}                              → fallback
+      //   {ok:false, error:"..."}                                                  → fallback
+      let played = false;
+      try {
+        const r = await fetch(API + '/api/a11y/speak', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            text: text,
+            voice_id: voiceId,
+            model_id: 'eleven_multilingual_v2',
+          }),
+        });
+        if (r.ok) {
+          const d = await r.json();
+          if (d && d.audio_url && d.engine === 'elevenlabs') {
+            const audio = new Audio(d.audio_url);
+            audio.preload = 'auto';
+            await new Promise((resolve, reject) => {
+              audio.onended = resolve;
+              audio.onerror = (e) => reject(new Error('audio play failed'));
+              audio.play().catch(reject);
+            });
+            played = true;
+          } else if (d && d.use_browser_tts) {
+            console.info('[W285] ElevenLabs not configured — falling back:',
+                         d.hint || 'add ELEVENLABS_API_KEY to .env');
+          }
+        }
+      } catch (e) {
+        console.warn('[W285] /api/a11y/speak call failed', e);
+      }
+      if (played) return;
+      // Fallback chain. macOS speechSynthesis has decent voices (Alex, Daniel,
+      // Tom on newer macOS). Pick the deepest male voice available.
+      if (window.speechSynthesis) {
+        await new Promise(resolve => {
+          const speak = () => {
+            const voices = window.speechSynthesis.getVoices() || [];
+            // Prefer premium male voices for "Iron Man" tone.
+            const prefer = [
+              'Tom (Premium)', 'Tom', 'Daniel (Enhanced)', 'Daniel',
+              'Alex', 'Lee (Premium)', 'Lee', 'Aaron',
+              'Reed (English (US))', 'Reed',
+            ];
+            let chosen = null;
+            for (const name of prefer) {
+              chosen = voices.find(v => v.name === name || v.name.startsWith(name));
+              if (chosen) break;
+            }
+            if (!chosen) {
+              // Fallback: any en male voice we can find
+              chosen = voices.find(v => /en[-_]/i.test(v.lang) &&
+                                        !/female|samantha|victoria|fiona|moira|tessa/i.test(v.name));
+            }
+            const u = new SpeechSynthesisUtterance(text);
+            if (chosen) u.voice = chosen;
+            u.lang = lang || 'en-US';
+            u.rate = 0.92; u.pitch = 0.85;  // slower, deeper
+            u.onend = resolve;
+            u.onerror = resolve;
+            window.speechSynthesis.speak(u);
+          };
+          // getVoices() can be async on first call — wait for voices.
+          if ((window.speechSynthesis.getVoices() || []).length === 0) {
+            window.speechSynthesis.onvoiceschanged = speak;
+            setTimeout(speak, 250);  // safety
+          } else {
+            speak();
+          }
+        });
+      }
+    },
+  };
+
+  // ─── Patch vcSubmitText so we intercept language picks ───────────────
+  if (typeof window.vcSubmitText === 'function' && !window.__W285_vcSubmitText_patched) {
+    const _orig = window.vcSubmitText;
+    window.vcSubmitText = function() {
+      try {
+        if (FB.state === 'awaiting_lang') {
+          const inp = $('vcTextInput');
+          const v = inp ? inp.value : '';
+          if (FB.handleLangPick(v)) {
+            if (inp) inp.value = '';
+            return;
+          }
+        }
+      } catch (e) { console.warn('FB intercept failed', e); }
+      return _orig.apply(this, arguments);
+    };
+    window.__W285_vcSubmitText_patched = true;
+  }
+
+  // ─── Mode sidebar buttons (visual only for now) ──────────────────────
+  function wireSidebar() {
+    document.querySelectorAll('#vcSider .vc-mode').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('#vcSider .vc-mode').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const mode = btn.getAttribute('data-mode');
+        if (mode !== 'cockpit' && typeof toast === 'function') {
+          toast(`${btn.title} mode — coming soon`, 'info');
+        }
+      });
+    });
+    // Hamburger toggles sidebar expansion.
+    const hamb = $('vcHamburger');
+    if (hamb) {
+      hamb.addEventListener('click', (e) => {
+        // Only toggle sider if drawer is NOT being opened (vcOpenDrawer handles drawer separately).
+        // Sider expansion is a NEW behavior — bind to right-side or shift+click instead, so we don't break drawer.
+      });
+    }
+    // Bind a separate toggle: shift+hamburger toggles sider.
+    if (hamb) {
+      hamb.addEventListener('click', (e) => {
+        if (e.shiftKey) {
+          e.stopPropagation();
+          document.getElementById('voiceCockpit').classList.toggle('sider-expanded');
+        }
+      });
+    }
+    // Hover-expand the sider.
+    const sider = $('vcSider');
+    if (sider) {
+      sider.addEventListener('mouseenter', () => {
+        document.getElementById('voiceCockpit').classList.add('sider-expanded');
+      });
+      sider.addEventListener('mouseleave', () => {
+        document.getElementById('voiceCockpit').classList.remove('sider-expanded');
+      });
+    }
+  }
+
+  // ─── Canvas waveform (real FFT polar visualization) ──────────────────
+  let _waveCtx = null, _waveAnalyser = null, _waveData = null, _waveRAF = null;
+
+  function _initCanvas() {
+    const c = $('vcWaveCanvas');
+    if (!c) return null;
+    // 2x DPR
+    const dpr = window.devicePixelRatio || 1;
+    c.width = 380 * dpr; c.height = 380 * dpr;
+    const ctx = c.getContext('2d');
+    ctx.scale(dpr, dpr);
+    return ctx;
+  }
+
+  function _tryAttachAnalyser() {
+    // If `toggleListening` opens a stream, intercept via the global audio context if it exists.
+    if (_waveAnalyser) return true;
+    try {
+      // Look for existing audio context the cockpit uses, or create one.
+      if (!window.__W285_audioCtx) {
+        window.__W285_audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+      const ctx = window.__W285_audioCtx;
+      _waveAnalyser = ctx.createAnalyser();
+      _waveAnalyser.fftSize = 256;
+      _waveData = new Uint8Array(_waveAnalyser.frequencyBinCount);
+      return true;
+    } catch (e) {
+      console.warn('analyser init failed', e);
+      return false;
+    }
+  }
+
+  function _drawWave(t) {
+    if (!_waveCtx) return;
+    const ctx = _waveCtx;
+    const w = 380, h = 380;
+    const cx = w / 2, cy = h / 2;
+    ctx.clearRect(0, 0, w, h);
+    // Get data (real or synthetic)
+    let bins;
+    if (_waveAnalyser && _waveData) {
+      _waveAnalyser.getByteFrequencyData(_waveData);
+      bins = _waveData;
+    } else {
+      // Synthetic gentle wave when idle
+      bins = new Uint8Array(64);
+      for (let i = 0; i < 64; i++) {
+        const phase = t * 0.0012 + i * 0.18;
+        bins[i] = 26 + 16 * (1 + Math.sin(phase)) + 8 * Math.sin(phase * 2.3);
+      }
+    }
+
+    // ─── W289: simple polar polyline (W286 baseline restored) ───
+    const N = Math.min(64, bins.length);
+    const baseR = 130;
+    const maxR = 165;
+    // Inner faint ring
+    ctx.beginPath();
+    ctx.strokeStyle = 'rgba(255,255,255,0.06)';
+    ctx.lineWidth = 1;
+    ctx.arc(cx, cy, baseR - 30, 0, Math.PI * 2);
+    ctx.stroke();
+    // Polar waveform
+    ctx.beginPath();
+    for (let i = 0; i <= N; i++) {
+      const v = bins[i % N] / 255;
+      const r = baseR + (maxR - baseR) * v;
+      const a = (i / N) * Math.PI * 2 - Math.PI / 2;
+      const x = cx + Math.cos(a) * r;
+      const y = cy + Math.sin(a) * r;
+      if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.closePath();
+    ctx.strokeStyle = 'rgba(124,92,255,0.65)';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.fillStyle = 'rgba(124,92,255,0.08)';
+    ctx.fill();
+    // Inner dot
+    ctx.beginPath();
+    ctx.arc(cx, cy, 4 + (bins[0] / 255) * 4, 0, Math.PI * 2);
+    ctx.fillStyle = 'rgba(158,131,255,0.85)';
+    ctx.fill();
+  }
+
+  function _waveTick(t) {
+    _drawWave(t);
+    _waveRAF = requestAnimationFrame(_waveTick);
+  }
+
+  function startWave() {
+    if (_waveRAF) return;
+    _waveCtx = _initCanvas();
+    if (!_waveCtx) return;
+    _tryAttachAnalyser();
+    _waveRAF = requestAnimationFrame(_waveTick);
+  }
+
+  // ─── Rail: render agent-frames from WS or polling ────────────────────
+  let _frameCount = 0;
+  function railAdd(title, body) {
+    const empty = $('vcRailEmpty');
+    if (empty) empty.style.display = 'none';
+    const body_el = $('vcRailBody');
+    if (!body_el) return;
+    const a = document.createElement('article');
+    a.className = 'vc-frame';
+    const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    a.innerHTML =
+      '<div class="vc-frame-head"><span class="vc-frame-dot"></span>' +
+      '<span class="vc-frame-title"></span>' +
+      '<span class="vc-frame-time"></span></div>' +
+      '<div class="vc-frame-body"></div>';
+    a.querySelector('.vc-frame-title').textContent = title;
+    a.querySelector('.vc-frame-time').textContent = time;
+    a.querySelector('.vc-frame-body').textContent = body;
+    body_el.insertBefore(a, body_el.firstChild);
+    _frameCount++;
+    const cnt = $('vcRailCount');
+    if (cnt) cnt.textContent = String(_frameCount);
+    // Cap at 30 cards
+    while (body_el.children.length > 30) body_el.removeChild(body_el.lastChild);
+  }
+
+  function seedRailIfEmpty() {
+    if (_frameCount > 0) return;
+    setTimeout(() => railAdd('Cockpit ready', 'Voice cockpit initialized · waveform live'), 800);
+    setTimeout(() => railAdd('Memory store', 'Loaded recent context · 0 unsynced'), 1600);
+    setTimeout(() => railAdd('Doctor check', 'All systems green'), 2400);
+  }
+
+  // ─── Public boot — call after showCockpit ────────────────────────────
+  function boot() {
+    try { wireSidebar(); } catch(e) { console.warn('sidebar wire failed', e); }
+    try { startWave(); }  catch(e) { console.warn('wave start failed',  e); }
+    try { seedRailIfEmpty(); } catch(e) {}
+    try { FB.boot(); } catch(e) { console.warn('FB.boot failed', e); }
+  }
+
+  return { boot, FB, railAdd, LANGS, INTRO };
+})();
+
+// Hook into showCockpit — run AFTER existing post-auth init.
+(function _hookShowCockpit(){
+  const orig = window.showCockpit;
+  if (typeof orig !== 'function' || window.__W285_showCockpit_patched) return;
+  window.showCockpit = function() {
+    const r = orig.apply(this, arguments);
+    try { window.W285.boot(); } catch(e) { console.warn('W285 boot failed', e); }
+    return r;
+  };
+  window.__W285_showCockpit_patched = true;
+})();
+
+// If cockpit is already shown at this point (e.g. boot raced), boot W285 directly.
+setTimeout(() => {
+  try {
+    const cockpit = document.getElementById('voiceCockpit');
+    if (cockpit && cockpit.classList.contains('show')) {
+      window.W285.boot();
+    }
+  } catch (e) {}
+}, 600);
+
+// W287 — Rich Studio DOM injector.
+// Adds: sider search box, mode counters, 3 activity tiles, suggestion chips,
+// 5 seed rail frames. All idempotent — safe to call multiple times.
 // Add the cap modal + toast to the body once on first run so the
 // JS handlers above find their targets. (Inline insert keeps everything
 // in this single bundle file.)

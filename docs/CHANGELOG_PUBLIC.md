@@ -4,6 +4,71 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-16 — Claude · W290 futuristic cockpit + (C) post-deploy QA
+
+**Summary**
+
+Applied per Cursor's W290 brief (delegated 2026-05-15) on top of the W286
+baseline. Skill-driven polish via `ui-ux-pro-max` (depth/glassmorphism/
+typography rules) — `futuristic-ui-ux-designer` install scripted but executes
+on the host; the visual specs were composed from the brief + baseline tokens.
+
+W290 layer is **presentation-only**. Body grid `64px 1fr 280px`, the Voice
+IIFE (`window.W285`), `_drawWave`, `_vcInitHum`, `ttfvMaybeStart`, the W286
+palette (`--accent: #7C5CFF`), and the `@media (max-width: 900px)` breakpoint
+are untouched. Every rotation/pulse is gated by `prefers-reduced-motion`.
+
+10 sub-sections in the new W290 block:
+
+1. **W290.1 Sider** — vertical glass + accent inset bar that slides in on
+   hover/active; modules nudge 2px right.
+2. **W290.2 Topbar** — thin glass strip with hairline accent gradient
+   underline.
+3. **W290.3 Right rail** — glass panel; rail-head emphasis; frame cards
+   gain depth shadow + lift on hover.
+4. **W290.4 Halo + concentric grid backdrop** — three-layer halo around the
+   monolith (radial bloom ::before, concentric grid+ticks ::after rotating
+   CCW, multi-layer drop-shadow on the canvas filter), state-aware accent
+   colour (purple/green/amber/red).
+5. **W290.5 Status HUD** — text-shadow on the status label per state.
+6. **W290.6 Mic pill** — glass with multi-layered shadow; rotating conic
+   ring appears on focus + speeds up while listening.
+7. **W290.7 Transcript** — bubbles get inset highlight + soft shadow;
+   user bubbles tinted with accent shadow.
+8. **W290.8 First-boot splash** — glass-rim border + slowly rotating conic
+   ring around the card.
+9. **W290.9 Keyframes** — `vc-rotate-cw`, `vc-rotate-ccw`, `vc-pulse-halo`.
+10. **W290.10 Reduced motion** — disables all rotations, transitions, and
+    pulse for `@media (prefers-reduced-motion: reduce)`.
+
+Also includes:
+
+- `docs/qa/POST_DEPLOY_QA_v9.1.0.md` — 11-step end-to-end probe pack for
+  the v9.1.0 install funnel (Health/Install funnel/install.sh/dl-proxy
+  HEAD/Partial GET/Allowlist/Method guard/Rosetta fallback/W142 stability/
+  Cache headers/Browser smoke).
+- `scripts/qa_w290_cockpit.sh` — 8-group acceptance harness with
+  `set -euo pipefail`, `TARS_HARNESS_OFFLINE=1` for static-only mode,
+  exits 0 on PASS, 1 on FAIL (regression), 2 on backend-unreachable.
+
+W142 dl-proxy fix + W144 vitest contract were already in `main` — no
+change needed there.
+
+**Acceptance**
+
+- Offline harness exit `0` (PASS=33 FAIL=0 SKIP=4 with `TARS_HARNESS_OFFLINE=1`).
+- HTML balanced (5/5 script tags, 2/2 style tags, ~503 KB).
+- W286 baseline + voice IIFE + body grid all preserved.
+
+**Files**
+
+- `desktop/src-tauri/web/index.html` — inserted W290 block before legacy
+  band-aid marker; W287/W288 reverted to no-op stubs; W289 strip marker
+  re-asserted.
+- `docs/qa/POST_DEPLOY_QA_v9.1.0.md` — new.
+- `scripts/qa_w290_cockpit.sh` — new (chmod +x).
+- `docs/CHANGELOG_AGENTS.md` — this entry.
+
 ## 2026-05-13 — Cursor · handoff doc debt (showcase removal sync)
 
 **Summary**
@@ -2330,20 +2395,6 @@ probe **`ready=false`** → Actions stays **build-only green** until Plan B is w
 - `docs/CHANGELOG_PUBLIC.md` (regenerated)
 - `docs/CHANGELOG_AGENTS.md` (this entry)
 
-## 2026-05-04 — Cursor · ops: Pages 403 diagnose (accounts OK, Pages denied)
-
-**Summary**
-
-**`ops_push_cloudflare_pages_api_token.sh`:** on Pages preflight failure, **GET /accounts**
-check — if OK, prints RU hint that token lacks **Account → Cloudflare Pages → Edit** and
-**opens** `https://dash.cloudflare.com/profile/api-tokens` unless **`OPS_CF_NO_BROWSER=1`**.
-
-**Files**
-
-- `scripts/ops_push_cloudflare_pages_api_token.sh`
-- `docs/CHANGELOG_PUBLIC.md` (regenerated)
-- `docs/CHANGELOG_AGENTS.md` (this entry)
-
 ---
 
-_Showing the most recent 60 of 249 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 250 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
