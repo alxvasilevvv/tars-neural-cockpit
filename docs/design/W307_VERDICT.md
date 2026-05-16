@@ -208,6 +208,117 @@ migration:
 
 ---
 
+## Resolution (operator delegated, Claude decides)
+
+Operator response on 2026-05-17: *"Сделай пожалуйста сам выбор"* —
+delegated all five calls to me. Below are the binding answers for
+W308-step-1. These resolve the open questions above. Cursor should
+encode them in `apps/cockpit/src/styles/tokens.css` and
+`design-system/tars/MASTER.md` in a single commit; the existing
+`tests/test_cockpit_tokens_sync.py` drift test will catch any
+divergence.
+
+### 1. `ink-3` — **PROMOTE** (option a)
+
+`--color-ink-3: #5C5A52 → #8A867B`. Token name unchanged.
+
+*Why this over restrict.* Promote is a single-line tokens.css change
+that fixes every existing call-site automatically. Restrict requires a
+codebase-wide rename audit (find every `--color-ink-3` on text vs
+decorative usage, split correctly) — that's W308 surgery on production
+code, which we explicitly deferred. The "less deferential" feel at
+`#8A867B` is genuinely marginal: still 1.7× softer than `--color-ink-2`,
+still reads as "supporting" not "primary". Worth it for the 2.84 → 4.62
+contrast lift.
+
+### 2. Accent — **KEEP `#CA8A04`**
+
+No change. The 6.68:1 AA pass on `--color-bg-1` is real. The brand
+coherence with marketing pages, app icon, voice persona copy, and
+share-card OG images outweighs a marginal AAA push.
+
+*The actual readability fix is the text-on-accent rule (decision §6
+below), not the accent hex itself.*
+
+### 3. HUD cyan — **KEEP `#00FFFF`**, codify the 0.32α cap
+
+`--color-hud` stays `#00FFFF`. Add to MASTER §3:
+
+> `--color-hud` MUST be applied at α ≤ 0.32 on filled surfaces and
+> α ≤ 0.48 on 1px lines. Never at full opacity outside `<svg>` glow
+> filters.
+
+The FUI signature is load-bearing for the "this is not a generic admin
+UI" feel. Softening to `#7AFFFF` would broadcast "we got nervous". The
+alpha cap is the correct lever.
+
+### 4. Motion budget — **SPLIT** (marketing 4, cockpit 2)
+
+Split MASTER §6 into two rows:
+
+| Surface | Simultaneous infinite animations | Notes |
+|---|---|---|
+| Marketing hero, brand pages, share landings | ≤ 4 | The rotating-core scene IS the value prop — meditative quality is a feature |
+| Cockpit shell, settings, briefing, any operator surface | ≤ 2 | Operator stays on this page for hours; ambient motion must not compete with content |
+
+`--motion-budget-max` ships as a token but with two declared values:
+`2` (default, cockpit) and `4` (override for marketing-class pages).
+Cursor: enforce via a CSS lint rule in W308-step-2 that counts
+`animation-iteration-count: infinite` declarations per scoped root.
+
+### 5. Greeting size — **APPLY** `clamp(2.4rem, 5vw, 3.4rem)` everywhere
+
+Confirmed OK at 375px. The clamp floor of `2.4rem` = 38.4px renders
+within the briefing card's mobile content-width (343px minus 16px
+padding × 2 = 311px content) without breaking the 2-line wrap budget
+for typical greetings ("Доброе утро, Alien." / "Good morning, Alien.").
+At 320px (legacy small phones, ~2% of expected operator traffic) the
+greeting may push to 3 lines on long names — acceptable; we explicitly
+do not optimize for sub-375 widths in MASTER §5.
+
+### 6. NEW — text-on-accent rule (was "Replace" in TL;DR; here is the spec)
+
+Add to MASTER §3 as an immutable token-pair rule:
+
+> Text rendered on a `--color-accent` fill MUST use `--color-bg-0`
+> (`#000000`). Never `--color-ink`, `--color-ink-2`, or `--color-ink-3`.
+> This includes button labels, badge text, callout chip text, and any
+> inline `<mark>`.
+
+Codify by adding `--cta-text-on-accent: #000000` to tokens.css and
+referencing it in every accent-filled component CSS. Add a CI smoke
+test that greps for `color: var(--color-ink` near `background-color:
+var(--color-accent` and fails on match.
+
+### Summary diff (Cursor: apply this verbatim in W308-step-1)
+
+```css
+:root {
+  /* changed */
+  --color-ink-3: #8A867B;          /* was #5C5A52 — promoted for AA */
+
+  /* new */
+  --cta-text-on-accent: #000000;   /* immutable: black on gold */
+  --motion-budget-max: 2;          /* cockpit default; marketing overrides to 4 */
+  --font-size-greeting: clamp(2.4rem, 5vw, 3.4rem);
+  --font-size-phase-bar: 11px;
+}
+```
+
+Marketing-class scope override (apply to landing/showcase root only):
+
+```css
+.surface-marketing {
+  --motion-budget-max: 4;
+}
+```
+
+No other token changes. Accent, HUD cyan, all bg-*, all ink (except
+ink-3), all line-*, alert, success — all stay exactly as MASTER.md
+defines them today.
+
+---
+
 ## What I did *not* do (and why)
 
 - **`/plan-design-review`, `/web-design-guidelines`,
