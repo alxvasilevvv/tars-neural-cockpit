@@ -4,6 +4,44 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-17 — Claude · W307 resolution addendum + W308 step 2 brief + audit of step 1
+
+**Summary**
+
+Three artefacts after Cursor's `1e7dcab` (W308 step 1):
+
+1. **`6231b34`** — added "Resolution (operator delegated, Claude
+   decides)" section to `docs/design/W307_VERDICT.md`. All 5 OQs
+   answered explicitly; values match Cursor's step-1 application 1:1.
+   Single net-new spec: `.surface-marketing { --motion-budget-max: 4 }`
+   override (which Cursor deferred to step 2). Lives on
+   `claude/w307-design-refresh`.
+2. **Audit of `1e7dcab`** — 0 drift between W307 verdict and step-1
+   application. All 12 token values match. MASTER §3 anti-pattern
+   prose present. §9 implementation map redirected. No fix-commit
+   needed.
+3. **`docs/handoff/W308_STEP2_BRIEF.md`** — pre-written step-2 plan
+   for Cursor. 7 sub-tasks in order, visual-parity protocol, rollback
+   criteria, out-of-scope list. Bounded — new scope = new W309 brief.
+
+**Files (this entry — landing on `main`):**
+
+- `docs/AGENT_HANDOFF.md` (new SYNC block at the top)
+- `docs/CHANGELOG_AGENTS.md` (this entry)
+- `docs/handoff/W308_STEP2_BRIEF.md` (new)
+
+**Files (already on branch `claude/w307-design-refresh`, push pending):**
+
+- `docs/design/W307_VERDICT.md` (Resolution section)
+- `scripts/PUSH-W307-RESOLUTION.command` (push helper for `6231b34`)
+
+**Verification:** read `apps/cockpit/src/styles/tokens.css`,
+`design-system/tars/MASTER.md`, `tests/test_cockpit_tokens_sync.py`,
+`docs/handoff/W308_PRE_FLIGHT_FINDINGS.md` against `W307_VERDICT.md`
+line-by-line. Drift count: 0.
+
+---
+
 ## 2026-05-17 — Cursor · W308 step 1 (apply W307 verdict)
 
 **Summary**
@@ -2335,50 +2373,6 @@ the cleanup is type-only and does not touch any output field.
 
 `>>> SYNC: Cursor · 2026-05-04 · tg-* edge functions: 27 ESLint any errors → 0 (introduces _shared/tg-types.ts)`
 
-## 2026-05-04 — Cursor · Lovable: PR #33 triage → fresh main bump (round R-2)
-
-(Cross-repo entry; commit lives in
-`alxvasilevvv/meeet-solana-state-941a6045@6f6a6f3d`. PR #33 was
-closed as superseded by this commit.)
-
-PR #33 (DRAFT since 2026-05-02, "unify @supabase/supabase-js to
-2.57.4 across 161 EFs") was made un-mergeable by 3 days of main
-drift: 8 conflict files because subsequent commits introduced both
-new SDK pins (e.g. `@2.45.0` in agent-chat-ai/index.ts) and
-renamed auth-compat helpers (`verifyBearerToken` →
-`requireUser/requireAgentOwner`). Resolved by doing the bump
-fresh on top of current main rather than fighting 9 conflicts and
-force-pushing to a stale claude-qa branch.
-
-Before this commit:
-
-  140× @supabase/supabase-js@2          (bare, undefined-version)
-    9× @supabase/supabase-js@2.49.1
-    7× @supabase/supabase-js@2.49.4
-    6× @supabase/supabase-js@2.45.0
-    2× @supabase/supabase-js@2.99.2
-    2× @supabase/supabase-js@2.57.4
-
-After:
-
-  166× @supabase/supabase-js@2.57.4
-
-Validation:
-- `deno check` clean on all 177 edge function entrypoints
-  (deno 2.7.14 + TS 5.9.2 locally; CI mirrors via
-  `.github/workflows/edge-functions-typecheck.yml`).
-- `npm run test`: 348 passed | 5 skipped.
-- All 3 GH Actions workflows green on commit `6f6a6f3d`:
-  `RLS Integration Tests` `25313198746`, `Edge Functions Type
-  Check` `25313198727`, `Unit Tests` `25313198721`.
-
-Side benefit: collapses the SDK matrix that
-`_shared/auth-compat.ts` was written to mitigate ("X is not a
-function" class of bugs from mixed minor versions across
-functions sharing types).
-
-`>>> SYNC: Cursor · 2026-05-04 · @supabase/supabase-js unified to 2.57.4 across all 164 EFs (PR #33 superseded + closed)`
-
 ---
 
-_Showing the most recent 60 of 262 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 263 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._

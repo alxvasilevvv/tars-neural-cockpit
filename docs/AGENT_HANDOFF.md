@@ -3,7 +3,37 @@
 Pick this up if you are continuing the work in a fresh chat. Read this file
 plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 
-> **>>> SYNC: Cursor · 2026-05-17 · W308 step 1 (apply W307 verdict — 5 taste calls + ~10 hard-rule changes in apps/cockpit/ + MASTER.md) · W308 step 0 (Path C scaffold) · W307 design verdict (Claude) · W306 order-dependent fixes (38 → 0) · W305 py3.12 stabilization · W304 py3.12 + OPENAI env + L9 doc sync <<<**
+> **>>> SYNC: Claude · 2026-05-17 · W307 verdict resolution (`6231b34` — 5 OQs answered) + W308 step 2 brief (`docs/handoff/W308_STEP2_BRIEF.md`) + audit-verdict on Cursor's step 1 (0 drift) <<<**
+>
+> Two artefacts on top of Cursor's `1e7dcab` (W308 step 1):
+>
+> 1. **`6231b34` — W307_VERDICT.md "Resolution" section.** Operator
+>    delegated all 5 open questions to Claude ("Сделай пожалуйста сам
+>    выбор"). All decisions match Cursor's step-1 application 1:1; the
+>    single delta is making the marketing motion-budget override explicit
+>    (`.surface-marketing { --motion-budget-max: 4 }`), which Cursor
+>    explicitly deferred to step 2 with "only cockpit surface exists today".
+>    Lives on `claude/w307-design-refresh` — zero drift vs `1e7dcab`.
+>
+> 2. **`docs/handoff/W308_STEP2_BRIEF.md` — pre-written step-2 plan.**
+>    Seven sub-tasks in order: refresh W307 reference HTMLs against
+>    step-1 tokens → port hero+cockpit screens into
+>    `apps/cockpit/src/pages/` → add `.surface-marketing` override +
+>    drift-test extension → rewire `package-cockpit.sh` to build from
+>    `apps/cockpit/` → add package-script regression test → motion-budget
+>    lint → visual-parity protocol → rollback criteria. Bounded; new
+>    scope = new W309 brief.
+>
+> Audit verdict on Cursor's step 1 (`1e7dcab`): **0 drift**. All 12 token
+> values match the W307 verdict exactly. MASTER §3 anti-pattern prose
+> present, drift test 6 passed, §9 implementation map redirected correctly.
+>
+> Push status: `6231b34` committed locally on `claude/w307-design-refresh`;
+> operator can push via `scripts/PUSH-W307-RESOLUTION.command`. This SYNC
+> + `W308_STEP2_BRIEF.md` land on `main` so step-2 is reachable
+> regardless of the addendum push outcome.
+
+> **>>> SYNC (previous): Cursor · 2026-05-17 · W308 step 1 (apply W307 verdict — 5 taste calls + ~10 hard-rule changes in apps/cockpit/ + MASTER.md) · W308 step 0 (Path C scaffold) · W307 design verdict (Claude) · W306 order-dependent fixes (38 → 0) · W305 py3.12 stabilization · W304 py3.12 + OPENAI env + L9 doc sync <<<**
 >
 > **W308 step 1 (this wave)** — operator delegated again ("выбери ты",
 > 2nd time). Applied Claude's W307 verdict end-to-end into

@@ -4,6 +4,44 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-17 — Claude · W307 resolution addendum + W308 step 2 brief + audit of step 1
+
+**Summary**
+
+Three artefacts after Cursor's `1e7dcab` (W308 step 1):
+
+1. **`6231b34`** — added "Resolution (operator delegated, Claude
+   decides)" section to `docs/design/W307_VERDICT.md`. All 5 OQs
+   answered explicitly; values match Cursor's step-1 application 1:1.
+   Single net-new spec: `.surface-marketing { --motion-budget-max: 4 }`
+   override (which Cursor deferred to step 2). Lives on
+   `claude/w307-design-refresh`.
+2. **Audit of `1e7dcab`** — 0 drift between W307 verdict and step-1
+   application. All 12 token values match. MASTER §3 anti-pattern
+   prose present. §9 implementation map redirected. No fix-commit
+   needed.
+3. **`docs/handoff/W308_STEP2_BRIEF.md`** — pre-written step-2 plan
+   for Cursor. 7 sub-tasks in order, visual-parity protocol, rollback
+   criteria, out-of-scope list. Bounded — new scope = new W309 brief.
+
+**Files (this entry — landing on `main`):**
+
+- `docs/AGENT_HANDOFF.md` (new SYNC block at the top)
+- `docs/CHANGELOG_AGENTS.md` (this entry)
+- `docs/handoff/W308_STEP2_BRIEF.md` (new)
+
+**Files (already on branch `claude/w307-design-refresh`, push pending):**
+
+- `docs/design/W307_VERDICT.md` (Resolution section)
+- `scripts/PUSH-W307-RESOLUTION.command` (push helper for `6231b34`)
+
+**Verification:** read `apps/cockpit/src/styles/tokens.css`,
+`design-system/tars/MASTER.md`, `tests/test_cockpit_tokens_sync.py`,
+`docs/handoff/W308_PRE_FLIGHT_FINDINGS.md` against `W307_VERDICT.md`
+line-by-line. Drift count: 0.
+
+---
+
 ## 2026-05-17 — Cursor · W308 step 1 (apply W307 verdict)
 
 **Summary**
