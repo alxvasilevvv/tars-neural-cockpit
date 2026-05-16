@@ -4,6 +4,31 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-17 — Cursor · W307 design-system refresh handoff (for Claude Code)
+
+**Summary**
+
+Wrote a self-contained handoff document targeting Claude Code (because
+the Anthropic `frontend-design` plugin lives there and is the strongest
+"anti-slop" pass in our stack). The W307 wave is *system artefacts
+only* — refreshed verdict against the existing `MASTER.md`, two
+reference HTML pages (hero + cockpit shell) rendered with current
+tokens, contrast measurements, motion review. No production code
+changes. Hard boundary: MASTER.md is the baseline, not something to
+replace. Cursor picks up the migration in W308 once the operator marks
+the token-diff table.
+
+The handoff doc spells out: exact commands (`ui-ux-pro-max search.py
+--design-system`, `frontend-design` HTML render, `/plan-design-review`,
+`/web-design-guidelines` audit), acceptance criteria (verdict reads
+like an opinion, hex-exact token diff, both pages render without
+console errors, `prefers-reduced-motion` honoured), branch name
+(`claude/w307-design-refresh`), and a copy-paste quick-start.
+
+**Files**
+
+- `docs/handoff/W307_DESIGN_SYSTEM_REFRESH_FOR_CLAUDE.md`
+
 ## 2026-05-17 — Cursor · W306 last two order-dependent failures (38 → 0)
 
 **Summary**

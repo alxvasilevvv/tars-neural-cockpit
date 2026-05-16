@@ -3,7 +3,24 @@
 Pick this up if you are continuing the work in a fresh chat. Read this file
 plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 
-> **>>> SYNC: Cursor · 2026-05-17 · W306 last two order-dependent fixes (38 → 0) · W305 py3.12 stabilization · W304 py3.12 + OPENAI env + L9 doc sync <<<**
+> **>>> SYNC: Cursor · 2026-05-17 · W307 design-system refresh handoff for Claude · W306 last two order-dependent fixes (38 → 0) · W305 py3.12 stabilization · W304 py3.12 + OPENAI env + L9 doc sync <<<**
+>
+> **W307 (this wave, hand-off only)** — operator asked "can we get a
+> professional design — with you or with Claude?". Answer: with Claude
+> Code, because the Anthropic `frontend-design` plugin is the
+> strongest anti-slop renderer in our stack and only runs there.
+> Wrote `docs/handoff/W307_DESIGN_SYSTEM_REFRESH_FOR_CLAUDE.md`: a
+> self-contained brief that pins `MASTER.md` as the baseline (not a
+> replacement target), walks through `ui-ux-pro-max` → `frontend-design`
+> → `/plan-design-review` → `/web-design-guidelines`, and forces the
+> deliverable to be *a written verdict + two reference HTMLs*, not a
+> code change. Cursor will pick up the actual migration in W308 once
+> the operator marks the token-diff table. Hard boundary in the doc:
+> "do not touch production component code". Branch name is pre-set
+> (`claude/w307-design-refresh`) so the next Cursor session can just
+> ``git fetch`` and start migrating.
+>
+
 >
 > **W306 (this wave)** — finished the W305 hunt. Bisected both residual
 > order-dependent failures to specific upstream tests caching singletons
