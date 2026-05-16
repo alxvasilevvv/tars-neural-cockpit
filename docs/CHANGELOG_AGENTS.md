@@ -4,6 +4,87 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-16 — Cursor · W292 premium cockpit polish (over W290)
+
+**Summary**
+
+Operator reviewed live cockpit on top of W290 layer and called the
+periphery "отвратительно" (the central monolith looked fine, but the
+huge surrounding void, tiny sider icons, undersized mic pill, and
+harsh red "offline" badge dropped the whole surface back to "rough
+prototype"). W292 is a purely additive CSS layer sitting after the
+`/* === END W290 FUTURISTIC LAYER === */` marker that addresses every
+audit point without touching the voice IIFE, the body grid, the W286
+baseline, or the W290 hard constraints.
+
+**10 sub-sections (mirrors W290 structure)**
+
+- **W292.1 Ambient cosmic body** — `body.cockpit-active` gets a
+  layered radial+linear gradient (ellipse 1400×900 at 50%/35% with
+  `rgba(124,92,255,0.10)`, plus two corner pools at 12%/85% and
+  88%/18%, on a `#07070d → #050509` base) and a fixed `::before`
+  starfield (6 radial 1px dots at distinct positions, drifting via
+  `w292-star-drift 90s linear infinite`). Kills the dead-void feeling.
+- **W292.2 Outer monolith halo** — extends W290.4 backdrop from
+  `inset:-8%` to `-16%` and amps the centre stop to
+  `rgba(124,92,255,0.30)` so the wave canvas no longer floats on
+  pure black.
+- **W292.3 Sider rail icons** — `#vcSider .vc-mode` from ~24px to
+  **44×44**, with hover translateX+scale, accent border, multi-layer
+  glow on `:hover` and `.is-active`/`[aria-current=page]`. Glass
+  background + saturate(160%) on the rail itself.
+- **W292.4 Mic pill enlarged** — wrap padding 14×22, min-height 64,
+  border-radius 32, multi-layer shadow. Inner button **56×56** with
+  purple linear-gradient and **`w292-mic-breathe 3.6s`** keyframe
+  pulsing the glow.
+- **W292.5 Glass ring on visualiser** — overrides the W290.4 `::after`
+  background-image to add a thin `rgba(255,255,255,0.06)` outer ring
+  at 50%, brightens concentric rings, keeps the hex grid faint.
+- **W292.6 Typography hierarchy** — status label uppercase + 0.18em
+  tracking + medium weight; headings tightened to -0.02em letter-
+  spacing + 600 weight. Premium HUD feel.
+- **W292.7 Right rail** — `#vcRail` glass background + accent
+  hairline border; cards (`.vc-frame`) lifted, hoverable.
+- **W292.8 Transcript bubbles** — `max-width:720px`, padding 14×20,
+  glass gradient bg + blur(12px), accent hairline border.
+- **W292.9 Status pills soften** — `offline`/`error` swapped from
+  harsh red to **muted grey-glass** for offline (no longer screams
+  failure when idle) + softer red glass for actual errors.
+- **W292.10 Keyframes + reduced-motion guard** — registers
+  `w292-star-drift` and `w292-mic-breathe`, then disables both under
+  `prefers-reduced-motion: reduce`.
+
+**Acceptance**
+
+- `bash scripts/qa_w290_cockpit.sh` → **PASS=36 FAIL=0 SKIP=2**
+  (same skips as pre-W292: `/api/version` 404 → not blocking,
+  voice personas empty → backend has 0 male personas exposed).
+- Browser snapshot via `cursor-ide-browser` MCP at
+  `http://127.0.0.1:8888/index.html` (Python `http.server` over
+  `desktop/src-tauri/web/`): before/after diff shows cosmic
+  periphery, 3 visible rings, 44×44 sider icons, 64px mic pill,
+  uppercase HUD label, glass transcript bubble — operator-confirmed
+  premium tier.
+- `index.html` size: 503289 → **513669 bytes** (+10 KB W292 layer,
+  pure additive CSS, no JS, no DOM changes).
+- W286 baseline intact (W286 accent token, waveform-pulse / bubble-in
+  / fade-in keyframes still present, ambient hum disabled stub).
+- W290 layer intact (all 12 W290.x markers preserved, body grid
+  `64px 1fr 280px` preserved, voice IIFE `_drawWave` /
+  `_vcInitHum` / `ttfvMaybeStart` untouched).
+
+**Files**
+
+- `desktop/src-tauri/web/index.html` — W292 layer appended after
+  the W290 END marker.
+- `docs/CHANGELOG_AGENTS.md` — this entry.
+
+**Tests**
+
+```bash
+bash scripts/qa_w290_cockpit.sh   # PASS=36 FAIL=0 SKIP=2
+```
+
 ## 2026-05-16 — Claude · W290 futuristic cockpit + W291 patch + retro W129–W144
 
 **Summary (W290 — futuristic cockpit redesign)**

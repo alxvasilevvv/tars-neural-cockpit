@@ -3018,6 +3018,267 @@
 
   /* === END W290 FUTURISTIC LAYER === */
 
+  /* === W292 PREMIUM FUTURISTIC LAYER === (additive over W290; 10 sub-sections)
+     Audit screenshots showed: huge empty void around the central monolith,
+     mic pill too small relative to canvas, sider icons illegible, "offline"
+     status as harsh red, error toasts dominate. W292 fills the periphery
+     with cosmic ambient gradient + starfield, enlarges mic, restores
+     sider/right-rail breathing room, softens negative state colours, and
+     adds a depth-cued glass ring around the visualiser so it stops
+     floating in pure black. All scoped to body.cockpit-active or
+     .voice-cockpit — auth/onboarding surfaces untouched. */
+
+  /* ---------- W292.1 — Ambient cosmic body (fills the periphery) ---------- */
+  body.cockpit-active {
+    background:
+      radial-gradient(ellipse 1400px 900px at 50% 35%,
+        rgba(124,92,255,0.10) 0%,
+        rgba(124,92,255,0.04) 35%,
+        rgba(10,10,20,0.00) 70%),
+      radial-gradient(circle 600px at 12% 85%,
+        rgba(124,92,255,0.06) 0%,
+        rgba(0,0,0,0) 60%),
+      radial-gradient(circle 500px at 88% 18%,
+        rgba(82,52,255,0.05) 0%,
+        rgba(0,0,0,0) 60%),
+      linear-gradient(180deg, #07070d 0%, #050509 100%) !important;
+    background-attachment: fixed !important;
+  }
+  body.cockpit-active::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background-image:
+      radial-gradient(1px 1px at 20% 30%, rgba(255,255,255,0.18), transparent 50%),
+      radial-gradient(1px 1px at 65% 70%, rgba(255,255,255,0.14), transparent 50%),
+      radial-gradient(1px 1px at 80% 20%, rgba(255,255,255,0.10), transparent 50%),
+      radial-gradient(1px 1px at 35% 85%, rgba(255,255,255,0.16), transparent 50%),
+      radial-gradient(1px 1px at 10% 60%, rgba(255,255,255,0.08), transparent 50%),
+      radial-gradient(1px 1px at 90% 50%, rgba(255,255,255,0.12), transparent 50%);
+    background-size: 280px 280px, 380px 380px, 320px 320px, 240px 240px, 360px 360px, 300px 300px;
+    z-index: 0;
+    opacity: 0.85;
+    animation: w292-star-drift 90s linear infinite;
+  }
+  body.cockpit-active > * { position: relative; z-index: 1; }
+
+  /* ---------- W292.2 — Outer halo on monolith (extra periphery glow) ---------- */
+  .voice-cockpit .monolith-wrap {
+    padding: 32px 0 !important;
+  }
+  .voice-cockpit .monolith-wrap::before {
+    inset: -16% !important;
+    background:
+      radial-gradient(circle at 50% 50%,
+        rgba(124,92,255,0.30) 0%,
+        rgba(124,92,255,0.10) 25%,
+        rgba(124,92,255,0.04) 50%,
+        rgba(124,92,255,0.00) 75%) !important;
+    filter: blur(8px) !important;
+  }
+
+  /* ---------- W292.3 — Sider icons (larger, glow on hover, labels visible) ---------- */
+  #vcSider {
+    background: linear-gradient(180deg,
+      rgba(20,20,32,0.85) 0%,
+      rgba(14,14,22,0.85) 100%) !important;
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    border-right: 1px solid rgba(124,92,255,0.10) !important;
+    box-shadow:
+      inset -1px 0 0 rgba(255,255,255,0.03),
+      4px 0 24px rgba(0,0,0,0.4) !important;
+  }
+  #vcSider .vc-mode {
+    width: 44px !important;
+    height: 44px !important;
+    margin: 6px auto !important;
+    border-radius: 12px !important;
+    font-size: 18px !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 220ms cubic-bezier(0.16, 1, 0.3, 1) !important;
+    border: 1px solid transparent;
+    color: rgba(220, 220, 240, 0.7) !important;
+  }
+  #vcSider .vc-mode:hover {
+    background: rgba(124,92,255,0.12) !important;
+    border-color: rgba(124,92,255,0.30) !important;
+    color: #fff !important;
+    transform: translateX(2px) scale(1.04);
+    box-shadow:
+      0 0 16px rgba(124,92,255,0.35),
+      inset 0 0 12px rgba(124,92,255,0.08);
+  }
+  #vcSider .vc-mode.is-active,
+  #vcSider .vc-mode[aria-current="page"] {
+    background: linear-gradient(135deg, rgba(124,92,255,0.20), rgba(82,52,255,0.10)) !important;
+    border-color: rgba(124,92,255,0.45) !important;
+    color: #fff !important;
+    box-shadow:
+      0 0 20px rgba(124,92,255,0.40),
+      inset 0 0 12px rgba(124,92,255,0.12);
+  }
+
+  /* ---------- W292.4 — Mic pill enlarged + breathing glow ---------- */
+  .voice-cockpit .vc-mic-wrap {
+    padding: 14px 22px !important;
+    min-height: 64px !important;
+    border-radius: 32px !important;
+    border-color: rgba(124,92,255,0.18) !important;
+    box-shadow:
+      0 8px 32px rgba(0,0,0,0.50),
+      0 0 24px rgba(124,92,255,0.18),
+      inset 0 1px 0 rgba(255,255,255,0.06) !important;
+    transition: all 280ms cubic-bezier(0.16, 1, 0.3, 1) !important;
+  }
+  .voice-cockpit .vc-mic-wrap:hover {
+    border-color: rgba(124,92,255,0.45) !important;
+    box-shadow:
+      0 12px 40px rgba(0,0,0,0.55),
+      0 0 36px rgba(124,92,255,0.32),
+      inset 0 1px 0 rgba(255,255,255,0.08) !important;
+    transform: translateY(-1px);
+  }
+  .voice-cockpit .vc-mic-btn,
+  .voice-cockpit button[aria-label*="microphone" i],
+  .voice-cockpit button[title*="microphone" i] {
+    width: 56px !important;
+    height: 56px !important;
+    border-radius: 50% !important;
+    background: linear-gradient(135deg, #8B6BFF 0%, #6B4BFF 100%) !important;
+    border: none !important;
+    box-shadow:
+      0 4px 14px rgba(124,92,255,0.40),
+      0 0 20px rgba(124,92,255,0.30),
+      inset 0 1px 0 rgba(255,255,255,0.25) !important;
+    animation: w292-mic-breathe 3.6s ease-in-out infinite !important;
+  }
+
+  /* ---------- W292.5 — Glass ring around the visualiser (depth anchor) ---------- */
+  .voice-cockpit .monolith-wrap::after {
+    /* Re-tune the W290.4 concentric grid for better visibility on
+       cosmic ambient bg + add an outer glass ring as the depth anchor. */
+    background-image:
+      radial-gradient(circle at 50% 50%, transparent 49.5%, rgba(255,255,255,0.06) 50%, transparent 50.5%),
+      radial-gradient(circle at 50% 50%, transparent 48%, rgba(124,92,255,0.28) 49%, transparent 50%),
+      radial-gradient(circle at 50% 50%, transparent 38%, rgba(124,92,255,0.16) 39%, transparent 40%),
+      radial-gradient(circle at 50% 50%, transparent 28%, rgba(124,92,255,0.12) 29%, transparent 30%),
+      linear-gradient(0deg,  rgba(124,92,255,0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(124,92,255,0.05) 1px, transparent 1px) !important;
+  }
+
+  /* ---------- W292.6 — Typography hierarchy (heading reveal + tracking) ---------- */
+  .voice-cockpit .vc-status-label,
+  .voice-cockpit #vcStatusLabel,
+  .voice-cockpit [class*="status"][class*="label"] {
+    font-size: 13px !important;
+    letter-spacing: 0.18em !important;
+    text-transform: uppercase !important;
+    font-weight: 500 !important;
+    color: rgba(220, 220, 240, 0.85) !important;
+    opacity: 0.92;
+  }
+  .voice-cockpit h1, .voice-cockpit .vc-heading {
+    letter-spacing: -0.02em !important;
+    font-weight: 600 !important;
+  }
+
+  /* ---------- W292.7 — Right rail visibility (subtle preview on narrow) ---------- */
+  #vcRail {
+    background: linear-gradient(180deg,
+      rgba(18,18,28,0.85) 0%,
+      rgba(12,12,20,0.85) 100%) !important;
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    border-left: 1px solid rgba(124,92,255,0.10) !important;
+    box-shadow:
+      inset 1px 0 0 rgba(255,255,255,0.03),
+      -4px 0 24px rgba(0,0,0,0.4) !important;
+  }
+  #vcRail .vc-frame {
+    background: rgba(255,255,255,0.02) !important;
+    border: 1px solid rgba(255,255,255,0.05) !important;
+    border-radius: 12px !important;
+    backdrop-filter: blur(8px);
+  }
+  #vcRail .vc-frame:hover {
+    background: rgba(124,92,255,0.04) !important;
+    border-color: rgba(124,92,255,0.18) !important;
+  }
+
+  /* ---------- W292.8 — Transcript bubbles (premium glass + max-width) ---------- */
+  .voice-cockpit .vc-bubble,
+  .voice-cockpit [class*="transcript"] > div,
+  .voice-cockpit [class*="msg-bubble"] {
+    max-width: 720px !important;
+    padding: 14px 20px !important;
+    border-radius: 16px !important;
+    border: 1px solid rgba(124,92,255,0.15) !important;
+    background: linear-gradient(180deg, rgba(28,28,42,0.62), rgba(18,18,28,0.62)) !important;
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    box-shadow:
+      0 4px 16px rgba(0,0,0,0.30),
+      inset 0 1px 0 rgba(255,255,255,0.05) !important;
+    line-height: 1.55 !important;
+  }
+
+  /* ---------- W292.9 — Status pills (soften error/offline states) ---------- */
+  .voice-cockpit [class*="status-pill"][data-state="offline"],
+  .voice-cockpit .vc-status-offline,
+  .voice-cockpit .badge-offline,
+  .voice-cockpit .status-offline {
+    background: rgba(120,120,140,0.16) !important;
+    border-color: rgba(180,180,200,0.18) !important;
+    color: rgba(220,220,240,0.78) !important;
+    box-shadow: none !important;
+  }
+  .voice-cockpit .vc-error,
+  .voice-cockpit .toast-error,
+  .voice-cockpit [class*="error-toast"] {
+    background: linear-gradient(180deg,
+      rgba(60,30,40,0.62),
+      rgba(40,20,30,0.62)) !important;
+    border: 1px solid rgba(248,113,113,0.28) !important;
+    color: rgba(255,200,200,0.92) !important;
+    border-radius: 12px !important;
+    padding: 10px 16px !important;
+    backdrop-filter: blur(12px);
+    box-shadow:
+      0 4px 16px rgba(248,113,113,0.10),
+      inset 0 1px 0 rgba(255,255,255,0.04) !important;
+  }
+
+  /* ---------- W292.10 — Keyframes + reduced-motion guard ---------- */
+  @keyframes w292-star-drift {
+    from { background-position: 0 0, 0 0, 0 0, 0 0, 0 0, 0 0; }
+    to   { background-position:
+              -280px 280px, 380px -380px, -320px -320px,
+              240px 240px, -360px 360px, 300px -300px; }
+  }
+  @keyframes w292-mic-breathe {
+    0%, 100% { box-shadow:
+                 0 4px 14px rgba(124,92,255,0.40),
+                 0 0 20px  rgba(124,92,255,0.30),
+                 inset 0 1px 0 rgba(255,255,255,0.25); }
+    50%      { box-shadow:
+                 0 4px 18px rgba(124,92,255,0.50),
+                 0 0 32px  rgba(124,92,255,0.45),
+                 inset 0 1px 0 rgba(255,255,255,0.28); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    body.cockpit-active::before,
+    .voice-cockpit .vc-mic-btn,
+    .voice-cockpit button[aria-label*="microphone" i] {
+      animation: none !important;
+    }
+  }
+
+  /* === END W292 PREMIUM LAYER === */
+
   /* === LEGACY BAND-AID REMOVED ABOVE — old W283 revert/glue follows for ref === */
   /* W282-REVERT: legacy block (kept for marker, no-op below) */
 
