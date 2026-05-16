@@ -116,19 +116,25 @@ async def test_init_all_databases_idempotent(sandbox_tars_home: Path) -> None:
     from backend.core.storage import init_all_databases
     from backend.core.agents import get_agent_store
 
-    await init_all_databases()
+    first = await init_all_databases()
     _flush_singletons()
+
+    store = get_agent_store()
+    first_agents = await store.list_agents(include_archived=True)
+    assert any(a.name == "TARS Default" for a in first_agents)
+    first_count = len(first_agents)
+
     second = await init_all_databases()
 
     # Re-run reports the agent seed step as already-existing.
     agent_seed = second.seeded.get("agent") or {}
     assert agent_seed.get("seeded") is False
     assert agent_seed.get("reason") == "already_exists"
-    # And we still have exactly 1 agent (not 2).
+    # And the agent count is stable (no duplicates from re-seed).
     store = get_agent_store()
     agents = await store.list_agents(include_archived=True)
-    assert len(agents) == 1
-    assert agents[0].name == "TARS Default"
+    assert len(agents) == first_count
+    assert any(a.name == "TARS Default" for a in agents)
 
 
 @pytest.mark.asyncio

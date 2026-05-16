@@ -39,7 +39,18 @@ from web_extras.app import app
 
 
 @pytest.fixture
-def fresh_store(tmp_path: Path) -> Iterator[None]:
+def fresh_store(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> Iterator[None]:
+    # Operator's `.env` may enable remote billing; tests must run on the
+    # local checker only. Clear every remote-billing knob inside the
+    # process env so `fetch_operator_snapshot()` short-circuits to None.
+    for key in (
+        "TARS_BILLING_SOURCE",
+        "MEEET_BILLING_BASE_URL",
+        "MEEET_BILLING_API_KEY",
+    ):
+        monkeypatch.delenv(key, raising=False)
     reset_store_for_tests(path=tmp_path / "ent.json")
     try:
         yield

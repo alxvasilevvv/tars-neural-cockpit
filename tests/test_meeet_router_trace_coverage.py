@@ -31,6 +31,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend.core.meeet import StoredEvent, get_store, reset_store
+from backend.core.meeet import client as meeet_client_mod
 from backend.core.voice import synthesis as synth_module
 from backend.core.voice.engines import SynthesisResult
 from web_extras.app import app
@@ -66,13 +67,26 @@ class _FakeVoiceEngine:
 
 @pytest.fixture()
 def client(tmp_path, monkeypatch: pytest.MonkeyPatch) -> Iterator[TestClient]:
-    monkeypatch.setenv("MEEET_LOCAL_DB_PATH", str(tmp_path / "meeet.sqlite"))
+    # MeeetStore reads MEEET_STORE_PATH (the old MEEET_LOCAL_DB_PATH
+    # name was never honoured, so previous runs were silently writing
+    # to ~/.tars/meeet.sqlite and leaked events across tests).
+    monkeypatch.setenv("MEEET_STORE_PATH", str(tmp_path / "meeet.sqlite"))
     monkeypatch.delenv("MEEET_INGEST_URL", raising=False)
     reset_store()
+    # MeeetClient is a separate singleton that captures the store on
+    # first init; without dropping it, the second test in this file
+    # keeps emitting into the *previous* tmp_path sqlite and the
+    # assertions read an empty store.
+    monkeypatch.setattr(
+        meeet_client_mod, "_SINGLETON", None, raising=False
+    )
     synth_module.reset_engines()
     yield TestClient(app)
     synth_module.reset_engines()
     reset_store()
+    monkeypatch.setattr(
+        meeet_client_mod, "_SINGLETON", None, raising=False
+    )
 
 
 def _kinds_in_store() -> set[str]:

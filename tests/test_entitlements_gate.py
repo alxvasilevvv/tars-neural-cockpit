@@ -39,6 +39,15 @@ def isolated_state(monkeypatch: pytest.MonkeyPatch):
         )
         monkeypatch.setenv("TARS_CAP_ENFORCEMENT", "on")
         monkeypatch.delenv("MEEET_INGEST_URL", raising=False)
+        # Operator .env may enable remote billing; force the local
+        # checker so tests don't hit the meeet.world snapshot endpoint
+        # and degrade to ``billing_unreachable``.
+        for key in (
+            "TARS_BILLING_SOURCE",
+            "MEEET_BILLING_BASE_URL",
+            "MEEET_BILLING_API_KEY",
+        ):
+            monkeypatch.delenv(key, raising=False)
 
         # Reset module singletons so they pick up the new paths.
         from backend.core.meeet import client as client_mod

@@ -32,6 +32,12 @@ def reset_pairing_store(monkeypatch, tmp_path):
     # The in-process vault default writes to ~/.tars/; tests must not
     # touch the developer's real home dir.
     monkeypatch.setenv("TARS_PAIRING_VAULT", "disabled")
+    # Pin the paired-device sqlite to a tmp path. Without this, the
+    # singleton falls back to ``~/.tars/pairings.sqlite`` and every
+    # accept persists into the developer's real desktop install,
+    # so devices count == 1 assertions flake once more than one device
+    # was ever paired locally.
+    monkeypatch.setenv("TARS_PAIRINGS_DB_PATH", str(tmp_path / "pairings.sqlite"))
     # Pin the meeet event store to a tmp path so accumulated events
     # from earlier tests don't overflow the ``list_events(limit=500)``
     # window the assertions use. Previously this fixture left

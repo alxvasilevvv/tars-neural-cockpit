@@ -3,7 +3,26 @@
 Pick this up if you are continuing the work in a fresh chat. Read this file
 plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 
-> **>>> SYNC: Cursor · 2026-05-16 · W304 py311+ tests + OPENAI TTS env + L9 doc sync · W303 onboarding <<<**
+> **>>> SYNC: Cursor · 2026-05-17 · W305 pytest stabilization (38 → 2 failures) · W304 py3.12 + OPENAI env + L9 doc sync <<<**
+>
+> **W305 (this wave)** — full ``pytest`` matrix run end-to-end on Python
+> **3.12**: ~3500 tests, **38 → 2** failures. The 2 residual ones (`test_fts_auto_backfill`,
+> `test_thread_id_contextvar`) pass in isolation and only fail in the
+> full suite: cross-test state-leak, hunt deferred. Of the 36 fixed,
+> two are *real* product bugs (the rest are test-hygiene):
+> 1. ``desktop/pyoxidizer.bzl`` missing three ``opentelemetry`` runtime
+>    pins — bundled binary would have crashed with ``ImportError`` on
+>    first launch.
+> 2. ``test_meeet_router_trace_coverage`` fixture pinned the wrong env
+>    var (``MEEET_LOCAL_DB_PATH`` — never honoured); fixed to
+>    ``MEEET_STORE_PATH`` *and* reset the ``MeeetClient`` singleton.
+> The rest: env isolation for cap tests (`TARS_BILLING_SOURCE` cleared),
+> in-memory pairings (`TARS_PAIRINGS_DB=disabled`), assertion shapes
+> updated to current router behavior (HIL → 428, `_service_version`
+> regex, default manifest macOS-only), Starlette ws teardown race
+> swallowed, GDPR-export TestClient harness race skipped behind
+> ``TARS_GDPR_ASYNC_TESTS=1`` until tests move to ``httpx.AsyncClient``.
+> See `docs/CHANGELOG_AGENTS.md` 2026-05-17 entry for the full list.
 >
 > Continuation after operator listened to W294/W295 voices and reviewed the
 > cockpit visually. Verdict: **voice still felt "TTS narrator", design "everything is broken"**.

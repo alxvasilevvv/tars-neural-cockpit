@@ -253,8 +253,10 @@ def test_hil_gate_fires_on_delete_when_required(
     f = _upload(client, "to-be-protected.md", b"shielded bytes")
     monkeypatch.setenv("TARS_REQUIRE_OPERATOR_CONFIRM", "1")
     res = client.delete(f"/api/files/{f['id']}", params={"reason": "x"})
-    # Confirm token absent → policy_gate raises 401.
-    assert res.status_code in (401, 403)
+    # Confirm token absent → policy_gate raises (401/403 historically,
+    # 428 Precondition Required after the policy gate move). The point
+    # is the delete must be refused without an operator-confirm token.
+    assert res.status_code in (401, 403, 428)
 
 
 def test_auto_categorize_falls_back_to_heuristic(client: TestClient) -> None:

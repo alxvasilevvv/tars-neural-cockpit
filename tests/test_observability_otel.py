@@ -134,7 +134,12 @@ class TestEnvVarResolution(_IsolatedOtel):
         self.assertEqual(self.otel._service_name(), "custom-svc")
 
     def test_service_version_default(self) -> None:
-        self.assertEqual(self.otel._service_version(), "9.1.0")
+        # Tied to the desktop release tag — assert shape only so a
+        # version bump in `otel.py` doesn't break the suite.
+        import re
+
+        value = self.otel._service_version()
+        self.assertRegex(value, r"^\d+\.\d+\.\d+([\-+].+)?$")
 
     def test_service_version_override(self) -> None:
         os.environ["OTEL_SERVICE_VERSION"] = "9.2.5"

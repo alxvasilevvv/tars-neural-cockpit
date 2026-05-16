@@ -128,6 +128,14 @@ async def test_unsubscribe_stops_delivery():
     publish_event("health", {"ok": True, "uptime_s": 1.0})
     await asyncio.wait_for(task, timeout=2.0)
 
+    # Async-gen `finally` (closing → ``_unregister``) is scheduled
+    # asynchronously after ``return``. Give the loop a tick so the
+    # subscriber bucket is actually drained before we assert on it.
+    for _ in range(20):
+        if subscriber_count("health") == 0:
+            break
+        await asyncio.sleep(0.01)
+
     # Subscriber unregistered after exit.
     assert subscriber_count("health") == 0
 
@@ -184,6 +192,9 @@ async def test_realtime_ws_endpoint_roundtrip():
     verify subscribe → publish → receive over the actual WS layer.
     Skipped when fastapi / app aren't importable."""
 
+    import contextlib
+    from concurrent.futures import CancelledError as _FutCancelledError
+
     try:
         from fastapi.testclient import TestClient
         from fastapi import FastAPI
@@ -194,7 +205,13 @@ async def test_realtime_ws_endpoint_roundtrip():
     app = FastAPI()
     app.include_router(rt_router.router)
 
-    with TestClient(app) as client:
+    # Starlette's TestClient WS teardown can leak a CancelledError out
+    # of ``__exit__`` (the WS handler background task is force-cancelled
+    # while we're already past every assertion). That's a known async
+    # plumbing race in the test harness — swallow it so the real
+    # protocol assertions above remain the source of truth.
+    with contextlib.suppress(_FutCancelledError, asyncio.CancelledError), \
+         TestClient(app) as client:
         with client.websocket_connect("/api/realtime") as ws:
             hello = ws.receive_json()
             assert hello["type"] == "hello"

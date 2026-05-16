@@ -47,6 +47,11 @@ import backend.core.pairing.store as pairing_store_mod
 @pytest.fixture(autouse=True)
 def reset_pairing(monkeypatch):
     monkeypatch.setenv("TARS_PAIRING_VAULT", "disabled")
+    # Force in-memory pairings so each test starts from zero devices —
+    # without this, ``_pair_one_device`` reuses
+    # ``~/.tars/pairings.sqlite`` and ``device_keys()[0]`` may return a
+    # device from a previous run (different secret key → decrypt fails).
+    monkeypatch.setenv("TARS_PAIRINGS_DB", "disabled")
     _reset_singleton_for_tests()
     yield
     _reset_singleton_for_tests()

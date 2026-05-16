@@ -33,7 +33,10 @@ def test_default_manifest_has_contract_and_artifacts() -> None:
     assert DEFAULT_MANIFEST.releases, "default manifest has no releases"
     arts = DEFAULT_MANIFEST.releases[0].artifacts
     os_set = {a.os for a in arts}
-    assert {"macos", "windows", "linux"}.issubset(os_set)
+    # macOS is the launch target; Windows/Linux re-enter the default
+    # manifest once pyoxidizer cross-compilation lands (see notes in
+    # backend/core/product/manifest.py::_DEFAULT_NOTES).
+    assert "macos" in os_set
     for art in arts:
         assert art.url.startswith("http")
         assert art.filename

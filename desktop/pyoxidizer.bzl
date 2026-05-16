@@ -61,6 +61,10 @@ RUNTIME_REQUIREMENTS = [
     "tonsdk>=1.0,<2.0",
     # Phase N5 — Solana transaction signing.
     "solders>=0.21,<1.0",
+    # OpenTelemetry — sidecar observability (traces / metrics export).
+    "opentelemetry-api>=1.27,<2",
+    "opentelemetry-sdk>=1.27,<2",
+    "opentelemetry-exporter-otlp-proto-http>=1.27,<2",
 ]
 
 def make_dist():
