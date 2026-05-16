@@ -4,43 +4,74 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
-## 2026-05-17 — Claude · W307 resolution addendum + W308 step 2 brief + audit of step 1
+## 2026-05-17 — Cursor · W308 step 2 (port cockpit + hero surfaces)
 
 **Summary**
 
-Three artefacts after Cursor's `1e7dcab` (W308 step 1):
+Operator delegated ("делай всё остальное без остановки"). Ported
+Claude's W307 reference HTMLs (`docs/design/W307_refs/cockpit.html`,
+`hero.html`) into the new `apps/cockpit/` scaffold as a proper
+multi-page Vite project. The previous diagnostic `tokens-preview`
+moved off `/` to `/preview.html`; `/` is now a landing/page picker
+so the operator sees real surfaces, not a token grid, on first load.
+Step 3 (replace the frozen Tauri bundle with `apps/cockpit/dist/`)
+is queued.
 
-1. **`6231b34`** — added "Resolution (operator delegated, Claude
-   decides)" section to `docs/design/W307_VERDICT.md`. All 5 OQs
-   answered explicitly; values match Cursor's step-1 application 1:1.
-   Single net-new spec: `.surface-marketing { --motion-budget-max: 4 }`
-   override (which Cursor deferred to step 2). Lives on
-   `claude/w307-design-refresh`.
-2. **Audit of `1e7dcab`** — 0 drift between W307 verdict and step-1
-   application. All 12 token values match. MASTER §3 anti-pattern
-   prose present. §9 implementation map redirected. No fix-commit
-   needed.
-3. **`docs/handoff/W308_STEP2_BRIEF.md`** — pre-written step-2 plan
-   for Cursor. 7 sub-tasks in order, visual-parity protocol, rollback
-   criteria, out-of-scope list. Bounded — new scope = new W309 brief.
+**Architecture changes:**
+- `vite.config.ts` rebuilt as multi-page: 4 entries
+  (`index`/`cockpit`/`hero`/`preview`). Predictable asset filenames
+  (`cockpit-<hash>.js/css`).
+- `src/main.ts` deleted. Each page has its own entry under
+  `src/pages/<page>-entry.ts` (small file that just imports
+  `global.css`). The `tokens-preview.ts` render module is unchanged.
+- `tsconfig.json` gets `"types": ["node"]` (for `__dirname`,
+  `node:path` in `vite.config.ts`); dev-dep `@types/node@22`.
 
-**Files (this entry — landing on `main`):**
+**New / changed page surfaces:**
+- `apps/cockpit/index.html` — landing/page picker. Three cards
+  (Cockpit · Hero · Tokens preview); uses shared tokens only.
+- `apps/cockpit/cockpit.html` — operator shell ported from W307 ref.
+  HUD header, briefing card (with W307-bumped greeting), 4 brief
+  items, quick chips, conversation strand, policy gate (≥1100 px),
+  input bar, status bar. All accent fills enforce
+  `var(--cta-text-on-accent)`; ambient health pulses use
+  `--motion-pulse` (3.6 s), alert pulses use `--motion-alert-pulse`.
+- `apps/cockpit/hero.html` — marketing hero ported from W307 ref.
+  Floating nav, headline + accent split, two CTAs, full SVG core
+  scene (halo + outer dashed ring + 36-tick ring + inner pulse +
+  core), live rail with stream + integrity card. Numeric data uses
+  `font-variant-numeric: tabular-nums`.
+- `apps/cockpit/preview.html` — diagnostic page (renamed from old
+  `index.html`). Mounts the existing `tokens-preview` module.
 
-- `docs/AGENT_HANDOFF.md` (new SYNC block at the top)
-- `docs/CHANGELOG_AGENTS.md` (this entry)
-- `docs/handoff/W308_STEP2_BRIEF.md` (new)
+**Documentation updates:**
+- `apps/cockpit/README.md` rewritten to reflect multi-page layout,
+  per-page bundle sizes, side-by-side parity recipe vs
+  `docs/design/W307_refs/`.
+- `docs/handoff/W308_PRE_FLIGHT_FINDINGS.md` — step 2 marked done;
+  step 3 (Tauri bundle swap) queued; status header updated.
 
-**Files (already on branch `claude/w307-design-refresh`, push pending):**
+**Verification:**
+- `pnpm --filter @tars/cockpit build` → clean. 4 HTML pages, shared
+  CSS 6 KB / JS 10 KB total. Gzip totals: ~19 KB.
+- Visual parity check: dev server on `:5174` (port) vs static server
+  on `:5175` (`docs/design/W307_refs/`). Cockpit and hero render
+  pixel-equivalent modulo the documented W307 verdict deltas
+  (greeting bigger, black-on-accent, ambient pulse slower).
+- `pytest tests/test_cockpit_tokens_sync.py -v` → 6/6 pass; the
+  step-1 contract is preserved.
 
-- `docs/design/W307_VERDICT.md` (Resolution section)
-- `scripts/PUSH-W307-RESOLUTION.command` (push helper for `6231b34`)
-
-**Verification:** read `apps/cockpit/src/styles/tokens.css`,
-`design-system/tars/MASTER.md`, `tests/test_cockpit_tokens_sync.py`,
-`docs/handoff/W308_PRE_FLIGHT_FINDINGS.md` against `W307_VERDICT.md`
-line-by-line. Drift count: 0.
-
----
+**Files**
+- M `apps/cockpit/vite.config.ts`, `apps/cockpit/tsconfig.json`,
+  `apps/cockpit/package.json` (0.2.0-step1 → 0.3.0-step2)
+- M `apps/cockpit/index.html` (now landing, was tokens preview entry)
+- A `apps/cockpit/cockpit.html`
+- A `apps/cockpit/hero.html`
+- A `apps/cockpit/preview.html`
+- A `apps/cockpit/src/pages/{index,cockpit,hero,preview}-entry.ts`
+- D `apps/cockpit/src/main.ts` (split into per-page entries)
+- M `apps/cockpit/README.md`
+- M `docs/handoff/W308_PRE_FLIGHT_FINDINGS.md`
 
 ## 2026-05-17 — Cursor · W308 step 1 (apply W307 verdict)
 

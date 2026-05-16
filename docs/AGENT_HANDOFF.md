@@ -3,40 +3,46 @@
 Pick this up if you are continuing the work in a fresh chat. Read this file
 plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 
-> **>>> SYNC: Claude · 2026-05-17 · W307 verdict resolution (`6231b34` — 5 OQs answered) + W308 step 2 brief (`docs/handoff/W308_STEP2_BRIEF.md`) + audit-verdict on Cursor's step 1 (0 drift) <<<**
+> **>>> SYNC: Cursor · 2026-05-17 · W308 step 2 (port cockpit + hero from W307 refs → multi-page Vite project at apps/cockpit/) · W308 step 1 (apply W307 verdict in tokens.css + MASTER.md) · W308 step 0 (Path C scaffold) · W307 design verdict (Claude) · W306 order-dependent fixes (38 → 0) · W305 py3.12 stabilization · W304 py3.12 + OPENAI env + L9 doc sync <<<**
 >
-> Two artefacts on top of Cursor's `1e7dcab` (W308 step 1):
+> **W308 step 2 (this wave)** — operator delegated ("делай всё
+> остальное без остановки"). The cockpit and marketing-hero surfaces
+> from Claude's W307 reference (`docs/design/W307_refs/{cockpit,hero}.html`)
+> are now ported into `apps/cockpit/` as a proper **multi-page Vite
+> project**. Visually they sit on the shared `tokens.css` +
+> `typography.css` + `global.css`; page-specific chrome (HUD bar,
+> briefing card, scene SVG, policy gate) lives inline per page so a
+> designer can diff one file per surface.
 >
-> 1. **`6231b34` — W307_VERDICT.md "Resolution" section.** Operator
->    delegated all 5 open questions to Claude ("Сделай пожалуйста сам
->    выбор"). All decisions match Cursor's step-1 application 1:1; the
->    single delta is making the marketing motion-budget override explicit
->    (`.surface-marketing { --motion-budget-max: 4 }`), which Cursor
->    explicitly deferred to step 2 with "only cockpit surface exists today".
->    Lives on `claude/w307-design-refresh` — zero drift vs `1e7dcab`.
+> **New page contract:**
+> - `/` → landing/page picker (was the tokens preview).
+> - `/cockpit.html` → operator shell (HUD header, briefing card,
+>   policy gate, mic input, status bar). All accent fills enforce
+>   `--cta-text-on-accent`. Ambient health-dot uses `--motion-pulse`
+>   (3.6 s); alert state uses `--motion-alert-pulse` (1.6 s).
+> - `/hero.html` → marketing hero (floating nav, headline + accent
+>   split, two CTAs, full SVG core scene, live rail with stream +
+>   integrity card). Numeric data uses `tabular-nums`.
+> - `/preview.html` → tokens diagnostic (was on `/` in step 0–1).
 >
-> 2. **`docs/handoff/W308_STEP2_BRIEF.md` — pre-written step-2 plan.**
->    Seven sub-tasks in order: refresh W307 reference HTMLs against
->    step-1 tokens → port hero+cockpit screens into
->    `apps/cockpit/src/pages/` → add `.surface-marketing` override +
->    drift-test extension → rewire `package-cockpit.sh` to build from
->    `apps/cockpit/` → add package-script regression test → motion-budget
->    lint → visual-parity protocol → rollback criteria. Bounded; new
->    scope = new W309 brief.
+> **Visual parity check** — Vite dev (`:5174`) vs static server for
+> the W307 reference (`:5175`, served from `docs/design/W307_refs/`).
+> Cockpit + hero render pixel-equivalent to the reference modulo the
+> three intentional verdict deltas (bigger greeting,
+> black-on-accent, ambient vs alert pulse split).
 >
-> Audit verdict on Cursor's step 1 (`1e7dcab`): **0 drift**. All 12 token
-> values match the W307 verdict exactly. MASTER §3 anti-pattern prose
-> present, drift test 6 passed, §9 implementation map redirected correctly.
+> **Bundle**: `pnpm --filter @tars/cockpit build` produces 4 HTML
+> pages + shared CSS 6 kB + shared JS 10 kB; gzip total ~19 kB.
+> Drift smoke test still 6/6 pass.
 >
-> Push status: `6231b34` committed locally on `claude/w307-design-refresh`;
-> operator can push via `scripts/PUSH-W307-RESOLUTION.command`. This SYNC
-> + `W308_STEP2_BRIEF.md` land on `main` so step-2 is reachable
-> regardless of the addendum push outcome.
-
-> **>>> SYNC (previous): Cursor · 2026-05-17 · W308 step 1 (apply W307 verdict — 5 taste calls + ~10 hard-rule changes in apps/cockpit/ + MASTER.md) · W308 step 0 (Path C scaffold) · W307 design verdict (Claude) · W306 order-dependent fixes (38 → 0) · W305 py3.12 stabilization · W304 py3.12 + OPENAI env + L9 doc sync <<<**
+> **Next**: step 3 — wire `apps/cockpit/dist/` into
+> `desktop/scripts/package-cockpit.sh`; replace
+> `desktop/src-tauri/web/`. Queued.
 >
-> **W308 step 1 (this wave)** — operator delegated again ("выбери ты",
-> 2nd time). Applied Claude's W307 verdict end-to-end into
+> ---
+>
+> **W308 step 1** — operator delegated ("выбери ты", 2nd time).
+> Applied Claude's W307 verdict end-to-end into
 > `apps/cockpit/src/styles/tokens.css` + `design-system/tars/MASTER.md`
 > in a single bounded commit. All 5 open questions from W307
 > §"Open questions" answered with explicit per-row taste-calls; each

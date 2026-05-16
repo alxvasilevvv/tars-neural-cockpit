@@ -1,11 +1,13 @@
 # W308 — pre-flight findings (read before starting migration)
 
-> **Status.** Step 0 shipped. Path **C** picked (see below). Cursor
+> **Status.** Steps 0–2 shipped. Path **C** picked (see below). Cursor
 > built the new minimal cockpit shell under `apps/cockpit/`; live
-> tokens now live in `apps/cockpit/src/styles/tokens.css` and are
-> guarded against MASTER.md drift by `tests/test_cockpit_tokens_sync.py`.
-> Step 1 (apply W307 verdict) and step 2 (replace the frozen Tauri
-> bundle) are queued.
+> tokens live in `apps/cockpit/src/styles/tokens.css` and are guarded
+> against MASTER.md drift by `tests/test_cockpit_tokens_sync.py`. The
+> Claude W307 verdict was applied in step 1; the actual cockpit and
+> hero surfaces (ported from `docs/design/W307_refs/`) ship in step 2.
+> Step 3 (replace the frozen Tauri bundle with `apps/cockpit/dist/`)
+> is queued.
 > **Owner of W308.** Cursor (this agent).
 > **Why this doc exists.** While Claude was running the design pass I
 > mapped where the current MASTER tokens *actually live in shipping
@@ -23,6 +25,7 @@
 | 2026-05-17 | Path C **staged** | Step 0 (scaffold + tokens.css mirroring current MASTER) shipped *before* the W307 verdict lands. When verdict arrives, only `tokens.css` + MASTER.md change — no shell rework. |
 | 2026-05-17 | Stack: Vite + vanilla TypeScript, no framework | MASTER contract is plain CSS variables + semantic HTML. React/Vue would add ~45KB minified for zero benefit at this stage. Step 0 bundle is 13KB raw / 5KB gzipped. |
 | 2026-05-17 | **Step 1 shipped** — W307 verdict applied (5 open-question taste calls + ~10 hard-rule changes, see table below) | Operator delegated again ("выбери ты"). Migration cost = zero (no call-sites yet); single revert undoes any taste call. Bundle grows to 18KB raw / 6KB gzipped. |
+| 2026-05-17 | **Step 2 shipped** — cockpit + hero surfaces ported from `docs/design/W307_refs/{cockpit,hero}.html` into the new multi-page Vite project. Landing index added; `tokens-preview` moved to `/preview.html`. | Operator ("делай всё остальное без остановки"). Side-by-side parity check vs reference passes; intentional deltas are documented (greeting bigger, accent fills enforce black text, ambient vs alert pulses split). Bundle: 4 pages, ~19 kB gzipped total. |
 
 ---
 
@@ -136,11 +139,21 @@ the W307 verdict.
       verdict applied to `apps/cockpit/src/styles/tokens.css` +
       `design-system/tars/MASTER.md` in the same commit. Per-row
       taste-calls listed below — single revert undoes any one of them.
-- [ ] **Step 2 (queued):** wire `apps/cockpit/` into
+- [x] **Step 2 shipped (operator delegated "делай всё остальное без
+      остановки").** Multi-page Vite project; `cockpit.html` and
+      `hero.html` ported from the W307 reference HTMLs onto our
+      shared `tokens.css` / `typography.css` / `global.css`;
+      `tokens-preview` moved to `/preview.html`; `index.html`
+      became a dev landing / page picker. Side-by-side visual
+      check against `http://127.0.0.1:5175/{cockpit,hero}.html`
+      (served from `docs/design/W307_refs/`) passes — intentional
+      deltas (bigger greeting, `--cta-text-on-accent`, ambient vs
+      alert pulse split) match the W307 verdict.
+- [ ] **Step 3 (queued):** wire `apps/cockpit/dist/` into
       `desktop/scripts/package-cockpit.sh`; replace
-      `desktop/src-tauri/web/` once parity is verified against the
-      W307 reference HTMLs (`docs/design/W307_refs/hero.html`,
-      `cockpit.html`).
+      `desktop/src-tauri/web/` content. Drop the "just check it
+      exists" stub and rebuild the bundle as part of the desktop
+      release pipeline.
 
 ---
 

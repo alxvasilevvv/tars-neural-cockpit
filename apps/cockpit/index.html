@@ -4,34 +4,184 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="color-scheme" content="dark" />
-    <title>TARS Cockpit · Token preview</title>
+    <title>TARS · cockpit dev index</title>
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
 
-    <!--
-      Font delivery via fonts.bunny.net (Google Fonts mirror, no
-      tracking) per MASTER §4. Bunny is privacy-safer than the
-      Google CDN and is what the design contract calls for.
-    -->
     <link rel="preconnect" href="https://fonts.bunny.net" crossorigin />
     <link
       rel="stylesheet"
-      href="https://fonts.bunny.net/css?family=fira-code:300,400,500,600,700|share-tech-mono:400&display=swap"
+      href="https://fonts.bunny.net/css?family=fira-code:400,500,600|share-tech-mono:400&display=swap"
     />
 
     <meta name="theme-color" content="#000000" />
     <meta
       name="description"
-      content="TARS cockpit — local-first AI operator console. Token preview surface (W308 step 0)."
+      content="TARS cockpit dev index — pick a page (cockpit, hero, tokens preview)."
     />
+
+    <style>
+      /* Landing-only chrome. Real cockpit/hero/preview pages bring
+         their own page-specific CSS on top of the shared tokens. */
+      .landing {
+        max-width: 880px;
+        margin: 0 auto;
+        padding: clamp(2rem, 6vw, 4rem) clamp(1.25rem, 4vw, 2.5rem);
+      }
+
+      .landing-head {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 0.5rem;
+      }
+
+      .landing-dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--color-accent);
+        box-shadow: 0 0 8px var(--color-accent-soft);
+      }
+
+      .landing-eyebrow {
+        font-family: var(--font-mono);
+        font-size: var(--type-label);
+        font-weight: 500;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--color-ink-2);
+      }
+
+      .landing-title {
+        font-family: var(--font-display);
+        font-size: var(--type-greeting);
+        line-height: 1.05;
+        letter-spacing: 0.01em;
+        color: var(--color-ink);
+        margin-bottom: 0.75rem;
+      }
+
+      .landing-summary {
+        font-family: var(--font-mono);
+        font-size: var(--type-body);
+        line-height: 1.6;
+        color: var(--color-ink-2);
+        max-width: 60ch;
+        margin-bottom: 2.5rem;
+      }
+
+      .page-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 1rem;
+      }
+
+      .page-card {
+        display: grid;
+        gap: 0.5rem;
+        padding: 1.25rem 1.5rem;
+        background: var(--color-bg-1);
+        border: 1px solid var(--color-line);
+        border-radius: 14px;
+        text-decoration: none;
+        color: var(--color-ink);
+        font-family: var(--font-mono);
+        transition: border-color var(--motion-fast) ease-out,
+          background var(--motion-fast) ease-out;
+      }
+
+      .page-card:hover {
+        border-color: var(--color-line-hot);
+        background: var(--color-bg-2);
+      }
+
+      .page-card-label {
+        font-family: var(--font-display);
+        font-size: 1.05rem;
+        letter-spacing: 0.04em;
+      }
+
+      .page-card-detail {
+        font-size: var(--type-small);
+        color: var(--color-ink-2);
+        line-height: 1.5;
+      }
+
+      .page-card-route {
+        margin-top: 0.25rem;
+        font-size: var(--type-label);
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--color-ink-3);
+      }
+
+      .landing-foot {
+        margin-top: 3rem;
+        font-family: var(--font-mono);
+        font-size: var(--type-label);
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--color-ink-3);
+        display: flex;
+        gap: 0.75rem;
+        flex-wrap: wrap;
+      }
+
+      .landing-foot .accent {
+        color: var(--color-accent);
+      }
+    </style>
   </head>
   <body>
-    <main id="cockpit-root" aria-live="polite">
-      <noscript>
-        <p style="color: #f5f5f0; padding: 2rem">
-          TARS cockpit requires JavaScript to render the token preview.
-        </p>
-      </noscript>
+    <main class="landing" id="landing-root">
+      <div class="landing-head">
+        <span class="landing-dot" aria-hidden="true"></span>
+        <span class="landing-eyebrow">TARS cockpit · dev index</span>
+      </div>
+      <h1 class="landing-title">Cockpit pages</h1>
+      <p class="landing-summary">
+        Local-first preview server for the TARS cockpit. Pick a surface
+        below. Every page is built from the same MASTER design tokens
+        (palette · typography · motion · spacing) declared in
+        <code>src/styles/tokens.css</code>.
+      </p>
+
+      <nav class="page-grid" aria-label="Cockpit pages">
+        <a class="page-card" href="./cockpit.html">
+          <span class="page-card-label">Cockpit</span>
+          <span class="page-card-detail">
+            Operator shell — briefing card, phase bar, policy gate, mic
+            input. The real TARS surface the desktop bundle ships.
+          </span>
+          <span class="page-card-route">/cockpit.html</span>
+        </a>
+        <a class="page-card" href="./hero.html">
+          <span class="page-card-label">Hero</span>
+          <span class="page-card-detail">
+            Marketing hero — typography stress test, SVG core scene,
+            live rail, integrity score. Lives on
+            <code>tars.meeet.world</code> long-term.
+          </span>
+          <span class="page-card-route">/hero.html</span>
+        </a>
+        <a class="page-card" href="./preview.html">
+          <span class="page-card-label">Tokens preview</span>
+          <span class="page-card-detail">
+            Design-system diagnostic — palette swatches, typography
+            samples, motion budget, CTA & glyph contracts. The drift
+            smoke test mirrors this surface.
+          </span>
+          <span class="page-card-route">/preview.html</span>
+        </a>
+      </nav>
+
+      <p class="landing-foot">
+        <span><span class="accent">●</span> Vite dev server</span>
+        <span>v0.3.0-step2</span>
+        <span style="margin-left: auto">apps/cockpit/</span>
+      </p>
     </main>
-    <script type="module" src="/src/main.ts"></script>
+
+    <script type="module" src="/src/pages/index-entry.ts"></script>
   </body>
 </html>
