@@ -71,26 +71,32 @@ else
 fi
 BUILD_RC=$?
 echo ""
-if [[ $BUILD_RC -ne 0 ]]; then
-  echo "✗ tauri build failed (exit $BUILD_RC). See output above."
-  sleep 10
-  exit $BUILD_RC
-fi
 
-# ── locate artifact ──────────────────────────────────────────────────
+# ── locate artifact (check FIRST, even on non-zero exit code) ────────
+# `tauri build` may return non-zero when DMG bundling fails — but the
+# .app bundle was already built. We only need the .app to install +
+# launch. So we check for the .app even when BUILD_RC != 0.
 APP_SRC="$REPO/desktop/src-tauri/target/${TARGET}/release/bundle/macos/TARS.app"
 if [[ ! -d "$APP_SRC" ]]; then
   # Older Tauri sometimes drops bundle under target/release/ directly.
   ALT="$REPO/desktop/src-tauri/target/release/bundle/macos/TARS.app"
   if [[ -d "$ALT" ]]; then APP_SRC="$ALT"; fi
 fi
+
 if [[ ! -d "$APP_SRC" ]]; then
-  echo "✗ build succeeded but TARS.app not found."
+  echo "✗ build failed (exit $BUILD_RC) and TARS.app not found."
   echo "  Looked at: $APP_SRC"
-  echo "  And:       $REPO/desktop/src-tauri/target/release/bundle/macos/TARS.app"
+  echo "  Inspect the build log above for the real error."
   sleep 10
   exit 2
 fi
+
+if [[ $BUILD_RC -ne 0 ]]; then
+  echo "⚠ tauri build returned exit $BUILD_RC (likely DMG bundling failed),"
+  echo "  but the .app bundle WAS built. Proceeding with install + launch."
+  echo ""
+fi
+
 echo "── artifact: $APP_SRC ──"
 
 # ── kill running TARS so cp -R doesn't hit a busy bundle ─────────────

@@ -3,7 +3,10 @@ dist/
 target/
 src-tauri/target/
 src-tauri/gen/
+src-tauri/binaries/
 src-tauri/WixTools/
+src-tauri/web/*.bak-*
+src-tauri/web/*.bak-pre-*
 *.dmg
 *.app
 *.exe
