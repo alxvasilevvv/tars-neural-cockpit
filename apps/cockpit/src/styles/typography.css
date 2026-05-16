@@ -1,0 +1,91 @@
+/*
+ * Typography contract (MASTER §4).
+ *
+ * Roles:
+ *   .t-display  — hero only
+ *   .t-h1 .t-h2 .t-h3
+ *   .t-body     — paragraphs, default
+ *   .t-small    — captions, metadata
+ *   .t-label    — HUD / nav / uppercase ticker labels
+ *
+ * Body text is Fira Code; display is Share Tech Mono. Both load via
+ * fonts.bunny.net in index.html.
+ */
+
+body {
+  font-family: var(--font-body);
+  font-size: var(--type-body);
+  line-height: var(--line-body);
+  font-weight: 400;
+  font-feature-settings: "calt" 1, "liga" 1; /* Fira Code ligatures */
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+.t-display {
+  font-family: var(--font-display);
+  font-size: var(--type-display);
+  line-height: var(--line-tight);
+  letter-spacing: var(--tracking-display);
+  font-weight: 400;
+}
+
+.t-h1 {
+  font-family: var(--font-display);
+  font-size: var(--type-h1);
+  line-height: var(--line-tight);
+  letter-spacing: var(--tracking-display);
+  font-weight: 400;
+}
+
+.t-h2 {
+  font-family: var(--font-body);
+  font-size: var(--type-h2);
+  line-height: var(--line-snug);
+  font-weight: 500;
+}
+
+.t-h3 {
+  font-family: var(--font-body);
+  font-size: var(--type-h3);
+  line-height: var(--line-snug);
+  font-weight: 500;
+}
+
+.t-body {
+  font-family: var(--font-body);
+  font-size: var(--type-body);
+  line-height: var(--line-body);
+  max-inline-size: var(--measure);
+}
+
+.t-small {
+  font-family: var(--font-body);
+  font-size: var(--type-small);
+  line-height: var(--line-snug);
+  color: var(--color-ink-2);
+}
+
+.t-label {
+  font-family: var(--font-body);
+  font-size: var(--type-label);
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  font-weight: 500;
+  color: var(--color-ink-2);
+}
+
+/* Selection styling — gold tint at low opacity. */
+::selection {
+  background: var(--color-accent-deep);
+  color: var(--color-ink);
+}
+
+/* Focus ring — visible at 7:1 against any MASTER surface, matches
+ * the focus contract in MASTER §8 (Pre-Delivery Checklist). */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
+  border-radius: var(--radius-xs);
+}

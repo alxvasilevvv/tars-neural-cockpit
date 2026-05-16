@@ -4,6 +4,65 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-17 — Cursor · W308 step 0 (Path C — new cockpit scaffold)
+
+**Summary**
+
+Operator delegated the W308 strategy call ("выбери ты"). Picked
+**Path C, staged**: build a new minimal cockpit at `apps/cockpit/`
+that owns the live design tokens *now*, without waiting for the W307
+verdict and without touching the frozen production bundle. When the
+verdict lands, only `tokens.css` + MASTER.md change — no shell rework.
+
+Step 0 ships:
+
+- `apps/cockpit/` scaffolded as Vite + vanilla TypeScript (no
+  framework). README explains the rationale and the migration path
+  to step 2. Bundle size: 13 KB raw / 5 KB gzipped.
+- `apps/cockpit/src/styles/tokens.css` — full MASTER §3 palette,
+  §4 typography, §5 spacing, §6 effects, plus a
+  `prefers-reduced-motion: reduce` override block.
+- `apps/cockpit/src/pages/tokens-preview.ts` — single live page
+  rendering every swatch + type sample + motion sample, for visual
+  verification before / after any token diff.
+- `tests/test_cockpit_tokens_sync.py` — drift smoke test that fails
+  the suite if `tokens.css`, MASTER.md, and the canonical values
+  ever disagree (16 palette tokens + 2 font families + reduced-motion
+  block contract). 3 tests, all passing.
+- `docs/handoff/W308_PRE_FLIGHT_FINDINGS.md` updated with the Path C
+  decision log and step 1 / step 2 queue.
+
+Production cockpit (Tauri's frozen `desktop/src-tauri/web/`) is
+deliberately *not* touched in step 0 — risk of breaking the release
+pipeline is zero this wave.
+
+**Verification**
+
+- `pnpm --filter @tars/cockpit build` → clean (`tsc --noEmit` + Vite
+  build, 70ms, 13 KB raw).
+- `pytest tests/test_cockpit_tokens_sync.py -v` → 3 passed.
+- `pytest --collect-only -q` → 3519 tests collected (was 3508 from
+  W306 baseline + new cockpit tests; full suite untouched).
+
+**Files**
+
+- `apps/cockpit/README.md` (new, 110 lines)
+- `apps/cockpit/package.json`, `tsconfig.json`, `vite.config.ts`,
+  `.gitignore`, `pnpm-lock.yaml` (new)
+- `apps/cockpit/index.html`, `public/favicon.svg` (new)
+- `apps/cockpit/src/main.ts`, `src/pages/tokens-preview.ts` (new)
+- `apps/cockpit/src/styles/{reset,tokens,typography,global}.css` (new)
+- `tests/test_cockpit_tokens_sync.py` (new)
+- `docs/handoff/W308_PRE_FLIGHT_FINDINGS.md` (decision log + checklist)
+
+**Queued for step 1**: apply Claude's W307 token diff once it lands
+(`docs/design/W307_VERDICT.md`) — edit `tokens.css` + MASTER.md in
+the same commit so the smoke test stays green.
+
+**Queued for step 2**: rewire `desktop/scripts/package-cockpit.sh`
+to build `apps/cockpit/` and replace the frozen bundle; verify
+parity against current cockpit before flipping.
+
 ## 2026-05-17 — Cursor · W308 pre-flight findings (token location inventory)
 
 **Summary**

@@ -1,0 +1,140 @@
+/*
+ * TARS cockpit — design tokens
+ *
+ * Synced from `design-system/tars/MASTER.md` §3 (Palette), §4
+ * (Typography), §5 (Layout), §6 (Effects). Hex values, font stacks,
+ * and spacing scale must agree exactly with MASTER.md — the drift
+ * smoke test (`tests/test_cockpit_tokens_sync.py`) will fail the
+ * full pytest suite if they don't.
+ *
+ * After W307 Claude verdict lands, edit hex values here AND mirror
+ * the change into MASTER.md §3 in the same commit. The smoke test
+ * is intentionally strict.
+ */
+
+:root {
+  /* -------------------------------------------------------------- */
+  /* 3. Palette (MASTER §3 — Premium dark + gold accent on OLED)    */
+  /* -------------------------------------------------------------- */
+
+  /* Surfaces */
+  --color-bg-0: #000000;
+  --color-bg-1: #0b0b10;
+  --color-bg-2: #14141b;
+
+  /* Ink */
+  --color-ink: #f5f5f0;
+  --color-ink-2: #a09e96;
+  --color-ink-3: #5c5a52;
+
+  /* Hairlines */
+  --color-line: rgba(245, 245, 240, 0.06);
+  --color-line-strong: rgba(245, 245, 240, 0.12);
+  --color-line-hot: rgba(202, 138, 4, 0.32);
+
+  /* Accent (the single primary hue — gold) */
+  --color-accent: #ca8a04;
+  --color-accent-soft: rgba(202, 138, 4, 0.55);
+  --color-accent-deep: rgba(202, 138, 4, 0.12);
+
+  /* HUD (sparingly, only on wireframes / 3D rings) */
+  --color-hud: #00ffff;
+  --color-hud-soft: rgba(0, 255, 255, 0.32);
+
+  /* Functional */
+  --color-alert: #ef4444;
+  --color-success: #34d399;
+
+  /* -------------------------------------------------------------- */
+  /* 4. Typography (MASTER §4 — Share Tech Mono + Fira Code)        */
+  /* -------------------------------------------------------------- */
+
+  --font-display: "Share Tech Mono", ui-monospace, "SF Mono",
+    Menlo, Consolas, monospace;
+  --font-body: "Fira Code", ui-monospace, "SF Mono", Menlo,
+    Consolas, monospace;
+  --font-mono: var(--font-body);
+
+  --type-display: clamp(3.4rem, 8vw, 8rem);
+  --type-h1: clamp(2.2rem, 4vw, 3.4rem);
+  --type-h2: clamp(1.6rem, 2.6vw, 2.2rem);
+  --type-h3: 1.25rem;
+  --type-body: 1rem;
+  --type-small: 0.8125rem;
+  --type-label: 0.6875rem; /* 11px — HUD / nav labels */
+
+  --line-tight: 1.08;
+  --line-snug: 1.32;
+  --line-body: 1.65;
+
+  --tracking-display: 0.02em;
+  --tracking-label: 0.18em;
+
+  --measure: 64ch; /* body max-width per MASTER */
+
+  /* -------------------------------------------------------------- */
+  /* 5. Layout (MASTER §5 — spacing scale + z-index)                */
+  /* -------------------------------------------------------------- */
+
+  --container-max: 1280px;
+  --space-inset: clamp(16px, 4vw, 56px);
+
+  --space-2xs: 4px;
+  --space-xs: 8px;
+  --space-sm: 12px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+  --space-2xl: 48px;
+  --space-3xl: 80px;
+  --space-section: clamp(100px, 12vw, 140px);
+
+  --z-base: 10;
+  --z-overlay: 20;
+  --z-nav: 30;
+  --z-modal: 50;
+
+  /* -------------------------------------------------------------- */
+  /* 6. Effects (MASTER §6 — restrained glow, 1px HUD)              */
+  /* -------------------------------------------------------------- */
+
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 18px;
+  --radius-pill: 999px;
+
+  --shadow-card: 0 1px 0 var(--color-line) inset,
+    0 24px 60px -28px rgba(0, 0, 0, 0.85);
+  --shadow-accent: 0 0 24px var(--color-accent-soft);
+  --shadow-hud: 0 0 18px var(--color-hud-soft);
+
+  --hairline: 1px solid var(--color-line);
+  --hairline-strong: 1px solid var(--color-line-strong);
+  --hairline-hot: 1px solid var(--color-line-hot);
+
+  --motion-fast: 150ms ease-out;
+  --motion-base: 200ms ease-out;
+  --motion-slow: 320ms ease-out;
+  --motion-pulse: 1.6s ease-in-out;
+  --motion-hud-pulse: 3.4s ease-in-out;
+}
+
+/* Respect operator system preference — MASTER §6/§7 ("Always wrap
+ * motion in `prefers-reduced-motion: reduce` opt-out"). Setting
+ * durations to a near-zero keeps the *contract* (transitions still
+ * fire) while killing animation. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-fast: 1ms linear;
+    --motion-base: 1ms linear;
+    --motion-slow: 1ms linear;
+    --motion-pulse: 1ms linear;
+    --motion-hud-pulse: 1ms linear;
+  }
+}
+
+/* Light scheme is intentionally NOT supported (MASTER anti-pattern:
+ * "No `#FFFFFF` background anywhere"). Documented here so the next
+ * agent doesn't add it "for accessibility" — contrast against OLED
+ * black already meets WCAG AAA. */

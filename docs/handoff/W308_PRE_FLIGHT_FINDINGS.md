@@ -1,13 +1,27 @@
 # W308 — pre-flight findings (read before starting migration)
 
-> **Status.** Pre-flight notes. W308 is queued: Cursor takes over once
-> Claude's W307 verdict lands on `claude/w307-design-refresh`.
+> **Status.** Step 0 shipped. Path **C** picked (see below). Cursor
+> built the new minimal cockpit shell under `apps/cockpit/`; live
+> tokens now live in `apps/cockpit/src/styles/tokens.css` and are
+> guarded against MASTER.md drift by `tests/test_cockpit_tokens_sync.py`.
+> Step 1 (apply W307 verdict) and step 2 (replace the frozen Tauri
+> bundle) are queued.
 > **Owner of W308.** Cursor (this agent).
 > **Why this doc exists.** While Claude was running the design pass I
 > mapped where the current MASTER tokens *actually live in shipping
 > code* — and the answer is "not in a place you can edit in 5 min".
 > Surfacing this now so W308 doesn't start by assuming a clean
 > `tokens.css` exists.
+
+---
+
+## Decision log
+
+| Date | Decision | Rationale |
+|------|----------|-----------|
+| 2026-05-17 | **Path C selected** (new minimal cockpit at `apps/cockpit/`) | Path A breaks on next bundle rebuild; Path B re-litigates the W292 deletion. C gives a real source of truth that absorbs *any* W307 verdict cheaply. |
+| 2026-05-17 | Path C **staged** | Step 0 (scaffold + tokens.css mirroring current MASTER) shipped *before* the W307 verdict lands. When verdict arrives, only `tokens.css` + MASTER.md change — no shell rework. |
+| 2026-05-17 | Stack: Vite + vanilla TypeScript, no framework | MASTER contract is plain CSS variables + semantic HTML. React/Vue would add ~45KB minified for zero benefit at this stage. Step 0 bundle is 13KB raw / 5KB gzipped. |
 
 ---
 
@@ -109,18 +123,21 @@ the W307 verdict.
 
 ## Pre-flight checklist for W308
 
-Before W308 starts code work:
-
-- [ ] Read Claude's `docs/design/W307_VERDICT.md` end-to-end.
-- [ ] Operator marks each row of the token diff: approve / change / skip.
-- [ ] Operator picks Path A / B / C above (default recommendation: C).
-- [ ] If Path C: create a one-line decision note in
-      `docs/AGENT_HANDOFF.md` so future agents don't relitigate.
-- [ ] Confirm `desktop/scripts/package-cockpit.sh` still works after
-      whatever path is picked (the desktop release pipeline depends
-      on it).
-- [ ] Confirm full pytest stays green (W306 baseline: 3508 / 0 /
-      6 skipped / 2 xfailed in ~6.5 min).
+- [x] Read Claude's verdict (W307 still in flight at time of step 0;
+      revisit when it lands).
+- [x] Operator picked Path A / B / C — **Path C, staged**.
+- [x] Decision note added above and mirrored in `docs/AGENT_HANDOFF.md`.
+- [x] `desktop/scripts/package-cockpit.sh` left untouched (step 0 does
+      not replace the frozen bundle; step 2 will).
+- [x] Cockpit drift smoke test added: `tests/test_cockpit_tokens_sync.py`
+      (3 passing). Full pytest collection still resolves cleanly.
+- [ ] **Step 1 (queued):** when Claude's `docs/design/W307_VERDICT.md`
+      lands, operator marks each row approve/change/skip → Cursor
+      updates `apps/cockpit/src/styles/tokens.css` + MASTER.md in the
+      same commit; smoke test enforces sync.
+- [ ] **Step 2 (queued):** wire `apps/cockpit/` into
+      `desktop/scripts/package-cockpit.sh`; replace
+      `desktop/src-tauri/web/` once parity is verified.
 
 ---
 

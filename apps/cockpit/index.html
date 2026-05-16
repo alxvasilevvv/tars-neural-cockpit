@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="tars-oled">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="color-scheme" content="dark" />
+    <title>TARS Cockpit · Token preview</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+
+    <!--
+      Font delivery via fonts.bunny.net (Google Fonts mirror, no
+      tracking) per MASTER §4. Bunny is privacy-safer than the
+      Google CDN and is what the design contract calls for.
+    -->
+    <link rel="preconnect" href="https://fonts.bunny.net" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.bunny.net/css?family=fira-code:300,400,500,600,700|share-tech-mono:400&display=swap"
+    />
+
+    <meta name="theme-color" content="#000000" />
+    <meta
+      name="description"
+      content="TARS cockpit — local-first AI operator console. Token preview surface (W308 step 0)."
+    />
+  </head>
+  <body>
+    <main id="cockpit-root" aria-live="polite">
+      <noscript>
+        <p style="color: #f5f5f0; padding: 2rem">
+          TARS cockpit requires JavaScript to render the token preview.
+        </p>
+      </noscript>
+    </main>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>

@@ -3,7 +3,50 @@
 Pick this up if you are continuing the work in a fresh chat. Read this file
 plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 
-> **>>> SYNC: Cursor · 2026-05-17 · W307 design-system refresh handoff for Claude · W306 last two order-dependent fixes (38 → 0) · W305 py3.12 stabilization · W304 py3.12 + OPENAI env + L9 doc sync <<<**
+> **>>> SYNC: Cursor · 2026-05-17 · W308 step 0 (Path C — `apps/cockpit/` scaffold + tokens.css + drift smoke test) · W307 design-system refresh handoff for Claude · W306 last two order-dependent fixes (38 → 0) · W305 py3.12 stabilization · W304 py3.12 + OPENAI env + L9 doc sync <<<**
+>
+> **W308 step 0 (this wave)** — operator delegated the strategy call
+> ("выбери ты"). Picked **Path C, staged** from
+> `docs/handoff/W308_PRE_FLIGHT_FINDINGS.md`: build a new minimal
+> cockpit at `apps/cockpit/` so design tokens have a real source of
+> truth *now*, without waiting for Claude's W307 verdict and without
+> touching the frozen production bundle in `desktop/src-tauri/web/`.
+> When the verdict lands, only `apps/cockpit/src/styles/tokens.css`
+> + MASTER.md change — no shell rework, no taste relitigation.
+>
+> Step 0 shipped Vite + vanilla TypeScript scaffold (no framework —
+> MASTER's contract is plain CSS variables, React/Vue would add
+> ~45 KB minified for zero benefit). Final bundle: **13 KB raw /
+> 5 KB gzipped**. Pages: a single live `tokens-preview` rendering
+> every MASTER swatch + type sample + motion sample, so any token
+> diff is visually verifiable in one reload.
+>
+> Guard rail: `tests/test_cockpit_tokens_sync.py` (3 tests, all
+> green) compares 16 palette tokens, 2 typography families, and the
+> `prefers-reduced-motion` opt-out across MASTER.md ↔ tokens.css ↔
+> canonical map. Drift fails the full pytest suite — next agent
+> cannot accidentally desync.
+>
+> Production cockpit (Tauri's `desktop/src-tauri/web/` frozen bundle)
+> is **deliberately untouched**. Release pipeline risk this wave: 0.
+>
+> **Queued for W308 step 1**: when `docs/design/W307_VERDICT.md` lands
+> on `claude/w307-design-refresh`, operator marks each row of the
+> token diff approve/change/skip, Cursor updates `tokens.css` +
+> MASTER.md in the same commit; smoke test enforces sync. Likely
+> ~30 min after the verdict.
+>
+> **Queued for W308 step 2**: rewire `desktop/scripts/package-cockpit.sh`
+> to `pnpm --filter @tars/cockpit build` and replace the frozen
+> bundle with `apps/cockpit/dist/`. Gated on visual parity check
+> against current cockpit screenshots.
+>
+> Files this wave: 11 new under `apps/cockpit/`, 1 new under
+> `tests/`, 1 decision-log update under `docs/handoff/`. Commit
+> message style follows the W307 / W306 pattern.
+>
+
+> **>>> SYNC (previous): Cursor · 2026-05-17 · W307 design-system refresh handoff for Claude · W306 last two order-dependent fixes (38 → 0) · W305 py3.12 stabilization · W304 py3.12 + OPENAI env + L9 doc sync <<<**
 >
 > **W307 (this wave, hand-off only)** — operator asked "can we get a
 > professional design — with you or with Claude?". Answer: with Claude

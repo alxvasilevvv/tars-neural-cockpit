@@ -1,0 +1,21 @@
+{
+  "name": "@tars/cockpit",
+  "version": "0.1.0-step0",
+  "private": true,
+  "type": "module",
+  "description": "TARS cockpit — source of truth for design tokens and shipping shell (W308). Vite + vanilla TypeScript.",
+  "scripts": {
+    "dev": "vite --port 5174",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview --port 5174",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "typescript": "~5.6.3",
+    "vite": "~5.4.10"
+  },
+  "engines": {
+    "node": ">=20",
+    "pnpm": ">=9"
+  }
+}

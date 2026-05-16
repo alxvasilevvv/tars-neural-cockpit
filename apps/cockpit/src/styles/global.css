@@ -1,0 +1,58 @@
+/*
+ * Global cockpit baseline. Composes tokens + reset + typography and
+ * adds body-level styling. Page-specific CSS lives in src/pages/<x>.css
+ * (none yet; tokens preview is the only page in step 0).
+ */
+
+@import "./reset.css";
+@import "./tokens.css";
+@import "./typography.css";
+
+html {
+  background: var(--color-bg-0);
+  color: var(--color-ink);
+  color-scheme: dark;
+}
+
+body {
+  background: var(--color-bg-0);
+  color: var(--color-ink);
+  min-block-size: 100dvh;
+  padding-inline: var(--space-inset);
+  padding-block: var(--space-2xl);
+}
+
+#cockpit-root {
+  max-inline-size: var(--container-max);
+  margin-inline: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2xl);
+}
+
+/* Generic surface (raised card) — used by the tokens-preview page
+ * and will be the basis for the cockpit shell once W308 step 2 runs.
+ */
+.surface {
+  background: var(--color-bg-1);
+  border: var(--hairline);
+  border-radius: var(--radius-md);
+  padding: var(--space-lg);
+  box-shadow: var(--shadow-card);
+}
+
+.surface--sub {
+  background: var(--color-bg-2);
+}
+
+/* Hairline divider — MASTER §6 ("HUD lines: 1px"). */
+.hr {
+  block-size: 0;
+  border: 0;
+  border-block-start: var(--hairline);
+  margin-block: var(--space-lg);
+}
+
+.hr--hot {
+  border-block-start: var(--hairline-hot);
+}
