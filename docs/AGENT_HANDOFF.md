@@ -3,6 +3,70 @@
 Pick this up if you are continuing the work in a fresh chat. Read this file
 plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 
+> **>>> SYNC: Cursor · 2026-05-16 afternoon · W293-W296 voice unlock + persona picker + diagnostics + release wave (LATEST) <<<**
+>
+> Continuation of the cockpit work after W292. Operator's brief was
+> "make the voice super realistic like Iron Man, with ElevenLabs key if needed,
+> then apply the new design skills and orchestrate the remaining work to perfection."
+>
+> ElevenLabs was already wired (W285) but blocked by the cloud-budget gate in
+> remote-billing mode (cap=$0, free tier, `billing_unreachable` → 402 on every
+> `/api/voice/speak`). Unblocked locally with `TARS_CAP_ENFORCEMENT=off` in
+> `.env` (W293). Production stays gated — the env var only affects the
+> operator's local shell. After unblock, four ElevenLabs personas (jarvis →
+> Daniel, stark → Adam, hal9000 → Arnold, tars → George) verified at
+> `/tmp/tars-voice-demo/`.
+>
+> Then dispatched two parallel subagents:
+> - **W294** `ceaf1ec` (cursor) — 664-line additive CSS+JS layer in
+>   `desktop/src-tauri/web/index.html`: floating glass persona picker
+>   top-right (6 personas from `GET /api/voice/personas`, persisted to
+>   `localStorage`), 44px glass test-voice button next to mic pill (uses
+>   W290.6 conic-ring pulse during playback by toggling `.state-listening`),
+>   and a 2s `/api/a11y/health` poll layered over the existing 15s
+>   `_vcRefreshConnectionChip` so the conn chip flips green within ~2s of
+>   any backend restart. No IIFE edits, no body-grid changes, no W286 hum
+>   revival. Reduced-motion guard added.
+> - **W295** `ef61962` (claude) — new read-only `GET /api/voice/personas/effective`
+>   in `web_extras/routers/voice.py` that returns per-persona resolved
+>   provider + voice_id (+ install-aware mac_say fallback) without ever
+>   instantiating a synth call. Synth resolver refactored — extracted
+>   `PROVIDER_CHAIN`, `_persona_voice_id_for`, `_effective_mac_say_voice`,
+>   `resolve_effective` into shared helpers. `synthesize()` itself was
+>   deliberately NOT delegated to `resolve_effective` because the synth
+>   path also has to fall through on remote API exceptions mid-request,
+>   not just `is_available() == False`. 8/8 new tests pass. Bonus harness
+>   fix: `scripts/qa_w290_cockpit.sh` Group 9 had a hard-coded `hal_9000`
+>   (canonical is `hal9000`) and a heredoc-eats-stdin bug that silently
+>   reported 0/4 regardless of endpoint state. Now passes 4/4.
+>
+> **Final acceptance:** `bash scripts/qa_w290_cockpit.sh` → **PASS=37 FAIL=0 SKIP=1**
+> (skip is `/api/version` 404, unrelated). Browser snapshot via MCP at
+> `http://127.0.0.1:8888/index.html` confirms persona picker dropdown opens
+> with all 6 personas + character descriptions, test-voice button visible,
+> W292 cosmic background intact.
+>
+> **What works now end-to-end:**
+> - All 6 voice personas resolve to distinct ElevenLabs voices, with
+>   honest mac_say fallback per persona (4 distinct mac_say voices too).
+> - Cockpit ships with a working persona picker and a working test-voice
+>   button (no need to deep-link `/api/voice/speak`).
+> - Connection state is honest within 2s of any backend lifecycle event.
+> - All artifacts (W286 → W290 → W292 → W294) live in `desktop/src-tauri/web/index.html`
+>   as additive layers, each separated by clearly-named markers. The next agent
+>   should respect the same convention if extending the cockpit further.
+>
+> **Operator action still required:** none for v9.1.0. For production cap
+> change, see "Local voice cap override" section in `web_extras/entitlements_gate.py`
+> lines 88-101 — `TARS_CAP_ENFORCEMENT=off` should NEVER ship to a hosted env.
+>
+> Commits on `main` since W292:
+> - `ceaf1ec` cursor — W294 cockpit polish + voice persona picker + test-voice + online-state poll
+> - `ef61962` claude  — W295 effective voice persona endpoint + harness Group 9 unblock
+> - this commit (W296) — docs sync (changelog + handoff)
+
+---
+
 > **>>> SYNC: Claude · 2026-05-13 evening · Waves 129-143 (READ BEFORE AUDIT) <<<**
 >
 > While Cursor was wedged (chat UI froze mid-thread on `cursor/bootstrap-workspace`),

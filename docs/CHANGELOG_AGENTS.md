@@ -4,6 +4,211 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-16 — Cursor · W293–W296 voice unlock + persona picker + diagnostics + release wave
+
+**Summary**
+
+Three-wave orchestrated finish on top of W292 cockpit polish. Operator asked
+for "super realistic Iron-Man-style voice with ElevenLabs key if needed". Key
+was already wired in `.env` (W285), persona registry already knew about
+J.A.R.V.I.S. / Stark / HAL 9000 / GLaDOS / TARS / Operator (`backend/core/voice/personas.py`),
+and `tts_cloud_elevenlabs: true` was already reported by `/api/a11y/health`.
+The blocker was the cloud-budget gate in remote-billing mode (cap=$0, free
+tier, `billing_unreachable`), which 402'd every `/api/voice/speak` call.
+Unblocked with a local-only kill switch, then orchestrated the remaining
+gaps into three parallel waves shipped on `main` over ~45 minutes.
+
+**W293 — Local voice unlock (Cursor, foreground)**
+
+- Appended `TARS_CAP_ENFORCEMENT=off` to `.env` (in `.gitignore`, never
+  reaches commits) with an inline comment marking it as the local-dev
+  escape hatch documented in `web_extras/entitlements_gate.py` lines
+  88-101. Production keeps the gate ON by default; this only affects
+  the operator's local shell.
+- Restarted backend on PID 12006 with the new env. Verified
+  `POST /api/voice/speak {text, persona: jarvis}` returns audio/mpeg
+  128kbps 44.1kHz with header `x-tars-voice-provider: elevenlabs` and
+  `x-tars-voice-voice-id: onwK4e9ZLuTAKqWW03F9` (Daniel — British male).
+- Generated 4 persona demo samples at `/tmp/tars-voice-demo/`:
+  jarvis (Daniel), stark (Adam), hal9000 (Arnold), tars (George) —
+  4 distinct ElevenLabs voices live, 113–122 KB each.
+
+**W294 — Frontend polish + persona picker (cursor, commit `ceaf1ec`)**
+
+Single additive CSS+JS layer (664 lines) after the W292 END marker in
+`desktop/src-tauri/web/index.html`:
+
+- **W294 CSS** (lines 3282–3523) — `/* === W294 PREMIUM POLISH + PERSONA PICKER ... */`
+- **W294 JS** (lines 11631–12047) — `/* === W294 JS BLOCK ... */`
+
+Delivered:
+- Floating glass **persona picker** anchored top-right inside `.vc-topbar`
+  next to `vcChip`. Populates from `GET /api/voice/personas` (6 personas
+  live). Persisted in `localStorage['tars.voice.persona']`. Default
+  `jarvis`. Tooltip from `character` field. Heroicons inline SVG.
+  520ms boot-up fade-in. Glass + accent border, dropdown opens upward.
+- **Test-voice button** (44px glass pill) at `bottom:24px;left:calc(50%+56px)`
+  of `.vc-stage`. Hover lift -2px + shadow expand. Click →
+  `POST /api/voice/speak {text:<demo line per persona>, persona:<active>}`
+  → `new Audio(URL.createObjectURL(blob))`. While playing, toggles
+  `.state-listening` on `#voiceCockpit` to reuse the W290.6
+  `w290-mic-listen` conic-ring pulse (no IIFE touched). On 4xx/5xx/network
+  → red glass toast auto-fading in 3s.
+- **2s `/api/a11y/health` poll** layered over the existing 15s
+  `_vcRefreshConnectionChip`. Flips `#vcDot` + `#vcConnState` green/connected
+  vs red/offline within ~2s of any backend restart. Tier mirror still
+  refreshes on original cadence. Comment in JS explains the coexistence.
+- Right-rail hairline above first frame card; `prefers-reduced-motion`
+  guard zeros all new animations/transitions.
+- Mobile (≤900px) tucks test-voice button centered below mic pill.
+
+Hard constraints respected — no IIFE edits, no body-grid changes, no
+W286 hum revival, `--accent: #7C5CFF` untouched, all selectors scoped
+under `.voice-cockpit` or `.w294-*`, no new libraries, no emoji. Zero
+constraints bent.
+
+**W295 — Backend diagnostic endpoint + synth refactor (claude, commit `ef61962`)**
+
+New read-only `GET /api/voice/personas/effective` in
+`web_extras/routers/voice.py`. Returns per-persona resolved provider +
+voice_id without ever instantiating a synth call:
+
+```json
+{
+  "ok": true,
+  "count": 6,
+  "default_persona_id": "jarvis",
+  "providers_available": { "elevenlabs": true, "openai": false, "mac_say": true },
+  "personas": [
+    {
+      "id": "jarvis",
+      "name": "J.A.R.V.I.S.",
+      "effective_provider": "elevenlabs",
+      "effective_voice_id": "onwK4e9ZLuTAKqWW03F9",
+      "voice_id": "onwK4e9ZLuTAKqWW03F9",
+      "effective_mac_say_voice": "Daniel",
+      "fallback_chain": ["elevenlabs", "openai", "mac_say"],
+      "license_note": "..."
+    },
+    ...5 more
+  ]
+}
+```
+
+Synth resolver refactor in `backend/core/voice/synthesis.py`:
+- Promoted `PROVIDER_CHAIN = ("elevenlabs","openai","mac_say")` to public,
+  re-pointed `_AUTO_ORDER` at it. Single source of truth.
+- Extracted `_persona_voice_id_for(persona, provider)` — one switch over
+  the three provider voice-id fields.
+- Extracted `_effective_mac_say_voice(persona)` — install-aware resolver
+  via `MacSayEngine._pick_fallback_voice`. Returns None cleanly on
+  non-Darwin / no `say` binary.
+- New public `resolve_effective(persona, *, provider=None) -> dict`.
+- `synthesize()` deliberately NOT rewritten to delegate to
+  `resolve_effective` — it must also fall through on remote API
+  exceptions mid-request (e.g. ElevenLabs 401), not just on
+  `is_available() == False`.
+
+Bonus fix in same commit — `scripts/qa_w290_cockpit.sh` Group 9 had
+two pre-existing bugs that silently reported 0/4 regardless of endpoint
+state: (a) `wanted = {"hal_9000", …}` (canonical id is `hal9000`), and
+(b) `printf JSON | python3 - <<'PY'` (heredoc body becomes the script
+and stdin is consumed, so `json.loads(sys.stdin.read())` always saw
+empty input). Switched to env-var passing via
+`EFF_JSON="$EFF_JSON" python3 <<'PY'` + `os.environ.get("EFF_JSON")`.
+
+New tests `tests/test_voice_personas_effective.py` — **8/8 passed**,
+covering ElevenLabs path and mac_say-only path. Docs:
+`docs/VOICE.md` Diagnostics section.
+
+**W296 — Release wave (Cursor, this commit)**
+
+- This changelog entry.
+- `docs/AGENT_HANDOFF.md` — new SYNC block at top describing W293-W296.
+- Final harness + endpoint smoke (see below).
+
+**Acceptance (final)**
+
+```
+bash scripts/qa_w290_cockpit.sh
+→ ✓ 4 distinct effective voices across 4/4 male personas
+→ PASS=37 FAIL=0 SKIP=1
+→ STATUS: PASS
+```
+
+(SKIP=1 is `/api/version` 404 group, unrelated, expected with current backend.)
+
+Live endpoint smoke:
+```
+GET /api/voice/personas/effective →
+  jarvis   → elevenlabs voice_id=onwK4e9ZLuTAKqWW03F9 (Daniel)
+  stark    → elevenlabs voice_id=pNInz6obpgDQGcFmaJgB (Adam)
+  hal9000  → elevenlabs voice_id=VR6AewLTigWG4xSOukaG (Arnold)
+  glados   → elevenlabs voice_id=EXAVITQu4vr4xnSDxMaL (Sarah)
+  tars     → elevenlabs voice_id=JBFqnCBsd6RMkjVDRZzb (George)
+  operator → elevenlabs voice_id=21m00Tcm4TlvDq8ikWAM (Rachel)
+```
+
+Browser snapshot via `cursor-ide-browser` MCP at `http://127.0.0.1:8888/index.html`:
+- Persona picker `VOICE J.A.R.V.I.S. ▽` glass pill visible top-right.
+- Dropdown opens to show all 6 personas with character descriptions:
+  *Calm British butler · Charismatic American — Iron Man · Calm clinical AI
+  · Interstellar TARS · Sardonic synthetic · Neutral cockpit voice.*
+- `▶ TEST VOICE` button visible next to mic pill, glass styling matches
+  W292 language.
+- W292 cosmic background + concentric rings + 64px mic pill intact.
+- W292 grey-glass offline pill (not harsh red).
+
+`index.html` size: 513669 → **541442 bytes** (+27 KB W294, pure additive).
+
+W286 baseline intact (accent token, waveform-pulse / bubble-in / fade-in
+keyframes still present, ambient hum disabled stub). W290 + W292 layers
+intact (all markers preserved, body grid `64px 1fr 280px` preserved,
+voice IIFE `_drawWave` / `_vcInitHum` / `ttfvMaybeStart` untouched).
+
+**Orchestration notes (operator-requested parallel dispatch)**
+
+Operator's brief was "apply the new design skills, push everything to
+perfection, distribute tasks via orchestration." Dispatched in parallel:
+- **Subagent A** (Frontend Maestro) — W294 cockpit polish + persona picker.
+- **Subagent B** (Backend Plumber) — W295 effective voice endpoint + synth
+  refactor + harness fix.
+- **Subagent C** (Release Captain, in-line) — W293+W296 — env unlock,
+  voice samples, docs, final ship.
+
+Both A and B did `git pull --rebase --autostash origin main` before push.
+No conflicts (A touched HTML only, B touched Python + tests + docs/VOICE.md).
+Subagent B's push picked up A's commit cleanly via the rebase.
+
+**Files**
+
+- `.env` (gitignored, local-only) — `TARS_CAP_ENFORCEMENT=off` (W293).
+- `desktop/src-tauri/web/index.html` — W294 additive layer (664 lines).
+- `web_extras/routers/voice.py` — `GET /api/voice/personas/effective` (W295).
+- `backend/core/voice/synthesis.py` — synth resolver refactor (W295).
+- `backend/core/voice/__init__.py` — exports `resolve_effective` (W295).
+- `tests/test_voice_personas_effective.py` — 8 tests (W295).
+- `docs/VOICE.md` — new Diagnostics section (W295).
+- `scripts/qa_w290_cockpit.sh` — Group 9 heredoc + wanted fix (W295).
+- `docs/CHANGELOG_AGENTS.md` — this entry (W296).
+- `docs/AGENT_HANDOFF.md` — SYNC block (W296).
+
+**Tests**
+
+```bash
+bash scripts/qa_w290_cockpit.sh                                      # PASS=37 FAIL=0 SKIP=1
+.venv/bin/python -m pytest tests/test_voice_personas_effective.py -v # 8/8 passed in 0.78s
+curl http://127.0.0.1:8765/api/voice/personas/effective              # 6 personas, 4 male distinct
+curl -X POST http://127.0.0.1:8765/api/voice/speak \                 # audio/mpeg returns
+  -d '{"text":"Good evening, sir.","persona":"jarvis"}'
+```
+
+**Commits**
+
+- `ceaf1ec` cursor — W294 cockpit polish + persona picker + test-voice
+- `ef61962` claude — W295 effective voice endpoint + harness fix
+- (this commit) cursor — W296 docs sync + release wave
+
 ## 2026-05-16 — Cursor · W292 premium cockpit polish (over W290)
 
 **Summary**
