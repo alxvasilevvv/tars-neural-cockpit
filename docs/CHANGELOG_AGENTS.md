@@ -4,6 +4,36 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-16 — Cursor · W299 cockpit visual system + W291 probe dedupe
+
+**Summary**
+
+Operator feedback: cockpit still read as "no design" (flat center column on
+`--bg`, Inter-like stack). W299 adds Outfit + JetBrains Mono (Google Fonts),
+replaces the flat cockpit shell with layered radial/linear depth, glass
+topbar + status chip, graded stage spotlight, glass transcript bubbles with
+role-specific borders, and a heavier mic dock. Scoped to `body.cockpit-active`
+only.
+
+Also: moved `_w291ProbeBackend()` into the same one-shot block as
+`cockpitInit()` so `showCockpit()` cannot append duplicate backend-offline
+system lines; expanded the RU hint with `make backend-tars-up`.
+
+**Tauri**
+
+- CSP extended: `style-src` allows `https://fonts.googleapis.com`;
+  `font-src` allows `https://fonts.gstatic.com` so bundled WebView loads fonts.
+
+**Files**
+
+- `desktop/src-tauri/web/index.html` — font links, W299 CSS block, W291 init
+- `desktop/src-tauri/tauri.conf.json` — CSP
+
+**Acceptance**
+
+- `TARS_HARNESS_OFFLINE=1 bash scripts/qa_w290_cockpit.sh` (run at commit time).
+
+---
 ## 2026-05-16 — Cursor · W298 HUD overlay layer (Iron Man / Sci-Fi FUI chrome)
 
 **Summary**

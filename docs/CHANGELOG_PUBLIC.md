@@ -4,6 +4,37 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-16 — Cursor · W299 cockpit visual system + W291 probe dedupe
+
+**Summary**
+
+Operator feedback: cockpit still read as "no design" (flat center column on
+`--bg`, Inter-like stack). W299 adds Outfit + JetBrains Mono (Google Fonts),
+replaces the flat cockpit shell with layered radial/linear depth, glass
+topbar + status chip, graded stage spotlight, glass transcript bubbles with
+role-specific borders, and a heavier mic dock. Scoped to `body.cockpit-active`
+only.
+
+Also: moved `_w291ProbeBackend()` into the same one-shot block as
+`cockpitInit()` so `showCockpit()` cannot append duplicate backend-offline
+system lines; expanded the RU hint with `make backend-tars-up`.
+
+**Tauri**
+
+- CSP extended: `style-src` allows `https://fonts.googleapis.com`;
+  `font-src` allows `https://fonts.gstatic.com` so bundled WebView loads fonts.
+
+**Files**
+
+- `desktop/src-tauri/web/index.html` — font links, W299 CSS block, W291 init
+- `desktop/src-tauri/tauri.conf.json` — CSP
+
+**Acceptance**
+
+- `TARS_HARNESS_OFFLINE=1 bash scripts/qa_w290_cockpit.sh` (run at commit time).
+
+---
+
 ## 2026-05-16 — Cursor · W298 HUD overlay layer (Iron Man / Sci-Fi FUI chrome)
 
 **Summary**
@@ -2574,30 +2605,6 @@ operator-only paste-ins (`BRIDGE_SHARED_SECRET` on Pages prod env +
 
 `>>> SYNC: Cursor · 2026-05-04 · launch-ready (CI green, Plan B sealed, Node 24 opt-in)`
 
-## 2026-05-04 — Cursor · prod: tars.meeet.world live via Cloudflare Pages Git integration (Plan B)
-
-**Summary**
-
-Operator wired a **new** Pages project **`tars-meeet-git`** to GitHub
-(account `b746402b…`, repo `alxvasilevvv/tars-neural-cockpit`, branch `main`,
-root `experiments/neural-showcase-v3`, build `npm ci && npm run build:cf`,
-output `dist`, env `NODE_VERSION=20`, `VITE_TARS_API=https://tars.meeet.world`).
-Custom domain **`tars.meeet.world`** moved off legacy `tars-meeet` (Direct
-Upload) onto `tars-meeet-git`. Smoke `curl -sI https://tars.meeet.world/`
-→ **200**, `x-tars-contract: 1.0.0`, `x-tars-trace-id`, `x-tars-subdomain`,
-`tars_session_id` cookie on `.meeet.world`. `/install`, `/cockpit`,
-`/dl/TARS-8.4.0-arm64.dmg`, `/install.sh` → **200**. Pages Functions
-(`/api/product/downloads`) live (`contract_version 1.0.0`).
-
-**No `CLOUDFLARE_API_TOKEN`** in GitHub secrets — Plan B path is now
-production. Plan A (wrangler) remains documented as fallback.
-
-**Files**
-
-- `docs/TARS_MEEET_OPS_TODO.md` (top blurb + CURRENT STATE: Plan B is prod)
-- `docs/CHANGELOG_PUBLIC.md` (regenerated)
-- `docs/CHANGELOG_AGENTS.md` (this entry)
-
 ---
 
-_Showing the most recent 60 of 253 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 254 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._

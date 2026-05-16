@@ -4,6 +4,9 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
 <title>TARS — Control Center</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
 <style>
   :root {
     /* W270 — canonical TARS palette tokens. Brand: meeet.world. */
@@ -4156,6 +4159,108 @@
   }
   /* === END W298 HUD OVERLAY LAYER === */
 
+  /* ════════════════════════════════════════════════════════════════════
+     W299 — COCKPIT VISUAL SYSTEM (product UI, not “empty terminal”)
+     Outfit + depth + glass. The W286 center column used flat --bg; this
+     layer gives the cockpit a deliberate graded field, premium chrome,
+     and transcript bubbles that read as designed. body.cockpit-active only.
+     ════════════════════════════════════════════════════════════════════ */
+  body.cockpit-active {
+    --font-sans: "Outfit", "Segoe UI", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  }
+  body.cockpit-active .voice-cockpit.show {
+    background:
+      radial-gradient(ellipse 110% 85% at 50% -5%, rgba(124, 92, 255, 0.28) 0%, transparent 58%),
+      radial-gradient(ellipse 55% 45% at 100% 40%, rgba(34, 211, 238, 0.07) 0%, transparent 52%),
+      radial-gradient(ellipse 50% 40% at 0% 85%, rgba(167, 139, 250, 0.10) 0%, transparent 50%),
+      linear-gradient(188deg, #05050d 0%, #0b0b14 42%, #030308 100%) !important;
+  }
+  body.cockpit-active .voice-cockpit .vc-topbar {
+    background: linear-gradient(180deg, rgba(12, 12, 22, 0.96) 0%, rgba(6, 6, 14, 0.82) 100%) !important;
+    backdrop-filter: blur(22px) saturate(1.2);
+    -webkit-backdrop-filter: blur(22px) saturate(1.2);
+    border-bottom: 1px solid rgba(124, 92, 255, 0.42) !important;
+    box-shadow:
+      0 12px 40px rgba(0, 0, 0, 0.5),
+      inset 0 1px 0 rgba(255, 255, 255, 0.07);
+  }
+  body.cockpit-active .voice-cockpit .vc-chip {
+    background: rgba(8, 10, 26, 0.78) !important;
+    border: 1px solid rgba(124, 92, 255, 0.38) !important;
+    box-shadow:
+      0 0 28px rgba(124, 92, 255, 0.14),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06);
+    font-weight: 600;
+    font-size: 11px !important;
+    letter-spacing: 0.07em;
+  }
+  body.cockpit-active .voice-cockpit .vc-chip .vc-tier {
+    font-family: var(--font-mono);
+    letter-spacing: 0.12em;
+  }
+  body.cockpit-active .voice-cockpit .vc-stage {
+    background:
+      radial-gradient(ellipse 75% 55% at 50% 42%, rgba(124, 92, 255, 0.12) 0%, transparent 62%),
+      radial-gradient(ellipse 50% 40% at 50% 100%, rgba(0, 0, 0, 0.45) 0%, transparent 55%);
+  }
+  body.cockpit-active .voice-cockpit .vc-transcript .line:not(.system) {
+    border: 1px solid rgba(124, 92, 255, 0.28) !important;
+    background: linear-gradient(168deg, rgba(24, 24, 36, 0.96) 0%, rgba(10, 10, 18, 0.94) 100%) !important;
+    box-shadow:
+      0 6px 28px rgba(0, 0, 0, 0.4),
+      inset 0 1px 0 rgba(255, 255, 255, 0.07);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+  body.cockpit-active .voice-cockpit .vc-transcript .line.tars,
+  body.cockpit-active .voice-cockpit .vc-transcript .line.assistant {
+    border-color: rgba(52, 211, 153, 0.4) !important;
+    box-shadow:
+      0 0 32px rgba(52, 211, 153, 0.12),
+      0 6px 28px rgba(0, 0, 0, 0.38),
+      inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  }
+  body.cockpit-active .voice-cockpit .vc-transcript .line.user {
+    border-color: rgba(124, 92, 255, 0.5) !important;
+    background: linear-gradient(168deg, rgba(90, 60, 200, 0.35) 0%, rgba(40, 28, 90, 0.45) 100%) !important;
+  }
+  body.cockpit-active .voice-cockpit .vc-transcript .line.system {
+    font-family: var(--font-sans) !important;
+    font-style: normal !important;
+    font-weight: 500;
+    font-size: 12px !important;
+    color: #fcdfa3 !important;
+    background: rgba(245, 181, 68, 0.1) !important;
+    border: 1px solid rgba(245, 181, 68, 0.35) !important;
+    border-radius: var(--radius-md) !important;
+    padding: var(--space-3) var(--space-4) !important;
+    box-shadow: 0 4px 20px rgba(245, 181, 68, 0.08);
+  }
+  body.cockpit-active .voice-cockpit .vc-mic-wrap {
+    background: linear-gradient(182deg, rgba(20, 18, 36, 0.94) 0%, rgba(6, 6, 16, 0.96) 100%) !important;
+    border: 1px solid rgba(124, 92, 255, 0.45) !important;
+    box-shadow:
+      0 16px 56px rgba(0, 0, 0, 0.58),
+      0 0 48px rgba(124, 92, 255, 0.18),
+      inset 0 1px 0 rgba(255, 255, 255, 0.09) !important;
+  }
+  body.cockpit-active .voice-cockpit .vc-status-label {
+    font-family: var(--font-sans) !important;
+    font-weight: 600 !important;
+    letter-spacing: 0.08em !important;
+    text-transform: uppercase !important;
+    font-size: 10px !important;
+    opacity: 0.92;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    body.cockpit-active .voice-cockpit .vc-transcript .line,
+    body.cockpit-active .voice-cockpit .vc-mic-wrap {
+      transition: none !important;
+    }
+  }
+  /* === END W299 COCKPIT VISUAL SYSTEM === */
+
 </style>
 </head>
 <body>
@@ -8291,23 +8396,25 @@ function showCockpit() {
       __wrap.parentElement.appendChild(__lbl);
     }
   }
-  // Kick off the post-auth init exactly once.
+  // Kick off the post-auth init exactly once (incl. W291 backend probe — must NOT
+  // repeat on every showCockpit() or users get duplicate system lines if
+  // showCockpit fires twice e.g. skip-local + deeplink race).
   if (!window.__tarsCockpitInit) {
     window.__tarsCockpitInit = true;
     cockpitInit();
+    // W291 — Backend health probe: surface failure clearly so users see WHY
+    // mic clicks / text submits don't work, instead of silent dead-end.
+    _w291ProbeBackend();
   }
   // W230 — start the cinematic visual layers (hum disabled, others kept for compat).
   _vcBootCinematic();
-  // W291 — Backend health probe: surface failure clearly so users see WHY
-  // mic clicks / text submits don't work, instead of silent dead-end.
-  _w291ProbeBackend();
   // W269 — first-launch voice tour (skippable; runs once per device).
   try { ttfvMaybeStart(); } catch (e) { console.warn('ttfv start failed', e); }
 }
 
-// W291 — Backend health probe. Runs once on cockpit show, surfaces concrete
-// failure modes (backend down, ElevenLabs missing, /api/voice/command 404, etc.)
-// via vcAddLine('system', ...) so the user sees what's broken.
+// W291 — Backend health probe. Runs automatically once on first cockpit mount
+// (same block as cockpitInit) plus manually via Cmd/Ctrl+Shift+B. Surfaces
+// concrete failure modes via vcAddLine('system', ...).
 async function _w291ProbeBackend() {
   let backendUp = false;
   let elevenLabsOn = false;
@@ -8335,7 +8442,7 @@ async function _w291ProbeBackend() {
   }
   // Surface results
   if (!backendUp) {
-    vcAddLine('system', '⚠ Backend on 127.0.0.1:8765 не отвечает. Запусти scripts/FINAL-DEMO-READY.command');
+    vcAddLine('system', '⚠ Backend на 127.0.0.1:8765 не отвечает — без него mic/голос не работают. Запусти в корне репо: make backend-tars-up или scripts/FINAL-DEMO-READY.command');
     return;
   }
   if (!voiceCommandWired) {
