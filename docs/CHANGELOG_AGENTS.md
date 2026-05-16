@@ -4,120 +4,25 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
-## 2026-05-16 — Cursor · W299 cockpit visual system + W291 probe dedupe
+## 2026-05-17 — Cursor · W301 MASTER token bridge + gold cockpit remap
 
 **Summary**
 
-Operator feedback: cockpit still read as "no design" (flat center column on
-`--bg`, Inter-like stack). W299 adds Outfit + JetBrains Mono (Google Fonts),
-replaces the flat cockpit shell with layered radial/linear depth, glass
-topbar + status chip, graded stage spotlight, glass transcript bubbles with
-role-specific borders, and a heavier mic dock. Scoped to `body.cockpit-active`
-only.
-
-Also: moved `_w291ProbeBackend()` into the same one-shot block as
-`cockpitInit()` so `showCockpit()` cannot append duplicate backend-offline
-system lines; expanded the RU hint with `make backend-tars-up`.
-
-**Tauri**
-
-- CSP extended: `style-src` allows `https://fonts.googleapis.com`;
-  `font-src` allows `https://fonts.gstatic.com` so bundled WebView loads fonts.
+Canonical `design-system/tars/MASTER.md` OLED + gold `--color-*` tokens
+applied on `body.cockpit-active`, bridged onto W286 semantics (`--bg`,
+`--accent`, `--text-primary`, …). Legacy violet cockpit chrome
+`rgba(124,92,255,*)` remapped to gold `rgba(202,138,4,*)`; `:root`
+`--border-accent` / `--accent-soft` stay violet for the non-cockpit shell.
+W298 HUD tokens reference MASTER `--color-hud`; monolith `--vc-strip-*`
+under cockpit uses cyan + `#CA8A04`.
 
 **Files**
 
-- `desktop/src-tauri/web/index.html` — font links, W299 CSS block, W291 init
-- `desktop/src-tauri/tauri.conf.json` — CSP
-
-**Acceptance**
-
-- `TARS_HARNESS_OFFLINE=1 bash scripts/qa_w290_cockpit.sh` (run at commit time).
-
----
-## 2026-05-16 — Cursor · W298 HUD overlay layer (Iron Man / Sci-Fi FUI chrome)
-
-**Summary**
-
-Operator audit on the 19:08 screenshot called the cockpit "wireframe-demo"
-with three concrete bugs: empty void around the monolith, first-boot
-language picker rendered as plain numbered text bleeding into transcript,
-and the W294 `IDLE — TAP MIC` label truncated by the TEST VOICE button.
-W298 HUD overlay layer addresses all three with a cohesive HUD/Sci-Fi FUI
-chrome sitting on top of the existing W286→W290→W292→W294 baseline.
-
-**Design tokens (additive — purple W286 accent kept intact)**
-
-- `--hud-cyan: #00E5FF`
-- `--hud-cyan-glow: rgba(0, 229, 255, 0.45)`
-- Monospace chrome: JetBrains Mono / IBM Plex Mono / SFMono fallback
-
-**9 CSS sections + 4 JS sections (all scoped `body.cockpit-active`)**
-
-- **W298.0** — HUD design tokens
-- **W298.1** — top scrolling ticker strip (28px glass, cyan mono
-  tokens `LATENCY · MODEL · PACKS · AGENT · MEMORY · LINK`, 60s loop,
-  masked edges)
-- **W298.2** — right-edge telemetry rail (CPU/NET/MEM labels +
-  6 blinking signal dots, gated to ≥1080px viewport)
-- **W298.3** — first-boot language picker rebuilt as a 7-card glass
-  overlay (flag emoji + 2-letter ISO code + cyan corner brackets +
-  hotkey hint "CLICK A CARD · OR PRESS 1–7"); card click dispatches
-  the existing `W285.FB.handleLangPick` so no onboarding or backend
-  wiring was touched
-- **W298.4** — W294 status row reflow (kills the `IDLE — TAP M…`
-  truncation; TEST VOICE collapses to icon-only at <900px)
-- **W298.5** — bottom HUD pill bar `[ ONLINE ● ] [ PERSONA · … ]
-  [ MODEL · … ] [ LATENCY · … ]` anchored bottom-left (never
-  collides with mic pill or right-side TEST VOICE), trims pills
-  below 1080px, hides entirely below 720px; plus full-screen 3%
-  scanline overlay via `body.cockpit-active::after`
-- **W298.6** — HUD corner brackets framing the monolith ring
-  (4 L-shaped 1px cyan brackets, pulse animation)
-- **W298.7** — keyframes (`w298-ticker-scroll`, `w298-blink`,
-  `w298-pulse`)
-- **W298.8** — `prefers-reduced-motion: reduce` kill switch
-  disabling every W298 animation
-- **W298.JS.1** — language picker mount + click/keyboard handlers
-  + dispatch into `W285.FB.handleLangPick`
-- **W298.JS.2** — telemetry rail dot blink stagger
-- **W298.JS.3** — persona mirror + ticker live-text updater
-- **W298.JS.4** — `w298Mount()` with retry-until-cockpit-ready,
-  DOM-ready boot, `window.W298` debug surface
-
-**Acceptance**
-
-- `TARS_HARNESS_OFFLINE=1 bash scripts/qa_w290_cockpit.sh` →
-  **33 pass / 0 fail / 5 skip** (same skips as pre-W298).
-- Visual via cursor-ide-browser MCP at
-  `http://127.0.0.1:8888/index.html` confirmed:
-  - `/tmp/w298-cockpit.png` — ticker animating, corner brackets
-    visible, IDLE label full, TEST VOICE collapsed to round play
-  - `/tmp/w298-cockpit-langpicker.png` — 7-card grid with flags,
-    ISO codes, corner brackets, 1–7 hotkey hint
-- Diff: +918 / −0 lines (additive-only constraint met; over the
-  400-700 suggested ceiling because the language picker is denser
-  than estimated).
-
-**Files**
-
-- `desktop/src-tauri/web/index.html` (+918 / −0)
+- `desktop/src-tauri/web/index.html`
 
 **Commit**
 
-- `fe4c211` feat(desktop): W298 HUD overlay layer (Iron Man / Sci-Fi FUI chrome)
-
-**Open notes**
-
-- Telemetry rail + bottom HUD bar render only at ≥1080px viewport,
-  so they appear in TARS.app (native, full-screen) but not in the
-  narrow Cursor browser MCP screenshot.
-- Pre-existing SyntaxError @ `index.html:11548` (multi-line
-  `prompt()` literal) is unrelated to W298 — worth a separate fix.
-- TARS.app rebuild kicked off after commit so the operator sees
-  W298 in the native window; log at
-  `/tmp/tars-desktop-build-w298.log`.
-
----
+- `683dbd0` W301 — MASTER cockpit token bridge + gold chrome remap
 
 ## 2026-05-16 — Cursor · W298 voice extreme tuning (free-tier cinematic)
 

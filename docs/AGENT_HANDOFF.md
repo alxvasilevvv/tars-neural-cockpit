@@ -3,7 +3,7 @@
 Pick this up if you are continuing the work in a fresh chat. Read this file
 plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 
-> **>>> SYNC: Cursor · 2026-05-16 late · W299 visual system + W298 HUD shipped + voice (LATEST) <<<**
+> **>>> SYNC: Cursor · 2026-05-17 · W301 MASTER cockpit tokens + gold remap (+ W299/W298 baseline) <<<**
 >
 > Continuation after operator listened to W294/W295 voices and reviewed the
 > cockpit visually. Verdict: **voice still felt "TTS narrator", design "everything is broken"**.
@@ -45,13 +45,15 @@ plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 > ``body.cockpit-active``, reduced-motion safe.
 >
 > **W299 cockpit visual system (`bca25af`)** — addresses "нет дизайна":
-> Outfit + JetBrains Mono (Google Fonts ``<link>``); center column layered
-> depth (no flat `--bg` read); glass topbar + chip; graded stage spotlight;
-> glass transcript bubbles (user / TARS / system); heavier mic dock. Tauri
-> CSP extended for ``fonts.googleapis.com`` + ``fonts.gstatic.com``.
-> **W291 UX:** ``_w291ProbeBackend()`` moved into same one-shot init as
-> ``cockpitInit()`` so duplicate backend-offline transcript lines cannot
-> appear; clearer RU hint references ``make backend-tars-up``.
+> Share Tech Mono + Fira Code (Google Fonts; later tightened in follow-up CSS);
+> center column layered depth; glass topbar + chip; transcript bubbles +
+> mic dock. CSP for Google Fonts in Tauri. **W291 UX:** probe deduped into
+> ``cockpitInit()``.
+>
+> **W301 (this wave)** — canonical ``MASTER.md`` ``--color-*`` tokens +
+> bridge to W286 names on ``body.cockpit-active``; violet ``rgba(124,92,255)``
+> cockpit chrome remapped to gold per design system; W298 HUD cyan aligned to
+> ``--color-hud``; monolith stage uses cyan + ``#CA8A04``.
 >
 > **Test suite** — ``./.venv/bin/python -m pytest tests/ -x`` after W298:
 > **571 passed, 1 failed, 2 skipped**. The lone failure
@@ -81,6 +83,7 @@ plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 > - ``fe4c211`` cursor — feat(desktop): W298 HUD overlay layer
 > - ``908c8df`` cursor — docs: W298 HUD overlay changelog entry
 > - ``bca25af`` cursor — feat(desktop): W299 cockpit visual system + font CSP + W291 probe dedupe
+> - ``683dbd0`` cursor — feat(desktop): W301 MASTER token bridge + gold cockpit remap
 
 ---
 

@@ -6,7 +6,7 @@
 <title>TARS — Control Center</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Share+Tech+Mono&display=swap" rel="stylesheet" />
 <style>
   :root {
     /* W270 — canonical TARS palette tokens. Brand: meeet.world. */
@@ -2207,7 +2207,7 @@
 
     /* Type */
     --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+    --font-mono: "Fira Code", ui-monospace, "SF Mono", Menlo, monospace;
   }
 
   /* ---------- 1. Kill all legacy decorative cruft ---------- */
@@ -2256,6 +2256,54 @@
     display: grid;
     grid-template-columns: 64px 1fr 280px;
     grid-template-rows: 100vh;
+    /*
+     * W301 — design-system/tars/MASTER.md tokens at runtime (+ bridge → W286
+     * semantic vars). Ensures cockpit grid, rails, persona rail, HUD, voice
+     * surfaces share one OLED + gold + cyan-HUD vocabulary.
+     */
+    --color-bg-0:       #000000;
+    --color-bg-1:       #0B0B10;
+    --color-bg-2:       #14141B;
+    --color-ink:        #F5F5F0;
+    --color-ink-2:      #A09E96;
+    --color-ink-3:      #5C5A52;
+    --color-line:       rgba(245, 245, 240, 0.06);
+    --color-line-strong: rgba(245, 245, 240, 0.12);
+    --color-line-hot:    rgba(202, 138, 4, 0.32);
+    --color-accent:      #CA8A04;
+    --color-accent-soft: rgba(202, 138, 4, 0.55);
+    --color-accent-deep: rgba(202, 138, 4, 0.12);
+    --color-accent-ambient: rgba(202, 138, 4, 0.18);
+    --color-hud:         #00FFFF;
+    --color-hud-soft:    rgba(0, 255, 255, 0.32);
+    --color-alert:       #EF4444;
+    --color-success:     #34D399;
+
+    --bg:                 var(--color-bg-0);
+    --bg-elevated:        var(--color-bg-1);
+    --surface:            var(--color-bg-1);
+    --surface-elevated:   var(--color-bg-2);
+    --modal-glass:        rgba(20, 20, 24, 0.82);
+    --border-subtle:      var(--color-line);
+    --border-strong:      var(--color-line-strong);
+    --border-accent:      var(--color-line-hot);
+    --text-primary:       var(--color-ink);
+    --text-secondary:     var(--color-ink-2);
+    --text-muted:         var(--color-ink-3);
+    --accent:             var(--color-accent);
+    --accent-strong:      #b45309;
+    --accent-soft:        var(--color-accent-deep);
+    --success:            var(--color-success);
+    --warn:               #eab308;
+    --error:              var(--color-alert);
+
+    /* MASTER §4 + pages/cockpit.md (voice cockpit) */
+    --font-display:       "Share Tech Mono", ui-monospace, monospace;
+    --font-sans:          "Fira Code", ui-monospace, "Segoe UI", system-ui, sans-serif;
+    --font-mono:          "Fira Code", ui-monospace, "SF Mono", Menlo, monospace;
+
+    background:           var(--color-bg-0);
+    color:                var(--color-ink);
   }
   @media (max-width: 900px) {
     body.cockpit-active { grid-template-columns: 56px 1fr; }
@@ -2358,7 +2406,7 @@
   }
   .vc-frame:hover { border-color: var(--border-strong); }
   .vc-frame .vc-frame-head { display: flex; align-items: center; gap: var(--space-2); margin-bottom: var(--space-1); }
-  .vc-frame .vc-frame-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 3px rgba(124,92,255,0.18); }
+  .vc-frame .vc-frame-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 0 3px rgba(202,138,4,0.18); }
   .vc-frame .vc-frame-title { color: var(--text-primary); font-weight: 500; flex: 1; }
   .vc-frame .vc-frame-time  { color: var(--text-muted); font-family: var(--font-mono); font-size: 10px; }
   .vc-frame .vc-frame-body  { color: var(--text-secondary); line-height: 1.5; }
@@ -2414,7 +2462,7 @@
   .voice-cockpit .vc-chip .vc-reload:hover { color: var(--text-primary); }
   /* 5-state chip colors */
   .voice-cockpit.state-idle      .vc-dot { background: var(--text-muted); }
-  .voice-cockpit.state-listening .vc-dot { background: var(--accent);  box-shadow: 0 0 0 3px rgba(124,92,255,0.18); }
+  .voice-cockpit.state-listening .vc-dot { background: var(--accent);  box-shadow: 0 0 0 3px rgba(202,138,4,0.18); }
   .voice-cockpit.state-speaking  .vc-dot { background: var(--success); box-shadow: 0 0 0 3px rgba(52,211,153,0.18); }
   .voice-cockpit.state-thinking  .vc-dot { background: var(--warn);    animation: waveform-pulse 1.4s ease-in-out infinite; }
   .voice-cockpit.state-error     .vc-dot { background: var(--error); }
@@ -2434,8 +2482,8 @@
     display: grid; place-items: center;
     border-radius: 50%;
     background: radial-gradient(circle at center,
-      rgba(124,92,255,0.10) 0%,
-      rgba(124,92,255,0.04) 35%,
+      rgba(202,138,4,0.10) 0%,
+      rgba(202,138,4,0.04) 35%,
       transparent 70%);
     animation: waveform-pulse 3.5s ease-in-out infinite;
   }
@@ -2446,7 +2494,7 @@
   .voice-cockpit #vcWaveCanvas {
     width: 320px; height: 320px;
     display: block;
-    filter: drop-shadow(0 0 20px rgba(124,92,255,0.18));
+    filter: drop-shadow(0 0 20px rgba(202,138,4,0.18));
   }
   .voice-cockpit .vc-status-label {
     font-size: 14px; color: var(--text-secondary);
@@ -2547,7 +2595,7 @@
   }
   .voice-cockpit .vc-mic-wrap:focus-within {
     border-color: var(--border-accent);
-    box-shadow: 0 0 0 3px rgba(124,92,255,0.12);
+    box-shadow: 0 0 0 3px rgba(202,138,4,0.12);
   }
   .voice-cockpit .vc-mic {
     width: 40px; height: 40px; flex: 0 0 40px;
@@ -2566,9 +2614,9 @@
     -webkit-mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z'/><path d='M19 10v2a7 7 0 0 1-14 0v-2'/><line x1='12' y1='19' x2='12' y2='23'/><line x1='8' y1='23' x2='16' y2='23'/></svg>") center/contain no-repeat;
             mask: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><path d='M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z'/><path d='M19 10v2a7 7 0 0 1-14 0v-2'/><line x1='12' y1='19' x2='12' y2='23'/><line x1='8' y1='23' x2='16' y2='23'/></svg>") center/contain no-repeat;
   }
-  .voice-cockpit .vc-mic:hover { transform: scale(1.05); box-shadow: 0 4px 16px rgba(124,92,255,0.40); }
+  .voice-cockpit .vc-mic:hover { transform: scale(1.05); box-shadow: 0 4px 16px rgba(202,138,4,0.40); }
   .voice-cockpit.state-listening .vc-mic {
-    box-shadow: 0 0 0 4px rgba(124,92,255,0.22), 0 4px 16px rgba(124,92,255,0.40);
+    box-shadow: 0 0 0 4px rgba(202,138,4,0.22), 0 4px 16px rgba(202,138,4,0.40);
   }
   .voice-cockpit .vc-mic-hint { display: none; }
   .voice-cockpit .vc-text-fallback {
@@ -2631,7 +2679,7 @@
     color: white; border-radius: var(--radius-md);
     display: grid; place-items: center;
     font-family: var(--font-mono); font-size: 22px; font-weight: 700;
-    box-shadow: 0 12px 32px rgba(124,92,255,0.32);
+    box-shadow: 0 12px 32px rgba(202,138,4,0.32);
   }
   #fbSplash .fb-title { font-size: 22px; font-weight: 600; color: var(--text-primary); margin: 0 0 var(--space-2); letter-spacing: -0.01em; }
   #fbSplash .fb-sub   { font-size: 13px; color: var(--text-secondary); line-height: 1.55; margin: 0 0 var(--space-5); }
@@ -2701,10 +2749,10 @@
       linear-gradient(180deg, rgba(20,20,28,0.72) 0%, rgba(12,12,18,0.88) 100%) !important;
     backdrop-filter: blur(18px) saturate(140%);
     -webkit-backdrop-filter: blur(18px) saturate(140%);
-    border-right: 1px solid rgba(124,92,255,0.10);
+    border-right: 1px solid rgba(202,138,4,0.10);
     box-shadow:
       inset -1px 0 0 rgba(255,255,255,0.04),
-      inset 1px 0 0 rgba(124,92,255,0.06);
+      inset 1px 0 0 rgba(202,138,4,0.06);
   }
   #vcSider .vc-mode {
     position: relative;
@@ -2729,11 +2777,11 @@
   #vcSider .vc-mode:hover::before,
   #vcSider .vc-mode.active::before { opacity: 1; transform: scaleY(1); }
   #vcSider .vc-mode.active {
-    background: linear-gradient(90deg, rgba(124,92,255,0.16) 0%, rgba(124,92,255,0.04) 100%);
+    background: linear-gradient(90deg, rgba(202,138,4,0.16) 0%, rgba(202,138,4,0.04) 100%);
   }
   #vcSider .vc-sider-foot {
     color: rgba(200,196,228,0.55);
-    text-shadow: 0 0 12px rgba(124,92,255,0.20);
+    text-shadow: 0 0 12px rgba(202,138,4,0.20);
   }
 
   /* ---------- W290.2 — Topbar (thin glass strip with hairline accent) ---------- */
@@ -2744,7 +2792,7 @@
     -webkit-backdrop-filter: blur(20px) saturate(160%);
     border-bottom: 1px solid rgba(255,255,255,0.04);
     box-shadow:
-      inset 0 -1px 0 rgba(124,92,255,0.08),
+      inset 0 -1px 0 rgba(202,138,4,0.08),
       0 1px 12px rgba(0,0,0,0.45);
   }
   .voice-cockpit .vc-topbar > * { position: relative; z-index: 2; }
@@ -2755,7 +2803,7 @@
     height: 1px;
     background: linear-gradient(90deg,
       transparent 0%,
-      rgba(124,92,255,0.35) 50%,
+      rgba(202,138,4,0.35) 50%,
       transparent 100%);
     pointer-events: none;
     z-index: 1;
@@ -2767,25 +2815,25 @@
       linear-gradient(180deg, rgba(18,18,26,0.72) 0%, rgba(12,12,18,0.86) 100%) !important;
     backdrop-filter: blur(18px) saturate(140%);
     -webkit-backdrop-filter: blur(18px) saturate(140%);
-    border-left: 1px solid rgba(124,92,255,0.10);
+    border-left: 1px solid rgba(202,138,4,0.10);
     box-shadow:
       inset 1px 0 0 rgba(255,255,255,0.04),
-      inset -1px 0 0 rgba(124,92,255,0.06);
+      inset -1px 0 0 rgba(202,138,4,0.06);
   }
   #vcRail .vc-rail-head {
     border-bottom: 1px solid rgba(255,255,255,0.04);
     background:
-      linear-gradient(180deg, rgba(124,92,255,0.06) 0%, transparent 100%);
+      linear-gradient(180deg, rgba(202,138,4,0.06) 0%, transparent 100%);
   }
   #vcRail .vc-rail-title {
-    text-shadow: 0 0 14px rgba(124,92,255,0.30);
+    text-shadow: 0 0 14px rgba(202,138,4,0.30);
     letter-spacing: 0.06em;
   }
   #vcRail .vc-rail-count {
-    background: rgba(124,92,255,0.16);
+    background: rgba(202,138,4,0.16);
     color: var(--accent);
-    border: 1px solid rgba(124,92,255,0.28);
-    box-shadow: 0 0 12px rgba(124,92,255,0.20);
+    border: 1px solid rgba(202,138,4,0.28);
+    box-shadow: 0 0 12px rgba(202,138,4,0.20);
   }
   #vcRail .vc-frame {
     background:
@@ -2821,9 +2869,9 @@
     border-radius: 50%;
     background:
       radial-gradient(circle at 50% 50%,
-        rgba(124,92,255,0.22) 0%,
-        rgba(124,92,255,0.08) 30%,
-        rgba(124,92,255,0.00) 70%);
+        rgba(202,138,4,0.22) 0%,
+        rgba(202,138,4,0.08) 30%,
+        rgba(202,138,4,0.00) 70%);
     filter: blur(6px);
     z-index: 0;
     pointer-events: none;
@@ -2836,14 +2884,14 @@
     border-radius: 50%;
     background-image:
       /* outer concentric ring */
-      radial-gradient(circle at 50% 50%, transparent 48%, rgba(124,92,255,0.18) 49%, transparent 50%),
+      radial-gradient(circle at 50% 50%, transparent 48%, rgba(202,138,4,0.18) 49%, transparent 50%),
       /* mid concentric ring */
-      radial-gradient(circle at 50% 50%, transparent 38%, rgba(124,92,255,0.12) 39%, transparent 40%),
+      radial-gradient(circle at 50% 50%, transparent 38%, rgba(202,138,4,0.12) 39%, transparent 40%),
       /* inner concentric ring */
-      radial-gradient(circle at 50% 50%, transparent 28%, rgba(124,92,255,0.10) 29%, transparent 30%),
+      radial-gradient(circle at 50% 50%, transparent 28%, rgba(202,138,4,0.10) 29%, transparent 30%),
       /* faint hex-grid tile background */
-      linear-gradient(0deg,    rgba(124,92,255,0.04) 1px, transparent 1px),
-      linear-gradient(90deg,   rgba(124,92,255,0.04) 1px, transparent 1px);
+      linear-gradient(0deg,    rgba(202,138,4,0.04) 1px, transparent 1px),
+      linear-gradient(90deg,   rgba(202,138,4,0.04) 1px, transparent 1px);
     background-size: 100% 100%, 100% 100%, 100% 100%, 24px 24px, 24px 24px;
     background-position: center;
     z-index: 1;
@@ -2856,14 +2904,14 @@
   .voice-cockpit .monolith-wrap > * { position: relative; z-index: 2; }
   .voice-cockpit #vcWaveCanvas {
     filter:
-      drop-shadow(0 0 18px rgba(124,92,255,0.35))
-      drop-shadow(0 0 48px rgba(124,92,255,0.18)) !important;
+      drop-shadow(0 0 18px rgba(202,138,4,0.35))
+      drop-shadow(0 0 48px rgba(202,138,4,0.18)) !important;
     transition: filter 360ms ease;
   }
   .voice-cockpit.state-listening #vcWaveCanvas {
     filter:
-      drop-shadow(0 0 22px rgba(124,92,255,0.55))
-      drop-shadow(0 0 64px rgba(124,92,255,0.28)) !important;
+      drop-shadow(0 0 22px rgba(202,138,4,0.55))
+      drop-shadow(0 0 64px rgba(202,138,4,0.28)) !important;
   }
   .voice-cockpit.state-speaking #vcWaveCanvas {
     filter:
@@ -2880,8 +2928,8 @@
   .voice-cockpit .vc-status-label {
     transition: color 240ms ease, text-shadow 240ms ease;
   }
-  .voice-cockpit.state-idle      .vc-status-label { text-shadow: 0 0 12px rgba(124,92,255,0.18); }
-  .voice-cockpit.state-listening .vc-status-label { text-shadow: 0 0 14px rgba(124,92,255,0.55); }
+  .voice-cockpit.state-idle      .vc-status-label { text-shadow: 0 0 12px rgba(202,138,4,0.18); }
+  .voice-cockpit.state-listening .vc-status-label { text-shadow: 0 0 14px rgba(202,138,4,0.55); }
   .voice-cockpit.state-speaking  .vc-status-label { text-shadow: 0 0 14px rgba(52,211,153,0.55); }
   .voice-cockpit.state-thinking  .vc-status-label { text-shadow: 0 0 14px rgba(251,191,36,0.55); }
   .voice-cockpit.state-error     .vc-status-label { text-shadow: 0 0 14px rgba(248,113,113,0.55); }
@@ -2897,19 +2945,19 @@
       inset 0 1px 0 rgba(255,255,255,0.06),
       inset 0 -1px 0 rgba(0,0,0,0.40),
       0 16px 48px rgba(0,0,0,0.50),
-      0 0 0 1px rgba(124,92,255,0.0) !important;
+      0 0 0 1px rgba(202,138,4,0.0) !important;
     transition:
       box-shadow 220ms cubic-bezier(.22,.61,.36,1),
       border-color 220ms ease;
     position: relative;
   }
   .voice-cockpit .vc-mic-wrap:focus-within {
-    border-color: rgba(124,92,255,0.30) !important;
+    border-color: rgba(202,138,4,0.30) !important;
     box-shadow:
       inset 0 1px 0 rgba(255,255,255,0.08),
       inset 0 -1px 0 rgba(0,0,0,0.40),
       0 16px 48px rgba(0,0,0,0.55),
-      0 0 0 4px rgba(124,92,255,0.10) !important;
+      0 0 0 4px rgba(202,138,4,0.10) !important;
   }
   .voice-cockpit .vc-mic-wrap::before {
     content: "";
@@ -2919,10 +2967,10 @@
     padding: 2px;
     background: conic-gradient(
       from 0deg,
-      rgba(124,92,255,0.0) 0deg,
-      rgba(124,92,255,0.55) 60deg,
-      rgba(124,92,255,0.0) 120deg,
-      rgba(124,92,255,0.0) 360deg);
+      rgba(202,138,4,0.0) 0deg,
+      rgba(202,138,4,0.55) 60deg,
+      rgba(202,138,4,0.0) 120deg,
+      rgba(202,138,4,0.0) 360deg);
     -webkit-mask:
       linear-gradient(#000 0 0) content-box,
       linear-gradient(#000 0 0);
@@ -2950,13 +2998,13 @@
   .voice-cockpit .vc-transcript .line.user {
     box-shadow:
       inset 0 1px 0 rgba(255,255,255,0.06),
-      0 4px 14px rgba(124,92,255,0.18);
+      0 4px 14px rgba(202,138,4,0.18);
   }
 
   /* ---------- W290.8 — First-boot splash (glass-rim + conic logo) ---------- */
   #fbSplash {
     background:
-      radial-gradient(circle at 50% 0%, rgba(124,92,255,0.15) 0%, transparent 50%),
+      radial-gradient(circle at 50% 0%, rgba(202,138,4,0.15) 0%, transparent 50%),
       rgba(8,8,12,0.78) !important;
     backdrop-filter: blur(28px) saturate(140%);
     -webkit-backdrop-filter: blur(28px) saturate(140%);
@@ -2968,7 +3016,7 @@
     box-shadow:
       inset 0 1px 0 rgba(255,255,255,0.06),
       0 24px 80px rgba(0,0,0,0.65),
-      0 0 0 1px rgba(124,92,255,0.10) !important;
+      0 0 0 1px rgba(202,138,4,0.10) !important;
     position: relative;
   }
   #fbSplash .fb-card::before {
@@ -2978,11 +3026,11 @@
     border-radius: inherit;
     background: conic-gradient(
       from 90deg,
-      rgba(124,92,255,0.0),
-      rgba(124,92,255,0.30) 25%,
-      rgba(124,92,255,0.0) 50%,
-      rgba(124,92,255,0.30) 75%,
-      rgba(124,92,255,0.0) 100%);
+      rgba(202,138,4,0.0),
+      rgba(202,138,4,0.30) 25%,
+      rgba(202,138,4,0.0) 50%,
+      rgba(202,138,4,0.30) 75%,
+      rgba(202,138,4,0.0) 100%);
     -webkit-mask:
       linear-gradient(#000 0 0) content-box,
       linear-gradient(#000 0 0);
@@ -3035,14 +3083,14 @@
   body.cockpit-active {
     background:
       radial-gradient(ellipse 1400px 900px at 50% 35%,
-        rgba(124,92,255,0.10) 0%,
-        rgba(124,92,255,0.04) 35%,
+        rgba(202,138,4,0.10) 0%,
+        rgba(202,138,4,0.04) 35%,
         rgba(10,10,20,0.00) 70%),
       radial-gradient(circle 600px at 12% 85%,
-        rgba(124,92,255,0.06) 0%,
+        rgba(202,138,4,0.06) 0%,
         rgba(0,0,0,0) 60%),
       radial-gradient(circle 500px at 88% 18%,
-        rgba(82,52,255,0.05) 0%,
+        rgba(202,138,4,0.05) 0%,
         rgba(0,0,0,0) 60%),
       linear-gradient(180deg, #07070d 0%, #050509 100%) !important;
     background-attachment: fixed !important;
@@ -3074,10 +3122,10 @@
     inset: -16% !important;
     background:
       radial-gradient(circle at 50% 50%,
-        rgba(124,92,255,0.30) 0%,
-        rgba(124,92,255,0.10) 25%,
-        rgba(124,92,255,0.04) 50%,
-        rgba(124,92,255,0.00) 75%) !important;
+        rgba(202,138,4,0.30) 0%,
+        rgba(202,138,4,0.10) 25%,
+        rgba(202,138,4,0.04) 50%,
+        rgba(202,138,4,0.00) 75%) !important;
     filter: blur(8px) !important;
   }
 
@@ -3088,7 +3136,7 @@
       rgba(14,14,22,0.85) 100%) !important;
     backdrop-filter: blur(20px) saturate(160%);
     -webkit-backdrop-filter: blur(20px) saturate(160%);
-    border-right: 1px solid rgba(124,92,255,0.10) !important;
+    border-right: 1px solid rgba(202,138,4,0.10) !important;
     box-shadow:
       inset -1px 0 0 rgba(255,255,255,0.03),
       4px 0 24px rgba(0,0,0,0.4) !important;
@@ -3107,22 +3155,22 @@
     color: rgba(220, 220, 240, 0.7) !important;
   }
   #vcSider .vc-mode:hover {
-    background: rgba(124,92,255,0.12) !important;
-    border-color: rgba(124,92,255,0.30) !important;
+    background: rgba(202,138,4,0.12) !important;
+    border-color: rgba(202,138,4,0.30) !important;
     color: #fff !important;
     transform: translateX(2px) scale(1.04);
     box-shadow:
-      0 0 16px rgba(124,92,255,0.35),
-      inset 0 0 12px rgba(124,92,255,0.08);
+      0 0 16px rgba(202,138,4,0.35),
+      inset 0 0 12px rgba(202,138,4,0.08);
   }
   #vcSider .vc-mode.is-active,
   #vcSider .vc-mode[aria-current="page"] {
-    background: linear-gradient(135deg, rgba(124,92,255,0.20), rgba(82,52,255,0.10)) !important;
-    border-color: rgba(124,92,255,0.45) !important;
+    background: linear-gradient(135deg, rgba(202,138,4,0.20), rgba(202,138,4,0.08)) !important;
+    border-color: rgba(202,138,4,0.45) !important;
     color: #fff !important;
     box-shadow:
-      0 0 20px rgba(124,92,255,0.40),
-      inset 0 0 12px rgba(124,92,255,0.12);
+      0 0 20px rgba(202,138,4,0.40),
+      inset 0 0 12px rgba(202,138,4,0.12);
   }
 
   /* ---------- W292.4 — Mic pill enlarged + breathing glow ---------- */
@@ -3130,18 +3178,18 @@
     padding: 14px 22px !important;
     min-height: 64px !important;
     border-radius: 32px !important;
-    border-color: rgba(124,92,255,0.18) !important;
+    border-color: rgba(202,138,4,0.18) !important;
     box-shadow:
       0 8px 32px rgba(0,0,0,0.50),
-      0 0 24px rgba(124,92,255,0.18),
+      0 0 24px rgba(202,138,4,0.18),
       inset 0 1px 0 rgba(255,255,255,0.06) !important;
     transition: all 280ms cubic-bezier(0.16, 1, 0.3, 1) !important;
   }
   .voice-cockpit .vc-mic-wrap:hover {
-    border-color: rgba(124,92,255,0.45) !important;
+    border-color: rgba(202,138,4,0.45) !important;
     box-shadow:
       0 12px 40px rgba(0,0,0,0.55),
-      0 0 36px rgba(124,92,255,0.32),
+      0 0 36px rgba(202,138,4,0.32),
       inset 0 1px 0 rgba(255,255,255,0.08) !important;
     transform: translateY(-1px);
   }
@@ -3154,8 +3202,8 @@
     background: linear-gradient(135deg, #8B6BFF 0%, #6B4BFF 100%) !important;
     border: none !important;
     box-shadow:
-      0 4px 14px rgba(124,92,255,0.40),
-      0 0 20px rgba(124,92,255,0.30),
+      0 4px 14px rgba(202,138,4,0.40),
+      0 0 20px rgba(202,138,4,0.30),
       inset 0 1px 0 rgba(255,255,255,0.25) !important;
     animation: w292-mic-breathe 3.6s ease-in-out infinite !important;
   }
@@ -3166,11 +3214,11 @@
        cosmic ambient bg + add an outer glass ring as the depth anchor. */
     background-image:
       radial-gradient(circle at 50% 50%, transparent 49.5%, rgba(255,255,255,0.06) 50%, transparent 50.5%),
-      radial-gradient(circle at 50% 50%, transparent 48%, rgba(124,92,255,0.28) 49%, transparent 50%),
-      radial-gradient(circle at 50% 50%, transparent 38%, rgba(124,92,255,0.16) 39%, transparent 40%),
-      radial-gradient(circle at 50% 50%, transparent 28%, rgba(124,92,255,0.12) 29%, transparent 30%),
-      linear-gradient(0deg,  rgba(124,92,255,0.05) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(124,92,255,0.05) 1px, transparent 1px) !important;
+      radial-gradient(circle at 50% 50%, transparent 48%, rgba(202,138,4,0.28) 49%, transparent 50%),
+      radial-gradient(circle at 50% 50%, transparent 38%, rgba(202,138,4,0.16) 39%, transparent 40%),
+      radial-gradient(circle at 50% 50%, transparent 28%, rgba(202,138,4,0.12) 29%, transparent 30%),
+      linear-gradient(0deg,  rgba(202,138,4,0.05) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(202,138,4,0.05) 1px, transparent 1px) !important;
   }
 
   /* ---------- W292.6 — Typography hierarchy (heading reveal + tracking) ---------- */
@@ -3196,7 +3244,7 @@
       rgba(12,12,20,0.85) 100%) !important;
     backdrop-filter: blur(20px) saturate(160%);
     -webkit-backdrop-filter: blur(20px) saturate(160%);
-    border-left: 1px solid rgba(124,92,255,0.10) !important;
+    border-left: 1px solid rgba(202,138,4,0.10) !important;
     box-shadow:
       inset 1px 0 0 rgba(255,255,255,0.03),
       -4px 0 24px rgba(0,0,0,0.4) !important;
@@ -3208,8 +3256,8 @@
     backdrop-filter: blur(8px);
   }
   #vcRail .vc-frame:hover {
-    background: rgba(124,92,255,0.04) !important;
-    border-color: rgba(124,92,255,0.18) !important;
+    background: rgba(202,138,4,0.04) !important;
+    border-color: rgba(202,138,4,0.18) !important;
   }
 
   /* ---------- W292.8 — Transcript bubbles (premium glass + max-width) ---------- */
@@ -3219,7 +3267,7 @@
     max-width: 720px !important;
     padding: 14px 20px !important;
     border-radius: 16px !important;
-    border: 1px solid rgba(124,92,255,0.15) !important;
+    border: 1px solid rgba(202,138,4,0.15) !important;
     background: linear-gradient(180deg, rgba(28,28,42,0.62), rgba(18,18,28,0.62)) !important;
     backdrop-filter: blur(12px);
     -webkit-backdrop-filter: blur(12px);
@@ -3264,12 +3312,12 @@
   }
   @keyframes w292-mic-breathe {
     0%, 100% { box-shadow:
-                 0 4px 14px rgba(124,92,255,0.40),
-                 0 0 20px  rgba(124,92,255,0.30),
+                 0 4px 14px rgba(202,138,4,0.40),
+                 0 0 20px  rgba(202,138,4,0.30),
                  inset 0 1px 0 rgba(255,255,255,0.25); }
     50%      { box-shadow:
-                 0 4px 18px rgba(124,92,255,0.50),
-                 0 0 32px  rgba(124,92,255,0.45),
+                 0 4px 18px rgba(202,138,4,0.50),
+                 0 0 32px  rgba(202,138,4,0.45),
                  inset 0 1px 0 rgba(255,255,255,0.28); }
   }
   @media (prefers-reduced-motion: reduce) {
@@ -3306,7 +3354,7 @@
     padding: 0 12px;
     border-radius: 999px;
     background: linear-gradient(180deg, rgba(28,26,42,0.72) 0%, rgba(18,18,26,0.62) 100%);
-    border: 1px solid rgba(124,92,255,0.22);
+    border: 1px solid rgba(202,138,4,0.22);
     color: #e9eaf2;
     font: 500 11px/1 system-ui, -apple-system, "SF Pro Text", sans-serif;
     letter-spacing: 0.04em;
@@ -3317,17 +3365,17 @@
     transition: transform 200ms cubic-bezier(.22,.61,.36,1), box-shadow 200ms ease, border-color 200ms ease, background 200ms ease;
   }
   .voice-cockpit .w294-persona-btn:hover {
-    border-color: rgba(124,92,255,0.42);
+    border-color: rgba(202,138,4,0.42);
     background: linear-gradient(180deg, rgba(34,30,52,0.78) 0%, rgba(22,22,32,0.68) 100%);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 6px 18px rgba(0,0,0,0.40), 0 0 18px rgba(124,92,255,0.18);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 6px 18px rgba(0,0,0,0.40), 0 0 18px rgba(202,138,4,0.18);
   }
   .voice-cockpit .w294-persona-btn:focus-visible {
     outline: none;
-    border-color: rgba(124,92,255,0.60);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 0 0 2px rgba(124,92,255,0.30), 0 0 22px rgba(124,92,255,0.30);
+    border-color: rgba(202,138,4,0.60);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 0 0 2px rgba(202,138,4,0.30), 0 0 22px rgba(202,138,4,0.30);
   }
   .voice-cockpit .w294-persona-btn[aria-expanded="true"] {
-    border-color: rgba(124,92,255,0.55);
+    border-color: rgba(202,138,4,0.55);
     background: linear-gradient(180deg, rgba(40,32,62,0.80) 0%, rgba(24,22,34,0.70) 100%);
   }
   .voice-cockpit .w294-persona-btn .w294-icon { width: 14px; height: 14px; color: var(--accent, #7C5CFF); flex: 0 0 auto; }
@@ -3346,10 +3394,10 @@
     padding: 6px;
     border-radius: 14px;
     background: linear-gradient(180deg, rgba(20,20,30,0.92) 0%, rgba(12,12,20,0.96) 100%);
-    border: 1px solid rgba(124,92,255,0.26);
+    border: 1px solid rgba(202,138,4,0.26);
     backdrop-filter: blur(22px) saturate(170%);
     -webkit-backdrop-filter: blur(22px) saturate(170%);
-    box-shadow: 0 16px 48px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.02) inset, 0 0 32px rgba(124,92,255,0.18);
+    box-shadow: 0 16px 48px rgba(0,0,0,0.55), 0 0 0 1px rgba(255,255,255,0.02) inset, 0 0 32px rgba(202,138,4,0.18);
     z-index: 90;
     display: none;
     opacity: 0;
@@ -3373,13 +3421,13 @@
   .voice-cockpit .w294-persona-item + .w294-persona-item { margin-top: 2px; }
   .voice-cockpit .w294-persona-item:hover,
   .voice-cockpit .w294-persona-item:focus-visible {
-    background: rgba(124,92,255,0.08);
-    border-color: rgba(124,92,255,0.22);
+    background: rgba(202,138,4,0.08);
+    border-color: rgba(202,138,4,0.22);
     outline: none;
   }
   .voice-cockpit .w294-persona-item[aria-checked="true"] {
-    background: rgba(124,92,255,0.14);
-    border-color: rgba(124,92,255,0.36);
+    background: rgba(202,138,4,0.14);
+    border-color: rgba(202,138,4,0.36);
   }
   .voice-cockpit .w294-persona-item .w294-persona-dot {
     flex: 0 0 auto;
@@ -3391,7 +3439,7 @@
   }
   .voice-cockpit .w294-persona-item[aria-checked="true"] .w294-persona-dot {
     background: var(--accent, #7C5CFF);
-    box-shadow: 0 0 0 1px rgba(124,92,255,0.40), 0 0 10px rgba(124,92,255,0.55);
+    box-shadow: 0 0 0 1px rgba(202,138,4,0.40), 0 0 10px rgba(202,138,4,0.55);
   }
   .voice-cockpit .w294-persona-item .w294-persona-text { flex: 1 1 auto; min-width: 0; }
   .voice-cockpit .w294-persona-item .w294-persona-title { font: 600 12px/1.25 system-ui, sans-serif; letter-spacing: 0.01em; color: #e9eaf2; }
@@ -3416,7 +3464,7 @@
     padding: 0 16px;
     border-radius: 22px;
     background: linear-gradient(180deg, rgba(28,26,42,0.78) 0%, rgba(18,18,26,0.68) 100%);
-    border: 1px solid rgba(124,92,255,0.28);
+    border: 1px solid rgba(202,138,4,0.28);
     color: #e9eaf2;
     font: 600 11px/1 system-ui, -apple-system, sans-serif;
     letter-spacing: 0.06em;
@@ -3425,7 +3473,7 @@
     z-index: 12;
     backdrop-filter: blur(16px) saturate(160%);
     -webkit-backdrop-filter: blur(16px) saturate(160%);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 6px 18px rgba(0,0,0,0.40), 0 0 16px rgba(124,92,255,0.16);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 6px 18px rgba(0,0,0,0.40), 0 0 16px rgba(202,138,4,0.16);
     opacity: 0;
     transform: translateY(6px);
     animation: w294-picker-in 560ms cubic-bezier(.22,.61,.36,1) 120ms forwards;
@@ -3433,13 +3481,13 @@
   }
   .voice-cockpit .w294-test-voice:hover {
     transform: translateY(-2px);
-    border-color: rgba(124,92,255,0.55);
+    border-color: rgba(202,138,4,0.55);
     background: linear-gradient(180deg, rgba(40,32,62,0.86) 0%, rgba(22,22,32,0.74) 100%);
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 12px 28px rgba(0,0,0,0.50), 0 0 28px rgba(124,92,255,0.32);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.08), 0 12px 28px rgba(0,0,0,0.50), 0 0 28px rgba(202,138,4,0.32);
   }
   .voice-cockpit .w294-test-voice:focus-visible {
     outline: none;
-    box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 0 0 2px rgba(124,92,255,0.40), 0 0 28px rgba(124,92,255,0.40);
+    box-shadow: inset 0 1px 0 rgba(255,255,255,0.06), 0 0 0 2px rgba(202,138,4,0.40), 0 0 28px rgba(202,138,4,0.40);
   }
   .voice-cockpit .w294-test-voice:active { transform: translateY(0); }
   .voice-cockpit .w294-test-voice[disabled],
@@ -3467,7 +3515,7 @@
     display: block;
     height: 1px;
     margin: 10px 14px;
-    background: linear-gradient(90deg, transparent 0%, rgba(124,92,255,0.30) 50%, transparent 100%);
+    background: linear-gradient(90deg, transparent 0%, rgba(202,138,4,0.30) 50%, transparent 100%);
     border: 0;
     opacity: 0.85;
   }
@@ -3546,13 +3594,13 @@
        W298.8  Reduced-motion guard
   */
 
-  /* W298.0 — HUD design tokens (additive; do not touch --accent) */
+  /* W298.0 — HUD design tokens (additive; cyan = MASTER HUD, mono = Fira) */
   body.cockpit-active {
-    --hud-cyan:        #00E5FF;
-    --hud-cyan-dim:    rgba(0, 229, 255, 0.32);
-    --hud-cyan-glow:   rgba(0, 229, 255, 0.45);
-    --hud-cyan-faint:  rgba(0, 229, 255, 0.10);
-    --hud-mono:        'JetBrains Mono', 'IBM Plex Mono', ui-monospace, 'SF Mono', SFMono-Regular, Menlo, monospace;
+    --hud-cyan:        var(--color-hud);
+    --hud-cyan-dim:    var(--color-hud-soft);
+    --hud-cyan-glow:   rgba(0, 255, 255, 0.45);
+    --hud-cyan-faint:  rgba(0, 255, 255, 0.10);
+    --hud-mono:        'Fira Code', 'IBM Plex Mono', ui-monospace, 'SF Mono', SFMono-Regular, Menlo, monospace;
   }
 
   /* W298.1 — top HUD ticker (between topbar and the monolith) */
@@ -4096,7 +4144,7 @@
   .voice-cockpit .w298-bracket-br { bottom: -32px; right: -32px; border-left: 0; border-top: 0; }
   .voice-cockpit.state-listening .w298-bracket {
     border-color: var(--accent);
-    filter: drop-shadow(0 0 8px rgba(124, 92, 255, 0.55));
+    filter: drop-shadow(0 0 8px rgba(202, 138, 4, 0.55));
   }
   .voice-cockpit.state-speaking .w298-bracket {
     border-color: var(--success);
@@ -4161,35 +4209,41 @@
 
   /* ════════════════════════════════════════════════════════════════════
      W299 — COCKPIT VISUAL SYSTEM (product UI, not “empty terminal”)
-     Outfit + depth + glass. The W286 center column used flat --bg; this
-     layer gives the cockpit a deliberate graded field, premium chrome,
-     and transcript bubbles that read as designed. body.cockpit-active only.
+     Uses MASTER tokens from body.cockpit-active W301 bridge.
      ════════════════════════════════════════════════════════════════════ */
-  body.cockpit-active {
-    --font-sans: "Outfit", "Segoe UI", -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
-    --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  body.cockpit-active .voice-cockpit {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  body.cockpit-active .voice-cockpit .vc-boot-line {
+    font-family: var(--font-display);
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    font-size: 10px !important;
   }
   body.cockpit-active .voice-cockpit.show {
     background:
-      radial-gradient(ellipse 110% 85% at 50% -5%, rgba(124, 92, 255, 0.28) 0%, transparent 58%),
-      radial-gradient(ellipse 55% 45% at 100% 40%, rgba(34, 211, 238, 0.07) 0%, transparent 52%),
-      radial-gradient(ellipse 50% 40% at 0% 85%, rgba(167, 139, 250, 0.10) 0%, transparent 50%),
-      linear-gradient(188deg, #05050d 0%, #0b0b14 42%, #030308 100%) !important;
+      radial-gradient(ellipse 110% 85% at 50% -5%, rgba(202, 138, 4, 0.14) 0%, transparent 58%),
+      radial-gradient(ellipse 55% 45% at 100% 40%, rgba(0, 229, 255, 0.06) 0%, transparent 52%),
+      radial-gradient(ellipse 50% 40% at 0% 85%, rgba(202, 138, 4, 0.06) 0%, transparent 50%),
+      linear-gradient(188deg, #000000 0%, #0b0b10 42%, #000000 100%) !important;
   }
   body.cockpit-active .voice-cockpit .vc-topbar {
     background: linear-gradient(180deg, rgba(12, 12, 22, 0.96) 0%, rgba(6, 6, 14, 0.82) 100%) !important;
     backdrop-filter: blur(22px) saturate(1.2);
     -webkit-backdrop-filter: blur(22px) saturate(1.2);
-    border-bottom: 1px solid rgba(124, 92, 255, 0.42) !important;
+    border-bottom: 1px solid var(--color-accent-soft) !important;
     box-shadow:
       0 12px 40px rgba(0, 0, 0, 0.5),
       inset 0 1px 0 rgba(255, 255, 255, 0.07);
   }
   body.cockpit-active .voice-cockpit .vc-chip {
     background: rgba(8, 10, 26, 0.78) !important;
-    border: 1px solid rgba(124, 92, 255, 0.38) !important;
+    border: 1px solid var(--color-accent-soft) !important;
     box-shadow:
-      0 0 28px rgba(124, 92, 255, 0.14),
+      0 0 28px var(--color-accent-ambient),
       inset 0 1px 0 rgba(255, 255, 255, 0.06);
     font-weight: 600;
     font-size: 11px !important;
@@ -4200,12 +4254,19 @@
     letter-spacing: 0.12em;
   }
   body.cockpit-active .voice-cockpit .vc-stage {
+    /* Monolith tracers: MASTER cyan HUD + gold secondary (drops legacy violet) */
+    --vc-strip-a: var(--color-hud);
+    --vc-strip-b: var(--color-accent);
+    --vc-ring: rgba(202, 138, 4, 0.55);
+    --vc-hud: var(--color-hud);
+    --vc-hud-soft: var(--color-hud-soft);
+    --vc-glitch: rgba(202, 138, 4, 0.55);
     background:
-      radial-gradient(ellipse 75% 55% at 50% 42%, rgba(124, 92, 255, 0.12) 0%, transparent 62%),
+      radial-gradient(ellipse 75% 55% at 50% 42%, rgba(202, 138, 4, 0.07) 0%, transparent 62%),
       radial-gradient(ellipse 50% 40% at 50% 100%, rgba(0, 0, 0, 0.45) 0%, transparent 55%);
   }
   body.cockpit-active .voice-cockpit .vc-transcript .line:not(.system) {
-    border: 1px solid rgba(124, 92, 255, 0.28) !important;
+    border: 1px solid rgba(202, 138, 4, 0.28) !important;
     background: linear-gradient(168deg, rgba(24, 24, 36, 0.96) 0%, rgba(10, 10, 18, 0.94) 100%) !important;
     box-shadow:
       0 6px 28px rgba(0, 0, 0, 0.4),
@@ -4222,31 +4283,31 @@
       inset 0 1px 0 rgba(255, 255, 255, 0.06);
   }
   body.cockpit-active .voice-cockpit .vc-transcript .line.user {
-    border-color: rgba(124, 92, 255, 0.5) !important;
-    background: linear-gradient(168deg, rgba(90, 60, 200, 0.35) 0%, rgba(40, 28, 90, 0.45) 100%) !important;
+    border-color: rgba(202, 138, 4, 0.42) !important;
+    background: linear-gradient(168deg, rgba(202, 138, 4, 0.12) 0%, rgba(40, 32, 8, 0.5) 100%) !important;
   }
   body.cockpit-active .voice-cockpit .vc-transcript .line.system {
-    font-family: var(--font-sans) !important;
+    font-family: var(--font-mono) !important;
     font-style: normal !important;
     font-weight: 500;
     font-size: 12px !important;
-    color: #fcdfa3 !important;
-    background: rgba(245, 181, 68, 0.1) !important;
-    border: 1px solid rgba(245, 181, 68, 0.35) !important;
+    color: #f5f5f0 !important;
+    background: rgba(202, 138, 4, 0.10) !important;
+    border: 1px solid var(--color-accent-soft) !important;
     border-radius: var(--radius-md) !important;
     padding: var(--space-3) var(--space-4) !important;
-    box-shadow: 0 4px 20px rgba(245, 181, 68, 0.08);
+    box-shadow: 0 4px 20px rgba(202, 138, 4, 0.12);
   }
   body.cockpit-active .voice-cockpit .vc-mic-wrap {
     background: linear-gradient(182deg, rgba(20, 18, 36, 0.94) 0%, rgba(6, 6, 16, 0.96) 100%) !important;
-    border: 1px solid rgba(124, 92, 255, 0.45) !important;
+    border: 1px solid var(--color-accent-soft) !important;
     box-shadow:
       0 16px 56px rgba(0, 0, 0, 0.58),
-      0 0 48px rgba(124, 92, 255, 0.18),
+      0 0 48px var(--color-accent-ambient),
       inset 0 1px 0 rgba(255, 255, 255, 0.09) !important;
   }
   body.cockpit-active .voice-cockpit .vc-status-label {
-    font-family: var(--font-sans) !important;
+    font-family: var(--font-mono) !important;
     font-weight: 600 !important;
     letter-spacing: 0.08em !important;
     text-transform: uppercase !important;
@@ -10062,10 +10123,10 @@ window.W285 = (function(){
       if (i === 0) ctx.moveTo(x, y); else ctx.lineTo(x, y);
     }
     ctx.closePath();
-    ctx.strokeStyle = 'rgba(124,92,255,0.65)';
+    ctx.strokeStyle = 'rgba(202,138,4,0.65)';
     ctx.lineWidth = 1.5;
     ctx.stroke();
-    ctx.fillStyle = 'rgba(124,92,255,0.08)';
+    ctx.fillStyle = 'rgba(202,138,4,0.08)';
     ctx.fill();
     // Inner dot
     ctx.beginPath();
