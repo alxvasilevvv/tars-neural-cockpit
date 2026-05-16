@@ -25,7 +25,9 @@ import unittest
 from fastapi.testclient import TestClient
 
 
-class _OnboardingCase(unittest.TestCase):
+class _OnboardingHarness(unittest.TestCase):
+    """SQLite tmp path + FastAPI ``TestClient``. Base for Test* classes only."""
+
     def setUp(self) -> None:
         self._tmp = tempfile.mkdtemp(prefix="tars-w269-onb-")
         self._db = os.path.join(self._tmp, "onboarding.sqlite")
@@ -33,11 +35,13 @@ class _OnboardingCase(unittest.TestCase):
         # Ensure a clean import per case -- the router pulls TARS_ONBOARDING_DB
         # at call-time inside _db_path() so a simple env swap is enough.
         from web_extras.app import app
+
         self.client = TestClient(app)
 
     def tearDown(self) -> None:
         os.environ.pop("TARS_ONBOARDING_DB", None)
         import shutil
+
         try:
             shutil.rmtree(self._tmp)
         except Exception:
@@ -52,6 +56,10 @@ class _OnboardingCase(unittest.TestCase):
             return conn.execute(
                 "SELECT COUNT(*) FROM onboarding_events"
             ).fetchone()[0]
+
+
+class TestOnboardingTTFV(_OnboardingHarness):
+    """60-second voice-first onboarding telemetry (/event, /stats, /skip)."""
 
     # ---- cases --------------------------------------------------
 
@@ -157,6 +165,44 @@ class _OnboardingCase(unittest.TestCase):
         meta = _json.loads(row[0])
         self.assertTrue(meta.get("dropoff"))
         self.assertEqual(meta.get("reprompt_count"), 1)
+
+
+class TestW285FirstBootState(_OnboardingHarness):
+    """W285 — persisted first-boot onboarding flags (~/.tars/state.json surrogate)."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self._state_path = os.path.join(self._tmp, "state.json")
+        os.environ["TARS_STATE_FILE"] = self._state_path
+
+    def tearDown(self) -> None:
+        os.environ.pop("TARS_STATE_FILE", None)
+        super().tearDown()
+
+    def test_state_get_defaults(self) -> None:
+        r = self.client.get("/api/onboarding/state")
+        self.assertEqual(r.status_code, 200, r.text)
+        d = r.json()
+        self.assertTrue(d["ok"])
+        self.assertFalse(d["first_boot_done"])
+        self.assertIsNone(d.get("lang"))
+
+    def test_state_post_then_get(self) -> None:
+        r = self.client.post(
+            "/api/onboarding/state",
+            json={"first_boot_done": True, "lang": "en"},
+        )
+        self.assertEqual(r.status_code, 200, r.text)
+        d = r.json()
+        self.assertTrue(d["ok"])
+        self.assertTrue(d["first_boot_done"])
+        self.assertEqual(d["lang"], "en")
+
+        r2 = self.client.get("/api/onboarding/state")
+        self.assertEqual(r2.status_code, 200, r2.text)
+        d2 = r2.json()
+        self.assertTrue(d2["first_boot_done"])
+        self.assertEqual(d2["lang"], "en")
 
 
 if __name__ == "__main__":

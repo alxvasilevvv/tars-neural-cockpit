@@ -4,6 +4,25 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-16 — Cursor · W303 onboarding `/state` + mock OAuth landing
+
+**Summary**
+
+`GET /api/onboarding/state` + `POST /api/onboarding/state` persist ``first_boot_done`` /
+language to ``~/.tars/state.json`` (override ``TARS_STATE_FILE``). `meeet_mock`
+drops the hard dependency on optional ``email-validator`` for ``EmailStr`` models,
+returns an HTML OAuth handoff page that deep-links via ``window.location.assign`` /
+``<a href>`` (``tars://`` cannot follow HTTP 302), tweaks landing CSS toward MASTER gold.
+Refactored onboarding tests (`_OnboardingHarness`, `TestOnboardingTTFV`) + adds W285
+coverage. ``Cargo.lock`` aligned with desktop ``10.0.0-rc.1``.
+
+**Files**
+
+- `web_extras/routers/onboarding.py`
+- `scripts/meeet_mock/server.py`
+- `tests/test_onboarding.py`
+- `desktop/src-tauri/Cargo.lock`
+
 ## 2026-05-16 — Cursor · W302 Control Center shell = MASTER palette
 
 **Summary**
@@ -2474,63 +2493,6 @@ paint the workflow red anymore.
 
 `>>> SYNC: Cursor · 2026-05-04 · Pages workflow fail-soft against bad CF token`
 
-## 2026-05-04 — Cursor · launch readiness: green CI + Plan B sealed + Node 24 opt-in
-
-**Summary**
-
-Closing out the deploy lane after the operator wired Plan B
-(`tars-meeet-git` on Cloudflare Pages Git integration). Three things
-fixed in this batch:
-
-1. **Removed broken `CLOUDFLARE_API_TOKEN`** from `alxvasilevvv/tars-neural-cockpit`
-   GitHub Actions secrets (it was reseeded somewhere — likely via the
-   Cloudflare Git App handshake — with a value the Pages API rejected
-   as `9106 Authentication failed`). With the secret gone, the Pages
-   workflow's "Probe deploy credentials" gate flips to `ready=false`,
-   the deploy step is skipped cleanly with a `::warning::` pointing at
-   `docs/TARS_MEEET_OPS_TODO.md` Step 2bis, and the workflow ends
-   **green** (build + typecheck + 335 unit tests + changelog parity
-   check still run on every push). Re-dispatched run **25291442109**:
-   conclusion **success**.
-2. **Opted every workflow into Node 24 for JS actions** by setting
-   `FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"` at workflow `env:`.
-   GitHub flips the default on **2026-06-02** and removes Node 20
-   from runners on **2026-09-16**; this kills the deprecation
-   annotation that was showing on every successful run.
-3. **Deleted local `cf-operator.env`** (was holding a real but
-   already-revoked Cloudflare API token). Template
-   `cf-operator.env.example` stays for any future local Plan A run.
-
-**Verification (all run on `main` against prod)**
-
-| Gate | Result |
-| --- | --- |
-| `pytest -q` | **2315 passed**, 1 skipped, 2 xfailed |
-| `tests/test_tars_meeet_pages_workflow.py + meeet + domains` | 22/22 |
-| Cockpit `npm run typecheck` | clean |
-| Cockpit `npm test` | **335/335** |
-| `bash scripts/acceptance_tars_meeet.sh` | 5/5 reachable gates GREEN (2 SKIP — operator-only secrets) |
-| `python -m scripts.qa_agent` against prod | **27 PASS · 0 FAIL · 2 WARN · 3 SKIP** |
-| `tars.meeet.world — Cloudflare Pages` workflow #25291442109 | success |
-
-The 2 WARN / 3 SKIP are not regressions; they're the documented
-operator-only paste-ins (`BRIDGE_SHARED_SECRET` on Pages prod env +
-`TARS_INGEST_API_KEY` on `MEEET_INGEST_URL`). `docs/TARS_MEEET_OPS_TODO.md`
-§Outstanding items 1 + 4 already calls them out.
-
-**Files**
-
-- `.github/workflows/tars-meeet-cloudflare-pages.yml` (`FORCE_JAVASCRIPT_ACTIONS_TO_NODE24`)
-- `.github/workflows/qa-agent.yml`, `credential-sentinel.yml`,
-  `desktop-version-lint.yml`, `release-desktop-tagged.yml`,
-  `release-tagged.yml` (same env opt-in)
-- `cf-operator.env` — **deleted** (template `.example` retained)
-- `docs/AGENT_HANDOFF.md` — launch-ready summary
-- `docs/TARS_MEEET_OPS_TODO.md` — Plan B confirmed as production
-- `docs/CHANGELOG_AGENTS.md`, `docs/CHANGELOG_PUBLIC.md` — this entry
-
-`>>> SYNC: Cursor · 2026-05-04 · launch-ready (CI green, Plan B sealed, Node 24 opt-in)`
-
 ---
 
-_Showing the most recent 60 of 254 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 255 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._

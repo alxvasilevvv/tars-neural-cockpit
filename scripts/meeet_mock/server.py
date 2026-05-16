@@ -52,7 +52,15 @@ from typing import Any, Optional
 
 from fastapi import APIRouter, FastAPI, Header, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, EmailStr, Field
+from pydantic import BaseModel, Field
+
+# W284 — graceful EmailStr fallback. Pydantic's EmailStr field type requires
+# the optional `email-validator` package at MODEL CONSTRUCTION time (not just
+# import). On fresh checkouts that pip-package isn't always present and the
+# mock then crashes before listening. We accept plain `str` instead and rely
+# on the routes' own light regex check. If you want strict RFC 5321 validation,
+# `pip install email-validator` and the mock will keep working unchanged.
+EmailStr = str  # type: ignore[misc,assignment]
 
 try:
     import jwt as _jwt  # PyJWT
@@ -417,7 +425,18 @@ async def magic_link_redeem(req: RedeemReq) -> dict[str, Any]:
 async def oauth_start(
     provider: str,
     return_: str = Query("tars://auth", alias="return"),
-) -> dict[str, Any]:
+):
+    """W284 — return an HTML landing page that deep-links back into TARS.app
+    via the tars:// scheme. The TARS desktop frontend opens this URL in the
+    user's default browser; the browser CANNOT follow a tars:// redirect via
+    HTTP 302 (custom schemes aren't followed), so we serve a tiny HTML page
+    that triggers macOS's URL handler via window.location.assign.
+
+    Falls back to a clickable button if window.location is blocked by the
+    browser's strict-CSP policy on file:// or sandboxed origins.
+    """
+    from fastapi.responses import HTMLResponse  # local to keep import cost down
+
     if provider not in ("google", "apple"):
         raise HTTPException(400, {"ok": False, "error": "unsupported_provider"})
     # Mint a one-shot OAuth code that auto-resolves to a real account.
@@ -426,10 +445,67 @@ async def oauth_start(
     token = _mint_jwt(account)
     # Brother's real flow would 302 to the IdP and back; for the mock we cut
     # straight to a return URL that already carries the minted token.
-    redirect_url = f"{return_}?token={token}&provider={provider}"
+    deep_link = f"{return_}?token={token}&provider={provider}"
     log.info("oauth.start provider=%s email=%s redirect=%s",
-             provider, fake_email, redirect_url[:60] + "...")
-    return {"ok": True, "redirect_url": redirect_url}
+             provider, fake_email, deep_link[:60] + "...")
+
+    provider_label = "Google" if provider == "google" else "Apple"
+    html = f"""<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>Signing you into TARS…</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <style>
+    :root {{
+      color-scheme: dark;
+      --bg: #0A0A0B; --fg: #E6E6E8; --muted: #8A8A92; --accent: #CA8A04;
+      --card: #14141A; --border: rgba(255,255,255,0.08);
+    }}
+    html, body {{ margin: 0; padding: 0; background: var(--bg); color: var(--fg);
+      font: 15px/1.55 -apple-system, BlinkMacSystemFont, 'Inter', system-ui, sans-serif; }}
+    .wrap {{ min-height: 100vh; display: grid; place-items: center; padding: 32px; }}
+    .card {{ background: var(--card); border: 1px solid var(--border); border-radius: 16px;
+      padding: 36px; max-width: 440px; width: 100%; box-shadow: 0 30px 80px rgba(0,0,0,.45); }}
+    .badge {{ display: inline-flex; align-items: center; gap: 8px;
+      padding: 6px 12px; border-radius: 999px; background: rgba(202,138,4,.14);
+      color: var(--accent); font-size: 12px; letter-spacing: .04em; text-transform: uppercase; }}
+    h1 {{ font-size: 22px; line-height: 1.25; margin: 16px 0 8px; }}
+    p {{ color: var(--muted); margin: 0 0 8px; }}
+    .email {{ color: var(--fg); font-family: 'SF Mono', Menlo, monospace; font-size: 13px; }}
+    .row {{ display: flex; gap: 12px; align-items: center; margin-top: 24px; }}
+    .btn {{ display: inline-flex; align-items: center; gap: 8px;
+      padding: 12px 18px; border-radius: 10px; font-weight: 600; font-size: 14px;
+      text-decoration: none; background: linear-gradient(135deg, #0891b2, #ca8a04);
+      color: white; border: 0; cursor: pointer; }}
+    .hint {{ font-size: 12px; color: var(--muted); margin-top: 16px; }}
+    .pulse {{ width: 10px; height: 10px; border-radius: 50%; background: var(--accent);
+      animation: pulse 1.4s ease-in-out infinite; }}
+    @keyframes pulse {{ 0%,100% {{ opacity: .35 }} 50% {{ opacity: 1 }} }}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <span class="badge"><span class="pulse"></span> {provider_label} verified</span>
+      <h1>Signing you into TARS…</h1>
+      <p>Identity provided by {provider_label} (mock).</p>
+      <p>Account: <span class="email">{fake_email}</span></p>
+      <div class="row">
+        <a class="btn" id="continue" href="{deep_link}">Continue to TARS →</a>
+      </div>
+      <p class="hint">If TARS didn't pop up automatically, click the button above.
+         You can close this tab once you're back in the app.</p>
+    </div>
+  </div>
+  <script>
+    // Try to deep-link immediately. macOS prompts the user the first time per app.
+    window.location.assign({deep_link!r});
+  </script>
+</body>
+</html>"""
+
+    return HTMLResponse(html, status_code=200)
 
 
 @auth.get("/api/me")

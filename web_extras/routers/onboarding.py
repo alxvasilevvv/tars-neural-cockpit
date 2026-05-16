@@ -27,6 +27,7 @@ number without polluting the cost ledger.
 
 from __future__ import annotations
 
+import json
 import os
 import sqlite3
 import statistics
@@ -39,6 +40,78 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field, field_validator
 
 router = APIRouter(prefix="/api/onboarding", tags=["onboarding"])
+
+
+# ─── W285 — first-boot voice-onboarding state ──────────────────────────
+# The desktop client uses this to decide whether to show the splash +
+# Iron-Man-style English greeting + language picker. Persists across
+# reinstalls because it lives at ~/.tars/state.json, outside the app
+# bundle and outside browser storage.
+
+def _state_path() -> Path:
+    raw = os.environ.get("TARS_STATE_FILE", "~/.tars/state.json")
+    p = Path(os.path.expanduser(raw))
+    p.parent.mkdir(parents=True, exist_ok=True)
+    return p
+
+
+def _read_state() -> dict[str, Any]:
+    p = _state_path()
+    if not p.exists():
+        return {}
+    try:
+        return json.loads(p.read_text(encoding="utf-8")) or {}
+    except Exception:
+        return {}
+
+
+def _write_state(patch: dict[str, Any]) -> dict[str, Any]:
+    cur = _read_state()
+    cur.update(patch)
+    p = _state_path()
+    p.write_text(json.dumps(cur, indent=2, ensure_ascii=False), encoding="utf-8")
+    return cur
+
+
+class W285FirstBootState(BaseModel):
+    """W285 — first-boot voice-onboarding state."""
+
+    first_boot_done: bool = False
+    lang: str | None = None
+
+
+@router.get("/state")
+async def get_onboarding_state() -> dict[str, Any]:
+    """Return whether the first-boot voice onboarding flow has been completed.
+
+    W285. The desktop client calls this on every boot; if `first_boot_done`
+    is True, it skips the splash + greeting + language picker flow.
+    """
+    s = _read_state()
+    return {
+        "ok": True,
+        "first_boot_done": bool(s.get("first_boot_done")),
+        "lang": s.get("lang"),
+        "first_boot_at": s.get("first_boot_at"),
+    }
+
+
+@router.post("/state")
+async def post_onboarding_state(body: W285FirstBootState) -> dict[str, Any]:
+    """Persist first-boot completion (or any later flag patches).
+
+    W285. Idempotent — called by the desktop client once the user picks a
+    language and the localized intro audio finishes playing.
+    """
+    patch: dict[str, Any] = {}
+    if body.first_boot_done:
+        patch["first_boot_done"] = True
+        patch["first_boot_at"] = time.time()
+    if body.lang:
+        patch["lang"] = body.lang
+    out = _write_state(patch)
+    return {"ok": True, **out}
+
 
 
 # --- storage ------------------------------------------------------

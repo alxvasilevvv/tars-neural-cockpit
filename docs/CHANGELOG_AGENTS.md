@@ -4,6 +4,25 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-16 — Cursor · W303 onboarding `/state` + mock OAuth landing
+
+**Summary**
+
+`GET /api/onboarding/state` + `POST /api/onboarding/state` persist ``first_boot_done`` /
+language to ``~/.tars/state.json`` (override ``TARS_STATE_FILE``). `meeet_mock`
+drops the hard dependency on optional ``email-validator`` for ``EmailStr`` models,
+returns an HTML OAuth handoff page that deep-links via ``window.location.assign`` /
+``<a href>`` (``tars://`` cannot follow HTTP 302), tweaks landing CSS toward MASTER gold.
+Refactored onboarding tests (`_OnboardingHarness`, `TestOnboardingTTFV`) + adds W285
+coverage. ``Cargo.lock`` aligned with desktop ``10.0.0-rc.1``.
+
+**Files**
+
+- `web_extras/routers/onboarding.py`
+- `scripts/meeet_mock/server.py`
+- `tests/test_onboarding.py`
+- `desktop/src-tauri/Cargo.lock`
+
 ## 2026-05-16 — Cursor · W302 Control Center shell = MASTER palette
 
 **Summary**

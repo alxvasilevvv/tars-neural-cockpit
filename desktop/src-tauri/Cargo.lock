@@ -4232,7 +4232,7 @@ checksum = "61c41af27dd6d1e27b1b16b489db798443478cef1f06a660c96db617ba5de3b1"
 
 [[package]]
 name = "tars-desktop"
-version = "9.3.0-beta.1"
+version = "10.0.0-rc.1"
 dependencies = [
  "base64 0.22.1",
  "env_logger",
