@@ -29,16 +29,26 @@ from typing import Iterator, Mapping
 class PersonaProviderHint:
     """Per-provider mapping for a persona.
 
-    ``elevenlabs_*`` parameters drive ElevenLabs ``voice_settings``:
+    ``elevenlabs_*`` parameters drive ElevenLabs ``voice_settings``.
+
+    NOTE: Operator runs on the ElevenLabs *free* tier. Cinematic delivery
+    is unlocked **only** via aggressive parameter tuning (free tier blocks
+    Professional Voice Clones, v3 alpha, and most starter voices read flat
+    at default settings). The ranges below reflect what actually delivers
+    "living, character-driven" output on free-tier starter voices:
+
     - ``stability`` 0..1 — lower = more emotive / varied prosody,
-      higher = monotone but consistent. 0.30–0.40 for cinematic
-      personas, 0.55–0.65 for clinical voices.
+      higher = monotone but consistent. **0.18–0.30 for charismatic
+      personas (Stark, GLaDOS, Jarvis), 0.40–0.50 for measured
+      personas (TARS, Operator), 0.75–0.85 for clinical (HAL).**
     - ``similarity_boost`` 0..1 — keeps the rendered audio close to
-      the original speaker. 0.80–0.90 is the cinematic sweet spot;
-      below 0.70 starts to drift into "stock TTS narrator".
+      the original speaker. **0.88–0.92 for cinematic lock** —
+      below 0.85 the voice drifts into stock TTS narrator.
     - ``style`` 0..1 — exaggerates the speaker's idiosyncratic
       delivery (only honoured by ``eleven_multilingual_v2`` and
-      newer). 0.45+ for charismatic / sarcastic voices.
+      newer). **0.55–0.88 for charismatic personas**, 0.05–0.30 for
+      clinical / neutral. Going above 0.90 starts to glitch on some
+      voices.
     - ``use_speaker_boost`` — always on for clarity.
     """
 
@@ -199,9 +209,9 @@ def _build_default_personas() -> dict[str, Persona]:
                 elevenlabs_voice_id=_env_override(
                     "jarvis", "elevenlabs_id", "JBFqnCBsd6RMkjVDRZzb"
                 ),  # "George" — warm British baritone (butler-perfect; replaced Daniel which was flat narrator)
-                elevenlabs_stability=0.38,    # varied prosody → dry wit lands
-                elevenlabs_similarity=0.88,   # keep voice identity tight
-                elevenlabs_style=0.42,        # cinematic butler delivery
+                elevenlabs_stability=0.22,    # pushed lower → much more living prosody
+                elevenlabs_similarity=0.92,   # high identity lock
+                elevenlabs_style=0.78,        # cinematic butler — heavy character
                 openai_voice=_env_override("jarvis", "openai_voice", "fable"),
                 openai_instructions=(
                     "Speak with a refined British butler accent — warm, dry,"
@@ -243,9 +253,9 @@ def _build_default_personas() -> dict[str, Persona]:
                 elevenlabs_voice_id=_env_override(
                     "stark", "elevenlabs_id", "ErXwobaYiN019PkySvjV"
                 ),  # "Antoni" — confident smooth American (Iron Man pilot energy; replaced Adam which was narrator)
-                elevenlabs_stability=0.30,    # high variance → swaggering delivery
-                elevenlabs_similarity=0.82,
-                elevenlabs_style=0.65,        # heavy character style for the cocky punchlines
+                elevenlabs_stability=0.18,    # extreme low → swaggering, alive delivery
+                elevenlabs_similarity=0.88,   # tighter identity lock
+                elevenlabs_style=0.88,        # max character for cocky punchlines
                 openai_voice=_env_override("stark", "openai_voice", "onyx"),
                 openai_instructions=(
                     "Speak as a quick, charismatic American man in his forties."
@@ -287,9 +297,9 @@ def _build_default_personas() -> dict[str, Persona]:
                 elevenlabs_voice_id=_env_override(
                     "hal9000", "elevenlabs_id", "VR6AewLTigWG4xSOukaG"
                 ),  # "Arnold" — deep American male (kept; right tone for HAL)
-                elevenlabs_stability=0.68,    # high stability → unnerving monotone
-                elevenlabs_similarity=0.88,
-                elevenlabs_style=0.10,        # minimal style → clinical detachment
+                elevenlabs_stability=0.82,    # max stability → uncanny calm monotone
+                elevenlabs_similarity=0.92,
+                elevenlabs_style=0.05,        # near-zero style → clinical detachment
                 openai_voice=_env_override("hal9000", "openai_voice", "echo"),
                 openai_instructions=(
                     "Speak as a quiet, methodical AI: gentle American baritone,"
@@ -332,9 +342,9 @@ def _build_default_personas() -> dict[str, Persona]:
                 elevenlabs_voice_id=_env_override(
                     "glados", "elevenlabs_id", "XB0fDUnXU5powFXDhCwa"
                 ),  # "Charlotte" — sultry English female (passive-aggression lands; replaced Sarah which was news-anchor flat)
-                elevenlabs_stability=0.48,
-                elevenlabs_similarity=0.82,
-                elevenlabs_style=0.58,        # exaggerated sarcasm timing
+                elevenlabs_stability=0.26,    # extreme low → biting prosody swings
+                elevenlabs_similarity=0.90,
+                elevenlabs_style=0.85,        # near-max sarcasm character
                 openai_voice=_env_override("glados", "openai_voice", "shimmer"),
                 openai_instructions=(
                     "Speak as a passive-aggressive synthetic female AI. Dry,"
@@ -377,9 +387,9 @@ def _build_default_personas() -> dict[str, Persona]:
                 elevenlabs_voice_id=_env_override(
                     "tars", "elevenlabs_id", "nPczCjzI2devNBz1zQrb"
                 ),  # "Brian" — deep American narrator (status-report cadence; replaced George which was British, contradicting Interstellar TARS American baritone)
-                elevenlabs_stability=0.58,    # measured, surgical pacing
-                elevenlabs_similarity=0.86,
-                elevenlabs_style=0.28,        # restrained — dry humour, no theatrics
+                elevenlabs_stability=0.42,    # tighter measured cadence, less drift
+                elevenlabs_similarity=0.92,   # locked deep-baritone identity
+                elevenlabs_style=0.55,        # dry humour edge without theatrics
                 openai_voice=_env_override("tars", "openai_voice", "ash"),
                 openai_instructions=(
                     "Speak as a calm, deliberate American male AI with low"
@@ -421,9 +431,9 @@ def _build_default_personas() -> dict[str, Persona]:
                 elevenlabs_voice_id=_env_override(
                     "operator", "elevenlabs_id", "21m00Tcm4TlvDq8ikWAM"
                 ),  # "Rachel" — neutral female (kept; neutral cockpit voice)
-                elevenlabs_stability=0.55,
-                elevenlabs_similarity=0.82,
-                elevenlabs_style=0.18,        # neutral cockpit, no character bleed
+                elevenlabs_stability=0.40,    # warmer, more present
+                elevenlabs_similarity=0.88,
+                elevenlabs_style=0.30,        # subtle warmth without character bleed
                 openai_voice=_env_override("operator", "openai_voice", "alloy"),
                 openai_instructions=(
                     "Speak as a clear, neutral cockpit operator voice. Calm,"
