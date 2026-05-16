@@ -4,6 +4,35 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-17 — Cursor · W308 pre-flight findings (token location inventory)
+
+**Summary**
+
+While Claude was running W307, mapped where MASTER tokens *actually
+live in shipping code* — so W308 doesn't start by assuming a clean
+`tokens.css` exists. Key finding: **there is no React/Vue source tree
+in this repo**. The desktop cockpit ships a pre-built, committed
+static bundle under `desktop/src-tauri/web/`. The original SPA
+(`experiments/neural-showcase-v2/v3`, vanilla JS + Vite + Three.js)
+was deleted in commit `e5f1911`. Shipping CSS lives *minified* in
+`desktop/src-tauri/web/assets/index-*.css`.
+
+W308 therefore starts with a strategy decision: (A) patch the bundle
+in place (cheap, fragile), (B) restore the deleted SPA and rebuild
+(correct, ~1 day, but reopens a deliberate removal decision), or
+(C) build a new minimal Vite + vanilla TS cockpit under `apps/cockpit/`
+with a proper `tokens.css` (clean, ~2 days). My recommendation:
+Path C, staged — step 1 ships the system, step 2 ports surfaces.
+
+The pre-flight checklist forces the operator to mark each row of the
+W307 token diff (approve/change/skip) and pick A/B/C *before* any
+code work starts. Also pins the pytest baseline (3508/0/6/2 from W306)
+that W308 must not regress.
+
+**Files**
+
+- `docs/handoff/W308_PRE_FLIGHT_FINDINGS.md`
+
 ## 2026-05-17 — Cursor · W307 design-system refresh handoff (for Claude Code)
 
 **Summary**
@@ -2387,75 +2416,6 @@ Full pytest after this batch: **2368 passed / 1 skipped / 2 xfailed**
 
 `>>> SYNC: Cursor · 2026-05-04 · SMTP OAuth initial consent flow closes the refresh-token bootstrap gap`
 
-## 2026-05-04 — Cursor · L9 sidecar: bring pyoxidizer.bzl back in sync with requirements.txt
-
-**Summary**
-
-Picked up the next L9 follow-up. The sidecar Rust shell
-(`desktop/src-tauri/src/sidecar.rs`) was already complete — TARS_BACKEND_BIN
-override → bundled `tars-backend` (pyoxidizer) → `python3 serve.py`
-fallback, with health polling, SIGTERM-then-SIGKILL Drop, and the
-`desktop.sidecar.{started,failed,exited}` event contract pinned by
-`tests/test_desktop_sidecar_events_contract.py`.
-
-The actual gap was the **build config**: `desktop/pyoxidizer.bzl` was
-hardcoding 4 stale pins (`fastapi==0.115.0`, `uvicorn==0.30.6`,
-`pynacl==1.5.0`, `pydantic==2.9.2`) and missing every other runtime
-dependency the live `web_extras.app:app` requires —
-`pydantic-settings`, `httpx`, `httpx-sse`, `pypdf`, `eth-account`,
-`tonsdk`, `solders`. A pyoxidizer build with the old config would
-crash the bundled `tars-backend` on first import.
-
-Closed the gap in three pieces:
-
-1) Rewrote `desktop/pyoxidizer.bzl` to keep the runtime dependency
-   list in a single labelled `RUNTIME_REQUIREMENTS` Starlark constant
-   that mirrors `requirements.txt` exactly (10 pins now: every runtime
-   line minus the test extras). Pins now match the dev venv.
-
-2) Flipped `policy.include_distribution_resources = True` so adjacent
-   CSV/JSON seeds in `data/` ride along with the bundled package
-   tree — loaders that read them by relative path keep working in
-   the bundle.
-
-3) New `tests/test_pyoxidizer_requirements_parity.py` (5 cases) is the
-   parity guard:
-   - every requirements.txt line (minus BUNDLE_EXCLUDED:
-     pytest / pytest-asyncio / jsonschema) appears in
-     RUNTIME_REQUIREMENTS,
-   - no bundled pin is missing from requirements.txt,
-   - every common pin matches version specifier exactly (catches
-     silent drift like `==0.115.0` vs `==0.136.1`),
-   - dev-only test packages stay out of the bundle,
-   - sanity: parser must find ≥5 pins so a regex regression can't
-     silently pass the diff guards by returning ``{}``.
-
-   The bzl-list parser handles inline `]` inside string elements
-   (e.g. `"uvicorn[standard]==0.46.0"`) by anchoring the closing
-   `]` to a column-zero match — pinned by a comment in the bzl
-   file so the formatting is part of the contract.
-
-Full pytest after this batch: **2337 passed / 1 skipped / 2 xfailed**
-(was 2332).
-
-Operator follow-up (out of code-side scope, captured for the next
-pickup): an actual `pyoxidizer build` cross-target run is still
-needed to verify the bundle assembles end-to-end on
-darwin-aarch64, darwin-x86_64, win-x86_64, win-aarch64, linux-x86_64,
-linux-aarch64. The parity guard ensures the bundle SHOULD assemble
-once a build is attempted; first signed `.dmg`/`.exe` artefacts
-remain on the operator queue per `docs/AGENT_HANDOFF.md`.
-
-**Files**
-
-- `desktop/pyoxidizer.bzl` — rewritten with `RUNTIME_REQUIREMENTS`
-  constant + parity-test contract + `include_distribution_resources`
-  flip.
-- `tests/test_pyoxidizer_requirements_parity.py` (new, 5 cases).
-- `docs/CHANGELOG_AGENTS.md`, `docs/CHANGELOG_PUBLIC.md`.
-
-`>>> SYNC: Cursor · 2026-05-04 · L9 pyoxidizer pins back in sync with runtime`
-
 ---
 
-_Showing the most recent 60 of 259 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 260 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._

@@ -4,6 +4,35 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-17 — Cursor · W308 pre-flight findings (token location inventory)
+
+**Summary**
+
+While Claude was running W307, mapped where MASTER tokens *actually
+live in shipping code* — so W308 doesn't start by assuming a clean
+`tokens.css` exists. Key finding: **there is no React/Vue source tree
+in this repo**. The desktop cockpit ships a pre-built, committed
+static bundle under `desktop/src-tauri/web/`. The original SPA
+(`experiments/neural-showcase-v2/v3`, vanilla JS + Vite + Three.js)
+was deleted in commit `e5f1911`. Shipping CSS lives *minified* in
+`desktop/src-tauri/web/assets/index-*.css`.
+
+W308 therefore starts with a strategy decision: (A) patch the bundle
+in place (cheap, fragile), (B) restore the deleted SPA and rebuild
+(correct, ~1 day, but reopens a deliberate removal decision), or
+(C) build a new minimal Vite + vanilla TS cockpit under `apps/cockpit/`
+with a proper `tokens.css` (clean, ~2 days). My recommendation:
+Path C, staged — step 1 ships the system, step 2 ports surfaces.
+
+The pre-flight checklist forces the operator to mark each row of the
+W307 token diff (approve/change/skip) and pick A/B/C *before* any
+code work starts. Also pins the pytest baseline (3508/0/6/2 from W306)
+that W308 must not regress.
+
+**Files**
+
+- `docs/handoff/W308_PRE_FLIGHT_FINDINGS.md`
+
 ## 2026-05-17 — Cursor · W307 design-system refresh handoff (for Claude Code)
 
 **Summary**
