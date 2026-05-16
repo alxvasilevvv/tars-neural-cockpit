@@ -86,6 +86,9 @@ tests/perf/.results/
 # Personal / non-canonical handoff drafts
 docs/HANDOFF_AUTH_FOR_BROTHER_W284.md
 
+# Ad-hoc experiment installs (optional local lockfile)
+experiments/neural-showcase-v3/package-lock.json
+
 # Optional local droplets (repo has canonical copies with the same names)
 scripts/DEPLOY-TARS-LANDING.command
 scripts/F.sh
