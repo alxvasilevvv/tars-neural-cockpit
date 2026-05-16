@@ -4,6 +4,25 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-16 — Cursor · W304 asyncio 3.12 + voice env + L9 roadmap sync
+
+**Summary**
+
+Replaced deprecated ``asyncio.get_event_loop().run_until_complete`` with
+``asyncio.run`` in cap UX + policy queue tests; removed dead ``_run`` helper in
+memory action tests (Python 3.12 compat). Documented optional ``OPENAI_API_KEY``
+for the OpenAI TTS step in ``PROVIDER_CHAIN``. Updated ``PHASE_L_ROADMAP.md``
+L9 status: Rust sidecar is implemented; remaining work is bundled backend binary
++ code signing + signed installers.
+
+**Files**
+
+- `tests/test_cap_ux.py`
+- `tests/test_policy_queue.py`
+- `tests/test_memory_actions.py`
+- `.env.example`
+- `docs/PHASE_L_ROADMAP.md`
+
 ## 2026-05-16 — Cursor · W303 onboarding `/state` + mock OAuth landing
 
 **Summary**

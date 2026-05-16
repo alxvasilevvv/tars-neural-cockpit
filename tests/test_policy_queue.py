@@ -29,7 +29,7 @@ from backend.core.policy import store as _policy_store_mod
 
 
 def _async(coro):
-    return asyncio.get_event_loop().run_until_complete(coro)
+    return asyncio.run(coro)
 
 
 class PolicyQueueTestCase(unittest.TestCase):

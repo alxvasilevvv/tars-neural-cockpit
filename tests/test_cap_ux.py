@@ -127,7 +127,7 @@ def test_hard_cap_blocks_chat_with_429_envelope(isolated_metering, monkeypatch):
                 break
         return events
 
-    events = asyncio.get_event_loop().run_until_complete(_drive())
+    events = asyncio.run(_drive())
     # First event must be the cap_hit error.
     assert events, "orchestrator produced no events"
     err = events[0]

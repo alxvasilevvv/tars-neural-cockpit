@@ -3,7 +3,7 @@
 Pick this up if you are continuing the work in a fresh chat. Read this file
 plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 
-> **>>> SYNC: Cursor · 2026-05-16 · W303 onboarding state + mock OAuth · W302/W301 shell <<<**
+> **>>> SYNC: Cursor · 2026-05-16 · W304 py311+ tests + OPENAI TTS env + L9 doc sync · W303 onboarding <<<**
 >
 > Continuation after operator listened to W294/W295 voices and reviewed the
 > cockpit visually. Verdict: **voice still felt "TTS narrator", design "everything is broken"**.
@@ -62,11 +62,10 @@ plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 > shell touches use **Fira Code**; ``scripts/qa_w290_cockpit.sh`` accepts
 > ``--accent`` ``#CA8A04``.
 >
-> **Test suite** — ``./.venv/bin/python -m pytest tests/ -x`` after W298:
-> **571 passed, 1 failed, 2 skipped**. The lone failure
-> (``test_cap_ux.py::test_hard_cap_blocks_chat_with_429_envelope``) is a
-> **pre-existing Python 3.12 incompat** (uses ``asyncio.get_event_loop()``
-> deprecated in 3.12), not caused by voice changes. All voice tests pass.
+> **Test suite** — ``test_cap_ux.py::test_hard_cap_blocks_chat_with_429_envelope``
+> used ``asyncio.get_event_loop()`` (broken on Python 3.12); **W304** switched to
+> ``asyncio.run`` in that test + ``test_policy_queue.py`` + removed dead helper
+> in ``test_memory_actions.py``. Re-run full ``pytest`` on your matrix after pull.
 >
 > **.gitignore cleanup** — added patterns for the operator's scratch
 > session logs (``.BYPASS-AUTH.txt``, ``.CHECK-*.txt``, ``.DEMO-*.txt``,

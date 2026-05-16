@@ -827,9 +827,12 @@ quotes) and quotes individual tokens to avoid injection.
 
 ### L9 — Tauri 2 desktop shell (macOS + Windows)
 
-**Status:** 🟡 **scaffolded 2026-04-29** — `desktop/` layout, FastAPI
-manifest API, and cockpit download CTAs all live. Pyoxidizer sidecar +
-real signing pipeline + first signed `.dmg`/`.exe` artifacts pending.
+**Status:** 🟡 **scaffolded + sidecar runtime 2026-05** — `desktop/` layout,
+FastAPI manifest API, and Rust sidecar (`src-tauri/src/sidecar.rs`: bundled
+binary, `TARS_BACKEND_BIN`, or `python3 serve.py` + `/health` poll + crash
+watch) are live. **Next slice:** CI-bundled PyInstaller/pyoxidizer binary in
+`bundle.externalBin`, Apple ID / Authenticode signing, first signed `.dmg` /
+`.exe` on the release channel.
 
 **Goal:** signed `TARS-<version>.dmg` (macOS) and `TARS-<version>-Setup.exe`
 (Windows) that launch the Python backend as a sidecar and load the
@@ -845,8 +848,10 @@ desktop release (store listings optional later).
   `updater`); `tauri.conf.json` allows `127.0.0.1:8765` + `meeet.world`
   in CSP and pins the updater endpoint at
   `meeet.world/updates/{target}/{current_version}.json`.
-- `src/sidecar.rs` is currently a TODO emitting a non-fatal warn —
-  next slice replaces it with a pyoxidizer-built backend binary.
+- `src/sidecar.rs` resolves `TARS_BACKEND_BIN`, bundled `tars-sidecar*`, or
+  falls back to `python3 serve.py` at the repo root (local dev); health-poll
+  + mid-session crash detection are implemented — replace the bundled binary
+  with a PyInstaller/pyoxidizer build when CI produces stable artefacts.
 - `backend/core/product/` + `web_extras/routers/product.py` ship the
   `/api/product/downloads`, `/downloads/latest`, `/version` endpoints.
 - Cockpit `<DownloadStrip />` (`src/components/DownloadStrip.tsx`)

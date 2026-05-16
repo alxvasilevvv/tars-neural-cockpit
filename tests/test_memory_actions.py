@@ -137,10 +137,6 @@ def test_find_action_resolves_memory_actions():
 # ---------------------------------------------------------------------
 
 
-def _run(coro):
-    return asyncio.get_event_loop().run_until_complete(coro)
-
-
 def test_set_then_get_round_trip():
     import backend.core.domains.packs  # register
     from backend.core.domains.registry import get_pack
