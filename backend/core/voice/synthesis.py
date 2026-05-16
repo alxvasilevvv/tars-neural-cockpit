@@ -33,6 +33,12 @@ from .engines import (
 from .personas import Persona, get_persona
 
 
+# Public alias of the auto chain so external callers (e.g. the
+# /api/voice/personas/effective endpoint) can advertise the same
+# fallback order without duplicating the constant.
+PROVIDER_CHAIN: tuple[str, ...] = ("elevenlabs", "openai", "mac_say")
+
+
 log = logging.getLogger("tars.voice")
 
 
@@ -66,7 +72,7 @@ class SynthesisError(RuntimeError):
     """Raised when every provider fell through."""
 
 
-_AUTO_ORDER: tuple[str, ...] = ("elevenlabs", "openai", "mac_say")
+_AUTO_ORDER: tuple[str, ...] = PROVIDER_CHAIN
 _ENGINES: dict[str, TTSEngine] = {}
 
 
@@ -120,6 +126,129 @@ def _resolve_order(provider: str | None) -> list[str]:
         rest = [p for p in _AUTO_ORDER if p != pinned]
         return [pinned, *rest]
     return list(_AUTO_ORDER)
+
+
+def _persona_voice_id_for(persona: Persona, provider: str) -> str | None:
+    """Return the voice id ``persona`` advertises for ``provider``.
+
+    Centralises the per-provider attribute lookup so both
+    :func:`synthesize` and :func:`resolve_effective` agree on which
+    field is the canonical voice handle (mac_say uses the ``say -v``
+    voice name; elevenlabs uses the public voice id; openai uses the
+    preset name).
+    """
+
+    if provider == "elevenlabs":
+        return persona.provider.elevenlabs_voice_id
+    if provider == "openai":
+        return persona.provider.openai_voice
+    if provider == "mac_say":
+        return persona.provider.mac_say_voice
+    return None
+
+
+async def _effective_mac_say_voice(persona: Persona) -> str | None:
+    """Resolve the ``mac_say`` voice the persona would actually fall
+    to on this machine, applying :meth:`MacSayEngine._pick_fallback_voice`
+    when the preferred voice is not installed.
+
+    Returns ``None`` only when the mac_say engine itself isn't
+    available (non-Darwin host or missing ``/usr/bin/say``).
+    """
+
+    eng = _engines().get("mac_say")
+    if eng is None or not isinstance(eng, MacSayEngine):
+        # Custom engine swap (tests). Fall back to the persona's
+        # declared mac_say voice without further resolution.
+        return persona.provider.mac_say_voice
+    try:
+        if not await eng.is_available():
+            # mac_say still has a *declared* voice in the persona —
+            # surface it so callers (the diagnostics endpoint) can
+            # show what would be used on a Mac. Returning ``None``
+            # here would falsely imply the persona is silent.
+            return persona.provider.mac_say_voice
+        installed = await eng.installed_voices()
+    except Exception:  # never explode a status probe
+        return persona.provider.mac_say_voice
+    preferred = persona.provider.mac_say_voice or "Alex"
+    if installed and preferred not in installed:
+        return MacSayEngine._pick_fallback_voice(persona, installed)
+    return preferred
+
+
+async def resolve_effective(
+    persona: Persona | str | None,
+    *,
+    provider: str | None = None,
+) -> dict[str, object]:
+    """Read-only mirror of :func:`synthesize`'s provider/voice picker.
+
+    Walks the same provider chain as ``synthesize`` and reports the
+    first provider that *would* be used (engine available + persona
+    has a voice configured), plus the voice id that would be picked.
+
+    Returns a dict with::
+
+        effective_provider:        str | None
+        effective_voice_id:        str | None
+        effective_mac_say_voice:   str | None
+        fallback_chain:            list[str]   # full theoretical order
+        considered:                list[str]   # probed up to the chosen
+        providers_available:       dict[str, bool]
+
+    No audio is synthesised, no remote calls are made beyond the
+    cheap ``is_available()`` probes that ``/api/voice/health``
+    already runs.
+    """
+
+    target = persona if isinstance(persona, Persona) else get_persona(persona)
+    order = _resolve_order(provider)
+    engines = _engines()
+
+    # Probe every engine once — this is what /health does too. Cheap.
+    providers_available: dict[str, bool] = {}
+    for name, engine in engines.items():
+        try:
+            providers_available[name] = await engine.is_available()
+        except Exception:
+            providers_available[name] = False
+
+    effective_provider: str | None = None
+    effective_voice_id: str | None = None
+    considered: list[str] = []
+
+    for name in order:
+        engine = engines.get(name)
+        if engine is None:
+            continue
+        considered.append(name)
+        if not providers_available.get(name, False):
+            continue
+        vid = _persona_voice_id_for(target, name)
+        if not vid:
+            continue
+        if name == "mac_say":
+            # Apply the same install-aware fallback the engine does
+            # at synthesis time so the reported voice matches reality.
+            vid = await _effective_mac_say_voice(target) or vid
+        effective_provider = name
+        effective_voice_id = vid
+        break
+
+    # Always surface the mac_say voice the persona would fall to,
+    # regardless of which provider was chosen — diagnostic clients
+    # use this to show "if cloud goes away, you'd hear <voice>".
+    effective_mac_say_voice = await _effective_mac_say_voice(target)
+
+    return {
+        "effective_provider": effective_provider,
+        "effective_voice_id": effective_voice_id,
+        "effective_mac_say_voice": effective_mac_say_voice,
+        "fallback_chain": list(order),
+        "considered": considered,
+        "providers_available": providers_available,
+    }
 
 
 async def synthesize(

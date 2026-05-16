@@ -37,9 +37,11 @@ from fastapi.responses import Response
 from backend.core.chat import get_chat_store
 from backend.core.meeet import get_client as get_meeet_client, new_trace_id, trace_scope
 from backend.core.voice import (
+    PROVIDER_CHAIN,
     SynthesisError,
     available_engines,
     list_personas,
+    resolve_effective,
     synthesize,
 )
 from backend.core.voice.transcribe import (
@@ -61,6 +63,64 @@ async def personas_endpoint() -> dict[str, Any]:
         "ok": True,
         "count": len(items),
         "default_persona_id": "jarvis",
+        "personas": items,
+    }
+
+
+@router.get("/personas/effective")
+async def personas_effective_endpoint() -> dict[str, Any]:
+    """W295 — pure read-only diagnostics endpoint.
+
+    For every registered persona, report which provider + voice the
+    synthesis layer *would* use right now, given the current env and
+    available engines. No audio is synthesised, no cloud spend.
+
+    The W290 acceptance harness (``scripts/qa_w290_cockpit.sh``
+    Group 9) consumes this to assert that the four male personas
+    (jarvis / stark / hal9000 / tars) resolve to four distinct
+    voices in both the ElevenLabs-enabled and mac-say-only paths.
+
+    Reuses :func:`backend.core.voice.synthesis.resolve_effective` so
+    the picker logic stays DRY with ``/api/voice/speak``.
+    """
+
+    personas = list_personas()
+    # Probe engines once for the top-level providers_available block.
+    # Each per-persona entry also includes its own snapshot in case a
+    # plugin pack swaps the engine table mid-flight.
+    providers_available = await available_engines()
+    items: list[dict[str, Any]] = []
+    for persona in personas:
+        eff = await resolve_effective(persona)
+        items.append(
+            {
+                "id": persona.id,
+                "name": persona.name,
+                "character": persona.character,
+                "accent": persona.accent,
+                "locale": persona.locale,
+                "license_note": persona.license_note,
+                "effective_provider": eff["effective_provider"],
+                "effective_voice_id": eff["effective_voice_id"],
+                # Convenience alias so tooling that only looks for
+                # ``voice_id`` (the historical name in the speak
+                # response headers) keeps working.
+                "voice_id": eff["effective_voice_id"],
+                "effective_mac_say_voice": eff["effective_mac_say_voice"],
+                "fallback_chain": eff["fallback_chain"],
+                "providers": {
+                    "elevenlabs": persona.provider.elevenlabs_voice_id,
+                    "openai": persona.provider.openai_voice,
+                    "mac_say": persona.provider.mac_say_voice,
+                },
+            }
+        )
+    return {
+        "ok": True,
+        "count": len(items),
+        "default_persona_id": "jarvis",
+        "providers_available": providers_available,
+        "provider_chain": list(PROVIDER_CHAIN),
         "personas": items,
     }
 

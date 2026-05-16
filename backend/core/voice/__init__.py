@@ -27,14 +27,17 @@ from .personas import (
     register_persona,
 )
 from .synthesis import (
+    PROVIDER_CHAIN,
     SynthesisError,
     SynthesisResult,
     available_engines,
+    resolve_effective,
     synthesize,
 )
 
 __all__ = [
     "DEFAULT_PERSONA_ID",
+    "PROVIDER_CHAIN",
     "Persona",
     "PersonaProviderHint",
     "SynthesisError",
@@ -45,5 +48,6 @@ __all__ = [
     "get_system_prompt_overlay",
     "list_personas",
     "register_persona",
+    "resolve_effective",
     "synthesize",
 ]

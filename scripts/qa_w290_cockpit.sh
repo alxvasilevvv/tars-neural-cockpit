@@ -222,13 +222,17 @@ else
   if [ -z "$EFF_JSON" ]; then
     skip "/api/voice/personas/effective unreachable — endpoint may not be wired in this build"
   else
-    UNIQ_LINE=$(printf '%s' "$EFF_JSON" | python3 - <<'PY' 2>/dev/null || echo "0 0"
-import sys, json
+    # NOTE: passing JSON via env var (not pipe). `python3 - <<'PY'` makes
+    # the heredoc become the script body, which means a piped stdin gets
+    # discarded — this used to silently report 0/4 personas. See W295.
+    UNIQ_LINE=$(EFF_JSON="$EFF_JSON" python3 <<'PY' 2>/dev/null || echo "0 0"
+import os, json
 try:
-    d = json.load(sys.stdin)
+    d = json.loads(os.environ.get("EFF_JSON", ""))
 except Exception:
-    print("0 0"); sys.exit(0)
-wanted = {"jarvis", "stark", "hal_9000", "tars"}
+    print("0 0")
+    raise SystemExit(0)
+wanted = {"jarvis", "stark", "hal9000", "tars"}
 seen = {}
 for p in d.get("personas", []):
     pid = p.get("id")
