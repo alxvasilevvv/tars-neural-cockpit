@@ -7,27 +7,40 @@
 <link rel="preconnect" href="https://fonts.bunny.net">
 <link rel="stylesheet" href="https://fonts.bunny.net/css?family=share-tech-mono:400|fira-code:400,500,600&display=swap">
 <style>
+/*
+  Refreshed against W308 step-1 tokens (1e7dcab) per W308 step-2 brief.
+  Source of truth: apps/cockpit/src/styles/tokens.css.
+  Diffs from W307 original:
+    - --color-ink-3 promoted #5C5A52 → #8A867B (WCAG AA pass on bg-1).
+    - Added --cta-text-on-accent (#000000) — hard rule, 9.62:1 AAA.
+    - Added --color-hud-alpha-cap (0.32) — documented usage cap.
+    - Added --motion-pulse (3.6s) ambient + --motion-alert-pulse (1.6s).
+*/
 :root {
   --color-bg-0: #000000;
   --color-bg-1: #0B0B10;
   --color-bg-2: #14141B;
   --color-ink: #F5F5F0;
   --color-ink-2: #A09E96;
-  --color-ink-3: #5C5A52;
+  --color-ink-3: #8A867B; /* W308 step-1: promoted from #5C5A52 (2.84:1 fail → 4.62:1 AA on bg-1) */
   --color-line: rgba(245, 245, 240, 0.06);
   --color-line-strong: rgba(245, 245, 240, 0.12);
   --color-line-hot: rgba(202, 138, 4, 0.32);
   --color-accent: #CA8A04;
   --color-accent-soft: rgba(202, 138, 4, 0.55);
   --color-accent-deep: rgba(202, 138, 4, 0.12);
+  --cta-text-on-accent: #000000; /* W308 step-1: hard rule — text on gold MUST be black (9.62:1 AAA) */
   --color-hud: #00FFFF;
   --color-hud-soft: rgba(0, 255, 255, 0.32);
+  --color-hud-alpha-cap: 0.32; /* W308 step-1: documented cap for raw HUD usage */
   --color-alert: #EF4444;
   --color-success: #34D399;
   --font-display: 'Share Tech Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
   --font-mono: 'Fira Code', ui-monospace, SFMono-Regular, Menlo, monospace;
   --header-h: 56px;
   --container: 1280px;
+  --motion-pulse: 3.6s ease-in-out; /* W308 step-1: ambient health pulse — slow = "all good" */
+  --motion-alert-pulse: 1.6s ease-in-out; /* W308 step-1: reserved for warn states only */
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }

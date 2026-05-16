@@ -223,3 +223,35 @@ def test_master_documents_hud_alpha_cap() -> None:
     assert "--color-hud-alpha-cap" in md, (
         "MASTER §3 must reference --color-hud-alpha-cap (W308 step 1 docs)."
     )
+
+
+def test_surface_marketing_motion_override_declared() -> None:
+    """W307 verdict resolution (6231b34) — gap-fill after W308 step 2+3.
+
+    Marketing-class surfaces (landing hero, brand pages, share cards)
+    lift ``--motion-budget-max`` from the default 2 to 4 because the
+    rotating-core hero scene IS the value prop. The override lives in
+    ``apps/cockpit/src/styles/tokens.css`` as a ``.surface-marketing``
+    selector and is documented in MASTER §7.
+
+    Without enforcement, future agents will quietly drop the override
+    when refactoring tokens.css; the marketing/cockpit split would be
+    re-litigated at every wave."""
+    css = _read(TOKENS_CSS_PATH)
+    css_norm = re.sub(r"\s+", "", css)
+    needles_css = (
+        ".surface-marketing",
+        "--motion-budget-max:4",
+    )
+    missing_css = [n for n in needles_css if n not in css_norm]
+    assert not missing_css, (
+        "tokens.css must declare `.surface-marketing { "
+        "--motion-budget-max: 4; }` (W307 verdict resolution). "
+        f"Missing: {missing_css}"
+    )
+
+    md = _read(MASTER_PATH)
+    assert "surface-marketing" in md, (
+        "MASTER §7 must document the .surface-marketing motion-budget "
+        "override (W307 verdict resolution, gap-fill after step 2)."
+    )

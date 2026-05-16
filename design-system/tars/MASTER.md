@@ -155,11 +155,19 @@ woff2 binaries):
   - `--motion-alert-pulse: 1.6s` — reserved for genuine warn states
     (LIVE dots on `--color-alert`, stream-failure markers). Never
     use for ambient indicators.
-- **W308 step 1 — marketing vs cockpit motion contracts** (deferred
-  to step 2 once a marketing surface exists in `apps/`). Marketing
-  hero may exceed `--motion-budget-max` (rotating-core scene *is*
-  the value prop); cockpit shell caps at 2. Both honour
-  `prefers-reduced-motion`.
+- **W308 step 1 — marketing vs cockpit motion contracts** — closed
+  by W308 step 2 (W307 verdict resolution `6231b34`). Codified via
+  the `.surface-marketing` CSS class declared in
+  `apps/cockpit/src/styles/tokens.css`:
+
+  | Surface | `--motion-budget-max` | Notes |
+  |---|---|---|
+  | Default (cockpit shell, briefing, settings, status, any operator surface) | `2` | Operator stays on this page for hours; ambient motion must not compete with content. |
+  | `.surface-marketing` (landing hero, share cards, brand pages) | `4` | The rotating-core scene IS the value prop — meditative quality is a feature on the landing. |
+
+  Apply `.surface-marketing` to the root `<body>` (or topmost
+  surface element) of marketing pages only. Both contracts still
+  honour `prefers-reduced-motion: reduce`.
 
 ## 8. Pre-Delivery Checklist (verbatim from skill)
 
