@@ -3525,6 +3525,637 @@
   /* === LEGACY BAND-AID REMOVED ABOVE — old W283 revert/glue follows for ref === */
   /* W282-REVERT: legacy block (kept for marker, no-op below) */
 
+  /* === W298 HUD OVERLAY LAYER ===
+     Sci-Fi FUI overlay on top of W286 + W290 + W292 + W294. All effects scoped
+     to body.cockpit-active and .voice-cockpit. Adds neon-cyan HUD chrome
+     (corner brackets, top ticker, telemetry rail, scanlines, bottom HUD bar)
+     and upgrades the first-boot language picker to a glass card grid.
+     All animations respect prefers-reduced-motion.
+     Sub-sections:
+       W298.0  HUD design tokens (cyan accent, mono font)
+       W298.1  Top ticker strip (status tokens, slow scroll)
+       W298.2  Right-edge telemetry rail (dots + labels)
+       W298.3  Language picker card grid (7 cards, glass + corner brackets)
+       W298.4  Status row reflow (W294 button collision fix)
+       W298.5  Bottom HUD bar + scanline overlay
+       W298.6  HUD corner brackets on the monolith
+       W298.7  Keyframes
+       W298.8  Reduced-motion guard
+  */
+
+  /* W298.0 — HUD design tokens (additive; do not touch --accent) */
+  body.cockpit-active {
+    --hud-cyan:        #00E5FF;
+    --hud-cyan-dim:    rgba(0, 229, 255, 0.32);
+    --hud-cyan-glow:   rgba(0, 229, 255, 0.45);
+    --hud-cyan-faint:  rgba(0, 229, 255, 0.10);
+    --hud-mono:        'JetBrains Mono', 'IBM Plex Mono', ui-monospace, 'SF Mono', SFMono-Regular, Menlo, monospace;
+  }
+
+  /* W298.1 — top HUD ticker (between topbar and the monolith) */
+  .voice-cockpit .w298-ticker {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    right: 12px;
+    height: 28px;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 6;
+    border-top: 1px solid rgba(0, 229, 255, 0.16);
+    border-bottom: 1px solid rgba(0, 229, 255, 0.16);
+    background:
+      linear-gradient(90deg,
+        transparent 0%,
+        rgba(0, 229, 255, 0.04) 18%,
+        rgba(0, 229, 255, 0.08) 50%,
+        rgba(0, 229, 255, 0.04) 82%,
+        transparent 100%),
+      rgba(8, 10, 18, 0.55);
+    backdrop-filter: blur(10px) saturate(150%);
+    -webkit-backdrop-filter: blur(10px) saturate(150%);
+    box-shadow: inset 0 0 24px rgba(0, 229, 255, 0.06);
+  }
+  .voice-cockpit .w298-ticker::before,
+  .voice-cockpit .w298-ticker::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    width: 64px;
+    z-index: 2;
+    pointer-events: none;
+  }
+  .voice-cockpit .w298-ticker::before {
+    left: 0;
+    background: linear-gradient(90deg, rgba(8,10,18,0.95) 0%, transparent 100%);
+  }
+  .voice-cockpit .w298-ticker::after {
+    right: 0;
+    background: linear-gradient(270deg, rgba(8,10,18,0.95) 0%, transparent 100%);
+  }
+  .voice-cockpit .w298-ticker-track {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    gap: 36px;
+    white-space: nowrap;
+    padding: 0 18px;
+    animation: w298-ticker-scroll 38s linear infinite;
+    will-change: transform;
+  }
+  .voice-cockpit .w298-ticker-token {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    font-family: var(--hud-mono);
+    font-size: 10.5px;
+    line-height: 1;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: rgba(0, 229, 255, 0.78);
+    text-shadow: 0 0 8px var(--hud-cyan-glow);
+  }
+  .voice-cockpit .w298-ticker-token b {
+    font-weight: 600;
+    color: rgba(0, 229, 255, 0.96);
+    letter-spacing: 0.20em;
+  }
+  .voice-cockpit .w298-ticker-token::after {
+    content: '';
+    display: inline-block;
+    width: 4px;
+    height: 4px;
+    margin-left: 22px;
+    border-radius: 50%;
+    background: var(--hud-cyan);
+    box-shadow: 0 0 8px var(--hud-cyan-glow);
+    opacity: 0.55;
+  }
+  .voice-cockpit .w298-ticker-token.live::before {
+    content: '';
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    margin-right: 4px;
+    border-radius: 50%;
+    background: var(--hud-cyan);
+    box-shadow: 0 0 10px var(--hud-cyan-glow);
+    animation: hud-blink 1.5s ease-in-out infinite;
+  }
+
+  /* W298.2 — telemetry rail (right edge of stage) */
+  .voice-cockpit .w298-telemetry {
+    position: absolute;
+    right: 18px;
+    top: 50%;
+    transform: translateY(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 14px;
+    padding: 14px 12px;
+    width: 96px;
+    border: 1px solid rgba(0, 229, 255, 0.18);
+    border-radius: 10px;
+    background:
+      linear-gradient(180deg, rgba(0, 229, 255, 0.04) 0%, rgba(0, 229, 255, 0.01) 100%),
+      rgba(8, 10, 18, 0.42);
+    backdrop-filter: blur(12px) saturate(160%);
+    -webkit-backdrop-filter: blur(12px) saturate(160%);
+    pointer-events: none;
+    z-index: 7;
+    font-family: var(--hud-mono);
+    box-shadow:
+      inset 0 1px 0 rgba(0, 229, 255, 0.08),
+      0 8px 24px rgba(0, 0, 0, 0.40);
+  }
+  .voice-cockpit .w298-telemetry::before,
+  .voice-cockpit .w298-telemetry::after {
+    content: '';
+    position: absolute;
+    width: 12px;
+    height: 12px;
+    border: 1px solid var(--hud-cyan);
+    pointer-events: none;
+    opacity: 0.85;
+  }
+  .voice-cockpit .w298-telemetry::before { top: -1px; left: -1px; border-right: 0; border-bottom: 0; }
+  .voice-cockpit .w298-telemetry::after  { bottom: -1px; right: -1px; border-left: 0; border-top: 0; }
+  @media (max-width: 1100px) {
+    .voice-cockpit .w298-telemetry { display: none; }
+  }
+  .voice-cockpit .w298-telemetry-block {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    border-left: 1px solid rgba(0, 229, 255, 0.32);
+    padding: 0 0 0 8px;
+  }
+  .voice-cockpit .w298-telemetry-label {
+    font-size: 9.5px;
+    letter-spacing: 0.20em;
+    color: rgba(0, 229, 255, 0.58);
+    text-transform: uppercase;
+  }
+  .voice-cockpit .w298-telemetry-value {
+    font-size: 13px;
+    font-weight: 600;
+    color: rgba(0, 229, 255, 0.94);
+    text-shadow: 0 0 8px var(--hud-cyan-glow);
+    line-height: 1.1;
+  }
+  .voice-cockpit .w298-telemetry-value .w298-unit {
+    opacity: 0.55;
+    font-size: 10px;
+    margin-left: 1px;
+    font-weight: 500;
+  }
+  .voice-cockpit .w298-telemetry-dots {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 5px 6px;
+    margin-top: 4px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(0, 229, 255, 0.14);
+  }
+  .voice-cockpit .w298-telemetry-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: rgba(0, 229, 255, 0.30);
+    box-shadow: 0 0 4px rgba(0, 229, 255, 0.42);
+    animation: hud-blink 1.5s ease-in-out infinite;
+  }
+  .voice-cockpit .w298-telemetry-dot:nth-child(1) { animation-delay: 0.00s; }
+  .voice-cockpit .w298-telemetry-dot:nth-child(2) { animation-delay: 0.20s; }
+  .voice-cockpit .w298-telemetry-dot:nth-child(3) { animation-delay: 0.45s; }
+  .voice-cockpit .w298-telemetry-dot:nth-child(4) { animation-delay: 0.70s; }
+  .voice-cockpit .w298-telemetry-dot:nth-child(5) { animation-delay: 0.95s; }
+  .voice-cockpit .w298-telemetry-dot:nth-child(6) { animation-delay: 1.15s; }
+  .voice-cockpit .w298-telemetry-dot:nth-child(7) { animation-delay: 0.30s; }
+  .voice-cockpit .w298-telemetry-dot:nth-child(8) { animation-delay: 0.85s; }
+  .voice-cockpit .w298-telemetry-dot.live { background: rgba(0, 229, 255, 0.90); box-shadow: 0 0 8px var(--hud-cyan-glow); }
+  .voice-cockpit .w298-telemetry-dot.warm { background: rgba(245, 181, 68, 0.55); box-shadow: 0 0 6px rgba(245, 181, 68, 0.55); }
+
+  /* W298.3 — language picker card grid (full-screen overlay).
+     z-index sits above the W298.5 scanline overlay (9999) so the cards stay
+     crisp during onboarding without the scanline texture muddying flag art.
+     Higher-specificity selector + !important to override the W292 rule
+     `body.cockpit-active > * { position: relative; z-index: 1; }`, which
+     otherwise traps this fixed overlay inside the body grid. */
+  body.cockpit-active > .w298-lang-picker,
+  .w298-lang-picker {
+    position: fixed !important;
+    inset: 0 !important;
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 10100 !important;
+    padding: 24px;
+    background:
+      radial-gradient(circle at 50% 38%, rgba(0, 229, 255, 0.06) 0%, transparent 55%),
+      radial-gradient(circle at 50% 50%, rgba(8, 10, 18, 0.62) 0%, rgba(6, 8, 14, 0.92) 70%);
+    backdrop-filter: blur(20px) saturate(140%);
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
+    opacity: 0;
+    transition: opacity 240ms cubic-bezier(0.22, 0.61, 0.36, 1);
+  }
+  body.cockpit-active > .w298-lang-picker.is-open,
+  .w298-lang-picker.is-open {
+    display: flex !important;
+    opacity: 1 !important;
+  }
+  .w298-lang-picker-inner {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 26px;
+    max-width: min(1080px, calc(100vw - 48px));
+    width: 100%;
+  }
+  .w298-lang-picker-inner::before,
+  .w298-lang-picker-inner::after {
+    content: '';
+    position: absolute;
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--hud-cyan, #00E5FF);
+    pointer-events: none;
+    opacity: 0.85;
+    filter: drop-shadow(0 0 6px rgba(0, 229, 255, 0.45));
+  }
+  .w298-lang-picker-inner::before { top: -22px; left: -22px; border-right: 0; border-bottom: 0; }
+  .w298-lang-picker-inner::after  { bottom: -22px; right: -22px; border-left: 0; border-top: 0; }
+  .w298-lang-picker-title {
+    font-family: var(--hud-mono);
+    font-size: 11px;
+    letter-spacing: 0.32em;
+    text-transform: uppercase;
+    color: rgba(0, 229, 255, 0.75);
+    text-shadow: 0 0 10px rgba(0, 229, 255, 0.45);
+    display: inline-flex;
+    align-items: center;
+    gap: 14px;
+    margin: 0;
+  }
+  .w298-lang-picker-title::before,
+  .w298-lang-picker-title::after {
+    content: '';
+    width: 56px;
+    height: 1px;
+    background: linear-gradient(90deg, transparent 0%, rgba(0, 229, 255, 0.50) 50%, transparent 100%);
+  }
+  .w298-lang-picker-headline {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-weight: 600;
+    font-size: 26px;
+    line-height: 1.2;
+    letter-spacing: -0.005em;
+    color: #ECECEE;
+    text-align: center;
+    margin: 0;
+  }
+  .w298-lang-picker-headline b {
+    color: var(--hud-cyan, #00E5FF);
+    text-shadow: 0 0 14px rgba(0, 229, 255, 0.55);
+    font-weight: 700;
+  }
+  .w298-lang-grid {
+    display: grid;
+    grid-template-columns: repeat(7, minmax(0, 1fr));
+    gap: 14px;
+    width: 100%;
+  }
+  @media (max-width: 1180px) {
+    .w298-lang-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  }
+  @media (max-width: 720px) {
+    .w298-lang-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  }
+  .w298-lang-card {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    padding: 22px 12px 16px;
+    min-height: 140px;
+    background: linear-gradient(180deg, rgba(20, 22, 32, 0.78) 0%, rgba(12, 14, 22, 0.92) 100%);
+    border: 1px solid rgba(0, 229, 255, 0.22);
+    border-radius: 12px;
+    backdrop-filter: blur(14px) saturate(160%);
+    -webkit-backdrop-filter: blur(14px) saturate(160%);
+    cursor: pointer;
+    color: #ECECEE;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.05),
+      0 6px 18px rgba(0, 0, 0, 0.40);
+    transition:
+      transform 220ms cubic-bezier(0.22, 0.61, 0.36, 1),
+      border-color 220ms ease,
+      box-shadow 220ms ease,
+      background 220ms ease;
+  }
+  .w298-lang-card::before,
+  .w298-lang-card::after {
+    content: '';
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    border: 1px solid var(--hud-cyan, #00E5FF);
+    pointer-events: none;
+    opacity: 0.85;
+    transition: opacity 220ms ease, box-shadow 220ms ease;
+  }
+  .w298-lang-card::before { top: 6px; left: 6px; border-right: 0; border-bottom: 0; }
+  .w298-lang-card::after  { bottom: 6px; right: 6px; border-left: 0; border-top: 0; }
+  .w298-lang-card:hover,
+  .w298-lang-card:focus-visible {
+    outline: none;
+    transform: translateY(-3px);
+    border-color: rgba(0, 229, 255, 0.60);
+    background: linear-gradient(180deg, rgba(28, 34, 50, 0.86) 0%, rgba(14, 18, 28, 0.94) 100%);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.08),
+      0 14px 32px rgba(0, 0, 0, 0.55),
+      0 0 36px rgba(0, 229, 255, 0.32);
+  }
+  .w298-lang-card:hover::before,
+  .w298-lang-card:hover::after,
+  .w298-lang-card:focus-visible::before,
+  .w298-lang-card:focus-visible::after {
+    opacity: 1;
+    box-shadow: 0 0 8px rgba(0, 229, 255, 0.55);
+  }
+  .w298-lang-card:active { transform: translateY(-1px); }
+  .w298-lang-card .w298-lang-num {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    font-family: var(--hud-mono);
+    font-size: 10px;
+    letter-spacing: 0.10em;
+    color: rgba(0, 229, 255, 0.78);
+    text-shadow: 0 0 6px rgba(0, 229, 255, 0.50);
+  }
+  .w298-lang-card .w298-lang-flag {
+    font-size: 32px;
+    line-height: 1;
+    filter: drop-shadow(0 4px 8px rgba(0, 0, 0, 0.45));
+  }
+  .w298-lang-card .w298-lang-code {
+    font-family: var(--hud-mono);
+    font-size: 9.5px;
+    letter-spacing: 0.22em;
+    color: rgba(0, 229, 255, 0.65);
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+  .w298-lang-card .w298-lang-name {
+    font: 600 13px/1.2 'Inter', -apple-system, sans-serif;
+    color: #ECECEE;
+    letter-spacing: 0.005em;
+    text-align: center;
+    margin-top: 2px;
+  }
+  .w298-lang-picker-foot {
+    font-family: var(--hud-mono);
+    font-size: 10px;
+    letter-spacing: 0.22em;
+    text-transform: uppercase;
+    color: rgba(168, 168, 176, 0.60);
+  }
+  .w298-lang-picker-foot b {
+    color: rgba(0, 229, 255, 0.90);
+    font-weight: 600;
+  }
+
+  /* W298.4 — W294 status row reflow (kill the IDLE — TAP M… truncation) */
+  .voice-cockpit .vc-status-label {
+    /* Always allow the label to wrap so the W286 "Idle — tap mic or type"
+       string never truncates when the W294 test-voice button shares its row. */
+    max-width: min(560px, calc(100% - 72px));
+    margin-left: auto !important;
+    margin-right: auto !important;
+    padding: 0 16px;
+    line-height: 1.35 !important;
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+  }
+  @media (max-width: 1080px) {
+    .voice-cockpit .w294-test-voice {
+      height: 40px !important;
+      padding: 0 12px !important;
+      font-size: 10px !important;
+      letter-spacing: 0.04em !important;
+    }
+  }
+  @media (max-width: 900px) {
+    /* Collapse to icon-only at narrow viewports to free up the status row. */
+    .voice-cockpit .w294-test-voice {
+      width: 40px !important;
+      padding: 0 !important;
+      justify-content: center !important;
+      gap: 0 !important;
+      bottom: 96px !important;
+      left: auto !important;
+      right: 16px !important;
+      transform: none !important;
+    }
+    .voice-cockpit .w294-test-voice:hover {
+      transform: translateY(-2px) !important;
+    }
+    .voice-cockpit .w294-test-voice span {
+      display: none !important;
+    }
+    .voice-cockpit .vc-status-label {
+      bottom: 116px !important;
+      max-width: calc(100% - 80px) !important;
+    }
+  }
+
+  /* W298.5 — bottom HUD strip + scanline overlay */
+  /* Subtle full-screen scanlines (~3% opacity equivalent via mix-blend) */
+  body.cockpit-active::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: 9999;
+    pointer-events: none;
+    background-image: repeating-linear-gradient(
+      to bottom,
+      rgba(0, 229, 255, 0.030) 0px,
+      rgba(0, 229, 255, 0.030) 1px,
+      transparent 1px,
+      transparent 3px
+    );
+    mix-blend-mode: overlay;
+    opacity: 0.55;
+  }
+  /* Bottom HUD bar — anchored to the bottom-left of the cockpit, mirroring
+     the W294 test-voice button which lives on the right of the mic pill.
+     Mic pill is centered 720px max; test-voice sits at left:50%+56px. The
+     HUD bar takes the symmetric LEFT side so neither collides on wide nor
+     narrow viewports (narrow override below). */
+  .voice-cockpit .w298-hud-bar {
+    position: absolute;
+    bottom: calc(env(safe-area-inset-bottom, 0px) + 24px);
+    left: 24px;
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 16px;
+    height: 44px;
+    box-sizing: border-box;
+    border: 1px solid rgba(0, 229, 255, 0.22);
+    border-radius: 999px;
+    background:
+      linear-gradient(90deg, rgba(0, 229, 255, 0.04) 0%, rgba(0, 229, 255, 0.02) 100%),
+      rgba(8, 10, 18, 0.62);
+    backdrop-filter: blur(14px) saturate(160%);
+    -webkit-backdrop-filter: blur(14px) saturate(160%);
+    box-shadow:
+      inset 0 1px 0 rgba(0, 229, 255, 0.08),
+      0 6px 18px rgba(0, 0, 0, 0.40),
+      0 0 18px rgba(0, 229, 255, 0.10);
+    font-family: var(--hud-mono);
+    font-size: 9.5px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    color: rgba(0, 229, 255, 0.82);
+    text-shadow: 0 0 6px rgba(0, 229, 255, 0.40);
+    pointer-events: none;
+    z-index: 8;
+    white-space: nowrap;
+    max-width: calc(100% - 32px);
+    overflow: hidden;
+  }
+  .voice-cockpit .w298-hud-bar .w298-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: rgba(168, 168, 176, 0.85);
+  }
+  .voice-cockpit .w298-hud-bar .w298-pill + .w298-pill::before {
+    content: '·';
+    margin-right: 6px;
+    color: rgba(0, 229, 255, 0.36);
+  }
+  .voice-cockpit .w298-hud-bar .w298-pill b {
+    color: rgba(0, 229, 255, 0.96);
+    font-weight: 600;
+    letter-spacing: 0.10em;
+  }
+  .voice-cockpit .w298-hud-bar .w298-pill-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--hud-cyan);
+    box-shadow: 0 0 8px var(--hud-cyan-glow);
+    animation: hud-blink 1.5s ease-in-out infinite;
+  }
+  @media (max-width: 1080px) {
+    /* Trim trailing pills on tighter viewports to avoid overlap with mic pill. */
+    .voice-cockpit .w298-hud-bar .w298-pill:nth-child(n+4) { display: none; }
+    .voice-cockpit .w298-hud-bar .w298-pill + .w298-pill:nth-child(n+4)::before { display: none; }
+  }
+  @media (max-width: 720px) {
+    /* On narrow screens the mic pill spans nearly the whole row — hide the
+       bottom HUD bar entirely and let the top ticker carry the vibe. */
+    .voice-cockpit .w298-hud-bar { display: none; }
+  }
+
+  /* W298.6 — HUD corner brackets framing the monolith ring */
+  .voice-cockpit .w298-bracket {
+    position: absolute;
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--hud-cyan);
+    pointer-events: none;
+    opacity: 0.70;
+    z-index: 5;
+    filter: drop-shadow(0 0 6px var(--hud-cyan-glow));
+    animation: w298-bracket-pulse 3.6s ease-in-out infinite;
+  }
+  .voice-cockpit .w298-bracket-tl { top: -32px; left: -32px; border-right: 0; border-bottom: 0; }
+  .voice-cockpit .w298-bracket-tr { top: -32px; right: -32px; border-left: 0; border-bottom: 0; }
+  .voice-cockpit .w298-bracket-bl { bottom: -32px; left: -32px; border-right: 0; border-top: 0; }
+  .voice-cockpit .w298-bracket-br { bottom: -32px; right: -32px; border-left: 0; border-top: 0; }
+  .voice-cockpit.state-listening .w298-bracket {
+    border-color: var(--accent);
+    filter: drop-shadow(0 0 8px rgba(124, 92, 255, 0.55));
+  }
+  .voice-cockpit.state-speaking .w298-bracket {
+    border-color: var(--success);
+    filter: drop-shadow(0 0 8px rgba(52, 211, 153, 0.55));
+  }
+  .voice-cockpit.state-thinking .w298-bracket {
+    border-color: var(--warn);
+    filter: drop-shadow(0 0 8px rgba(245, 181, 68, 0.55));
+  }
+  .voice-cockpit.state-error .w298-bracket {
+    border-color: var(--error);
+    filter: drop-shadow(0 0 8px rgba(239, 75, 75, 0.55));
+  }
+
+  /* W298.7 — Keyframes */
+  @keyframes w298-ticker-scroll {
+    from { transform: translateX(0); }
+    to   { transform: translateX(-50%); }
+  }
+  @keyframes hud-blink {
+    0%, 100% { opacity: 0.40; }
+    50%      { opacity: 1; }
+  }
+  @keyframes w298-bracket-pulse {
+    0%, 100% { opacity: 0.55; }
+    50%      { opacity: 0.95; }
+  }
+  @keyframes w298-card-in {
+    0%   { opacity: 0; transform: translateY(10px); }
+    100% { opacity: 1; transform: translateY(0); }
+  }
+  .w298-lang-picker.is-open .w298-lang-card {
+    animation: w298-card-in 380ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  }
+  .w298-lang-picker.is-open .w298-lang-card:nth-child(1) { animation-delay:  60ms; }
+  .w298-lang-picker.is-open .w298-lang-card:nth-child(2) { animation-delay: 120ms; }
+  .w298-lang-picker.is-open .w298-lang-card:nth-child(3) { animation-delay: 180ms; }
+  .w298-lang-picker.is-open .w298-lang-card:nth-child(4) { animation-delay: 240ms; }
+  .w298-lang-picker.is-open .w298-lang-card:nth-child(5) { animation-delay: 300ms; }
+  .w298-lang-picker.is-open .w298-lang-card:nth-child(6) { animation-delay: 360ms; }
+  .w298-lang-picker.is-open .w298-lang-card:nth-child(7) { animation-delay: 420ms; }
+
+  /* W298.8 — Reduced-motion guard (kill ALL W298 animations) */
+  @media (prefers-reduced-motion: reduce) {
+    body.cockpit-active::after { display: none !important; }
+    .voice-cockpit .w298-ticker-track,
+    .voice-cockpit .w298-telemetry-dot,
+    .voice-cockpit .w298-bracket,
+    .voice-cockpit .w298-hud-bar .w298-pill-dot,
+    .voice-cockpit .w298-ticker-token.live::before,
+    .w298-lang-picker.is-open .w298-lang-card {
+      animation: none !important;
+      transition: none !important;
+      opacity: 1 !important;
+      transform: none !important;
+    }
+    .w298-lang-picker {
+      transition: none !important;
+    }
+  }
+  /* === END W298 HUD OVERLAY LAYER === */
+
 </style>
 </head>
 <body>
@@ -12045,6 +12676,293 @@ async function voiceClone() {
   });
 })();
 /* === END W294 LAYER === */
+</script>
+
+<script>
+// === W298 HUD OVERLAY LAYER ===
+// Mounts the cyan HUD chrome (top ticker, telemetry rail, corner brackets,
+// bottom HUD bar, language card grid) on top of the W286+W290+W292+W294
+// cockpit. Pure additive — no monkey-patching of existing globals. Reads
+// window.W285.LANGS + window.W285.FB.handleLangPick to drive the picker.
+// Sub-sections:
+//   W298.JS.1  HUD chrome injectors (ticker, telemetry, brackets, bar)
+//   W298.JS.2  Language picker overlay (build, open/close, dispatch)
+//   W298.JS.3  State watcher (FB.state -> picker visibility)
+//   W298.JS.4  Mount + boot
+(function w298Boot() {
+  'use strict';
+
+  function w298Esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function(c) {
+      return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];
+    });
+  }
+
+  // ── W298.JS.1 — HUD chrome injectors ───────────────────────────────────
+  var W298_TICKER_TOKENS = [
+    { k: 'LATENCY', v: '42ms',   live: true  },
+    { k: 'MODEL',   v: 'GPT-4o', live: false },
+    { k: 'PACKS',   v: 'LOADED', live: false },
+    { k: 'AGENT',   v: 'IDLE',   live: false },
+    { k: 'MEMORY',  v: '73%',    live: false },
+    { k: 'LINK',    v: 'LOCAL',  live: true  },
+    { k: 'TLS',     v: 'PINNED', live: false },
+    { k: 'TRACE',   v: 'OK',     live: false }
+  ];
+
+  function w298BuildTicker(stage) {
+    if (!stage || stage.querySelector('.w298-ticker')) return;
+    var d = document.createElement('div');
+    d.className = 'w298-ticker';
+    d.setAttribute('aria-hidden', 'true');
+    var track = document.createElement('div');
+    track.className = 'w298-ticker-track';
+    var html = W298_TICKER_TOKENS.map(function(t) {
+      var cls = t.live ? 'w298-ticker-token live' : 'w298-ticker-token';
+      return '<span class="' + cls + '"><b>' + w298Esc(t.k) + '</b> · ' + w298Esc(t.v) + '</span>';
+    }).join('');
+    track.innerHTML = html + html;
+    d.appendChild(track);
+    stage.appendChild(d);
+  }
+
+  function w298BuildTelemetry(stage) {
+    if (!stage || stage.querySelector('.w298-telemetry')) return;
+    var d = document.createElement('div');
+    d.className = 'w298-telemetry';
+    d.setAttribute('aria-hidden', 'true');
+    d.innerHTML =
+      '<div class="w298-telemetry-block">' +
+        '<div class="w298-telemetry-label">CPU</div>' +
+        '<div class="w298-telemetry-value">38<span class="w298-unit">%</span></div>' +
+      '</div>' +
+      '<div class="w298-telemetry-block">' +
+        '<div class="w298-telemetry-label">NET</div>' +
+        '<div class="w298-telemetry-value">112<span class="w298-unit">k</span></div>' +
+      '</div>' +
+      '<div class="w298-telemetry-block">' +
+        '<div class="w298-telemetry-label">MEM</div>' +
+        '<div class="w298-telemetry-value">73<span class="w298-unit">%</span></div>' +
+      '</div>' +
+      '<div class="w298-telemetry-dots">' +
+        '<span class="w298-telemetry-dot live"></span>' +
+        '<span class="w298-telemetry-dot"></span>' +
+        '<span class="w298-telemetry-dot"></span>' +
+        '<span class="w298-telemetry-dot warm"></span>' +
+        '<span class="w298-telemetry-dot"></span>' +
+        '<span class="w298-telemetry-dot live"></span>' +
+        '<span class="w298-telemetry-dot"></span>' +
+        '<span class="w298-telemetry-dot"></span>' +
+      '</div>';
+    stage.appendChild(d);
+  }
+
+  function w298BuildBrackets() {
+    var wrap = document.querySelector('.voice-cockpit .monolith-wrap');
+    if (!wrap || wrap.querySelector('.w298-bracket')) return;
+    ['tl', 'tr', 'bl', 'br'].forEach(function(corner) {
+      var b = document.createElement('div');
+      b.className = 'w298-bracket w298-bracket-' + corner;
+      b.setAttribute('aria-hidden', 'true');
+      wrap.appendChild(b);
+    });
+  }
+
+  function w298BuildHudBar(cockpit) {
+    if (!cockpit || cockpit.querySelector('.w298-hud-bar')) return;
+    var bar = document.createElement('div');
+    bar.className = 'w298-hud-bar';
+    bar.setAttribute('aria-hidden', 'true');
+    bar.innerHTML =
+      '<span class="w298-pill"><i class="w298-pill-dot"></i><b>ONLINE</b></span>' +
+      '<span class="w298-pill">PERSONA · <b id="w298HudPersona">JARVIS</b></span>' +
+      '<span class="w298-pill">MODEL · <b>GPT-4o</b></span>' +
+      '<span class="w298-pill">LATENCY · <b id="w298HudLatency">42ms</b></span>';
+    cockpit.appendChild(bar);
+  }
+
+  // Mirror the active W294 persona name into the HUD bar (read-only sync).
+  function w298MirrorPersona() {
+    try {
+      var btn = document.getElementById('w294PersonaBtn');
+      var nameEl = btn && btn.querySelector('.w294-persona-name');
+      var hudEl = document.getElementById('w298HudPersona');
+      if (nameEl && hudEl && nameEl.textContent.trim()) {
+        hudEl.textContent = nameEl.textContent.trim().toUpperCase();
+      }
+    } catch (_) { /* persona picker may not have mounted yet */ }
+  }
+
+  // ── W298.JS.2 — Language picker overlay ─────────────────────────────────
+  // Flag emojis only inside language cards (per spec). System mono fallback
+  // means we don't import any new font; the existing JetBrains Mono already
+  // appears in the W286 var(--font-mono) chain.
+  var W298_LANG_META = {
+    'en-US': { flag: '\uD83C\uDDEC\uD83C\uDDE7', code: 'EN' },
+    'ru-RU': { flag: '\uD83C\uDDF7\uD83C\uDDFA', code: 'RU' },
+    'es-ES': { flag: '\uD83C\uDDEA\uD83C\uDDF8', code: 'ES' },
+    'zh-CN': { flag: '\uD83C\uDDE8\uD83C\uDDF3', code: 'ZH' },
+    'ja-JP': { flag: '\uD83C\uDDEF\uD83C\uDDF5', code: 'JA' },
+    'de-DE': { flag: '\uD83C\uDDE9\uD83C\uDDEA', code: 'DE' },
+    'fr-FR': { flag: '\uD83C\uDDEB\uD83C\uDDF7', code: 'FR' }
+  };
+
+  function w298BuildLangPicker() {
+    if (document.getElementById('w298LangPicker')) return true;
+    var langs = (window.W285 && window.W285.LANGS) || [];
+    if (!langs.length) return false;
+    var picker = document.createElement('div');
+    picker.id = 'w298LangPicker';
+    picker.className = 'w298-lang-picker';
+    picker.setAttribute('role', 'dialog');
+    picker.setAttribute('aria-label', 'Pick your language');
+    picker.setAttribute('aria-hidden', 'true');
+    var cardsHtml = langs.map(function(l, i) {
+      var meta = W298_LANG_META[l.code] || { flag: '\u25C7', code: (l.code || '').slice(0, 2).toUpperCase() };
+      return (
+        '<button type="button" class="w298-lang-card" ' +
+          'data-w298-lang-idx="' + i + '" ' +
+          'data-w298-lang-code="' + w298Esc(l.code) + '" ' +
+          'aria-label="' + w298Esc(l.label) + '">' +
+          '<span class="w298-lang-num">' + (i + 1) + '</span>' +
+          '<span class="w298-lang-flag" aria-hidden="true">' + meta.flag + '</span>' +
+          '<span class="w298-lang-code">' + w298Esc(meta.code) + '</span>' +
+          '<span class="w298-lang-name">' + w298Esc(l.label) + '</span>' +
+        '</button>'
+      );
+    }).join('');
+    picker.innerHTML =
+      '<div class="w298-lang-picker-inner">' +
+        '<div class="w298-lang-picker-title"><span>TARS · LANGUAGE</span></div>' +
+        '<h2 class="w298-lang-picker-headline">Pick your <b>language</b>.</h2>' +
+        '<div class="w298-lang-grid">' + cardsHtml + '</div>' +
+        '<div class="w298-lang-picker-foot">Click a card · or press <b>1</b>\u2013<b>' + langs.length + '</b></div>' +
+      '</div>';
+    document.body.appendChild(picker);
+    Array.prototype.forEach.call(picker.querySelectorAll('.w298-lang-card'), function(card) {
+      card.addEventListener('click', function() {
+        var idx = parseInt(card.getAttribute('data-w298-lang-idx'), 10);
+        if (isNaN(idx)) return;
+        w298DispatchLangPick(idx + 1);
+      });
+    });
+    return true;
+  }
+
+  function w298DispatchLangPick(num) {
+    try {
+      // Prefer calling W285.FB.handleLangPick directly so the existing
+      // state machine fires (greeting + intro + markDone).
+      if (window.W285 && window.W285.FB && typeof window.W285.FB.handleLangPick === 'function') {
+        var handled = window.W285.FB.handleLangPick(String(num));
+        if (handled) {
+          w298CloseLangPicker();
+          return;
+        }
+      }
+      // Fallback: simulate text input + submit (will fire patched vcSubmitText).
+      var inp = document.getElementById('vcTextInput');
+      var form = document.getElementById('vcTextForm');
+      if (inp && form) {
+        inp.value = String(num);
+        form.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+        w298CloseLangPicker();
+      }
+    } catch (e) { console.warn('[W298] dispatchLangPick failed', e); }
+  }
+
+  function w298OpenLangPicker() {
+    var picker = document.getElementById('w298LangPicker');
+    if (!picker) {
+      if (!w298BuildLangPicker()) return;
+      picker = document.getElementById('w298LangPicker');
+    }
+    if (!picker) return;
+    picker.classList.add('is-open');
+    picker.setAttribute('aria-hidden', 'false');
+  }
+
+  function w298CloseLangPicker() {
+    var picker = document.getElementById('w298LangPicker');
+    if (!picker) return;
+    picker.classList.remove('is-open');
+    picker.setAttribute('aria-hidden', 'true');
+  }
+
+  // ── W298.JS.3 — State watcher ───────────────────────────────────────────
+  // Polls W285.FB.state every 250ms. When it flips to 'awaiting_lang' the
+  // glass card grid floats in; on any other state the grid recedes. Polling
+  // beats monkey-patching FB because FB is a const-bound IIFE local.
+  var W298_LANG_TIMER = null;
+  function w298StartLangWatcher() {
+    if (W298_LANG_TIMER) return;
+    W298_LANG_TIMER = setInterval(function() {
+      try {
+        var FB = window.W285 && window.W285.FB;
+        if (!FB) return;
+        var state = FB.state;
+        var picker = document.getElementById('w298LangPicker');
+        if (state === 'awaiting_lang') {
+          if (!picker || !picker.classList.contains('is-open')) {
+            w298OpenLangPicker();
+          }
+        } else if (picker && picker.classList.contains('is-open')) {
+          w298CloseLangPicker();
+        }
+      } catch (_) { /* defensive */ }
+    }, 250);
+  }
+
+  // Keyboard shortcut: digits 1-7 on the body close-then-dispatch when the
+  // language picker is visible. Doesn't hijack keystrokes inside any input.
+  function w298WireKeyboard() {
+    document.addEventListener('keydown', function(e) {
+      var picker = document.getElementById('w298LangPicker');
+      if (!picker || !picker.classList.contains('is-open')) return;
+      var t = e.target;
+      if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.isContentEditable)) return;
+      if (e.key >= '1' && e.key <= '7') {
+        e.preventDefault();
+        w298DispatchLangPick(parseInt(e.key, 10));
+      }
+    }, false);
+  }
+
+  // ── W298.JS.4 — Mount + boot ───────────────────────────────────────────
+  function w298Mount() {
+    var stage = document.querySelector('.voice-cockpit .vc-stage');
+    var cockpit = document.querySelector('.voice-cockpit');
+    if (!stage || !cockpit) {
+      // Cockpit not yet rendered (auth gate, splash, etc.). Retry shortly.
+      setTimeout(w298Mount, 500);
+      return;
+    }
+    w298BuildTicker(stage);
+    w298BuildTelemetry(stage);
+    w298BuildBrackets();
+    w298BuildHudBar(cockpit);
+    w298BuildLangPicker();
+    w298StartLangWatcher();
+    w298WireKeyboard();
+    setTimeout(w298MirrorPersona, 1500);
+    setInterval(w298MirrorPersona, 4000);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', w298Mount, { once: true });
+  } else {
+    setTimeout(w298Mount, 200);
+  }
+
+  // Tiny debug surface for the operator.
+  window.W298 = Object.freeze({
+    openLangPicker:   w298OpenLangPicker,
+    closeLangPicker:  w298CloseLangPicker,
+    dispatchLangPick: w298DispatchLangPick,
+    mount:            w298Mount
+  });
+})();
+// === END W298 HUD OVERLAY LAYER ===
 </script>
 
 </body>
