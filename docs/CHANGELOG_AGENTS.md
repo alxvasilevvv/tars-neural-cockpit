@@ -4,6 +4,104 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-17 — Cursor · W308 step 4 (Claude code-review fixes for PR #185)
+
+**Summary**
+
+PR #185 (`claude/w307-design-refresh` → `main`) collected W307 design
+verdict resolution, W308 steps 1–3, plus the design-pass artefacts.
+Independent Claude Code review surfaced 4 issues; this entry lands
+them. No new features; tightening only.
+
+**Fixes (from Claude review, scored severity → resolution):**
+
+- **CRITICAL — CSP block fonts.bunny.net.** Step 2's hero references
+  Bunny Fonts (`<link rel="stylesheet" href="https://fonts.bunny.net/css?…">`
+  for Cormorant Garamond + Sora) but `desktop/src-tauri/tauri.conf.json`
+  CSP only listed Google Fonts. In Tauri the hero would silently fall
+  back to system fonts. Extended `style-src` and `font-src` to include
+  `https://fonts.bunny.net`. Google Fonts entries kept (cockpit shell
+  still uses them).
+- **CRITICAL — W307 verdict miss (phase-bar typography).** The W307
+  cockpit reference renders the watch-me-work phase bar at `10px` in
+  Share Tech Mono, which Claude's verdict flagged as below the
+  letterform-clarity floor for that face (caps look like rectangles,
+  `I`/`l` collapse). Added a dedicated token
+  `--font-size-phase-bar: 11px` to `apps/cockpit/src/styles/tokens.css`
+  with a comment that explains *why* it is separate from `--type-label`
+  (intent at the call-site). `apps/cockpit/cockpit.html` now reads
+  `font-size: var(--font-size-phase-bar)` on `.phase-bar`. MASTER
+  typography table got the new row pointing at the new token.
+- **MEDIUM — drift suite had vacuously passing tests.** Three of the
+  step-2/3 contracts were "tests" in name only:
+  - `surface-marketing` was declared in `tokens.css` but no test
+    asserted it was *applied* to `hero.html`.
+  - `--font-size-phase-bar` was new and untested.
+  - The brief-item stagger pattern (`var(--i)` cadence under
+    `prefers-reduced-motion: no-preference`) was new and untested.
+  Added three real `tests/test_cockpit_tokens_sync.py` assertions:
+  `test_hero_html_applies_surface_marketing_class`,
+  `test_phase_bar_size_token_declared_and_applied`,
+  `test_brief_item_stagger_animation_declared`. Tests fail loudly
+  (not silently) if the contract drifts. Suite total: 6 → **10**.
+- **MEDIUM — W308 step-2 brief not marked superseded.** `docs/handoff/
+  W308_STEP2_BRIEF.md` is still in the handoff directory, with no
+  banner telling the next agent it is closed. Added a top-of-file
+  `> [SUPERSEDED]` banner pointing at the step-3 entry and PR #185.
+
+**Code changes**
+
+- `apps/cockpit/hero.html` — root `<html>` gains `class="surface-marketing"`
+  so the motion-budget override (`--motion-budget-max: 4`) actually
+  takes effect on the marketing surface. Previously the class was
+  declared in `tokens.css` but applied nowhere.
+- `apps/cockpit/src/styles/tokens.css` — adds `--font-size-phase-bar: 11px`
+  with explanatory comment in the `:root` typography block.
+- `apps/cockpit/cockpit.html` — `.phase-bar` swapped from `10px` to
+  `var(--font-size-phase-bar)`. Brief-item buttons gain inline
+  `style="--i: N"` (0..3) and an `@keyframes briefIn` stagger
+  (`360ms cubic-bezier(...)` with `60ms` cadence per `--i`), gated by
+  `@media (prefers-reduced-motion: no-preference)`. Plays once on
+  cockpit open, then static.
+- `design-system/tars/MASTER.md` — typography table row for the
+  watch-me-work phase bar that documents the 10px → 11px move and
+  the token name. Rest of §7 unchanged.
+- `desktop/src-tauri/tauri.conf.json` — CSP extended (above).
+- `tests/test_cockpit_tokens_sync.py` — 3 new tests (above).
+- `docs/handoff/W308_STEP2_BRIEF.md` — superseded banner.
+
+**Bundle**
+
+Rebuilt via `bash desktop/scripts/package-cockpit.sh` after the source
+edits. `cockpit.html` grew from ~24 kB → ~27 kB raw (inline
+`<style>` for the stagger + 4 inline `style="--i:N"` attrs).
+Gzipped: ~6 kB. No new assets.
+
+**Verification**
+
+- `pytest tests/test_cockpit_tokens_sync.py -q` → **10 passed** in
+  0.04s (was 6).
+- `bash desktop/scripts/package-cockpit.sh` (full build path) → OK,
+  4 HTML pages emitted, rsync to `desktop/src-tauri/web/` clean.
+- Bundle carries all 4 edits: `grep -c surface-marketing
+  desktop/src-tauri/web/hero.html` = 1; `grep -c
+  'var(--font-size-phase-bar)' desktop/src-tauri/web/cockpit.html` = 1;
+  4 `style="--i:` and 1 `@keyframes briefIn` in cockpit.html.
+
+**Files**
+
+- `apps/cockpit/hero.html`
+- `apps/cockpit/cockpit.html`
+- `apps/cockpit/src/styles/tokens.css`
+- `design-system/tars/MASTER.md`
+- `desktop/src-tauri/tauri.conf.json`
+- `tests/test_cockpit_tokens_sync.py`
+- `docs/handoff/W308_STEP2_BRIEF.md`
+- `desktop/src-tauri/web/` (rebuilt — 4 HTML + 3 asset chunks)
+- `apps/cockpit/dist/` (rebuilt)
+
+---
+
 ## 2026-05-17 — Cursor · W308 step 3 (wire apps/cockpit/dist/ into Tauri pipeline)
 
 **Summary**
@@ -18,8 +116,10 @@ as the reference for the next wave (restoring functional behaviors).
 
 **Pipeline changes:**
 - `desktop/scripts/package-cockpit.sh` rewritten. Was: 6-line stub
-  that verified the bundle existed. Now: `pnpm install && pnpm build`
-  in `apps/cockpit/`, then `rsync apps/cockpit/dist/ → desktop/src-tauri/web/`.
+  that verified the bundle existed. Now: runs `(cd apps/cockpit/ &&
+  pnpm install --silent && pnpm build)` (the script `cd`s in; it does
+  not use `pnpm --filter` against the repo root), then
+  `rsync apps/cockpit/dist/ → desktop/src-tauri/web/`.
 - Flags: `--skip-build` (CI uses pre-built dist), `--legacy` (re-stage
   the legacy SPA for emergency parity checks).
 - Tauri config (`tauri.conf.json`) unchanged. `frontendDist: ./web`,

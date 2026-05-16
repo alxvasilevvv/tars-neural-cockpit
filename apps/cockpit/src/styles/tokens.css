@@ -78,6 +78,14 @@
   --type-body: 1rem;
   --type-small: 0.8125rem;
   --type-label: 0.6875rem; /* 11px — HUD / nav labels */
+  /* W308 step 4 (W307 verdict): the watch-me-work phase bar runs at
+   * 10px in the unrefactored cockpit. Share Tech Mono loses letterform
+   * clarity at 10px even on Retina — caps look like rectangles, the
+   * "I"/"l" pair becomes ambiguous. 11px keeps the HUD-tick feel and
+   * stays inside the meta row. Token named separately from
+   * `--type-label` to make the intent ("this is the phase-bar size")
+   * explicit at call-sites. */
+  --font-size-phase-bar: 11px;
   /* W308 step 1 (W307 verdict): the briefing greeting *is* the hero
    * on the cockpit shell. Previously underdialled at clamp(2rem,
    * 4.2vw, 2.6rem) — competed with the meta row. Bumping the cap by
@@ -186,6 +194,7 @@
 .surface-marketing {
   --motion-budget-max: 4;
 }
+
 
 /* Light scheme is intentionally NOT supported (MASTER anti-pattern:
  * "No `#FFFFFF` background anywhere"). Documented here so the next

@@ -255,3 +255,103 @@ def test_surface_marketing_motion_override_declared() -> None:
         "MASTER §7 must document the .surface-marketing motion-budget "
         "override (W307 verdict resolution, gap-fill after step 2)."
     )
+
+
+# ---------------------------------------------------------------------------
+# W308 step 4 — post-Claude-review enforcement (PR #185)
+# ---------------------------------------------------------------------------
+
+HERO_HTML_PATH = REPO_ROOT / "apps" / "cockpit" / "hero.html"
+COCKPIT_HTML_PATH = REPO_ROOT / "apps" / "cockpit" / "cockpit.html"
+
+
+def test_hero_html_applies_surface_marketing_class() -> None:
+    """W308 step 4 (Claude code review of PR #185).
+
+    ``.surface-marketing { --motion-budget-max: 4; }`` is *declared* in
+    tokens.css and *documented* in MASTER §7 — but the previous test
+    only enforced authorship. If no surface ever applies the class, the
+    override does nothing and the smoke test passes vacuously.
+
+    The hero is the canonical marketing surface (live rail + rotating
+    core + integrity score = several simultaneous motions). It MUST
+    opt into the `.surface-marketing` budget; without the class, the
+    `--motion-budget-max: 2` default applies via the cascade and the
+    page silently overshoots the cockpit motion contract."""
+    html = _read(HERO_HTML_PATH)
+    # Apply at <html>, <body>, or <main> — any of the three is fine.
+    if "surface-marketing" not in html:
+        pytest.fail(
+            "apps/cockpit/hero.html must apply the `.surface-marketing` "
+            "class to <html>, <body>, or <main> so the W307 motion-budget "
+            "override actually takes effect (Claude review of W308 step 3)."
+        )
+
+
+def test_phase_bar_size_token_declared_and_applied() -> None:
+    """W308 step 4 (W307 verdict — Token diff row).
+
+    ``--font-size-phase-bar: 11px`` token must:
+
+    1. Be declared in tokens.css (not hardcoded into a single HTML).
+    2. Be documented in MASTER §4 typography table.
+    3. Be referenced by ``.phase-bar`` in cockpit.html (so the
+       Share Tech Mono caps stay readable on Retina).
+
+    The bar previously ran at 10px hardcoded; the W307 verdict
+    explicitly called this out as a readability fail."""
+    css = _read(TOKENS_CSS_PATH)
+    md = _read(MASTER_PATH)
+    cockpit = _read(COCKPIT_HTML_PATH)
+
+    assert "--font-size-phase-bar" in css, (
+        "tokens.css must declare --font-size-phase-bar (W307 verdict)."
+    )
+    # Token value sits within ~60 chars of the declaration name.
+    css_window = css.split("--font-size-phase-bar", 1)[1][:60]
+    assert "11px" in css_window, (
+        "tokens.css --font-size-phase-bar must resolve to 11px "
+        "(W307 verdict — Share Tech Mono falls apart at 10px)."
+    )
+    assert "--font-size-phase-bar" in md, (
+        "MASTER §4 typography table must reference --font-size-phase-bar."
+    )
+    assert "var(--font-size-phase-bar)" in cockpit, (
+        "apps/cockpit/cockpit.html .phase-bar must use "
+        "var(--font-size-phase-bar) instead of a hardcoded 10px."
+    )
+
+
+def test_brief_item_stagger_animation_declared() -> None:
+    """W308 step 4 (W307 verdict — Motion).
+
+    The verdict reads: "Add transition-delay: calc(var(--i) * 60ms)
+    so the four items cascade in." The cockpit's briefing card lists
+    four actionable items that should reveal in sequence on enter;
+    without the stagger they all hit at once and the visual hierarchy
+    the verdict asks for collapses.
+
+    Implementation accepts either the literal ``transition-delay``
+    wording from the verdict or the equivalent ``animation-delay`` —
+    transitions need a state change to fire, animations don't.
+    Either path must reference ``var(--i)`` and a ``60ms`` cadence to
+    demonstrate the per-item stagger is actually wired."""
+    cockpit = _read(COCKPIT_HTML_PATH)
+    cockpit_norm = re.sub(r"\s+", "", cockpit).lower()
+
+    has_var_i = "var(--i" in cockpit_norm
+    has_60ms = "60ms" in cockpit_norm
+    has_delay = (
+        "transition-delay:" in cockpit_norm
+        or "animation-delay:" in cockpit_norm
+        or "animation:briefin" in cockpit_norm
+    )
+
+    if not (has_var_i and has_60ms and has_delay):
+        pytest.fail(
+            "apps/cockpit/cockpit.html must implement the brief-item "
+            "stagger via calc(var(--i) * 60ms) on transition-delay or "
+            "animation-delay (W307 verdict — Motion). "
+            f"present: var(--i)={has_var_i}, 60ms={has_60ms}, "
+            f"delay-or-anim={has_delay}."
+        )

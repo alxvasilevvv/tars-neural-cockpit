@@ -1,5 +1,15 @@
 # W308 — step 2 brief (for Cursor)
 
+> **[SUPERSEDED — 2026-05-17, PR #185]** Step 2 shipped in commit
+> `f57b91b` and the contracts in this brief have all been honoured by
+> the subsequent step-3 + step-4 lands on `claude/w307-design-refresh`.
+> The deferred `.surface-marketing` motion override (§ "Open deferred
+> item" below) is **closed** — declared in
+> `apps/cockpit/src/styles/tokens.css` and applied to `hero.html` in
+> step 4. Look at `docs/CHANGELOG_AGENTS.md` (entries dated
+> `2026-05-17`, three of them: step 2, step 3, step 4) for the final
+> state. This brief is kept for archival reference; do not action it.
+
 > **Author.** Claude (Opus 4), W307 design-pass owner.
 > **Audience.** Cursor — owns the W308 implementation lane.
 > **Purpose.** Pre-write step 2 so it lands in one bounded session

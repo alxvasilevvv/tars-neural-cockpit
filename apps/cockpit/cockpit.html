@@ -154,7 +154,9 @@
         align-items: center;
         gap: 10px;
         font-family: var(--font-mono);
-        font-size: 10px;
+        /* W308 step 4 (W307 verdict): see --font-size-phase-bar in
+         * tokens.css. Was 10px hardcoded. */
+        font-size: var(--font-size-phase-bar);
         font-weight: 500;
         letter-spacing: var(--tracking-label);
         text-transform: uppercase;
@@ -345,6 +347,33 @@
         width: 100%;
         transition: border-color var(--motion-base),
           background var(--motion-base);
+      }
+
+      /* W308 step 4 (W307 verdict — Motion):
+       * "Add transition-delay: calc(var(--i) * 60ms) so the four items
+       * cascade in." Implemented as a one-shot enter animation (the
+       * verdict's exact wording uses transition-delay, but transitions
+       * don't trigger on initial render — animation with delay achieves
+       * the same observable cascade without coupling to a state change).
+       * Stagger is 60ms × index, total 180ms for 4 items — well inside
+       * the 200ms perceptual budget. Wrapped in
+       * prefers-reduced-motion: no-preference per MASTER §7 rule. */
+      @media (prefers-reduced-motion: no-preference) {
+        .brief-item {
+          animation: briefIn 360ms cubic-bezier(0.2, 0.7, 0.2, 1)
+            calc(var(--i, 0) * 60ms) both;
+        }
+
+        @keyframes briefIn {
+          from {
+            opacity: 0;
+            transform: translateY(6px);
+          }
+          to {
+            opacity: 1;
+            transform: translateY(0);
+          }
+        }
       }
 
       .brief-item:hover {
@@ -776,21 +805,36 @@
           </p>
 
           <div class="items">
-            <button type="button" class="brief-item" aria-label="Run: 2 meetings">
+            <button
+              type="button"
+              class="brief-item"
+              style="--i: 0"
+              aria-label="Run: 2 meetings"
+            >
               <span class="item-glyph" aria-hidden="true">▣</span>
               <div>
                 <div class="item-label">2 встречи</div>
                 <div class="item-detail">10:00 Sync · 15:30 Customer-call</div>
               </div>
             </button>
-            <button type="button" class="brief-item" aria-label="Run: 3 PR review">
+            <button
+              type="button"
+              class="brief-item"
+              style="--i: 1"
+              aria-label="Run: 3 PR review"
+            >
               <span class="item-glyph" aria-hidden="true">◇</span>
               <div>
                 <div class="item-label">3 PR на review</div>
                 <div class="item-detail">core-bridge / dl-proxy / cowork</div>
               </div>
             </button>
-            <button type="button" class="brief-item" aria-label="Run: Sasha messages">
+            <button
+              type="button"
+              class="brief-item"
+              style="--i: 2"
+              aria-label="Run: Sasha messages"
+            >
               <span class="item-glyph" aria-hidden="true">◆</span>
               <div>
                 <div class="item-label">Саша × 4 msg</div>
@@ -800,6 +844,7 @@
             <button
               type="button"
               class="brief-item"
+              style="--i: 3"
               aria-label="Run: proposal.docx edited"
             >
               <span class="item-glyph" aria-hidden="true">═</span>

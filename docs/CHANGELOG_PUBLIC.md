@@ -4,6 +4,104 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-17 — Cursor · W308 step 4 (Claude code-review fixes for PR #185)
+
+**Summary**
+
+PR #185 (`claude/w307-design-refresh` → `main`) collected W307 design
+verdict resolution, W308 steps 1–3, plus the design-pass artefacts.
+Independent Claude Code review surfaced 4 issues; this entry lands
+them. No new features; tightening only.
+
+**Fixes (from Claude review, scored severity → resolution):**
+
+- **CRITICAL — CSP block fonts.bunny.net.** Step 2's hero references
+  Bunny Fonts (`<link rel="stylesheet" href="https://fonts.bunny.net/css?…">`
+  for Cormorant Garamond + Sora) but `desktop/src-tauri/tauri.conf.json`
+  CSP only listed Google Fonts. In Tauri the hero would silently fall
+  back to system fonts. Extended `style-src` and `font-src` to include
+  `https://fonts.bunny.net`. Google Fonts entries kept (cockpit shell
+  still uses them).
+- **CRITICAL — W307 verdict miss (phase-bar typography).** The W307
+  cockpit reference renders the watch-me-work phase bar at `10px` in
+  Share Tech Mono, which Claude's verdict flagged as below the
+  letterform-clarity floor for that face (caps look like rectangles,
+  `I`/`l` collapse). Added a dedicated token
+  `--font-size-phase-bar: 11px` to `apps/cockpit/src/styles/tokens.css`
+  with a comment that explains *why* it is separate from `--type-label`
+  (intent at the call-site). `apps/cockpit/cockpit.html` now reads
+  `font-size: var(--font-size-phase-bar)` on `.phase-bar`. MASTER
+  typography table got the new row pointing at the new token.
+- **MEDIUM — drift suite had vacuously passing tests.** Three of the
+  step-2/3 contracts were "tests" in name only:
+  - `surface-marketing` was declared in `tokens.css` but no test
+    asserted it was *applied* to `hero.html`.
+  - `--font-size-phase-bar` was new and untested.
+  - The brief-item stagger pattern (`var(--i)` cadence under
+    `prefers-reduced-motion: no-preference`) was new and untested.
+  Added three real `tests/test_cockpit_tokens_sync.py` assertions:
+  `test_hero_html_applies_surface_marketing_class`,
+  `test_phase_bar_size_token_declared_and_applied`,
+  `test_brief_item_stagger_animation_declared`. Tests fail loudly
+  (not silently) if the contract drifts. Suite total: 6 → **10**.
+- **MEDIUM — W308 step-2 brief not marked superseded.** `docs/handoff/
+  W308_STEP2_BRIEF.md` is still in the handoff directory, with no
+  banner telling the next agent it is closed. Added a top-of-file
+  `> [SUPERSEDED]` banner pointing at the step-3 entry and PR #185.
+
+**Code changes**
+
+- `apps/cockpit/hero.html` — root `<html>` gains `class="surface-marketing"`
+  so the motion-budget override (`--motion-budget-max: 4`) actually
+  takes effect on the marketing surface. Previously the class was
+  declared in `tokens.css` but applied nowhere.
+- `apps/cockpit/src/styles/tokens.css` — adds `--font-size-phase-bar: 11px`
+  with explanatory comment in the `:root` typography block.
+- `apps/cockpit/cockpit.html` — `.phase-bar` swapped from `10px` to
+  `var(--font-size-phase-bar)`. Brief-item buttons gain inline
+  `style="--i: N"` (0..3) and an `@keyframes briefIn` stagger
+  (`360ms cubic-bezier(...)` with `60ms` cadence per `--i`), gated by
+  `@media (prefers-reduced-motion: no-preference)`. Plays once on
+  cockpit open, then static.
+- `design-system/tars/MASTER.md` — typography table row for the
+  watch-me-work phase bar that documents the 10px → 11px move and
+  the token name. Rest of §7 unchanged.
+- `desktop/src-tauri/tauri.conf.json` — CSP extended (above).
+- `tests/test_cockpit_tokens_sync.py` — 3 new tests (above).
+- `docs/handoff/W308_STEP2_BRIEF.md` — superseded banner.
+
+**Bundle**
+
+Rebuilt via `bash desktop/scripts/package-cockpit.sh` after the source
+edits. `cockpit.html` grew from ~24 kB → ~27 kB raw (inline
+`<style>` for the stagger + 4 inline `style="--i:N"` attrs).
+Gzipped: ~6 kB. No new assets.
+
+**Verification**
+
+- `pytest tests/test_cockpit_tokens_sync.py -q` → **10 passed** in
+  0.04s (was 6).
+- `bash desktop/scripts/package-cockpit.sh` (full build path) → OK,
+  4 HTML pages emitted, rsync to `desktop/src-tauri/web/` clean.
+- Bundle carries all 4 edits: `grep -c surface-marketing
+  desktop/src-tauri/web/hero.html` = 1; `grep -c
+  'var(--font-size-phase-bar)' desktop/src-tauri/web/cockpit.html` = 1;
+  4 `style="--i:` and 1 `@keyframes briefIn` in cockpit.html.
+
+**Files**
+
+- `apps/cockpit/hero.html`
+- `apps/cockpit/cockpit.html`
+- `apps/cockpit/src/styles/tokens.css`
+- `design-system/tars/MASTER.md`
+- `desktop/src-tauri/tauri.conf.json`
+- `tests/test_cockpit_tokens_sync.py`
+- `docs/handoff/W308_STEP2_BRIEF.md`
+- `desktop/src-tauri/web/` (rebuilt — 4 HTML + 3 asset chunks)
+- `apps/cockpit/dist/` (rebuilt)
+
+---
+
 ## 2026-05-17 — Cursor · W308 step 3 (wire apps/cockpit/dist/ into Tauri pipeline)
 
 **Summary**
@@ -18,8 +116,10 @@ as the reference for the next wave (restoring functional behaviors).
 
 **Pipeline changes:**
 - `desktop/scripts/package-cockpit.sh` rewritten. Was: 6-line stub
-  that verified the bundle existed. Now: `pnpm install && pnpm build`
-  in `apps/cockpit/`, then `rsync apps/cockpit/dist/ → desktop/src-tauri/web/`.
+  that verified the bundle existed. Now: runs `(cd apps/cockpit/ &&
+  pnpm install --silent && pnpm build)` (the script `cd`s in; it does
+  not use `pnpm --filter` against the repo root), then
+  `rsync apps/cockpit/dist/ → desktop/src-tauri/web/`.
 - Flags: `--skip-build` (CI uses pre-built dist), `--legacy` (re-stage
   the legacy SPA for emergency parity checks).
 - Tauri config (`tauri.conf.json`) unchanged. `frontendDist: ./web`,
@@ -2393,57 +2493,6 @@ coverage, missing language switcher in Nav).
   i18n parity guard
 - `pnpm build` (v3): clean (Cockpit chunk 204 kB gz / 51 kB)
 
-## 2026-05-04 — Cursor · Lovable: stale TODO sweep (round R-4)
-
-(Cross-repo entry; commit lives in
-`alxvasilevvv/meeet-solana-state-941a6045@1c716228`.)
-
-Hunted the entire Lovable codebase for `\bTODO|FIXME|XXX|HACK\b`
-across `src/`, `supabase/`, `qa-suite/`, `scripts/`, `sdk/`. Found
-exactly 2 actionable TODOs; both got real implementations rather
-than being deferred to GitHub issues:
-
-1. **`src/components/profile/TelegramPanel.tsx`** said
-   "replace with edge function `tg-bot-link` once ready". The
-   edge function has been live for weeks (and we just typed it
-   in round R-3). Wired in a real
-   `supabase.functions.invoke("tg-bot-link", { body: { action:
-   "generate" } })` call, dropped the client-side mock token
-   generation. Renamed `mockDeeplink` / `setMockDeeplink` →
-   `pendingDeeplink` / `setPendingDeeplink` (5 references) so
-   the variable name stops lying about what it holds. Cleaned up
-   the surrounding `catch (e: any)` to use type narrowing.
-
-2. **`supabase/functions/purchase-subscription/index.ts`** said
-   "verify tx_signature on-chain before granting subscription. For
-   now, the duplicate-tx guard above prevents replay; on-chain
-   verification is tracked separately and should be added before
-   opening this to mainnet." That guard alone allows undercharge
-   attacks (the signature exists on-chain but transferred 0.001
-   SOL instead of 0.07). Extracted the live
-   `verifySolTransaction` from
-   `create-subscription/index.ts` into a brand new shared module
-   `supabase/functions/_shared/solana-rpc.ts` and wired it into
-   `purchase-subscription`'s `purchase` action. Standard 10-conf
-   wait, 2% tolerance, walks inner instructions so CPI-wrapped
-   payments still pass. Same pattern that's been live in
-   `create-subscription` since the first subscription mainnet
-   flow.
-
-Bonus: 3 pre-existing `any` annotations cleaned up while
-touching these files. Net ESLint debt: 700 → 697 errors (-3).
-
-Validation: `deno check` clean on the new shared module +
-purchase-subscription. `npm run test`: 348 passed | 5 skipped.
-TODO recount across the swept directories: 2 → 0.
-
-The remaining `TODO`-string mentions in TARS scripts/ are all
-documentation references (TARS_MEEET_OPS_TODO.md sections), the
-`mktemp -t .XXXXXX` template syntax, or the named constant
-`TODO_PUBLIC_KEY`. None are stale debt.
-
-`>>> SYNC: Cursor · 2026-05-04 · stale TODO sweep — both real ones now real implementations (not just deferred)`
-
 ---
 
-_Showing the most recent 60 of 264 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 265 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._

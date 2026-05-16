@@ -3,9 +3,70 @@
 Pick this up if you are continuing the work in a fresh chat. Read this file
 plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 
-> **>>> SYNC: Cursor · 2026-05-17 · W308 step 3 (wire apps/cockpit/dist/ into Tauri pipeline; legacy SPA archived to desktop/src-tauri/web-legacy/) · W308 step 2 (port cockpit + hero from W307 refs → multi-page Vite project at apps/cockpit/) · W308 step 1 (apply W307 verdict in tokens.css + MASTER.md) · W308 step 0 (Path C scaffold) · W307 design verdict (Claude) · W306 order-dependent fixes (38 → 0) · W305 py3.12 stabilization · W304 py3.12 + OPENAI env + L9 doc sync <<<**
+> **>>> SYNC: Cursor · 2026-05-17 · W308 step 4 (Claude code-review fixes for PR #185 — CSP fonts.bunny.net, phase-bar 11px token, 3 real drift tests, step-2 brief superseded marker) · W308 step 3 (wire apps/cockpit/dist/ into Tauri pipeline; legacy SPA archived to desktop/src-tauri/web-legacy/) · W308 step 2 (port cockpit + hero from W307 refs → multi-page Vite project at apps/cockpit/) · W308 step 1 (apply W307 verdict in tokens.css + MASTER.md) · W308 step 0 (Path C scaffold) · W307 design verdict (Claude) · W306 order-dependent fixes (38 → 0) · W305 py3.12 stabilization · W304 py3.12 + OPENAI env + L9 doc sync <<<**
 >
-> **W308 step 3 (this wave)** — operator delegated ("делай всё
+> **W308 step 4 (this wave)** — operator delegated ("делай всё
+> остальное без остановки", continuation; routed via plan E from the
+> end of step 3: open the PR, ask an independent Claude Code reviewer
+> for code review, then fix what it surfaces; do **not** start the
+> functional restore until separate OK). PR #185 (`claude/w307-design-refresh`
+> → `main`) opened with the W307 verdict + W308 steps 1–3 stack
+> (4 commits, 39 files). Claude Code review surfaced 4 issues; all
+> are now fixed in this entry. **No new features** — purely tightening
+> the design ↔ implementation contract that the previous waves laid
+> down. Restoring mic / WS / conversation behaviors is still W309+
+> (see end of this block).
+>
+> **Critical fixes:**
+> - **CSP for Bunny Fonts.** Step 2's hero pulled Cormorant Garamond
+>   + Sora from `https://fonts.bunny.net/css?…` but
+>   `desktop/src-tauri/tauri.conf.json` CSP only listed Google Fonts.
+>   In Tauri the hero would silently fall back to system fonts.
+>   `style-src` and `font-src` now include `https://fonts.bunny.net`.
+>   Google Fonts entries kept (cockpit shell still uses them).
+> - **W307 verdict miss — phase-bar typography.** Cockpit reference
+>   used `10px` Share Tech Mono on `.phase-bar`, which collapses
+>   letterforms (`I`/`l` ambiguous, caps look rectangular). Dedicated
+>   token `--font-size-phase-bar: 11px` in `apps/cockpit/src/styles/
+>   tokens.css` (separate from `--type-label` to make intent explicit
+>   at the call-site). `apps/cockpit/cockpit.html` reads it on
+>   `.phase-bar`. MASTER typography table gained a row pointing at
+>   the new token.
+>
+> **Medium fixes:**
+> - **Drift suite had vacuously passing tests.** Three step-2/3
+>   contracts were "tests" in name only: `surface-marketing` was
+>   declared but never asserted to be *applied* anywhere; the new
+>   `--font-size-phase-bar` had no test; the brief-item stagger
+>   pattern had no test. Three new assertions added —
+>   `test_hero_html_applies_surface_marketing_class`,
+>   `test_phase_bar_size_token_declared_and_applied`,
+>   `test_brief_item_stagger_animation_declared`. Suite: 6 → **10**.
+> - **W308 step-2 brief not marked superseded.** Top-of-file banner
+>   added to `docs/handoff/W308_STEP2_BRIEF.md` pointing at the
+>   step-3 entry and PR #185 with explicit "do not action this" note.
+>
+> **Code shape:** `apps/cockpit/hero.html` root `<html>` gains
+> `class="surface-marketing"` (now `--motion-budget-max: 4` actually
+> takes effect — previously the class was declared in `tokens.css`
+> but applied nowhere). `apps/cockpit/cockpit.html` brief-item
+> buttons get inline `style="--i: N"` (0..3) + a
+> `@keyframes briefIn` stagger (360 ms cubic-bezier, 60 ms cadence
+> per `--i`), gated by `@media (prefers-reduced-motion: no-preference)`.
+> Plays once on cockpit open, then static. Cockpit bundle grew
+> ~24 kB → ~27 kB raw (the inline stagger style + 4 inline `--i:`
+> attrs), gzipped ~6 kB.
+>
+> **Verification.** `pytest tests/test_cockpit_tokens_sync.py -q` →
+> **10 passed** (was 6). `bash desktop/scripts/package-cockpit.sh`
+> (full build path, not `--skip-build`) → OK, 4 HTML pages emitted,
+> rsync to `desktop/src-tauri/web/` clean. Bundle integrity verified:
+> 1× `surface-marketing` in built `hero.html`, 1× `var(--font-size-phase-bar)`
+> + 4× `style="--i:` + 1× `@keyframes briefIn` in built `cockpit.html`.
+>
+> ---
+>
+> **W308 step 3 (previous wave)** — operator delegated ("делай всё
 > остальное без остановки"). The Tauri desktop now ships
 > `apps/cockpit/dist/` as its frontend. The frozen pre-built React
 > SPA that used to live under `desktop/src-tauri/web/` was moved via

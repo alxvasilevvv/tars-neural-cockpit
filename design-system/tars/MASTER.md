@@ -95,7 +95,8 @@ the OLED frame:
 | Display / hero | **Share Tech Mono** | Wide, sci-fi mono. `letter-spacing: 0.02em`. Large hero `clamp(3.4rem, 8vw, 8rem)`. |
 | Greeting (cockpit shell hero) | **Share Tech Mono** | **W308 step 1**: `clamp(2.4rem, 5vw, 3.4rem)` (was implicit `clamp(2rem, 4.2vw, 2.6rem)`). The briefing greeting *is* the cockpit hero — it must dominate, not match, the meta row. Mobile cap of 2.4rem keeps 375px viewports kind. |
 | Body / paragraphs | **Fira Code** 400/500 | Tech mono with ligatures. Line-height 1.65, max-width 64ch. |
-| Technical labels / nav / HUD | **Fira Code** 500 | `letter-spacing: 0.18em`, `text-transform: uppercase`, 11px. |
+| Technical labels / nav / HUD | **Fira Code** 500 | `letter-spacing: 0.18em`, `text-transform: uppercase`, 11px (`--type-label`). |
+| Watch-me-work phase bar | **Share Tech Mono** | **W308 step 4** (W307 verdict): `--font-size-phase-bar: 11px` (was implicit `10px`). Share Tech Mono loses letterform clarity at 10px even on Retina; 11px keeps the HUD-tick feel. Apply via `.phase-bar`. |
 | Live numeric data | **Fira Code** + `font-variant-numeric: tabular-nums` | **W308 step 1**: required on any ticker / meter / rail. Prevents "8% → 99.8%" width-jitter on refresh. Apply via `.t-num` utility. |
 
 **Sanctioned mono glyphs** (W308 step 1 — codifies existing usage).
