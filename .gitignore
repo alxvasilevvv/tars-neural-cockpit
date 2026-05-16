@@ -34,3 +34,23 @@ ruvector.db
 .tars-ops-output.txt
 .auto-push.txt
 .auto-push-tag.txt
+.backend-up.txt
+.fix-all-warns.txt
+.smoke-tour.txt
+.test-results-full.txt
+# Operator session logs (Wave 298 cleanup — interactive command shortcuts
+# at .BYPASS-AUTH.txt / .CHECK-*.txt / .DEMO-READY.txt / .FINAL-*.txt /
+# .DEPLOY-*.txt etc dump runtime logs here; never commit).
+.BYPASS-AUTH.txt
+.CHECK-*.txt
+.DEMO-*.txt
+.DEPLOY-*.txt
+.FINAL-*.txt
+.RESTART-*.txt
+.LAUNCH-*.txt
+.OPEN-*.txt
+.RUN-*.txt
+.SHOW-*.txt
+.START-*.txt
+.STOP-*.txt
+.TEST-*.txt

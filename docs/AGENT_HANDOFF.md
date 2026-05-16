@@ -3,7 +3,84 @@
 Pick this up if you are continuing the work in a fresh chat. Read this file
 plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 
-> **>>> SYNC: Cursor · 2026-05-16 afternoon · W293-W296 voice unlock + persona picker + diagnostics + release wave (LATEST) <<<**
+> **>>> SYNC: Cursor · 2026-05-16 evening · W297+W298 voice tuning + HUD overlay redesign (LATEST) <<<**
+>
+> Continuation after operator listened to W294/W295 voices and reviewed the
+> cockpit visually. Verdict: **voice still felt "TTS narrator", design "everything is broken"**.
+> Root-cause loop:
+>
+> **W297 (commit `7b04405`)** — first voice tuning pass. Replaced 4 of 6
+> ElevenLabs voice IDs (Daniel→George for JARVIS, Adam→Antoni for Stark,
+> Sarah→Charlotte for GLaDOS, George→Brian for TARS — the originals were
+> generic narrator presets) and set first-pass per-persona ``stability /
+> similarity / style``. Improvement was real but small; operator still
+> wanted "Iron Man tier".
+>
+> **W298 voice (commit `b3b036a`)** — confirmed via
+> ``curl https://api.elevenlabs.io/v1/user`` that the operator account is
+> **free tier** (1043/10000 chars used, `can_use_professional_voice_clones=None`,
+> `can_use_instant_voice_cloning=False`). On free tier, starter-library
+> voices + ``voice_settings`` is the only remaining lever. Pushed all 6
+> personas to the aggressive end of the free-tier envelope (stability ↓ to
+> 0.18-0.42 for charismatic personas, similarity ↑ to 0.88-0.92 for tight
+> identity lock, style ↑ to 0.55-0.88 for character). Empirical effect:
+> charismatic personas (jarvis/stark/glados) gained 17-25% mp3 length
+> (longer beats, richer prosody), clinical (hal9000) tightened, measured
+> (tars) sharper on dry humour, operator gained 36% length (warmer).
+> Samples lie at ``/tmp/tars-voice-v3/*.mp3`` for A/B vs ``/tmp/tars-voice-v2/``.
+> Docstring rewritten with real free-tier ranges (was misleading at
+> 0.30-0.40 stability).
+>
+> **OpenAI fallback verified** — all 6 personas already carry
+> ``openai_voice`` (fable/onyx/echo/shimmer/ash/alloy) + rich
+> ``openai_instructions`` (in-context voice direction). ``PROVIDER_CHAIN``
+> is ``('elevenlabs', 'openai', 'mac_say')``. When operator adds
+> ``OPENAI_API_KEY`` to ``.env``, ``gpt-4o-mini-tts`` automatically takes
+> over — no code change needed.
+>
+> **W298 HUD overlay (in progress)** — dispatched a frontend subagent to
+> add a cohesive HUD/Sci-Fi FUI layer over the existing W286→W290→W292→W294
+> baseline. Five additive elements (additive constraint enforced, all
+> scoped to ``body.cockpit-active``, all reduced-motion-safe): corner
+> brackets on the monolith, top scrolling ticker strip, right-edge
+> telemetry rail, **first-boot language picker converted from plain
+> numbered text to a 6-card glass grid with HUD framing** (fixes the
+> "stuck terminal" look operator screenshotted), bottom HUD strip +
+> 3% scanlines, and a W294 status-row reflow fix that stops the
+> ``IDLE — TAP MIC`` label being truncated by the TEST VOICE button at
+> narrow viewports. Subagent is still running; will commit under a
+> separate W298 entry after operator reviews the screenshot.
+>
+> **Test suite** — ``./.venv/bin/python -m pytest tests/ -x`` after W298:
+> **571 passed, 1 failed, 2 skipped**. The lone failure
+> (``test_cap_ux.py::test_hard_cap_blocks_chat_with_429_envelope``) is a
+> **pre-existing Python 3.12 incompat** (uses ``asyncio.get_event_loop()``
+> deprecated in 3.12), not caused by voice changes. All voice tests pass.
+>
+> **.gitignore cleanup** — added patterns for the operator's scratch
+> session logs (``.BYPASS-AUTH.txt``, ``.CHECK-*.txt``, ``.DEMO-*.txt``,
+> ``.DEPLOY-*.txt``, ``.FINAL-*.txt``, ``.RESTART-*.txt``,
+> ``.LAUNCH-*.txt``, ``.OPEN-*.txt``, ``.RUN-*.txt``, ``.SHOW-*.txt``,
+> ``.START-*.txt``, ``.STOP-*.txt``, ``.TEST-*.txt``) so ``git status``
+> stops drowning in stale debug artefacts.
+>
+> **Operator decision still required:** voice ceiling for free tier has
+> been hit. To go further, either upgrade ElevenLabs Starter ($5/mo →
+> Pro Voice Clones, true Iron Man tier) or Creator ($22/mo → v3 alpha),
+> or add ``OPENAI_API_KEY`` to ``.env`` (gpt-4o-mini-tts is the cheapest
+> per-call cinematic option, $0.015/min, honours rich instructions which
+> are already wired per-persona).
+>
+> Commits on ``main`` since W296:
+> - ``7b04405`` cursor — W297 cinematic voice tuning (per-persona ElevenLabs settings + better voice IDs)
+> - ``b3b036a`` cursor — W298 voice: extreme ElevenLabs tuning for free-tier cinematic delivery
+> - ``d8035d7`` cursor — docs: W298 voice tuning changelog entry
+> - **pending** — W298 HUD overlay layer (frontend subagent in flight)
+> - **pending** — .gitignore scratch-pattern expansion (this sync)
+
+---
+
+> **>>> SYNC: Cursor · 2026-05-16 afternoon · W293-W296 voice unlock + persona picker + diagnostics + release wave <<<**
 >
 > Continuation of the cockpit work after W292. Operator's brief was
 > "make the voice super realistic like Iron Man, with ElevenLabs key if needed,
