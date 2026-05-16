@@ -58,9 +58,25 @@ def fresh_meeet(tmp_path: Path, monkeypatch):
     monkeypatch.delenv("MEEET_API_KEY", raising=False)
     reset_store()
     reset_client()
+    # PolicyStore shares the meeet sqlite path via ``_resolve_db_path``
+    # but caches its own connection in a separate singleton. If a
+    # previous test (e.g. test_rate_limit_expensive_routes) pointed
+    # MEEET_STORE_PATH at a tempdir that's since been deleted, the
+    # cached PolicyStore still tries to write to it, producing
+    # ``no such table: confirmations`` on the next confirm call.
+    # Dropping the singleton forces a re-init against the current
+    # MEEET_STORE_PATH so ``_ensure_schema`` runs against the fresh
+    # tmp DB used by this test.
+    from backend.core.policy import store as policy_store_mod
+    from backend.core.policy import gate as policy_gate_mod
+
+    policy_store_mod._SINGLETON = None
+    policy_gate_mod._SINGLETON = None
     yield get_client().store
     reset_store()
     reset_client()
+    policy_store_mod._SINGLETON = None
+    policy_gate_mod._SINGLETON = None
 
 
 # ---------------------------------------------------------------------------

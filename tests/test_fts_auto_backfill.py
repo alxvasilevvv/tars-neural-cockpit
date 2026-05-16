@@ -22,6 +22,7 @@ from backend.core.chat import Thread
 from backend.core.chat import store as chat_store_mod
 from backend.core.chat.models import Message
 from backend.core.chat.store import ChatStore, get_chat_store
+from backend.core.meeet import store as meeet_store_mod
 from backend.core.search.fts import (
     drop_fts_tables,
     ensure_events_fts,
@@ -49,11 +50,21 @@ def isolated_chat(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(
         attachment_index_mod, "_SINGLETON", None, raising=False
     )
+    # A previous test (test_attachments_chunk_neighbours et al.) may
+    # have created an *enabled* MeeetStore singleton pointing at the
+    # real ~/.tars/meeet.sqlite. The fts-repair endpoint reads that
+    # singleton, sees ``enabled=True``, and tries to repair an
+    # ``events_fts`` index that has nothing to do with this test —
+    # which appears as ``rebuilt == ['events_fts']`` instead of ``[]``.
+    # Drop the singleton so the next ``get_meeet_store()`` re-reads
+    # ``MEEET_STORE=disabled`` and short-circuits.
+    monkeypatch.setattr(meeet_store_mod, "_SINGLETON", None, raising=False)
     yield
     monkeypatch.setattr(chat_store_mod, "_SINGLETON", None, raising=False)
     monkeypatch.setattr(
         attachment_index_mod, "_SINGLETON", None, raising=False
     )
+    monkeypatch.setattr(meeet_store_mod, "_SINGLETON", None, raising=False)
 
 
 def _seed_messages(chat: ChatStore, n: int = 5) -> str:

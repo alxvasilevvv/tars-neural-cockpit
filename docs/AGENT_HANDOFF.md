@@ -3,12 +3,29 @@
 Pick this up if you are continuing the work in a fresh chat. Read this file
 plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 
-> **>>> SYNC: Cursor · 2026-05-17 · W305 pytest stabilization (38 → 2 failures) · W304 py3.12 + OPENAI env + L9 doc sync <<<**
+> **>>> SYNC: Cursor · 2026-05-17 · W306 last two order-dependent fixes (38 → 0) · W305 py3.12 stabilization · W304 py3.12 + OPENAI env + L9 doc sync <<<**
 >
-> **W305 (this wave)** — full ``pytest`` matrix run end-to-end on Python
-> **3.12**: ~3500 tests, **38 → 2** failures. The 2 residual ones (`test_fts_auto_backfill`,
-> `test_thread_id_contextvar`) pass in isolation and only fail in the
-> full suite: cross-test state-leak, hunt deferred. Of the 36 fixed,
+> **W306 (this wave)** — finished the W305 hunt. Bisected both residual
+> order-dependent failures to specific upstream tests caching singletons
+> against ephemeral tmp paths:
+> 1. ``test_fts_auto_backfill::test_endpoint_returns_no_drift_when_indexes_are_synced`` —
+>    upstream chunking tests left ``MeeetStore._SINGLETON`` initialised against
+>    the real ``~/.tars/meeet.sqlite`` with ``enabled=True``. The fts-repair
+>    endpoint read the singleton, tried to repair ``events_fts``, returned
+>    ``rebuilt == ['events_fts']`` instead of ``[]``. Fixed
+>    ``isolated_chat`` to drop the meeet store singleton.
+> 2. ``test_thread_id_contextvar::test_policy_confirm_route_propagates_persisted_thread_id_into_handler`` —
+>    upstream ``test_rate_limit_expensive_routes`` pointed ``MEEET_STORE_PATH``
+>    at a ``tempfile.TemporaryDirectory`` (deleted on exit). The cached
+>    ``PolicyStore`` singleton retained that path → next confirm-insert
+>    hit ``no such table: confirmations``. Fixed ``fresh_meeet`` to drop
+>    ``policy.store._SINGLETON`` + ``policy.gate._SINGLETON``.
+> Result: **3508 passed / 0 failed / 6 skipped / 2 xfailed** on the full
+> suite (Python 3.12, ~6.5 min wall clock). Both fixes are test-isolation
+> only; product code was already correct.
+>
+> **W305** — full ``pytest`` matrix run end-to-end on Python
+> **3.12**: ~3500 tests, **38 → 2** failures (now 0 with W306). Of the 36 fixed,
 > two are *real* product bugs (the rest are test-hygiene):
 > 1. ``desktop/pyoxidizer.bzl`` missing three ``opentelemetry`` runtime
 >    pins — bundled binary would have crashed with ``ImportError`` on

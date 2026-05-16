@@ -4,6 +4,42 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-17 — Cursor · W306 last two order-dependent failures (38 → 0)
+
+**Summary**
+
+Finished the W305 hunt. Full ``pytest`` matrix on Python 3.12 now reports
+**3508 passed / 0 failed / 6 skipped / 2 xfailed** in ~6.5 min. Both residual
+order-dependent failures bisected to specific upstream tests caching a stale
+singleton pointed at a since-deleted tmp DB:
+
+- **`test_fts_auto_backfill::test_endpoint_returns_no_drift_when_indexes_are_synced`.**
+  Upstream `test_attachments_chunk_neighbours` (and others in the chunking
+  family) initialise the `MeeetStore` singleton against the real
+  `~/.tars/meeet.sqlite` with ``enabled=True``. The fts-repair endpoint reads
+  that singleton, sees ``enabled``, and tries to repair an ``events_fts``
+  index unrelated to this test → ``rebuilt == ['events_fts']`` instead of
+  ``[]``. Fix: ``isolated_chat`` fixture now also drops
+  ``backend.core.meeet.store._SINGLETON`` so the next ``get_meeet_store()``
+  re-reads ``MEEET_STORE=disabled`` and short-circuits.
+- **`test_thread_id_contextvar::test_policy_confirm_route_propagates_persisted_thread_id_into_handler`.**
+  Upstream `test_rate_limit_expensive_routes` points ``MEEET_STORE_PATH`` at
+  a ``tempfile.TemporaryDirectory`` that gets cleaned up on exit. The cached
+  ``PolicyStore`` singleton retains that path → next confirm-insert into a
+  fresh `tmp_path` finds ``no such table: confirmations``. Fix: ``fresh_meeet``
+  fixture now also drops ``backend.core.policy.store._SINGLETON`` and
+  ``backend.core.policy.gate._SINGLETON`` so the next confirm call re-inits
+  ``_ensure_schema`` against the test's tmp DB.
+
+Both fixes are *test-isolation only* — the product code is correct; the
+fixtures just weren't dropping every cached singleton that pinned the
+ephemeral DB path.
+
+**Files**
+
+- `tests/test_fts_auto_backfill.py`
+- `tests/test_thread_id_contextvar.py`
+
 ## 2026-05-17 — Cursor · W305 test-suite cleanup (38 → 2 failures)
 
 **Summary**

@@ -4,6 +4,42 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-17 — Cursor · W306 last two order-dependent failures (38 → 0)
+
+**Summary**
+
+Finished the W305 hunt. Full ``pytest`` matrix on Python 3.12 now reports
+**3508 passed / 0 failed / 6 skipped / 2 xfailed** in ~6.5 min. Both residual
+order-dependent failures bisected to specific upstream tests caching a stale
+singleton pointed at a since-deleted tmp DB:
+
+- **`test_fts_auto_backfill::test_endpoint_returns_no_drift_when_indexes_are_synced`.**
+  Upstream `test_attachments_chunk_neighbours` (and others in the chunking
+  family) initialise the `MeeetStore` singleton against the real
+  `~/.tars/meeet.sqlite` with ``enabled=True``. The fts-repair endpoint reads
+  that singleton, sees ``enabled``, and tries to repair an ``events_fts``
+  index unrelated to this test → ``rebuilt == ['events_fts']`` instead of
+  ``[]``. Fix: ``isolated_chat`` fixture now also drops
+  ``backend.core.meeet.store._SINGLETON`` so the next ``get_meeet_store()``
+  re-reads ``MEEET_STORE=disabled`` and short-circuits.
+- **`test_thread_id_contextvar::test_policy_confirm_route_propagates_persisted_thread_id_into_handler`.**
+  Upstream `test_rate_limit_expensive_routes` points ``MEEET_STORE_PATH`` at
+  a ``tempfile.TemporaryDirectory`` that gets cleaned up on exit. The cached
+  ``PolicyStore`` singleton retains that path → next confirm-insert into a
+  fresh `tmp_path` finds ``no such table: confirmations``. Fix: ``fresh_meeet``
+  fixture now also drops ``backend.core.policy.store._SINGLETON`` and
+  ``backend.core.policy.gate._SINGLETON`` so the next confirm call re-inits
+  ``_ensure_schema`` against the test's tmp DB.
+
+Both fixes are *test-isolation only* — the product code is correct; the
+fixtures just weren't dropping every cached singleton that pinned the
+ephemeral DB path.
+
+**Files**
+
+- `tests/test_fts_auto_backfill.py`
+- `tests/test_thread_id_contextvar.py`
+
 ## 2026-05-17 — Cursor · W305 test-suite cleanup (38 → 2 failures)
 
 **Summary**
@@ -2458,48 +2494,6 @@ Full pytest after this batch: **2332 passed / 1 skipped / 2 xfailed**
 
 `>>> SYNC: Cursor · 2026-05-04 · L5 emit_encrypted closes the boilerplate gap`
 
-## 2026-05-04 — Cursor · trace-summary background loop: pin behaviour with tests
-
-**Summary**
-
-The materialised `trace_summary` view (`backend/core/meeet/trace_summary.py`)
-ships with a periodic rebuild loop in the FastAPI lifespan
-(`web_extras/app.py:_trace_summary_loop`, default 300 s, `0` disables).
-The loop has been live for a while but had no dedicated tests — only the
-core rollup math was pinned in `tests/test_meeet_trace_summary.py`. A
-silent regression that disabled the loop, swallowed exceptions, or
-broke the env-var contract would slip past CI.
-
-Closed that gap with `tests/test_trace_summary_loop.py` (10 cases),
-mirroring the shape of `tests/test_message_embed_loop.py`:
-
-- **Env helper** — defaults to 300 s, parses floats, clamps negatives,
-  falls back to default on garbage, `0` disables.
-- **Loop body** — short-circuits when interval is 0, short-circuits when
-  the meeet store is disabled, runs one tick that walks the events
-  table and writes the rollup row (asserts `event_count`, `tokens_in`,
-  `tokens_out`, `total_cost_usd`, `last_session_id`, `primary_route`),
-  survives an internal exception and keeps ticking on the next iteration.
-- **Lifespan integration** — `TestClient(app)` startup must not crash
-  (interval set to `0` so the no-I/O path runs).
-
-Full pytest after this batch: **2325 passed / 1 skipped / 2 xfailed**
-(was 2315).
-
-The brute-force rebuild (`O(events)` walk on every tick) is still
-acceptable for typical local stores per the source comment; the
-high-water-mark / delta-rebuild optimisation stays in the source-code
-TODO until a hot-path operator profile proves it's needed.
-
-**Files**
-
-- `tests/test_trace_summary_loop.py` (new, 10 cases)
-- `docs/AGENT_HANDOFF.md` — checkpoint banner already updated in
-  earlier batch this session
-- `docs/CHANGELOG_AGENTS.md`, `docs/CHANGELOG_PUBLIC.md`
-
-`>>> SYNC: Cursor · 2026-05-04 · trace-summary loop tests pin lifespan wiring`
-
 ---
 
-_Showing the most recent 60 of 257 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 258 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
