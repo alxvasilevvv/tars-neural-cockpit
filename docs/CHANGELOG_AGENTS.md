@@ -23,6 +23,10 @@ coverage. ``Cargo.lock`` aligned with desktop ``10.0.0-rc.1``.
 - `tests/test_onboarding.py`
 - `desktop/src-tauri/Cargo.lock`
 
+**Commit**
+
+- `f6e3671` feat(onboarding): W303 /api/onboarding/state + mock OAuth HTML handoff
+
 ## 2026-05-16 — Cursor · W302 Control Center shell = MASTER palette
 
 **Summary**

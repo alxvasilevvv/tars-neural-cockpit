@@ -3,7 +3,7 @@
 Pick this up if you are continuing the work in a fresh chat. Read this file
 plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 
-> **>>> SYNC: Cursor · 2026-05-16 · W302 Control Center shell = MASTER (+ W301 cockpit tokens) <<<**
+> **>>> SYNC: Cursor · 2026-05-16 · W303 onboarding state + mock OAuth · W302/W301 shell <<<**
 >
 > Continuation after operator listened to W294/W295 voices and reviewed the
 > cockpit visually. Verdict: **voice still felt "TTS narrator", design "everything is broken"**.
