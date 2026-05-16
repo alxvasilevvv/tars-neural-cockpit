@@ -4,6 +4,91 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-16 — Cursor · W298 HUD overlay layer (Iron Man / Sci-Fi FUI chrome)
+
+**Summary**
+
+Operator audit on the 19:08 screenshot called the cockpit "wireframe-demo"
+with three concrete bugs: empty void around the monolith, first-boot
+language picker rendered as plain numbered text bleeding into transcript,
+and the W294 `IDLE — TAP MIC` label truncated by the TEST VOICE button.
+W298 HUD overlay layer addresses all three with a cohesive HUD/Sci-Fi FUI
+chrome sitting on top of the existing W286→W290→W292→W294 baseline.
+
+**Design tokens (additive — purple W286 accent kept intact)**
+
+- `--hud-cyan: #00E5FF`
+- `--hud-cyan-glow: rgba(0, 229, 255, 0.45)`
+- Monospace chrome: JetBrains Mono / IBM Plex Mono / SFMono fallback
+
+**9 CSS sections + 4 JS sections (all scoped `body.cockpit-active`)**
+
+- **W298.0** — HUD design tokens
+- **W298.1** — top scrolling ticker strip (28px glass, cyan mono
+  tokens `LATENCY · MODEL · PACKS · AGENT · MEMORY · LINK`, 60s loop,
+  masked edges)
+- **W298.2** — right-edge telemetry rail (CPU/NET/MEM labels +
+  6 blinking signal dots, gated to ≥1080px viewport)
+- **W298.3** — first-boot language picker rebuilt as a 7-card glass
+  overlay (flag emoji + 2-letter ISO code + cyan corner brackets +
+  hotkey hint "CLICK A CARD · OR PRESS 1–7"); card click dispatches
+  the existing `W285.FB.handleLangPick` so no onboarding or backend
+  wiring was touched
+- **W298.4** — W294 status row reflow (kills the `IDLE — TAP M…`
+  truncation; TEST VOICE collapses to icon-only at <900px)
+- **W298.5** — bottom HUD pill bar `[ ONLINE ● ] [ PERSONA · … ]
+  [ MODEL · … ] [ LATENCY · … ]` anchored bottom-left (never
+  collides with mic pill or right-side TEST VOICE), trims pills
+  below 1080px, hides entirely below 720px; plus full-screen 3%
+  scanline overlay via `body.cockpit-active::after`
+- **W298.6** — HUD corner brackets framing the monolith ring
+  (4 L-shaped 1px cyan brackets, pulse animation)
+- **W298.7** — keyframes (`w298-ticker-scroll`, `w298-blink`,
+  `w298-pulse`)
+- **W298.8** — `prefers-reduced-motion: reduce` kill switch
+  disabling every W298 animation
+- **W298.JS.1** — language picker mount + click/keyboard handlers
+  + dispatch into `W285.FB.handleLangPick`
+- **W298.JS.2** — telemetry rail dot blink stagger
+- **W298.JS.3** — persona mirror + ticker live-text updater
+- **W298.JS.4** — `w298Mount()` with retry-until-cockpit-ready,
+  DOM-ready boot, `window.W298` debug surface
+
+**Acceptance**
+
+- `TARS_HARNESS_OFFLINE=1 bash scripts/qa_w290_cockpit.sh` →
+  **33 pass / 0 fail / 5 skip** (same skips as pre-W298).
+- Visual via cursor-ide-browser MCP at
+  `http://127.0.0.1:8888/index.html` confirmed:
+  - `/tmp/w298-cockpit.png` — ticker animating, corner brackets
+    visible, IDLE label full, TEST VOICE collapsed to round play
+  - `/tmp/w298-cockpit-langpicker.png` — 7-card grid with flags,
+    ISO codes, corner brackets, 1–7 hotkey hint
+- Diff: +918 / −0 lines (additive-only constraint met; over the
+  400-700 suggested ceiling because the language picker is denser
+  than estimated).
+
+**Files**
+
+- `desktop/src-tauri/web/index.html` (+918 / −0)
+
+**Commit**
+
+- `fe4c211` feat(desktop): W298 HUD overlay layer (Iron Man / Sci-Fi FUI chrome)
+
+**Open notes**
+
+- Telemetry rail + bottom HUD bar render only at ≥1080px viewport,
+  so they appear in TARS.app (native, full-screen) but not in the
+  narrow Cursor browser MCP screenshot.
+- Pre-existing SyntaxError @ `index.html:11548` (multi-line
+  `prompt()` literal) is unrelated to W298 — worth a separate fix.
+- TARS.app rebuild kicked off after commit so the operator sees
+  W298 in the native window; log at
+  `/tmp/tars-desktop-build-w298.log`.
+
+---
+
 ## 2026-05-16 — Cursor · W298 voice extreme tuning (free-tier cinematic)
 
 **Summary**
@@ -2513,20 +2598,6 @@ production. Plan A (wrangler) remains documented as fallback.
 - `docs/CHANGELOG_PUBLIC.md` (regenerated)
 - `docs/CHANGELOG_AGENTS.md` (this entry)
 
-## 2026-05-04 — Cursor · ops: safe parse cf-operator.env (no source — fix $ in token)
-
-**Summary**
-
-**`ops_push_cloudflare_pages_api_token.sh`:** load **`cf-operator.env`** line-wise — never **`source`**, so
-characters like **`$`** in API tokens no longer truncate/break the value (repeated 401s).
-
-**Files**
-
-- `scripts/ops_push_cloudflare_pages_api_token.sh`
-- `cf-operator.env.example` (`pbpaste | gh secret set` bypass)
-- `docs/CHANGELOG_PUBLIC.md` (regenerated)
-- `docs/CHANGELOG_AGENTS.md` (this entry)
-
 ---
 
-_Showing the most recent 60 of 252 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 253 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
