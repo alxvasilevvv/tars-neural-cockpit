@@ -4,6 +4,88 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-17 — Cursor · W308 step 1 (apply W307 verdict)
+
+**Summary**
+
+Operator delegated the per-row token decisions ("выбери ты", continued
+from step 0 delegation). Applied Claude's W307 verdict end-to-end into
+`apps/cockpit/src/styles/tokens.css` + `design-system/tars/MASTER.md`.
+All five open questions from W307 §"Open questions" answered with
+explicit taste-calls (see `docs/handoff/W308_PRE_FLIGHT_FINDINGS.md`
+for the row table; single revert undoes any individual call).
+
+**Hard-rule changes (no operator question — math constraints):**
+- `--cta-text-on-accent: #000000` token + `.cta`/`.cta--ghost`
+  utility. Codifies "text on gold MUST be black" (9.62:1 AAA vs
+  ink-on-accent 2.69:1 AA fail). MASTER §3 anti-patterns updated.
+- `--motion-budget-max: 2` codifies MASTER §7 "1-2 elements per view".
+- Split `--motion-pulse` (3.6s ambient — "all good") from new
+  `--motion-alert-pulse` (1.6s — warn states only). 1.6s previously
+  read as "warning" on ambient health dots.
+- `--color-hud-alpha-cap: 0.32` documents the existing usage cap.
+- New `.t-num` utility (`font-variant-numeric: tabular-nums`) for
+  live-data jitter.
+- New `.glyph` utility + sanctioned glyph set (`▣ ◇ ◆ ═ ╳ ◯ ▾ ▸`).
+
+**Taste-call changes (each individually revertable):**
+- `--color-ink-3`: `#5C5A52` → `#8A867B`. Promotes contrast 2.84:1 →
+  4.62:1 on bg-1 (WCAG AA pass). Token name kept.
+- `--color-accent`, `--color-hud`: kept (Claude's recommendation).
+- `--type-greeting`: new token at `clamp(2.4rem, 5vw, 3.4rem)`
+  + `.t-greeting` utility. Mobile cap kind to 375px.
+- Motion split contract (marketing vs cockpit): deferred to step 2;
+  only cockpit surface exists today.
+
+**MASTER.md updates:**
+- §3 palette table: ink-3 hex, cta-text-on-accent row, hud-alpha-cap
+  row, anti-pattern warning.
+- §4 typography: greeting row, t-num row, sanctioned glyphs block,
+  font CDN switched to `fonts.bunny.net` (privacy-safer mirror).
+- §7 motion: split ambient/alert pulse contract, marketing-vs-cockpit
+  budget note.
+- §9 implementation map: redirected from deleted
+  `experiments/neural-showcase-v3/*` to `apps/cockpit/`.
+
+**Test extensions:**
+`tests/test_cockpit_tokens_sync.py` grew from 3 → 6 tests:
+- `test_master_documents_motion_budget` — both files reference
+  `--motion-budget-max`.
+- `test_master_codifies_cta_text_on_accent_rule` — MASTER §3 contains
+  both the token row and the prose anti-pattern.
+- `test_master_documents_hud_alpha_cap` — MASTER §3 references
+  the alpha cap.
+
+**Verification:**
+- `pnpm --filter @tars/cockpit build` → clean. Bundle: 18 KB raw /
+  6 KB gzipped (was 13 / 5 in step 0; +5 KB for `.cta` + `.glyph` +
+  new preview sections).
+- `pytest tests/test_cockpit_tokens_sync.py -v` → 6 passed.
+- `pnpm dev` preview page now renders: full token swatch grid (now
+  with corrected ink-3), `.t-greeting` sample, sanctioned glyph row,
+  black-on-gold CTA pair, dual pulse contract (ambient vs alert),
+  motion-budget badge.
+
+**Files**
+
+- `apps/cockpit/src/styles/tokens.css` (W307 verdict)
+- `apps/cockpit/src/styles/typography.css` (.t-greeting, .t-num,
+  .glyph)
+- `apps/cockpit/src/styles/global.css` (.cta, .cta--ghost)
+- `apps/cockpit/src/pages/tokens-preview.ts` (CTA + glyph + dual
+  pulse sections)
+- `apps/cockpit/package.json` (version bump 0.1.0-step0 →
+  0.2.0-step1)
+- `design-system/tars/MASTER.md` (§3, §4, §7, §9 updates)
+- `tests/test_cockpit_tokens_sync.py` (3 new tests, ink-3 expected
+  value updated)
+- `docs/handoff/W308_PRE_FLIGHT_FINDINGS.md` (per-row decision log)
+
+**Next**: W308 step 2 — wire `apps/cockpit/dist/` into
+`desktop/scripts/package-cockpit.sh`; visual-parity check against
+`docs/design/W307_refs/{hero,cockpit}.html`; replace
+`desktop/src-tauri/web/` once parity is verified.
+
 ## 2026-05-17 — Cursor · W308 step 0 (Path C — new cockpit scaffold)
 
 **Summary**

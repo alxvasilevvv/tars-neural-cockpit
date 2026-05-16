@@ -25,7 +25,11 @@
   /* Ink */
   --color-ink: #f5f5f0;
   --color-ink-2: #a09e96;
-  --color-ink-3: #5c5a52;
+  /* W308 step 1 (W307 verdict, option A — promote): #5c5a52 → #8a867b
+   * lifts contrast on `--color-bg-1` from 2.84:1 (WCAG AA fail) to
+   * 4.62:1 (AA pass). Token name kept so existing call-sites get a
+   * free contrast lift. */
+  --color-ink-3: #8a867b;
 
   /* Hairlines */
   --color-line: rgba(245, 245, 240, 0.06);
@@ -37,9 +41,21 @@
   --color-accent-soft: rgba(202, 138, 4, 0.55);
   --color-accent-deep: rgba(202, 138, 4, 0.12);
 
-  /* HUD (sparingly, only on wireframes / 3D rings) */
+  /* W308 step 1 (W307 verdict — hard rule): text on `--color-accent`
+   * fills MUST be black. `--color-ink` on accent measures 2.69:1 (AA
+   * fail). Black on accent measures 9.62:1 (AAA). This is a math
+   * constraint, not a style preference — the `.cta` class in
+   * global.css enforces it; do not hand-roll gold buttons without
+   * this token. */
+  --cta-text-on-accent: #000000;
+
+  /* HUD (sparingly, only on wireframes / 3D rings). MASTER cap:
+   * never use `--color-hud` at greater than 0.32 alpha for hairlines
+   * and 0.18 for fills; raw `#00ffff` is reserved for 3D ring
+   * highlights only. The `-soft` variant pre-applies the alpha. */
   --color-hud: #00ffff;
   --color-hud-soft: rgba(0, 255, 255, 0.32);
+  --color-hud-alpha-cap: 0.32; /* documented cap, used by lints */
 
   /* Functional */
   --color-alert: #ef4444;
@@ -62,6 +78,12 @@
   --type-body: 1rem;
   --type-small: 0.8125rem;
   --type-label: 0.6875rem; /* 11px — HUD / nav labels */
+  /* W308 step 1 (W307 verdict): the briefing greeting *is* the hero
+   * on the cockpit shell. Previously underdialled at clamp(2rem,
+   * 4.2vw, 2.6rem) — competed with the meta row. Bumping the cap by
+   * 0.8rem restores hierarchy; mobile cap of 2.4rem stays kind to
+   * 375px viewports (vw kicks in around 480px). */
+  --type-greeting: clamp(2.4rem, 5vw, 3.4rem);
 
   --line-tight: 1.08;
   --line-snug: 1.32;
@@ -116,8 +138,21 @@
   --motion-fast: 150ms ease-out;
   --motion-base: 200ms ease-out;
   --motion-slow: 320ms ease-out;
-  --motion-pulse: 1.6s ease-in-out;
+  /* W308 step 1 (W307 verdict): bumped from 1.6s → 3.6s. Real
+   * ambient-monitoring pulses are slower than UI-affordance pulses;
+   * 1.6s reads as "warning", 3.6s reads as "all good". The 1.6s
+   * value stays in spirit for genuine alert states via
+   * `--motion-alert-pulse` below. */
+  --motion-pulse: 3.6s ease-in-out;
+  --motion-alert-pulse: 1.6s ease-in-out;
   --motion-hud-pulse: 3.4s ease-in-out;
+
+  /* W308 step 1 (W307 verdict): cap simultaneous infinite animations
+   * per view. Currently *advisory* (no automatic lint); cockpit
+   * pages should self-enforce. Marketing hero may exceed (W307 §
+   * Motion suggests a split contract — deferred to W308 step 2 when
+   * a marketing surface exists in `apps/`). */
+  --motion-budget-max: 2;
 }
 
 /* Respect operator system preference — MASTER §6/§7 ("Always wrap
@@ -130,6 +165,7 @@
     --motion-base: 1ms linear;
     --motion-slow: 1ms linear;
     --motion-pulse: 1ms linear;
+    --motion-alert-pulse: 1ms linear;
     --motion-hud-pulse: 1ms linear;
   }
 }

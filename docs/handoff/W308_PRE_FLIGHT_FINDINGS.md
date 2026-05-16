@@ -22,6 +22,7 @@
 | 2026-05-17 | **Path C selected** (new minimal cockpit at `apps/cockpit/`) | Path A breaks on next bundle rebuild; Path B re-litigates the W292 deletion. C gives a real source of truth that absorbs *any* W307 verdict cheaply. |
 | 2026-05-17 | Path C **staged** | Step 0 (scaffold + tokens.css mirroring current MASTER) shipped *before* the W307 verdict lands. When verdict arrives, only `tokens.css` + MASTER.md change — no shell rework. |
 | 2026-05-17 | Stack: Vite + vanilla TypeScript, no framework | MASTER contract is plain CSS variables + semantic HTML. React/Vue would add ~45KB minified for zero benefit at this stage. Step 0 bundle is 13KB raw / 5KB gzipped. |
+| 2026-05-17 | **Step 1 shipped** — W307 verdict applied (5 open-question taste calls + ~10 hard-rule changes, see table below) | Operator delegated again ("выбери ты"). Migration cost = zero (no call-sites yet); single revert undoes any taste call. Bundle grows to 18KB raw / 6KB gzipped. |
 
 ---
 
@@ -130,14 +131,45 @@ the W307 verdict.
 - [x] `desktop/scripts/package-cockpit.sh` left untouched (step 0 does
       not replace the frozen bundle; step 2 will).
 - [x] Cockpit drift smoke test added: `tests/test_cockpit_tokens_sync.py`
-      (3 passing). Full pytest collection still resolves cleanly.
-- [ ] **Step 1 (queued):** when Claude's `docs/design/W307_VERDICT.md`
-      lands, operator marks each row approve/change/skip → Cursor
-      updates `apps/cockpit/src/styles/tokens.css` + MASTER.md in the
-      same commit; smoke test enforces sync.
+      (now 6 passing — extended in step 1).
+- [x] **Step 1 shipped (operator delegated "выбери ты" again).** W307
+      verdict applied to `apps/cockpit/src/styles/tokens.css` +
+      `design-system/tars/MASTER.md` in the same commit. Per-row
+      taste-calls listed below — single revert undoes any one of them.
 - [ ] **Step 2 (queued):** wire `apps/cockpit/` into
       `desktop/scripts/package-cockpit.sh`; replace
-      `desktop/src-tauri/web/` once parity is verified.
+      `desktop/src-tauri/web/` once parity is verified against the
+      W307 reference HTMLs (`docs/design/W307_refs/hero.html`,
+      `cockpit.html`).
+
+---
+
+## W307 verdict — per-row taste calls (W308 step 1)
+
+| Row from W307 §"Open questions" | Cursor decision | Why |
+|--|--|--|
+| 1. `--color-ink-3`: promote (`#8A867B`) vs restrict-and-rename | **Promote** (option a) | Migration cost in apps/cockpit/ = zero (no call-sites yet). Free contrast lift everywhere ink-3 lands; if operator later picks restrict-and-rename, single revert + targeted rename. |
+| 2. `--color-accent`: keep `#CA8A04` vs bump `#D69416` | **Keep** | Brand coherence with marketing > marginal AA→AAA win. Matches Claude's own recommendation. |
+| 3. `--color-hud`: keep `#00FFFF` vs soften `#7AFFFF` | **Keep** + add `--color-hud-alpha-cap: 0.32` token | The FUI signature *is* part of the brand. Codify the alpha cap so misuse becomes visible. Matches Claude's own recommendation. |
+| 4. Motion budget — split contract for marketing vs cockpit | **Defer to step 2** | Only the cockpit surface exists today. Adding `--motion-budget-max: 2` for cockpit now; marketing override gets written when a marketing app exists in `apps/`. |
+| 5. Greeting size bump — desktop only or also mobile | **Both, via clamp()** | `clamp(2.4rem, 5vw, 3.4rem)` keeps mobile cap at 2.4rem (vw kicks in around 480px); 375px viewports stay kind. |
+
+Additionally applied verbatim (no operator question, hard rules):
+
+- New token `--cta-text-on-accent: #000000` + `.cta` class enforcement.
+- New token `--type-greeting` + `.t-greeting` utility.
+- New token `--motion-budget-max: 2` (cockpit advisory).
+- New token `--motion-alert-pulse: 1.6s`; `--motion-pulse` slowed to
+  `3.6s` for ambient.
+- New `.t-num` utility (`font-variant-numeric: tabular-nums`).
+- New `.glyph` utility + sanctioned set (`▣ ◇ ◆ ═ ╳ ◯ ▾ ▸`).
+- MASTER §3 anti-pattern: "never set ink on accent fills" codified.
+- MASTER §9 implementation map: redirected from
+  `experiments/neural-showcase-v3/*` (deleted) to `apps/cockpit/`.
+
+**To undo any individual row**: `git revert <step1 sha>` (whole commit
+is bounded — apps/cockpit/, design-system/tars/MASTER.md, and
+tests/test_cockpit_tokens_sync.py only).
 
 ---
 

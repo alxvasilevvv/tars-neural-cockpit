@@ -76,6 +76,38 @@ body {
   color: var(--color-ink-2);
 }
 
+/* W308 step 1 (W307 verdict — Typography §): the briefing greeting
+ * carries hero responsibility on the cockpit shell. Distinct token,
+ * not part of the .t-h* ladder, so the size bump doesn't leak into
+ * generic headings. */
+.t-greeting {
+  font-family: var(--font-display);
+  font-size: var(--type-greeting);
+  line-height: var(--line-tight);
+  letter-spacing: var(--tracking-display);
+  font-weight: 400;
+}
+
+/* W308 step 1 (W307 verdict — Typography §): tabular numerals stop
+ * width-jitter on live-data refresh (e.g. "8%" → "99.8%" should not
+ * push neighbour text). Apply to anything that ticks. */
+.t-num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* W308 step 1 (W307 verdict — Typography §): sanctioned mono glyphs
+ * substitute for icons in HUD/briefing contexts without burning a
+ * Heroicons dependency. Document the approved set here so future
+ * agents don't reach for emoji. Approved: ▣ ◇ ◆ ═ ╳ ◯ ▾ ▸. Use
+ * .glyph for visual consistency (Fira Code, ink-2 by default). */
+.glyph {
+  font-family: var(--font-body);
+  color: var(--color-ink-2);
+  font-feature-settings: normal; /* don't ligate box-drawing glyphs */
+  display: inline-block;
+  line-height: 1;
+}
+
 /* Selection styling — gold tint at low opacity. */
 ::selection {
   background: var(--color-accent-deep);

@@ -4,6 +4,88 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-17 — Cursor · W308 step 1 (apply W307 verdict)
+
+**Summary**
+
+Operator delegated the per-row token decisions ("выбери ты", continued
+from step 0 delegation). Applied Claude's W307 verdict end-to-end into
+`apps/cockpit/src/styles/tokens.css` + `design-system/tars/MASTER.md`.
+All five open questions from W307 §"Open questions" answered with
+explicit taste-calls (see `docs/handoff/W308_PRE_FLIGHT_FINDINGS.md`
+for the row table; single revert undoes any individual call).
+
+**Hard-rule changes (no operator question — math constraints):**
+- `--cta-text-on-accent: #000000` token + `.cta`/`.cta--ghost`
+  utility. Codifies "text on gold MUST be black" (9.62:1 AAA vs
+  ink-on-accent 2.69:1 AA fail). MASTER §3 anti-patterns updated.
+- `--motion-budget-max: 2` codifies MASTER §7 "1-2 elements per view".
+- Split `--motion-pulse` (3.6s ambient — "all good") from new
+  `--motion-alert-pulse` (1.6s — warn states only). 1.6s previously
+  read as "warning" on ambient health dots.
+- `--color-hud-alpha-cap: 0.32` documents the existing usage cap.
+- New `.t-num` utility (`font-variant-numeric: tabular-nums`) for
+  live-data jitter.
+- New `.glyph` utility + sanctioned glyph set (`▣ ◇ ◆ ═ ╳ ◯ ▾ ▸`).
+
+**Taste-call changes (each individually revertable):**
+- `--color-ink-3`: `#5C5A52` → `#8A867B`. Promotes contrast 2.84:1 →
+  4.62:1 on bg-1 (WCAG AA pass). Token name kept.
+- `--color-accent`, `--color-hud`: kept (Claude's recommendation).
+- `--type-greeting`: new token at `clamp(2.4rem, 5vw, 3.4rem)`
+  + `.t-greeting` utility. Mobile cap kind to 375px.
+- Motion split contract (marketing vs cockpit): deferred to step 2;
+  only cockpit surface exists today.
+
+**MASTER.md updates:**
+- §3 palette table: ink-3 hex, cta-text-on-accent row, hud-alpha-cap
+  row, anti-pattern warning.
+- §4 typography: greeting row, t-num row, sanctioned glyphs block,
+  font CDN switched to `fonts.bunny.net` (privacy-safer mirror).
+- §7 motion: split ambient/alert pulse contract, marketing-vs-cockpit
+  budget note.
+- §9 implementation map: redirected from deleted
+  `experiments/neural-showcase-v3/*` to `apps/cockpit/`.
+
+**Test extensions:**
+`tests/test_cockpit_tokens_sync.py` grew from 3 → 6 tests:
+- `test_master_documents_motion_budget` — both files reference
+  `--motion-budget-max`.
+- `test_master_codifies_cta_text_on_accent_rule` — MASTER §3 contains
+  both the token row and the prose anti-pattern.
+- `test_master_documents_hud_alpha_cap` — MASTER §3 references
+  the alpha cap.
+
+**Verification:**
+- `pnpm --filter @tars/cockpit build` → clean. Bundle: 18 KB raw /
+  6 KB gzipped (was 13 / 5 in step 0; +5 KB for `.cta` + `.glyph` +
+  new preview sections).
+- `pytest tests/test_cockpit_tokens_sync.py -v` → 6 passed.
+- `pnpm dev` preview page now renders: full token swatch grid (now
+  with corrected ink-3), `.t-greeting` sample, sanctioned glyph row,
+  black-on-gold CTA pair, dual pulse contract (ambient vs alert),
+  motion-budget badge.
+
+**Files**
+
+- `apps/cockpit/src/styles/tokens.css` (W307 verdict)
+- `apps/cockpit/src/styles/typography.css` (.t-greeting, .t-num,
+  .glyph)
+- `apps/cockpit/src/styles/global.css` (.cta, .cta--ghost)
+- `apps/cockpit/src/pages/tokens-preview.ts` (CTA + glyph + dual
+  pulse sections)
+- `apps/cockpit/package.json` (version bump 0.1.0-step0 →
+  0.2.0-step1)
+- `design-system/tars/MASTER.md` (§3, §4, §7, §9 updates)
+- `tests/test_cockpit_tokens_sync.py` (3 new tests, ink-3 expected
+  value updated)
+- `docs/handoff/W308_PRE_FLIGHT_FINDINGS.md` (per-row decision log)
+
+**Next**: W308 step 2 — wire `apps/cockpit/dist/` into
+`desktop/scripts/package-cockpit.sh`; visual-parity check against
+`docs/design/W307_refs/{hero,cockpit}.html`; replace
+`desktop/src-tauri/web/` once parity is verified.
+
 ## 2026-05-17 — Cursor · W308 step 0 (Path C — new cockpit scaffold)
 
 **Summary**
@@ -2297,102 +2379,6 @@ functions sharing types).
 
 `>>> SYNC: Cursor · 2026-05-04 · @supabase/supabase-js unified to 2.57.4 across all 164 EFs (PR #33 superseded + closed)`
 
-## 2026-05-04 — Cursor · SMTP OAuth: HTTP router + vault write-back (round 5/N)
-
-**Summary**
-
-Closes the two remaining "out of scope" bullets from the morning's
-SMTP OAuth slice — vault write-back of the freshly-minted refresh
-token, and an HTTP router so the cockpit can drive the consent
-dance end-to-end without operators copy-pasting env lines.
-
-Vault write-back (`backend/core/vault/keychain.py`):
-
-- New `set_secret(key, value, *, service, timeout_s)` — writes via
-  the macOS `security` CLI (`add-generic-password -U` for idempotent
-  upsert), falls back to `os.environ[key]` on non-Darwin /
-  Keychain-disabled hosts so the value is at least process-lifetime
-  available. Returns a `SecretRef` describing the destination
-  ("keychain" / "env") — the value itself never leaks back out.
-- New `delete_secret(key)` — clears both Keychain entry and env var,
-  returns `True` if at least one was cleared.
-- Both refuse empty inputs (raise `ValueError`) — defensive guard
-  against partial writes.
-- 14 new cases in `tests/test_vault_write_back.py` mock both
-  `_to_keychain` / `_delete_keychain` (matches the existing read-side
-  pattern) and verify env fallback, idempotent overwrite, no-op on
-  non-Darwin, end-to-end visibility through `get_secret`.
-
-OAuth consent persistence
-(`backend/core/domains/packs/business/oauth_consent.py`):
-
-- New `persist_refresh_token(result, *, client_id, client_secret,
-  provider, tenant)` — writes the refresh token + accompanying
-  config (`TARS_SMTP_OAUTH_REFRESH_TOKEN`,
-  `TARS_SMTP_OAUTH_CLIENT_ID`, `TARS_SMTP_OAUTH_CLIENT_SECRET`,
-  `TARS_SMTP_PROVIDER`, optional `TARS_SMTP_OAUTH_TENANT`) into the
-  vault. Skips empty fields, omits the default `common` tenant so
-  Keychain stays tidy. Returns a `PersistedConsent` dataclass with
-  `to_dict()` for safe serialisation (only key + destination, never
-  values).
-- Refuses to persist a failed `TokenExchangeResult` (`ok=False`) —
-  defensive guard against partial writes during transport failures.
-- Vault key constants (`VAULT_KEY_REFRESH_TOKEN`, etc.) are exported
-  so callers reference the same source-of-truth strings.
-
-HTTP router (`web_extras/routers/oauth_consent.py`,
-`/api/oauth/smtp/{start,exchange}`):
-
-- `POST /api/oauth/smtp/start` builds the consent URL and returns
-  `{url, state, code_verifier, provider, trace_id}`. Cockpit caches
-  `code_verifier` locally (PKCE — never round-trips through the
-  provider) and redirects the operator to `url`.
-- `POST /api/oauth/smtp/exchange` verifies the signed state first
-  (defence in depth — token endpoint is never hit on tampered or
-  expired callbacks), swaps the auth code for tokens, persists when
-  `persist=True` (default). When persistence succeeds, the response
-  withholds the actual `refresh_token` (vault is canonical, echoing
-  would leak it into browser history / proxy logs); `persist=false`
-  echoes for dry-run inspection.
-- Every consent attempt — start, success, state mismatch, OAuth
-  error — emits a structured `business.smtp.oauth.consent.*` event
-  into the meeet store with only `client_id_tail` (last 6 chars)
-  and `had_refresh_token` boolean leaking into the audit trail. The
-  full client_id and the refresh token value never appear in any
-  emitted payload.
-- Wired into `web_extras/app.py` next to the existing vault router.
-
-Test coverage: 16 new router cases in
-`tests/test_oauth_consent_router.py` cover happy path through
-TestClient (verifies full HTTP wire), dry-run mode, tampered
-state, provider-mismatch state replay, OAuth error propagation
-(structured `ok=False` response, not 500), audit-event emission
-on both success and state-verify failure, refresh-token redaction,
-and the four `persist_refresh_token` edge cases (no refresh token,
-refusal on failed result, default-tenant skip, non-default-tenant
-write).
-
-Full pytest after this batch: **2398 passed / 1 skipped / 2 xfailed**
-(was 2368).
-
-**Files**
-
-- `backend/core/vault/keychain.py` — added `set_secret` /
-  `delete_secret` / `_to_keychain` / `_delete_keychain` helpers.
-- `backend/core/vault/__init__.py` — exported the new symbols.
-- `backend/core/domains/packs/business/oauth_consent.py` — added
-  vault key constants + `PersistedConsent` dataclass +
-  `persist_refresh_token` helper. Updated docstring "Out of scope"
-  bullet to point at the new HTTP router.
-- `web_extras/routers/oauth_consent.py` (new, ~280 lines).
-- `web_extras/app.py` — import + `include_router` for the new router.
-- `tests/test_vault_write_back.py` (new, 14 cases).
-- `tests/test_oauth_consent_router.py` (new, 16 cases including 4
-  `persist_refresh_token` unit cases).
-- `docs/CHANGELOG_AGENTS.md`, `docs/CHANGELOG_PUBLIC.md`.
-
-`>>> SYNC: Cursor · 2026-05-04 · SMTP OAuth HTTP router + vault write-back close the operator-onboarding loop`
-
 ---
 
-_Showing the most recent 60 of 261 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 262 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._

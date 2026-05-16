@@ -1,6 +1,6 @@
 {
   "name": "@tars/cockpit",
-  "version": "0.1.0-step0",
+  "version": "0.2.0-step1",
   "private": true,
   "type": "module",
   "description": "TARS cockpit — source of truth for design tokens and shipping shell (W308). Vite + vanilla TypeScript.",

@@ -56,3 +56,52 @@ body {
 .hr--hot {
   border-block-start: var(--hairline-hot);
 }
+
+/*
+ * Primary CTA — gold fill, black text. The colour combination is
+ * load-bearing (W307 verdict): black on accent measures 9.62:1
+ * (AAA); ink on accent measures 2.69:1 (AA fail). Do not override
+ * `color` on `.cta`. Hover lifts by 2px per MASTER §6 motion rules
+ * and keeps the gold soft-glow.
+ */
+.cta {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+  padding: var(--space-sm) var(--space-lg);
+  background: var(--color-accent);
+  color: var(--cta-text-on-accent);
+  font-family: var(--font-body);
+  font-weight: 600;
+  letter-spacing: var(--tracking-label);
+  text-transform: uppercase;
+  font-size: var(--type-label);
+  border: 0;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: transform var(--motion-base),
+    box-shadow var(--motion-base);
+}
+
+.cta:hover,
+.cta:focus-visible {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-accent);
+}
+
+.cta:active {
+  transform: translateY(0);
+}
+
+.cta--ghost {
+  background: transparent;
+  color: var(--color-ink);
+  border: var(--hairline-strong);
+}
+
+.cta--ghost:hover,
+.cta--ghost:focus-visible {
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  box-shadow: none;
+}

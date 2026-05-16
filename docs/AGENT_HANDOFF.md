@@ -3,7 +3,54 @@
 Pick this up if you are continuing the work in a fresh chat. Read this file
 plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 
-> **>>> SYNC: Cursor · 2026-05-17 · W308 step 0 (Path C — `apps/cockpit/` scaffold + tokens.css + drift smoke test) · W307 design-system refresh handoff for Claude · W306 last two order-dependent fixes (38 → 0) · W305 py3.12 stabilization · W304 py3.12 + OPENAI env + L9 doc sync <<<**
+> **>>> SYNC: Cursor · 2026-05-17 · W308 step 1 (apply W307 verdict — 5 taste calls + ~10 hard-rule changes in apps/cockpit/ + MASTER.md) · W308 step 0 (Path C scaffold) · W307 design verdict (Claude) · W306 order-dependent fixes (38 → 0) · W305 py3.12 stabilization · W304 py3.12 + OPENAI env + L9 doc sync <<<**
+>
+> **W308 step 1 (this wave)** — operator delegated again ("выбери ты",
+> 2nd time). Applied Claude's W307 verdict end-to-end into
+> `apps/cockpit/src/styles/tokens.css` + `design-system/tars/MASTER.md`
+> in a single bounded commit. All 5 open questions from W307
+> §"Open questions" answered with explicit per-row taste-calls; each
+> is individually revertable.
+>
+> **Per-row decisions:**
+> 1. `--color-ink-3`: **promote** (`#5C5A52` → `#8A867B`, AA pass).
+> 2. `--color-accent`: **keep** `#CA8A04` (brand > marginal AAA win).
+> 3. `--color-hud`: **keep** `#00FFFF` + new `--color-hud-alpha-cap: 0.32`.
+> 4. Motion split contract (marketing vs cockpit): **defer to step 2**
+>    (no marketing surface exists yet in `apps/`).
+> 5. Greeting size bump: **both desktop + mobile via clamp()**.
+>
+> **Hard-rule additions (no operator question — math constraints):**
+> - `--cta-text-on-accent: #000000` token + `.cta` class enforces
+>   black-on-gold (9.62:1 AAA vs ink-on-accent's 2.69:1 AA fail).
+> - `--motion-budget-max: 2` codifies MASTER §7 advisory.
+> - Split `--motion-pulse` (3.6s ambient) from new
+>   `--motion-alert-pulse` (1.6s warn states only).
+> - `.t-num` (`tabular-nums`), `.t-greeting`, `.glyph` utilities.
+> - Sanctioned mono glyph set: `▣ ◇ ◆ ═ ╳ ◯ ▾ ▸`.
+> - MASTER §3 anti-pattern: "never ink on accent fills".
+> - MASTER §9 implementation map: redirected from deleted
+>   `experiments/neural-showcase-v3/*` to `apps/cockpit/`.
+>
+> **Drift smoke test**: extended from 3 → 6 cases. Now enforces motion
+> budget presence, CTA-text-on-accent codification (token + prose
+> anti-pattern), HUD alpha cap reference. Cannot quietly delete any
+> of these in a future commit.
+>
+> **Verification**: `pnpm --filter @tars/cockpit build` clean
+> (18 KB raw / 6 KB gzipped — +5 KB over step 0 for `.cta` + `.glyph`).
+> `pytest tests/test_cockpit_tokens_sync.py -v` → 6 passed. Preview
+> page now renders CTA pair + glyph set + dual pulse contract +
+> motion-budget badge in addition to step 0's swatch grid.
+>
+> **Queued for W308 step 2**: rewire `desktop/scripts/package-cockpit.sh`
+> to `pnpm --filter @tars/cockpit build`; visual-parity check against
+> `docs/design/W307_refs/{hero,cockpit}.html` (built by Claude during
+> W307); replace `desktop/src-tauri/web/` once parity is verified.
+> Likely ~1 hr of careful work.
+>
+
+> **>>> SYNC (previous): Cursor · 2026-05-17 · W308 step 0 (Path C — `apps/cockpit/` scaffold + tokens.css + drift smoke test) · W307 design-system refresh handoff for Claude · W306 last two order-dependent fixes (38 → 0) · W305 py3.12 stabilization · W304 py3.12 + OPENAI env + L9 doc sync <<<**
 >
 > **W308 step 0 (this wave)** — operator delegated the strategy call
 > ("выбери ты"). Picked **Path C, staged** from

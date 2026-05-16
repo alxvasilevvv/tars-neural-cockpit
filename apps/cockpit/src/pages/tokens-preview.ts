@@ -25,7 +25,8 @@ const SURFACE_SWATCHES: Swatch[] = [
 const INK_SWATCHES: Swatch[] = [
   { token: "--color-ink", use: "Primary text.", preview: "#F5F5F0" },
   { token: "--color-ink-2", use: "Secondary text & metadata.", preview: "#A09E96" },
-  { token: "--color-ink-3", use: "Tertiary / disabled.", preview: "#5C5A52" },
+  // W308 step 1 (W307 verdict): promoted to #8A867B (4.62:1 on bg-1).
+  { token: "--color-ink-3", use: "Tertiary / labels. WCAG AA on bg-1.", preview: "#8A867B" },
 ];
 
 const LINE_SWATCHES: Swatch[] = [
@@ -61,6 +62,7 @@ const SECTIONS: { title: string; swatches: Swatch[] }[] = [
 
 const TYPE_SAMPLES: { label: string; cls: string; text: string }[] = [
   { label: ".t-display", cls: "t-display", text: "TARS COCKPIT" },
+  { label: ".t-greeting", cls: "t-greeting", text: "Good morning, Operator." },
   { label: ".t-h1", cls: "t-h1", text: "Neural cockpit, local-first." },
   { label: ".t-h2", cls: "t-h2", text: "Multi-model consensus you can trust." },
   { label: ".t-h3", cls: "t-h3", text: "Section heading" },
@@ -74,7 +76,10 @@ const TYPE_SAMPLES: { label: string; cls: string; text: string }[] = [
   },
   { label: ".t-small", cls: "t-small", text: "Caption / metadata at 13px." },
   { label: ".t-label", cls: "t-label", text: "HUD · NAV · TICKER · 11PX" },
+  { label: ".t-num", cls: "t-num t-body", text: "01 · 99.8% · 142.07 · 1,309,415" },
 ];
+
+const SANCTIONED_GLYPHS: string[] = ["▣", "◇", "◆", "═", "╳", "◯", "▾", "▸"];
 
 function el<K extends keyof HTMLElementTagNameMap>(
   tag: K,
@@ -157,9 +162,61 @@ function renderTypography(): HTMLElement {
   return section;
 }
 
+function renderCtaPair(): HTMLElement {
+  const section = el("section", "surface");
+  section.append(el("h2", "t-h2", "CTA pair (black on gold — hard rule)"));
+
+  section.append(
+    el(
+      "p",
+      "t-small",
+      "Text on `--color-accent` MUST be `--cta-text-on-accent` (#000000). 9.62:1 contrast (AAA). The `.cta` class enforces this; do not hand-roll gold buttons.",
+    ),
+  );
+
+  const row = el("div", "cta-row");
+  const primary = el("button", "cta", "Start session");
+  primary.type = "button";
+  const ghost = el("button", "cta cta--ghost", "Cancel");
+  ghost.type = "button";
+  row.append(primary, ghost);
+  section.append(row);
+
+  return section;
+}
+
+function renderGlyphSet(): HTMLElement {
+  const section = el("section", "surface");
+  section.append(el("h2", "t-h2", "Sanctioned mono glyphs"));
+  section.append(
+    el(
+      "p",
+      "t-small",
+      "Approved icon substitutes (Fira Code). Use `.glyph` class. Never use emoji as icons (MASTER §3 anti-pattern).",
+    ),
+  );
+
+  const row = el("div", "glyph-row");
+  for (const g of SANCTIONED_GLYPHS) {
+    const cell = el("span", "glyph-cell");
+    cell.append(el("span", "glyph", g), el("code", "t-small", `U+${g.codePointAt(0)!.toString(16).toUpperCase()}`));
+    row.append(cell);
+  }
+  section.append(row);
+  return section;
+}
+
 function renderMotion(): HTMLElement {
   const section = el("section", "surface");
   section.append(el("h2", "t-h2", "Motion contract"));
+
+  section.append(
+    el(
+      "p",
+      "t-small",
+      "W308 step 1: `--motion-pulse` slowed from 1.6s → 3.6s (ambient = all-good). 1.6s reserved for `--motion-alert-pulse` (genuine alert states). Both honour prefers-reduced-motion: reduce.",
+    ),
+  );
 
   const live = el("div", "live-row");
   const dot = el("span", "live-dot");
@@ -169,11 +226,32 @@ function renderMotion(): HTMLElement {
     el(
       "p",
       "t-small",
-      "Live pulse at --motion-pulse (1.6s ease-in-out). Honours prefers-reduced-motion: reduce.",
+      "Health pulse — `--motion-pulse` (3.6s ease-in-out). Slower than UI-affordance pulses by design.",
     ),
   );
 
-  section.append(live);
+  const alert = el("div", "live-row");
+  const alertDot = el("span", "live-dot live-dot--alert");
+  alertDot.setAttribute("aria-hidden", "true");
+  alert.append(
+    alertDot,
+    el(
+      "p",
+      "t-small",
+      "Alert pulse — `--motion-alert-pulse` (1.6s ease-in-out). Reserved for genuine warn states only.",
+    ),
+  );
+
+  section.append(live, alert);
+
+  const budget = el("div", "budget-row");
+  budget.append(
+    el("code", "t-label", "MOTION-BUDGET-MAX"),
+    el("span", "budget-val t-h2 t-num", "2"),
+    el("p", "t-small", "Max simultaneous infinite animations per view (cockpit shell). Marketing surfaces may exceed; per-surface contract documented in MASTER §6."),
+  );
+  section.append(budget);
+
   return section;
 }
 
@@ -216,13 +294,50 @@ function injectPreviewStyles(): void {
     .live-row { display: flex; align-items: center; gap: var(--space-sm); margin-block-start: var(--space-md); }
     .live-dot {
       inline-size: 10px; block-size: 10px; border-radius: var(--radius-pill);
+      background: var(--color-success);
+      box-shadow: 0 0 8px var(--color-success);
+      animation: live-pulse var(--motion-pulse) infinite;
+    }
+    .live-dot--alert {
       background: var(--color-alert);
       box-shadow: 0 0 8px var(--color-alert);
-      animation: live-pulse var(--motion-pulse) infinite;
+      animation: live-pulse var(--motion-alert-pulse) infinite;
     }
     @keyframes live-pulse {
       0%, 100% { opacity: 1; transform: scale(1); }
       50%      { opacity: 0.55; transform: scale(0.85); }
+    }
+    .cta-row { display: flex; gap: var(--space-sm); margin-block-start: var(--space-md); flex-wrap: wrap; }
+    .glyph-row {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(80px, 1fr));
+      gap: var(--space-sm);
+      margin-block-start: var(--space-md);
+    }
+    .glyph-cell {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: var(--space-xs);
+      padding: var(--space-sm);
+      border: var(--hairline);
+      border-radius: var(--radius-sm);
+      background: var(--color-bg-2);
+    }
+    .glyph-cell .glyph { font-size: 1.6rem; color: var(--color-ink); }
+    .glyph-cell code { color: var(--color-ink-3); font-size: 10px; }
+    .budget-row {
+      display: grid;
+      grid-template-columns: max-content max-content 1fr;
+      align-items: center;
+      gap: var(--space-md);
+      margin-block-start: var(--space-lg);
+      padding-block-start: var(--space-md);
+      border-block-start: var(--hairline);
+    }
+    .budget-val { color: var(--color-accent); }
+    @media (max-width: 640px) {
+      .budget-row { grid-template-columns: 1fr; }
     }
   `;
   const style = document.createElement("style");
@@ -237,5 +352,10 @@ export function mountTokensPreview(root: HTMLElement): void {
   for (const section of SECTIONS) {
     root.append(renderSwatchSection(section.title, section.swatches));
   }
-  root.append(renderTypography(), renderMotion());
+  root.append(
+    renderTypography(),
+    renderCtaPair(),
+    renderGlyphSet(),
+    renderMotion(),
+  );
 }
