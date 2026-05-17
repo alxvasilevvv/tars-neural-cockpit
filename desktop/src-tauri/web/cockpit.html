@@ -154,9 +154,11 @@
         align-items: center;
         gap: 10px;
         font-family: var(--font-mono);
-        /* W308 step 4 (W307 verdict): see --font-size-phase-bar in
-         * tokens.css. Was 10px hardcoded. */
-        font-size: var(--font-size-phase-bar);
+        /* W309-prep refactor (PR #185 review carry-over): now uses
+         * shared --font-size-hud-mono (was --font-size-phase-bar in
+         * step 4; originally hardcoded 10px). See tokens.css for the
+         * rationale block. */
+        font-size: var(--font-size-hud-mono);
         font-weight: 500;
         letter-spacing: var(--tracking-label);
         text-transform: uppercase;
@@ -434,7 +436,7 @@
         align-items: center;
         gap: 8px;
         font-family: var(--font-mono);
-        font-size: 10px;
+        font-size: var(--font-size-hud-mono);
         font-weight: 500;
         letter-spacing: var(--tracking-label);
         text-transform: uppercase;
@@ -509,7 +511,7 @@
 
       .gate-head {
         font-family: var(--font-mono);
-        font-size: 10px;
+        font-size: var(--font-size-hud-mono);
         font-weight: 500;
         letter-spacing: var(--tracking-label);
         text-transform: uppercase;
@@ -664,7 +666,7 @@
 
       .send-kbd {
         font-family: var(--font-mono);
-        font-size: 10px;
+        font-size: var(--font-size-hud-mono);
         font-weight: 500;
         letter-spacing: 0.12em;
         color: var(--color-ink-3);
@@ -687,7 +689,7 @@
         background: var(--color-bg-0);
         border-top: var(--hairline);
         font-family: var(--font-mono);
-        font-size: 10px;
+        font-size: var(--font-size-hud-mono);
         font-weight: 500;
         letter-spacing: 0.14em;
         text-transform: uppercase;
@@ -738,8 +740,8 @@
         }
       }
     </style>
-    <script type="module" crossorigin src="./assets/cockpit-B-KBIgU_.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/cockpit-I8RVu0LQ.css">
+    <script type="module" crossorigin src="./assets/cockpit-Bqv5P_F3.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/cockpit-CG0hsvlY.css">
   </head>
   <body>
     <header class="hud" aria-label="Cockpit shell">

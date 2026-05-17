@@ -395,7 +395,7 @@
         align-items: center;
         justify-content: space-between;
         font-family: var(--font-mono);
-        font-size: 10px;
+        font-size: var(--font-size-hud-mono);
         font-weight: 500;
         letter-spacing: var(--tracking-label);
         text-transform: uppercase;
@@ -444,7 +444,17 @@
       }
 
       /* Timestamps and numeric meta use tabular-nums so columns
-         align without jitter (W308 step 1, MASTER §4). */
+         align without jitter (W308 step 1, MASTER §4).
+         
+         W309-prep note (PR #186 review): the `font-size: 11px`
+         below looks like a HUD-mono regression but is *not* on the
+         HUD-mono contract — these are data cells (timestamp,
+         numeric meta), not labels (no uppercase, no tracking).
+         They inherit `font-family: var(--font-mono)` from
+         `.stream-rows` so the drift guard (block-scoped) cannot
+         see them; that's intentional. If/when stream data needs a
+         separate token, it should be `--font-size-data-mono`, not
+         `--font-size-hud-mono` — different design intent. */
       .stream-row .ts,
       .stream-row .meta {
         font-variant-numeric: tabular-nums;
@@ -452,14 +462,14 @@
 
       .stream-row .ts {
         color: var(--color-ink-3);
-        font-size: 11px;
+        font-size: 11px; /* data, not HUD label — see comment above */
       }
       .stream-row .label {
         color: var(--color-ink);
       }
       .stream-row .meta {
         color: var(--color-ink-3);
-        font-size: 11px;
+        font-size: 11px; /* data, not HUD label — see comment above */
       }
 
       .integrity {
@@ -475,7 +485,7 @@
 
       .integrity-head {
         font-family: var(--font-mono);
-        font-size: 10px;
+        font-size: var(--font-size-hud-mono);
         font-weight: 500;
         letter-spacing: var(--tracking-label);
         text-transform: uppercase;
@@ -518,8 +528,8 @@
         }
       }
     </style>
-    <script type="module" crossorigin src="./assets/cockpit-B-KBIgU_.js"></script>
-    <link rel="stylesheet" crossorigin href="./assets/cockpit-I8RVu0LQ.css">
+    <script type="module" crossorigin src="./assets/cockpit-Bqv5P_F3.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/cockpit-CG0hsvlY.css">
   </head>
   <body>
     <nav class="primary" aria-label="Primary">

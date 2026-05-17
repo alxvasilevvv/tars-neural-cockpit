@@ -100,5 +100,30 @@ if [[ ! -f "$WEB_DEST/index.html" ]]; then
   exit 5
 fi
 
+# W309-prep — prune orphan source-map placeholders.
+#
+# Vite emits a `.js.map` for every page entry, including pages that
+# share the main chunk and never get their own JS file. Result: 100-byte
+# empty placeholders (`{"version":3,"sources":[],…}`) whose paired
+# `.js` does not exist. Harmless, but the hash churn dirties every
+# rebuild's diff in `desktop/src-tauri/web/assets/`.
+#
+# Survives Vite upgrades (operates on the rsynced output, not Vite
+# internals). Path 1 from `W308_PRE_FLIGHT_FINDINGS.md` W309 carry-over
+# (PR #186 Claude review recommendation).
+if [[ -d "$WEB_DEST/assets" ]]; then
+  pruned=0
+  while IFS= read -r -d '' mapfile; do
+    paired="${mapfile%.map}"
+    if [[ ! -f "$paired" ]]; then
+      rm "$mapfile"
+      pruned=$((pruned + 1))
+    fi
+  done < <(find "$WEB_DEST/assets" -name '*.js.map' -print0)
+  if (( pruned > 0 )); then
+    log "pruned $pruned orphan .js.map placeholder(s)"
+  fi
+fi
+
 log "OK — cockpit bundle staged at $WEB_DEST"
 log "    pages: $(cd "$WEB_DEST" && ls *.html | tr '\n' ' ')"

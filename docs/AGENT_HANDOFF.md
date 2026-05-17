@@ -3,9 +3,88 @@
 Pick this up if you are continuing the work in a fresh chat. Read this file
 plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 
-> **>>> SYNC: Cursor · 2026-05-17 · W308 step 4 (Claude code-review fixes for PR #185 — CSP fonts.bunny.net, phase-bar 11px token, 3 real drift tests, step-2 brief superseded marker) · W308 step 3 (wire apps/cockpit/dist/ into Tauri pipeline; legacy SPA archived to desktop/src-tauri/web-legacy/) · W308 step 2 (port cockpit + hero from W307 refs → multi-page Vite project at apps/cockpit/) · W308 step 1 (apply W307 verdict in tokens.css + MASTER.md) · W308 step 0 (Path C scaffold) · W307 design verdict (Claude) · W306 order-dependent fixes (38 → 0) · W305 py3.12 stabilization · W304 py3.12 + OPENAI env + L9 doc sync <<<**
+> **>>> SYNC: Cursor · 2026-05-17 · W309 prep follow-ups (Claude PR #186 review fixes — restore `--type-label` inline comment, document `.stream-row` data-vs-HUD blind-spot, implement orphan source-map prune in package-cockpit.sh) · W309 prep (rename `--font-size-phase-bar` → `--font-size-hud-mono`, migrate 6 hardcoded `10px` mono call-sites — closes W309 design-tightening backlog from PR #185 review) · W308 step 4 (Claude code-review fixes for PR #185 — CSP fonts.bunny.net, phase-bar 11px token, 3 real drift tests, step-2 brief superseded marker) · W308 step 3 (wire apps/cockpit/dist/ into Tauri pipeline; legacy SPA archived to desktop/src-tauri/web-legacy/) · W308 step 2 (port cockpit + hero from W307 refs → multi-page Vite project at apps/cockpit/) · W308 step 1 (apply W307 verdict in tokens.css + MASTER.md) · W308 step 0 (Path C scaffold) · W307 design verdict (Claude) · W306 order-dependent fixes (38 → 0) · W305 py3.12 stabilization · W304 py3.12 + OPENAI env + L9 doc sync <<<**
 >
-> **W308 step 4 (this wave)** — operator delegated ("делай всё
+> **W309 prep follow-ups (current top of branch
+> `cursor/w309-prep-mono-token-rename`)** — Claude's PR #186 review
+> returned `READY_TO_MERGE_WITH_FOLLOWUPS` with three items, all
+> landed in the same PR (post-base-commit push, so a separate
+> commit rather than `--amend`):
+> 1. **Medium** — the step-4 `StrReplace` had accidentally swallowed
+>    `--type-label`'s inline comment, so the line ended up
+>    annotated as the HUD-mono single source of truth. Restored the
+>    original `/* 11px — HUD / nav labels */` inline comment and
+>    explicitly disambiguated the two 11px tokens in
+>    `--font-size-hud-mono`'s rationale block (rem-scaled scale
+>    knob vs px-pinned HUD container knob — same resolved value on
+>    default 16px root, different intent).
+> 2. **Low** — `hero.html` `.stream-row .ts` / `.stream-row .meta`
+>    have hardcoded `font-size: 11px` that the new drift guard
+>    cannot see (inherit `font-family` from `.stream-rows`). Decision:
+>    not HUD labels, do *not* migrate them onto `--font-size-hud-mono`.
+>    Added rationale comment + per-line `data, not HUD label`
+>    markers; pre-staked `--font-size-data-mono` as the name if data
+>    cells ever earn their own token.
+> 3. **Low** — implemented Path 1 from the carry-over note. New
+>    post-rsync prune step in `desktop/scripts/package-cockpit.sh`
+>    walks `desktop/src-tauri/web/assets/`, finds every `*.js.map`
+>    whose paired `*.js` does not exist, and removes it. Re-build
+>    confirms: assets dir dropped from 8 → 5 files, every remaining
+>    `.js.map` has its paired `.js`. Survives Vite upgrades.
+>
+> Tests still 11/11 green; bundle ~27 kB raw / ~6 kB gzipped.
+>
+> ---
+>
+> **W309 prep (earlier in the same branch)**
+> — operator delegated ("Продолжай" ×2 after PR #185 merged). Closes
+> the only design-tightening item still on the W309 backlog (the six
+> hardcoded `10px` mono call-sites Claude flagged in the second-round
+> review on `d12d517`). Path 1 selected per the recommendation in
+> `W308_PRE_FLIGHT_FINDINGS.md`: rename `--font-size-phase-bar` →
+> `--font-size-hud-mono` and migrate every HUD-class mono label to
+> it. Functional W309 (mic / WS / conversation) **still gated on a
+> separate operator OK per plan E** — this wave is purely the design
+> tightening that makes the field clean before that lands.
+>
+> **Token contract:** `--font-size-hud-mono: 11px` is now the *single*
+> token for the whole HUD-class mono label family. MASTER §4
+> typography row rewritten to make the scope explicit (phase bar,
+> status bar, source chip, kbd hint, policy gate header, live-rail
+> `stream-head` / `integrity-head`). Single drift contract: "no
+> hardcoded `10px` / `11px` allowed on `font-family: var(--font-mono)`
+> blocks". Originally landed step 4 as `--font-size-phase-bar` because
+> that was the only call-site the W307 verdict named by symbol; the
+> rename is non-breaking and just widens the contract to where it
+> always should have been.
+>
+> **Call-sites migrated (7 total on one token):** `cockpit.html` —
+> `.phase-bar`, `.source-chip`, `.gate-head`, `.send-kbd`, `.status-bar`;
+> `hero.html` — `.stream-head`, `.integrity-head`. All previously
+> hardcoded `10px` except `.phase-bar` which already pointed at the
+> step-4 token.
+>
+> **Drift suite:** `test_phase_bar_size_token_declared_and_applied`
+> renamed and broadened to `test_hud_mono_font_size_token_declared_and_applied`
+> (asserts declaration + 11px + MASTER row + ≥5 cockpit + ≥2 hero
+> usages). New `test_no_hardcoded_pixel_size_on_mono_family_elements`
+> walks every `apps/cockpit/*.html`, parses CSS `{ … }` blocks, and
+> fails on any block declaring both `font-family: var(--font-mono)`
+> and a hardcoded `font-size: 10px` / `11px`. Diagnostic includes
+> `file:line + 240-char block preview`. Suite total: 10 → **11**.
+> Negative-control: re-injecting a 10px hardcode in `.source-chip`
+> makes the new guard fail at `cockpit.html:434` with the expected
+> diagnostic — confirms not vacuous.
+>
+> **Verification.** `pytest tests/test_cockpit_tokens_sync.py -v` →
+> 11 passed in 0.03s. `bash desktop/scripts/package-cockpit.sh` →
+> OK; built bundle has 5× `var(--font-size-hud-mono)` in `cockpit.html`,
+> 2× in `hero.html`, zero hardcoded `10px` mono blocks. Cockpit
+> bundle stable at ~27 kB raw / ~6 kB gzipped.
+>
+> ---
+>
+> **W308 step 4 (previous wave)** — operator delegated ("делай всё
 > остальное без остановки", continuation; routed via plan E from the
 > end of step 3: open the PR, ask an independent Claude Code reviewer
 > for code review, then fix what it surfaces; do **not** start the

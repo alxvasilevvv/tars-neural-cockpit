@@ -4,6 +4,175 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-17 — Cursor · W309 prep follow-ups (Claude PR #186 review fixes)
+
+**Summary**
+
+Three follow-ups from Claude's `READY_TO_MERGE_WITH_FOLLOWUPS`
+verdict on PR #186. All landed in the same PR (post-base-commit
+push, so a separate commit rather than `--amend`). No follow-ups
+were blockers; the value is keeping the W309 backlog at zero before
+the functional wave starts.
+
+**Medium — `--type-label` inline comment was misattributed.**
+
+The step-4 → W309-prep `StrReplace` for the
+`--font-size-phase-bar` declaration accidentally consumed the
+`/* 11px — HUD / nav labels */` inline comment that *actually*
+belongs to the line *above* (`--type-label: 0.6875rem;`). After
+the swallow, the `--type-label` declaration ended up annotated as
+"single token for the whole HUD label family", which is wrong —
+that's `--font-size-hud-mono`. Restored the original inline comment
+and explicitly disambiguated the two tokens in
+`--font-size-hud-mono`'s rationale block (`--type-label` is the
+rem-based typography scale knob, `--font-size-hud-mono` is the
+px-based HUD container knob; they happen to resolve to the same
+value on the default 16px root but mean different things).
+
+**Low — `.stream-row .ts` / `.stream-row .meta` blind-spot
+documented.**
+
+Claude correctly identified that these two blocks in `hero.html`
+have hardcoded `font-size: 11px` that the new drift guard cannot
+see (they inherit `font-family: var(--font-mono)` from
+`.stream-rows`, and the guard is block-scoped by design). Decision:
+**not** migrate onto `--font-size-hud-mono` — these are data cells
+(timestamps, numeric meta, no uppercase, no tracking), semantically
+distinct from HUD labels. Added an inline rationale comment + per-
+line `data, not HUD label` markers so the next agent doesn't try
+to "fix" them. If stream data ever needs its own token, naming is
+pre-staked as `--font-size-data-mono` (separate from HUD-mono).
+
+**Low — Vite source-map orphan prune.**
+
+Implemented Path 1 from the W309 carry-over note:
+`desktop/scripts/package-cockpit.sh` now runs a post-rsync prune
+step that walks `$WEB_DEST/assets`, finds every `*.js.map` whose
+paired `*.js` does not exist, and removes it (`find -name '*.js.map'
+-print0` + `[[ -f "${m%.map}" ]] || rm`). Survives Vite version
+upgrades because it operates on the rsynced output, not Vite
+plugin internals. Logs `[package-cockpit] pruned N orphan .js.map
+placeholder(s)` so the prune is visible.
+
+**Verification**
+
+- `pytest tests/test_cockpit_tokens_sync.py -v` → 11 passed in 0.04s.
+- `bash desktop/scripts/package-cockpit.sh` → OK. Prune log shows
+  `pruned 3 orphan .js.map placeholder(s)`. Bundle assets directory
+  drops from 8 files → 5 (CSS + 2 paired `.js` + `.js.map`). Manual
+  orphan check loop confirms every remaining `.js.map` has its
+  paired `.js`.
+
+**Files**
+
+- `apps/cockpit/src/styles/tokens.css` (restore `--type-label`
+  inline comment + disambiguate two 11px tokens in
+  `--font-size-hud-mono`'s rationale block)
+- `apps/cockpit/hero.html` (rationale comment for
+  `.stream-row .ts/.meta` + per-line markers)
+- `desktop/scripts/package-cockpit.sh` (post-rsync orphan prune)
+- `docs/handoff/W308_PRE_FLIGHT_FINDINGS.md` (mark the W309 minor
+  cleanup item as closed)
+- `desktop/src-tauri/web/` (rebuilt — prune dropped 3 orphans)
+
+---
+
+## 2026-05-17 — Cursor · W309 prep (rename --font-size-phase-bar → --font-size-hud-mono + migrate 6 callsites)
+
+**Summary**
+
+Operator delegated ("Продолжай" ×2 after PR #185 merged). Closes the
+only design-tightening item still on the W309 backlog (the six
+hardcoded `10px` mono call-sites Claude flagged in the second-round
+review on `d12d517`). Path 1 selected per the recommendation in
+`W308_PRE_FLIGHT_FINDINGS.md` (rename token + migrate everyone).
+
+Not yet started, still gated on separate operator OK per plan E:
+the functional W309 work (mic capture, WS reconnect, conversation
+strand renderer). This entry is *only* the design tightening that
+makes the field clean before the functional work lands.
+
+**Token contract changes**
+
+- `apps/cockpit/src/styles/tokens.css` — rename `--font-size-phase-bar`
+  → `--font-size-hud-mono` (11px). Rationale block rewritten to
+  document the broadening + preserve the step-4 history (originally
+  landed for `.phase-bar` only because that was the W307 verdict's
+  named symbol; renamed when the other five call-sites joined the
+  same contract).
+- `design-system/tars/MASTER.md` §4 typography table row rewritten:
+  scope expanded from "Watch-me-work phase bar" → "HUD-class mono
+  labels (phase bar, status bar, source chip, kbd hint, policy gate
+  header, live-rail `stream-head` / `integrity-head`)". Single drift
+  contract codified: "no hardcoded `10px` / `11px` allowed on any
+  element using `font-family: var(--font-mono)`".
+
+**Call-site migrations**
+
+- `apps/cockpit/cockpit.html` — five blocks now use
+  `var(--font-size-hud-mono)`:
+  - `.phase-bar` (renamed from the step-4 token reference);
+  - `.source-chip` (was `font-size: 10px`);
+  - `.gate-head` (was `font-size: 10px`);
+  - `.send-kbd` (was `font-size: 10px`);
+  - `.status-bar` (was `font-size: 10px`).
+  Also: `.phase-bar`'s pointer-comment rewritten to explain the
+  rename trail so DevTools readers see why the token is named what
+  it is.
+- `apps/cockpit/hero.html` — two blocks now use
+  `var(--font-size-hud-mono)`: `.stream-head` and `.integrity-head`
+  (both were `font-size: 10px`). Total 7 call-sites on the single
+  token.
+
+**Drift suite**
+
+- `tests/test_cockpit_tokens_sync.py` — `test_phase_bar_size_token_declared_and_applied`
+  renamed and broadened to `test_hud_mono_font_size_token_declared_and_applied`
+  (asserts declaration, 11px resolution, MASTER row, and ≥5 cockpit
+  + ≥2 hero `var()` references).
+- New `test_no_hardcoded_pixel_size_on_mono_family_elements` walks
+  every `apps/cockpit/*.html`, parses CSS `{ … }` blocks, and fails
+  on any block that declares both `font-family: var(--font-mono)` and
+  a hardcoded `font-size: 10px` / `font-size: 11px`. Diagnostic
+  includes `file:line` + 240-char block preview. Suite total:
+  10 → **11**.
+
+**Verification**
+
+- `pytest tests/test_cockpit_tokens_sync.py -v` → **11 passed in 0.03s**.
+- **Negative-control:** temporarily re-injecting `font-size: 10px`
+  into `.source-chip` makes
+  `test_no_hardcoded_pixel_size_on_mono_family_elements` fail at
+  `apps/cockpit/cockpit.html:434` with the expected diagnostic.
+  Restored automatically by the test harness (try/finally). Confirms
+  the test is not vacuously passing.
+- `bash desktop/scripts/package-cockpit.sh` (full rebuild path) → OK,
+  4 HTML pages emitted, rsync to `desktop/src-tauri/web/` clean.
+  Cockpit bundle stable at ~27 kB raw / ~6 kB gzipped.
+- Bundle grep: 5× `var(--font-size-hud-mono)` in built `cockpit.html`,
+  2× in built `hero.html`; zero hardcoded `font-size: 10px` on
+  mono-family blocks remain in the built bundle.
+
+**Files**
+
+- `apps/cockpit/src/styles/tokens.css` (token rename + rationale)
+- `apps/cockpit/cockpit.html` (5 call-sites + comment)
+- `apps/cockpit/hero.html` (2 call-sites)
+- `design-system/tars/MASTER.md` (typography row rewrite)
+- `tests/test_cockpit_tokens_sync.py` (rename + new drift guard)
+- `docs/handoff/W308_PRE_FLIGHT_FINDINGS.md` (W309 carry-over
+  section: 6 mono call-sites marked closed; functional restore
+  remains open and gated)
+- `desktop/src-tauri/web/` (rebuilt — bundle hashes refreshed)
+- `apps/cockpit/dist/` (rebuilt)
+
+**Carry-over (unchanged)**
+
+The functional W309 wave (mic capture, WS reconnect, conversation
+strand renderer) is still gated on explicit operator OK per plan E.
+
+---
+
 ## 2026-05-17 — Cursor · W308 step 4 (Claude code-review fixes for PR #185)
 
 **Summary**
@@ -2302,197 +2471,6 @@ and upload all four installers (mac arm64 dmg, mac x64 dmg,
 windows msi, linux AppImage) with the new icon and the ad-hoc
 macOS codesign already wired in by audit-1.
 
-## 2026-05-04 — Cursor: audit-2 pass — trace coverage + new-code test nets
-
-Direct continuation of the operator audit pass earlier today (commit
-`c262cb4`). The first pass closed seven UX blockers; this follow-up
-hardens the new code with explicit test coverage and extends the
-meeet trace bridge over two more hot operator surfaces that were
-previously dark on the trail.
-
-1. **Trace coverage** — `voice.py` and `speech.py` were the largest
-   remaining operator-facing routers without `trace_scope` /
-   `MeeetClient.emit` calls.
-   - `POST /api/voice/speak` now wraps the synthesizer call in
-     `trace_scope` and emits
-     `voice.tts.{requested,completed,failed}` with the resolved
-     persona, persona-source, provider hint, byte count, and
-     duration estimate. Response carries `x-trace-id` so the
-     cockpit can stamp the audio chip with its trace.
-   - `POST /api/speech/intents` wraps `parse_intent` in
-     `trace_scope`, emits
-     `speech.intent.{requested,completed,failed}`, surfaces
-     `trace_id` in the JSON response. Completed event payload
-     carries `intent_kind` + `intent_target` so dictation
-     dashboards can group by what was actually triggered.
-   - Both honour the `x-meeet-trace-id` header for cross-service
-     trace propagation.
-
-2. **Pure helpers + test nets for the audit-1 components**:
-   - Extracted runtime detection from `<CockpitGate />` into
-     `src/lib/cockpitGate.ts` (`isInsideTauri`,
-     `readPreviewFlag`, `setPreviewFlag`). Component now imports
-     these helpers — single source of truth + testable without
-     mounting framer-motion.
-   - Extracted OS+arch detection from `<Install />` into
-     `src/lib/installDetect.ts` (`detectOS`, `detectMacArch`,
-     `primaryAssetName`). Apple-Silicon-vs-Intel guess pinned
-     against the M1/M2/Pro/Max/Intel-quad/Intel-hex matrix.
-
-3. **New test files**:
-   - `tests/test_meeet_router_trace_coverage.py` — 6 cases:
-     voice.tts requested+completed, failed-when-no-provider,
-     parent-trace-id propagation, speech.intent
-     requested+completed, completed-payload-carries-intent-kind,
-     offline-buffer persistence invariant.
-   - `src/lib/cockpitGate.test.ts` — 13 cases: Tauri 1.x/2.x
-     marker detection, falsy markers, both-markers, missing
-     window, preview-flag round-trip, throwing-storage tolerance,
-     literal-only "1" semantics, key constant pin.
-   - `src/lib/installDetect.test.ts` — 17 cases: Mac/Linux/Windows
-     OS detection across Safari/Chrome/Edge/Firefox UAs,
-     fallback-to-Linux, missing-navigator, ARM-vs-Intel via UA
-     marker / Intel UA + 8/12-core / Intel UA + 4/6-core / no
-     signal, asset name builder for all three OSes + both Mac
-     arches.
-
-4. **Branding consistency** — regenerated `favicon.svg` so the
-   web tab favicon matches the new desktop app icon (serif T on
-   indigo→violet gradient with cyan halo). Old polygon
-   icosahedron design retired with the audit-1 PNG icon set.
-
-**Files**
-- new: `web_extras/routers/{voice,speech}.py` modifications
-- new: `experiments/neural-showcase-v3/src/lib/cockpitGate.{ts,test.ts}`
-- new: `experiments/neural-showcase-v3/src/lib/installDetect.{ts,test.ts}`
-- new: `tests/test_meeet_router_trace_coverage.py`
-- modify: `experiments/neural-showcase-v3/src/components/CockpitGate.tsx`
-  (delegate to helpers)
-- modify: `experiments/neural-showcase-v3/src/pages/Install.tsx`
-  (delegate to helpers)
-- modify: `experiments/neural-showcase-v3/public/favicon.svg`
-  (T glyph re-skin)
-
-**Verification**
-- `pytest tests/`: **2404 passed / 1 skipped / 2 xfailed** in 40s
-  (+6 from new trace coverage tests vs the audit-1 baseline of
-  2398)
-- `pnpm typecheck` (v3): clean
-- `pnpm test --run` (v3): **365 passed / 26 files** (+30 from
-  new vitest suites vs the audit-1 baseline of 335)
-- `pnpm build` (v3): clean
-
-## 2026-05-04 — Cursor: operator audit pass — icon, install, gatekeeper, cockpit gate, brand, tracing, i18n
-
-Closed all 7 items the operator filed in their 5:29 PM screenshot
-review (icon was ugly, no download button on /install, "TARS is
-damaged" Gatekeeper modal blocking everyone, web cockpit broken
-without daemon, missing meeet.world brand surface, partial trace
-coverage, missing language switcher in Nav).
-
-1. **Icon** — generated a premium 1024×1024 master via Cursor's
-   image tool, square-cropped, wrote a deterministic
-   `desktop/scripts/build_icon_set.py` that emits the full Tauri
-   set (`32/64/128/128@2x` + Square* MSIX + `icon.icns` via
-   `iconutil` + multi-res `icon.ico` via Pillow) plus web favicons
-   in `experiments/neural-showcase-v3/public/` (16/32/180/192/512
-   + `apple-touch-icon`). The .icns embeds 10 sizes
-   (16/16@2x/32/32@2x/128/128@2x/256/256@2x/512/512@2x) so the Mac
-   Dock + Spotlight + Mission Control all render crisp on Retina.
-
-2. **Install page** — full rewrite of
-   `experiments/neural-showcase-v3/src/pages/Install.tsx`:
-     - giant primary "Download for $OS" CTA at the top with
-       OS+arch auto-detect (Apple Silicon vs Intel via UA + core
-       count heuristic), so the screenshot's "click on a file"
-       confusion goes away
-     - prominent amber Gatekeeper notice on macOS with one-click
-       copy of `xattr -dr com.apple.quarantine /Applications/TARS.app`
-     - alternative `curl -fsSL https://tars.meeet.world/install.sh | bash`
-       one-liner that handles download + ad-hoc sign + de-quarantine
-       + launch automatically
-     - collapsible "Advanced" section: brew tap, all release assets,
-       per-format download buttons
-     - fully bilingual (EN + RU) via the existing `useT()` pipeline
-
-3. **Gatekeeper** — root cause is the missing Apple Developer
-   Program ($99/yr). Two zero-cost mitigations shipped:
-     - `experiments/neural-showcase-v3/public/install.sh` —
-       new bash installer hosted on tars.meeet.world that does
-       `xattr -dr com.apple.quarantine` + `codesign --force --deep
-       --sign -` + `open` after download. Curl-pipe-bash safe
-       because it ships from immutable Cloudflare Pages and only
-       writes user-owned paths
-     - `.github/workflows/release-desktop-tagged.yml` adds an
-       "Ad-hoc codesign macOS app bundle" step after `tauri-action`
-       that runs `codesign --force --deep --sign -` against the
-       built `TARS.app` plus `xattr -cr` to strip any quarantine
-       attrs from CI runners. Right-click → Open now works without
-       the "damaged" modal even on hand-installed DMGs
-
-4. **Cockpit simplification** — new
-   `experiments/neural-showcase-v3/src/components/CockpitGate.tsx`
-   wraps every `/cockpit*` route. Detects Tauri runtime (via
-   `window.__TAURI_INTERNALS__`/`__TAURI__`) → live cockpit. In
-   the browser pings `getHealth()` with a 1s budget → live or
-   "preview/locked" depending on outcome. The locked state shows
-   a brand-correct upgrade card (giant download CTA + 3 secondary
-   paths: read-only preview, docs, pitch). `App.tsx` updated to
-   wrap all 6 cockpit routes (`/cockpit`, `/planner`, `/traces`,
-   `/policy`, `/council`, `/awareness`)
-
-5. **meeet.world brand surface** — Nav.tsx adds a small
-   "by meeet.world" pill next to the TARS logo (links to
-   meeet.world, gated with `target=_blank rel=noopener` so it
-   doesn't hijack the SPA). All new copy on Install + CockpitGate
-   namespaces meeet.world prominently in eyebrow + body. Release
-   notes (workflow yaml) now embed the canonical curl one-liner
-   so GitHub Releases mention meeet.world too
-
-6. **Tracing coverage** — chat router (`web_extras/routers/chat.py`)
-   was the largest hot operator-facing surface without trace
-   emission. Wrapped `POST /api/chat/threads/{id}/messages` in
-   `trace_scope`, added `chat.message.{requested,completed,failed}`
-   meeet events with thread_id / session_id / policy_mode /
-   text_len / attachments_count payloads. SSE stream now also
-   emits an inline `trace` frame so the cockpit can stamp
-   conversations with their trace_id. Response carries `X-Trace-Id`
-   header for client-side correlation
-
-7. **i18n** — Nav.tsx gains a `<LocaleSwitcher>` (already
-   existed in Footer) at lg+ widths so language can be flipped
-   from any page header. Added 60+ new strings (install.* and
-   cockpitGate.* namespaces) in both EN and RU with full key
-   parity — the i18n.test.ts parity guard stays green
-
-**Files**
-- new: `desktop/scripts/build_icon_set.py`
-- new: `experiments/neural-showcase-v3/public/install.sh`
-- new: `experiments/neural-showcase-v3/src/components/CockpitGate.tsx`
-- new: web favicons (`favicon-{16,32,180,192,512}.png`,
-  `apple-touch-icon.png`)
-- regen: every `desktop/src-tauri/icons/*.png` + `icon.icns` +
-  `icon.ico` + `desktop/assets/icon-source.png` master
-- modify: `.github/workflows/release-desktop-tagged.yml`
-- modify: `experiments/neural-showcase-v3/index.html` (favicon
-  links pointing at the new PNGs)
-- modify: `experiments/neural-showcase-v3/src/App.tsx` (CockpitGate
-  wrap)
-- modify: `experiments/neural-showcase-v3/src/components/Nav.tsx`
-  (meeet.world pill + LocaleSwitcher)
-- modify: `experiments/neural-showcase-v3/src/lib/i18n.tsx`
-  (install.* + cockpitGate.* namespaces, EN+RU parity)
-- modify: `experiments/neural-showcase-v3/src/pages/Install.tsx`
-  (full rewrite)
-- modify: `web_extras/routers/chat.py` (trace_scope + meeet events)
-
-**Verification**
-- `pytest tests/`: **2398 passed / 1 skipped / 2 xfailed** in 47s
-- `pnpm typecheck` (v3): clean
-- `pnpm test --run` (v3): **335 passed / 24 files** including
-  i18n parity guard
-- `pnpm build` (v3): clean (Cockpit chunk 204 kB gz / 51 kB)
-
 ---
 
-_Showing the most recent 60 of 265 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 267 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
