@@ -34,6 +34,7 @@ restate it in the master doc — link to it instead.**
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Pre-v9.2 roadmap. Historical. | W74 |
 | [docs/ROADMAP_v9.2_v10.md](docs/ROADMAP_v9.2_v10.md) | Earlier v9.2->v10 plan. Superseded by W234 trio. | W188 |
 | [docs/PHASE_L_ROADMAP.md](docs/PHASE_L_ROADMAP.md) | Phase-L (landing polish + meeet integration). | W168 |
+| [docs/PRODUCT_MASTER_PLAN.md](docs/PRODUCT_MASTER_PLAN.md) | **W310 — Post-rc1 dock + post-v10 forward roadmap.** v10 GA final push (5 external items + internal docking), v10.1/v10.2/v11 phase closure (L3/L4/L5/L6/L7/L9/L10), Claude design polish backlog, lane discipline, risks. Source-of-truth for *forward* execution; pairs with `TARS_MASTER_DOC.md §6` (historical Wave A/B/C). | W310 |
 | [docs/TOKENOMICS_CANON_PROPOSAL.md](docs/TOKENOMICS_CANON_PROPOSAL.md) | $MEEET tokenomics proposal. Reference for §7.4 burn/earn logic. | W175 |
 | [docs/IDEAS.md](docs/IDEAS.md) | Long-tail idea capture. Not the plan — the dump. | various |
 

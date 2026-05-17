@@ -652,6 +652,15 @@ external checklist items (rc1 soak / brother billing / Apple cert /
 VS Code publish / first on-prem customer) flip green. See §6.4 +
 `docs/V10_GA_CHECKLIST.md`.
 
+**Forward execution plan (W310, 2026-05-18).** Post-rc1 dock-down +
+forward roadmap (v10 GA → v10.1 → v10.2 → v11) live at
+[`docs/PRODUCT_MASTER_PLAN.md`](docs/PRODUCT_MASTER_PLAN.md).
+Synthesised from 3 parallel recon subagents + 2 verification subagents
+(L5 crypto canon, v10 release-axis archaeology) + operator decisions
+on release-axis sequencing and M-wave consolidation. Per the doc rule
+in §1: forward execution lives there; this section stays the historical
+roadmap for Wave A/B/C.
+
 ### 6.1 Wave A — Cursor parity must-haves (✅ SHIPPED, W237-W249)
 
 **Goal:** a Cursor-refugee opens TARS and says nothing's missing.

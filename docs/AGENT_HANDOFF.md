@@ -3,10 +3,124 @@
 Pick this up if you are continuing the work in a fresh chat. Read this file
 plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 
-> **>>> SYNC: Cursor · 2026-05-17 · W309 prep follow-ups (Claude PR #186 review fixes — restore `--type-label` inline comment, document `.stream-row` data-vs-HUD blind-spot, implement orphan source-map prune in package-cockpit.sh) · W309 prep (rename `--font-size-phase-bar` → `--font-size-hud-mono`, migrate 6 hardcoded `10px` mono call-sites — closes W309 design-tightening backlog from PR #185 review) · W308 step 4 (Claude code-review fixes for PR #185 — CSP fonts.bunny.net, phase-bar 11px token, 3 real drift tests, step-2 brief superseded marker) · W308 step 3 (wire apps/cockpit/dist/ into Tauri pipeline; legacy SPA archived to desktop/src-tauri/web-legacy/) · W308 step 2 (port cockpit + hero from W307 refs → multi-page Vite project at apps/cockpit/) · W308 step 1 (apply W307 verdict in tokens.css + MASTER.md) · W308 step 0 (Path C scaffold) · W307 design verdict (Claude) · W306 order-dependent fixes (38 → 0) · W305 py3.12 stabilization · W304 py3.12 + OPENAI env + L9 doc sync <<<**
+> **>>> SYNC: Cursor · 2026-05-18 · W310 post-rc1 master plan drafted on branch `cursor/post-rc1-master-plan` (`docs/PRODUCT_MASTER_PLAN.md` — forward execution doc, v10 GA → v10.1 → v10.2 → v11; cross-linked from `TARS_MASTER_DOC.md §6` + indexed in `PROJECT_INDEX.md` Strategy). M-wave consolidation brief at `docs/handoff/MCP_REWRITE_BRIEF.md` (close 5 PRs #176/#177/#178/#179/#180/#184, rewrite as one consolidated PR; design intel preserved per §7). HANDOFF Wave 81 marked SUPERSEDED (v9.1.0 launch checklist is historical archive; v10 GA is the active target per `CURRENT_STATUS.md`). HANDOFF L5 §6 line corrected — real X25519 + XChaCha20-Poly1305 already shipped per `backend/core/crypto/envelope.py` + `tests/test_pairing_envelope_e2e.py`, "mock crypto" wording was stale. Verified via 2 parallel verification subagents (L5 crypto canon + v10 release-axis archaeology). Operator decisions captured: v10 GA direct (not v9_then_v10) + W309 step 2 go-now after PR #187 + M-wave close-and-redo + save plan in all_three locations. · Cursor · 2026-05-18 · W309 step 2 brief drafted (`docs/handoff/W309_STEP2_BRIEF.md`, 332 lines — Playwright behavioural smoke + STT upload via `/api/voice/transcribe` + persona picker UI; **gated on PR #187 merge + operator OK**; ~4h estimate, smaller than step 1; tests projected 36 static + new ~10s Playwright suite) · W309 step 1 follow-up (Claude PR #187 review fix-ups — `ws.setup()` idempotency, `ensureMic()` race + stale-stream detection, SSE CRLF support + trailing flush, `voice.speak()` content-type guard, `ApiError` defensive stringify, vault CTA `noreferrer`, one-shot `teardownAll`; tests grew 8 → 20 with 1:1 mapping to each Claude finding; 31/31 green; bundle 22.9 KB raw / 8.4 KB gz — under cap) · W309 step 1 (functional restore: 5 runtime modules under `apps/cockpit/src/runtime/`, mic + WS + chat + TTS MVP, +8 static contract tests; bundle ~22 KB raw / ~8 KB gzip — under brief §5 caps; 19/19 tests green) · 2026-05-17 · W309 prep follow-ups (Claude PR #186 review fixes — restore `--type-label` inline comment, document `.stream-row` data-vs-HUD blind-spot, implement orphan source-map prune in package-cockpit.sh) · W309 prep (rename `--font-size-phase-bar` → `--font-size-hud-mono`, migrate 6 hardcoded `10px` mono call-sites — closes W309 design-tightening backlog from PR #185 review) · W308 step 4 (Claude code-review fixes for PR #185 — CSP fonts.bunny.net, phase-bar 11px token, 3 real drift tests, step-2 brief superseded marker) · W308 step 3 (wire apps/cockpit/dist/ into Tauri pipeline; legacy SPA archived to desktop/src-tauri/web-legacy/) · W308 step 2 (port cockpit + hero from W307 refs → multi-page Vite project at apps/cockpit/) · W308 step 1 (apply W307 verdict in tokens.css + MASTER.md) · W308 step 0 (Path C scaffold) · W307 design verdict (Claude) · W306 order-dependent fixes (38 → 0) · W305 py3.12 stabilization · W304 py3.12 + OPENAI env + L9 doc sync <<<**
 >
-> **W309 prep follow-ups (current top of branch
-> `cursor/w309-prep-mono-token-rename`)** — Claude's PR #186 review
+> **W309 step 1 follow-up (top of branch `cursor/w309-step1-runtime`)** —
+> independent Claude review of PR #187 came back
+> `READY_TO_MERGE_WITH_FOLLOWUPS`. Three high-sev findings landed as a
+> fix-up commit on the same branch rather than deferred: (1) `ws.setup()`
+> not idempotent (second call leaked the prior WebSocket); (2)
+> `ensureMic()` race (concurrent `getUserMedia` calls leaked
+> `MediaStream` tracks); (3) cached stream went stale after permission
+> revoke. Plus six medium/low fixes: WS OPEN handler now checks
+> `wantOpen` before flipping the badge green (no teardown-during-connect
+> flicker), SSE parser accepts CRLF + flushes trailing buffer, `voice.speak()`
+> rejects non-`audio/*` content-types, `ApiError` defensive stringify,
+> vault CTA `rel="noopener noreferrer"`, one-shot `teardownAll` latch.
+> Tests tightened from 8 → 20 with 1:1 mapping to each finding
+> (`test_ws_setup_is_idempotent`, `test_voice_ensure_mic_serialises_concurrent_calls`,
+> `test_chat_sse_parser_accepts_crlf`, etc.) plus `test_ws_manager_public_api_surface`
+> (rename guard) and `test_bundle_size_gzipped_within_w309_cap` (25 KB
+> gz cap, 1.5× actual — tighter regression guard than the loose 80 KB
+> raw cap). Bundle: 22.9 KB raw / 8.4 KB gz (vs 22.0 / 8.2 before) — 71%
+> raw / 67% gz headroom. Process note: posted review as PR #187 comment
+> before any code changed so git history shows
+> implementation → review → fix-up as three distinct commits. Pattern
+> worth keeping for W310+.
+>
+> **W309 step 2 (drafted, gated)** — brief at
+> `docs/handoff/W309_STEP2_BRIEF.md`. Three bounded items: Playwright
+> behavioural smoke (closes Claude's "static-tests-only" gap from
+> PR #187 review), STT upload from cockpit mic to `/api/voice/transcribe`
+> (closes the half-open voice loop), persona picker UI in the status
+> bar with `localStorage` persistence (closes the "voice persona logic
+> has no operator surface" gap). **Do not start step 2 until PR #187
+> is merged AND operator says "go"** — extending the same three files
+> step 1 ships would force rebase churn. If the operator wants to ship
+> v9.1.0 with step-1 only and defer step 2 to W310+, that's a valid
+> call — gaps are real but not blocking (see brief §9 tradeoff matrix).
+>
+> **W309 step 1 (parent commit on branch `cursor/w309-step1-runtime`)** —
+> operator un-gated step 1 of brief `29e9cd9`
+> (`docs/handoff/W309_FUNCTIONAL_RESTORE_BRIEF.md` on the local
+> `cursor/w309-cockpit-functional-restore` branch, pushed to origin
+> for reference). MVP scope per brief §1: restore the four behaviors
+> the W308 step 3 migration left static — mic capture (`getUserMedia`),
+> realtime WS bus (`/api/realtime`, `tars.realtime.v1`), chat strand
+> send/load (SSE-on-POST), TTS playback (`/api/voice/speak` →
+> `new Audio(blob:)`). No W307 visual contract edits — every DOM
+> hook is keyed off existing classes / aria roles, degrades to the
+> static shell when the sidecar is unreachable.
+>
+> **Five runtime modules** (`apps/cockpit/src/runtime/*.ts`, brief §2.2):
+> `api.ts` (typed fetch wrapper, default `http://127.0.0.1:8765`,
+> `localStorage.TARS_API_URL` override, `apiBinary()` for raw audio,
+> co-located `vaultStatus()` per brief §3.5 to keep module count at 5);
+> `tauri.ts` (`isTauri()` + `invokeTauri()` IPC helpers, no SDK import —
+> drift test rejects future `@tauri-apps/...` imports);
+> `ws.ts` (`WsManager` singleton, exponential backoff `1s → 30s` full
+> jitter, close-code routing: `1000` clean / `4001` auth-fail synthetic
+> event / others retry, server-driven heartbeat, status bus
+> `idle | connecting | open | reconnecting | closed`);
+> `voice.ts` (mic `MediaStream` cache, TTS `Promise.then` chain queue
+> with `blob:` URL revoke in finally, `/api/voice/personas` +
+> `/api/voice/health` parallel fetch on setup);
+> `chat.ts` (POST `/api/chat/threads` to create, GET to load last 20,
+> POST messages = `text/event-stream` stream-parsed via `getReader()`
+> + `TextDecoder`, optimistic `sending → delivered | failed`).
+>
+> **Entry rewrite** (`apps/cockpit/src/pages/cockpit-entry.ts`).
+> 7 DOM hooks, strand renderer that switches `data-state` between
+> `collapsed` / `expanded`, status badge `data-state` colour overrides,
+> vault CTA injection when ElevenLabs key missing, mic toggle wiring,
+> beforeunload + pagehide teardown chain. **No `innerHTML` anywhere** —
+> every dynamic node via `createElement` + `textContent` + `appendChild`
+> so a malicious server response can't inject markup (security hook
+> + new drift test both enforce this).
+>
+> **CSS additions** (`apps/cockpit/cockpit.html` inline style block):
+> strand-expanded layout (flex column, scrolling ol capped at 320px),
+> message rows (grid 64px / 1fr, role borders, status modifiers),
+> vault CTA (red-tinted row), status badge `data-state` overrides
+> (online/degraded/offline → success/accent/alert dot), mic
+> `data-state` (`on` → cyan glow, `denied` → red inset).
+>
+> **Tests** (`tests/test_cockpit_runtime_contract.py`, +8). Pure static
+> — no daemon / mic / TTS dependency. Pin module presence, per-file
+> shape contracts (imports, endpoints, knobs), entry wiring (all 4
+> module imports + setup/teardown + no `innerHTML`), bundle size
+> budget (skipped when `dist/` absent). Suite total: 11 → **19** when
+> run together with `test_cockpit_tokens_sync.py`.
+>
+> **Verification.** `pnpm typecheck` clean (one TS error caught
+> mid-flight: `applyVault` had a structurally weaker signature than
+> the actual `VaultStatus` — fixed by importing the real type rather
+> than re-declaring loosely). `pnpm build` → 18 modules, 90 ms,
+> ~22 KB raw / ~8 KB gzipped (under brief §5 80 / 25 KB caps).
+> `desktop/scripts/package-cockpit.sh` staged clean, orphan-map prune
+> cleared 2. `pytest tests/test_cockpit_tokens_sync.py
+> tests/test_cockpit_runtime_contract.py -v` → **19 passed in 0.05 s**.
+>
+> **Decisions worth Claude's review.**
+> 1. **SSE vs WS for chat deltas** — brief §3.4 referenced the legacy
+>    SPA's WS-reconcile flow, but current sidecar streams the assistant
+>    turn on the POST response as `text/event-stream`. WS still carries
+>    cross-cutting events (`policy`, `awareness`, `voice.*`). SSE-on-POST
+>    is the right transport for MVP; out-of-band chat events are W310+.
+> 2. **`tauri.ts` with no SDK import** — saves ~12 KB until something
+>    needs it. Drift test guards against casual reintroduction.
+> 3. **Vault hook in `api.ts`** — 15 lines, keeps module count at 5.
+> 4. **`vite dev` CORS gap documented** — sidecar default
+>    `TARS_CORS_ORIGINS` doesn't list port 5174; production Tauri shell
+>    is unaffected (CSP allows `127.0.0.1:8765`). Operator note in
+>    `api.ts` doc comment; not widening prod CORS.
+>
+> Out of scope (W310+): STT upload, persona picker UI, WS chat sync,
+> policy gate / awareness rendering.
+>
+> ---
+>
+> **W309 prep follow-ups (PR #186, in `cursor/w309-prep-mono-token-rename`)** — Claude's PR #186 review
 > returned `READY_TO_MERGE_WITH_FOLLOWUPS` with three items, all
 > landed in the same PR (post-base-commit push, so a separate
 > commit rather than `--amend`):
@@ -3307,10 +3421,19 @@ contracts, tests, and acceptance criteria per sub-phase. Sequence:
    `scripts/preview-demo-tunnel.sh` (install `cloudflared` for the
    tunnel).
 6. L5 — Encrypted sync via meeet.world (bumps contract → 1.1.0). 🟡
-   pairing endpoints shipped 2026-04-29 with **mock crypto**; pin tests
-   ride in `tests/test_pairing_contract.py`. Next slice = real
-   XChaCha20-Poly1305 + X25519 envelope, sync fields on meeet events,
-   `pair.linked` recovery seed UI.
+   **CORRECTION (W310, 2026-05-18).** This bullet was stale. Real X25519
+   + XChaCha20-Poly1305 crypto is **already shipped on the host** via
+   PyNaCl (`backend/core/crypto/envelope.py` — `nacl.bindings` AEAD +
+   `nacl.public.SealedBox`; verified end-to-end in
+   `tests/test_pairing_envelope_e2e.py`; meeet bridge wired in
+   `backend/core/meeet/client.py:emit_encrypted`). What's actually
+   pending: persistent host keyring (X25519 secret → OS Keychain /
+   Credential Manager / libsecret), cockpit pairing/recovery UX wiring
+   per `docs/contracts/L5_PAIRING_DRAFT.md`, mobile begin/accept
+   protocol flows (protocol layer only, no full mobile app yet),
+   pairing audit timeline in cockpit, and `pair_id` TTL on the
+   `meeet.world` relay (off-repo coordination). See
+   `docs/PRODUCT_MASTER_PLAN.md §3.2` for the v10.1/v10.2 split.
 7. L4 — Voice mode (full duplex: faster-whisper STT relay + iOS native loop)
 8. **L10 — Mobile companions:** native **iOS** (Swift/SwiftUI) + **Android** (Kotlin/Jetpack Compose); shared HTTP/SSE contract with desktop **L9**; pairing + E2E sync via **L5** (`PHASE_L_ROADMAP` § L10)
 9. L3 — Code execution & artifacts
@@ -4265,6 +4388,17 @@ landing-side `<GlobalCommandPalette/>`). I added one minor change —
 that's purely additive and doesn't alter the manifest contract.
 
 ## 2026-05-10 — Wave 81 (Claude → Cursor) — algotrade FE/BE handshake
+
+> **SUPERSEDED (W310, 2026-05-18).** This block is the historical Wave
+> 81 launch checklist for `v9.1.0` (which shipped W138-158, ~2 weeks
+> ago). The "Pending operator actions blocking the launch" list below
+> (GITHUB_RELEASE_TOKEN, BRIDGE_SHARED_SECRET, Apple .p12, `v9.1.0`
+> tag) is **no longer the active blocker set**. `v10.0.0-rc.1` is the
+> current cut (W264); the active 5 external items for **v10 GA** live
+> in `docs/V10_GA_CHECKLIST.md` and are summarised in
+> `docs/PRODUCT_MASTER_PLAN.md §2.1`. Algotrade API contract intel
+> below is still useful (Wave 100 audit corrected the route shape to
+> `POST /api/domains/algotrade/actions/{action_id}`).
 
 ### What I shipped (Wave 80-D + Wave 81-A FE)
 - /workshop generic 4-phase wizard (Intake → Design → Test → Deploy)
