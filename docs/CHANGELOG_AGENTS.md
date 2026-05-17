@@ -4,6 +4,80 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-18 — Cursor · W310-b algotrade closeout + remaining-PR triage + Wave 100 audit correction
+
+**Summary**
+
+Closed 2 more stale stacked PRs as a follow-up batch on the same branch
+`cursor/post-rc1-master-plan` (extends W310 above). Operator directive:
+*"выстрой правильную структуру всего проекта и синхронизацию с другими
+системами и начинай"* — full delegation to clean up the stacked-PR
+backlog using the agent's own judgement.
+
+**PRs closed (algotrade stack)**
+
+- **#170** — Phase W3-PR3 trading council voices. Closed: base chain
+  #166→#167→#168→#169 all CLOSED-not-merged; ~1200 LoC orphaned.
+- **#174** — Wave M2 `tars` CLI. Closed: base chain
+  #173→#168→#167→#166 all CLOSED-not-merged; ~1950 LoC orphaned;
+  also depends transitively on `backend/cli/commands/algotrade.py`
+  which imports from un-merged `algotrade.exec`.
+
+Both close-comments preserve full design intel (PR-body excerpts +
+verification table + pointer to §3.A for consolidated landing).
+
+**W310 closure total**: **8 PRs** (6 M-wave MCP + 2 algotrade).
+
+**Wave 100 audit CORRECTION**
+
+While verifying the close decision, discovered HANDOFF Wave 100 audit
+(L4439-L4467) overpromised: it claimed *"file-copied W2 + W3 exec/*
+into the working tree"* but empirically only
+`tests/test_algotrade_integration.py` was actually file-copied;
+`backend/core/algotrade/exec/` folder remains absent from main. Added
+explicit CORRECTION block after the original audit text pointing at
+§3.A as the consolidated landing path.
+
+**PRODUCT_MASTER_PLAN updates**
+
+- **§2.2 PR triage table** — definitive state for every remaining open
+  PR (#175 install funnel, #181 algotrade E2E, #182 cockpit MCP, #183
+  voice persona fallback) + explicit ✅ markers for the 8 closures
+  done this wave.
+- **§3.A Algotrade closeout (NEW)** — full deferred-work spec for the
+  7-PR algotrade stack (#166-#170, #173, #174) as v10.2/v11
+  consolidated rewrite. Inherits Wave 100 audit punch list (Side enum
+  collision, `session_timeseries` action, exec/__init__.py dedup).
+  Estimate 1-2 weeks; mirrors MCP rewrite pattern.
+- **§7 change log** — W310-b entry appended.
+
+**Cross-workspace sync**
+
+- `meeet-browser-agent/AGENTS.md` — added `PRODUCT_MASTER_PLAN.md` to
+  the read order + W310 sync block at the bottom (v10.0.0-rc.1 status,
+  active PRs #187 + #188, 8 closures, plan pointer). Cross-workspace
+  agent pickup now points at canonical forward execution doc.
+
+**Files**
+
+- `docs/AGENT_HANDOFF.md` — Wave 100 CORRECTION inline + top banner
+  W310-b SYNC prepended.
+- `docs/PRODUCT_MASTER_PLAN.md` — §2.2 rewritten with definitive
+  triage; §3.A added; §7 W310-b entry.
+- `docs/CHANGELOG_AGENTS.md` — this entry.
+- `/Users/alien/Projects/meeet-browser-agent/AGENTS.md` — sync block +
+  expanded read order.
+
+**Process note**
+
+This entry was authored by the same Cursor parent agent under W310's
+"orchestrator" mode. Decision pattern: closure-with-design-intel-
+preservation now established across two stale-PR families (MCP + algo-
+trade); future stale stacks can apply the same brief template at
+`docs/handoff/MCP_REWRITE_BRIEF.md`. Push to branch + add to PR #188.
+
+---
+
 ## 2026-05-18 — Cursor · W310 post-rc1 master plan + M-wave consolidation brief + HANDOFF corrections
 
 **Summary**

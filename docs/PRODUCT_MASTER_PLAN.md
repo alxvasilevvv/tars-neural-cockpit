@@ -31,13 +31,17 @@ Full breakdown: `docs/V10_GA_CHECKLIST.md`.
 
 | Item | Owner | Status |
 |---|---|---|
+| Merge **PR #188** (this PR — master plan + closures) | Operator | ⬜ ready |
 | Merge **PR #187** (W309 step 1) | Operator | ⬜ ready |
-| W309 step 2: Playwright + STT + persona picker | Agent (after merge) | brief at `docs/handoff/W309_STEP2_BRIEF.md` |
+| W309 step 2: Playwright + STT + persona picker | Agent (after #187 merge) | brief at `docs/handoff/W309_STEP2_BRIEF.md` |
 | HANDOFF L5 §6 line fix (mock→real crypto stale text) | This branch | ✅ in this PR |
 | HANDOFF Wave 81 SUPERSEDED marker | This branch | ✅ in this PR |
-| Close + rewrite M-wave MCP stack (#176, #177-#184) | Brief drafted, Cursor implements | brief in this PR |
-| Voice persona fallback (#183, standalone) | Cursor rebase | independent of M-wave |
-| Install funnel cross-target (#175, standalone) | Cursor rebase | independent; fix `probe`/qa-agent first |
+| HANDOFF Wave 100 audit CORRECTION (`exec/*` not actually file-copied) | This branch | ✅ in this PR |
+| Close **M-wave MCP stack** (6 PRs: #176, #177, #178, #179, #180, #184) | This branch + Cursor | ✅ all 6 closed; rewrite brief at `docs/handoff/MCP_REWRITE_BRIEF.md`; impl after #188 merge |
+| Close **algotrade Wave-M / W2-W4 stack** (2 PRs: #170, #174) | This branch | ✅ both closed (stack bases #166-#169, #173 already closed); consolidated landing at §3.A |
+| Voice persona fallback (#183, standalone) | Cursor rebase | independent of either stack — clean rebase candidate |
+| Install funnel cross-target (#175, standalone) | Cursor rebase | independent; fix `probe`/qa-agent CI first |
+| Algotrade E2E playbook (#181, standalone) | Cursor lane | depends on §3.A algotrade closeout landing |
 | Cockpit bridge panel (#182, follow-up to MCP rewrite) | Cursor | depends on rewritten MCP stack landing |
 | FINAL-QA-GATE pass + version-consistency check | Agent | ⬜ |
 | Cockpit polish (Claude lane) for soak surface | Claude lane | partial (13-item backlog, §3.10) |
@@ -146,6 +150,28 @@ Remaining:
 
 Pace: 1-2 items / week. Triage by current-screen importance — items 7, 8, 9 most user-visible.
 
+### 3.A Algotrade closeout (deferred Wave-M / W2-W4 stack) — **v10.2 or v11**
+
+**Context.** The algotrade vertical originally landed across **7 stacked PRs**: #166 paper-exec → #167 workshop-pack → #168 analytics → #169 session-report → #170 council-voices → #173 workshop-debrief → #174 `tars` CLI. All 7 are **closed-not-merged** as of W310 because their stacked-base structure made one-PR-at-a-time landing impossible after ~2 weeks of `main` drift. Wave 100 audit (`docs/AGENT_HANDOFF.md` L4439) file-copied only the *integration test*; the `backend/core/algotrade/exec/` payload itself remained absent from main.
+
+**Scope.** Land the full W2-W4 algotrade payload + the `tars` CLI as **one consolidated rewrite** (mirrors the MCP M-wave pattern at `docs/handoff/MCP_REWRITE_BRIEF.md`):
+- `backend/core/algotrade/exec/{base,paper,positions,risk,router,sessions,runtime,analytics,voices}.py`
+- `backend/core/algotrade/exec/__init__.py` + `tests/test_algotrade_{paper,risk,voices,...}.py`
+- `backend/core/domains/packs/algotrade/exec_actions.py` + manifest / pack.py updates
+- `backend/cli/` + `bin/tars` (Wave M2 — operator + workshop power-user surface)
+- `docs/ALGOTRADE.md` + `docs/CLI.md`
+
+**Sources of truth (design intel preserved).** Each closed PR's "Design intel preserved" closure comment carries the full design spec. The 7 closed branches still exist on `origin/cursor/algotrade-w*` — their diffs are the implementation reference.
+
+**Open punch list inherited from Wave 100 audit** (still valid):
+- Rename exec's `Side.BUY/SELL` → `OrderSide` to avoid collision with backtest's `Side.LONG/SHORT`.
+- Add `session_timeseries` action (rolling Sharpe, drawdown curve, trade-PnL histogram) for workshop FE.
+- Resolve `from .report import …` duplicate in `exec/__init__.py`.
+
+**Estimate.** 1-2 weeks for a single Cursor agent following the MCP rewrite pattern (most code already exists on the 7 closed branches as design spec; the work is consolidation + conflict resolution + adapter to current `pack.py` envelope).
+
+**Gating.** Defer until after L4/L5/L9 closeout (v10.1) and vault (v10.2). Algotrade is workshop/B2B surface, not a v10 GA gate. **Owner:** Cursor lane, after #188 merge + MCP rewrite shipped.
+
 ---
 
 ## §4. Lane discipline & orchestration
@@ -211,3 +237,4 @@ W309 step 1 → `gstack-claude` independent review → fix-up commit on same bra
 | Date | Wave | Author | Change |
 |---|---|---|---|
 | 2026-05-18 | W310 | Cursor (Sonnet 4.6 parent assistant) | Initial synthesis. Compiled from 3 parallel recon subagents (Phase L roadmap, 13-PR triage, IDEAS+tech debt) + 2 verification subagents (L5 crypto canon, v10 release-axis archaeology). Operator decisions captured: **D1 = v10 GA direct** (v9.1.0 already shipped W138; v9_then_v10 obsolete), **D3 = W309 step 2 go-now** after PR #187 merge, **D4 = close M-wave stack + consolidated rewrite**, **save = all_three** (this file + TARS_MASTER §6 pointer + HANDOFF SYNC sync). |
+| 2026-05-18 | W310-b | Cursor (Sonnet 4.6 parent assistant) | **Algotrade closeout** (operator directive "выстрой правильную структуру"). Closed PRs #170 (W3-PR3 council voices) + #174 (Wave M2 `tars` CLI) — both stale stacked PRs whose base chain (#166-#169, #173) was already closed. Added new **§3.A Algotrade closeout** as deferred v10.2/v11 consolidated rewrite. Updated §2.2 PR triage table with definitive per-PR state for all remaining open PRs (#175, #181, #182, #183). Added HANDOFF Wave 100 audit CORRECTION marker (the W2/W3 `exec/*` payload was *not* actually file-copied into main, contrary to the audit's claim — only the integration test was). Synced `meeet-browser-agent/AGENTS.md` to point at this plan for cross-workspace agent pickup. |
