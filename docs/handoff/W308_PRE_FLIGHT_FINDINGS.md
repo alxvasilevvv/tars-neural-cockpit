@@ -202,21 +202,15 @@ re-discovered in W309.
   `font-size: 10px` or `11px`. Negative-control verified: temporarily
   re-injecting a hardcode in `.source-chip` makes the test fail
   exactly at `cockpit.html:434` with the expected diagnostic.
-- **Minor cleanup queued** — Vite emits 100-byte empty source-map
-  placeholders for page entries that share the main chunk and don't
-  emit their own JS (e.g. `cockpit-DKEsTFV0.js.map`,
-  `cockpit-DMobxZ0v.js.map`, `cockpit-V4IZhC5v.js.map` in the
-  W309-prep build). `~300 B` total, harmless functionally, but the
-  hash churn dirties future diffs of `desktop/src-tauri/web/assets/`.
-  Two paths if anyone cares:
-  1. Add a `desktop/scripts/package-cockpit.sh` post-build prune step
-     that drops `*.js.map` whose paired `*.js` does not exist.
-  2. Pin source-map filenames (`output.sourcemapFileNames`) and let
-     rsync `--delete` handle the rest. Riskier — Vite plugin
-     internals.
-  Recommended path 1 (~5 lines of shell). Not done in W309-prep
-  because it would have widened the diff beyond the rename's
-  bounded scope.
+- **~~Minor cleanup queued~~** — Vite empty source-map placeholders.
+  **CLOSED** in the same PR #186 (W309-prep) as a follow-up to
+  Claude's `READY_TO_MERGE_WITH_FOLLOWUPS` verdict. Path 1
+  implemented: `desktop/scripts/package-cockpit.sh` now has a
+  post-rsync prune step that walks `desktop/src-tauri/web/assets/`,
+  finds every `*.js.map` whose paired `*.js` does not exist, and
+  removes it. Re-build confirms: bundle assets dropped from 8 →
+  5 files; subsequent rebuilds will continue to keep diffs clean
+  through the same hook.
 - **Still open for W309 proper** (i.e. not just design tightening —
   *functional* restore):
   - mic capture pipeline (legacy `Cockpit-*.js` had it);

@@ -77,10 +77,20 @@
   --type-h3: 1.25rem;
   --type-body: 1rem;
   --type-small: 0.8125rem;
-  --type-label: 0.6875rem;   /* 11px — HUD-class mono labels (phase bar, status bar, source chip,
-   * kbd hint, policy gate header, live-rail headers). Single token
-   * for the whole HUD label family. */
-  /* W308 step 4 → W309 prep (PR #185 review carry-over):
+  --type-label: 0.6875rem;   /* 11px — HUD / nav labels (rem-scaled
+                              * — scales with the root font-size). */
+  /* HUD-class mono labels (phase bar, status bar, source chip, kbd
+   * hint, policy gate header, live-rail `stream-head` /
+   * `integrity-head`). Single token for the whole HUD label family.
+   *
+   * Note on the apparent duplicate with `--type-label` above:
+   * `--type-label` is a rem-based typography scale knob that follows
+   * the root font-size; `--font-size-hud-mono` is a px-based HUD
+   * container knob that intentionally does *not* scale. They
+   * resolve to the same value on the default 16px root but they
+   * mean different things — see MASTER §4 for the contract.
+   *
+   * W308 step 4 → W309 prep (PR #185 review carry-over):
    * the unrefactored cockpit rendered all HUD-class mono labels at
    * 10px, which collapses Share Tech Mono / Fira Code letterforms
    * (caps look rectangular, the "I"/"l" pair becomes ambiguous) even

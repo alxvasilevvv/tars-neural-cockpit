@@ -4,6 +4,79 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-17 — Cursor · W309 prep follow-ups (Claude PR #186 review fixes)
+
+**Summary**
+
+Three follow-ups from Claude's `READY_TO_MERGE_WITH_FOLLOWUPS`
+verdict on PR #186. All landed in the same PR (post-base-commit
+push, so a separate commit rather than `--amend`). No follow-ups
+were blockers; the value is keeping the W309 backlog at zero before
+the functional wave starts.
+
+**Medium — `--type-label` inline comment was misattributed.**
+
+The step-4 → W309-prep `StrReplace` for the
+`--font-size-phase-bar` declaration accidentally consumed the
+`/* 11px — HUD / nav labels */` inline comment that *actually*
+belongs to the line *above* (`--type-label: 0.6875rem;`). After
+the swallow, the `--type-label` declaration ended up annotated as
+"single token for the whole HUD label family", which is wrong —
+that's `--font-size-hud-mono`. Restored the original inline comment
+and explicitly disambiguated the two tokens in
+`--font-size-hud-mono`'s rationale block (`--type-label` is the
+rem-based typography scale knob, `--font-size-hud-mono` is the
+px-based HUD container knob; they happen to resolve to the same
+value on the default 16px root but mean different things).
+
+**Low — `.stream-row .ts` / `.stream-row .meta` blind-spot
+documented.**
+
+Claude correctly identified that these two blocks in `hero.html`
+have hardcoded `font-size: 11px` that the new drift guard cannot
+see (they inherit `font-family: var(--font-mono)` from
+`.stream-rows`, and the guard is block-scoped by design). Decision:
+**not** migrate onto `--font-size-hud-mono` — these are data cells
+(timestamps, numeric meta, no uppercase, no tracking), semantically
+distinct from HUD labels. Added an inline rationale comment + per-
+line `data, not HUD label` markers so the next agent doesn't try
+to "fix" them. If stream data ever needs its own token, naming is
+pre-staked as `--font-size-data-mono` (separate from HUD-mono).
+
+**Low — Vite source-map orphan prune.**
+
+Implemented Path 1 from the W309 carry-over note:
+`desktop/scripts/package-cockpit.sh` now runs a post-rsync prune
+step that walks `$WEB_DEST/assets`, finds every `*.js.map` whose
+paired `*.js` does not exist, and removes it (`find -name '*.js.map'
+-print0` + `[[ -f "${m%.map}" ]] || rm`). Survives Vite version
+upgrades because it operates on the rsynced output, not Vite
+plugin internals. Logs `[package-cockpit] pruned N orphan .js.map
+placeholder(s)` so the prune is visible.
+
+**Verification**
+
+- `pytest tests/test_cockpit_tokens_sync.py -v` → 11 passed in 0.04s.
+- `bash desktop/scripts/package-cockpit.sh` → OK. Prune log shows
+  `pruned 3 orphan .js.map placeholder(s)`. Bundle assets directory
+  drops from 8 files → 5 (CSS + 2 paired `.js` + `.js.map`). Manual
+  orphan check loop confirms every remaining `.js.map` has its
+  paired `.js`.
+
+**Files**
+
+- `apps/cockpit/src/styles/tokens.css` (restore `--type-label`
+  inline comment + disambiguate two 11px tokens in
+  `--font-size-hud-mono`'s rationale block)
+- `apps/cockpit/hero.html` (rationale comment for
+  `.stream-row .ts/.meta` + per-line markers)
+- `desktop/scripts/package-cockpit.sh` (post-rsync orphan prune)
+- `docs/handoff/W308_PRE_FLIGHT_FINDINGS.md` (mark the W309 minor
+  cleanup item as closed)
+- `desktop/src-tauri/web/` (rebuilt — prune dropped 3 orphans)
+
+---
+
 ## 2026-05-17 — Cursor · W309 prep (rename --font-size-phase-bar → --font-size-hud-mono + migrate 6 callsites)
 
 **Summary**
