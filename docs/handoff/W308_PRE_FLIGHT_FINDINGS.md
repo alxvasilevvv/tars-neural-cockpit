@@ -187,32 +187,43 @@ Surfaced by Claude's second-round verify on `d12d517` (the step-4
 verdict fixes). Not blocking PR #185 merge; named here so it isn't
 re-discovered in W309.
 
-- **Six other hardcoded `10px` mono callsites still in
-  `apps/cockpit/`** — same readability failure mode the W307 verdict
-  flagged for `.phase-bar`, but the verdict only named the phase bar
-  by name so step 4 stopped at the named symptom (mechanical scope):
-  - `cockpit.html` — `.source-chip` (~L437), `.gate-head` (~L512),
-    `.send-kbd` (~L667), bottom status bar (~L690).
-  - `hero.html` — two mono callsites (~L398, ~L478).
-  All use `var(--font-mono)` + uppercase + `--tracking-label` (same
-  Share Tech Mono / Fira Code family that fails letterform clarity at
-  10px on Retina).
-- **Two paths for W309:**
-  1. **Rename** `--font-size-phase-bar` → `--font-size-hud-mono` (less
-     phase-bar-specific) and migrate all 6 callsites to it. Single
-     contract, one drift test ("no hardcoded 10/11px on mono-class
-     elements"). Touches: tokens.css (rename), MASTER.md (rename row),
-     cockpit.html ×4, hero.html ×2, drift suite (broaden the test).
-     Cleanest.
-  2. **Leave token specific**, add a second token (e.g.
-     `--font-size-hud-chip`) for the chip/kbd/status-bar family,
-     migrate those, keep the `phase-bar` token narrow. Two contracts,
-     two drift tests, more freedom to tune per-surface size.
-- **Recommended path: 1** (rename + single token) unless a W309
-  pre-flight finds a case where chips/kbd want a different size from
-  phase bar (then path 2). Step-4 commit message intentionally said
-  "the token is named separately to make intent explicit at call-site"
-  so path-1 rename is non-breaking and just widens the contract.
+- **~~Six other hardcoded `10px` mono callsites still in
+  `apps/cockpit/`~~** — **CLOSED** in `cursor/w309-prep-mono-token-rename`
+  (PR pending). Path 1 selected: token renamed
+  `--font-size-phase-bar` → `--font-size-hud-mono`; all seven
+  call-sites now route through the single token:
+  `cockpit.html` (`.phase-bar`, `.source-chip`, `.gate-head`,
+  `.send-kbd`, `.status-bar`) and `hero.html` (`.stream-head`,
+  `.integrity-head`). Drift suite extended (10 → **11**): the new
+  `test_no_hardcoded_pixel_size_on_mono_family_elements` walks every
+  `apps/cockpit/*.html`, parses every `{ … }` block, and fails loudly
+  with `file:line + block preview` if any block declares
+  `font-family: var(--font-mono)` together with a hardcoded
+  `font-size: 10px` or `11px`. Negative-control verified: temporarily
+  re-injecting a hardcode in `.source-chip` makes the test fail
+  exactly at `cockpit.html:434` with the expected diagnostic.
+- **Minor cleanup queued** — Vite emits 100-byte empty source-map
+  placeholders for page entries that share the main chunk and don't
+  emit their own JS (e.g. `cockpit-DKEsTFV0.js.map`,
+  `cockpit-DMobxZ0v.js.map`, `cockpit-V4IZhC5v.js.map` in the
+  W309-prep build). `~300 B` total, harmless functionally, but the
+  hash churn dirties future diffs of `desktop/src-tauri/web/assets/`.
+  Two paths if anyone cares:
+  1. Add a `desktop/scripts/package-cockpit.sh` post-build prune step
+     that drops `*.js.map` whose paired `*.js` does not exist.
+  2. Pin source-map filenames (`output.sourcemapFileNames`) and let
+     rsync `--delete` handle the rest. Riskier — Vite plugin
+     internals.
+  Recommended path 1 (~5 lines of shell). Not done in W309-prep
+  because it would have widened the diff beyond the rename's
+  bounded scope.
+- **Still open for W309 proper** (i.e. not just design tightening —
+  *functional* restore):
+  - mic capture pipeline (legacy `Cockpit-*.js` had it);
+  - websocket connection to the local sidecar (`ws://127.0.0.1:8765`);
+  - conversation strand renderer.
+  All gated on explicit operator OK (plan E from the end of W308 step 3
+  is still in effect).
 
 ---
 

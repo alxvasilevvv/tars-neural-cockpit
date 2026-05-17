@@ -4,6 +4,102 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-17 — Cursor · W309 prep (rename --font-size-phase-bar → --font-size-hud-mono + migrate 6 callsites)
+
+**Summary**
+
+Operator delegated ("Продолжай" ×2 after PR #185 merged). Closes the
+only design-tightening item still on the W309 backlog (the six
+hardcoded `10px` mono call-sites Claude flagged in the second-round
+review on `d12d517`). Path 1 selected per the recommendation in
+`W308_PRE_FLIGHT_FINDINGS.md` (rename token + migrate everyone).
+
+Not yet started, still gated on separate operator OK per plan E:
+the functional W309 work (mic capture, WS reconnect, conversation
+strand renderer). This entry is *only* the design tightening that
+makes the field clean before the functional work lands.
+
+**Token contract changes**
+
+- `apps/cockpit/src/styles/tokens.css` — rename `--font-size-phase-bar`
+  → `--font-size-hud-mono` (11px). Rationale block rewritten to
+  document the broadening + preserve the step-4 history (originally
+  landed for `.phase-bar` only because that was the W307 verdict's
+  named symbol; renamed when the other five call-sites joined the
+  same contract).
+- `design-system/tars/MASTER.md` §4 typography table row rewritten:
+  scope expanded from "Watch-me-work phase bar" → "HUD-class mono
+  labels (phase bar, status bar, source chip, kbd hint, policy gate
+  header, live-rail `stream-head` / `integrity-head`)". Single drift
+  contract codified: "no hardcoded `10px` / `11px` allowed on any
+  element using `font-family: var(--font-mono)`".
+
+**Call-site migrations**
+
+- `apps/cockpit/cockpit.html` — five blocks now use
+  `var(--font-size-hud-mono)`:
+  - `.phase-bar` (renamed from the step-4 token reference);
+  - `.source-chip` (was `font-size: 10px`);
+  - `.gate-head` (was `font-size: 10px`);
+  - `.send-kbd` (was `font-size: 10px`);
+  - `.status-bar` (was `font-size: 10px`).
+  Also: `.phase-bar`'s pointer-comment rewritten to explain the
+  rename trail so DevTools readers see why the token is named what
+  it is.
+- `apps/cockpit/hero.html` — two blocks now use
+  `var(--font-size-hud-mono)`: `.stream-head` and `.integrity-head`
+  (both were `font-size: 10px`). Total 7 call-sites on the single
+  token.
+
+**Drift suite**
+
+- `tests/test_cockpit_tokens_sync.py` — `test_phase_bar_size_token_declared_and_applied`
+  renamed and broadened to `test_hud_mono_font_size_token_declared_and_applied`
+  (asserts declaration, 11px resolution, MASTER row, and ≥5 cockpit
+  + ≥2 hero `var()` references).
+- New `test_no_hardcoded_pixel_size_on_mono_family_elements` walks
+  every `apps/cockpit/*.html`, parses CSS `{ … }` blocks, and fails
+  on any block that declares both `font-family: var(--font-mono)` and
+  a hardcoded `font-size: 10px` / `font-size: 11px`. Diagnostic
+  includes `file:line` + 240-char block preview. Suite total:
+  10 → **11**.
+
+**Verification**
+
+- `pytest tests/test_cockpit_tokens_sync.py -v` → **11 passed in 0.03s**.
+- **Negative-control:** temporarily re-injecting `font-size: 10px`
+  into `.source-chip` makes
+  `test_no_hardcoded_pixel_size_on_mono_family_elements` fail at
+  `apps/cockpit/cockpit.html:434` with the expected diagnostic.
+  Restored automatically by the test harness (try/finally). Confirms
+  the test is not vacuously passing.
+- `bash desktop/scripts/package-cockpit.sh` (full rebuild path) → OK,
+  4 HTML pages emitted, rsync to `desktop/src-tauri/web/` clean.
+  Cockpit bundle stable at ~27 kB raw / ~6 kB gzipped.
+- Bundle grep: 5× `var(--font-size-hud-mono)` in built `cockpit.html`,
+  2× in built `hero.html`; zero hardcoded `font-size: 10px` on
+  mono-family blocks remain in the built bundle.
+
+**Files**
+
+- `apps/cockpit/src/styles/tokens.css` (token rename + rationale)
+- `apps/cockpit/cockpit.html` (5 call-sites + comment)
+- `apps/cockpit/hero.html` (2 call-sites)
+- `design-system/tars/MASTER.md` (typography row rewrite)
+- `tests/test_cockpit_tokens_sync.py` (rename + new drift guard)
+- `docs/handoff/W308_PRE_FLIGHT_FINDINGS.md` (W309 carry-over
+  section: 6 mono call-sites marked closed; functional restore
+  remains open and gated)
+- `desktop/src-tauri/web/` (rebuilt — bundle hashes refreshed)
+- `apps/cockpit/dist/` (rebuilt)
+
+**Carry-over (unchanged)**
+
+The functional W309 wave (mic capture, WS reconnect, conversation
+strand renderer) is still gated on explicit operator OK per plan E.
+
+---
+
 ## 2026-05-17 — Cursor · W308 step 4 (Claude code-review fixes for PR #185)
 
 **Summary**

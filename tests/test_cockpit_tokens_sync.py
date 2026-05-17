@@ -288,37 +288,114 @@ def test_hero_html_applies_surface_marketing_class() -> None:
         )
 
 
-def test_phase_bar_size_token_declared_and_applied() -> None:
-    """W308 step 4 (W307 verdict — Token diff row).
+def test_hud_mono_font_size_token_declared_and_applied() -> None:
+    """W308 step 4 → W309 prep (PR #185 review carry-over).
 
-    ``--font-size-phase-bar: 11px`` token must:
+    ``--font-size-hud-mono: 11px`` is the *single* token covering the
+    whole HUD-class mono label family. It must:
 
-    1. Be declared in tokens.css (not hardcoded into a single HTML).
+    1. Be declared in tokens.css (not hardcoded into the HTMLs).
     2. Be documented in MASTER §4 typography table.
-    3. Be referenced by ``.phase-bar`` in cockpit.html (so the
-       Share Tech Mono caps stay readable on Retina).
+    3. Be referenced by all seven call-sites that share the contract:
 
-    The bar previously ran at 10px hardcoded; the W307 verdict
-    explicitly called this out as a readability fail."""
+       - ``cockpit.html``: ``.phase-bar``, ``.source-chip``,
+         ``.gate-head``, ``.send-kbd``, ``.status-bar``.
+       - ``hero.html``: ``.stream-head``, ``.integrity-head``.
+
+    Originally landed in step 4 as ``--font-size-phase-bar`` (the
+    W307 verdict only named the phase bar by symbol). The other five
+    HUD callsites were still hardcoded ``10px`` and were caught by
+    the second-round Claude review on `d12d517`. This test enforces
+    that the renamed-and-broadened token actually replaced *all*
+    seven hardcodes, not just the phase bar."""
     css = _read(TOKENS_CSS_PATH)
     md = _read(MASTER_PATH)
     cockpit = _read(COCKPIT_HTML_PATH)
+    hero = _read(HERO_HTML_PATH)
 
-    assert "--font-size-phase-bar" in css, (
-        "tokens.css must declare --font-size-phase-bar (W307 verdict)."
+    assert "--font-size-hud-mono" in css, (
+        "tokens.css must declare --font-size-hud-mono (W309 prep — "
+        "renamed from --font-size-phase-bar when 6 other HUD call-sites "
+        "joined the contract)."
     )
-    # Token value sits within ~60 chars of the declaration name.
-    css_window = css.split("--font-size-phase-bar", 1)[1][:60]
+    # Find the declaration line (skip the prose-only mentions inside
+    # the long rationale comment block above the actual `:root` entry).
+    decl_marker = "--font-size-hud-mono:"
+    assert decl_marker in css, (
+        "tokens.css must declare the token (not just mention it in "
+        f"comments). Looking for `{decl_marker}` in the :root block."
+    )
+    css_window = css.split(decl_marker, 1)[1][:60]
     assert "11px" in css_window, (
-        "tokens.css --font-size-phase-bar must resolve to 11px "
-        "(W307 verdict — Share Tech Mono falls apart at 10px)."
+        "tokens.css --font-size-hud-mono must resolve to 11px (W307 "
+        "verdict — Share Tech Mono / Fira Code fall apart at 10px)."
     )
-    assert "--font-size-phase-bar" in md, (
-        "MASTER §4 typography table must reference --font-size-phase-bar."
+    assert "--font-size-hud-mono" in md, (
+        "MASTER §4 typography table must reference --font-size-hud-mono."
     )
-    assert "var(--font-size-phase-bar)" in cockpit, (
-        "apps/cockpit/cockpit.html .phase-bar must use "
-        "var(--font-size-phase-bar) instead of a hardcoded 10px."
+
+    # 5 cockpit call-sites must use the token.
+    cockpit_usage = cockpit.count("var(--font-size-hud-mono)")
+    assert cockpit_usage >= 5, (
+        f"apps/cockpit/cockpit.html must reference "
+        f"var(--font-size-hud-mono) at five call-sites "
+        f"(.phase-bar, .source-chip, .gate-head, .send-kbd, "
+        f".status-bar). Currently: {cockpit_usage}."
+    )
+    # 2 hero call-sites must use the token.
+    hero_usage = hero.count("var(--font-size-hud-mono)")
+    assert hero_usage >= 2, (
+        f"apps/cockpit/hero.html must reference "
+        f"var(--font-size-hud-mono) at two call-sites (.stream-head, "
+        f".integrity-head). Currently: {hero_usage}."
+    )
+
+
+def test_no_hardcoded_pixel_size_on_mono_family_elements() -> None:
+    """W308 step 4 → W309 prep — drift guard.
+
+    Any CSS rule whose ``font-family: var(--font-mono)`` is followed
+    within the same declaration block by a hardcoded
+    ``font-size: NNpx`` (10px or 11px) is a regression — the whole
+    point of ``--font-size-hud-mono`` is to be the *single* knob for
+    HUD-class mono labels. Block-scoped check on every HTML page
+    under ``apps/cockpit/`` so it catches both cockpit and hero, and
+    any future pages added there. Tolerates declarations that use
+    ``var(--font-size-hud-mono)`` (the sanctioned path).
+    """
+    import re
+
+    # Walk all top-level HTML pages.
+    pages = sorted((REPO_ROOT / "apps" / "cockpit").glob("*.html"))
+    assert pages, (
+        "expected at least one HTML page in apps/cockpit/; got none."
+    )
+
+    # Match `{` … `}` blocks that have `font-family: var(--font-mono)`
+    # AND a hardcoded `font-size: NNpx` somewhere in the same block.
+    block_re = re.compile(r"\{[^{}]*\}", re.MULTILINE)
+    mono_re = re.compile(r"font-family\s*:\s*var\(--font-mono\)")
+    hardcoded_size_re = re.compile(r"font-size\s*:\s*(10|11)px\b")
+
+    violations: list[str] = []
+    for page in pages:
+        text = page.read_text(encoding="utf-8")
+        for block in block_re.finditer(text):
+            chunk = block.group(0)
+            if mono_re.search(chunk) and hardcoded_size_re.search(chunk):
+                # Compute the line of the block opener for a useful
+                # diagnostic; cap chunk preview to 240 chars.
+                line = text[: block.start()].count("\n") + 1
+                preview = " ".join(chunk.split())[:240]
+                violations.append(
+                    f"{page.relative_to(REPO_ROOT)}:{line}  →  {preview}"
+                )
+
+    assert not violations, (
+        "Hardcoded font-size: 10px/11px detected on `font-family: "
+        "var(--font-mono)` blocks. Switch them to "
+        "`font-size: var(--font-size-hud-mono);`. Offenders:\n  - "
+        + "\n  - ".join(violations)
     )
 
 
