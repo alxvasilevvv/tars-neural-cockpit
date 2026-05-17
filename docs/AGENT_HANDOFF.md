@@ -3,7 +3,7 @@
 Pick this up if you are continuing the work in a fresh chat. Read this file
 plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 
-> **>>> SYNC: Cursor · 2026-05-18 · W309 step 1 follow-up (Claude PR #187 review fix-ups — `ws.setup()` idempotency, `ensureMic()` race + stale-stream detection, SSE CRLF support + trailing flush, `voice.speak()` content-type guard, `ApiError` defensive stringify, vault CTA `noreferrer`, one-shot `teardownAll`; tests grew 8 → 20 with 1:1 mapping to each Claude finding; 31/31 green; bundle 22.9 KB raw / 8.4 KB gz — under cap) · W309 step 1 (functional restore: 5 runtime modules under `apps/cockpit/src/runtime/`, mic + WS + chat + TTS MVP, +8 static contract tests; bundle ~22 KB raw / ~8 KB gzip — under brief §5 caps; 19/19 tests green) · 2026-05-17 · W309 prep follow-ups (Claude PR #186 review fixes — restore `--type-label` inline comment, document `.stream-row` data-vs-HUD blind-spot, implement orphan source-map prune in package-cockpit.sh) · W309 prep (rename `--font-size-phase-bar` → `--font-size-hud-mono`, migrate 6 hardcoded `10px` mono call-sites — closes W309 design-tightening backlog from PR #185 review) · W308 step 4 (Claude code-review fixes for PR #185 — CSP fonts.bunny.net, phase-bar 11px token, 3 real drift tests, step-2 brief superseded marker) · W308 step 3 (wire apps/cockpit/dist/ into Tauri pipeline; legacy SPA archived to desktop/src-tauri/web-legacy/) · W308 step 2 (port cockpit + hero from W307 refs → multi-page Vite project at apps/cockpit/) · W308 step 1 (apply W307 verdict in tokens.css + MASTER.md) · W308 step 0 (Path C scaffold) · W307 design verdict (Claude) · W306 order-dependent fixes (38 → 0) · W305 py3.12 stabilization · W304 py3.12 + OPENAI env + L9 doc sync <<<**
+> **>>> SYNC: Cursor · 2026-05-18 · W309 step 2 brief drafted (`docs/handoff/W309_STEP2_BRIEF.md`, 332 lines — Playwright behavioural smoke + STT upload via `/api/voice/transcribe` + persona picker UI; **gated on PR #187 merge + operator OK**; ~4h estimate, smaller than step 1; tests projected 36 static + new ~10s Playwright suite) · W309 step 1 follow-up (Claude PR #187 review fix-ups — `ws.setup()` idempotency, `ensureMic()` race + stale-stream detection, SSE CRLF support + trailing flush, `voice.speak()` content-type guard, `ApiError` defensive stringify, vault CTA `noreferrer`, one-shot `teardownAll`; tests grew 8 → 20 with 1:1 mapping to each Claude finding; 31/31 green; bundle 22.9 KB raw / 8.4 KB gz — under cap) · W309 step 1 (functional restore: 5 runtime modules under `apps/cockpit/src/runtime/`, mic + WS + chat + TTS MVP, +8 static contract tests; bundle ~22 KB raw / ~8 KB gzip — under brief §5 caps; 19/19 tests green) · 2026-05-17 · W309 prep follow-ups (Claude PR #186 review fixes — restore `--type-label` inline comment, document `.stream-row` data-vs-HUD blind-spot, implement orphan source-map prune in package-cockpit.sh) · W309 prep (rename `--font-size-phase-bar` → `--font-size-hud-mono`, migrate 6 hardcoded `10px` mono call-sites — closes W309 design-tightening backlog from PR #185 review) · W308 step 4 (Claude code-review fixes for PR #185 — CSP fonts.bunny.net, phase-bar 11px token, 3 real drift tests, step-2 brief superseded marker) · W308 step 3 (wire apps/cockpit/dist/ into Tauri pipeline; legacy SPA archived to desktop/src-tauri/web-legacy/) · W308 step 2 (port cockpit + hero from W307 refs → multi-page Vite project at apps/cockpit/) · W308 step 1 (apply W307 verdict in tokens.css + MASTER.md) · W308 step 0 (Path C scaffold) · W307 design verdict (Claude) · W306 order-dependent fixes (38 → 0) · W305 py3.12 stabilization · W304 py3.12 + OPENAI env + L9 doc sync <<<**
 >
 > **W309 step 1 follow-up (top of branch `cursor/w309-step1-runtime`)** —
 > independent Claude review of PR #187 came back
@@ -27,6 +27,18 @@ plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 > before any code changed so git history shows
 > implementation → review → fix-up as three distinct commits. Pattern
 > worth keeping for W310+.
+>
+> **W309 step 2 (drafted, gated)** — brief at
+> `docs/handoff/W309_STEP2_BRIEF.md`. Three bounded items: Playwright
+> behavioural smoke (closes Claude's "static-tests-only" gap from
+> PR #187 review), STT upload from cockpit mic to `/api/voice/transcribe`
+> (closes the half-open voice loop), persona picker UI in the status
+> bar with `localStorage` persistence (closes the "voice persona logic
+> has no operator surface" gap). **Do not start step 2 until PR #187
+> is merged AND operator says "go"** — extending the same three files
+> step 1 ships would force rebase churn. If the operator wants to ship
+> v9.1.0 with step-1 only and defer step 2 to W310+, that's a valid
+> call — gaps are real but not blocking (see brief §9 tradeoff matrix).
 >
 > **W309 step 1 (parent commit on branch `cursor/w309-step1-runtime`)** —
 > operator un-gated step 1 of brief `29e9cd9`

@@ -4,6 +4,58 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-18 — Cursor · W309 step 2 brief (drafted, gated)
+
+**Summary**
+
+Drafted `docs/handoff/W309_STEP2_BRIEF.md` while PR #187 sits awaiting
+operator merge. Brief is **gated on PR #187 merge + operator OK** (same
+pattern as the original W309 brief — no implementation kicks off without
+explicit "go").
+
+Step 2 closes the three honest gaps left by step 1:
+
+1. **All 20 runtime tests are static.** Adds Playwright behavioural
+   smoke under `apps/cockpit/tests/e2e/cockpit.spec.ts` with mocked
+   sidecar (`page.route`), mocked SSE (streamed response body), mocked
+   WebSocket (init script). Runs in < 10s. Addresses Claude PR #187
+   review's explicit ask: *"the cheapest behavioral guard you'd
+   actually trust"*.
+2. **Mic permission goes nowhere.** Extends `voice.ts` with
+   `startRecording()` / `stopRecording()` using `MediaRecorder` →
+   `/api/voice/transcribe` multipart upload. Transcript drops into the
+   input textarea. Closes the half-open voice loop where step 1 only
+   proved the permission flow.
+3. **Voice picker has no UI.** Minimal `<select>` in the status bar
+   driven by `voice.getPersonas()`, persists choice to
+   `window.localStorage.TARS_VOICE_PERSONA`, restores on next setup.
+
+Tests grow 11 + 20 = 31 → 11 + 25 = **36 static** + a new Playwright
+suite (~10s). Bundle estimated to land at ~30 KB raw / ~10 KB gz (vs
+current 22.9 / 8.4) — rollback cap set at 35 KB raw / 12 KB gz with
+documented headroom math. ETA: ~4h, smaller than step 1.
+
+**Out of scope (still W310+)**
+
+- Drawers (⌘K/⌘L/⌘R), council, playbooks, search, wallet, pairing,
+  meeet bridge, awareness rendering, recovery — unchanged.
+- Newly deferred from step 2: waveform visualiser, voice cloning UI,
+  `webkitSpeechRecognition` fallback, STT streaming, per-persona TTS
+  preview button. Rationale in brief §6.
+
+**Files**
+
+- `docs/handoff/W309_STEP2_BRIEF.md` (new, 332 lines) — same format
+  as the W309 step 1 brief: §0 motivation, §1 inventory, §2 strategy,
+  §3 sub-tasks, §4 verify, §5 rollback, §6 out of scope, §7 commit
+  message, §8 cost, §9 gating.
+
+**Operator action queue**
+
+1. Merge PR #187 (W309 step 1 + fix-up).
+2. Say "go" on step 2, OR explicitly defer to ship v9.1.0 with the
+   three gaps documented in brief §9.
+
 ## 2026-05-18 — Cursor · W309 step 1 follow-up (Claude review fix-ups)
 
 **Summary**
