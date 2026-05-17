@@ -4,6 +4,113 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-18 — Cursor · W310-d — W309 step 2 Playwright scaffold (independent prep)
+
+**Agent**: Cursor (Sonnet 4.6 parent assistant). Continuation of
+W310-c on operator directive "ПРодолжай".
+
+**Summary**
+
+While the project waits on operator merge of PR #187 (W309 step 1
+runtime) and PR #188 (master plan + qa-agent CI fix), an
+independent prep PR has been opened on
+`cursor/w309-step2-e2e-prep` that lands the **Playwright e2e
+harness** referenced by `docs/handoff/W309_STEP2_BRIEF.md` §3.1.
+
+**Why now (not after #187 merges)**
+
+The harness's *scaffolding* (config, fixtures, network-mock
+helpers, WS stub) is entirely orthogonal to the W309 step 1
+runtime — it only talks to the cockpit through DOM selectors and
+`page.route()` interception, not through TypeScript imports of
+step 1 code. Landing the scaffold now lets the W309 step 2
+implementer focus on production code (MediaRecorder + STT upload
++ persona `<select>`) instead of harness plumbing, and means the
+very first commit of step 2 is a test going from `.skip` → green,
+which is the healthiest possible review surface for that wave.
+
+**What landed**
+
+- `apps/cockpit/tests/e2e/playwright.config.ts` — chromium-only,
+  no retries, 5s test timeout, 10s suite budget per brief §3.1.
+  `webServer` boots `pnpm dev` against `:5174` automatically.
+- `apps/cockpit/tests/e2e/fixtures/*.json` — six deterministic
+  fixtures covering personas, voice health, vault status, chat
+  threads, SSE delta frames, and the canonical
+  `/api/voice/transcribe` response shape.
+- `apps/cockpit/tests/e2e/helpers/mock-sidecar.ts` —
+  `page.route()` wrapper that wires every `/api/**` endpoint the
+  cockpit touches at boot to its fixture. Accepts per-test
+  overrides for failure-mode scenarios.
+- `apps/cockpit/tests/e2e/helpers/mock-sse.ts` — synthesises
+  `text/event-stream` wire format from the SSE delta fixture, so
+  the runtime sees real frame boundaries instead of one JSON
+  blob.
+- `apps/cockpit/tests/e2e/helpers/mock-ws.ts` — replaces
+  `window.WebSocket` with a deterministic stub that records sent
+  frames, exposes `__injectMessage()`, and synthesises the
+  open / message / close lifecycle. Used for `/ws/voice`
+  coverage.
+- `apps/cockpit/tests/e2e/cockpit.spec.ts` — **skeleton spec**
+  with seven `test.skip()` scenarios covering boot, persona
+  render, persona switch persistence, chat SSE delta streaming,
+  WS reconnect, mic → STT upload, and vault-missing warning.
+  Step 2 implementer drops `.skip` markers as features wire up.
+- `apps/cockpit/tests/e2e/tsconfig.json` — editor-only tsconfig
+  extending the parent, adds `@playwright/test` types, loosens
+  `noUnusedLocals` so test-skeleton stubs compile.
+- `apps/cockpit/tests/e2e/README.md` — directory-level operator
+  doc covering install, run, scope, stability budget.
+- `apps/cockpit/package.json` — adds `@playwright/test ~1.48.2`
+  as a `devDependency`, plus `test:e2e` and `test:e2e:install`
+  scripts.
+- `apps/cockpit/pnpm-lock.yaml` — regenerated via
+  `pnpm install --lockfile-only` (38 lines added, all
+  Playwright-tree).
+
+**Verification**
+
+- `pnpm typecheck` from `apps/cockpit/`: clean (tests folder is
+  outside the `tsc --noEmit` include set, by design — its own
+  tsconfig handles editor type lighting).
+- All seven scenarios are `test.skip()`, so the suite is a no-op
+  by design until step 2 unsets its markers. This deliberately
+  keeps the `make ci` surface unchanged — see brief §3.1 for
+  the CI-gate plan when the harness goes green.
+
+**Out of scope (by design)**
+
+- Real `getUserMedia` — bypassed via
+  `context.grantPermissions(['microphone'])`; mic-permission
+  edge cases stay in the static `test_voice_ensure_mic_*` suite.
+- Waveform / visualiser tests — W311+ polish.
+- STT streaming — upload-after-stop is the cheapest correct
+  loop per brief §6.
+- Real Python sidecar — every route is mocked. Real-sidecar
+  coverage stays in the existing `tests/integration` suite.
+
+**Files changed**
+
+- `apps/cockpit/package.json` (modified)
+- `apps/cockpit/pnpm-lock.yaml` (regenerated)
+- `apps/cockpit/tests/e2e/.gitignore` (new)
+- `apps/cockpit/tests/e2e/README.md` (new)
+- `apps/cockpit/tests/e2e/playwright.config.ts` (new)
+- `apps/cockpit/tests/e2e/tsconfig.json` (new)
+- `apps/cockpit/tests/e2e/cockpit.spec.ts` (new, skeleton)
+- `apps/cockpit/tests/e2e/fixtures/{voice-personas,voice-health,vault-status,chat-threads,chat-sse-deltas,voice-transcribe}.json` (new)
+- `apps/cockpit/tests/e2e/helpers/{mock-sidecar,mock-sse,mock-ws}.ts` (new)
+- `docs/CHANGELOG_AGENTS.md` (this entry)
+
+**Next**
+
+Operator unblocks by merging PR #187 (W309 step 1). Step 2
+implementation begins on a fresh branch off the merged main;
+first commit drops `.skip` from `boot` + `personas: select
+renders 4 options` and lands the cockpit-side persona `<select>`.
+
+---
+
 ## 2026-05-17 — Cursor · W309 prep follow-ups (Claude PR #186 review fixes)
 
 **Summary**
@@ -2444,33 +2551,6 @@ was queue-starved → the `Build - macOS-x64` job sat in
 - `pnpm typecheck` (v3): clean
 - `pnpm build` (v3): clean
 
-## 2026-05-04 — Cursor: version bump v8.4.0 → v9.1.0 (audit-1 + audit-2 release)
-
-Bumped the marketing + Tauri version pin so the new icon set,
-ad-hoc-codesigned macOS bundle, install.sh installer, CockpitGate,
-and the trace-coverage / pure-helper hardening all land in a
-single GitHub Release.
-
-**Files**
-- `desktop/src-tauri/Cargo.toml` — `version = "9.1.0"`
-- `desktop/src-tauri/tauri.conf.json` — `"version": "9.1.0"`
-- `desktop/package.json` — `"version": "9.1.0"`
-- `experiments/neural-showcase-v3/src/pages/Install.tsx` —
-  `RELEASE_VERSION = "v9.1.0"`
-- `experiments/neural-showcase-v3/functions/api/product/version.ts` —
-  `LATEST_VERSION = "9.1.0"`
-- `web_extras/routers/product.py` — added new
-  `TARS-9.1.0-{arm64,x64}.dmg`, `TARS-9.1.0-setup.exe`,
-  `TARS-9.1.0.AppImage` legacy redirects pointing at the v9.1.0
-  GitHub Release. Old v8.4.0 entries kept registered for
-  backwards-compat with any pre-audit blog post / shared link.
-
-After this lands, push tag `v9.1.0` to trigger
-`.github/workflows/release-desktop-tagged.yml` which will build
-and upload all four installers (mac arm64 dmg, mac x64 dmg,
-windows msi, linux AppImage) with the new icon and the ad-hoc
-macOS codesign already wired in by audit-1.
-
 ---
 
-_Showing the most recent 60 of 267 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 268 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._

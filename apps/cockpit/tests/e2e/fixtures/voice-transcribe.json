@@ -1,0 +1,15 @@
+{
+  "ok": true,
+  "text": "hello world this is a test transcription",
+  "lang": "en",
+  "engine": "openai-whisper",
+  "language": "en",
+  "duration_ms": 1840,
+  "elapsed_ms": 412,
+  "model": "whisper-1",
+  "provider": "openai",
+  "segments_count": 1,
+  "bytes_in": 24576,
+  "ext": ".webm",
+  "trace_id": "trace-e2e-stt-canned"
+}

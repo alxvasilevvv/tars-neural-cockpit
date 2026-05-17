@@ -1,0 +1,59 @@
+{
+  "ok": true,
+  "count": 4,
+  "default_persona_id": "jarvis",
+  "personas": [
+    {
+      "id": "jarvis",
+      "name": "Jarvis",
+      "character": "calm british AI butler",
+      "accent": "en-GB",
+      "locale": "en-GB",
+      "license_note": null,
+      "provider": {
+        "elevenlabs_voice_id": null,
+        "openai_voice": "onyx",
+        "mac_say": "Daniel"
+      }
+    },
+    {
+      "id": "stark",
+      "name": "Stark",
+      "character": "confident american tinkerer",
+      "accent": "en-US",
+      "locale": "en-US",
+      "license_note": null,
+      "provider": {
+        "elevenlabs_voice_id": null,
+        "openai_voice": "echo",
+        "mac_say": "Alex"
+      }
+    },
+    {
+      "id": "hal9000",
+      "name": "HAL 9000",
+      "character": "soft-spoken sinister AI",
+      "accent": "en-US",
+      "locale": "en-US",
+      "license_note": null,
+      "provider": {
+        "elevenlabs_voice_id": null,
+        "openai_voice": "fable",
+        "mac_say": "Aaron"
+      }
+    },
+    {
+      "id": "tars",
+      "name": "TARS",
+      "character": "deadpan military robot",
+      "accent": "en-US",
+      "locale": "en-US",
+      "license_note": null,
+      "provider": {
+        "elevenlabs_voice_id": null,
+        "openai_voice": "onyx",
+        "mac_say": "Tom"
+      }
+    }
+  ]
+}

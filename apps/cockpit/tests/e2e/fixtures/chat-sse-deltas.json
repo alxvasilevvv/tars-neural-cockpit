@@ -1,0 +1,28 @@
+{
+  "_doc": "Frame definitions consumed by helpers/mock-sse.ts. Each frame is serialised into SSE wire format (event + data\\n\\n). Step-2 implementer may add 'kind=trace' or other event types if the parser supports them.",
+  "frames": [
+    {
+      "event": "trace",
+      "data": {
+        "trace_id": "trace-e2e-chat-canned",
+        "started_at": "2026-05-18T00:00:00Z"
+      }
+    },
+    {
+      "event": "delta",
+      "data": { "text": "Hello" }
+    },
+    {
+      "event": "delta",
+      "data": { "text": " from the mock sidecar." }
+    },
+    {
+      "event": "stream.closed",
+      "data": {
+        "trace_id": "trace-e2e-chat-canned",
+        "finished_at": "2026-05-18T00:00:01Z",
+        "tokens_total": 7
+      }
+    }
+  ]
+}
