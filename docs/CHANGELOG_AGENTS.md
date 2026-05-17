@@ -1,5 +1,40 @@
 # Agent changelog
 
+
+## 2026-05-18 — Wave 310-f: voice persona fallback hardening (PR #183 extraction)
+
+**What.** Extracted the genuinely-additive value from PR #183 (`cursor/voice-persona-fallback`, "Phase L4.2 — per-persona mac_say fallback + voice substitution diagnostic", +777/-31 LoC) into a clean replacement PR. PR #183 itself was **closed** because a forensic review surfaced three regressions (Jarvis voice reverted from George → Daniel, ElevenLabs cinematic tuning stripped, ~30 lines of operator tuning docstring deleted) plus a semantic conflict with W295's already-shipped `/api/voice/personas/effective` endpoint.
+
+**Why.** PR #183's intent was sound — per-persona macOS voice fallback so the four male personas (jarvis/stark/hal9000/tars) stay distinct on a default-install Mac without premium voices. But it shipped that intent on top of three quality regressions, and re-implemented an endpoint that already exists on main. Cherry-picking the additive subset (`requested_voice_id` plumbing, `_pick_fallback_voice` method, `mac_say_voice_alternatives` field, fallback unit tests) gets the operator value without the regression cost.
+
+**Files.**
+- `backend/core/voice/engines.py` (+58 LoC): `SynthesisResult.requested_voice_id` + `substituted` property; each engine plumbs `requested_voice_id` through; `MacSayEngine._pick_fallback_voice` + `_VOICE_FALLBACKS_BY_ACCENT` map.
+- `backend/core/voice/personas.py` (surgical edit): adds `mac_say_voice_alternatives: tuple[str, ...] = ()` field to `PersonaProviderHint` (with `merged()` whitelist + `to_dict()` integration); adds per-persona alternative voice tuples for all 6 personas. **Does NOT** touch the rich tuning docstring, Jarvis voice id (George stays), or any cinematic tuning values — those were operator-validated additions that PR #183 would have reverted.
+- `tests/test_voice_persona_alternatives.py` (NEW, +225 LoC): wholesale extraction — 11 unit tests for `_pick_fallback_voice` walking persona chain, falling through to accent default, etc.
+- `tests/test_voice_engines.py` (+14/-4 LoC): additive assertions for `requested_voice_id` + `substituted`.
+- `tests/test_thread_persona_pinning.py` (+6 LoC): assertions for pinned-voice flow.
+- `tests/test_voice_personas_effective.py` (W310-f update): one test (`test_mac_say_fallback_voice_picker_used_when_preferred_missing`) updated to assert the new correct behaviour — per-persona alternates take precedence over global accent chain, so TARS now lands on Fred (per its chain: Tom→Fred→Junior→…) instead of Alex (global accent default).
+- `docs/handoff/L4_2_VOICE_FALLBACK_EXTRACTION_BRIEF.md` (NEW): full forensic record of what to extract / what to leave behind, in case the operator wants to replay the analysis or revisit the optional §1.4 augmentation (extending W295's endpoint with substitution diagnostic).
+
+**Verification.**
+- `python3 -m pytest tests/test_voice_persona_alternatives.py tests/test_voice_engines.py tests/test_thread_persona_pinning.py -v` → 43/43 green.
+- `python3 -m pytest tests/test_voice_router.py -v` → 6/6 green (W295 endpoint stays canonical and untouched).
+- `python3 -m pytest tests/ -k "voice or persona" --no-header -q` → **164/164 green**, 3374 deselected.
+- Manual regression guards: Jarvis voice_id is `JBFqnCBsd6RMkjVDRZzb` ("George"), not `onwK4e9ZLuTAKqWW03F9` ("Daniel"); Jarvis `elevenlabs_stability=0.22` preserved; Stark `elevenlabs_stability=0.18` preserved; PersonaProviderHint docstring intact.
+
+**What it doesn't do.**
+- Does NOT touch `web_extras/routers/voice.py` — W295's `/personas/effective` endpoint stays canonical, uses shared `resolve_effective()`, returns the full provider/voice envelope.
+- Does NOT add the substitution diagnostic to the endpoint response shape. That's §1.4 of the extraction brief and is gated on cockpit-picker UX needing it (the alternatives data is in `Persona.to_dict()["providers"]["mac_say"]["voice_alternatives"]` whenever the cockpit asks).
+- Does NOT include `tests/test_voice_router.py` additions from PR #183 (+156 LoC) — those asserted L4.2's endpoint shape, which would fail against W295's canonical shape.
+
+**PR / branch.** `cursor/voice-fallback-extract-clean` → replacement PR (opening immediately). PR #183 closed at https://github.com/alxvasilevvv/tars-neural-cockpit/pull/183 with full forensic rationale + pointer to this entry + the extraction brief.
+
+**Sync.** `docs/handoff/L4_2_VOICE_FALLBACK_EXTRACTION_BRIEF.md` is the forensic record; consume this entry + the brief for future hand-off.
+
+— Cursor (Sonnet 4.6)
+
+---
+
 Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.

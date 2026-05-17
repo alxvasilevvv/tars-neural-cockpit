@@ -45,6 +45,14 @@ class SynthesisResult:
     ``provider`` is the engine that produced the audio (``"elevenlabs"``
     / ``"openai"`` / ``"mac_say"``). ``mime`` distinguishes ``audio/mpeg``
     (mp3) from ``audio/wav``.
+
+    ``requested_voice_id`` is the voice the persona *asked for* on
+    this provider. ``voice_id`` is the voice that actually rendered
+    the audio. They differ when the engine had to fall back (e.g.
+    macOS without the ``Alex`` premium voice → ``Daniel``); the
+    cockpit uses ``substituted`` to surface a "voice swapped" hint
+    so operators know why HAL and Stark sound the same. Defaults
+    keep backwards compatibility with the M-Wave callers.
     """
 
     audio: bytes
@@ -53,6 +61,19 @@ class SynthesisResult:
     voice_id: str
     duration_estimate_ms: int
     bytes_total: int
+    requested_voice_id: str | None = None
+
+    @property
+    def substituted(self) -> bool:
+        """True when ``voice_id`` differs from ``requested_voice_id``.
+
+        Returns ``False`` when ``requested_voice_id`` is ``None``
+        (older callers that did not record a request).
+        """
+
+        if self.requested_voice_id is None:
+            return False
+        return self.voice_id != self.requested_voice_id
 
     def to_dict(self) -> dict[str, object]:
         return {
@@ -61,6 +82,8 @@ class SynthesisResult:
             "mime": self.mime,
             "bytes_total": self.bytes_total,
             "duration_estimate_ms": self.duration_estimate_ms,
+            "requested_voice_id": self.requested_voice_id,
+            "substituted": self.substituted,
         }
 
 
@@ -146,6 +169,7 @@ class ElevenLabsEngine(TTSEngine):
             voice_id=voice_id,
             duration_estimate_ms=_rough_duration_ms(text),
             bytes_total=len(audio),
+            requested_voice_id=voice_id,
         )
 
 
@@ -220,6 +244,7 @@ class OpenAITTSEngine(TTSEngine):
             voice_id=voice,
             duration_estimate_ms=_rough_duration_ms(text),
             bytes_total=len(audio),
+            requested_voice_id=voice,
         )
 
 
@@ -281,7 +306,8 @@ class MacSayEngine(TTSEngine):
     ) -> SynthesisResult | None:
         if not await self.is_available():
             return None
-        voice = persona.provider.mac_say_voice or "Alex"
+        requested = persona.provider.mac_say_voice or "Alex"
+        voice = requested
         installed = await self.installed_voices()
         if installed and voice not in installed:
             voice = self._pick_fallback_voice(persona, installed)
@@ -339,6 +365,7 @@ class MacSayEngine(TTSEngine):
             voice_id=voice,
             duration_estimate_ms=_rough_duration_ms(text),
             bytes_total=len(audio),
+            requested_voice_id=requested,
         )
 
     @staticmethod
@@ -346,12 +373,31 @@ class MacSayEngine(TTSEngine):
         """Pick a sensible fallback when the persona's preferred voice
         isn't installed on this Mac.
 
-        Strategy: walk a per-accent preference list, then a global list
-        of historically-shipped voices, then fall through to whatever
-        the system has. We deliberately avoid ``next(iter(set))`` —
-        Python's set iteration order is implementation-defined and that
-        was making Stark sometimes speak Spanish.
+        Resolution order (Phase L4.2):
+
+        1. ``persona.provider.mac_say_voice_alternatives`` — the
+           persona's *own* ranked alternatives. This is what keeps
+           Stark/HAL/TARS sounding distinct on a stock macOS 13+
+           install where Alex/Tom/Aaron/Bruce are not shipped by
+           default. Each persona claims a different second-best
+           voice (Stark→Ralph, HAL→Albert, TARS→Fred) so the
+           operator hears four different male voices for the four
+           male personas without paying for a TTS provider.
+        2. Per-accent global preference. Used when the persona
+           shipped no alternatives, or every alternative was
+           stripped from the system.
+        3. Deterministic alphabetical pick from whatever is left.
+        4. The original ``mac_say_voice`` (will fall back to
+           macOS' system default ``Fred`` at runtime if missing).
+
+        We deliberately avoid ``next(iter(set))`` — Python's set
+        iteration order is implementation-defined and that was
+        making Stark sometimes speak Spanish.
         """
+
+        for candidate in persona.provider.mac_say_voice_alternatives:
+            if candidate in installed:
+                return candidate
 
         if persona.accent == "british":
             preference = ("Daniel", "Oliver", "Serena", "Kate", "Alex")

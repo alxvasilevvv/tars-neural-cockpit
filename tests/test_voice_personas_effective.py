@@ -286,12 +286,21 @@ def test_mac_say_fallback_voice_picker_used_when_preferred_missing(
     """If the persona's preferred mac_say voice isn't installed, the
     resolver must call :meth:`MacSayEngine._pick_fallback_voice` — same
     logic the synthesis path uses — so the reported voice always
-    matches what would actually be heard."""
+    matches what would actually be heard.
+
+    W310-f: ``_pick_fallback_voice`` now walks ``persona.provider
+    .mac_say_voice_alternatives`` BEFORE the global accent default.
+    TARS's per-persona chain is ``("Tom", "Fred", "Junior", "Ralph",
+    "Albert", "Daniel")`` so when Tom is missing it falls through to
+    Fred (next installed) instead of jumping to Alex via the
+    global accent default.
+    """
 
     monkeypatch.delenv("ELEVENLABS_API_KEY", raising=False)
 
-    # Tom (TARS' preferred voice) is *not* installed; the fallback
-    # picker should land on the next-best american-accent voice.
+    # Tom (TARS' preferred voice) is *not* installed; the per-persona
+    # alternatives chain walks Tom→Fred→Junior→Ralph→Albert→Daniel and
+    # lands on Fred (the first installed voice in that chain).
     _patch_engines(
         monkeypatch,
         elevenlabs=False,
@@ -303,10 +312,10 @@ def test_mac_say_fallback_voice_picker_used_when_preferred_missing(
     body = client.get("/api/voice/personas/effective").json()
     tars = next(p for p in body["personas"] if p["id"] == "tars")
 
-    # Tom is missing; american-accent fallback chain is
-    # ("Alex", "Tom", "Aaron", ...) so the picker must land on Alex.
-    assert tars["effective_mac_say_voice"] == "Alex"
-    assert tars["effective_voice_id"] == "Alex"
+    # Per-persona alternates take precedence over the global accent
+    # chain — Fred is the first installed entry in TARS's chain.
+    assert tars["effective_mac_say_voice"] == "Fred"
+    assert tars["effective_voice_id"] == "Fred"
 
 
 def test_resolve_effective_returns_pure_dict_for_unit_callers() -> None:

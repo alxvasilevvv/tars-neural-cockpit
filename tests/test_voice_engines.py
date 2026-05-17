@@ -24,15 +24,20 @@ def test_pick_fallback_prefers_british_for_jarvis() -> None:
 
 def test_pick_fallback_prefers_american_for_stark() -> None:
     persona = get_persona("stark")
+    # Phase L4.2 — Stark's per-persona alternatives are
+    # (Aaron, Tom, Ralph, Junior, Daniel). With Aaron/Tom/Ralph
+    # missing, we walk to Daniel before reaching the global
+    # accent default that would have picked Alex.
     chosen = MacSayEngine._pick_fallback_voice(
         persona, installed={"Alex", "Daniel", "Luciana"}
     )
-    assert chosen == "Alex"
+    assert chosen == "Daniel"
 
 
 def test_pick_fallback_walks_preference_list_in_order() -> None:
     persona = get_persona("stark")
-    # Aaron not installed → prefer Tom (next in americal_preference).
+    # Aaron not installed → prefer Tom (next in stark's
+    # mac_say_voice_alternatives).
     chosen = MacSayEngine._pick_fallback_voice(
         persona, installed={"Tom", "Daniel", "Luciana"}
     )
@@ -44,8 +49,9 @@ def test_pick_fallback_uses_alphabetical_when_no_preference_matches() -> None:
     chosen = MacSayEngine._pick_fallback_voice(
         persona, installed={"Zarvox", "Carmit"}
     )
-    # operator preference is ("Alex", "Daniel", "Samantha", "Tom") — none match,
-    # so deterministic alphabetical first.
+    # operator alternatives are ("Alex", "Daniel", "Samantha", "Karen") —
+    # none match, accent="neutral" preference also misses, so we
+    # fall through to deterministic alphabetical.
     assert chosen == "Carmit"
 
 
