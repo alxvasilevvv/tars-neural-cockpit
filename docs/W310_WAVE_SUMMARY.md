@@ -34,10 +34,18 @@ clean repository state heading into the v10.0.0 GA dock-down.
 | **W310-d** | W309 step 2 preparation — Playwright e2e scaffold (7 `test.skip()` scenarios mapped to the W309 step 2 brief), independent of PR #187 | PR #189 (draft); `docs/handoff/W309_STEP2_BRIEF.md` updated |
 | **W310-e** | Install funnel v10 sync — close PR #175 (rebase impossible due to deep semantic drift), rewrite clean | PR #190; 4 bugs fixed (3 v10-exposed); 30/30 tests green |
 | **W310-f** | L4.2 voice fallback hardening — close PR #183 (4 regressions: Jarvis voice ID, ElevenLabs tuning, docstring deletion, endpoint conflict), extract additive value only | PR #191; 164/164 voice+persona tests green; `docs/handoff/L4_2_VOICE_FALLBACK_EXTRACTION_BRIEF.md` |
+| **W310-g** | This document — single-page wave summary so operator can orient before the merge sequence | PR #192; this file |
+| **W310-h** | Phase 2 STT streaming + push-to-talk implementer brief (v10.1, ~38 h, 7 PRs) — accelerates the next L4-lane session | PR #193; `docs/handoff/PH2_STT_STREAMING_BRIEF.md` |
+| **W310-i** | Phase 2 voice gallery UI implementer brief (v10.1, ~17 h, 4 PRs) — companion to W310-h, smaller-scope warm-up | PR #194; `docs/handoff/PH2_VOICE_GALLERY_BRIEF.md` |
+
+> **Sub-waves a..f are forensic triage on stacked PRs.** Sub-waves g..i
+> are forward-leaning **planning surface** that reduces the briefing
+> load on the next implementer session for v10.1 work. The two halves
+> can be reviewed independently.
 
 ---
 
-## Active PRs (5 open, all awaiting operator merge)
+## Active PRs (8 open, all awaiting operator merge)
 
 | # | Title | Wave | Status | Merge unblocks |
 | - | ----- | ---- | ------ | -------------- |
@@ -46,6 +54,9 @@ clean repository state heading into the v10.0.0 GA dock-down.
 | **#189** *(draft)* | W310-d Playwright e2e scaffold for cockpit | W310-d | green except known CI cache issue | step 2 implementer opens to a green suite (just drop `.skip()` markers) |
 | **#190** | W310-e install funnel v10 sync — Win/Linux artifacts, `LATEST_TAG`, pre-release filename regex | W310-e | green except known CI cache issue | cross-target updater channel + funnel for Tauri 2 cross-target builds |
 | **#191** | W310-f L4.2 voice fallback hardening — additive extract from closed #183 | W310-f | green except known CI cache issue | L4 voice loop GA-ready |
+| **#192** | W310-g wave summary (this doc) | W310-g | green except known CI cache issue | n/a — orientation doc, useful any time |
+| **#193** | W310-h Phase 2 STT streaming + push-to-talk implementer brief | W310-h | green except known CI cache issue | next L4-lane session can start ph2-stt without spec work |
+| **#194** | W310-i Phase 2 voice gallery UI implementer brief | W310-i | green except known CI cache issue | next L4-lane session can start ph2-voice-gallery without spec work |
 
 > **Known CI failure (cosmetic, repo-wide).** `TARS B2B E2E suite`,
 > `TARS eval suite`, `scan working tree` all fail in 2-3 s on every
@@ -100,13 +111,21 @@ Re-open candidacy noted in `docs/PRODUCT_MASTER_PLAN.md §3.A`.
 
 ## Recommended merge order
 
+**Triage/runtime PRs (#187-#191):**
+
 1. **#188 first** — unlocks the cache-fix follow-up + makes the master plan canonical (it's already referenced by `AGENTS.md` in `meeet-browser-agent`).
 2. **#187** — unlocks W309 step 2 implementation.
 3. **#189** — can land any time but ideally **after #187** so step 2 implementation opens with a green skipping suite.
 4. **#190** — install funnel; landing earlier just means the cross-target funnel works sooner for testing.
 5. **#191** — voice fallback hardening; landing earlier just means the L4 voice loop becomes GA-ready sooner.
 
-All 5 are **independent** at the file level (no shared paths), so they
+**Planning-surface PRs (#192-#194):**
+
+These are docs-only and have **no downstream code dependency** — merge
+any time, in any order. Optimal time-to-value is to merge them whenever
+operator has a 1-minute review window between the runtime merges.
+
+All 8 are **independent** at the file level (no shared paths), so they
 can also land in parallel. The order above only reflects which merges
 unblock the most downstream work.
 
@@ -124,10 +143,17 @@ autonomously once their merge prerequisites are met.
 
 ## Cross-workspace state
 
-`meeet-browser-agent`'s `AGENTS.md` was synced in W310-b (initial #187+#188
-snapshot) and re-synced in W310-f to reflect the full 5-PR fleet plus the
-known CI cache issue. Pickup pointer for any agent landing there now lists
-all 5 active PRs and all closed stacks.
+`meeet-browser-agent`'s `AGENTS.md` has been synced through W310 in three
+passes:
+
+- **W310-b** — initial #187 + #188 snapshot
+- **W310-f** — expanded to full 5-PR fleet (#187-#191) plus known CI cache issue
+- **W310-i** — re-expanded to the full 8-PR fleet (#187-#194) including the three
+  planning-surface PRs and their per-PR effort estimates
+
+Pickup pointer for any agent landing in the meeet workspace now lists all
+8 active PRs, all closed stacks, and points at this wave summary as the
+single-page operator-readable W310 retrospective.
 
 ---
 
