@@ -3,10 +3,89 @@
 Pick this up if you are continuing the work in a fresh chat. Read this file
 plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 
-> **>>> SYNC: Cursor · 2026-05-17 · W309 prep follow-ups (Claude PR #186 review fixes — restore `--type-label` inline comment, document `.stream-row` data-vs-HUD blind-spot, implement orphan source-map prune in package-cockpit.sh) · W309 prep (rename `--font-size-phase-bar` → `--font-size-hud-mono`, migrate 6 hardcoded `10px` mono call-sites — closes W309 design-tightening backlog from PR #185 review) · W308 step 4 (Claude code-review fixes for PR #185 — CSP fonts.bunny.net, phase-bar 11px token, 3 real drift tests, step-2 brief superseded marker) · W308 step 3 (wire apps/cockpit/dist/ into Tauri pipeline; legacy SPA archived to desktop/src-tauri/web-legacy/) · W308 step 2 (port cockpit + hero from W307 refs → multi-page Vite project at apps/cockpit/) · W308 step 1 (apply W307 verdict in tokens.css + MASTER.md) · W308 step 0 (Path C scaffold) · W307 design verdict (Claude) · W306 order-dependent fixes (38 → 0) · W305 py3.12 stabilization · W304 py3.12 + OPENAI env + L9 doc sync <<<**
+> **>>> SYNC: Cursor · 2026-05-18 · W309 step 1 (functional restore: 5 runtime modules under `apps/cockpit/src/runtime/`, mic + WS + chat + TTS MVP, +8 static contract tests; bundle ~22 KB raw / ~8 KB gzip — under brief §5 caps; 19/19 tests green) · 2026-05-17 · W309 prep follow-ups (Claude PR #186 review fixes — restore `--type-label` inline comment, document `.stream-row` data-vs-HUD blind-spot, implement orphan source-map prune in package-cockpit.sh) · W309 prep (rename `--font-size-phase-bar` → `--font-size-hud-mono`, migrate 6 hardcoded `10px` mono call-sites — closes W309 design-tightening backlog from PR #185 review) · W308 step 4 (Claude code-review fixes for PR #185 — CSP fonts.bunny.net, phase-bar 11px token, 3 real drift tests, step-2 brief superseded marker) · W308 step 3 (wire apps/cockpit/dist/ into Tauri pipeline; legacy SPA archived to desktop/src-tauri/web-legacy/) · W308 step 2 (port cockpit + hero from W307 refs → multi-page Vite project at apps/cockpit/) · W308 step 1 (apply W307 verdict in tokens.css + MASTER.md) · W308 step 0 (Path C scaffold) · W307 design verdict (Claude) · W306 order-dependent fixes (38 → 0) · W305 py3.12 stabilization · W304 py3.12 + OPENAI env + L9 doc sync <<<**
 >
-> **W309 prep follow-ups (current top of branch
-> `cursor/w309-prep-mono-token-rename`)** — Claude's PR #186 review
+> **W309 step 1 (current top of branch `cursor/w309-step1-runtime`)** —
+> operator un-gated step 1 of brief `29e9cd9`
+> (`docs/handoff/W309_FUNCTIONAL_RESTORE_BRIEF.md` on the local
+> `cursor/w309-cockpit-functional-restore` branch, pushed to origin
+> for reference). MVP scope per brief §1: restore the four behaviors
+> the W308 step 3 migration left static — mic capture (`getUserMedia`),
+> realtime WS bus (`/api/realtime`, `tars.realtime.v1`), chat strand
+> send/load (SSE-on-POST), TTS playback (`/api/voice/speak` →
+> `new Audio(blob:)`). No W307 visual contract edits — every DOM
+> hook is keyed off existing classes / aria roles, degrades to the
+> static shell when the sidecar is unreachable.
+>
+> **Five runtime modules** (`apps/cockpit/src/runtime/*.ts`, brief §2.2):
+> `api.ts` (typed fetch wrapper, default `http://127.0.0.1:8765`,
+> `localStorage.TARS_API_URL` override, `apiBinary()` for raw audio,
+> co-located `vaultStatus()` per brief §3.5 to keep module count at 5);
+> `tauri.ts` (`isTauri()` + `invokeTauri()` IPC helpers, no SDK import —
+> drift test rejects future `@tauri-apps/...` imports);
+> `ws.ts` (`WsManager` singleton, exponential backoff `1s → 30s` full
+> jitter, close-code routing: `1000` clean / `4001` auth-fail synthetic
+> event / others retry, server-driven heartbeat, status bus
+> `idle | connecting | open | reconnecting | closed`);
+> `voice.ts` (mic `MediaStream` cache, TTS `Promise.then` chain queue
+> with `blob:` URL revoke in finally, `/api/voice/personas` +
+> `/api/voice/health` parallel fetch on setup);
+> `chat.ts` (POST `/api/chat/threads` to create, GET to load last 20,
+> POST messages = `text/event-stream` stream-parsed via `getReader()`
+> + `TextDecoder`, optimistic `sending → delivered | failed`).
+>
+> **Entry rewrite** (`apps/cockpit/src/pages/cockpit-entry.ts`).
+> 7 DOM hooks, strand renderer that switches `data-state` between
+> `collapsed` / `expanded`, status badge `data-state` colour overrides,
+> vault CTA injection when ElevenLabs key missing, mic toggle wiring,
+> beforeunload + pagehide teardown chain. **No `innerHTML` anywhere** —
+> every dynamic node via `createElement` + `textContent` + `appendChild`
+> so a malicious server response can't inject markup (security hook
+> + new drift test both enforce this).
+>
+> **CSS additions** (`apps/cockpit/cockpit.html` inline style block):
+> strand-expanded layout (flex column, scrolling ol capped at 320px),
+> message rows (grid 64px / 1fr, role borders, status modifiers),
+> vault CTA (red-tinted row), status badge `data-state` overrides
+> (online/degraded/offline → success/accent/alert dot), mic
+> `data-state` (`on` → cyan glow, `denied` → red inset).
+>
+> **Tests** (`tests/test_cockpit_runtime_contract.py`, +8). Pure static
+> — no daemon / mic / TTS dependency. Pin module presence, per-file
+> shape contracts (imports, endpoints, knobs), entry wiring (all 4
+> module imports + setup/teardown + no `innerHTML`), bundle size
+> budget (skipped when `dist/` absent). Suite total: 11 → **19** when
+> run together with `test_cockpit_tokens_sync.py`.
+>
+> **Verification.** `pnpm typecheck` clean (one TS error caught
+> mid-flight: `applyVault` had a structurally weaker signature than
+> the actual `VaultStatus` — fixed by importing the real type rather
+> than re-declaring loosely). `pnpm build` → 18 modules, 90 ms,
+> ~22 KB raw / ~8 KB gzipped (under brief §5 80 / 25 KB caps).
+> `desktop/scripts/package-cockpit.sh` staged clean, orphan-map prune
+> cleared 2. `pytest tests/test_cockpit_tokens_sync.py
+> tests/test_cockpit_runtime_contract.py -v` → **19 passed in 0.05 s**.
+>
+> **Decisions worth Claude's review.**
+> 1. **SSE vs WS for chat deltas** — brief §3.4 referenced the legacy
+>    SPA's WS-reconcile flow, but current sidecar streams the assistant
+>    turn on the POST response as `text/event-stream`. WS still carries
+>    cross-cutting events (`policy`, `awareness`, `voice.*`). SSE-on-POST
+>    is the right transport for MVP; out-of-band chat events are W310+.
+> 2. **`tauri.ts` with no SDK import** — saves ~12 KB until something
+>    needs it. Drift test guards against casual reintroduction.
+> 3. **Vault hook in `api.ts`** — 15 lines, keeps module count at 5.
+> 4. **`vite dev` CORS gap documented** — sidecar default
+>    `TARS_CORS_ORIGINS` doesn't list port 5174; production Tauri shell
+>    is unaffected (CSP allows `127.0.0.1:8765`). Operator note in
+>    `api.ts` doc comment; not widening prod CORS.
+>
+> Out of scope (W310+): STT upload, persona picker UI, WS chat sync,
+> policy gate / awareness rendering.
+>
+> ---
+>
+> **W309 prep follow-ups (PR #186, in `cursor/w309-prep-mono-token-rename`)** — Claude's PR #186 review
 > returned `READY_TO_MERGE_WITH_FOLLOWUPS` with three items, all
 > landed in the same PR (post-base-commit push, so a separate
 > commit rather than `--amend`):

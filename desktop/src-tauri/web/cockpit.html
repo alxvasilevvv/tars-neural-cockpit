@@ -495,6 +495,175 @@
         border-color: var(--color-line-strong);
       }
 
+      /* ─── Conversation strand (expanded — W309 step 1) ───
+       * When chat.ts pushes any messages, cockpit-entry sets
+       * `data-state="expanded"` on `.strand` and switches layout from
+       * the collapsed pill to a flex column with header + scrolling
+       * message list. Cap height so the strand never pushes the
+       * briefing off-screen; the list scrolls internally. */
+      .strand[data-state="expanded"] {
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+        padding: 14px 18px;
+        max-height: 320px;
+      }
+
+      .strand-head {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        font-family: var(--font-mono);
+        font-size: var(--type-label);
+        font-weight: 500;
+        letter-spacing: var(--tracking-label);
+        text-transform: uppercase;
+        color: var(--color-ink-2);
+      }
+
+      .strand-count {
+        color: var(--color-accent);
+      }
+
+      .strand-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        overflow-y: auto;
+        scrollbar-width: thin;
+        scrollbar-color: var(--color-line-strong) transparent;
+      }
+
+      .strand-msg {
+        display: grid;
+        grid-template-columns: 64px 1fr;
+        gap: 12px;
+        padding: 8px 10px;
+        background: var(--color-bg-2);
+        border: var(--hairline);
+        border-radius: var(--radius-sm);
+      }
+
+      .strand-msg[data-role="user"] {
+        border-color: var(--color-line-strong);
+      }
+
+      .strand-msg[data-role="assistant"] {
+        border-color: var(--color-line);
+      }
+
+      .strand-msg[data-status="sending"] {
+        opacity: 0.65;
+      }
+
+      .strand-msg[data-status="failed"] {
+        border-color: rgba(239, 68, 68, 0.42);
+      }
+
+      .strand-role {
+        font-family: var(--font-mono);
+        font-size: var(--font-size-hud-mono);
+        font-weight: 500;
+        letter-spacing: var(--tracking-label);
+        text-transform: uppercase;
+        color: var(--color-ink-3);
+        align-self: start;
+        padding-top: 2px;
+      }
+
+      .strand-msg[data-role="user"] .strand-role {
+        color: var(--color-accent);
+      }
+
+      .strand-body {
+        font-family: var(--font-mono);
+        font-size: 13px;
+        line-height: 1.55;
+        color: var(--color-ink);
+        white-space: pre-wrap;
+        word-break: break-word;
+      }
+
+      /* ─── Vault CTA (W309 step 1, brief §3.5) ───
+       * Shown only when /api/vault/status reports no ElevenLabs key.
+       * Appended into the briefing card; styled as a thin warning row
+       * that doesn't compete with the greeting for attention. */
+      .vault-cta {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px 14px;
+        background: rgba(239, 68, 68, 0.06);
+        border: 1px solid rgba(239, 68, 68, 0.28);
+        border-radius: var(--radius-sm);
+        font-family: var(--font-mono);
+        font-size: 12px;
+        color: var(--color-ink);
+      }
+
+      .vault-cta-icon {
+        color: var(--color-alert);
+        font-size: 14px;
+        line-height: 1;
+      }
+
+      .vault-cta-label {
+        flex: 1;
+        color: var(--color-ink-2);
+      }
+
+      .vault-cta-link {
+        font-weight: 500;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--color-accent);
+        border-bottom: 1px solid var(--color-accent-soft);
+        padding-bottom: 1px;
+      }
+
+      .vault-cta-link:hover,
+      .vault-cta-link:focus-visible {
+        border-bottom-color: var(--color-accent);
+      }
+
+      /* ─── Status badge data-states (W309 step 1) ───
+       * ws.ts pushes status into `.status-bar > span[data-state]`.
+       * The inner `.ok` / `.accent` dot already carries colour at
+       * mount; data-state overrides on transitions so the dot tracks
+       * the live backend / voice health. */
+      .status-bar span[data-state="online"] > .ok,
+      .status-bar span[data-state="online"] > .accent {
+        color: var(--color-success);
+      }
+
+      .status-bar span[data-state="degraded"] > .ok,
+      .status-bar span[data-state="degraded"] > .accent {
+        color: var(--color-accent);
+      }
+
+      .status-bar span[data-state="offline"] > .ok,
+      .status-bar span[data-state="offline"] > .accent {
+        color: var(--color-alert);
+      }
+
+      /* ─── Mic state (W309 step 1) ───
+       * Mic button reflects permission state. Default = ready (gold);
+       * "on" = active capture (cyan glow); "denied" = permission
+       * blocked by the browser (red ring). */
+      .mic[data-state="on"] {
+        box-shadow: 0 0 18px var(--color-hud-soft);
+      }
+
+      .mic[data-state="denied"] {
+        background: var(--color-bg-2);
+        color: var(--color-alert);
+        box-shadow: 0 0 0 1px rgba(239, 68, 68, 0.6) inset;
+      }
+
       /* ─── Right policy gate panel ─── */
       .gate {
         position: fixed;
@@ -740,7 +909,8 @@
         }
       }
     </style>
-    <script type="module" crossorigin src="./assets/cockpit-Bqv5P_F3.js"></script>
+    <script type="module" crossorigin src="./assets/cockpit-B36V9zrL.js"></script>
+    <link rel="modulepreload" crossorigin href="./assets/cockpit-Bqv5P_F3.js">
     <link rel="stylesheet" crossorigin href="./assets/cockpit-CG0hsvlY.css">
   </head>
   <body>

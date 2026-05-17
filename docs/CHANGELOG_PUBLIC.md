@@ -4,6 +4,185 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-18 — Cursor · W309 step 1 (functional restore: mic + WS + chat + TTS)
+
+**Summary**
+
+Operator un-gated W309 step 1 after PR #186 landed. Brief is the
+local `cursor/w309-cockpit-functional-restore` branch (commit
+`29e9cd9`, pushed to origin for reference, not implemented from).
+Bounded MVP scope per brief §1: restore the four behaviors the W308
+step 3 migration left static — mic capture, realtime WebSocket bus,
+chat strand send/load, TTS playback — without touching the W307
+visual contract. Five new TypeScript modules under
+`apps/cockpit/src/runtime/`, one entry-script rewrite, +1 static
+contract test, +1 bundle-size budget guard. Bundle grows from
+~27 KB / ~6 KB gzipped (W309-prep baseline) to ~22 KB JS + 6 KB CSS
+~8 KB gzipped — net under both the 80 KB raw / 25 KB gzip caps the
+brief §5 rollback gates require.
+
+**Runtime modules** (`apps/cockpit/src/runtime/*.ts`).
+
+- `api.ts` — typed `fetch()` wrapper rooted at `getApiBase()` (default
+  `http://127.0.0.1:8765`, override via `localStorage.TARS_API_URL`).
+  Surfaces `{ok:false}` JSON envelopes as typed `ApiError`. Adds
+  `apiBinary()` for `/api/voice/speak` (raw audio response), plus the
+  brief §3.5 `vaultStatus()` hook returning `{keys:[{key,source,available}]}`.
+  Module is the dependency root — runtime/ has no imports back into it.
+- `tauri.ts` — `isTauri()` + `invokeTauri()` IPC helpers that detect
+  the `__TAURI__` global at runtime; **no `@tauri-apps/api` SDK import**
+  (would inflate bundle ~12 KB for one helper). No-ops outside the
+  Tauri shell so `vite dev` boots clean.
+- `ws.ts` — single `WsManager` singleton, targets `/api/realtime`
+  (`tars.realtime.v1` envelope per `web_extras/routers/realtime.py`).
+  Reconnect: exponential backoff `1s → 30s` with full jitter (Marc
+  Brooker), reset on any successful `open`. Close codes mapped per
+  brief §3.2: `1000` clean (no retry), `4001` auth-fail (synthetic
+  `auth_fail` event, stop loop), all others schedule retry.
+  Server-driven heartbeat (we just count opens / closes; sidecar
+  pushes `{type:'heartbeat'}` every N s per its `hello` envelope).
+  Status bus: `idle | connecting | open | reconnecting | closed`
+  exposed via `onStatus()` for the backend badge.
+- `voice.ts` — three concerns per brief §3.3, one module. Mic:
+  `ensureMic()` requests `navigator.mediaDevices.getUserMedia({audio:true})`
+  on first user gesture, caches the `MediaStream`, `releaseMic()`
+  stops every track. TTS: `speak(text, {personaId?})` queues
+  utterances through a `Promise.then(...)` chain so back-to-back
+  clicks don't overlap; each utterance POSTs `/api/voice/speak`, wraps
+  the audio response in a `blob:` URL (CSP already opens
+  `media-src 'self' blob:`), plays via `new Audio()`, revokes the URL
+  in `finally`. Persona/health: `setup()` fetches `/api/voice/personas`
+  + `/api/voice/health` in parallel (`Promise.allSettled`) and stores
+  default persona + engine availability.
+- `chat.ts` — thread lifecycle + optimistic strand. `setup({threadId?})`
+  either GETs an existing thread (keeping only the last 20 messages
+  per brief §3.4 "cockpit reload preserves last 20 messages") or
+  POSTs `/api/chat/threads` to create a fresh one. `send(text)`
+  appends a user message with `status: 'sending'`, POSTs to
+  `/api/chat/threads/{id}/messages` (returns **SSE** per
+  `web_extras/routers/chat.py`, **not** WS — corrected from brief
+  §3.4 which assumed legacy SPA contract), stream-parses
+  `text/event-stream` frames via `getReader()` + `TextDecoder`,
+  appends an assistant message on the first content delta, grows
+  text in place, flips status to `delivered` / `failed`.
+  `onChange()` callbacks fire after every mutation.
+
+**Entry rewrite** (`apps/cockpit/src/pages/cockpit-entry.ts`).
+
+Replaces the static "`import './styles/global.css'` and done" shell
+with: `pickRefs()` for the 7 DOM hooks the W308 step 2 markup
+already exposes (`.briefing`, `.strand`, `.input-bar input`,
+`.input-bar .mic`, two status-bar badges); `renderStrand()` that
+switches `.strand[data-state]` between `collapsed` (count pill) and
+`expanded` (header + scrolling ordered list of messages);
+`applyWsStatus()` / `applyVoiceHealth()` that mutate
+`badge.dataset.state` to drive the CSS data-state colour overrides;
+`applyVault()` that appends a minimal "Add ElevenLabs key" CTA into
+`.briefing` when the vault is missing the key. Input: Enter →
+`chat.send()`. Mic: click toggles `ensureMic()` / `releaseMic()` and
+updates `mic.dataset.state`. **No `innerHTML`** anywhere — every
+dynamic node built via `document.createElement` + `textContent` +
+`appendChild` so a malicious server response can't inject markup.
+Lifecycle: `beforeunload` + `pagehide` both run the same teardown
+chain (unsubscribe handlers → tear down chat/voice/ws singletons).
+
+**Runtime CSS additions** (`apps/cockpit/cockpit.html` inline style).
+
+Added strand-expanded layout (flex column, header w/ count, scrolling
+ordered list capped at `max-height: 320px`), message row styling
+(grid 64px / 1fr, role-coloured borders), `data-status` modifiers
+(`sending` → `opacity: 0.65`, `failed` → red border tint), vault
+CTA chip (thin red-tinted row), status badge `data-state` overrides
+(`online` → success green, `degraded` → accent gold, `offline` → red
+alert) that drive the existing `.ok` / `.accent` dot colour, and mic
+`data-state` states (`on` → cyan glow, `denied` → red inset ring).
+
+**Tests** (`tests/test_cockpit_runtime_contract.py`, +8 tests).
+
+Pure static checks — CI runs without daemon / mic / TTS key. Each
+test pins an architectural invariant: (1) all 5 runtime files exist;
+(2) `api.ts` exports the wrapper + vault hook + holds the
+`127.0.0.1:8765` sidecar URL contract and stays the runtime DAG root;
+(3) `tauri.ts` detects `__TAURI__` and never imports
+`@tauri-apps/...`; (4) `ws.ts` targets `/api/realtime`, declares
+`BACKOFF_MIN_MS` / `BACKOFF_MAX_MS = 30_000`, honours
+`TARS_WS_URL` override, distinguishes close codes 1000 + 4001;
+(5) `voice.ts` references mic + TTS + persona + health
+endpoints and only imports `./api`; (6) `chat.ts` calls
+`/api/chat/threads`, accepts `text/event-stream`, has SSE parser
+markers (`getReader`, `TextDecoder`), carries the three message
+statuses; (7) entry imports all 4 modules + wires setup/teardown +
+asserts no `innerHTML`; (8) bundle stays under brief §5 80 KB cap
+(skipped when `dist/` absent). Pairs with the existing 11 W307/W308
+tokens-sync drift tests so the full suite is now 19/19.
+
+**Verification.**
+
+- `pnpm typecheck` in `apps/cockpit/` — clean (initial run flagged a
+  `VaultStatus` shape mismatch in the entry script's `applyVault`
+  signature; fixed by importing + using the actual `VaultStatus`
+  type rather than re-declaring it loosely).
+- `pnpm build` — 18 modules, 90 ms. Bundle: `cockpit-*.js` chunks
+  0.76 + 9.46 + 11.63 = ~21.85 KB raw / ~8 KB gzipped.
+- `desktop/scripts/package-cockpit.sh` — clean, staged into
+  `desktop/src-tauri/web/`, post-rsync orphan-map prune cleared 2.
+- `pytest tests/test_cockpit_tokens_sync.py tests/test_cockpit_runtime_contract.py -v`
+  — **19 passed in 0.05 s** (11 drift + 8 runtime).
+
+**Decisions worth flagging for review.**
+
+- **SSE vs WS for chat deltas.** Brief §3.4 said "wait for WS
+  `chat.message` event → reconcile". That was the legacy SPA contract.
+  Current sidecar (`web_extras/routers/chat.py`) streams the
+  assistant turn back on the POST response itself as
+  `text/event-stream`. WS still carries cross-cutting events
+  (`policy`, `awareness`, `voice.*`) but not chat content deltas.
+  SSE-on-POST is the right transport at MVP; out-of-band chat
+  events (multi-device, typing indicators) are a W310+ concern when
+  those WS event types actually exist on the server.
+- **`tauri.ts` with no SDK import.** Brief §2.2 listed `tauri.ts` as
+  one of the four modules but the MVP doesn't need any specific
+  Tauri command yet. Kept the file as the seam (with `isTauri()` +
+  `invokeTauri()` that no-op in browser) so W310+ can wire
+  screen-share / clipboard / file-drop without touching every
+  consumer, but skipped the `@tauri-apps/api` SDK dependency
+  (~12 KB) until something actually needs it. Drift test rejects the
+  import if a future agent adds it casually.
+- **Vault hook co-located in `api.ts`.** Brief §3.5 named a separate
+  file. Keeping it next to the `api()` wrapper kept the module count
+  at the brief's five, and the function is 15 lines — splitting it
+  out would have been ceremony.
+- **`vite dev` CORS.** Sidecar default `TARS_CORS_ORIGINS` doesn't
+  list `http://localhost:5174`. Production Tauri shell talks to
+  `127.0.0.1:8765` directly under the existing CSP, so this only
+  bites operators developing the cockpit in a browser tab. Documented
+  in `api.ts` doc comment; not adding 5174 to the default sidecar
+  CORS list because that surface should stay narrow in prod.
+
+**Files changed**
+
+- `apps/cockpit/src/runtime/api.ts` (new, 163 LOC)
+- `apps/cockpit/src/runtime/tauri.ts` (new, 66 LOC)
+- `apps/cockpit/src/runtime/ws.ts` (new, 241 LOC)
+- `apps/cockpit/src/runtime/voice.ts` (new, 204 LOC)
+- `apps/cockpit/src/runtime/chat.ts` (new, 277 LOC)
+- `apps/cockpit/src/pages/cockpit-entry.ts` (rewritten, +280 LOC)
+- `apps/cockpit/cockpit.html` (CSS-only additions for runtime states)
+- `desktop/src-tauri/web/` (re-staged from `apps/cockpit/dist/`)
+- `tests/test_cockpit_runtime_contract.py` (new, 245 LOC, +8 tests)
+- `docs/CHANGELOG_AGENTS.md`, `docs/AGENT_HANDOFF.md`,
+  `docs/W308_PRE_FLIGHT_FINDINGS.md` (W309 step 1 closure)
+
+**Out of scope (W310+ candidates)**
+
+- STT upload via `/api/voice/transcribe` (mic stream captured but
+  not yet piped anywhere).
+- Persona picker UI (we fetch personas + default but there's no
+  switcher yet).
+- WS-side chat reconciliation for multi-device sync.
+- Policy gate / awareness WS event rendering (handlers seam exists
+  via `ws().on(type, h)` but no UI binding yet).
+
 ## 2026-05-17 — Cursor · W309 prep follow-ups (Claude PR #186 review fixes)
 
 **Summary**
@@ -2444,33 +2623,6 @@ was queue-starved → the `Build - macOS-x64` job sat in
 - `pnpm typecheck` (v3): clean
 - `pnpm build` (v3): clean
 
-## 2026-05-04 — Cursor: version bump v8.4.0 → v9.1.0 (audit-1 + audit-2 release)
-
-Bumped the marketing + Tauri version pin so the new icon set,
-ad-hoc-codesigned macOS bundle, install.sh installer, CockpitGate,
-and the trace-coverage / pure-helper hardening all land in a
-single GitHub Release.
-
-**Files**
-- `desktop/src-tauri/Cargo.toml` — `version = "9.1.0"`
-- `desktop/src-tauri/tauri.conf.json` — `"version": "9.1.0"`
-- `desktop/package.json` — `"version": "9.1.0"`
-- `experiments/neural-showcase-v3/src/pages/Install.tsx` —
-  `RELEASE_VERSION = "v9.1.0"`
-- `experiments/neural-showcase-v3/functions/api/product/version.ts` —
-  `LATEST_VERSION = "9.1.0"`
-- `web_extras/routers/product.py` — added new
-  `TARS-9.1.0-{arm64,x64}.dmg`, `TARS-9.1.0-setup.exe`,
-  `TARS-9.1.0.AppImage` legacy redirects pointing at the v9.1.0
-  GitHub Release. Old v8.4.0 entries kept registered for
-  backwards-compat with any pre-audit blog post / shared link.
-
-After this lands, push tag `v9.1.0` to trigger
-`.github/workflows/release-desktop-tagged.yml` which will build
-and upload all four installers (mac arm64 dmg, mac x64 dmg,
-windows msi, linux AppImage) with the new icon and the ad-hoc
-macOS codesign already wired in by audit-1.
-
 ---
 
-_Showing the most recent 60 of 267 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 268 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
