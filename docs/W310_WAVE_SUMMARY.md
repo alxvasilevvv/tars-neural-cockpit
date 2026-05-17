@@ -4,7 +4,7 @@
 **Window:** 2026-05-17 → 2026-05-18
 **Lane:** PR hygiene + cross-cutting closeouts on top of `v10.0.0-rc.1`
 **Branch home:** `cursor/post-rc1-master-plan` (PR #188), plus per-extraction branches
-**Status:** ✅ All sub-waves landed; 9 PRs open awaiting operator merge
+**Status:** ✅ All sub-waves landed; 10 PRs open awaiting operator merge
 
 ---
 
@@ -38,16 +38,17 @@ clean repository state heading into the v10.0.0 GA dock-down.
 | **W310-h** | Phase 2 STT streaming + push-to-talk implementer brief (v10.1, ~38 h, 7 PRs) — accelerates the next L4-lane session | PR #193; `docs/handoff/PH2_STT_STREAMING_BRIEF.md` |
 | **W310-i** | Phase 2 voice gallery UI implementer brief (v10.1, ~17 h, 4 PRs) — companion to W310-h, smaller-scope warm-up | PR #194; `docs/handoff/PH2_VOICE_GALLERY_BRIEF.md` |
 | **W310-j** | Phase 3 cross-platform keyring implementer brief (v10.1, ~23 h, 6 PRs) — extends macOS-only secret storage to Windows Credential Manager + Linux Secret Service | PR #195; `docs/handoff/PH3_KEYRING_BRIEF.md` |
+| **W310-k** | Phase 3 cockpit pairing/recovery UX implementer brief (v10.1, ~26 h, 7 PRs) — companion to W310-j; new `<aside class="security">` panel covering 5 L5 flows (recovery seed, add-device QR, devices list, audit timeline, identity rotation) | PR #196; `docs/handoff/PH3_PAIRING_UX_BRIEF.md` |
 
-> **Sub-waves a..f are forensic triage on stacked PRs.** Sub-waves g..j
+> **Sub-waves a..f are forensic triage on stacked PRs.** Sub-waves g..k
 > are forward-leaning **planning surface** that reduces the briefing
 > load on the next implementer session for v10.1 work (Phase 2 voice
-> loop + Phase 3 security closeout). The two halves can be reviewed
-> independently.
+> loop + Phase 3 security closeout, both backend + frontend lanes).
+> The two halves can be reviewed independently.
 
 ---
 
-## Active PRs (9 open, all awaiting operator merge)
+## Active PRs (10 open, all awaiting operator merge)
 
 | # | Title | Wave | Status | Merge unblocks |
 | - | ----- | ---- | ------ | -------------- |
@@ -60,6 +61,7 @@ clean repository state heading into the v10.0.0 GA dock-down.
 | **#193** | W310-h Phase 2 STT streaming + push-to-talk implementer brief | W310-h | green except known CI cache issue | next L4-lane session can start ph2-stt without spec work |
 | **#194** | W310-i Phase 2 voice gallery UI implementer brief | W310-i | green except known CI cache issue | next L4-lane session can start ph2-voice-gallery without spec work |
 | **#195** | W310-j Phase 3 cross-platform keyring implementer brief | W310-j | green except known CI cache issue | next L5-lane session can start ph3-keyring without spec work |
+| **#196** | W310-k Phase 3 cockpit pairing/recovery UX implementer brief | W310-k | green except known CI cache issue | next L5-lane session can start ph3-pairing-ux without spec work; together with #195 covers the entire v10.1 Phase 3 surface |
 
 > **Known CI failure (cosmetic, repo-wide).** `TARS B2B E2E suite`,
 > `TARS eval suite`, `scan working tree` all fail in 2-3 s on every
@@ -122,13 +124,13 @@ Re-open candidacy noted in `docs/PRODUCT_MASTER_PLAN.md §3.A`.
 4. **#190** — install funnel; landing earlier just means the cross-target funnel works sooner for testing.
 5. **#191** — voice fallback hardening; landing earlier just means the L4 voice loop becomes GA-ready sooner.
 
-**Planning-surface PRs (#192-#195):**
+**Planning-surface PRs (#192-#196):**
 
 These are docs-only and have **no downstream code dependency** — merge
 any time, in any order. Optimal time-to-value is to merge them whenever
 operator has a 1-minute review window between the runtime merges.
 
-All 9 are **independent** at the file level (no shared paths), so they
+All 10 are **independent** at the file level (no shared paths), so they
 can also land in parallel. The order above only reflects which merges
 unblock the most downstream work.
 
@@ -155,9 +157,11 @@ passes:
   planning-surface PRs and their per-PR effort estimates
 - **W310-j** — added PR #195 (Phase 3 keyring brief) to the planning-surface
   track, lifting the active PR count to 9
+- **W310-k** — added PR #196 (Phase 3 pairing/recovery UX brief, companion
+  to #195) to the planning-surface track, lifting the active PR count to 10
 
 Pickup pointer for any agent landing in the meeet workspace now lists all
-9 active PRs, all closed stacks, and points at this wave summary as the
+10 active PRs, all closed stacks, and points at this wave summary as the
 single-page operator-readable W310 retrospective.
 
 ---
