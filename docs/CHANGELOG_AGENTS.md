@@ -1,5 +1,61 @@
 # Agent changelog
 
+## W310-e — install funnel v10 sync (close-and-rewrite of PR #175) (2026-05-18)
+
+**Agent**: Cursor (Sonnet 4.6 parent assistant). Continuation of `ph1-stale-prs` orchestration.
+
+**Scope**: Per `ph1-stale-prs` triage of the three stale PRs from week-of-2026-05-10 (≥7 days, conflict-dirty, no review). One PR rebased+rewritten on v10 base; two closed with rationale.
+
+### Per-PR resolution
+
+| PR | Action | Why |
+|---|---|---|
+| #181 (algotrade E2E demo, +821 LoC) | **CLOSED** | Algotrade out of scope for v10 GA per §3.A; W2-W4 stack (#170, #174) closed for same reason on 2026-05-17; landing W1/W6 demo alone creates inconsistent half-shipped algotrade surface. Branch preserved for post-v10 re-launch wave. |
+| #182 (cockpit MCP panel, +991 LoC) | **CLOSED** | Frontend targets `experiments/neural-showcase-v3/` (previous-gen cockpit, not canonical `apps/cockpit/`). Backend depends on M-wave stack already closed and being rewritten. Backend design pattern (graceful degrade + triad + lifespan teardown) explicitly captured in `MCP_REWRITE_BRIEF.md` as a target deliverable for the consolidated rewrite. |
+| #175 (install funnel cross-target, +64 LoC) | **CLOSED + replaced by `cursor/install-funnel-v10-sync`** | 80% obsolete (main already on v10 / OpenTelemetry pins / dynamic SUPPORTED_VERSIONS), 20% real bug fix on wrong base. Replacement PR fixes both the original intent + 3 new v10-exposed bugs discovered during forensic. |
+
+### Replacement PR `cursor/install-funnel-v10-sync` (new)
+
+**Diff scope**: 3 files, ~70 LoC — `backend/core/product/manifest.py`, `experiments/neural-showcase-v3/functions/dl/[file].ts`, `experiments/neural-showcase-v3/functions/dl/[file].test.ts`.
+
+**Bugs fixed**:
+
+1. **Cross-target manifest** (original intent of #175): added Win `.exe`, Linux `.AppImage`, Linux `.deb` `ReleaseArtifact` rows to `_DEFAULT_ARTIFACTS` on `_DEFAULT_VERSION = "10.0.0-rc.1"`. Updated `_DEFAULT_NOTES` from "Mac-only" to cross-target.
+
+2. **`SUPPORTED_VERSIONS` missing v10** (v10-exposed bug): added `"10.0.0-rc.1"` to the array. Without this, the `flatMap(platformArtifactsForVersion)` template never generated v10 entries → proxy returned `not_in_allowlist` 404 for every v10 installer URL.
+
+3. **`LATEST_TAG` stale** (v10-exposed bug): updated from `"v9.1.0"` to `"v10.0.0-rc.1"`. Without this, Tauri updater (which uses `latest.json` → `LATEST_TAG`) routed to v9.1.0 release tag → couldn't find v10 binaries.
+
+4. **`tagForFilename` regex broken for pre-release semver** (v10-exposed bug, most critical): old regex `^TARS_(\d+\.\d+\.\d+)_` required `_` to follow `X.Y.Z` but pre-release filename `TARS_10.0.0-rc.1_aarch64.dmg` has `-rc.1` between → regex returned null → proxy returned `unknown_tag` 404 even for files in allowlist. New regex `^TARS_(\d+\.\d+\.\d+(?:-[a-zA-Z0-9.]+)?)_` captures SemVer 2.0 alphanumeric pre-release suffixes (`-rc.1`, `-beta.2`, `-alpha.7`).
+
+**Tests added**: regression guard test in `dl/[file].test.ts` asserting `tagForFilename("TARS_10.0.0-rc.1_*.dmg")` returns `"v10.0.0-rc.1"`, plus broader coverage for `-beta.N` and `-alpha.N` forms.
+
+**Test results (all local, all green)**:
+- 10 `tests/test_product_downloads.py` ✅ (validates `_DEFAULT_ARTIFACTS` includes all 5 platform entries)
+- 5 `tests/test_pyoxidizer_requirements_parity.py` ✅ (OpenTelemetry pins parity intact)
+- 15 `experiments/neural-showcase-v3/functions/dl/[file].test.ts` ✅ including the new pre-release regression guard + W291 sentinel test (which auto-cross-validates `SUPPORTED_VERSIONS[0]` ↔ `LATEST_TAG`)
+
+### Files touched (W310-e)
+
+| File | Change |
+|---|---|
+| `backend/core/product/manifest.py` | Replaced "Mac-only until cross-target lands" docstring + notes with cross-target reality; added Win `.exe` + Linux `.AppImage` + Linux `.deb` `ReleaseArtifact` rows to `_DEFAULT_ARTIFACTS`. |
+| `experiments/neural-showcase-v3/functions/dl/[file].ts` | `SUPPORTED_VERSIONS` += `"10.0.0-rc.1"` (newest-first ordering documented); `LATEST_TAG` → `"v10.0.0-rc.1"`; `tagForFilename` regex extracted to named constant `VERSION_IN_FILENAME` and extended to capture SemVer 2.0 pre-release suffix. |
+| `experiments/neural-showcase-v3/functions/dl/[file].test.ts` | Added `ALLOWED_FILENAMES` test asserting v10 6-platform coverage; added pre-release regression guard test for `tagForFilename` with `-rc.1` / `-beta.2` / `-alpha.7` forms. |
+| `docs/CHANGELOG_AGENTS.md` | This entry. |
+
+### What is NOT done (deliberate)
+
+- **No CI infrastructure changes**: the workflow-cache issue (W310-c diagnosis) still requires the qa-agent.yml header-touch trick from PR #188 to land first. CI failures on this PR will be the **same pre-existing repo-wide** failures, not new ones.
+- **No ROSETTA_ALIASES v10 entry**: leaving `ROSETTA_ALIASES = { "TARS_9.1.0_x64.dmg": "TARS_9.1.0_aarch64.dmg" }` untouched. Adding a v10 alias is a P3 polish (intel macOS fallback for cancelled CI runs); not in scope for this PR.
+- **No `install.sh` bump**: `public/install.sh` reads version from `/api/product/version` at runtime, which is sourced from `_DEFAULT_VERSION` in `manifest.py` (now `"10.0.0-rc.1"`). Once this PR lands, the funnel routes v10 binaries end-to-end without further changes.
+
+### Why a fresh PR vs rebase #175
+
+PR #175 was 1 commit ahead of main + **191 commits behind**. Three files conflicted, all SEMANTICALLY (not union-style). Main had already independently implemented the OpenTelemetry pins (pyoxidizer.bzl) and the `SUPPORTED_VERSIONS` dynamic-generation refactor (dl/[file].ts); the PR's hardcoded-list approach was obsolete. Rebasing would have required resolving each conflict by partially discarding the PR's work and adapting to current main shape — strictly worse than writing a fresh diff on current main with full v10 context. Same close-and-rewrite pattern used for M-wave (#176-180) and algotrade (#170, #174).
+
+---
+
 Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
