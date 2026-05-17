@@ -74,8 +74,28 @@ export class WsManager {
   private subscribedTopics = new Set<string>();
 
   setup(initialTopics: string[] = []): void {
-    this.wantOpen = true;
     for (const t of initialTopics) this.subscribedTopics.add(t);
+    // Idempotency: a second setup() (HMR, accidental re-boot, future
+    // navigation re-entry) must not orphan the prior socket. If a
+    // socket is alive or a retry is already scheduled, just merge the
+    // new topic set into the running session and return.
+    if (
+      this.wantOpen &&
+      (this.ws !== null || this.retryTimer !== null)
+    ) {
+      // Forward any newly-added topics to the live socket.
+      if (this.ws && this.ws.readyState === WebSocket.OPEN && initialTopics.length) {
+        try {
+          this.ws.send(
+            JSON.stringify({ op: "subscribe", topics: initialTopics }),
+          );
+        } catch {
+          /* ignored */
+        }
+      }
+      return;
+    }
+    this.wantOpen = true;
     this.connect();
   }
 
@@ -147,6 +167,16 @@ export class WsManager {
     this.ws = ws;
 
     ws.addEventListener("open", () => {
+      // Teardown may have landed while we were in CONNECTING — abort
+      // cleanly so the status badge doesn't flicker green-then-closed.
+      if (!this.wantOpen) {
+        try {
+          ws.close(1000, "teardown_during_connect");
+        } catch {
+          /* ignored */
+        }
+        return;
+      }
       this.attempt = 0;
       this.setStatus("open");
       if (this.subscribedTopics.size) {

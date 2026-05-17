@@ -3,9 +3,32 @@
 Pick this up if you are continuing the work in a fresh chat. Read this file
 plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 
-> **>>> SYNC: Cursor · 2026-05-18 · W309 step 1 (functional restore: 5 runtime modules under `apps/cockpit/src/runtime/`, mic + WS + chat + TTS MVP, +8 static contract tests; bundle ~22 KB raw / ~8 KB gzip — under brief §5 caps; 19/19 tests green) · 2026-05-17 · W309 prep follow-ups (Claude PR #186 review fixes — restore `--type-label` inline comment, document `.stream-row` data-vs-HUD blind-spot, implement orphan source-map prune in package-cockpit.sh) · W309 prep (rename `--font-size-phase-bar` → `--font-size-hud-mono`, migrate 6 hardcoded `10px` mono call-sites — closes W309 design-tightening backlog from PR #185 review) · W308 step 4 (Claude code-review fixes for PR #185 — CSP fonts.bunny.net, phase-bar 11px token, 3 real drift tests, step-2 brief superseded marker) · W308 step 3 (wire apps/cockpit/dist/ into Tauri pipeline; legacy SPA archived to desktop/src-tauri/web-legacy/) · W308 step 2 (port cockpit + hero from W307 refs → multi-page Vite project at apps/cockpit/) · W308 step 1 (apply W307 verdict in tokens.css + MASTER.md) · W308 step 0 (Path C scaffold) · W307 design verdict (Claude) · W306 order-dependent fixes (38 → 0) · W305 py3.12 stabilization · W304 py3.12 + OPENAI env + L9 doc sync <<<**
+> **>>> SYNC: Cursor · 2026-05-18 · W309 step 1 follow-up (Claude PR #187 review fix-ups — `ws.setup()` idempotency, `ensureMic()` race + stale-stream detection, SSE CRLF support + trailing flush, `voice.speak()` content-type guard, `ApiError` defensive stringify, vault CTA `noreferrer`, one-shot `teardownAll`; tests grew 8 → 20 with 1:1 mapping to each Claude finding; 31/31 green; bundle 22.9 KB raw / 8.4 KB gz — under cap) · W309 step 1 (functional restore: 5 runtime modules under `apps/cockpit/src/runtime/`, mic + WS + chat + TTS MVP, +8 static contract tests; bundle ~22 KB raw / ~8 KB gzip — under brief §5 caps; 19/19 tests green) · 2026-05-17 · W309 prep follow-ups (Claude PR #186 review fixes — restore `--type-label` inline comment, document `.stream-row` data-vs-HUD blind-spot, implement orphan source-map prune in package-cockpit.sh) · W309 prep (rename `--font-size-phase-bar` → `--font-size-hud-mono`, migrate 6 hardcoded `10px` mono call-sites — closes W309 design-tightening backlog from PR #185 review) · W308 step 4 (Claude code-review fixes for PR #185 — CSP fonts.bunny.net, phase-bar 11px token, 3 real drift tests, step-2 brief superseded marker) · W308 step 3 (wire apps/cockpit/dist/ into Tauri pipeline; legacy SPA archived to desktop/src-tauri/web-legacy/) · W308 step 2 (port cockpit + hero from W307 refs → multi-page Vite project at apps/cockpit/) · W308 step 1 (apply W307 verdict in tokens.css + MASTER.md) · W308 step 0 (Path C scaffold) · W307 design verdict (Claude) · W306 order-dependent fixes (38 → 0) · W305 py3.12 stabilization · W304 py3.12 + OPENAI env + L9 doc sync <<<**
 >
-> **W309 step 1 (current top of branch `cursor/w309-step1-runtime`)** —
+> **W309 step 1 follow-up (top of branch `cursor/w309-step1-runtime`)** —
+> independent Claude review of PR #187 came back
+> `READY_TO_MERGE_WITH_FOLLOWUPS`. Three high-sev findings landed as a
+> fix-up commit on the same branch rather than deferred: (1) `ws.setup()`
+> not idempotent (second call leaked the prior WebSocket); (2)
+> `ensureMic()` race (concurrent `getUserMedia` calls leaked
+> `MediaStream` tracks); (3) cached stream went stale after permission
+> revoke. Plus six medium/low fixes: WS OPEN handler now checks
+> `wantOpen` before flipping the badge green (no teardown-during-connect
+> flicker), SSE parser accepts CRLF + flushes trailing buffer, `voice.speak()`
+> rejects non-`audio/*` content-types, `ApiError` defensive stringify,
+> vault CTA `rel="noopener noreferrer"`, one-shot `teardownAll` latch.
+> Tests tightened from 8 → 20 with 1:1 mapping to each finding
+> (`test_ws_setup_is_idempotent`, `test_voice_ensure_mic_serialises_concurrent_calls`,
+> `test_chat_sse_parser_accepts_crlf`, etc.) plus `test_ws_manager_public_api_surface`
+> (rename guard) and `test_bundle_size_gzipped_within_w309_cap` (25 KB
+> gz cap, 1.5× actual — tighter regression guard than the loose 80 KB
+> raw cap). Bundle: 22.9 KB raw / 8.4 KB gz (vs 22.0 / 8.2 before) — 71%
+> raw / 67% gz headroom. Process note: posted review as PR #187 comment
+> before any code changed so git history shows
+> implementation → review → fix-up as three distinct commits. Pattern
+> worth keeping for W310+.
+>
+> **W309 step 1 (parent commit on branch `cursor/w309-step1-runtime`)** —
 > operator un-gated step 1 of brief `29e9cd9`
 > (`docs/handoff/W309_FUNCTIONAL_RESTORE_BRIEF.md` on the local
 > `cursor/w309-cockpit-functional-restore` branch, pushed to origin

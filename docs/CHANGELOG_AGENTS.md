@@ -4,6 +4,105 @@ Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
+## 2026-05-18 — Cursor · W309 step 1 follow-up (Claude review fix-ups)
+
+**Summary**
+
+Independent Claude review of PR #187 returned `READY_TO_MERGE_WITH_FOLLOWUPS`
+(see PR #187 comment). Three high-sev findings (`ws.setup()` non-idempotent,
+`ensureMic()` race, stale `MediaStream` after permission revoke) plus six
+medium/low findings landed as a single fix-up commit on the same branch
+rather than deferred — all bounded, all on the runtime modules already in
+review. Tests tightened to catch each regression class explicitly per
+Claude's test-quality critique ("greps for `30_000` catch removals, not
+regressions").
+
+**Behavioural changes**
+
+1. `ws.setup()` idempotency — second call with an active socket or pending
+   retry now short-circuits and just merges newly-passed topics into the
+   live subscription set. Prevents WebSocket leakage on HMR / accidental
+   re-boot / future re-entry.
+2. `ws` OPEN handler now checks `wantOpen` first — if teardown landed
+   during CONNECTING, the resolving socket is closed with code 1000
+   (`teardown_during_connect`) instead of flipping the badge green-then-closed.
+3. `voice.ensureMic()` caches the in-flight promise (`state.micPromise`) so
+   concurrent callers share one `getUserMedia()` request; second
+   double-click no longer opens a duplicate stream whose tracks leak.
+4. `voice.ensureMic()` detects a stale `MediaStream` (`stream.active`
+   false or no live audio tracks) and re-requests — the cockpit no longer
+   hands a dead stream back to the caller when the operator revokes mic
+   permission via OS settings mid-session.
+5. `voice.speak()` rejects non-`audio/*` content-types before piping into
+   `<audio>` — defends against a future 200 + JSON envelope from
+   `/api/voice/speak` producing an opaque "audio_play_failed" error.
+6. `voice.playOne()` drops queued utterances after `teardown()` — prevents
+   the TTS chain resurrecting `Audio` elements on a closed window.
+7. `chat.ts` SSE parser now accepts all three spec-permitted frame
+   boundaries (`\n\n`, `\r\n\r\n`, `\r\r`) so a reverse proxy that
+   normalises line endings doesn't hang the stream. Per-line parser
+   also splits on `\r\n|\r|\n` for the same reason. Plus a trailing-buffer
+   flush after the read loop so a stream that closes without a final
+   blank line (sidecar crash, abrupt EOF) doesn't silently drop the last
+   delta.
+8. `api.ApiError` constructor wraps `JSON.stringify(detail)` in try/catch —
+   a circular-ref `detail` (e.g. a wrapped fetch error) no longer throws
+   inside the throw and masks the real failure.
+9. `cockpit-entry.ts` vault CTA link now uses `rel="noopener noreferrer"`
+   (defense-in-depth on external links with `target="_blank"`).
+10. `cockpit-entry.ts` `teardownAll()` latches on first call — both
+    `beforeunload` and `pagehide` fire on Tauri window close; the
+    one-shot guard stops the chain double-aborting in-flight SSE.
+
+**Tests tightened**
+
+- `tests/test_cockpit_runtime_contract.py` grew from 8 → 20 tests
+  (+12). Each new test maps 1:1 to a Claude finding (`test_ws_setup_is_idempotent`,
+  `test_voice_ensure_mic_serialises_concurrent_calls`, `test_voice_detects_stale_mediastream`,
+  `test_chat_sse_parser_accepts_crlf`, etc.) plus `test_ws_manager_public_api_surface`
+  (rename guard for the four methods `cockpit-entry.ts` binds against)
+  and `test_bundle_size_gzipped_within_w309_cap` (25 KB gz cap, 1.5×
+  current usage — far more sensitive than the loose 80 KB raw cap which
+  was 3.6× the real bundle).
+- Total: 11 drift + 20 runtime = 31 tests, all green.
+
+**Bundle size**
+
+- Raw: 22,877 B (vs 21,961 B before fix-up — +916 B for 10 fixes + 35
+  lines of comments). Cap: 80 KB. Headroom: 71%.
+- Gzipped: 8,370 B. Cap: 25 KB. Headroom: 67%.
+
+**Files**
+
+- `apps/cockpit/src/runtime/ws.ts` — idempotent `setup()` + `wantOpen`-guarded
+  OPEN handler.
+- `apps/cockpit/src/runtime/voice.ts` — `micPromise` cache, `isStreamUsable()`
+  helper, alive-state guard, `audio/*` content-type check.
+- `apps/cockpit/src/runtime/chat.ts` — multi-boundary SSE parser, trailing
+  buffer flush, CRLF-aware per-line split.
+- `apps/cockpit/src/runtime/api.ts` — defensive `ApiError` stringify.
+- `apps/cockpit/src/pages/cockpit-entry.ts` — `noreferrer` on vault CTA,
+  one-shot `teardownAll` latch.
+- `tests/test_cockpit_runtime_contract.py` — +12 behavioural pin-ups, +1
+  gzip budget test.
+- `desktop/src-tauri/web/assets/cockpit-*.js` — restaged bundle.
+
+**Verification**
+
+- `pnpm --filter @tars/cockpit exec tsc --noEmit` → clean.
+- `bash desktop/scripts/package-cockpit.sh` → built + staged + pruned
+  orphan maps. New hash `cockpit-CGVJOS_p.js`.
+- `python3 -m pytest tests/test_cockpit_runtime_contract.py tests/test_cockpit_tokens_sync.py -v`
+  → 31 passed in 0.07s.
+
+**Process**
+
+Claude review posted as PR #187 comment for audit trail before any code
+changed. Fix-up landed as a separate commit on the same branch so the
+review trail stays legible in git history (PR diff now shows: original
+implementation → reviewer comment → fix-up). Pattern worth keeping for
+W310+ — review-before-merge with same-branch fix-ups beats merge-then-followup.
+
 ## 2026-05-18 — Cursor · W309 step 1 (functional restore: mic + WS + chat + TTS)
 
 **Summary**

@@ -186,24 +186,50 @@ export async function send(text: string): Promise<void> {
     const decoder = new TextDecoder();
     let buf = "";
 
-    // Streaming SSE parser: frames separated by blank line.
+    const onFrameUpdate = () => {
+      if (!assistantStarted) {
+        assistantStarted = true;
+        state.messages.push(assistantMsg);
+      }
+      emit();
+    };
+
+    // Streaming SSE parser: frames separated by a blank line. The
+    // SSE spec accepts `\n\n`, `\r\n\r\n`, or `\r\r` as the boundary;
+    // FastAPI emits `\n\n` today but a future reverse proxy could
+    // normalise to CRLF and silently freeze the parser. Pick the
+    // earliest of the three to stay forward-compatible.
+    const consumeBufferedFrames = () => {
+      while (true) {
+        const candidates: Array<[number, number]> = [];
+        const n1 = buf.indexOf("\n\n");
+        if (n1 !== -1) candidates.push([n1, 2]);
+        const n2 = buf.indexOf("\r\n\r\n");
+        if (n2 !== -1) candidates.push([n2, 4]);
+        const n3 = buf.indexOf("\r\r");
+        if (n3 !== -1) candidates.push([n3, 2]);
+        if (!candidates.length) return;
+        candidates.sort((a, b) => a[0] - b[0]);
+        const [sep, sepLen] = candidates[0];
+        const frame = buf.slice(0, sep);
+        buf = buf.slice(sep + sepLen);
+        handleFrame(frame, assistantMsg, onFrameUpdate);
+      }
+    };
+
     while (true) {
       const { value, done } = await reader.read();
       if (done) break;
       buf += decoder.decode(value, { stream: true });
-      while (true) {
-        const sep = buf.indexOf("\n\n");
-        if (sep === -1) break;
-        const frame = buf.slice(0, sep);
-        buf = buf.slice(sep + 2);
-        handleFrame(frame, assistantMsg, () => {
-          if (!assistantStarted) {
-            assistantStarted = true;
-            state.messages.push(assistantMsg);
-          }
-          emit();
-        });
-      }
+      consumeBufferedFrames();
+    }
+    // Flush trailing decoder bytes + handle a stream that closed
+    // without a final blank line (sidecar crash, abrupt EOF).
+    buf += decoder.decode();
+    consumeBufferedFrames();
+    if (buf.trim().length) {
+      handleFrame(buf, assistantMsg, onFrameUpdate);
+      buf = "";
     }
   } catch (err) {
     errored = true;
@@ -227,7 +253,10 @@ function handleFrame(
 ): void {
   let eventName = "message";
   const dataLines: string[] = [];
-  for (const line of frame.split("\n")) {
+  // Split on either CRLF or LF so we accept the SSE line-ending
+  // variants the spec permits.
+  for (const rawLine of frame.split(/\r\n|\r|\n/)) {
+    const line = rawLine;
     if (line.startsWith("event:")) {
       eventName = line.slice(6).trim();
     } else if (line.startsWith("data:")) {

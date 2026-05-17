@@ -52,21 +52,38 @@ export interface VoiceHealth {
 
 interface VoiceState {
   mic: MediaStream | null;
+  micPromise: Promise<MediaStream> | null;
   currentPersona: Persona | null;
   personas: Persona[];
   health: VoiceHealth | null;
   ttsQueue: Promise<void>;
+  alive: boolean;
 }
 
 const state: VoiceState = {
   mic: null,
+  micPromise: null,
   currentPersona: null,
   personas: [],
   health: null,
   ttsQueue: Promise.resolve(),
+  alive: true,
 };
 
+/**
+ * Stream is considered usable when it's present, `active === true`,
+ * and at least one audio track is in `readyState === "live"`. The
+ * `active` flag flips to `false` when the operator revokes permission
+ * via OS settings mid-session; without this check `ensureMic()` would
+ * hand back a dead stream and the UI would lie about mic status.
+ */
+function isStreamUsable(stream: MediaStream | null): stream is MediaStream {
+  if (!stream || !stream.active) return false;
+  return stream.getAudioTracks().some((t) => t.readyState === "live");
+}
+
 export async function setup(): Promise<void> {
+  state.alive = true;
   // Prime persona list + health snapshot in parallel; skeleton UI
   // can render while these finish so the badge doesn't block boot.
   const [personasRes, healthRes] = await Promise.allSettled([
@@ -97,6 +114,7 @@ export async function setup(): Promise<void> {
 }
 
 export function teardown(): void {
+  state.alive = false;
   releaseMic();
   state.personas = [];
   state.currentPersona = null;
@@ -124,20 +142,49 @@ export function setPersona(id: string): boolean {
 }
 
 /**
- * Request mic permission on first user gesture; idempotent. Resolves
- * with the cached `MediaStream` on subsequent calls. Throws if the
- * browser denies permission or `getUserMedia` is unavailable.
+ * Request mic permission on first user gesture; idempotent and
+ * concurrency-safe. Resolves with the cached `MediaStream` on
+ * subsequent calls. Drops the cache if the operator revoked
+ * permission via OS settings (stream becomes inactive). Concurrent
+ * callers share the same in-flight promise so the second click of a
+ * double-click doesn't open a duplicate `getUserMedia` request whose
+ * tracks then leak.
  */
 export async function ensureMic(): Promise<MediaStream> {
-  if (state.mic) return state.mic;
+  if (isStreamUsable(state.mic)) return state.mic;
+  // Cached stream went stale (permission revoked, device unplugged).
+  // Stop dead tracks so the OS frees the device and re-request below.
+  if (state.mic && !isStreamUsable(state.mic)) {
+    releaseMic();
+  }
+  if (state.micPromise) return state.micPromise;
   if (!navigator.mediaDevices?.getUserMedia) {
     throw new Error("getUserMedia_unavailable");
   }
-  const stream = await navigator.mediaDevices.getUserMedia({
-    audio: true,
-  });
-  state.mic = stream;
-  return stream;
+  state.micPromise = (async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: true,
+      });
+      // If teardown landed mid-flight, drop the stream rather than
+      // caching it — caller will see a thrown error.
+      if (!state.alive) {
+        for (const t of stream.getTracks()) {
+          try {
+            t.stop();
+          } catch {
+            /* ignored */
+          }
+        }
+        throw new Error("voice_torn_down");
+      }
+      state.mic = stream;
+      return stream;
+    } finally {
+      state.micPromise = null;
+    }
+  })();
+  return state.micPromise;
 }
 
 export function releaseMic(): void {
@@ -153,7 +200,7 @@ export function releaseMic(): void {
 }
 
 export function hasMic(): boolean {
-  return state.mic !== null;
+  return isStreamUsable(state.mic);
 }
 
 /**
@@ -175,6 +222,9 @@ export function speak(
 }
 
 async function playOne(text: string, personaId?: string): Promise<void> {
+  // Drop late-queued utterances after teardown — keeps the chain from
+  // resurrecting Audio elements on a window the user already closed.
+  if (!state.alive) return;
   const body: Record<string, unknown> = { text };
   if (personaId) body.persona_id = personaId;
 
@@ -187,6 +237,14 @@ async function playOne(text: string, personaId?: string): Promise<void> {
       console.warn("[voice] tts cap-hit", err.detail);
     }
     throw err;
+  }
+
+  // Defensive: /api/voice/speak normally returns audio bytes, but a
+  // future error path could return a 200 + JSON envelope. Don't feed
+  // JSON to <audio> — surface as a typed failure instead.
+  const ct = res.headers.get("content-type") ?? "";
+  if (!ct.startsWith("audio/")) {
+    throw new Error(`tts_unexpected_content_type:${ct || "missing"}`);
   }
 
   const blob = await res.blob();

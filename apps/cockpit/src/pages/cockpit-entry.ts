@@ -216,7 +216,7 @@ function applyVault(status: VaultStatus): void {
   link.className = "vault-cta-link";
   link.href = "https://elevenlabs.io/";
   link.target = "_blank";
-  link.rel = "noopener";
+  link.rel = "noopener noreferrer";
   link.textContent = "Add key";
   cta.appendChild(icon);
   cta.appendChild(label);
@@ -309,7 +309,15 @@ async function boot(): Promise<void> {
     console.warn("[cockpit] vault.status failed", vaultRes.reason);
   }
 
+  // One-shot teardown — both `beforeunload` and `pagehide` fire on
+  // Tauri window close, and each individual module's teardown is
+  // idempotent, but running the whole chain twice still churns
+  // event-handler bookkeeping and double-aborts in-flight SSE for no
+  // reason. Latch on first invocation.
+  let teardownRan = false;
   teardownAll = () => {
+    if (teardownRan) return;
+    teardownRan = true;
     unsubChat();
     unsubWs();
     chat.teardown();

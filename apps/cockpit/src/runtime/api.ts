@@ -32,7 +32,18 @@ export class ApiError extends Error {
     public readonly detail: unknown,
     public readonly endpoint: string,
   ) {
-    super(`[api] ${endpoint} → ${status}: ${JSON.stringify(detail)}`);
+    // Defensive: a circular-ref `detail` (e.g. a wrapped Response or
+    // a fetch error captured into `{network: err}` with an Error
+    // chain) would otherwise throw inside the throw and mask the
+    // real failure. Fall back to String() so the cockpit always gets
+    // a readable error message.
+    let detailStr: string;
+    try {
+      detailStr = JSON.stringify(detail);
+    } catch {
+      detailStr = String(detail);
+    }
+    super(`[api] ${endpoint} → ${status}: ${detailStr}`);
   }
 }
 
