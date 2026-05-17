@@ -195,7 +195,6 @@
   --motion-budget-max: 4;
 }
 
-
 /* Light scheme is intentionally NOT supported (MASTER anti-pattern:
  * "No `#FFFFFF` background anywhere"). Documented here so the next
  * agent doesn't add it "for accessibility" — contrast against OLED
