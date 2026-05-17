@@ -1,5 +1,44 @@
 # Agent changelog
 
+## W310-c — independent-PR cleanup pass (2026-05-18)
+
+**Agent**: Cursor (Sonnet 4.6 parent assistant). Continuation of W310 / W310-b on operator directive "продолжай".
+
+**Scope**: triage the three PRs that PRODUCT_MASTER_PLAN.md §2.2 flagged as independent of the (closed) MCP / Algotrade stacks: PR #183 (voice persona fallback), PR #175 (install funnel cross-target), and PR #182 (cockpit MCP panel — explicitly deferred until consolidated MCP rewrite lands).
+
+### What happened
+
+1. **PR #183 rebase attempt → aborted with diagnosis.** Pruned 5 stale worktrees on `/private/tmp/jarvis-*` so checkout could proceed, then `git rebase origin/main` on `cursor/voice-persona-fallback`. Conflicts in `docs/CHANGELOG_AGENTS.md` + `docs/CHANGELOG_PUBLIC.md` (trivial — pre-commit regenerates), but `web_extras/routers/voice.py` carried a **semantic** conflict: W295 (shipped to main 2026-05-xx) and Phase L4.2 (this PR) both define `GET /api/voice/personas/effective` with **different response shapes** and **different resolution backends** (W295 uses `resolve_effective()` shared with `/speak`; L4.2 uses `MacSayEngine._pick_fallback_voice()` directly). Naïve "accept ours" breaks the L4.2 substitution diagnostic (the whole UX point of the PR). Naïve "accept theirs" breaks the W290 acceptance harness (`scripts/qa_w290_cockpit.sh` Group 9). Correct merge requires a 30-60min semantic refactor to make `resolve_effective()` alternatives-aware. Filed [PR #183 comment](https://github.com/alxvasilevvv/tars-neural-cockpit/pull/183#issuecomment-4472299281) with the full diff diagnosis + 3 paths (A=full refactor → DRY win, B=additive merge → minimal diff, C=close+defer → ship as part of `PRODUCT_MASTER_PLAN.md §3.1` L4 closeout). `git rebase --abort`; no force-push; PR stays in its current state pending operator pick.
+
+2. **PR #175 `probe` CI failure → root cause found.** Ran the qa_agent locally with `QA_AGENT_SOFT_FAIL=1` → exit 0, 28 probe FAILs as expected (all "wrong build" complaints from probes still asking for the SPA `<div id="root"></div>` shell that `e5f1911` deliberately removed). But CI shows `probe: FAILURE` blocking the PR — why? `gh api .../actions/runs/<id>` revealed: every recent qa-agent run has `created_at == run_started_at == updated_at` → 0-second runtime → workflow file failed to load. Cross-checked with credential-sentinel (3-second runtimes, runs fine). `gh api .../actions/workflows/269172814` shows `name=".github/workflows/qa-agent.yml"` (the path, not the YAML `name:` field!) and `updated_at=2026-05-11T09:30:56` — but the file's last commit is `e5f1911` from **2026-05-13**. **GitHub Actions cached the old workflow registration** and never re-parsed after the May 13 commit (which narrowed the `paths:` filter from 5 SPA-specific entries to 1 `docs/qa-snapshot.json`). Result: every push triggers qa-agent ignoring the new path filter, the runtime then can't reconcile the cached vs file shape, and the run dies in 0 sec. **Fix**: touched the qa-agent.yml file header with a W310-c comment block — any non-whitespace change forces re-registration on next merge to main. After PR #188 lands, the next merge will register the current file (post-`e5f1911`), the path filter will start working, and PR runs will either pass via soft-fail or skip via path filter.
+
+3. **No new PRs opened.** All fixes ride along PR #188 (W310 master plan branch). Operator merges PR #187 (W309 step 1) + PR #188 (master plan + W310-b/W310-c diagnoses + qa-agent header touch) and the CI clears itself on the next merge.
+
+### Files touched (W310-c)
+
+| File | Change |
+|---|---|
+| `.github/workflows/qa-agent.yml` | Added W310-c diagnostic comment block to header to force GH Actions workflow re-registration. |
+| `docs/PRODUCT_MASTER_PLAN.md` | Updated §2.2 rows for #183 (semantic conflict — see PR comment for paths) + #175 (probe root cause = workflow registration cache, not a real probe bug). Added §7 W310-c change log row. |
+| `docs/CHANGELOG_AGENTS.md` | This entry. |
+
+### What is NOT done (deliberate)
+
+- **PR #183 semantic refactor** (the 30-60min `resolve_effective()` work) → operator picks path A/B/C; deferring avoids breaking either main's W290 harness or this PR's L4.2 diagnostic.
+- **PR #175 rebase** → blocked on PR #188 merge (need the qa-agent.yml header fix to land first so `probe` CI doesn't immediately re-block on rebase push).
+- **PR #182 (cockpit MCP panel)** → explicitly deferred per §2.2 until the consolidated MCP rewrite lands (otherwise it would build against the now-closed M-wave skeletal pool).
+- **PR #181 (algotrade E2E)** → orphaned by the algotrade closeout; folded into the §3.A deferred rewrite per W310-b.
+
+### Operator inputs needed
+
+- Merge PR #187 (W309 step 1) → unblocks W309 step 2 implementation.
+- Merge PR #188 (this branch) → fixes qa-agent CI on next push + locks in the master plan + W310 diagnoses.
+- Pick a path on PR #183 (A=refactor / B=additive merge / C=close+defer). My recommendation: **B** (additive merge, ~30min) — keeps W295's DRY contract while shipping the L4.2 substitution diagnostic the operator's UX bug needs.
+
+---
+
+
+
 Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
@@ -2739,10 +2778,6 @@ Full sign-off doc at `docs/WAVE_53_LAUNCH_SIGNOFF.md`. Verdict: ship it.
 
 **Files:** add `docs/GO_LIVE_48H.md`; modify `docs/AGENT_HANDOFF.md`, `docs/CHANGELOG_AGENTS.md`.
 
-## 2026-05-04 — Cursor: audit-6 — Landing dividers, ScrollStory, CouncilDemo, MeeetWorldStrip, CockpitPreview (`useT`)
-
-Wired remaining marketing blocks on `/` to i18n; added `councilDemo.{eyebrow,subtitle}` so `/council` keeps `council.eyebrow` / `council.subtitle`. **Files**: `i18n.tsx` (incl. `councilDemo.{eyebrow,subtitle}` clash fix), `Landing.tsx`, `ScrollStory.tsx`, `MeeetWorldStrip.tsx`, `CouncilDemo.tsx`, `CockpitPreview.tsx`; `docs/CHANGELOG_AGENTS.md`, `docs/AGENT_HANDOFF.md`.
-
 ---
 
-_Showing the most recent 60 of 272 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 273 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
