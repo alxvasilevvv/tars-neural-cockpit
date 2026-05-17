@@ -3,7 +3,224 @@
 Pick this up if you are continuing the work in a fresh chat. Read this file
 plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 
-> **>>> SYNC: Cursor · 2026-05-17 · W307 design-system refresh handoff for Claude · W306 last two order-dependent fixes (38 → 0) · W305 py3.12 stabilization · W304 py3.12 + OPENAI env + L9 doc sync <<<**
+> **>>> SYNC: Cursor · 2026-05-17 · W308 step 4 (Claude code-review fixes for PR #185 — CSP fonts.bunny.net, phase-bar 11px token, 3 real drift tests, step-2 brief superseded marker) · W308 step 3 (wire apps/cockpit/dist/ into Tauri pipeline; legacy SPA archived to desktop/src-tauri/web-legacy/) · W308 step 2 (port cockpit + hero from W307 refs → multi-page Vite project at apps/cockpit/) · W308 step 1 (apply W307 verdict in tokens.css + MASTER.md) · W308 step 0 (Path C scaffold) · W307 design verdict (Claude) · W306 order-dependent fixes (38 → 0) · W305 py3.12 stabilization · W304 py3.12 + OPENAI env + L9 doc sync <<<**
+>
+> **W308 step 4 (this wave)** — operator delegated ("делай всё
+> остальное без остановки", continuation; routed via plan E from the
+> end of step 3: open the PR, ask an independent Claude Code reviewer
+> for code review, then fix what it surfaces; do **not** start the
+> functional restore until separate OK). PR #185 (`claude/w307-design-refresh`
+> → `main`) opened with the W307 verdict + W308 steps 1–3 stack
+> (4 commits, 39 files). Claude Code review surfaced 4 issues; all
+> are now fixed in this entry. **No new features** — purely tightening
+> the design ↔ implementation contract that the previous waves laid
+> down. Restoring mic / WS / conversation behaviors is still W309+
+> (see end of this block).
+>
+> **Critical fixes:**
+> - **CSP for Bunny Fonts.** Step 2's hero pulled Cormorant Garamond
+>   + Sora from `https://fonts.bunny.net/css?…` but
+>   `desktop/src-tauri/tauri.conf.json` CSP only listed Google Fonts.
+>   In Tauri the hero would silently fall back to system fonts.
+>   `style-src` and `font-src` now include `https://fonts.bunny.net`.
+>   Google Fonts entries kept (cockpit shell still uses them).
+> - **W307 verdict miss — phase-bar typography.** Cockpit reference
+>   used `10px` Share Tech Mono on `.phase-bar`, which collapses
+>   letterforms (`I`/`l` ambiguous, caps look rectangular). Dedicated
+>   token `--font-size-phase-bar: 11px` in `apps/cockpit/src/styles/
+>   tokens.css` (separate from `--type-label` to make intent explicit
+>   at the call-site). `apps/cockpit/cockpit.html` reads it on
+>   `.phase-bar`. MASTER typography table gained a row pointing at
+>   the new token.
+>
+> **Medium fixes:**
+> - **Drift suite had vacuously passing tests.** Three step-2/3
+>   contracts were "tests" in name only: `surface-marketing` was
+>   declared but never asserted to be *applied* anywhere; the new
+>   `--font-size-phase-bar` had no test; the brief-item stagger
+>   pattern had no test. Three new assertions added —
+>   `test_hero_html_applies_surface_marketing_class`,
+>   `test_phase_bar_size_token_declared_and_applied`,
+>   `test_brief_item_stagger_animation_declared`. Suite: 6 → **10**.
+> - **W308 step-2 brief not marked superseded.** Top-of-file banner
+>   added to `docs/handoff/W308_STEP2_BRIEF.md` pointing at the
+>   step-3 entry and PR #185 with explicit "do not action this" note.
+>
+> **Code shape:** `apps/cockpit/hero.html` root `<html>` gains
+> `class="surface-marketing"` (now `--motion-budget-max: 4` actually
+> takes effect — previously the class was declared in `tokens.css`
+> but applied nowhere). `apps/cockpit/cockpit.html` brief-item
+> buttons get inline `style="--i: N"` (0..3) + a
+> `@keyframes briefIn` stagger (360 ms cubic-bezier, 60 ms cadence
+> per `--i`), gated by `@media (prefers-reduced-motion: no-preference)`.
+> Plays once on cockpit open, then static. Cockpit bundle grew
+> ~24 kB → ~27 kB raw (the inline stagger style + 4 inline `--i:`
+> attrs), gzipped ~6 kB.
+>
+> **Verification.** `pytest tests/test_cockpit_tokens_sync.py -q` →
+> **10 passed** (was 6). `bash desktop/scripts/package-cockpit.sh`
+> (full build path, not `--skip-build`) → OK, 4 HTML pages emitted,
+> rsync to `desktop/src-tauri/web/` clean. Bundle integrity verified:
+> 1× `surface-marketing` in built `hero.html`, 1× `var(--font-size-phase-bar)`
+> + 4× `style="--i:` + 1× `@keyframes briefIn` in built `cockpit.html`.
+>
+> ---
+>
+> **W308 step 3 (previous wave)** — operator delegated ("делай всё
+> остальное без остановки"). The Tauri desktop now ships
+> `apps/cockpit/dist/` as its frontend. The frozen pre-built React
+> SPA that used to live under `desktop/src-tauri/web/` was moved via
+> `git mv` to `desktop/src-tauri/web-legacy/` (full history preserved,
+> safe rollback). `desktop/scripts/package-cockpit.sh` is rewritten:
+> it now `pnpm install`s + `pnpm build`s `apps/cockpit/` and rsyncs
+> `dist/` into `desktop/src-tauri/web/`. `--skip-build` shortcuts the
+> install/build when CI already has a fresh `dist/`. `--legacy`
+> emergency-stages the archived bundle. Tauri hooks
+> (`beforeBuildCommand: pnpm cockpit:package`,
+> `beforeDevCommand: pnpm serve:web`) are unchanged — they just point
+> at a real source tree now instead of a frozen artifact.
+>
+> **Verification.** `bash desktop/scripts/package-cockpit.sh --skip-build`
+> stages 4 HTMLs + CSS + JS into `web/`. `pnpm run serve:web` returns
+> 200 on `/`, `/cockpit.html`, `/hero.html`, `/preview.html`. Drift
+> smoke test (`tests/test_cockpit_tokens_sync.py`) still 6/6 green.
+> Build size: ~21 kB raw / ~7 kB gzipped vs the legacy ~5 MB SPA.
+>
+> **Known functional regression (intended for this step, carry-over
+> to W309+).** The legacy `Cockpit-*.js` (~169 kB) shipped
+> mic-capture, websocket-to-sidecar (`ws://127.0.0.1:8765`), and
+> the conversation strand renderer. The new `cockpit.html` is a
+> static shell — visually correct, behaviorally inert. Restoring
+> these behaviors (probably as per-page TS modules under
+> `apps/cockpit/src/pages/`) is the natural next wave. Until then,
+> `bash desktop/scripts/package-cockpit.sh --legacy` re-stages the
+> archived bundle if a release blocker appears.
+>
+> **W308 step 2 (previous wave)** — operator delegated ("делай всё
+> остальное без остановки"). The cockpit and marketing-hero surfaces
+> from Claude's W307 reference (`docs/design/W307_refs/{cockpit,hero}.html`)
+> are now ported into `apps/cockpit/` as a proper **multi-page Vite
+> project**. Visually they sit on the shared `tokens.css` +
+> `typography.css` + `global.css`; page-specific chrome (HUD bar,
+> briefing card, scene SVG, policy gate) lives inline per page so a
+> designer can diff one file per surface.
+>
+> **New page contract:**
+> - `/` → landing/page picker (was the tokens preview).
+> - `/cockpit.html` → operator shell (HUD header, briefing card,
+>   policy gate, mic input, status bar). All accent fills enforce
+>   `--cta-text-on-accent`. Ambient health-dot uses `--motion-pulse`
+>   (3.6 s); alert state uses `--motion-alert-pulse` (1.6 s).
+> - `/hero.html` → marketing hero (floating nav, headline + accent
+>   split, two CTAs, full SVG core scene, live rail with stream +
+>   integrity card). Numeric data uses `tabular-nums`.
+> - `/preview.html` → tokens diagnostic (was on `/` in step 0–1).
+>
+> **Visual parity check** — Vite dev (`:5174`) vs static server for
+> the W307 reference (`:5175`, served from `docs/design/W307_refs/`).
+> Cockpit + hero render pixel-equivalent to the reference modulo the
+> three intentional verdict deltas (bigger greeting,
+> black-on-accent, ambient vs alert pulse split).
+>
+> **Bundle**: `pnpm --filter @tars/cockpit build` produces 4 HTML
+> pages + shared CSS 6 kB + shared JS 10 kB; gzip total ~19 kB.
+> Drift smoke test still 6/6 pass.
+>
+> **Next**: step 3 — wire `apps/cockpit/dist/` into
+> `desktop/scripts/package-cockpit.sh`; replace
+> `desktop/src-tauri/web/`. Queued.
+>
+> ---
+>
+> **W308 step 1** — operator delegated ("выбери ты", 2nd time).
+> Applied Claude's W307 verdict end-to-end into
+> `apps/cockpit/src/styles/tokens.css` + `design-system/tars/MASTER.md`
+> in a single bounded commit. All 5 open questions from W307
+> §"Open questions" answered with explicit per-row taste-calls; each
+> is individually revertable.
+>
+> **Per-row decisions:**
+> 1. `--color-ink-3`: **promote** (`#5C5A52` → `#8A867B`, AA pass).
+> 2. `--color-accent`: **keep** `#CA8A04` (brand > marginal AAA win).
+> 3. `--color-hud`: **keep** `#00FFFF` + new `--color-hud-alpha-cap: 0.32`.
+> 4. Motion split contract (marketing vs cockpit): **defer to step 2**
+>    (no marketing surface exists yet in `apps/`).
+> 5. Greeting size bump: **both desktop + mobile via clamp()**.
+>
+> **Hard-rule additions (no operator question — math constraints):**
+> - `--cta-text-on-accent: #000000` token + `.cta` class enforces
+>   black-on-gold (9.62:1 AAA vs ink-on-accent's 2.69:1 AA fail).
+> - `--motion-budget-max: 2` codifies MASTER §7 advisory.
+> - Split `--motion-pulse` (3.6s ambient) from new
+>   `--motion-alert-pulse` (1.6s warn states only).
+> - `.t-num` (`tabular-nums`), `.t-greeting`, `.glyph` utilities.
+> - Sanctioned mono glyph set: `▣ ◇ ◆ ═ ╳ ◯ ▾ ▸`.
+> - MASTER §3 anti-pattern: "never ink on accent fills".
+> - MASTER §9 implementation map: redirected from deleted
+>   `experiments/neural-showcase-v3/*` to `apps/cockpit/`.
+>
+> **Drift smoke test**: extended from 3 → 6 cases. Now enforces motion
+> budget presence, CTA-text-on-accent codification (token + prose
+> anti-pattern), HUD alpha cap reference. Cannot quietly delete any
+> of these in a future commit.
+>
+> **Verification**: `pnpm --filter @tars/cockpit build` clean
+> (18 KB raw / 6 KB gzipped — +5 KB over step 0 for `.cta` + `.glyph`).
+> `pytest tests/test_cockpit_tokens_sync.py -v` → 6 passed. Preview
+> page now renders CTA pair + glyph set + dual pulse contract +
+> motion-budget badge in addition to step 0's swatch grid.
+>
+> **Queued for W308 step 2**: rewire `desktop/scripts/package-cockpit.sh`
+> to `pnpm --filter @tars/cockpit build`; visual-parity check against
+> `docs/design/W307_refs/{hero,cockpit}.html` (built by Claude during
+> W307); replace `desktop/src-tauri/web/` once parity is verified.
+> Likely ~1 hr of careful work.
+>
+
+> **>>> SYNC (previous): Cursor · 2026-05-17 · W308 step 0 (Path C — `apps/cockpit/` scaffold + tokens.css + drift smoke test) · W307 design-system refresh handoff for Claude · W306 last two order-dependent fixes (38 → 0) · W305 py3.12 stabilization · W304 py3.12 + OPENAI env + L9 doc sync <<<**
+>
+> **W308 step 0 (this wave)** — operator delegated the strategy call
+> ("выбери ты"). Picked **Path C, staged** from
+> `docs/handoff/W308_PRE_FLIGHT_FINDINGS.md`: build a new minimal
+> cockpit at `apps/cockpit/` so design tokens have a real source of
+> truth *now*, without waiting for Claude's W307 verdict and without
+> touching the frozen production bundle in `desktop/src-tauri/web/`.
+> When the verdict lands, only `apps/cockpit/src/styles/tokens.css`
+> + MASTER.md change — no shell rework, no taste relitigation.
+>
+> Step 0 shipped Vite + vanilla TypeScript scaffold (no framework —
+> MASTER's contract is plain CSS variables, React/Vue would add
+> ~45 KB minified for zero benefit). Final bundle: **13 KB raw /
+> 5 KB gzipped**. Pages: a single live `tokens-preview` rendering
+> every MASTER swatch + type sample + motion sample, so any token
+> diff is visually verifiable in one reload.
+>
+> Guard rail: `tests/test_cockpit_tokens_sync.py` (3 tests, all
+> green) compares 16 palette tokens, 2 typography families, and the
+> `prefers-reduced-motion` opt-out across MASTER.md ↔ tokens.css ↔
+> canonical map. Drift fails the full pytest suite — next agent
+> cannot accidentally desync.
+>
+> Production cockpit (Tauri's `desktop/src-tauri/web/` frozen bundle)
+> is **deliberately untouched**. Release pipeline risk this wave: 0.
+>
+> **Queued for W308 step 1**: when `docs/design/W307_VERDICT.md` lands
+> on `claude/w307-design-refresh`, operator marks each row of the
+> token diff approve/change/skip, Cursor updates `tokens.css` +
+> MASTER.md in the same commit; smoke test enforces sync. Likely
+> ~30 min after the verdict.
+>
+> **Queued for W308 step 2**: rewire `desktop/scripts/package-cockpit.sh`
+> to `pnpm --filter @tars/cockpit build` and replace the frozen
+> bundle with `apps/cockpit/dist/`. Gated on visual parity check
+> against current cockpit screenshots.
+>
+> Files this wave: 11 new under `apps/cockpit/`, 1 new under
+> `tests/`, 1 decision-log update under `docs/handoff/`. Commit
+> message style follows the W307 / W306 pattern.
+>
+
+> **>>> SYNC (previous): Cursor · 2026-05-17 · W307 design-system refresh handoff for Claude · W306 last two order-dependent fixes (38 → 0) · W305 py3.12 stabilization · W304 py3.12 + OPENAI env + L9 doc sync <<<**
 >
 > **W307 (this wave, hand-off only)** — operator asked "can we get a
 > professional design — with you or with Claude?". Answer: with Claude

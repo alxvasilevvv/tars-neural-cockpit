@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>TARS — neural cockpit · hero reference (W307, refreshed W308-step-2)</title>
+<!--
+  Refreshed against W308 step-1 tokens (1e7dcab) per W308 step-2 brief.
+  Source of truth: apps/cockpit/src/styles/tokens.css.
+  Diffs from W307 original:
+    - --color-ink-3 promoted #5C5A52 → #8A867B (WCAG AA pass on bg-1).
+    - Added --cta-text-on-accent (#000000) — hard rule, 9.62:1 AAA.
+    - Added --color-hud-alpha-cap (0.32) — documented usage cap.
+    - Added --motion-pulse (3.6s) ambient + --motion-alert-pulse (1.6s).
+-->
+<link rel="preconnect" href="https://fonts.bunny.net">
+<link rel="stylesheet" href="https://fonts.bunny.net/css?family=share-tech-mono:400|fira-code:400,500,600&display=swap">
+<style>
+:root {
+  --color-bg-0: #000000;
+  --color-bg-1: #0B0B10;
+  --color-bg-2: #14141B;
+  --color-ink: #F5F5F0;
+  --color-ink-2: #A09E96;
+  --color-ink-3: #8A867B; /* W308 step-1: promoted from #5C5A52 (2.84:1 fail → 4.62:1 AA on bg-1) */
+  --color-line: rgba(245, 245, 240, 0.06);
+  --color-line-strong: rgba(245, 245, 240, 0.12);
+  --color-line-hot: rgba(202, 138, 4, 0.32);
+  --color-accent: #CA8A04;
+  --color-accent-soft: rgba(202, 138, 4, 0.55);
+  --color-accent-deep: rgba(202, 138, 4, 0.12);
+  --cta-text-on-accent: #000000; /* W308 step-1: hard rule — text on gold MUST be black (9.62:1 AAA) */
+  --color-hud: #00FFFF;
+  --color-hud-soft: rgba(0, 255, 255, 0.32);
+  --color-hud-alpha-cap: 0.32; /* W308 step-1: documented cap for raw HUD usage */
+  --color-alert: #EF4444;
+  --color-success: #34D399;
+  --font-display: 'Share Tech Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-mono: 'Fira Code', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --container: 1280px;
+  --space-pad: clamp(16px, 4vw, 56px);
+  --space-section: clamp(80px, 12vh, 140px);
+  --motion-pulse: 3.6s ease-in-out; /* W308 step-1: ambient health pulse — slow = "all good" */
+  --motion-alert-pulse: 1.6s ease-in-out; /* W308 step-1: reserved for warn states only */
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+html, body {
+  background: var(--color-bg-0);
+  color: var(--color-ink);
+  font-family: var(--font-mono);
+  font-size: 15px;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+  overflow-x: hidden;
+}
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 60% 40% at 50% -10%, rgba(202, 138, 4, 0.10), transparent 65%),
+    radial-gradient(ellipse 80% 50% at 50% 110%, rgba(0, 255, 255, 0.04), transparent 60%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+main { position: relative; z-index: 1; }
+
+a { color: inherit; text-decoration: none; }
+
+button {
+  cursor: pointer;
+  font-family: inherit;
+  border: none;
+  background: none;
+  color: inherit;
+}
+
+button:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 3px;
+}
+
+/* ─── Nav (floating, top-4 per MASTER §5) ─── */
+nav {
+  position: fixed;
+  top: 16px;
+  left: 16px;
+  right: 16px;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 18px;
+  background: rgba(11, 11, 16, 0.78);
+  border: 1px solid var(--color-line);
+  border-radius: 14px;
+  backdrop-filter: blur(20px) saturate(140%);
+  -webkit-backdrop-filter: blur(20px) saturate(140%);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-ink);
+}
+
+.brand-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  box-shadow: 0 0 8px var(--color-accent-soft);
+}
+
+.nav-tabs {
+  display: flex;
+  gap: 6px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.nav-tabs button {
+  padding: 6px 12px;
+  border-radius: 8px;
+  color: var(--color-ink-2);
+  transition: color 200ms ease-out, background 200ms ease-out;
+}
+
+.nav-tabs button[aria-current="page"] {
+  background: var(--color-accent-deep);
+  color: var(--color-ink);
+}
+
+.nav-tabs button:hover {
+  color: var(--color-ink);
+}
+
+.nav-cta {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 16px;
+  background: var(--color-accent);
+  color: var(--color-bg-0);
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  transition: box-shadow 200ms ease-out;
+}
+
+.nav-cta:hover { box-shadow: 0 0 24px var(--color-accent-soft); }
+
+/* ─── Hero ─── */
+.hero {
+  max-width: var(--container);
+  margin: 0 auto;
+  padding: calc(var(--space-section) + 56px) var(--space-pad) var(--space-section);
+  display: grid;
+  grid-template-columns: 1.1fr 0.9fr;
+  gap: 64px;
+  align-items: center;
+}
+
+@media (max-width: 900px) {
+  .hero { grid-template-columns: 1fr; gap: 40px; }
+}
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-ink-2);
+  margin-bottom: 32px;
+}
+
+.eyebrow::before {
+  content: "";
+  width: 24px;
+  height: 1px;
+  background: var(--color-accent);
+}
+
+h1 {
+  font-family: var(--font-display);
+  font-size: clamp(3.4rem, 8vw, 7rem);
+  font-weight: 400;
+  line-height: 1.02;
+  letter-spacing: 0.02em;
+  color: var(--color-ink);
+  margin-bottom: 24px;
+}
+
+h1 .accent {
+  display: block;
+  color: var(--color-accent);
+  text-shadow: 0 0 14px var(--color-accent-soft);
+}
+
+.hero-summary {
+  max-width: 56ch;
+  color: var(--color-ink-2);
+  font-size: 16px;
+  line-height: 1.65;
+  margin-bottom: 40px;
+}
+
+.cta-row { display: flex; gap: 12px; flex-wrap: wrap; }
+
+.cta-primary,
+.cta-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 22px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  border-radius: 10px;
+  transition: all 200ms ease-out;
+}
+
+.cta-primary {
+  background: var(--color-accent);
+  color: var(--color-bg-0);
+}
+
+.cta-primary:hover {
+  box-shadow: 0 0 24px var(--color-accent-soft);
+  transform: translateY(-2px);
+}
+
+.cta-secondary {
+  background: transparent;
+  color: var(--color-ink);
+  border: 1px solid var(--color-line-strong);
+}
+
+.cta-secondary:hover {
+  border-color: var(--color-line-hot);
+  color: var(--color-accent);
+}
+
+/* ─── 3D core scene (inline SVG, HUD wireframe) ─── */
+.scene {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 1;
+  max-width: 520px;
+  margin: 0 auto;
+}
+
+.scene svg {
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.scene .ring-outer  { transform-origin: center; animation: spin-ccw 38s linear infinite; }
+.scene .ring-ticks  { transform-origin: center; animation: spin-cw  52s linear infinite; }
+.scene .ring-inner  { transform-origin: center; animation: pulseSoft 3.4s ease-in-out infinite; }
+.scene .core        { animation: pulseSoft 4s ease-in-out infinite; }
+
+@keyframes spin-cw  { from { transform: rotate(0); } to { transform: rotate(360deg); } }
+@keyframes spin-ccw { from { transform: rotate(0); } to { transform: rotate(-360deg); } }
+@keyframes pulseSoft {
+  0%, 100% { opacity: 0.55; }
+  50%      { opacity: 1; }
+}
+
+/* ─── Live rail ─── */
+.rail {
+  max-width: var(--container);
+  margin: 0 auto;
+  padding: 0 var(--space-pad) var(--space-section);
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 24px;
+}
+
+@media (max-width: 900px) { .rail { grid-template-columns: 1fr; } }
+
+.stream {
+  background: var(--color-bg-1);
+  border: 1px solid var(--color-line);
+  border-radius: 16px;
+  padding: 18px 22px;
+  position: relative;
+  overflow: hidden;
+}
+
+.stream::before {
+  content: "";
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 2px;
+  background: var(--color-accent);
+  opacity: 0.55;
+}
+
+.stream-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-ink-2);
+  margin-bottom: 14px;
+}
+
+.live-dot {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--color-accent);
+}
+
+.live-dot::before {
+  content: "";
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--color-accent);
+  box-shadow: 0 0 8px var(--color-accent-soft);
+  animation: pulseSoft 1.6s ease-in-out infinite;
+}
+
+.stream-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+
+.stream-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: 12px;
+  padding: 8px 0;
+  border-top: 1px solid var(--color-line);
+  color: var(--color-ink-2);
+}
+
+.stream-row:first-child { border-top: none; }
+.stream-row .ts   { color: var(--color-ink-3); font-size: 11px; }
+.stream-row .label { color: var(--color-ink); }
+.stream-row .meta { color: var(--color-ink-3); font-size: 11px; }
+
+.integrity {
+  background: var(--color-bg-1);
+  border: 1px solid var(--color-line);
+  border-radius: 16px;
+  padding: 22px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 200px;
+}
+
+.integrity-head {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 500;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-ink-2);
+}
+
+.integrity-value {
+  font-family: var(--font-display);
+  font-size: clamp(3rem, 7vw, 5rem);
+  font-weight: 400;
+  color: var(--color-ink);
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+
+.integrity-value .pct {
+  color: var(--color-accent);
+  text-shadow: 0 0 14px var(--color-accent-soft);
+}
+
+.integrity-foot {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--color-ink-2);
+}
+
+/* ─── Reduced motion guard ─── */
+@media (prefers-reduced-motion: reduce) {
+  .scene .ring-outer,
+  .scene .ring-ticks,
+  .scene .ring-inner,
+  .scene .core,
+  .live-dot::before {
+    animation: none !important;
+  }
+}
+</style>
+</head>
+<body>
+
+<nav aria-label="Primary">
+  <a href="#" class="brand">
+    <span class="brand-dot" aria-hidden="true"></span>
+    <span>TARS · meeet</span>
+  </a>
+  <div class="nav-tabs" role="tablist" aria-label="Modes">
+    <button type="button" aria-current="page">Cockpit</button>
+    <button type="button">Project</button>
+    <button type="button">Cowork</button>
+    <button type="button">Solo</button>
+  </div>
+  <a href="#" class="nav-cta">Open Cockpit</a>
+</nav>
+
+<main>
+
+  <section class="hero" aria-labelledby="hero-title">
+    <div>
+      <p class="eyebrow">Local-first neural cockpit · v10</p>
+      <h1 id="hero-title">
+        Your operator,
+        <span class="accent">always on watch.</span>
+      </h1>
+      <p class="hero-summary">
+        TARS runs on your machine, hears every channel, and surfaces only
+        what changed since the last time you looked. Voice-first.
+        Privacy-first. Receipts for everything.
+      </p>
+      <div class="cta-row">
+        <a href="#" class="cta-primary">Open cockpit
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+        </a>
+        <a href="#" class="cta-secondary">Explore domains</a>
+      </div>
+    </div>
+
+    <div class="scene" aria-hidden="true">
+      <svg viewBox="0 0 520 520" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <radialGradient id="coreGrad" cx="50%" cy="50%" r="50%">
+            <stop offset="0%"  stop-color="#F5F5F0" stop-opacity="0.95"/>
+            <stop offset="35%" stop-color="#CA8A04" stop-opacity="0.85"/>
+            <stop offset="100%" stop-color="#CA8A04" stop-opacity="0"/>
+          </radialGradient>
+          <radialGradient id="haloGrad" cx="50%" cy="50%" r="50%">
+            <stop offset="60%" stop-color="rgba(202,138,4,0)"/>
+            <stop offset="100%" stop-color="rgba(202,138,4,0.18)"/>
+          </radialGradient>
+        </defs>
+
+        <!-- Halo backplate -->
+        <circle cx="260" cy="260" r="240" fill="url(#haloGrad)"/>
+
+        <!-- Outer dashed ring -->
+        <g class="ring-outer">
+          <circle cx="260" cy="260" r="230" fill="none"
+                  stroke="rgba(0,255,255,0.32)" stroke-width="0.8"
+                  stroke-dasharray="2 8"/>
+          <circle cx="260" cy="260" r="220" fill="none"
+                  stroke="rgba(245,245,240,0.06)" stroke-width="0.5"/>
+        </g>
+
+        <!-- Tick ring -->
+        <g class="ring-ticks">
+          <!-- 36 ticks, every 10 degrees, every 3rd is longer -->
+          <g stroke="rgba(245,245,240,0.20)" stroke-width="1">
+            <!-- Generated server-side normally; static here -->
+            <line x1="260" y1="40" x2="260" y2="52" transform="rotate(0 260 260)"/>
+            <line x1="260" y1="40" x2="260" y2="48" transform="rotate(10 260 260)"/>
+            <line x1="260" y1="40" x2="260" y2="48" transform="rotate(20 260 260)"/>
+            <line x1="260" y1="40" x2="260" y2="52" transform="rotate(30 260 260)"/>
+            <line x1="260" y1="40" x2="260" y2="48" transform="rotate(40 260 260)"/>
+            <line x1="260" y1="40" x2="260" y2="48" transform="rotate(50 260 260)"/>
+            <line x1="260" y1="40" x2="260" y2="52" transform="rotate(60 260 260)"/>
+            <line x1="260" y1="40" x2="260" y2="48" transform="rotate(70 260 260)"/>
+            <line x1="260" y1="40" x2="260" y2="48" transform="rotate(80 260 260)"/>
+            <line x1="260" y1="40" x2="260" y2="52" transform="rotate(90 260 260)"/>
+            <line x1="260" y1="40" x2="260" y2="48" transform="rotate(100 260 260)"/>
+            <line x1="260" y1="40" x2="260" y2="48" transform="rotate(110 260 260)"/>
+            <line x1="260" y1="40" x2="260" y2="52" transform="rotate(120 260 260)"/>
+            <line x1="260" y1="40" x2="260" y2="48" transform="rotate(130 260 260)"/>
+            <line x1="260" y1="40" x2="260" y2="48" transform="rotate(140 260 260)"/>
+            <line x1="260" y1="40" x2="260" y2="52" transform="rotate(150 260 260)"/>
+            <line x1="260" y1="40" x2="260" y2="48" transform="rotate(160 260 260)"/>
+            <line x1="260" y1="40" x2="260" y2="48" transform="rotate(170 260 260)"/>
+            <line x1="260" y1="40" x2="260" y2="52" transform="rotate(180 260 260)"/>
+            <line x1="260" y1="40" x2="260" y2="48" transform="rotate(190 260 260)"/>
+            <line x1="260" y1="40" x2="260" y2="48" transform="rotate(200 260 260)"/>
+            <line x1="260" y1="40" x2="260" y2="52" transform="rotate(210 260 260)"/>
+            <line x1="260" y1="40" x2="260" y2="48" transform="rotate(220 260 260)"/>
+            <line x1="260" y1="40" x2="260" y2="48" transform="rotate(230 260 260)"/>
+            <line x1="260" y1="40" x2="260" y2="52" transform="rotate(240 260 260)"/>
+            <line x1="260" y1="40" x2="260" y2="48" transform="rotate(250 260 260)"/>
+            <line x1="260" y1="40" x2="260" y2="48" transform="rotate(260 260 260)"/>
+            <line x1="260" y1="40" x2="260" y2="52" transform="rotate(270 260 260)"/>
+            <line x1="260" y1="40" x2="260" y2="48" transform="rotate(280 260 260)"/>
+            <line x1="260" y1="40" x2="260" y2="48" transform="rotate(290 260 260)"/>
+            <line x1="260" y1="40" x2="260" y2="52" transform="rotate(300 260 260)"/>
+            <line x1="260" y1="40" x2="260" y2="48" transform="rotate(310 260 260)"/>
+            <line x1="260" y1="40" x2="260" y2="48" transform="rotate(320 260 260)"/>
+            <line x1="260" y1="40" x2="260" y2="52" transform="rotate(330 260 260)"/>
+            <line x1="260" y1="40" x2="260" y2="48" transform="rotate(340 260 260)"/>
+            <line x1="260" y1="40" x2="260" y2="48" transform="rotate(350 260 260)"/>
+          </g>
+        </g>
+
+        <!-- Inner pulse ring -->
+        <g class="ring-inner">
+          <circle cx="260" cy="260" r="180" fill="none"
+                  stroke="rgba(202,138,4,0.32)" stroke-width="1"/>
+          <circle cx="260" cy="260" r="160" fill="none"
+                  stroke="rgba(202,138,4,0.16)" stroke-width="0.6"/>
+        </g>
+
+        <!-- Core -->
+        <circle class="core" cx="260" cy="260" r="56" fill="url(#coreGrad)"/>
+        <circle cx="260" cy="260" r="6" fill="#F5F5F0"/>
+
+        <!-- Corner brackets (HUD markers) -->
+        <g stroke="rgba(0,255,255,0.32)" stroke-width="1" fill="none">
+          <path d="M 30 70 L 30 30 L 70 30"/>
+          <path d="M 450 30 L 490 30 L 490 70"/>
+          <path d="M 490 450 L 490 490 L 450 490"/>
+          <path d="M 70 490 L 30 490 L 30 450"/>
+        </g>
+      </svg>
+    </div>
+  </section>
+
+  <section class="rail" aria-labelledby="rail-title">
+    <div class="stream">
+      <div class="stream-head">
+        <span id="rail-title">Awareness stream</span>
+        <span class="live-dot">LIVE</span>
+      </div>
+      <div class="stream-rows" role="log" aria-live="polite">
+        <div class="stream-row">
+          <span class="ts">14:08:22</span>
+          <span class="label">Calendar · 2 events queued</span>
+          <span class="meta">briefing</span>
+        </div>
+        <div class="stream-row">
+          <span class="ts">14:07:51</span>
+          <span class="label">GitHub · 3 PRs awaiting review</span>
+          <span class="meta">code</span>
+        </div>
+        <div class="stream-row">
+          <span class="ts">14:07:14</span>
+          <span class="label">Memory · 2 new fragments synced</span>
+          <span class="meta">store</span>
+        </div>
+        <div class="stream-row">
+          <span class="ts">14:06:02</span>
+          <span class="label">Voice · ElevenLabs Adam ready</span>
+          <span class="meta">tts</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="integrity">
+      <div class="integrity-head">Integrity</div>
+      <div class="integrity-value">99.<span class="pct">8%</span></div>
+      <div class="integrity-foot">
+        <span>11 checks</span>
+        <span>2 min ago</span>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+</body>
+</html>

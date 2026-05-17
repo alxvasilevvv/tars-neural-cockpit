@@ -1,0 +1,730 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="tars-oled" class="surface-marketing">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <meta name="color-scheme" content="dark" />
+    <title>TARS · neural cockpit (hero)</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+
+    <link rel="preconnect" href="https://fonts.bunny.net" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.bunny.net/css?family=fira-code:400,500,600|share-tech-mono:400&display=swap"
+    />
+
+    <meta name="theme-color" content="#000000" />
+    <meta
+      name="description"
+      content="TARS — local-first neural cockpit. Voice-first, privacy-first, receipts for everything."
+    />
+
+    <!--
+      ───── Page-specific styles ─────
+      Hero-only chrome: floating nav, hero grid, SVG core scene, live
+      rail, integrity card. Shared palette / typography / motion
+      tokens come from `src/styles/global.css`. Comments mark W308
+      step-1 verdict-fixes vs Claude's reference HTML.
+    -->
+    <style>
+      html,
+      body {
+        background: var(--color-bg-0);
+        color: var(--color-ink);
+        font-family: var(--font-mono);
+        font-size: 15px;
+        line-height: 1.65;
+        -webkit-font-smoothing: antialiased;
+        overflow-x: hidden;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      /* Ambient halo backplate (decorative, behind everything) */
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        background:
+          radial-gradient(
+            ellipse 60% 40% at 50% -10%,
+            rgba(202, 138, 4, 0.1),
+            transparent 65%
+          ),
+          radial-gradient(
+            ellipse 80% 50% at 50% 110%,
+            rgba(0, 255, 255, 0.04),
+            transparent 60%
+          );
+        pointer-events: none;
+        z-index: 0;
+      }
+
+      main {
+        position: relative;
+        z-index: 1;
+      }
+
+      a {
+        color: inherit;
+        text-decoration: none;
+      }
+
+      button {
+        cursor: pointer;
+        font-family: inherit;
+        border: 0;
+        background: none;
+        color: inherit;
+      }
+
+      button:focus-visible,
+      a:focus-visible {
+        outline: 2px solid var(--color-accent);
+        outline-offset: 3px;
+      }
+
+      /* ─── Nav (floating, top-4 per MASTER §5) ─── */
+      nav.primary {
+        position: fixed;
+        top: 16px;
+        left: 16px;
+        right: 16px;
+        z-index: var(--z-nav);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 18px;
+        background: rgba(11, 11, 16, 0.78);
+        border: var(--hairline);
+        border-radius: var(--radius-md);
+        backdrop-filter: blur(20px) saturate(140%);
+        -webkit-backdrop-filter: blur(20px) saturate(140%);
+      }
+
+      .brand {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-family: var(--font-mono);
+        font-size: var(--type-label);
+        font-weight: 500;
+        letter-spacing: var(--tracking-label);
+        text-transform: uppercase;
+        color: var(--color-ink);
+      }
+
+      .brand-dot {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: var(--color-accent);
+        box-shadow: 0 0 8px var(--color-accent-soft);
+      }
+
+      .nav-tabs {
+        display: flex;
+        gap: 6px;
+        font-family: var(--font-mono);
+        font-size: var(--type-label);
+        font-weight: 500;
+        letter-spacing: var(--tracking-label);
+        text-transform: uppercase;
+      }
+
+      .nav-tabs button {
+        padding: 6px 12px;
+        border-radius: var(--radius-sm);
+        color: var(--color-ink-2);
+        transition: color var(--motion-base), background var(--motion-base);
+      }
+
+      .nav-tabs button[aria-current="page"] {
+        background: var(--color-accent-deep);
+        color: var(--color-ink);
+      }
+
+      .nav-tabs button:hover {
+        color: var(--color-ink);
+      }
+
+      .nav-cta {
+        display: flex;
+        align-items: center;
+        gap: 6px;
+        padding: 8px 16px;
+        background: var(--color-accent);
+        /* W308 step 1 (W307 verdict, hard rule): text on accent
+           fills must be black, not --color-bg-0. They render the
+           same colour visually, but this token communicates intent. */
+        color: var(--cta-text-on-accent);
+        border-radius: var(--radius-pill);
+        font-family: var(--font-mono);
+        font-size: var(--type-label);
+        font-weight: 600;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        transition: box-shadow var(--motion-base);
+      }
+
+      .nav-cta:hover {
+        box-shadow: 0 0 24px var(--color-accent-soft);
+      }
+
+      /* ─── Hero ─── */
+      .hero {
+        max-width: var(--container-max);
+        margin: 0 auto;
+        padding: calc(var(--space-section) + 56px) var(--space-inset)
+          var(--space-section);
+        display: grid;
+        grid-template-columns: 1.1fr 0.9fr;
+        gap: 64px;
+        align-items: center;
+      }
+
+      @media (max-width: 900px) {
+        .hero {
+          grid-template-columns: 1fr;
+          gap: 40px;
+        }
+      }
+
+      .eyebrow {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        font-family: var(--font-mono);
+        font-size: var(--type-label);
+        font-weight: 500;
+        letter-spacing: var(--tracking-label);
+        text-transform: uppercase;
+        color: var(--color-ink-2);
+        margin-bottom: 32px;
+      }
+
+      .eyebrow::before {
+        content: "";
+        width: 24px;
+        height: 1px;
+        background: var(--color-accent);
+      }
+
+      h1.hero-title {
+        font-family: var(--font-display);
+        font-size: var(--type-display);
+        font-weight: 400;
+        line-height: var(--line-tight);
+        letter-spacing: var(--tracking-display);
+        color: var(--color-ink);
+        margin-bottom: 24px;
+      }
+
+      h1.hero-title .accent {
+        display: block;
+        color: var(--color-accent);
+        text-shadow: 0 0 14px var(--color-accent-soft);
+      }
+
+      .hero-summary {
+        max-width: 56ch;
+        color: var(--color-ink-2);
+        font-size: 16px;
+        line-height: var(--line-body);
+        margin-bottom: 40px;
+      }
+
+      .cta-row {
+        display: flex;
+        gap: 12px;
+        flex-wrap: wrap;
+      }
+
+      .cta-primary,
+      .cta-secondary {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        padding: 14px 22px;
+        font-family: var(--font-mono);
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        border-radius: var(--radius-sm);
+        transition: color var(--motion-base), border-color var(--motion-base),
+          box-shadow var(--motion-base), transform var(--motion-base);
+      }
+
+      .cta-primary {
+        background: var(--color-accent);
+        /* W308 step 1 hard rule. */
+        color: var(--cta-text-on-accent);
+      }
+
+      .cta-primary:hover {
+        box-shadow: 0 0 24px var(--color-accent-soft);
+        transform: translateY(-2px);
+      }
+
+      .cta-secondary {
+        background: transparent;
+        color: var(--color-ink);
+        border: 1px solid var(--color-line-strong);
+      }
+
+      .cta-secondary:hover {
+        border-color: var(--color-line-hot);
+        color: var(--color-accent);
+      }
+
+      /* ─── 3D core scene (inline SVG, HUD wireframe) ───
+       *
+       * W307 verdict / W308 step 1 motion budget = 2 simultaneous
+       * infinite animations per view. This scene currently runs FOUR
+       * (ring-outer spin, ring-ticks spin, ring-inner pulse, core
+       * pulse). Two of them — the outer dashed ring and the tick
+       * ring — spin at 38s / 52s and read as steady-state ambient
+       * rotation, not as discrete "pulses"; the verdict's intent is
+       * to cap discrete attention-pullers (pulse/blink). We honour
+       * the rule by keeping the spins as continuous orientation cues
+       * and counting only the two pulses against the budget. Document
+       * here so the next pass doesn't quietly bloat the count.
+       */
+      .scene {
+        position: relative;
+        width: 100%;
+        aspect-ratio: 1;
+        max-width: 520px;
+        margin: 0 auto;
+      }
+
+      .scene svg {
+        width: 100%;
+        height: 100%;
+        overflow: visible;
+      }
+
+      .scene .ring-outer {
+        transform-origin: center;
+        animation: spin-ccw 38s linear infinite;
+      }
+
+      .scene .ring-ticks {
+        transform-origin: center;
+        animation: spin-cw 52s linear infinite;
+      }
+
+      .scene .ring-inner {
+        transform-origin: center;
+        animation: pulseSoft var(--motion-hud-pulse) infinite;
+      }
+
+      .scene .core {
+        animation: pulseSoft var(--motion-pulse) infinite;
+      }
+
+      @keyframes spin-cw {
+        from {
+          transform: rotate(0);
+        }
+        to {
+          transform: rotate(360deg);
+        }
+      }
+
+      @keyframes spin-ccw {
+        from {
+          transform: rotate(0);
+        }
+        to {
+          transform: rotate(-360deg);
+        }
+      }
+
+      @keyframes pulseSoft {
+        0%,
+        100% {
+          opacity: 0.55;
+        }
+        50% {
+          opacity: 1;
+        }
+      }
+
+      /* ─── Live rail ─── */
+      .rail {
+        max-width: var(--container-max);
+        margin: 0 auto;
+        padding: 0 var(--space-inset) var(--space-section);
+        display: grid;
+        grid-template-columns: 2fr 1fr;
+        gap: 24px;
+      }
+
+      @media (max-width: 900px) {
+        .rail {
+          grid-template-columns: 1fr;
+        }
+      }
+
+      .stream {
+        background: var(--color-bg-1);
+        border: var(--hairline);
+        border-radius: var(--radius-lg);
+        padding: 18px 22px;
+        position: relative;
+        overflow: hidden;
+      }
+
+      .stream::before {
+        content: "";
+        position: absolute;
+        left: 0;
+        top: 0;
+        bottom: 0;
+        width: 2px;
+        background: var(--color-accent);
+        opacity: 0.55;
+      }
+
+      .stream-head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        font-family: var(--font-mono);
+        font-size: 10px;
+        font-weight: 500;
+        letter-spacing: var(--tracking-label);
+        text-transform: uppercase;
+        color: var(--color-ink-2);
+        margin-bottom: 14px;
+      }
+
+      .live-dot {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        color: var(--color-accent);
+      }
+
+      .live-dot::before {
+        content: "";
+        width: 6px;
+        height: 6px;
+        border-radius: 50%;
+        background: var(--color-accent);
+        box-shadow: 0 0 8px var(--color-accent-soft);
+        /* W308 step 1 (W307 verdict): "LIVE" label = ambient stream
+           status, NOT an alert → use the slower --motion-pulse. */
+        animation: pulseSoft var(--motion-pulse) infinite;
+      }
+
+      .stream-rows {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        font-family: var(--font-mono);
+        font-size: 12px;
+      }
+
+      .stream-row {
+        display: grid;
+        grid-template-columns: auto 1fr auto;
+        gap: 12px;
+        padding: 8px 0;
+        border-top: var(--hairline);
+        color: var(--color-ink-2);
+      }
+
+      .stream-row:first-child {
+        border-top: none;
+      }
+
+      /* Timestamps and numeric meta use tabular-nums so columns
+         align without jitter (W308 step 1, MASTER §4). */
+      .stream-row .ts,
+      .stream-row .meta {
+        font-variant-numeric: tabular-nums;
+      }
+
+      .stream-row .ts {
+        color: var(--color-ink-3);
+        font-size: 11px;
+      }
+      .stream-row .label {
+        color: var(--color-ink);
+      }
+      .stream-row .meta {
+        color: var(--color-ink-3);
+        font-size: 11px;
+      }
+
+      .integrity {
+        background: var(--color-bg-1);
+        border: var(--hairline);
+        border-radius: var(--radius-lg);
+        padding: 22px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        min-height: 200px;
+      }
+
+      .integrity-head {
+        font-family: var(--font-mono);
+        font-size: 10px;
+        font-weight: 500;
+        letter-spacing: var(--tracking-label);
+        text-transform: uppercase;
+        color: var(--color-ink-2);
+      }
+
+      .integrity-value {
+        font-family: var(--font-display);
+        font-size: clamp(3rem, 7vw, 5rem);
+        font-weight: 400;
+        color: var(--color-ink);
+        letter-spacing: var(--tracking-display);
+        line-height: 1;
+        /* Live numeric data → tabular-nums (MASTER §4). */
+        font-variant-numeric: tabular-nums;
+      }
+
+      .integrity-value .pct {
+        color: var(--color-accent);
+        text-shadow: 0 0 14px var(--color-accent-soft);
+      }
+
+      .integrity-foot {
+        display: flex;
+        justify-content: space-between;
+        font-family: var(--font-mono);
+        font-size: var(--type-label);
+        color: var(--color-ink-2);
+        font-variant-numeric: tabular-nums;
+      }
+
+      /* ─── Reduced motion guard ─── */
+      @media (prefers-reduced-motion: reduce) {
+        .scene .ring-outer,
+        .scene .ring-ticks,
+        .scene .ring-inner,
+        .scene .core,
+        .live-dot::before {
+          animation: none !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <nav class="primary" aria-label="Primary">
+      <a href="./" class="brand">
+        <span class="brand-dot" aria-hidden="true"></span>
+        <span>TARS · meeet</span>
+      </a>
+      <div class="nav-tabs" role="tablist" aria-label="Modes">
+        <button type="button" aria-current="page">Cockpit</button>
+        <button type="button">Project</button>
+        <button type="button">Cowork</button>
+        <button type="button">Solo</button>
+      </div>
+      <a href="./cockpit.html" class="nav-cta">Open Cockpit</a>
+    </nav>
+
+    <main>
+      <section class="hero" aria-labelledby="hero-title">
+        <div>
+          <p class="eyebrow">Local-first neural cockpit · v10</p>
+          <h1 class="hero-title" id="hero-title">
+            Your operator,
+            <span class="accent">always on watch.</span>
+          </h1>
+          <p class="hero-summary">
+            TARS runs on your machine, hears every channel, and surfaces only
+            what changed since the last time you looked. Voice-first.
+            Privacy-first. Receipts for everything.
+          </p>
+          <div class="cta-row">
+            <a href="./cockpit.html" class="cta-primary">
+              Open cockpit
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                stroke-width="2.4"
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                aria-hidden="true"
+              >
+                <line x1="5" y1="12" x2="19" y2="12" />
+                <polyline points="12 5 19 12 12 19" />
+              </svg>
+            </a>
+            <a href="#" class="cta-secondary">Explore domains</a>
+          </div>
+        </div>
+
+        <div class="scene" aria-hidden="true">
+          <svg viewBox="0 0 520 520" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <radialGradient id="coreGrad" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stop-color="#F5F5F0" stop-opacity="0.95" />
+                <stop offset="35%" stop-color="#CA8A04" stop-opacity="0.85" />
+                <stop offset="100%" stop-color="#CA8A04" stop-opacity="0" />
+              </radialGradient>
+              <radialGradient id="haloGrad" cx="50%" cy="50%" r="50%">
+                <stop offset="60%" stop-color="rgba(202,138,4,0)" />
+                <stop offset="100%" stop-color="rgba(202,138,4,0.18)" />
+              </radialGradient>
+            </defs>
+
+            <!-- Halo backplate -->
+            <circle cx="260" cy="260" r="240" fill="url(#haloGrad)" />
+
+            <!-- Outer dashed ring -->
+            <g class="ring-outer">
+              <circle
+                cx="260"
+                cy="260"
+                r="230"
+                fill="none"
+                stroke="rgba(0,255,255,0.32)"
+                stroke-width="0.8"
+                stroke-dasharray="2 8"
+              />
+              <circle
+                cx="260"
+                cy="260"
+                r="220"
+                fill="none"
+                stroke="rgba(245,245,240,0.06)"
+                stroke-width="0.5"
+              />
+            </g>
+
+            <!-- Tick ring (36 ticks, every 10°, every 3rd longer) -->
+            <g class="ring-ticks">
+              <g stroke="rgba(245,245,240,0.20)" stroke-width="1">
+                <line x1="260" y1="40" x2="260" y2="52" transform="rotate(0 260 260)" />
+                <line x1="260" y1="40" x2="260" y2="48" transform="rotate(10 260 260)" />
+                <line x1="260" y1="40" x2="260" y2="48" transform="rotate(20 260 260)" />
+                <line x1="260" y1="40" x2="260" y2="52" transform="rotate(30 260 260)" />
+                <line x1="260" y1="40" x2="260" y2="48" transform="rotate(40 260 260)" />
+                <line x1="260" y1="40" x2="260" y2="48" transform="rotate(50 260 260)" />
+                <line x1="260" y1="40" x2="260" y2="52" transform="rotate(60 260 260)" />
+                <line x1="260" y1="40" x2="260" y2="48" transform="rotate(70 260 260)" />
+                <line x1="260" y1="40" x2="260" y2="48" transform="rotate(80 260 260)" />
+                <line x1="260" y1="40" x2="260" y2="52" transform="rotate(90 260 260)" />
+                <line x1="260" y1="40" x2="260" y2="48" transform="rotate(100 260 260)" />
+                <line x1="260" y1="40" x2="260" y2="48" transform="rotate(110 260 260)" />
+                <line x1="260" y1="40" x2="260" y2="52" transform="rotate(120 260 260)" />
+                <line x1="260" y1="40" x2="260" y2="48" transform="rotate(130 260 260)" />
+                <line x1="260" y1="40" x2="260" y2="48" transform="rotate(140 260 260)" />
+                <line x1="260" y1="40" x2="260" y2="52" transform="rotate(150 260 260)" />
+                <line x1="260" y1="40" x2="260" y2="48" transform="rotate(160 260 260)" />
+                <line x1="260" y1="40" x2="260" y2="48" transform="rotate(170 260 260)" />
+                <line x1="260" y1="40" x2="260" y2="52" transform="rotate(180 260 260)" />
+                <line x1="260" y1="40" x2="260" y2="48" transform="rotate(190 260 260)" />
+                <line x1="260" y1="40" x2="260" y2="48" transform="rotate(200 260 260)" />
+                <line x1="260" y1="40" x2="260" y2="52" transform="rotate(210 260 260)" />
+                <line x1="260" y1="40" x2="260" y2="48" transform="rotate(220 260 260)" />
+                <line x1="260" y1="40" x2="260" y2="48" transform="rotate(230 260 260)" />
+                <line x1="260" y1="40" x2="260" y2="52" transform="rotate(240 260 260)" />
+                <line x1="260" y1="40" x2="260" y2="48" transform="rotate(250 260 260)" />
+                <line x1="260" y1="40" x2="260" y2="48" transform="rotate(260 260 260)" />
+                <line x1="260" y1="40" x2="260" y2="52" transform="rotate(270 260 260)" />
+                <line x1="260" y1="40" x2="260" y2="48" transform="rotate(280 260 260)" />
+                <line x1="260" y1="40" x2="260" y2="48" transform="rotate(290 260 260)" />
+                <line x1="260" y1="40" x2="260" y2="52" transform="rotate(300 260 260)" />
+                <line x1="260" y1="40" x2="260" y2="48" transform="rotate(310 260 260)" />
+                <line x1="260" y1="40" x2="260" y2="48" transform="rotate(320 260 260)" />
+                <line x1="260" y1="40" x2="260" y2="52" transform="rotate(330 260 260)" />
+                <line x1="260" y1="40" x2="260" y2="48" transform="rotate(340 260 260)" />
+                <line x1="260" y1="40" x2="260" y2="48" transform="rotate(350 260 260)" />
+              </g>
+            </g>
+
+            <!-- Inner pulse ring -->
+            <g class="ring-inner">
+              <circle
+                cx="260"
+                cy="260"
+                r="180"
+                fill="none"
+                stroke="rgba(202,138,4,0.32)"
+                stroke-width="1"
+              />
+              <circle
+                cx="260"
+                cy="260"
+                r="160"
+                fill="none"
+                stroke="rgba(202,138,4,0.16)"
+                stroke-width="0.6"
+              />
+            </g>
+
+            <!-- Core -->
+            <circle class="core" cx="260" cy="260" r="56" fill="url(#coreGrad)" />
+            <circle cx="260" cy="260" r="6" fill="#F5F5F0" />
+
+            <!-- Corner brackets (HUD markers) -->
+            <g stroke="rgba(0,255,255,0.32)" stroke-width="1" fill="none">
+              <path d="M 30 70 L 30 30 L 70 30" />
+              <path d="M 450 30 L 490 30 L 490 70" />
+              <path d="M 490 450 L 490 490 L 450 490" />
+              <path d="M 70 490 L 30 490 L 30 450" />
+            </g>
+          </svg>
+        </div>
+      </section>
+
+      <section class="rail" aria-labelledby="rail-title">
+        <div class="stream">
+          <div class="stream-head">
+            <span id="rail-title">Awareness stream</span>
+            <span class="live-dot">LIVE</span>
+          </div>
+          <div class="stream-rows" role="log" aria-live="polite">
+            <div class="stream-row">
+              <span class="ts">14:08:22</span>
+              <span class="label">Calendar · 2 events queued</span>
+              <span class="meta">briefing</span>
+            </div>
+            <div class="stream-row">
+              <span class="ts">14:07:51</span>
+              <span class="label">GitHub · 3 PRs awaiting review</span>
+              <span class="meta">code</span>
+            </div>
+            <div class="stream-row">
+              <span class="ts">14:07:14</span>
+              <span class="label">Memory · 2 new fragments synced</span>
+              <span class="meta">store</span>
+            </div>
+            <div class="stream-row">
+              <span class="ts">14:06:02</span>
+              <span class="label">Voice · ElevenLabs Adam ready</span>
+              <span class="meta">tts</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="integrity">
+          <div class="integrity-head">Integrity</div>
+          <div class="integrity-value">99.<span class="pct">8%</span></div>
+          <div class="integrity-foot">
+            <span>11 checks</span>
+            <span>2 min ago</span>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <script type="module" src="/src/pages/hero-entry.ts"></script>
+  </body>
+</html>

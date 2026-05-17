@@ -66,15 +66,17 @@ the OLED frame:
 | `--color-bg-2` | `#14141B` | Sub-surfaces / highlight strips. |
 | `--color-ink` | `#F5F5F0` | Primary text. |
 | `--color-ink-2` | `#A09E96` | Secondary text & metadata. |
-| `--color-ink-3` | `#5C5A52` | Tertiary / disabled. |
+| `--color-ink-3` | `#8A867B` | Tertiary text / labels. **W308 step 1**: promoted from `#5C5A52` to lift contrast 2.84:1 → 4.62:1 on `--color-bg-1` (WCAG AA pass). |
 | `--color-line` | `rgba(245, 245, 240, 0.06)` | Hairlines & card borders. |
 | `--color-line-strong` | `rgba(245, 245, 240, 0.12)` | Card hover. |
 | `--color-line-hot` | `rgba(202, 138, 4, 0.32)` | Active hairline / focus. |
-| `--color-accent` | `#CA8A04` | The single primary accent (gold). |
+| `--color-accent` | `#CA8A04` | The single primary accent (gold). Passes WCAG AA on `--color-bg-1` at 6.68:1. |
 | `--color-accent-soft` | `rgba(202, 138, 4, 0.55)` | Subtle glow & rims. |
 | `--color-accent-deep` | `rgba(202, 138, 4, 0.12)` | Tinted backplate. |
-| `--color-hud` | `#00FFFF` | HUD wireframe lines & 3D rings (sparingly). |
-| `--color-hud-soft` | `rgba(0, 255, 255, 0.32)` | HUD glow. |
+| `--cta-text-on-accent` | `#000000` | **W308 step 1 hard rule**: text on `--color-accent` fills MUST be black (9.62:1 AAA). `--color-ink` on accent measures 2.69:1 (AA fail). Codify, never override. |
+| `--color-hud` | `#00FFFF` | HUD wireframe lines & 3D rings. **Cap: max 0.32 alpha for hairlines, 0.18 for fills.** Raw `#00FFFF` reserved for 3D ring highlights only — see `--color-hud-alpha-cap`. |
+| `--color-hud-soft` | `rgba(0, 255, 255, 0.32)` | HUD glow (pre-applied cap). |
+| `--color-hud-alpha-cap` | `0.32` | **W308 step 1**: documented usage cap for `--color-hud` in non-3D contexts. |
 | `--color-alert` | `#EF4444` | Live / warn telemetry only. |
 | `--color-success` | `#34D399` | Success states only. |
 
@@ -82,21 +84,32 @@ the OLED frame:
 
 - No AI-purple/pink rainbow gradients.
 - No third hue without a functional contract.
-- No emoji as icons. SVG only (Heroicons / Lucide / inline tech glyphs).
+- No emoji as icons. SVG only (Heroicons / Lucide / inline tech glyphs / sanctioned mono glyphs — see §4).
 - No `#FFFFFF` background.
+- **W308 step 1**: never set `color: var(--color-ink)` on a background of `var(--color-accent)` — use `--cta-text-on-accent`. Hand-rolled gold buttons that skip this are the single most common contrast failure.
 
 ## 4. Typography (skill: Share Tech Mono + Fira Code)
 
 | Role | Font | Notes |
 |------|------|-------|
 | Display / hero | **Share Tech Mono** | Wide, sci-fi mono. `letter-spacing: 0.02em`. Large hero `clamp(3.4rem, 8vw, 8rem)`. |
+| Greeting (cockpit shell hero) | **Share Tech Mono** | **W308 step 1**: `clamp(2.4rem, 5vw, 3.4rem)` (was implicit `clamp(2rem, 4.2vw, 2.6rem)`). The briefing greeting *is* the cockpit hero — it must dominate, not match, the meta row. Mobile cap of 2.4rem keeps 375px viewports kind. |
 | Body / paragraphs | **Fira Code** 400/500 | Tech mono with ligatures. Line-height 1.65, max-width 64ch. |
-| Technical labels / nav / HUD | **Fira Code** 500 | `letter-spacing: 0.18em`, `text-transform: uppercase`, 11px. |
+| Technical labels / nav / HUD | **Fira Code** 500 | `letter-spacing: 0.18em`, `text-transform: uppercase`, 11px (`--type-label`). |
+| Watch-me-work phase bar | **Share Tech Mono** | **W308 step 4** (W307 verdict): `--font-size-phase-bar: 11px` (was implicit `10px`). Share Tech Mono loses letterform clarity at 10px even on Retina; 11px keeps the HUD-tick feel. Apply via `.phase-bar`. |
+| Live numeric data | **Fira Code** + `font-variant-numeric: tabular-nums` | **W308 step 1**: required on any ticker / meter / rail. Prevents "8% → 99.8%" width-jitter on refresh. Apply via `.t-num` utility. |
 
-CSS import:
+**Sanctioned mono glyphs** (W308 step 1 — codifies existing usage).
+Approved icon-substitutes that ship with Fira Code and need no
+Heroicons dependency: `▣ ◇ ◆ ═ ╳ ◯ ▾ ▸`. Document any additions
+here before introducing them in code; the goal is a small, stable
+set.
+
+CSS import (prefer `fonts.bunny.net` — privacy-safer mirror, same
+woff2 binaries):
 
 ```css
-@import url('https://fonts.googleapis.com/css2?family=Fira+Code:wght@300;400;500;600;700&family=Share+Tech+Mono&display=swap');
+@import url('https://fonts.bunny.net/css?family=fira-code:300,400,500,600,700|share-tech-mono:400&display=swap');
 ```
 
 ## 5. Layout (skill spacing variables)
@@ -128,13 +141,34 @@ CSS import:
 ## 7. Motion (skill UX rules)
 
 - Animate **1–2 key elements per view max** (skill UX result: Excessive
-  Motion → Severity High).
+  Motion → Severity High). **W308 step 1**: codified as
+  `--motion-budget-max: 2` on cockpit surfaces.
 - Use **ease-out** for entering, **ease-in** for exiting (Linear is
   forbidden for UI).
 - All operations >300ms must show a spinner/skeleton (Loading
   Indicators rule).
 - Forms: Loading → Success/Error sequence; never a silent click.
 - **Always** wrap motion in `prefers-reduced-motion: reduce` opt-out.
+- **W308 step 1 — ambient vs alert pulse split**:
+  - `--motion-pulse: 3.6s` — ambient health pulse ("all good"). Real
+    ambient-monitoring pulses are slower than UI-affordance pulses;
+    1.6s reads as "warning", 3.6s reads as "all good".
+  - `--motion-alert-pulse: 1.6s` — reserved for genuine warn states
+    (LIVE dots on `--color-alert`, stream-failure markers). Never
+    use for ambient indicators.
+- **W308 step 1 — marketing vs cockpit motion contracts** — closed
+  by W308 step 2 (W307 verdict resolution `6231b34`). Codified via
+  the `.surface-marketing` CSS class declared in
+  `apps/cockpit/src/styles/tokens.css`:
+
+  | Surface | `--motion-budget-max` | Notes |
+  |---|---|---|
+  | Default (cockpit shell, briefing, settings, status, any operator surface) | `2` | Operator stays on this page for hours; ambient motion must not compete with content. |
+  | `.surface-marketing` (landing hero, share cards, brand pages) | `4` | The rotating-core scene IS the value prop — meditative quality is a feature on the landing. |
+
+  Apply `.surface-marketing` to the root `<body>` (or topmost
+  surface element) of marketing pages only. Both contracts still
+  honour `prefers-reduced-motion: reduce`.
 
 ## 8. Pre-Delivery Checklist (verbatim from skill)
 
@@ -151,14 +185,20 @@ CSS import:
 
 ## 9. Implementation map (where it lands)
 
+**W308 step 1 update**: `experiments/neural-showcase-v3` was deleted
+in commit `e5f1911`. The cockpit source of truth now lives under
+`apps/cockpit/` (W308 step 0). The frozen Tauri bundle at
+`desktop/src-tauri/web/` will be replaced in W308 step 2.
+
 | Token / rule | File |
 |--------------|------|
-| Tokens (CSS variables) | `experiments/neural-showcase-v3/src/index.css` |
-| Font imports | `experiments/neural-showcase-v3/index.html` |
-| Hero WebGL accent | `experiments/neural-showcase-v3/src/three/HeroScene.tsx` |
-| HUD overlays | `experiments/neural-showcase-v3/src/components/Atmosphere.tsx`, `Brackets.tsx` |
-| Streaming-data UI | `Rail.tsx`, `Waveform.tsx` |
-| v2 mirror (legacy vanilla) | `experiments/neural-showcase-v2/src/style.css` (sync as needed). |
+| Tokens (CSS variables) | `apps/cockpit/src/styles/tokens.css` |
+| Typography contract | `apps/cockpit/src/styles/typography.css` |
+| Global baseline + `.cta` | `apps/cockpit/src/styles/global.css` |
+| Font imports | `apps/cockpit/index.html` (fonts.bunny.net) |
+| Drift guard (MASTER ↔ tokens.css) | `tests/test_cockpit_tokens_sync.py` |
+| Frozen production cockpit (until step 2) | `desktop/src-tauri/web/` |
+| Hero WebGL / HUD / Streaming-data UI | *(W308 step 2 — port from `docs/design/W307_refs/`)* |
 
 ## 10. Pages
 
