@@ -4,7 +4,7 @@
 **Window:** 2026-05-17 → 2026-05-18
 **Lane:** PR hygiene + cross-cutting closeouts on top of `v10.0.0-rc.1`
 **Branch home:** `cursor/post-rc1-master-plan` (PR #188), plus per-extraction branches
-**Status:** ✅ All sub-waves landed; 12 PRs open awaiting operator merge
+**Status:** ✅ All sub-waves landed; 15 PRs open awaiting operator merge
 
 ---
 
@@ -41,6 +41,9 @@ clean repository state heading into the v10.0.0 GA dock-down.
 | **W310-k** | Phase 3 cockpit pairing/recovery UX implementer brief (v10.1, ~26 h, 7 PRs) — companion to W310-j; new `<aside class="security">` panel covering 5 L5 flows (recovery seed, add-device QR, devices list, audit timeline, identity rotation) | PR #196; `docs/handoff/PH3_PAIRING_UX_BRIEF.md` |
 | **W310-l** | Phase 11 v10.0.0 GA dock-down brief (~6-8 h active + 72 h soak) — V10_GA_CHECKLIST reconciliation post-W310 (8 hard blockers vs 21 deferred), 72 h soak protocol (hourly probes, hard-fail thresholds), tag-cut protocol with per-step rollback gates | PR #197; `docs/handoff/PH11_QA_SWEEP_BRIEF.md` |
 | **W310-m** | v10.0.0 brother coord handoff brief (~10-12 h cross-stack) — companion to W310-l; 7 concrete syncs convergence-only (no new endpoints), reclassifies 3 of 6 brother-side A-items out of hard-blocker set, surfaces `ph3-pair-ttl` as v10.2 brother slot | PR #198; `docs/handoff/PH11_BROTHER_HANDOFF_BRIEF.md` |
+| **W310-n** | Phase 4 Apple `.dmg` v10 sign dock-down (~30-45 min operator) — verification-only brief that patches v9.1.0 quirks in `APPLE_SIGNING_FOR_CURSOR.md`, adds `spctl --assess` + `stapler validate` gates, couples to `RELEASE-v10.0.command`, defines 4 explicit rollback gates (A pre-tag, B post-tag-pre-publish, C Intel-only, D corrupted .p12) | PR #199; `docs/handoff/PH4_APPLE_SIGN_V10_BRIEF.md` |
+| **W310-o** | Phase 4 Windows `.exe`/`.msi` Authenticode sign full implementer brief (v10.1, ~12 h impl + ~3 h operator, ~510 LoC) — currently zero scaffold; cert decision matrix (recommend Sectigo OV @ $170/yr), two-pass sign architecture (sidecar BEFORE Tauri bundle, then installer), 6 mechanical steps with graceful degrade, 6-row risk register | PR #200; `docs/handoff/PH4_WINDOWS_SIGN_BRIEF.md` |
+| **W310-p** | Phase 4 updater channel bootstrap brief (T0 + v10.1, ~0.5 h operator + ~5 h impl, ~590 LoC) — closes Phase 4 trio; bootstrap pushes 2 `TAURI_SIGNING_*` secrets at v10 GA (zero code), cockpit UI surface deferred to v10.1 (3 modules + tests), pubkey rotation runbook defensive (doc-only for v10.x) | PR #201; `docs/handoff/PH4_UPDATER_BOOTSTRAP_BRIEF.md` |
 
 > **Sub-waves a..f are forensic triage on stacked PRs.** Sub-waves g..m
 > are forward-leaning **planning surface** that reduces the briefing
@@ -67,6 +70,9 @@ clean repository state heading into the v10.0.0 GA dock-down.
 | **#196** | W310-k Phase 3 cockpit pairing/recovery UX implementer brief | W310-k | green except known CI cache issue | next L5-lane session can start ph3-pairing-ux without spec work; together with #195 covers the entire v10.1 Phase 3 surface |
 | **#197** | W310-l Phase 11 v10.0.0 GA dock-down brief (reconciliation + soak + tag) | W310-l | green except known CI cache issue | gives operator a single-document GA execution script; ph11-qa-sweep is now spec'd end-to-end |
 | **#198** | W310-m v10.0.0 brother coord handoff brief (7-sync convergence) | W310-m | green except known CI cache issue | brother lane for v10 GA is now spec'd; together with #197 closes the full v10.0.0 GA dock-down arc on planning surface |
+| **#199** | W310-n Phase 4 Apple `.dmg` v10 sign dock-down (verification) | W310-n | green except known CI cache issue | on the GA critical path; operator can execute end-to-end in 30-45 min when `.p12` lands |
+| **#200** | W310-o Phase 4 Windows `.exe`/`.msi` Authenticode sign full implementer brief | W310-o | green except known CI cache issue | NOT GA-blocker (v10.0 ships Windows unsigned/"Preview"); v10.1 implementer can start ph4-windows-sign mechanically; ~12 h impl + 6-step roadmap |
+| **#201** | W310-p Phase 4 updater channel bootstrap (bootstrap T0, UI v10.1) | W310-p | green except known CI cache issue | bootstrap is a 30-min T0 op (zero code) alongside Apple sign at v10 GA; future v10.x line auto-publishes signed `latest.json`; UI deferred to v10.1 |
 
 > **Known CI failure (cosmetic, repo-wide).** `TARS B2B E2E suite`,
 > `TARS eval suite`, `scan working tree` all fail in 2-3 s on every
@@ -129,13 +135,13 @@ Re-open candidacy noted in `docs/PRODUCT_MASTER_PLAN.md §3.A`.
 4. **#190** — install funnel; landing earlier just means the cross-target funnel works sooner for testing.
 5. **#191** — voice fallback hardening; landing earlier just means the L4 voice loop becomes GA-ready sooner.
 
-**Planning-surface PRs (#192-#198):**
+**Planning-surface PRs (#192-#201):**
 
 These are docs-only and have **no downstream code dependency** — merge
 any time, in any order. Optimal time-to-value is to merge them whenever
 operator has a 1-minute review window between the runtime merges.
 
-All 12 are **independent** at the file level (no shared paths), so they
+All 15 are **independent** at the file level (no shared paths), so they
 can also land in parallel. The order above only reflects which merges
 unblock the most downstream work.
 
@@ -173,9 +179,17 @@ passes:
   active PR count to 12. The W310 wave now covers the full v10 → v10.1
   arc on planning surface alone — every implementer + coord question
   for the v10.0.0 GA tag has a spec'd brief.
+- **W310-n/o/p** — added PRs #199-#201 (Phase 4 / L9 release-signing
+  trio: Apple `.dmg` v10 dock-down, Windows `.exe`/`.msi` Authenticode
+  full implementer, updater channel bootstrap), lifting the active PR
+  count to 15. The trio closes the entire Phase 4 / L9 planning surface:
+  Apple sign is GA-critical (verification-only brief), Windows is v10.1
+  (full implementer brief, 12 h impl + 510 LoC roadmap), updater
+  bootstrap is a 30-min T0 op coupled to the Apple sign workflow with
+  the UI surface deferred to v10.1.
 
 Pickup pointer for any agent landing in the meeet workspace now lists all
-12 active PRs, all closed stacks, and points at this wave summary as the
+15 active PRs, all closed stacks, and points at this wave summary as the
 single-page operator-readable W310 retrospective.
 
 ---
