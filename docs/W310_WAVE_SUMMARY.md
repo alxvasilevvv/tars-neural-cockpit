@@ -4,7 +4,7 @@
 **Window:** 2026-05-17 → 2026-05-18
 **Lane:** PR hygiene + cross-cutting closeouts on top of `v10.0.0-rc.1`
 **Branch home:** `cursor/post-rc1-master-plan` (PR #188), plus per-extraction branches
-**Status:** ✅ All sub-waves landed; 19 PRs open awaiting operator merge
+**Status:** ✅ All sub-waves landed; 22 PRs open awaiting operator merge
 
 ---
 
@@ -48,20 +48,25 @@ clean repository state heading into the v10.0.0 GA dock-down.
 | **W310-r** | Phase 5 policy confirmations inbox UI brief (v10.2, ~1 week, ~1.5k LoC) — key insight: backend FULLY shipped (Wave 101 policy queue, 499 LoC w/ pending+queue+confirm+deny+bulk-approve+SSE+auto-approve-threshold); brief is PURE UI implementation, zero new endpoints; sortable table + drawer + keyboard-first nav + pending pill | PR #203; `docs/handoff/PH5_POLICY_UI_BRIEF.md` |
 | **W310-s** | Phase 5 differential telemetry brief (v10.2 opt-in k-anon, ~1 week, ~1.8k LoC) — closes Phase 5 trio; key insight: privacy module + gating ALREADY shipped; brief adds parallel "counters-only" stream (14 fixed bucket families, k=3, ≤10 KB/15min), vault-gated flush loop, cockpit settings panel with live preview + history + schema link | PR #204; `docs/handoff/PH5_TELEMETRY_BRIEF.md` |
 | **W310-t** | Phase 6 L3 sandboxed code execution + ArtifactPanel brief (v11, ~3 weeks, ~5k LoC incl ~5 MB Pyodide vendor bundle) — opens v11 backend planning surface; greenfield `backend/core/runtime/` module; OS sandbox matrix (macOS `sandbox-exec`, Linux `firejail`+rlimit fallback, Windows/Tauri Pyodide WebView); Python+Bash adapters (JS+SQL → v11.1); 7-event WS contract `tars.runtime.v1`; cockpit `<ArtifactPanel />` with 6 MIME bucket views (markdown/html-sandboxed-iframe/json-tree/csv-virtualized/png/x-tars-table); HARD deps on #202 (vault for secrets) + #203 (policy queue for every run); 7 mechanical steps with sandbox profile manual review gate | PR #205; `docs/handoff/PH6_L3_SANDBOX_BRIEF.md` |
+| **W310-u** | Phase 7 L6 planner cockpit UI brief (v11, ~1.5 weeks, ~1.8k LoC) — key insight: planner backend FULLY shipped (`backend/core/planner/` ~2.8k LoC + `web_extras/routers/planner.py` 904 LoC w/ plan synthesis, store, runner, history, SSE events); brief is PURE UI, zero new endpoints; `/plans` inbox page (list + filter + status pills), `<PlanTimeline />` drawer with step-by-step trace + diff viewer, approve/reject/abort buttons gated on policy queue (#203), "Create plan from this" affordance in chat composer, planner pill in header (running count); HARD coupling on #203 (policy UI for plan approvals) | PR #206; `docs/handoff/PH7_PLANNER_UI_BRIEF.md` |
+| **W310-v** | Phase 8 L7 marketplace v1 implementer brief (v11, ~3 weeks, ~3.5k LoC) — closes the L0-L9 contract on v11 backend planning surface; key insight: marketplace v0 EXISTS (`backend/core/marketplace/` ~1.6k LoC + `web_extras/routers/marketplace.py` 267 LoC, lenient warn-don't-block signature verify); brief defines `.tars-pack` format (manifest.json + recipes/ + adapters/ + signatures/), HARD-FAIL ed25519 signing (trust store + revocation), static-analysis preflight (AST whitelist + import allowlist), remote distribution from `meeet.world/packs/` (signed mirror + CDN), cockpit `<MarketplaceSheet />` modal (browse + install + update + uninstall + ratings), 7 mechanical steps with operator-policy gate for first-time-install of each publisher | PR #207; `docs/handoff/PH8_L7_MARKETPLACE_BRIEF.md` |
+| **W310-w** | Phase 9 L10 iOS companion app (SwiftUI) implementer brief (v11 TestFlight, ~3 weeks, ~2.4k Swift + ~600 LoC tests) — opens **v11 mobile planning surface**; key insight: pairing-first SPM library SHIPPED (`mobile/ios/TARSCompanion/`, 11 unit tests green; pairing handshake contract-tested against backend); brief defines the greenfield Xcode app target on top — `MainTabView` (Chat/Plans/Inbox/Settings), streaming chat via SSE-line-buffered `URLSession` actor, `PHPickerViewController` attachment upload, TestFlight pipeline via fastlane, read-only Plans + Inbox in v11 (write actions → v11.1); SOFT coupling on #203 (policy mirror) + #206 (planner mirror); HARD forward-coupling on PH9 native speech (mic perm pre-declared, `VoiceTab` stub) | PR #208; `docs/handoff/PH9_IOS_COMPANION_BRIEF.md` |
 
-> **Sub-waves a..f are forensic triage on stacked PRs.** Sub-waves g..t
+> **Sub-waves a..f are forensic triage on stacked PRs.** Sub-waves g..w
 > are forward-leaning **planning surface** that reduces the briefing
 > load on the next implementer session — Phase 2 voice loop + Phase 3
 > security closeout for v10.1, full v10.0.0 GA dock-down arc (Phase 11,
 > TARS-side methodology + brother-side convergence), Phase 4 release-
 > signing trio (Apple + Windows + updater), Phase 5 v10.2 trio
 > (encrypted vault + policy inbox UI + differential telemetry — the
-> full "real data" gate), and Phase 6 L3 sandboxed code execution +
-> ArtifactPanel for v11. The two halves can be reviewed independently.
+> full "real data" gate), v11 backend trio (L3 sandbox + L6 planner UI
+> + L7 marketplace v1), and the opening of the v11 mobile surface
+> (PH9 iOS companion app, with Android + native speech briefs
+> incoming). The two halves can be reviewed independently.
 
 ---
 
-## Active PRs (19 open, all awaiting operator merge)
+## Active PRs (22 open, all awaiting operator merge)
 
 | # | Title | Wave | Status | Merge unblocks |
 | - | ----- | ---- | ------ | -------------- |
@@ -84,6 +89,9 @@ clean repository state heading into the v10.0.0 GA dock-down.
 | **#203** | W310-r Phase 5 policy confirmations inbox UI brief (v10.2 cockpit surface) | W310-r | green except known CI cache issue | v10.2 cockpit implementer can start ph5-policy-ui mechanically; ~1 week pure UI work (backend fully shipped Wave 101); surfaces approval inbox + bulk approve + SSE |
 | **#204** | W310-s Phase 5 differential telemetry brief (v10.2 opt-in k-anon counters) | W310-s | green except known CI cache issue | v10.2 implementer can start ph5-telemetry mechanically; ~1 week; closes Phase 5 trio; meeet.world side adds `POST /api/telemetry/diff/flush` per brother handoff §6 extension |
 | **#205** | W310-t Phase 6 L3 sandboxed code execution + ArtifactPanel brief (v11 greenfield) | W310-t | green except known CI cache issue | opens v11 backend planning surface; v11 implementer can start ph6-sandbox + ph6-artifact-panel mechanically; ~3 weeks total; OS sandbox matrix (macOS sandbox-exec / Linux firejail+rlimit / Windows Pyodide WebView); HARD deps on #202 (vault) + #203 (policy queue) |
+| **#206** | W310-u Phase 7 L6 planner cockpit UI brief (v11 pure UI, backend shipped) | W310-u | green except known CI cache issue | v11 cockpit implementer can start ph7-planner mechanically; ~1.5 weeks pure UI; planner backend already fully shipped (`backend/core/planner/` + `web_extras/routers/planner.py`); HARD coupling on #203 (policy UI for plan approvals) |
+| **#207** | W310-v Phase 8 L7 marketplace v1 implementer brief (v11 hardening v0) | W310-v | green except known CI cache issue | closes the L0-L9 contract on v11 backend planning surface; v11 implementer can start ph8-marketplace mechanically; ~3 weeks; hardens existing marketplace v0 with `.tars-pack` format + hard-fail ed25519 signing + static-analysis preflight + remote distribution from `meeet.world/packs/` + `<MarketplaceSheet />` modal |
+| **#208** | W310-w Phase 9 L10 iOS companion app (SwiftUI) implementer brief (v11 TestFlight) | W310-w | green except known CI cache issue | opens v11 mobile planning surface; v11 mobile implementer can start ph9-ios mechanically; ~3 weeks; greenfield Xcode app target on top of shipped pairing-first SPM library; `MainTabView` + SSE chat + PHPicker attachments + TestFlight pipeline; HARD forward-coupling on PH9 native speech (mic perm + VoiceTab stub) |
 
 > **Known CI failure (cosmetic, repo-wide).** `TARS B2B E2E suite`,
 > `TARS eval suite`, `scan working tree` all fail in 2-3 s on every
@@ -146,13 +154,13 @@ Re-open candidacy noted in `docs/PRODUCT_MASTER_PLAN.md §3.A`.
 4. **#190** — install funnel; landing earlier just means the cross-target funnel works sooner for testing.
 5. **#191** — voice fallback hardening; landing earlier just means the L4 voice loop becomes GA-ready sooner.
 
-**Planning-surface PRs (#192-#205):**
+**Planning-surface PRs (#192-#208):**
 
 These are docs-only and have **no downstream code dependency** — merge
 any time, in any order. Optimal time-to-value is to merge them whenever
 operator has a 1-minute review window between the runtime merges.
 
-All 19 are **independent** at the file level (no shared paths), so they
+All 22 are **independent** at the file level (no shared paths), so they
 can also land in parallel. The order above only reflects which merges
 unblock the most downstream work.
 
@@ -223,9 +231,52 @@ passes:
   ~1.4k LoC tests and ~5 MB vendored Pyodide bundle for the Windows/
   Tauri path. Next planning briefs: PH7 (L6 planner), PH8 (L7
   marketplace), PH9 (L10 mobile).
+- **W310-u** — added PR #206 (Phase 7 L6 planner cockpit UI brief),
+  lifting the active PR count to 20. Pure-UI brief: planner backend
+  fully shipped (`backend/core/planner/` ~2.8k LoC + `web_extras/
+  routers/planner.py` 904 LoC w/ synthesis, store, runner, history,
+  SSE events, playbook integration). Brief specs `/plans` inbox page,
+  `<PlanTimeline />` drawer with step-by-step trace + diff viewer,
+  approve/reject/abort buttons gated on policy queue (#203), "Create
+  plan from this" composer affordance, and a planner pill in header.
+  HARD coupling on #203 for plan-approval policy enqueue. ~1.5 weeks
+  impl.
+- **W310-v** — added PR #207 (Phase 8 L7 marketplace v1 implementer
+  brief), lifting the active PR count to 21. Closes the **L0-L9
+  contract on v11 backend planning surface**. Hardens existing
+  marketplace v0 (`backend/core/marketplace/` ~1.6k LoC + 267 LoC
+  router, currently lenient warn-don't-block sig verify) into v1:
+  defines `.tars-pack` format (manifest.json + recipes/ + adapters/ +
+  signatures/), HARD-FAIL ed25519 signing (trust store + revocation),
+  static-analysis preflight (AST whitelist + import allowlist), remote
+  distribution from `meeet.world/packs/` (signed mirror + CDN), and
+  cockpit `<MarketplaceSheet />` modal (browse + install + update +
+  uninstall + ratings). Operator-policy gate on first-time-install
+  of each publisher. 7 mechanical steps, ~3 weeks impl, ~3.5k LoC.
+  After this brief, the full L0-L9 contract is spec'd; only L10
+  mobile remains.
+- **W310-w** — added PR #208 (Phase 9 L10 iOS companion app SwiftUI
+  brief), lifting the active PR count to 22. **Opens the v11 mobile
+  planning surface.** Key insight: pairing-first SPM library SHIPPED
+  (`mobile/ios/TARSCompanion/`, 11 unit tests green; pairing handshake
+  contract-tested against backend). Brief specs the greenfield Xcode
+  app target on top: `MainTabView` with Chat/Plans/Inbox/Settings
+  tabs, streaming chat via SSE-line-buffered `URLSession` actor,
+  `PHPickerViewController` attachment upload, TestFlight pipeline via
+  fastlane (`bump_build`, `build_testflight`, `submit_testflight`),
+  read-only Plans + Inbox in v11 (write actions deferred to v11.1).
+  SOFT coupling on #203 (policy mirror) + #206 (planner mirror).
+  HARD forward-coupling on PH9 native speech (mic permission +
+  `VoiceTab` stub pre-declared). 6 mechanical steps, ~3 weeks impl,
+  ~2.4k Swift LoC + ~600 LoC tests. Distribution: TestFlight v11;
+  App Store v11.1 after Apple LLM-disclosure language is dialed in.
+  Two native codebases preserved (Swift + Kotlin), no React Native /
+  Flutter / Cordova wrappers. Next planning briefs incoming: PH9
+  Android companion, PH9 native mobile speech, PH10 Claude design
+  polish backlog.
 
 Pickup pointer for any agent landing in the meeet workspace now lists all
-19 active PRs, all closed stacks, and points at this wave summary as the
+22 active PRs, all closed stacks, and points at this wave summary as the
 single-page operator-readable W310 retrospective.
 
 ---
