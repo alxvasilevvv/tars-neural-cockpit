@@ -4,7 +4,7 @@
 **Window:** 2026-05-17 → 2026-05-18
 **Lane:** PR hygiene + cross-cutting closeouts on top of `v10.0.0-rc.1`
 **Branch home:** `cursor/post-rc1-master-plan` (PR #188), plus per-extraction branches
-**Status:** ✅ All sub-waves landed; 22 PRs open awaiting operator merge
+**Status:** ✅ All sub-waves landed; 24 PRs open awaiting operator merge
 
 ---
 
@@ -51,8 +51,10 @@ clean repository state heading into the v10.0.0 GA dock-down.
 | **W310-u** | Phase 7 L6 planner cockpit UI brief (v11, ~1.5 weeks, ~1.8k LoC) — key insight: planner backend FULLY shipped (`backend/core/planner/` ~2.8k LoC + `web_extras/routers/planner.py` 904 LoC w/ plan synthesis, store, runner, history, SSE events); brief is PURE UI, zero new endpoints; `/plans` inbox page (list + filter + status pills), `<PlanTimeline />` drawer with step-by-step trace + diff viewer, approve/reject/abort buttons gated on policy queue (#203), "Create plan from this" affordance in chat composer, planner pill in header (running count); HARD coupling on #203 (policy UI for plan approvals) | PR #206; `docs/handoff/PH7_PLANNER_UI_BRIEF.md` |
 | **W310-v** | Phase 8 L7 marketplace v1 implementer brief (v11, ~3 weeks, ~3.5k LoC) — closes the L0-L9 contract on v11 backend planning surface; key insight: marketplace v0 EXISTS (`backend/core/marketplace/` ~1.6k LoC + `web_extras/routers/marketplace.py` 267 LoC, lenient warn-don't-block signature verify); brief defines `.tars-pack` format (manifest.json + recipes/ + adapters/ + signatures/), HARD-FAIL ed25519 signing (trust store + revocation), static-analysis preflight (AST whitelist + import allowlist), remote distribution from `meeet.world/packs/` (signed mirror + CDN), cockpit `<MarketplaceSheet />` modal (browse + install + update + uninstall + ratings), 7 mechanical steps with operator-policy gate for first-time-install of each publisher | PR #207; `docs/handoff/PH8_L7_MARKETPLACE_BRIEF.md` |
 | **W310-w** | Phase 9 L10 iOS companion app (SwiftUI) implementer brief (v11 TestFlight, ~3 weeks, ~2.4k Swift + ~600 LoC tests) — opens **v11 mobile planning surface**; key insight: pairing-first SPM library SHIPPED (`mobile/ios/TARSCompanion/`, 11 unit tests green; pairing handshake contract-tested against backend); brief defines the greenfield Xcode app target on top — `MainTabView` (Chat/Plans/Inbox/Settings), streaming chat via SSE-line-buffered `URLSession` actor, `PHPickerViewController` attachment upload, TestFlight pipeline via fastlane, read-only Plans + Inbox in v11 (write actions → v11.1); SOFT coupling on #203 (policy mirror) + #206 (planner mirror); HARD forward-coupling on PH9 native speech (mic perm pre-declared, `VoiceTab` stub) | PR #208; `docs/handoff/PH9_IOS_COMPANION_BRIEF.md` |
+| **W310-x** | Phase 9 L10 Android companion app (Kotlin + Jetpack Compose) implementer brief (v11 Internal Testing, ~3 weeks, ~2.6k Kotlin + ~600 LoC tests) — companion to W310-w; key insight: pairing-first Compose module SHIPPED (`mobile/android/TARSCompanion/`, ~1.5k LoC, ZXing QR + OkHttp + X25519 crypto, JVM-only unit tests green); brief defines new `:companion` Gradle module on top — streaming chat via OkHttp `EventSource` + Room persistence, Storage Access Framework attachment picker, read-only Plans + Inbox tabs, Internal Testing pipeline via Gradle Play Publisher (GPP), foreground service stub for push-to-talk; SOFT coupling on #203 (policy mirror) + #206 (planner mirror); HARD forward-coupling on PH9 native speech (`PushToTalkService` stub + RECORD_AUDIO perm pre-declared) | PR #209; `docs/handoff/PH9_ANDROID_COMPANION_BRIEF.md` |
+| **W310-y** | Phase 9 L10 native mobile speech implementer brief (v11, ~2.5 weeks, ~3k LoC — ~1.6k Swift + ~1.4k Kotlin — + ~800 LoC tests) — **closes the L10 mobile companion trio**; replaces unreliable Web Speech API with native engines on both platforms (iOS `SFSpeechRecognizer` on-device + `AVSpeechSynthesizer`; Android `SpeechRecognizer` offline-first on API 31+ + `TextToSpeech`) PLUS Whisper.cpp tiny.en (~75 MB bundled) as offline-first fallback; cross-platform `VoiceState` contract (7 states, byte-for-byte parity asserted via `tests/test_mobile_voice_contract.py`); `PersonaVoiceMap` mirrors desktop L4.2 `MacSayEngine` fallback pattern; WebRTC VAD (or silero-vad) endpointing; Settings mode selector (Auto / Native / Whisper.cpp); IPA / AAB grows from ~15 MB → ~95 MB (below 100 MB cellular cap; On-Demand Resources + Play Asset Delivery deferred to v11.1 if rejected); HARD-blocked on #208 + #209 (plugs into `VoiceTab` stub + `PushToTalkService` foreground stub those briefs ship); SOFT coupling on #193 (PH2 STT — same `tars.stt.v1` partial-transcript shape) + #191 (L4.2 fallback pattern reuse) + #204 (PH5 telemetry — 5 `mobile.voice.*` buckets reserved, emission deferred to v11.1) | PR #210; `docs/handoff/PH9_NATIVE_MOBILE_SPEECH_BRIEF.md` |
 
-> **Sub-waves a..f are forensic triage on stacked PRs.** Sub-waves g..w
+> **Sub-waves a..f are forensic triage on stacked PRs.** Sub-waves g..y
 > are forward-leaning **planning surface** that reduces the briefing
 > load on the next implementer session — Phase 2 voice loop + Phase 3
 > security closeout for v10.1, full v10.0.0 GA dock-down arc (Phase 11,
@@ -60,13 +62,16 @@ clean repository state heading into the v10.0.0 GA dock-down.
 > signing trio (Apple + Windows + updater), Phase 5 v10.2 trio
 > (encrypted vault + policy inbox UI + differential telemetry — the
 > full "real data" gate), v11 backend trio (L3 sandbox + L6 planner UI
-> + L7 marketplace v1), and the opening of the v11 mobile surface
-> (PH9 iOS companion app, with Android + native speech briefs
-> incoming). The two halves can be reviewed independently.
+> + L7 marketplace v1), and the **full v11 mobile companion trio**
+> (PH9 iOS + PH9 Android + PH9 native speech). After W310-y the entire
+> L0-L10 backend + frontend + mobile contract is spec'd on planning
+> surface — only Phase 10 Claude design polish backlog (continuous,
+> 1-2/week implementation-time work) remains. The two halves can be
+> reviewed independently.
 
 ---
 
-## Active PRs (22 open, all awaiting operator merge)
+## Active PRs (24 open, all awaiting operator merge)
 
 | # | Title | Wave | Status | Merge unblocks |
 | - | ----- | ---- | ------ | -------------- |
@@ -92,6 +97,8 @@ clean repository state heading into the v10.0.0 GA dock-down.
 | **#206** | W310-u Phase 7 L6 planner cockpit UI brief (v11 pure UI, backend shipped) | W310-u | green except known CI cache issue | v11 cockpit implementer can start ph7-planner mechanically; ~1.5 weeks pure UI; planner backend already fully shipped (`backend/core/planner/` + `web_extras/routers/planner.py`); HARD coupling on #203 (policy UI for plan approvals) |
 | **#207** | W310-v Phase 8 L7 marketplace v1 implementer brief (v11 hardening v0) | W310-v | green except known CI cache issue | closes the L0-L9 contract on v11 backend planning surface; v11 implementer can start ph8-marketplace mechanically; ~3 weeks; hardens existing marketplace v0 with `.tars-pack` format + hard-fail ed25519 signing + static-analysis preflight + remote distribution from `meeet.world/packs/` + `<MarketplaceSheet />` modal |
 | **#208** | W310-w Phase 9 L10 iOS companion app (SwiftUI) implementer brief (v11 TestFlight) | W310-w | green except known CI cache issue | opens v11 mobile planning surface; v11 mobile implementer can start ph9-ios mechanically; ~3 weeks; greenfield Xcode app target on top of shipped pairing-first SPM library; `MainTabView` + SSE chat + PHPicker attachments + TestFlight pipeline; HARD forward-coupling on PH9 native speech (mic perm + VoiceTab stub) |
+| **#209** | W310-x Phase 9 L10 Android companion app (Kotlin + Compose) implementer brief (v11 Internal Testing) | W310-x | green except known CI cache issue | v11 mobile implementer can start ph9-android mechanically (parallel-safe with ph9-ios); ~3 weeks; new `:companion` Gradle module on top of shipped pairing-first module; OkHttp `EventSource` + Room SSE chat + SAF attachments + GPP Internal Testing pipeline; HARD forward-coupling on PH9 native speech (`PushToTalkService` stub + RECORD_AUDIO pre-declared) |
+| **#210** | W310-y Phase 9 L10 native mobile speech implementer brief (v11; iOS `SFSpeechRecognizer`+`AVSpeechSynthesizer`, Android `SpeechRecognizer`+`TextToSpeech`, Whisper.cpp tiny.en bundled fallback) | W310-y | green except known CI cache issue | closes the L10 mobile companion trio; **HARD-blocked on #208 + #209** (plugs into `VoiceTab` + `PushToTalkService` stubs those briefs ship); ~2.5 weeks; ~3k LoC (~1.6k Swift + ~1.4k Kotlin); cross-platform `VoiceState` contract w/ byte-for-byte parity; mode selector Auto/Native/Whisper.cpp; replaces Web Speech API everywhere. After this lands, the entire L0-L10 contract is spec'd on planning surface |
 
 > **Known CI failure (cosmetic, repo-wide).** `TARS B2B E2E suite`,
 > `TARS eval suite`, `scan working tree` all fail in 2-3 s on every
@@ -154,13 +161,13 @@ Re-open candidacy noted in `docs/PRODUCT_MASTER_PLAN.md §3.A`.
 4. **#190** — install funnel; landing earlier just means the cross-target funnel works sooner for testing.
 5. **#191** — voice fallback hardening; landing earlier just means the L4 voice loop becomes GA-ready sooner.
 
-**Planning-surface PRs (#192-#208):**
+**Planning-surface PRs (#192-#210):**
 
 These are docs-only and have **no downstream code dependency** — merge
 any time, in any order. Optimal time-to-value is to merge them whenever
 operator has a 1-minute review window between the runtime merges.
 
-All 22 are **independent** at the file level (no shared paths), so they
+All 24 are **independent** at the file level (no shared paths), so they
 can also land in parallel. The order above only reflects which merges
 unblock the most downstream work.
 
@@ -271,12 +278,58 @@ passes:
   ~2.4k Swift LoC + ~600 LoC tests. Distribution: TestFlight v11;
   App Store v11.1 after Apple LLM-disclosure language is dialed in.
   Two native codebases preserved (Swift + Kotlin), no React Native /
-  Flutter / Cordova wrappers. Next planning briefs incoming: PH9
-  Android companion, PH9 native mobile speech, PH10 Claude design
-  polish backlog.
+  Flutter / Cordova wrappers.
+- **W310-x** — added PR #209 (Phase 9 L10 Android companion app
+  Kotlin + Jetpack Compose brief), lifting the active PR count to 23.
+  Companion to W310-w; parallel-safe with PH9 iOS. Key insight:
+  pairing-first Compose module SHIPPED (`mobile/android/TARSCompanion/`,
+  ~1.5k Kotlin LoC, 13 files, 2 activities, ZXing for QR, OkHttp for
+  net, X25519 for crypto, JVM-only unit tests green). Brief specs new
+  `:companion` Gradle module on top: streaming chat via OkHttp
+  `EventSource` w/ Room persistence (`ChatMessageEntity`,
+  `ChatDao`, `TARSDatabase`), Storage Access Framework attachment
+  picker (no READ_EXTERNAL_STORAGE required), read-only Plans +
+  Inbox tabs (write actions deferred to v11.1), Internal Testing
+  build pipeline via **Gradle Play Publisher (GPP)** (`./gradlew
+  :companion:publishBundle --track internal`), foreground service
+  stub `PushToTalkService` (no audio capture yet; placeholder
+  notification + lifecycle hooks for PH9 native speech to fill in).
+  SOFT coupling on #203 (policy mirror) + #206 (planner mirror).
+  HARD forward-coupling on PH9 native speech (RECORD_AUDIO
+  pre-declared, `PushToTalkService` stub). 6 mechanical steps,
+  ~3 weeks impl, ~2.6k Kotlin LoC + ~600 LoC tests. Distribution:
+  Internal Testing track v11; Closed/Open Beta v11.1; Production
+  v11.2 after one full beta cycle.
+- **W310-y** — added PR #210 (Phase 9 L10 native mobile speech
+  brief), lifting the active PR count to 24. **Closes the L10
+  mobile companion trio.** Replaces the unreliable Web Speech API
+  on both platforms with native engines + bundled offline-first
+  Whisper.cpp fallback. iOS: `SFSpeechRecognizer` (on-device since
+  iOS 13) + `AVSpeechSynthesizer`. Android: `SpeechRecognizer`
+  (offline-first on API 31+) + `TextToSpeech`. Both: Whisper.cpp
+  tiny.en (~75 MB bundled) as offline-first fallback. VAD
+  endpointing via WebRTC VAD (recommend silero-vad: ~2 MB MIT vs
+  12 MB Google). Cross-platform `VoiceState` contract (7 states,
+  byte-for-byte parity asserted via `tests/test_mobile_voice_contract.py`).
+  `PersonaVoiceMap` mirrors desktop L4.2 `MacSayEngine` fallback
+  pattern. Mode selector in Settings (Auto / Native / Whisper.cpp).
+  App size impact: IPA + AAB grow from ~15 MB → ~95 MB (below 100
+  MB cellular download cap; On-Demand Resources + Play Asset
+  Delivery deferred to v11.1 if Apple / Google reject). **HARD-blocked
+  on #208 + #209** (replaces stubs `VoiceTab` and `PushToTalkService`).
+  SOFT coupling on #193 (PH2 STT — same `tars.stt.v1` partial-transcript
+  shape) + #191 (L4.2 fallback pattern reuse) + #204 (PH5 telemetry —
+  5 `mobile.voice.*` buckets reserved, emission deferred to v11.1).
+  6 mechanical steps, ~3k LoC (~1.6k Swift + ~1.4k Kotlin) + ~800
+  LoC tests, ~2.5 weeks impl. Nightly WER ≤ 0.10 regression on
+  librispeech-test-clean first 20 utterances.
+  **After W310-y the entire L0-L10 contract is spec'd on planning
+  surface.** Only sub-wave W310-z (Phase 10 Claude design polish
+  backlog, continuous 1-2/week implementation-time work) remains in
+  the W310 wave.
 
 Pickup pointer for any agent landing in the meeet workspace now lists all
-22 active PRs, all closed stacks, and points at this wave summary as the
+24 active PRs, all closed stacks, and points at this wave summary as the
 single-page operator-readable W310 retrospective.
 
 ---
