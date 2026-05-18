@@ -4,7 +4,7 @@
 **Window:** 2026-05-17 → 2026-05-18
 **Lane:** PR hygiene + cross-cutting closeouts on top of `v10.0.0-rc.1`
 **Branch home:** `cursor/post-rc1-master-plan` (PR #188), plus per-extraction branches
-**Status:** ✅ All sub-waves landed; 18 PRs open awaiting operator merge
+**Status:** ✅ All sub-waves landed; 19 PRs open awaiting operator merge
 
 ---
 
@@ -47,19 +47,21 @@ clean repository state heading into the v10.0.0 GA dock-down.
 | **W310-q** | Phase 5 encrypted vault implementer brief (v10.2 gate for real data, ~3 weeks, ~2.5k LoC) — key insight: libsodium ALREADY wired in `file_vault.py`; brief focuses on scope expansion (CRM/OAuth/wallet keys migrate behind vault), master passphrase + unlock UX, SQLCipher at rest for `meeet.sqlite`, single BIP-39 mnemonic recovers both vault + host identity; 6 mechanical steps | PR #202; `docs/handoff/PH5_VAULT_BRIEF.md` |
 | **W310-r** | Phase 5 policy confirmations inbox UI brief (v10.2, ~1 week, ~1.5k LoC) — key insight: backend FULLY shipped (Wave 101 policy queue, 499 LoC w/ pending+queue+confirm+deny+bulk-approve+SSE+auto-approve-threshold); brief is PURE UI implementation, zero new endpoints; sortable table + drawer + keyboard-first nav + pending pill | PR #203; `docs/handoff/PH5_POLICY_UI_BRIEF.md` |
 | **W310-s** | Phase 5 differential telemetry brief (v10.2 opt-in k-anon, ~1 week, ~1.8k LoC) — closes Phase 5 trio; key insight: privacy module + gating ALREADY shipped; brief adds parallel "counters-only" stream (14 fixed bucket families, k=3, ≤10 KB/15min), vault-gated flush loop, cockpit settings panel with live preview + history + schema link | PR #204; `docs/handoff/PH5_TELEMETRY_BRIEF.md` |
+| **W310-t** | Phase 6 L3 sandboxed code execution + ArtifactPanel brief (v11, ~3 weeks, ~5k LoC incl ~5 MB Pyodide vendor bundle) — opens v11 backend planning surface; greenfield `backend/core/runtime/` module; OS sandbox matrix (macOS `sandbox-exec`, Linux `firejail`+rlimit fallback, Windows/Tauri Pyodide WebView); Python+Bash adapters (JS+SQL → v11.1); 7-event WS contract `tars.runtime.v1`; cockpit `<ArtifactPanel />` with 6 MIME bucket views (markdown/html-sandboxed-iframe/json-tree/csv-virtualized/png/x-tars-table); HARD deps on #202 (vault for secrets) + #203 (policy queue for every run); 7 mechanical steps with sandbox profile manual review gate | PR #205; `docs/handoff/PH6_L3_SANDBOX_BRIEF.md` |
 
-> **Sub-waves a..f are forensic triage on stacked PRs.** Sub-waves g..s
+> **Sub-waves a..f are forensic triage on stacked PRs.** Sub-waves g..t
 > are forward-leaning **planning surface** that reduces the briefing
 > load on the next implementer session — Phase 2 voice loop + Phase 3
 > security closeout for v10.1, full v10.0.0 GA dock-down arc (Phase 11,
 > TARS-side methodology + brother-side convergence), Phase 4 release-
-> signing trio (Apple + Windows + updater), and Phase 5 v10.2 trio
-> (encrypted vault + policy inbox UI + differential telemetry — the full
-> "real data" gate). The two halves can be reviewed independently.
+> signing trio (Apple + Windows + updater), Phase 5 v10.2 trio
+> (encrypted vault + policy inbox UI + differential telemetry — the
+> full "real data" gate), and Phase 6 L3 sandboxed code execution +
+> ArtifactPanel for v11. The two halves can be reviewed independently.
 
 ---
 
-## Active PRs (18 open, all awaiting operator merge)
+## Active PRs (19 open, all awaiting operator merge)
 
 | # | Title | Wave | Status | Merge unblocks |
 | - | ----- | ---- | ------ | -------------- |
@@ -81,6 +83,7 @@ clean repository state heading into the v10.0.0 GA dock-down.
 | **#202** | W310-q Phase 5 encrypted vault implementer brief (v10.2 gate for real data) | W310-q | green except known CI cache issue | v10.2 implementer can start ph5-vault mechanically; ~3 weeks, 6 steps; gate for CRM/OAuth/wallet to touch real customer data |
 | **#203** | W310-r Phase 5 policy confirmations inbox UI brief (v10.2 cockpit surface) | W310-r | green except known CI cache issue | v10.2 cockpit implementer can start ph5-policy-ui mechanically; ~1 week pure UI work (backend fully shipped Wave 101); surfaces approval inbox + bulk approve + SSE |
 | **#204** | W310-s Phase 5 differential telemetry brief (v10.2 opt-in k-anon counters) | W310-s | green except known CI cache issue | v10.2 implementer can start ph5-telemetry mechanically; ~1 week; closes Phase 5 trio; meeet.world side adds `POST /api/telemetry/diff/flush` per brother handoff §6 extension |
+| **#205** | W310-t Phase 6 L3 sandboxed code execution + ArtifactPanel brief (v11 greenfield) | W310-t | green except known CI cache issue | opens v11 backend planning surface; v11 implementer can start ph6-sandbox + ph6-artifact-panel mechanically; ~3 weeks total; OS sandbox matrix (macOS sandbox-exec / Linux firejail+rlimit / Windows Pyodide WebView); HARD deps on #202 (vault) + #203 (policy queue) |
 
 > **Known CI failure (cosmetic, repo-wide).** `TARS B2B E2E suite`,
 > `TARS eval suite`, `scan working tree` all fail in 2-3 s on every
@@ -143,13 +146,13 @@ Re-open candidacy noted in `docs/PRODUCT_MASTER_PLAN.md §3.A`.
 4. **#190** — install funnel; landing earlier just means the cross-target funnel works sooner for testing.
 5. **#191** — voice fallback hardening; landing earlier just means the L4 voice loop becomes GA-ready sooner.
 
-**Planning-surface PRs (#192-#204):**
+**Planning-surface PRs (#192-#205):**
 
 These are docs-only and have **no downstream code dependency** — merge
 any time, in any order. Optimal time-to-value is to merge them whenever
 operator has a 1-minute review window between the runtime merges.
 
-All 18 are **independent** at the file level (no shared paths), so they
+All 19 are **independent** at the file level (no shared paths), so they
 can also land in parallel. The order above only reflects which merges
 unblock the most downstream work.
 
@@ -207,9 +210,22 @@ passes:
   (default OFF, vault-gated flush, fixed 14-bucket schema). The full v10
   → v10.2 arc is now spec'd on planning surface — every implementer
   question for the next two releases has a brief.
+- **W310-t** — added PR #205 (Phase 6 L3 sandboxed code execution +
+  ArtifactPanel brief, v11 greenfield), lifting the active PR count to
+  19. Opens the **v11 backend planning surface**: closes the last
+  unshipped L0-L9 contract (L10 mobile remains, separate brief). OS
+  sandbox matrix (macOS `sandbox-exec`, Linux `firejail`+rlimit
+  fallback, Windows/Tauri Pyodide WebView). HARD-coupled to Phase 5
+  trio: every `run_code` enqueues a policy confirmation (#203) and
+  fetches secrets through VaultGate (#202). Cockpit ArtifactPanel
+  renders 6 MIME bucket views (markdown/sandboxed-html/json-tree/
+  csv-virtualized/png/x-tars-table). ~3 weeks impl, ~5k LoC incl
+  ~1.4k LoC tests and ~5 MB vendored Pyodide bundle for the Windows/
+  Tauri path. Next planning briefs: PH7 (L6 planner), PH8 (L7
+  marketplace), PH9 (L10 mobile).
 
 Pickup pointer for any agent landing in the meeet workspace now lists all
-18 active PRs, all closed stacks, and points at this wave summary as the
+19 active PRs, all closed stacks, and points at this wave summary as the
 single-page operator-readable W310 retrospective.
 
 ---
