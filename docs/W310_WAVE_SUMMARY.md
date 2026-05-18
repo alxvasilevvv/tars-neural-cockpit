@@ -4,7 +4,7 @@
 **Window:** 2026-05-17 → 2026-05-18
 **Lane:** PR hygiene + cross-cutting closeouts on top of `v10.0.0-rc.1`
 **Branch home:** `cursor/post-rc1-master-plan` (PR #188), plus per-extraction branches
-**Status:** ✅ All sub-waves landed; 24 PRs open awaiting operator merge
+**Status:** ✅ All sub-waves landed; **27 PRs open awaiting operator merge**. Planning surface fully closed — every implementer question from `v10.0.0-rc.1` through `v11` is spec'd.
 
 ---
 
@@ -53,25 +53,29 @@ clean repository state heading into the v10.0.0 GA dock-down.
 | **W310-w** | Phase 9 L10 iOS companion app (SwiftUI) implementer brief (v11 TestFlight, ~3 weeks, ~2.4k Swift + ~600 LoC tests) — opens **v11 mobile planning surface**; key insight: pairing-first SPM library SHIPPED (`mobile/ios/TARSCompanion/`, 11 unit tests green; pairing handshake contract-tested against backend); brief defines the greenfield Xcode app target on top — `MainTabView` (Chat/Plans/Inbox/Settings), streaming chat via SSE-line-buffered `URLSession` actor, `PHPickerViewController` attachment upload, TestFlight pipeline via fastlane, read-only Plans + Inbox in v11 (write actions → v11.1); SOFT coupling on #203 (policy mirror) + #206 (planner mirror); HARD forward-coupling on PH9 native speech (mic perm pre-declared, `VoiceTab` stub) | PR #208; `docs/handoff/PH9_IOS_COMPANION_BRIEF.md` |
 | **W310-x** | Phase 9 L10 Android companion app (Kotlin + Jetpack Compose) implementer brief (v11 Internal Testing, ~3 weeks, ~2.6k Kotlin + ~600 LoC tests) — companion to W310-w; key insight: pairing-first Compose module SHIPPED (`mobile/android/TARSCompanion/`, ~1.5k LoC, ZXing QR + OkHttp + X25519 crypto, JVM-only unit tests green); brief defines new `:companion` Gradle module on top — streaming chat via OkHttp `EventSource` + Room persistence, Storage Access Framework attachment picker, read-only Plans + Inbox tabs, Internal Testing pipeline via Gradle Play Publisher (GPP), foreground service stub for push-to-talk; SOFT coupling on #203 (policy mirror) + #206 (planner mirror); HARD forward-coupling on PH9 native speech (`PushToTalkService` stub + RECORD_AUDIO perm pre-declared) | PR #209; `docs/handoff/PH9_ANDROID_COMPANION_BRIEF.md` |
 | **W310-y** | Phase 9 L10 native mobile speech implementer brief (v11, ~2.5 weeks, ~3k LoC — ~1.6k Swift + ~1.4k Kotlin — + ~800 LoC tests) — **closes the L10 mobile companion trio**; replaces unreliable Web Speech API with native engines on both platforms (iOS `SFSpeechRecognizer` on-device + `AVSpeechSynthesizer`; Android `SpeechRecognizer` offline-first on API 31+ + `TextToSpeech`) PLUS Whisper.cpp tiny.en (~75 MB bundled) as offline-first fallback; cross-platform `VoiceState` contract (7 states, byte-for-byte parity asserted via `tests/test_mobile_voice_contract.py`); `PersonaVoiceMap` mirrors desktop L4.2 `MacSayEngine` fallback pattern; WebRTC VAD (or silero-vad) endpointing; Settings mode selector (Auto / Native / Whisper.cpp); IPA / AAB grows from ~15 MB → ~95 MB (below 100 MB cellular cap; On-Demand Resources + Play Asset Delivery deferred to v11.1 if rejected); HARD-blocked on #208 + #209 (plugs into `VoiceTab` stub + `PushToTalkService` foreground stub those briefs ship); SOFT coupling on #193 (PH2 STT — same `tars.stt.v1` partial-transcript shape) + #191 (L4.2 fallback pattern reuse) + #204 (PH5 telemetry — 5 `mobile.voice.*` buckets reserved, emission deferred to v11.1) | PR #210; `docs/handoff/PH9_NATIVE_MOBILE_SPEECH_BRIEF.md` |
+| **W310-aa** | Phase 3 L5 mobile pairing protocol implementer brief (v10.2, ~2.7 weeks, ~2.1k LoC + tests) — completes Phase 3 / L5 trio (cross-platform host keyring #195 + cockpit pairing UX #196 + this); end-to-end protocol from desktop QR-scan to mobile-initiated 6-digit-code flows; formalized `pending → linked|expired|rejected` state machine; three new mobile UX screens (My Paired Devices / Pairing Audit Log / Revoke Confirmation); BIP-39 recovery seed for lost-phone re-pair; `pair_id` TTL coordination with brother (15 min host-side, 24 h backend with extension); APNs (iOS) / FCM (Android) push for "device added" + "revoke" + "pairing rejected"; cross-platform wire-parity contract test (`tests/test_mobile_pairing_contract.py`) ensures iOS + Android emit byte-identical envelopes; HARD coupling on #195 (mobile reuses host keyring abstraction) + #196 (cockpit "Devices" tab same data) + #208 + #209 (iOS + Android SPM/Compose surface). 7 mechanical steps. **No new endpoints** — wraps existing host pairing surface | PR #211; `docs/handoff/PH3_MOBILE_PAIRING_BRIEF.md` |
+| **W310-ab** | Phase 4 L9 Linux `.deb` + AppImage GPG signing brief (v10.2 **optional**, ~6-8 h impl + ~3 h operator, ~280 LoC) — closes the Phase 4 / L9 release-signing trio on planning surface (Apple #199 GA-critical + Windows #200 v10.1 + this Linux v10.2-optional); explicitly framed as deferred-by-design rather than implementation gap (Linux install share < 3 % per W113, Linux trust model tolerates unsigned, per-distro apt-repo overhead competes badly with higher-leverage v10.1 work); GPG-detached `.deb.gpg` + AppImage embedded signature via `appimagetool --sign`; optional `apt.tars.meeet.world` S3 + apt-ftparchive repo (step 4 deferrable to v10.3 / v11); operator GPG-key generation runbook (~5 min one-time setup, ed25519 + cv25519, 5-year expiry); 6-row risk register; **non-goals**: RPM / Snap / Flatpak / AUR / NixOS / Linux ARM / reproducible builds → v11+ if Linux share crosses 10 % | PR #212; `docs/handoff/PH4_LINUX_BRIEF.md` |
+| **W310-ac** | Phase 10 Claude design-polish backlog (**continuous lane**, ~23-25 days Claude wall-clock spread at 1-2 items/week → ~3-5 months across v10.0 → v11 arc) — **closes the FINAL planning-surface gap in W310**; inventories the 13 Claude-owned visual-polish items from `docs/AGENT_HANDOFF.md` lines 3326-3394 with per-item GA-visibility tier (1 = first 30s of user life / 2 = first 5 min / 3 = power-user) + dep status + Claude effort (XS/S/M/L) + 4-point done criteria (shipped + HANDOFF row updated + no regression + `gstack-claude review` pass); tier-1 batch (landing copy #4 + brand dressing #5 + download CTAs #11 = "v10 landing brand pass" ~3.5 days, recommended fast-follow within 48 h of v10.0.0 tag); tier-2 batch (GLB asset / micro-interactions / page transitions / sound / ChatPane chrome = v10.1 ~10-12 days, item 12 meeet.world embed blocked on brother PR #198); tier-3 batch (AwarenessTicker rev / attachment polish / ⌘K + ThreadTimeline / pairing visual = v10.2 ~10 days, item 13 now post-engineering polish since PR #195 + #196 shipped functional); Claude lane is purely parallel to engineering (PH2-PH9), no merge-order dependency; append-only design (each item gets `✅ shipped W<wave>` inline when it lands) | PR #213; `docs/handoff/PH10_CLAUDE_POLISH_BACKLOG.md` |
 
-> **Sub-waves a..f are forensic triage on stacked PRs.** Sub-waves g..y
+> **Sub-waves a..f are forensic triage on stacked PRs.** Sub-waves g..ac
 > are forward-leaning **planning surface** that reduces the briefing
 > load on the next implementer session — Phase 2 voice loop + Phase 3
 > security closeout for v10.1, full v10.0.0 GA dock-down arc (Phase 11,
 > TARS-side methodology + brother-side convergence), Phase 4 release-
-> signing trio (Apple + Windows + updater), Phase 5 v10.2 trio
-> (encrypted vault + policy inbox UI + differential telemetry — the
-> full "real data" gate), v11 backend trio (L3 sandbox + L6 planner UI
-> + L7 marketplace v1), and the **full v11 mobile companion trio**
-> (PH9 iOS + PH9 Android + PH9 native speech). After W310-y the entire
-> L0-L10 backend + frontend + mobile contract is spec'd on planning
-> surface — only Phase 10 Claude design polish backlog (continuous,
-> 1-2/week implementation-time work) remains. The two halves can be
-> reviewed independently.
+> signing trio (Apple GA + Windows v10.1 + updater + Linux v10.2-optional),
+> Phase 5 v10.2 trio (encrypted vault + policy inbox UI + differential
+> telemetry — the full "real data" gate), Phase 3 mobile pairing
+> protocol completing L5 trio for v10.2, v11 backend trio (L3 sandbox +
+> L6 planner UI + L7 marketplace v1), the **full v11 mobile companion
+> trio** (PH9 iOS + PH9 Android + PH9 native speech), and the **Phase
+> 10 Claude design-polish backlog** (13 items, continuous parallel
+> lane). **After W310-ac the planning surface is fully closed** —
+> every implementer question from `v10.0.0-rc.1` through `v11` is
+> spec'd on disk. The two halves can be reviewed independently.
 
 ---
 
-## Active PRs (24 open, all awaiting operator merge)
+## Active PRs (27 open, all awaiting operator merge)
 
 | # | Title | Wave | Status | Merge unblocks |
 | - | ----- | ---- | ------ | -------------- |
@@ -99,6 +103,9 @@ clean repository state heading into the v10.0.0 GA dock-down.
 | **#208** | W310-w Phase 9 L10 iOS companion app (SwiftUI) implementer brief (v11 TestFlight) | W310-w | green except known CI cache issue | opens v11 mobile planning surface; v11 mobile implementer can start ph9-ios mechanically; ~3 weeks; greenfield Xcode app target on top of shipped pairing-first SPM library; `MainTabView` + SSE chat + PHPicker attachments + TestFlight pipeline; HARD forward-coupling on PH9 native speech (mic perm + VoiceTab stub) |
 | **#209** | W310-x Phase 9 L10 Android companion app (Kotlin + Compose) implementer brief (v11 Internal Testing) | W310-x | green except known CI cache issue | v11 mobile implementer can start ph9-android mechanically (parallel-safe with ph9-ios); ~3 weeks; new `:companion` Gradle module on top of shipped pairing-first module; OkHttp `EventSource` + Room SSE chat + SAF attachments + GPP Internal Testing pipeline; HARD forward-coupling on PH9 native speech (`PushToTalkService` stub + RECORD_AUDIO pre-declared) |
 | **#210** | W310-y Phase 9 L10 native mobile speech implementer brief (v11; iOS `SFSpeechRecognizer`+`AVSpeechSynthesizer`, Android `SpeechRecognizer`+`TextToSpeech`, Whisper.cpp tiny.en bundled fallback) | W310-y | green except known CI cache issue | closes the L10 mobile companion trio; **HARD-blocked on #208 + #209** (plugs into `VoiceTab` + `PushToTalkService` stubs those briefs ship); ~2.5 weeks; ~3k LoC (~1.6k Swift + ~1.4k Kotlin); cross-platform `VoiceState` contract w/ byte-for-byte parity; mode selector Auto/Native/Whisper.cpp; replaces Web Speech API everywhere. After this lands, the entire L0-L10 contract is spec'd on planning surface |
+| **#211** | W310-aa Phase 3 L5 mobile pairing protocol implementer brief (v10.2, ~2.7 weeks, ~2.1k LoC + tests) | W310-aa | green except known CI cache issue | completes Phase 3 / L5 trio (#195 keyring + #196 cockpit UX + this mobile protocol); end-to-end desktop-QR + mobile-code flows, three new mobile UX screens (Devices / Audit Log / Revoke), BIP-39 lost-phone recovery, `pair_id` TTL coordination with brother (15 min host-side, 24 h backend), APNs+FCM push, cross-platform wire-parity contract test; HARD-coupled on #195 + #196 + #208 + #209; NO new endpoints — wraps existing host pairing surface |
+| **#212** | W310-ab Phase 4 L9 Linux `.deb` + AppImage GPG signing brief (v10.2 **optional**, ~6-8 h impl + ~3 h operator, ~280 LoC) | W310-ab | green except known CI cache issue | closes Phase 4 / L9 release-signing trio on planning surface (Apple #199 GA-critical + Windows #200 v10.1 + this Linux v10.2-optional); explicitly framed as deferred-by-design (Linux install share <3%, trust model tolerates unsigned, per-distro overhead); GPG `.deb.gpg` + AppImage embedded signature; optional `apt.tars.meeet.world` repo (step 4 deferrable); operator GPG-key runbook ~5 min one-time; non-goals: RPM/Snap/Flatpak/AUR/NixOS/ARM/reproducible builds for v11+ if Linux share crosses 10% |
+| **#213** | W310-ac Phase 10 Claude design-polish backlog (**continuous lane**, ~23-25 days Claude wall-clock spread at 1-2 items/week → ~3-5 months) | W310-ac | green except known CI cache issue | **closes the FINAL planning-surface gap in W310**; inventories the 13 Claude-owned visual-polish items from `HANDOFF.md` lines 3326-3394 with per-item GA-visibility tier + dep status + effort (XS/S/M/L) + 4-point done criteria; tier-1 batch (items 4+5+11 = "v10 landing brand pass" ~3.5d recommended fast-follow ≤48h post v10.0.0 tag); tier-2 batch v10.1 (items 1+2+3+6+8, item 12 blocked on PR #198); tier-3 batch v10.2 (items 7+9+10+13); Claude lane is purely parallel to engineering, no merge-order dependency; append-only design (each item gets `✅ shipped W<wave>` inline). **After this brief, planning surface is fully closed.** |
 
 > **Known CI failure (cosmetic, repo-wide).** `TARS B2B E2E suite`,
 > `TARS eval suite`, `scan working tree` all fail in 2-3 s on every
@@ -161,15 +168,25 @@ Re-open candidacy noted in `docs/PRODUCT_MASTER_PLAN.md §3.A`.
 4. **#190** — install funnel; landing earlier just means the cross-target funnel works sooner for testing.
 5. **#191** — voice fallback hardening; landing earlier just means the L4 voice loop becomes GA-ready sooner.
 
-**Planning-surface PRs (#192-#210):**
+**Planning-surface PRs (#192-#213):**
 
 These are docs-only and have **no downstream code dependency** — merge
 any time, in any order. Optimal time-to-value is to merge them whenever
 operator has a 1-minute review window between the runtime merges.
 
-All 24 are **independent** at the file level (no shared paths), so they
+All 27 are **independent** at the file level (no shared paths), so they
 can also land in parallel. The order above only reflects which merges
 unblock the most downstream work.
+
+**The planning surface is fully closed after PR #213.** Every
+implementer question from v10.0.0-rc.1 through v11 has a brief on
+disk:
+
+- v10.0.0 GA: #197 (QA sweep) + #198 (brother handoff) + #199 (Apple sign)
+- v10.1: #193 (PH2 STT) + #194 (PH2 voice gallery) + #195 (PH3 keyring) + #196 (PH3 pairing UX) + #200 (PH4 Windows) + #201 (PH4 updater)
+- v10.2: #202 (PH5 vault) + #203 (PH5 policy UI) + #204 (PH5 telemetry) + #211 (PH3 mobile pairing) + #212 (PH4 Linux optional)
+- v11: #205 (PH6 sandbox) + #206 (PH7 planner UI) + #207 (PH8 marketplace) + #208 (PH9 iOS) + #209 (PH9 Android) + #210 (PH9 native speech)
+- Continuous: #213 (PH10 Claude polish backlog, 13 items spread across v10.0 → v11)
 
 ---
 
@@ -323,14 +340,97 @@ passes:
   6 mechanical steps, ~3k LoC (~1.6k Swift + ~1.4k Kotlin) + ~800
   LoC tests, ~2.5 weeks impl. Nightly WER ≤ 0.10 regression on
   librispeech-test-clean first 20 utterances.
-  **After W310-y the entire L0-L10 contract is spec'd on planning
-  surface.** Only sub-wave W310-z (Phase 10 Claude design polish
-  backlog, continuous 1-2/week implementation-time work) remains in
-  the W310 wave.
+- **W310-aa** — added PR #211 (Phase 3 L5 mobile pairing protocol
+  brief, v10.2, ~2.7 weeks, ~2.1k LoC + tests), lifting the active
+  PR count to 25. **Completes Phase 3 / L5 trio**: #195 cross-platform
+  host keyring + #196 cockpit pairing/recovery UX + this mobile
+  protocol. End-to-end protocol from desktop QR-scan to mobile-
+  initiated 6-digit-code flows; formalized `pending → linked|
+  expired|rejected` state machine; three new mobile UX screens
+  ("My Paired Devices" / "Pairing Audit Log" / "Revoke
+  Confirmation"); BIP-39 recovery seed flow for lost-phone re-
+  pair; `pair_id` TTL coordination with brother (15 min host-side
+  short-lived, 24 h backend with extension on accept); APNs (iOS)
+  / FCM (Android) push for "device added" + "revoke from elsewhere"
+  + "pairing rejected"; cross-platform wire-parity contract test
+  (`tests/test_mobile_pairing_contract.py`) asserts iOS + Android
+  emit byte-identical envelopes for the same payload. **HARD
+  coupling on #195** (mobile reuses host keyring abstraction
+  pattern for storing per-account paired identities) + **#196**
+  (cockpit "My Paired Devices" tab from #196 displays the same
+  data this brief writes from mobile side) + **#208 + #209**
+  (iOS SwiftUI + Android Compose surfaces). **NO new endpoints**
+  — wraps existing host pairing surface from `backend/core/
+  pairing/store.py`. 7 mechanical steps with §5 risk register
+  + §6 operator open questions.
+- **W310-ab** — added PR #212 (Phase 4 L9 Linux `.deb` + AppImage
+  GPG signing brief, v10.2 optional, ~6-8 h impl + ~3 h operator,
+  ~280 LoC), lifting the active PR count to 26. **Closes the
+  Phase 4 / L9 release-signing trio on planning surface**: Apple
+  #199 (GA-critical, hard blocker B1) + Windows #200 (v10.1, full
+  implementer) + this Linux v10.2-optional brief. Explicitly framed
+  as deferred-by-design rather than implementation gap (Linux
+  install share < 3 % per W113 download telemetry, Linux trust
+  model tolerates unsigned binaries (apt warns + installs; AppImage
+  just chmod+run; no Gatekeeper-equivalent hard-block), per-distro
+  apt-repo overhead competes badly with higher-leverage v10.1
+  work, natural slot alongside PH5 "real data" trio as the "real
+  Linux trust" pass in v10.2). 5 mechanical steps: GPG-detached
+  `.deb.gpg` signature + `tars-pubkey.asc` import flow, AppImage
+  embedded signature via `appimagetool --sign`, optional
+  `apt.tars.meeet.world` S3 + apt-ftparchive repo (step 4 fully
+  deferrable to v10.3 / v11 without affecting rest of v10.2 Linux
+  signing), updater channel uniformity (Linux-x86_64 entry in
+  `latest.json`), brief → SHIPPED reconciliation. Operator GPG-key
+  runbook (~5 min one-time setup, ed25519 + cv25519, 5-year
+  expiry recommended). 6-row risk register, highest-impact "user
+  imports wrong pubkey from MITM" mitigated by HTTPS-only
+  distribution + future DNS TXT publication. **Non-goals**: RPM
+  (Fedora/RHEL/SUSE), Snap, Flatpak, AUR, NixOS, reproducible
+  builds, Linux ARM (`aarch64-unknown-linux-gnu`) — all roadmap
+  for v11+ if Linux install share crosses 10 %.
+- **W310-ac** — added PR #213 (Phase 10 Claude design-polish
+  backlog, continuous lane, ~23-25 days Claude wall-clock spread
+  at 1-2 items/week → ~3-5 months across v10.0 → v11 arc), lifting
+  the active PR count to **27**. **CLOSES THE FINAL PLANNING-
+  SURFACE GAP IN W310.** Inventories the 13 Claude-owned visual-
+  polish items from `docs/AGENT_HANDOFF.md` lines 3326-3394 with
+  per-item dimensions: GA-visibility tier (1 = first 30s of user
+  life, 2 = first 5 min, 3 = power-user), engineering dep status
+  (ready vs blocked-on-brother), Claude effort (XS/S/M/L), and
+  4-point done criteria (component shipped + HANDOFF row updated
+  + no regression + `gstack-claude review` pass). Tier-1 batch
+  (items 4 landing copy + 5 brand dressing + 11 download CTAs =
+  "v10 landing brand pass", ~3.5 days, recommended fast-follow
+  within 48 h of v10.0.0 tag so blog post + OG share images use
+  polished brand). Tier-2 batch v10.1 (items 1 GLB asset + 2
+  micro-interactions + 3 page transitions + 6 sound design + 8
+  ChatPane chrome polish, ~10-12 days; item 12 meeet.world embed
+  BLOCKED on brother sync PR #198). Tier-3 batch v10.2 (items 7
+  AwarenessTicker rev + 9 attachment/sources visual + 10 ⌘K +
+  ThreadTimeline visual (biggest L-effort) + 13 pairing-flow
+  visual — NOW post-engineering polish since PR #195+#196 shipped
+  functional surface, not pre-code sketch as originally framed in
+  HANDOFF). Key framing: Claude lane is purely parallel to
+  engineering (PH2-PH9); engineering merge order (PR #187 → #211)
+  doesn't gate Claude sequence; none of the 13 items is a v10.0.0
+  hard blocker (`V10_GA_CHECKLIST.md` is engineering-driven).
+  Append-only design: each item gets `✅ shipped W<wave>` inline
+  when it lands; brief STATUS → SHIPPED ✅ only when all 13
+  complete + HANDOFF "Phase 10 design polish closed (13/13)" row
+  added. **After this brief lands, the planning surface is fully
+  closed.** Every implementer question from `v10.0.0-rc.1`
+  through `v11` has a brief on disk.
 
-Pickup pointer for any agent landing in the meeet workspace now lists all
-24 active PRs, all closed stacks, and points at this wave summary as the
-single-page operator-readable W310 retrospective.
+**W310 PLANNING SURFACE CLOSED ✅.** Pickup pointer for any agent
+landing in the meeet workspace now lists all **27 active PRs**, all
+closed stacks, and points at this wave summary as the single-page
+operator-readable W310 retrospective. The next implementer session
+in any phase (PH2 voice / PH3 keyring + UX + mobile / PH4 sign trio /
+PH5 real-data trio / PH6 sandbox / PH7 planner / PH8 marketplace /
+PH9 mobile trio / PH10 Claude polish / PH11 GA dock-down) opens to
+a fully-specified brief with operator open questions, risk register,
+test plan, dep matrix, and effort estimates.
 
 ---
 
