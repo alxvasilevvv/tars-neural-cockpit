@@ -4,7 +4,7 @@
 **Window:** 2026-05-17 → 2026-05-18
 **Lane:** PR hygiene + cross-cutting closeouts on top of `v10.0.0-rc.1`
 **Branch home:** `cursor/post-rc1-master-plan` (PR #188), plus per-extraction branches
-**Status:** ✅ All sub-waves landed; 15 PRs open awaiting operator merge
+**Status:** ✅ All sub-waves landed; 18 PRs open awaiting operator merge
 
 ---
 
@@ -44,17 +44,22 @@ clean repository state heading into the v10.0.0 GA dock-down.
 | **W310-n** | Phase 4 Apple `.dmg` v10 sign dock-down (~30-45 min operator) — verification-only brief that patches v9.1.0 quirks in `APPLE_SIGNING_FOR_CURSOR.md`, adds `spctl --assess` + `stapler validate` gates, couples to `RELEASE-v10.0.command`, defines 4 explicit rollback gates (A pre-tag, B post-tag-pre-publish, C Intel-only, D corrupted .p12) | PR #199; `docs/handoff/PH4_APPLE_SIGN_V10_BRIEF.md` |
 | **W310-o** | Phase 4 Windows `.exe`/`.msi` Authenticode sign full implementer brief (v10.1, ~12 h impl + ~3 h operator, ~510 LoC) — currently zero scaffold; cert decision matrix (recommend Sectigo OV @ $170/yr), two-pass sign architecture (sidecar BEFORE Tauri bundle, then installer), 6 mechanical steps with graceful degrade, 6-row risk register | PR #200; `docs/handoff/PH4_WINDOWS_SIGN_BRIEF.md` |
 | **W310-p** | Phase 4 updater channel bootstrap brief (T0 + v10.1, ~0.5 h operator + ~5 h impl, ~590 LoC) — closes Phase 4 trio; bootstrap pushes 2 `TAURI_SIGNING_*` secrets at v10 GA (zero code), cockpit UI surface deferred to v10.1 (3 modules + tests), pubkey rotation runbook defensive (doc-only for v10.x) | PR #201; `docs/handoff/PH4_UPDATER_BOOTSTRAP_BRIEF.md` |
+| **W310-q** | Phase 5 encrypted vault implementer brief (v10.2 gate for real data, ~3 weeks, ~2.5k LoC) — key insight: libsodium ALREADY wired in `file_vault.py`; brief focuses on scope expansion (CRM/OAuth/wallet keys migrate behind vault), master passphrase + unlock UX, SQLCipher at rest for `meeet.sqlite`, single BIP-39 mnemonic recovers both vault + host identity; 6 mechanical steps | PR #202; `docs/handoff/PH5_VAULT_BRIEF.md` |
+| **W310-r** | Phase 5 policy confirmations inbox UI brief (v10.2, ~1 week, ~1.5k LoC) — key insight: backend FULLY shipped (Wave 101 policy queue, 499 LoC w/ pending+queue+confirm+deny+bulk-approve+SSE+auto-approve-threshold); brief is PURE UI implementation, zero new endpoints; sortable table + drawer + keyboard-first nav + pending pill | PR #203; `docs/handoff/PH5_POLICY_UI_BRIEF.md` |
+| **W310-s** | Phase 5 differential telemetry brief (v10.2 opt-in k-anon, ~1 week, ~1.8k LoC) — closes Phase 5 trio; key insight: privacy module + gating ALREADY shipped; brief adds parallel "counters-only" stream (14 fixed bucket families, k=3, ≤10 KB/15min), vault-gated flush loop, cockpit settings panel with live preview + history + schema link | PR #204; `docs/handoff/PH5_TELEMETRY_BRIEF.md` |
 
-> **Sub-waves a..f are forensic triage on stacked PRs.** Sub-waves g..m
+> **Sub-waves a..f are forensic triage on stacked PRs.** Sub-waves g..s
 > are forward-leaning **planning surface** that reduces the briefing
 > load on the next implementer session — Phase 2 voice loop + Phase 3
-> security closeout for v10.1, plus the full v10.0.0 GA dock-down arc
-> (Phase 11, TARS-side methodology + brother-side convergence). The
-> two halves can be reviewed independently.
+> security closeout for v10.1, full v10.0.0 GA dock-down arc (Phase 11,
+> TARS-side methodology + brother-side convergence), Phase 4 release-
+> signing trio (Apple + Windows + updater), and Phase 5 v10.2 trio
+> (encrypted vault + policy inbox UI + differential telemetry — the full
+> "real data" gate). The two halves can be reviewed independently.
 
 ---
 
-## Active PRs (12 open, all awaiting operator merge)
+## Active PRs (18 open, all awaiting operator merge)
 
 | # | Title | Wave | Status | Merge unblocks |
 | - | ----- | ---- | ------ | -------------- |
@@ -73,6 +78,9 @@ clean repository state heading into the v10.0.0 GA dock-down.
 | **#199** | W310-n Phase 4 Apple `.dmg` v10 sign dock-down (verification) | W310-n | green except known CI cache issue | on the GA critical path; operator can execute end-to-end in 30-45 min when `.p12` lands |
 | **#200** | W310-o Phase 4 Windows `.exe`/`.msi` Authenticode sign full implementer brief | W310-o | green except known CI cache issue | NOT GA-blocker (v10.0 ships Windows unsigned/"Preview"); v10.1 implementer can start ph4-windows-sign mechanically; ~12 h impl + 6-step roadmap |
 | **#201** | W310-p Phase 4 updater channel bootstrap (bootstrap T0, UI v10.1) | W310-p | green except known CI cache issue | bootstrap is a 30-min T0 op (zero code) alongside Apple sign at v10 GA; future v10.x line auto-publishes signed `latest.json`; UI deferred to v10.1 |
+| **#202** | W310-q Phase 5 encrypted vault implementer brief (v10.2 gate for real data) | W310-q | green except known CI cache issue | v10.2 implementer can start ph5-vault mechanically; ~3 weeks, 6 steps; gate for CRM/OAuth/wallet to touch real customer data |
+| **#203** | W310-r Phase 5 policy confirmations inbox UI brief (v10.2 cockpit surface) | W310-r | green except known CI cache issue | v10.2 cockpit implementer can start ph5-policy-ui mechanically; ~1 week pure UI work (backend fully shipped Wave 101); surfaces approval inbox + bulk approve + SSE |
+| **#204** | W310-s Phase 5 differential telemetry brief (v10.2 opt-in k-anon counters) | W310-s | green except known CI cache issue | v10.2 implementer can start ph5-telemetry mechanically; ~1 week; closes Phase 5 trio; meeet.world side adds `POST /api/telemetry/diff/flush` per brother handoff §6 extension |
 
 > **Known CI failure (cosmetic, repo-wide).** `TARS B2B E2E suite`,
 > `TARS eval suite`, `scan working tree` all fail in 2-3 s on every
@@ -135,13 +143,13 @@ Re-open candidacy noted in `docs/PRODUCT_MASTER_PLAN.md §3.A`.
 4. **#190** — install funnel; landing earlier just means the cross-target funnel works sooner for testing.
 5. **#191** — voice fallback hardening; landing earlier just means the L4 voice loop becomes GA-ready sooner.
 
-**Planning-surface PRs (#192-#201):**
+**Planning-surface PRs (#192-#204):**
 
 These are docs-only and have **no downstream code dependency** — merge
 any time, in any order. Optimal time-to-value is to merge them whenever
 operator has a 1-minute review window between the runtime merges.
 
-All 15 are **independent** at the file level (no shared paths), so they
+All 18 are **independent** at the file level (no shared paths), so they
 can also land in parallel. The order above only reflects which merges
 unblock the most downstream work.
 
@@ -187,9 +195,21 @@ passes:
   (full implementer brief, 12 h impl + 510 LoC roadmap), updater
   bootstrap is a 30-min T0 op coupled to the Apple sign workflow with
   the UI surface deferred to v10.1.
+- **W310-q/r/s** — added PRs #202-#204 (Phase 5 v10.2 "real data" trio:
+  encrypted vault, policy confirmations inbox UI, differential
+  telemetry), lifting the active PR count to 18. The trio closes the
+  entire Phase 5 planning surface and unlocks v10.2 as the release that
+  lets pack adapters touch real customer data: vault re-keys CRM/OAuth/
+  wallet secrets behind a master passphrase + libsodium AEAD (with
+  SQLCipher for `meeet.sqlite` at rest), policy UI surfaces the Wave 101
+  approval queue in cockpit as a sortable inbox with bulk approve + SSE,
+  and telemetry adds a k-anonymized differential counter stream
+  (default OFF, vault-gated flush, fixed 14-bucket schema). The full v10
+  → v10.2 arc is now spec'd on planning surface — every implementer
+  question for the next two releases has a brief.
 
 Pickup pointer for any agent landing in the meeet workspace now lists all
-15 active PRs, all closed stacks, and points at this wave summary as the
+18 active PRs, all closed stacks, and points at this wave summary as the
 single-page operator-readable W310 retrospective.
 
 ---
