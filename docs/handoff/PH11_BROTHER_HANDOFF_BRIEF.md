@@ -292,6 +292,122 @@ After v10.0.0 tags:
 - **Sev escalation** per `docs/DISASTER_RECOVERY.md` §1 ladder — Sev 1 = both down = 15 min response window
 - **v10.0.x patch slot** (per `PRODUCT_MASTER_PLAN.md`) absorbs anything that drifts post-GA (typically VS Code marketplace, on-prem, additional Linux distros)
 
+### 8.A First-week brother-side runbook (T+0 → D+7)
+
+(Added W310-aq cross-stack: TARS-side runbook lives at
+`docs/W310_WAVE_SUMMARY.md §"Operator post-GA first-week runbook"`;
+this subsection is its brother-side mirror so both sides have matched
+mental models and can escalate to each other on a shared signal
+taxonomy.)
+
+#### Cadence checkpoints
+
+| Time | Brother-side check | Threshold for escalation |
+|---|---|---|
+| **T+0** (tag cut moment) | Confirm `tars.installer.tagged` event arrives in meeet.world ingest with version `10.0.0` | If no event in 5 min → escalate (TARS-side meeet bridge not firing) |
+| **T+0 to T+72 h** | Watch ingest dashboard for: (a) auth endpoint p95 (A5), (b) usage_event 5xx rate (A1), (c) balance endpoint p95 (A2) | Any of: p95 >2x baseline for >15 min / 5xx rate >5% / event throughput drop >50% vs baseline → escalate |
+| **T+24 h** | Run brother-side reconciliation against TARS daily reconcile output; confirm drift <$0.50 per Sync 5 contract | Drift ≥$0.50 → escalate (root-cause within 4 h or flip to v10.0.1) |
+| **T+72 h** | Same as T+24 h; confirm 3 consecutive daily reconciles within tolerance | Two consecutive drifts ≥$0.50 → escalate (rollback consideration) |
+| **D+1 → D+7 (weekday)** | Daily 5-min ingest dashboard glance; weekly Friday review per existing cadence | Any sustained anomaly → file `#tars-coord` ticket within 1 h |
+
+#### Brother-side signal taxonomy → TARS escalation
+
+| Brother-observed signal | Source | Class | Escalation path |
+|---|---|---|---|
+| **`tars.installer.tagged` missing T+5 min** | meeet.world ingest dashboard | CRITICAL | Page TARS operator immediately — meeet bridge broken on v10.0.0 binary, possible Apple sign chain regression |
+| **A1 `/usage_event` 5xx >5% for >15 min** | brother backend logs + ingest dashboard | CRITICAL | Page TARS operator — likely TARS-side billing client bug; brother pauses ingest if 5xx blocks queue |
+| **A2 `/balance` p95 >2x baseline for >15 min** | brother backend perf monitoring | CRITICAL | Page TARS operator — usually TARS-side polling regression; brother rate-limits if approaching capacity |
+| **A5 auth endpoint p95 spike** | brother backend perf monitoring | CRITICAL | Page TARS operator — likely TARS-side token refresh regression |
+| **Daily reconcile drift ≥$0.50** | TARS-side cron post to `#tars-coord` | CRITICAL | Both sides debug within 4 h; rollback decision at T+24 h if not root-caused |
+| **Event ingest throughput drop >50%** | meeet.world ingest dashboard | CRITICAL | Page TARS operator — likely TARS-side meeet bridge crash, OR widespread updater issue blocking event submission |
+| **Single 5xx on any endpoint (no pattern)** | brother backend logs | NOISE | Triage to next sync; no action |
+| **Slow user growth / low adoption** | brother sales analytics | LOW | Not a v10.0.0 GA escalation; routes to PH10 design polish backlog or v10.1 voice features instead |
+| **Feature request "I wish TARS could X"** | brother user-facing support inbox | LOW | Forward to TARS via existing IDEAS.md queue; not GA escalation |
+
+**Iron rule (brother-side parallel of TARS-side W310-aq rule):** any
+CRITICAL signal triggers a `#tars-coord` page within 1 h of detection;
+brother does NOT improvise mitigation on the TARS-side service (auth,
+billing, ingest) without coordination, because TARS-side rollback paths
+may already be in flight.
+
+#### Bidirectional escalation tree (who-decides-what)
+
+```text
+CRITICAL signal detected (either side)
+│
+├── Where is the root cause?
+│   ├── TARS-side (binary / meeet bridge / installer)
+│   │   → TARS operator owns decision tree per W310-aq:
+│   │     - hotfix v10.0.1 (TARS rebuilds, brother stays)
+│   │     - forward-fix v10.0.1 (TARS rebuilds, brother stays)
+│   │     - full rollback to v9.1.0 (TARS rebuilds + brother
+│   │       coordinates feature flag banner via meeet.world endpoint
+│   │       `/api/feature_flags/tars/rollback_banner`)
+│   │
+│   ├── Brother-side (auth / billing / ingest service)
+│   │   → Brother operator owns decision tree:
+│   │     - hot-patch brother service in place (TARS continues
+│   │       running v10.0.0; users see brief brother-side downtime)
+│   │     - feature-flag the affected endpoint to graceful-degrade
+│   │       mode (TARS-side: balance shows stale, billing queues
+│   │       events, auth uses cached tokens)
+│   │     - if degradation insufficient AND brother fix >4 h →
+│   │       page TARS operator to consider new-user funnel pause
+│   │       via meeet.world feature flag (NO TARS rollback)
+│   │
+│   └── Both / unclear (need triage)
+│       → 15-min joint debug session per DISASTER_RECOVERY.md §1
+│         Sev 1 ladder; if root cause unclear after 30 min,
+│         default to NEW-USER FUNNEL PAUSE (lowest-impact
+│         containment) and continue triage to root cause
+│
+└── What's the user-facing comms split?
+    ├── TARS-side rollback → TARS-side cockpit banner (via meeet.world
+    │   feature flag — brother owns the flag flip but TARS owns the
+    │   banner content; coordination via `#tars-coord` within 15 min)
+    ├── Brother-side service degradation → brother-side status page
+    │   update (brother owns; TARS posts URL to `#tars-coord`)
+    └── Joint outage → joint status post on meeet.world status page +
+        cross-link from TARS cockpit + brother dashboard
+```
+
+#### Brother-side feature flag endpoints brother owns (for TARS-side escalations)
+
+These are NOT new for v10.0.0 — they exist on `meeet.world` already.
+Listed here so TARS operator knows what to ask brother to flip when
+the W310-aq rollback decision tree calls for it:
+
+| Flag | What TARS sees when ON | Owner | Used in rollback class |
+|---|---|---|---|
+| `tars/rollback_banner` | Cockpit shows "TARS is rolling back to v9.1.0 due to <reason>" banner; users get v9.1.0 on next updater check | Brother | Full rollback to v9.1.0 |
+| `tars/new_user_pause` | Onboarding page shows "Sign-ups temporarily paused; existing users unaffected" | Brother | Brother-side coord issue (no TARS rollback) |
+| `tars/hotfix_v10_0_1_banner` | Cockpit shows "TARS v10.0.1 hotfix available; please restart" banner; updater serves v10.0.1 | Brother | Hotfix v10.0.1 (Apple sign or forward-fix) |
+| `tars/degraded_mode_<endpoint>` | Specific affected endpoint shows degraded UI (e.g. `degraded_mode_billing` → "Billing is in read-only mode; usage tracking continues") | Brother | Brother-side service degradation |
+
+Brother flips these via `gh api -X POST /repos/.../meeet-platform/
+dispatches -f event_type=tars_<flag_name> -f client_payload='...'`
+exactly as documented in the TARS-side W310-aq rollback playbook
+Step 1. The dispatch is idempotent; brother can flip ON and OFF
+multiple times during incident response.
+
+#### Brother-side post-mortem cadence
+
+If any rollback or hotfix happens in the first week, **both sides** open
+parallel post-mortem docs within 24 h:
+
+- **TARS-side**: `docs/handoff/POSTMORTEM_v10.0.0_rollback_YYYYMMDD.md`
+  (template in W310-aq §"Rollback to v9.1.0 — exact bash playbook" Step 6)
+- **Brother-side**: equivalent in brother repo with the same fields PLUS
+  brother-specific: brother-service-version-at-incident-time, brother-
+  side response timeline, brother-side mitigation applied, post-mortem
+  joint review scheduled within 7 days
+
+The joint review must establish: (1) was the right escalation path
+taken? (2) did the W310-aq signal taxonomy classify the signal
+correctly? (3) does the runbook need amendment? Amendment, if any,
+goes to PR #192 (W310_WAVE_SUMMARY.md) as a docs-only follow-up
+within 14 days of incident close.
+
 ---
 
 ## 9. Acceptance criteria for Phase 11 brother handoff done
@@ -322,11 +438,16 @@ After v10.0.0 tags:
 - TARS-side wording-update PR: ~1 h after brother confirms
 - TARS-side HMAC client patch (Q2, if needed): ~1 h
 - TARS-side reconciliation script (Q3): ~3 h, folds into `ph11-qa-sweep` §5.A PR
+- Brother-side: confirm 4 feature flag endpoints in §8.A are live + dashboard panels for the 6 critical-class signals exist + paging integration for `#tars-coord` works (W310-aq cross-stack): ~2-3 h
 
-**Total cross-stack effort: ~10-12 h.**
+**Total cross-stack effort: ~12-15 h.**
 
-This is the **smallest** ph11 deliverable because nearly everything is
-already shipped — the work is convergence + sign-off, not net-new code.
+This is the **smallest net-new-code** ph11 deliverable because nearly
+everything is already shipped — the work is convergence + sign-off +
+shared runbook validation, not net-new code. The §8.A runbook is the
+only "new thinking" required; the feature flag endpoints, dashboard
+panels, and paging integration are already operational on the brother
+side from earlier TARS releases.
 
 ---
 
@@ -351,7 +472,7 @@ already shipped — the work is convergence + sign-off, not net-new code.
 - `docs/handoff/PH3_PAIRING_UX_BRIEF.md` (PR #196) — cockpit pairing UI (independent)
 - `docs/handoff/PH2_STT_STREAMING_BRIEF.md` (PR #193) — v10.1 voice loop (independent)
 - `docs/handoff/PH2_VOICE_GALLERY_BRIEF.md` (PR #194) — v10.1 voice gallery (independent)
-- `docs/W310_WAVE_SUMMARY.md` (PR #192) — single-page wave overview (will be extended with W310-m)
+- `docs/W310_WAVE_SUMMARY.md` (PR #192) — single-page wave overview; **§"Operator post-GA first-week runbook + rollback decision tree" (W310-aq) is the TARS-side mirror of §8.A above** — both sides MUST keep matched mental models; any amendment to either side goes via PR #192 within 14 days of incident close
 
 ### Coord channels
 
@@ -368,3 +489,15 @@ This brief is the v10 GA brother coord document. Together with
 release dock-down — TARS-side methodology (soak + tag) + brother-side
 coord (sync + sign-off). No further planning surface needed for the
 v10.0.0 GA tag cut.
+
+§8.A (added W310-aq cross-stack) closes the post-GA first-week
+operational gap: brother now has a matched mental model with TARS for
+incident response in T+0 → D+7, with bidirectional escalation tree,
+4 named feature flag endpoints brother owns, 9-row signal taxonomy
+shared with TARS-side W310-aq, and joint post-mortem cadence. The
+W310 wave's full operator-orchestration surface — pre-tag verification
+(6 verdict wrappers + Gate A + Gate B + Tag-Guard + Post-Install +
+Postflight), tag-day execution (W310-ao GA cookbook execution
+sequence), drift-detection (W310-ap rehearsal matrix), and first-week
+operations (W310-aq runbook + this §8.A) — is now spec'd on BOTH
+sides of the bridge.
