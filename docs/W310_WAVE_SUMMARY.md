@@ -4,7 +4,7 @@
 **Window:** 2026-05-17 → 2026-05-18
 **Lane:** PR hygiene + cross-cutting closeouts on top of `v10.0.0-rc.1`
 **Branch home:** `cursor/post-rc1-master-plan` (PR #188), plus per-extraction branches
-**Status:** ✅ All planning sub-waves landed; **29 PRs open awaiting operator merge** (27 planning + 2 implementer follow-ups, see W310-ad / W310-ae). Planning surface fully closed — every implementer question from `v10.0.0-rc.1` through `v11` is spec'd; implementer execution surface opened with PR #214 + extended with PR #215.
+**Status:** ✅ All planning sub-waves landed; **30 PRs open awaiting operator merge** (27 planning + 3 implementer follow-ups, see W310-ad / W310-ae / W310-af). Planning surface fully closed — every implementer question from `v10.0.0-rc.1` through `v11` is spec'd; implementer execution surface opened with PR #214 + extended with PR #215 + extended with PR #216 (pre-flight). The **four ritual corners** of the GA tag (pre-flight / release / verify / soak) are now all single-command executable with spec-pinned tests.
 
 ---
 
@@ -58,6 +58,7 @@ clean repository state heading into the v10.0.0 GA dock-down.
 | **W310-ac** | Phase 10 Claude design-polish backlog (**continuous lane**, ~23-25 days Claude wall-clock spread at 1-2 items/week → ~3-5 months across v10.0 → v11 arc) — **closes the FINAL planning-surface gap in W310**; inventories the 13 Claude-owned visual-polish items from `docs/AGENT_HANDOFF.md` lines 3326-3394 with per-item GA-visibility tier (1 = first 30s of user life / 2 = first 5 min / 3 = power-user) + dep status + Claude effort (XS/S/M/L) + 4-point done criteria (shipped + HANDOFF row updated + no regression + `gstack-claude review` pass); tier-1 batch (landing copy #4 + brand dressing #5 + download CTAs #11 = "v10 landing brand pass" ~3.5 days, recommended fast-follow within 48 h of v10.0.0 tag); tier-2 batch (GLB asset / micro-interactions / page transitions / sound / ChatPane chrome = v10.1 ~10-12 days, item 12 meeet.world embed blocked on brother PR #198); tier-3 batch (AwarenessTicker rev / attachment polish / ⌘K + ThreadTimeline / pairing visual = v10.2 ~10 days, item 13 now post-engineering polish since PR #195 + #196 shipped functional); Claude lane is purely parallel to engineering (PH2-PH9), no merge-order dependency; append-only design (each item gets `✅ shipped W<wave>` inline when it lands) | PR #213; `docs/handoff/PH10_CLAUDE_POLISH_BACKLOG.md` |
 | **W310-ad** | **First implementer follow-up** to the W310 planning surface — ships the two pure-helper scripts PR #197 §5.A asks for so the v10.0.0 soak protocol becomes executable end-to-end the moment the brief lands. `scripts/SOAK-HOURLY.command` (221 lines bash, JSON-per-line `.soak/hourly.log`, 3-consec-fail abort, `TARS_SOAK_REPO` env override for cron with absolute paths) + `scripts/SOAK-REPORT.command` (232 lines bash, markdown render with verdict + hard-fail threshold table + hour-by-hour rows + top-5 sanitized ERROR signatures + optional `--check-meeet`). Zero behaviour change to existing release pipeline. 7 spec'd unit tests + 2 meta tests = **9/9 green** in ~3 s. End-to-end smoke (HOURLY × 3 → ABORT → REPORT renders "GA tag **blocked** — hard-fail criterion hit") verified pre-push. One implement-time correction: brief said `/api/pairing/identity`, real surface is `/api/pairing/status` (flagged in script header). Lands cleanly with or without PR #197 already merged | PR #214; `scripts/SOAK-HOURLY.command` + `scripts/SOAK-REPORT.command` + `tests/test_soak_hourly.py` + `tests/test_soak_report.py` |
 | **W310-ae** | **Second implementer follow-up** — automates PR #199 §6.2's three "clean-machine" Apple signature verification commands so the operator runs ONE script post-download instead of pasting three separate commands at GA time. `scripts/VERIFY-APPLE-SIGNATURE.command` (203 lines bash, +x) takes either a `.app` or a `.dmg` (auto-mounts `.dmg` read-only via `hdiutil`, finds the bundle inside, detaches on exit via `trap`), runs the three brief gates (`codesign --verify --deep --strict --verbose=2` → grep `valid on disk` + `satisfies its Designated Requirement`; `spctl --assess --type execute --verbose` → grep `accepted` + `source=Notarized Developer ID`; `stapler validate` → grep `The validate action worked`), surfaces the `Authority=` identity line against `VERIFY_APPLE_EXPECTED_IDENTITY` (default `Developer ID Application`), prints colorized `✓`/`✗` summary with the brief §7 rollback pointer if any gate red. Exit contract: 0 = GA tag verification passed; 1 = block release; 2 = prereq missing. `VERIFY_APPLE_DRY_RUN=1` + `VERIFY_APPLE_NO_DMG_MOUNT=1` env knobs for smoke tests. **9/9 green tests in ~0.09 s** — pins script structure (exec + shebang + `bash -n`), pins spec contract (header documents §6.2's 3 commands verbatim AND the 4 pass-signal substrings AND the 0/1/2 exit contract — so brief and script can't drift silently), pins runtime (missing arg / nonexistent target / wrong extension → exit 2 or 1), pins platform guard (`Darwin` check + `exit 2` present). Cannot exercise the real signing pipeline from pytest — that's covered by the operator's clean-machine run per brief §6. Lands cleanly with or without PR #199 already merged | PR #215; `scripts/VERIFY-APPLE-SIGNATURE.command` + `tests/test_verify_apple_signature_script.py` |
+| **W310-af** | **Third implementer follow-up** — automates PR #199 §3 (three local-env checks) + §4 (CI-secrets check) into a single pre-tag gate so the operator catches missing prereqs at Gate A (pre-tag, cheap to roll back) instead of Gate B (post-tag, mid-publish — requires re-tag). `scripts/PREFLIGHT-APPLE-SIGN.command` (262 lines bash, +x) runs four gates verbatim from brief: §3.1 `security find-identity -v -p codesigning \| grep "Developer ID Application"` (≥1 match), §3.2 `xcrun notarytool history --keychain-profile "${APPLE_NOTARY_PROFILE}"` (success message), §3.3 `test -f .env && grep -c "^APPLE_" .env` (≥3 APPLE_* keys), §4 `gh secret list -R alxvasilevvv/tars-neural-cockpit` matched against the 6 hard-required secret names (`APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY`, `APPLE_TEAM_ID`, `APPLE_ID`, `APPLE_PASSWORD`). For each red gate prints the exact remediation pointer from `APPLE_SIGNING_SETUP.md` / `APPLE_SIGNING_FOR_CURSOR.md`. Also prints the workflow-dispatch URL for the manual dispatch dry-run (brief §4) but does NOT trigger it (would burn a CI build minute every pre-flight; operator owns the click). Exit contract: 0 = all four green → may proceed; 1 = any red → block tag cut; 2 = prereq missing (not on macOS without `SKIP_LOCAL=1`; missing `security`/`xcrun`/`gh`). `PREFLIGHT_APPLE_DRY_RUN=1` + `PREFLIGHT_APPLE_SKIP_CI=1` + `PREFLIGHT_APPLE_SKIP_LOCAL=1` + `PREFLIGHT_APPLE_REPO=<path>` + `APPLE_NOTARY_PROFILE=<name>` + `GH_REPO=<owner/name>` env knobs for testing, cron, CI-only mode, custom keychain profile, alt-repo. **12/12 green tests in ~0.09 s + 1 skipped** (Darwin-only guard cannot fire on Mac) — pins script structure (exec + shebang + `bash -n`), pins spec contract (header documents §3.1/3.2/3.3 verbatim + §4 gh command verbatim + 6 secret names verbatim + 6 env-override names + 0/1/2 exit contract), pins required-secrets array contract (`REQUIRED_SECRETS=(...)` literally equals brief §4 names in brief's order so secret list cannot silently drift), pins dry-run path (all-skipped → exit 0 + prints next-steps cookbook), pins platform guard (uname check + exit 2 + non-Darwin without skip exits 2). Smoke verified pre-push: dry-run all-skipped → exit 0; skip-local + real `gh secret list` → exit 1, all 6 secrets correctly reported missing (expected pre-v10-GA state). Lands cleanly with or without PR #199 already merged | PR #216; `scripts/PREFLIGHT-APPLE-SIGN.command` + `tests/test_preflight_apple_sign_script.py` |
 
 > **Sub-waves a..f are forensic triage on stacked PRs.** Sub-waves g..ac
 > are forward-leaning **planning surface** that reduces the briefing
@@ -75,19 +76,26 @@ clean repository state heading into the v10.0.0 GA dock-down.
 > every implementer question from `v10.0.0-rc.1` through `v11` is
 > spec'd on disk. The two halves can be reviewed independently.
 >
-> **Sub-waves ad+ae open the implementer surface** — sequential
+> **Sub-waves ad+ae+af open the implementer surface** — sequential
 > follow-ups to planning briefs (PR #197 §5.A → PR #214 soak helper
-> scripts; PR #199 §6.2 → PR #215 Apple signature verification helper).
-> Future implementer PRs append here as `W310-af`, `W310-ag`, etc.,
-> each cross-referenced to the planning brief it executes. The W310
-> implementer pattern is now reproduced: pick the highest-leverage
+> scripts; PR #199 §6.2 → PR #215 Apple signature verification helper;
+> PR #199 §3+§4 → PR #216 Apple pre-flight gate). Future implementer
+> PRs append here as `W310-ag`, `W310-ah`, etc., each cross-referenced
+> to the planning brief it executes. The W310 implementer pattern is
+> now reproduced **three times in a row**: pick the highest-leverage
 > §X.Y operator-action from a landed brief, ship the pure-additive
 > helper that turns "remembered ritual" into "single command", pin
-> the spec contract in tests so brief and script can't drift.
+> the spec contract in tests so brief and script can't drift. The
+> three helpers together collapse the v10.0.0 GA cookbook to **eight
+> sequential commands** (1 pre-flight + 1 release + 1 verify + 1 soak-
+> hourly cron + 1 soak-report + 3 manual ops: CI watch, download,
+> drag-install) — every command machine-checkable, every gate red/green
+> rendered in color, every failure surfacing the exact remediation
+> pointer from the brief.
 
 ---
 
-## Active PRs (29 open, all awaiting operator merge)
+## Active PRs (30 open, all awaiting operator merge)
 
 | # | Title | Wave | Status | Merge unblocks |
 | - | ----- | ---- | ------ | -------------- |
@@ -119,7 +127,8 @@ clean repository state heading into the v10.0.0 GA dock-down.
 | **#212** | W310-ab Phase 4 L9 Linux `.deb` + AppImage GPG signing brief (v10.2 **optional**, ~6-8 h impl + ~3 h operator, ~280 LoC) | W310-ab | green except known CI cache issue | closes Phase 4 / L9 release-signing trio on planning surface (Apple #199 GA-critical + Windows #200 v10.1 + this Linux v10.2-optional); explicitly framed as deferred-by-design (Linux install share <3%, trust model tolerates unsigned, per-distro overhead); GPG `.deb.gpg` + AppImage embedded signature; optional `apt.tars.meeet.world` repo (step 4 deferrable); operator GPG-key runbook ~5 min one-time; non-goals: RPM/Snap/Flatpak/AUR/NixOS/ARM/reproducible builds for v11+ if Linux share crosses 10% |
 | **#213** | W310-ac Phase 10 Claude design-polish backlog (**continuous lane**, ~23-25 days Claude wall-clock spread at 1-2 items/week → ~3-5 months) | W310-ac | green except known CI cache issue | **closes the FINAL planning-surface gap in W310**; inventories the 13 Claude-owned visual-polish items from `HANDOFF.md` lines 3326-3394 with per-item GA-visibility tier + dep status + effort (XS/S/M/L) + 4-point done criteria; tier-1 batch (items 4+5+11 = "v10 landing brand pass" ~3.5d recommended fast-follow ≤48h post v10.0.0 tag); tier-2 batch v10.1 (items 1+2+3+6+8, item 12 blocked on PR #198); tier-3 batch v10.2 (items 7+9+10+13); Claude lane is purely parallel to engineering, no merge-order dependency; append-only design (each item gets `✅ shipped W<wave>` inline). **After this brief, planning surface is fully closed.** |
 | **#214** | W310-ad PH11 §5.A soak helper scripts — `SOAK-HOURLY.command` + `SOAK-REPORT.command` + 9 tests (**first implementer follow-up** to the W310 planning surface) | W310-ad | green except known CI cache issue + 9/9 new tests pass in ~3 s | makes the v10.0.0 soak protocol **executable end-to-end** the moment PR #197 lands; zero behaviour change to existing release pipeline; valid JSON-per-line `.soak/hourly.log` ingestable by future dashboards; 3-consec-fail abort with `TARS_SOAK_REPO` env override so the same script works under cron with absolute paths; one implement-time correction to PR #197 (real surface is `/api/pairing/status`, not `/identity`) flagged in the script header |
-| **#215** | W310-ae PH4 §6.2 Apple signature verification helper — `VERIFY-APPLE-SIGNATURE.command` + 9 tests (**second implementer follow-up**) | W310-ae | green except known CI cache issue + 9/9 new tests pass in ~0.09 s | automates the GA-blocking 3-gate verification (`codesign` + `spctl` + `stapler`) so the operator runs ONE script post-`.dmg`-download instead of pasting three commands at GA time; auto-mounts `.dmg`, surfaces `Authority=` identity, prints colorized `✓`/`✗` summary with brief §7 rollback pointer; lands cleanly with or without PR #199 already merged; closes the last "remembered ritual" gap on the v10.0.0 release path |
+| **#215** | W310-ae PH4 §6.2 Apple signature verification helper — `VERIFY-APPLE-SIGNATURE.command` + 9 tests (**second implementer follow-up**) | W310-ae | green except known CI cache issue + 9/9 new tests pass in ~0.09 s | automates the GA-blocking 3-gate verification (`codesign` + `spctl` + `stapler`) so the operator runs ONE script post-`.dmg`-download instead of pasting three commands at GA time; auto-mounts `.dmg`, surfaces `Authority=` identity, prints colorized `✓`/`✗` summary with brief §7 rollback pointer; lands cleanly with or without PR #199 already merged; closes the post-download "remembered ritual" gap on the v10.0.0 release path |
+| **#216** | W310-af PH4 §3+§4 Apple pre-flight gate — `PREFLIGHT-APPLE-SIGN.command` + 12 tests (**third implementer follow-up**) | W310-af | green except known CI cache issue + 12/12 new tests pass in ~0.09 s (+1 skipped on Darwin) | automates the pre-tag prereq check (3 local-env gates: codesigning identity, notarytool profile, .env APPLE_* keys + 1 CI-secrets gate: 6 hard-required `APPLE_` secrets in repo) so the operator catches missing prereqs at Gate A (pre-tag, cheap rollback) instead of Gate B (post-tag, mid-publish — requires re-tag); prints workflow-dispatch URL for the manual dispatch dry-run but does not trigger it (owner controls build minutes); colorized `✓`/`✗` summary with brief §3/§4 remediation pointer per red gate; lands cleanly with or without PR #199 already merged; **closes the pre-tag "remembered ritual" gap** — together with #214 + #215 the four ritual corners of GA (pre-flight + release + verify + soak) are all single-command executable |
 
 > **Known CI failure (cosmetic, repo-wide).** `TARS B2B E2E suite`,
 > `TARS eval suite`, `scan working tree` all fail in 2-3 s on every
@@ -192,11 +201,21 @@ All 27 are **independent** at the file level (no shared paths), so they
 can also land in parallel. The order above only reflects which merges
 unblock the most downstream work.
 
-**Implementer follow-ups (#214, #215):** also independent at file level
-(both pure additive — `scripts/*` + `tests/*` only). Both land cleanly
-with or without their parent planning brief already merged. Merge any
-time; landing them early just means the operator has executable helpers
-when the GA window opens.
+**Implementer follow-ups (#214, #215, #216):** also independent at file
+level (all three pure additive — `scripts/*` + `tests/*` only). All
+three land cleanly with or without their parent planning brief already
+merged. Merge any time; landing them early just means the operator has
+executable helpers when the GA window opens. Together they cover all
+four ritual corners of the v10.0.0 tag-cut sequence:
+
+1. **Pre-tag** — `bash scripts/PREFLIGHT-APPLE-SIGN.command` (#216) checks 3 local-env + 1 CI-secrets gates BEFORE invoking the destructive release script
+2. **Release** — `bash scripts/RELEASE-v10.0.command` (already shipped) cuts the tag + triggers signing + notarization
+3. **Post-download** — `bash scripts/VERIFY-APPLE-SIGNATURE.command <path-to-dmg>` (#215) runs 3 brief gates on the downloaded `.dmg` on a clean Mac
+4. **Soak** — `bash scripts/SOAK-HOURLY.command` (cron, 72 h) + `bash scripts/SOAK-REPORT.command` (#214) drive the GA soak window with auto-abort on 3-consec-fail and markdown verdict at the end
+
+Steps 1+2+3+4 = four bash commands, each spec-pinned, each
+machine-checkable, each surfacing exact remediation pointers from
+the planning briefs.
 
 **The planning surface is fully closed after PR #213.** Every
 implementer question from v10.0.0-rc.1 through v11 has a brief on
@@ -498,32 +517,87 @@ passes:
   target / wrong extension), platform guard (`Darwin` check + 
   `exit 2`). **9/9 green in ~0.09 s.** Lands cleanly with or
   without PR #199 already merged — pure additive, two new files,
-  zero edits to existing code. **Closes the last "remembered
-  ritual" gap on the v10.0.0 release path** — operator's GA
-  cookbook now reads: 1) run `RELEASE-v10.0.command`, 2) workflow
-  signs + notarizes, 3) download `.dmg` on clean Mac,
-  4) `VERIFY-APPLE-SIGNATURE.command`, 5) drag-install,
-  6) start `SOAK-HOURLY.command` cron, 7) after 72 h run
-  `SOAK-REPORT.command`, 8) if verdict green, tag `v10.0.0`.
+  zero edits to existing code.
+- **W310-af** — added PR #216 (PH4 §3+§4 Apple pre-flight gate —
+  `PREFLIGHT-APPLE-SIGN.command` + 12 spec-contract tests, +482
+  LoC), lifting the active PR count to **30**. **THIRD IMPLEMENTER
+  FOLLOW-UP** to the W310 planning surface. Picks the highest-
+  leverage pre-tag prep from PR #199: the §3 + §4 checklists.
+  Brief §4 says verbatim *"Catching a typo at this stage avoids
+  a doomed tag cut"* — this script enforces that machine-checkable.
+  Four gates verbatim from brief: §3.1 `security find-identity
+  -v -p codesigning | grep "Developer ID Application"` (≥1 match,
+  else re-import .p12), §3.2 `xcrun notarytool history
+  --keychain-profile "${APPLE_NOTARY_PROFILE:-tars-notary}"`
+  (success message, else re-run `store-credentials`), §3.3
+  `test -f .env && grep -c "^APPLE_" .env` (≥3 APPLE_* keys,
+  else re-provision from `.env.example`), §4 `gh secret list
+  -R alxvasilevvv/tars-neural-cockpit` against the 6 hard-
+  required secret names (`APPLE_CERTIFICATE`,
+  `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY`,
+  `APPLE_TEAM_ID`, `APPLE_ID`, `APPLE_PASSWORD`) in brief's
+  order. For each red gate prints the exact remediation pointer
+  from `APPLE_SIGNING_SETUP.md` / `APPLE_SIGNING_FOR_CURSOR.md`.
+  Also prints the workflow-dispatch URL the operator clicks for
+  the brief §4 manual-dispatch dry-run — does NOT trigger it
+  itself (would burn a CI build minute on every pre-flight call;
+  operator owns the click). Exit contract: 0 = all four green
+  → may proceed; 1 = any red → block tag cut; 2 = prereq
+  missing (not on macOS without `SKIP_LOCAL=1`; missing
+  `security` / `xcrun` / `gh`). Env knobs: `PREFLIGHT_APPLE_DRY_RUN=1`
+  + `PREFLIGHT_APPLE_SKIP_CI=1` + `PREFLIGHT_APPLE_SKIP_LOCAL=1`
+  + `PREFLIGHT_APPLE_REPO=<path>` + `APPLE_NOTARY_PROFILE=<name>`
+  + `GH_REPO=<owner/name>`. **12/12 green tests in ~0.09 s +
+  1 skipped** (Darwin-only guard cannot fire on Mac) — pins
+  spec contract (header documents §3.1/3.2/3.3 verbatim + §4 gh
+  command verbatim + 6 secret names verbatim + 6 env-override
+  names + 0/1/2 exit contract), pins required-secrets array
+  contract (`REQUIRED_SECRETS=(...)` literally equals brief §4
+  names in brief's order — secret list cannot silently drift),
+  pins dry-run path (all-skipped → exit 0 + prints next-steps
+  cookbook pointers to both sibling scripts), pins platform guard.
+  Smoke verified pre-push: dry-run all-skipped → exit 0; skip-
+  local + real `gh secret list` → exit 1, all 6 secrets correctly
+  reported missing (expected pre-v10-GA state). Lands cleanly
+  with or without PR #199 already merged. **Closes the pre-tag
+  "remembered ritual" gap.** Together with #214 + #215 the FOUR
+  ritual corners of GA (pre-flight + release + verify + soak)
+  are all single-command executable with spec-pinned tests.
 
-**W310 PLANNING SURFACE CLOSED ✅; IMPLEMENTER SURFACE OPENED.**
-Pickup pointer for any agent landing in the meeet workspace now
-lists all **29 active PRs** (27 planning + 2 implementer follow-ups),
-all closed stacks, and points at this wave summary as the single-
-page operator-readable W310 retrospective. The next implementer
-session in any phase (PH2 voice / PH3 keyring + UX + mobile /
-PH4 sign trio / PH5 real-data trio / PH6 sandbox / PH7 planner /
-PH8 marketplace / PH9 mobile trio / PH10 Claude polish / PH11 GA
-dock-down) opens to a fully-specified brief with operator open questions, risk register,
-test plan, dep matrix, and effort estimates.
+**W310 PLANNING SURFACE CLOSED ✅; IMPLEMENTER SURFACE OPENED — THREE
+HELPERS SHIPPED.** Pickup pointer for any agent landing in the meeet
+workspace now lists all **30 active PRs** (27 planning + 3 implementer
+follow-ups), all closed stacks, and points at this wave summary as the
+single-page operator-readable W310 retrospective. The next implementer
+session in any phase (PH2 voice / PH3 keyring + UX + mobile / PH4 sign
+trio / PH5 real-data trio / PH6 sandbox / PH7 planner / PH8 marketplace
+/ PH9 mobile trio / PH10 Claude polish / PH11 GA dock-down) opens to a
+fully-specified brief with operator open questions, risk register, test
+plan, dep matrix, and effort estimates.
 
-The two implementer follow-ups shipped so far (W310-ad soak +
-W310-ae Apple sign verify) together close every "remembered
-ritual" gap on the v10.0.0 GA execution path — from `RELEASE-v10.0`
-through tag-cut — into single executable commands with spec-pinned
-tests, leaving only the operator action items (.p12 supply, mic
-permission flush on clean Mac, blog post draft) as blocking
-non-script work.
+The three implementer follow-ups shipped so far (W310-ad soak +
+W310-ae Apple sign verify + W310-af Apple pre-flight) together close
+**all four** "remembered ritual" gaps on the v10.0.0 GA execution path
+— pre-flight → release → verify → soak — into single executable
+commands with spec-pinned tests, leaving only the operator action
+items (.p12 supply, secret push via GitHub UI, manual dispatch dry-run
+click, blog post draft, drag-install on clean Mac) as blocking non-
+script work. The operator's GA cookbook now reads:
+
+1. `bash scripts/PREFLIGHT-APPLE-SIGN.command` — verify 3 local + 1 CI gate
+2. (if green) `bash scripts/RELEASE-v10.0.command` — cut tag + trigger CI
+3. watch CI sign + notarize the bundle
+4. download the signed `.dmg` on a clean Mac
+5. `bash scripts/VERIFY-APPLE-SIGNATURE.command <path-to-dmg>` — 3 brief gates
+6. drag-install
+7. `bash scripts/SOAK-HOURLY.command` (cron, 72 h) — auto-abort on 3-fail
+8. `bash scripts/SOAK-REPORT.command` — markdown verdict
+9. (if verdict green) tag `v10.0.0`
+
+Steps **1, 5, 7, 8** are now spec-pinned executable helpers shipped in
+this wave. Steps **2 and 6** were already scripted. Only steps **3
+(CI), 4 (manual download), 6 (drag install), and 9 (tag cut)** remain
+manual ops — all unavoidably so by design.
 
 ---
 
