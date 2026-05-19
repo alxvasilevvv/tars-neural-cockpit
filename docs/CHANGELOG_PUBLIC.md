@@ -1,5 +1,57 @@
 # Agent changelog
 
+## W310-at — sync layer on PR #188 (canonical state docs refresh, 2026-05-19)
+
+**Agent**: Cursor (Opus 4.7 parent assistant). Continuation of W310 arc on operator directive "продолжай"; this entry covers the W310-at sync layer that updates three canonical "state" docs on PR #188's branch to match the post-W310-as wave landscape.
+
+**Scope**: refresh `CURRENT_STATUS.md`, `TARS_MASTER_DOC.md §6.4`, and `PROJECT_INDEX.md` so the reader landing on PR #188 sees a self-consistent forward-execution + daily-pulse + master-doc + index, not a mix of fresh master plan against stale 2026-05-15/W269 daily pulse + stale W267 Top-5 in §6.4. ZERO new code, ZERO new helpers; pure cross-doc sync to close the silent drift gap that W310 inadvertently opened by landing on its own branch + extending sibling PRs (#192, #198) but never touching the canonical state docs themselves.
+
+### What happened
+
+1. **`CURRENT_STATUS.md` rewrite** (commit `c7d2cf0`). Was dated 2026-05-15 / W269 and read "GA is DONE except 5 external items". Replaced with:
+   - **Top:** new "Read first (60-second pulse)" block pointing at `docs/W310_WAVE_SUMMARY.md` TLDR (W310-as).
+   - **New section:** "W310 — post-rc1 PR triage wave (2026-05-18 → 2026-05-19)" with the full sub-wave table (runtime/triage a..f / planning-surface briefs g..ac / implementer follow-ups ad..am / docs-only extensions an..as / cross-stack mirror aq).
+   - **"What's left for the operator" rewritten:** replaces stale 5-item list with the post-W310-l 8-hard-blocker table (3 brother A1/A2/A5 from PR #198 + 5 Apple sign B1-B5 from PR #199), plus a deferred-to-v10.1+ subsection (Windows Authenticode / VS Code marketplace / on-prem customer / Linux signing). Includes paste-ready bash playbook for the 6-wrapper GA cookbook chain.
+   - **New coda:** "Status (W310-as, 2026-05-19): GA orchestration arc closed" replacing the stale W267 "GA is DONE" coda. Names 37 PRs / 6 wrappers / 5 playbooks / cross-stack mirror / TLDR + forward-pointers to v10.1 / v10.2 / v11 via W310-aq + W310-ar.
+   - 129 lines added, 16 lines deleted; final file = 238 lines.
+
+2. **`TARS_MASTER_DOC.md §6.4 Path to v10.0 GA` reconciliation** (commit `9f2de69`). Kept the W267 "Top 5 external items" historical snapshot intact (per the doc rule: forward execution lives in `PRODUCT_MASTER_PLAN.md`); appended a new "Reconciliation (W310-at, 2026-05-19)" subsection right after the W267 status block that documents:
+   - Top 5 widened to 8 hard blockers post-W310-l (3 brother coord + 5 Apple sign).
+   - Items 4-5 (VS Code marketplace + on-prem customer) deferred to v10.1+ per W310-l.
+   - 6 single-decision verdict wrappers as PRs #214-#223.
+   - 5 docs-only paste playbooks compressing D-0 → D+365 arc into "5 paste actions + 2 typed confirmations + 1 decision-tree walk + 1 sprint-matrix paste per sprint kickoff".
+   - Cross-stack mirror in PR #198 §8.A.
+   - 33 lines added.
+
+3. **`PROJECT_INDEX.md` entry add** (commit `9f2de69`, same as above). Added missing entry for `docs/handoff/MCP_REWRITE_BRIEF.md` (which has been on PR #188's branch since W310 but never indexed). Annotated as "W310 (a)" to mark it as the first item of the W310 wave (replaces closed PR #177; 16 spec-pinned tests; ~12-15h effort). 1 line added.
+
+4. **Cross-workspace sync**. Updated `meeet-browser-agent/AGENTS.md` PR #188 description bullet (+1/-1 LoC, commit `cbc88cf` on `cursor/bootstrap-workspace`) and `meeet-browser-agent/TARS_OVERVIEW_RU.md` header + author trail + active-PR row + operator-next-step bullet (+4/-4 LoC across 4 touch points, commit `84f9c8d`) so a freshly-landed agent in `meeet-browser-agent` sees the W310-at sync layer note before pivoting into TARS.
+
+5. **PR #188 comment** posted at https://github.com/alxvasilevvv/tars-neural-cockpit/pull/188#issuecomment-4484909714 announcing the W310-at sync layer; explains why the three TARS-side state docs got folded into PR #188's scope rather than carved into a separate PR (= one merge ships self-consistent landing surface) + reiterates merge order (PR #188 first, then W310-an playbook).
+
+### Files touched (W310-at)
+
+| File | Change |
+|---|---|
+| `CURRENT_STATUS.md` | Full rewrite of "Read first" block + new W310 section + "What's left" replacement + new W310-as coda. 129+/16-. |
+| `TARS_MASTER_DOC.md` | New "Reconciliation (W310-at, 2026-05-19)" subsection appended to §6.4 after W267 Top-5 historical block. 33+. |
+| `PROJECT_INDEX.md` | Added `docs/handoff/MCP_REWRITE_BRIEF.md` row in handoff briefs section, annotated W310 (a). 1+. |
+| `docs/CHANGELOG_AGENTS.md` | This entry. |
+| (cross-workspace) `meeet-browser-agent/AGENTS.md` | +1/-1 — PR #188 description bullet extended with W310-at sync note. |
+| (cross-workspace) `meeet-browser-agent/TARS_OVERVIEW_RU.md` | +4/-4 — header + author trail + active-PR row + operator-next-step bullet refreshed. |
+
+### What is NOT done (deliberate)
+
+- **PR #188 description rewrite on GitHub itself** — kept as W310-at PR comment (single notification surface) rather than amending the PR body, because the body still correctly reflects the master plan + M-wave consolidation + qa-agent fix scope and the W310-at sync layer is best understood as a follow-up sync rather than a fundamental scope change. Reader who reads the PR comment thread sees the announcement.
+- **CHANGELOG_PUBLIC.md entry** — pure-docs sync layer with zero user-facing behaviour change; nothing to announce in the public changelog. (W310-c set the same precedent: agent-changelog only, no public-changelog entry.)
+- **Sibling-PR PROJECT_INDEX entries** for the rest of the W310 wave (PR #192 wave summary, PR #197/#198/#199 handoff briefs, PRs #214-#223 helper scripts) — those briefs / scripts live on sibling PR branches; they should add their own PROJECT_INDEX entries as those PRs merge, otherwise PROJECT_INDEX on this branch would lie about the state of `main` until those PRs land too.
+
+### Operator inputs needed
+
+Same as W310-c: merge PR #188 first (it now ships the W310-at sync layer alongside the master plan + qa-agent fix), then paste the W310-an merge sequence from `docs/W310_WAVE_SUMMARY.md` to drain the remaining 36 PRs.
+
+---
+
 ## W310-c — independent-PR cleanup pass (2026-05-18)
 
 **Agent**: Cursor (Sonnet 4.6 parent assistant). Continuation of W310 / W310-b on operator directive "продолжай".
@@ -2772,12 +2824,6 @@ Full sign-off doc at `docs/WAVE_53_LAUNCH_SIGNOFF.md`. Verdict: ship it.
 
 `>>> SYNC: Cursor · 2026-05-04 · go-live routes + GO_LIVE same-day + qa-agent ingest env`
 
-## 2026-05-04 — Cursor: go-live 48h — runbook + CI dispatch
-
-**Summary:** `docs/GO_LIVE_48H.md` — пошагово «сегодня / завтра»: BRIDGE на Pages, acceptance, ingest keys, Lovable sitemap/cookie. Прогнан `acceptance_tars_meeet.sh` (bridge SKIP без секрета — ожидаемо). Вручную запущен workflow **tars.meeet.world — Cloudflare Pages** на `main`.
-
-**Files:** add `docs/GO_LIVE_48H.md`; modify `docs/AGENT_HANDOFF.md`, `docs/CHANGELOG_AGENTS.md`.
-
 ---
 
-_Showing the most recent 60 of 273 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 274 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
