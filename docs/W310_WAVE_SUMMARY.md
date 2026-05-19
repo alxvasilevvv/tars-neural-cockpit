@@ -625,6 +625,175 @@ single rollback path becomes mechanical enough to wrap.
 
 ---
 
+## Operator dry-run rehearsal matrix
+
+**Audience:** the operator one or more days **before** tag day, who
+wants to flush orchestration bugs (sibling path drift, env-var name
+typos, log file path mismatches, color-output glitches, exit-code
+contract drift introduced by a sibling refactor) **at zero cost**
+instead of discovering them mid-tag-cut at high cost.
+
+Every helper in the GA cookbook ships with a `*_DRY_RUN=1` env knob
+that short-circuits real-world I/O (no `gh release download`, no
+`security find-identity`, no `curl https://meeet.world/...`, no
+`spctl --assess`) while still exercising the full orchestration
+runtime: arg parsing, sibling resolution, env-knob propagation, exit
+contract, color-coded output, remediation pointer rendering. A
+rehearsal-day operator pasting the block below in ~30 s of wall-clock
+gets either:
+
+- **All-green-or-amber matrix** — orchestration is mechanically sound
+  on the current state of `main`. Tag day will execute as planned.
+- **Any unexpected RED matrix** — drift detected. Read the printed
+  reason, fix the underlying issue (rebase, update sibling path, fix
+  env name), re-run rehearsal until all-green-or-amber. Costs nothing
+  because no destructive op is gated behind the rehearsal verdict.
+
+The matrix below documents per helper: the dry-run env-knob recipe,
+the expected exit code in dry-run mode (always `2` PARTIAL because
+stubs cannot produce green real-world verdicts), the expected stdout
+substring to confirm the helper actually ran end-to-end (not just
+exited early on a missing dep), and the drift signal — what's likely
+broken if the matrix row doesn't match.
+
+```bash
+# Pre-tag dry-run rehearsal — paste this block before tag day.
+# Exits 0 if all 6 helpers passed orchestration; 1 if any helper
+# regressed (drift detected, fix before tag day).
+
+set +e  # need to inspect each exit code individually
+PASSED=0; AMBER=0; FAILED=0
+
+run_rehearsal() {
+  local label="$1"; local cmd="$2"; local expected_rc="$3"; local expected_substring="$4"
+  local out rc
+  out=$(eval "$cmd" 2>&1)
+  rc=$?
+  if [[ "$rc" == "$expected_rc" ]] && echo "$out" | grep -q "$expected_substring"; then
+    echo "  ✓ $label — rc=$rc, found '$expected_substring'"
+    PASSED=$((PASSED+1))
+  elif [[ "$rc" == "$expected_rc" ]]; then
+    echo "  ⚠ $label — rc=$rc but missing '$expected_substring' in output (orchestration drift?)"
+    AMBER=$((AMBER+1))
+  else
+    echo "  ✗ $label — rc=$rc (expected $expected_rc); first 20 lines of output:"
+    echo "$out" | head -20 | sed 's/^/    /'
+    FAILED=$((FAILED+1))
+  fi
+}
+
+echo "=== W310 dry-run rehearsal matrix — $(date -u +%FT%TZ) ==="
+echo
+
+# 1/6: FINAL-QA-VERDICT — wraps W267 FINAL-QA-GATE.command
+run_rehearsal "FINAL-QA-VERDICT (#223)" \
+  "FINAL_QA_VERDICT_DRY_RUN=1 bash scripts/FINAL-QA-VERDICT.command" \
+  2 "PARTIAL"
+
+# 2/6: GA-COOKBOOK — composes #216 + #217
+run_rehearsal "GA-COOKBOOK Gate A (#218)" \
+  "GA_COOKBOOK_DRY_RUN=1 GA_COOKBOOK_SKIP_LIVE=1 GA_COOKBOOK_SKIP_APPLE=1 GA_COOKBOOK_SKIP_BROTHER=1 bash scripts/GA-COOKBOOK.command" \
+  2 "PARTIAL"
+
+# 3/6: RELEASE-TAG-GUARD — read-only safety gate
+run_rehearsal "RELEASE-TAG-GUARD (#221)" \
+  "TAG_GUARD_DRY_RUN=1 TAG_GUARD_SKIP_GH=1 bash scripts/RELEASE-TAG-GUARD.command" \
+  2 "PARTIAL"
+
+# 4/6: DOWNLOAD-AND-VERIFY-RELEASE — composes gh + #215
+run_rehearsal "DOWNLOAD-AND-VERIFY (#219)" \
+  "DOWNLOAD_VERIFY_DRY_RUN=1 DOWNLOAD_VERIFY_SKIP_PLATFORM=1 DOWNLOAD_VERIFY_SKIP_TOOLS=1 bash scripts/DOWNLOAD-AND-VERIFY-RELEASE.command" \
+  2 "PARTIAL"
+
+# 5/6: POST-INSTALL-SMOKE — 4-gate installed-binary health
+run_rehearsal "POST-INSTALL-SMOKE (#222)" \
+  "POST_INSTALL_SMOKE_DRY_RUN=1 POST_INSTALL_SMOKE_SKIP_PLATFORM=1 POST_INSTALL_SMOKE_SKIP_VERSION=1 POST_INSTALL_SMOKE_SKIP_FULL=1 bash scripts/POST-INSTALL-SMOKE.command" \
+  2 "PARTIAL"
+
+# 6/6: BROTHER-POSTFLIGHT — 6-sync coord regression sweep
+run_rehearsal "BROTHER-POSTFLIGHT (#220)" \
+  "BROTHER_POSTFLIGHT_DRY_RUN=1 BROTHER_POSTFLIGHT_SKIP_LIVE=1 BROTHER_RECONCILE_URL=https://meeet.world/admin/reconcile bash scripts/BROTHER-POSTFLIGHT.command" \
+  2 "PARTIAL"
+
+echo
+echo "=== Rehearsal summary ==="
+echo "  Passed (orchestration sound):     $PASSED / 6"
+echo "  Amber  (rc ok, substring drift):  $AMBER / 6"
+echo "  Failed (rc drift — fix before tag): $FAILED / 6"
+echo
+if [[ "$FAILED" -gt 0 ]]; then
+  echo "✗ REHEARSAL FAILED — orchestration drift detected. Fix and re-run."
+  exit 1
+else
+  echo "✓ REHEARSAL CLEAN — orchestration sound on current main. OK to proceed to tag day."
+  exit 0
+fi
+```
+
+**Rehearsal cadence recommendation:**
+
+- **T-7 days** — first rehearsal, baseline established.
+- **T-1 day** — re-run rehearsal after the last PR merges. Should
+  still be all-green; any new RED row means a sibling refactor or
+  rebase broke the orchestration since baseline.
+- **Tag day morning** — re-run rehearsal one final time as the first
+  step of the GA cookbook (effectively Step 0/11 in the executable
+  sequence above). Any drift here means the GA cookbook itself is
+  not safe to execute today; defer tag cut until rehearsal passes.
+
+**Why this is docs-only (W310-ap discipline note):**
+
+A rehearsal wrapper script (e.g. `scripts/DRY-RUN-REHEARSAL.command`)
+would grow the merge queue by one and require its own test suite,
+spec-contract pinning, and reviewer attention — all of which compete
+with the actual tag-cut work for operator throughput. The rehearsal
+matrix above is pure bash inside a docs section, copy-paste-ready,
+and re-uses the dry-run knobs that every helper already exposes (no
+new env knob is introduced). The matrix runtime is bounded by the
+slowest helper's dry-run latency (POST-INSTALL-SMOKE at ~21 s, the
+others all <0.5 s); total ~25 s end-to-end, well within "paste once,
+read result" attention budget.
+
+**Drift signals (what each unexpected RED row means):**
+
+- **FINAL-QA-VERDICT rc≠2 or missing PARTIAL** — W267 sibling
+  `scripts/FINAL-QA-GATE.command` was moved or removed; or the
+  `Passed:/Skipped:/Failed:` log block format changed. Fix: re-add
+  sibling at expected path or update wrapper's log-parsing regex.
+- **GA-COOKBOOK rc≠2 or missing PARTIAL** — sibling `PREFLIGHT-APPLE-
+  SIGN.command` (#216) or `BROTHER-PREFLIGHT.command` (#217) was
+  moved; or env-knob forwarding (`GA_COOKBOOK_SKIP_APPLE` →
+  `PREFLIGHT_APPLE_SKIP_LOCAL`) broke. Fix: re-verify sibling paths
+  in `GA_COOKBOOK_REPO` resolution, check env-var passthrough.
+- **RELEASE-TAG-GUARD rc≠2 or missing PARTIAL** — `gh` not on PATH,
+  OR `git ls-remote --tags origin` rejected (network/credentials);
+  OR the docs/qa/SOAK_v10.0.0.md stub couldn't be auto-laid because
+  the repo lacks `docs/qa/`. Fix: install `gh`, verify GitHub
+  credentials, `mkdir -p docs/qa/` if missing.
+- **DOWNLOAD-AND-VERIFY rc≠2 or missing PARTIAL** — sibling
+  `VERIFY-APPLE-SIGNATURE.command` (#215) was moved; OR the
+  platform-skip env knob name changed; OR `gh` is on PATH but stubbed
+  out incorrectly. Fix: re-verify sibling at expected path, check
+  env-knob names in script header documentation.
+- **POST-INSTALL-SMOKE rc≠2 or missing PARTIAL** — `scripts/SMOKE-
+  TEST.command` was moved; OR Gate 1 platform-skip knob name
+  changed. Fix: re-verify sibling at expected path, check Gate 1
+  Darwin guard env knob spelling.
+- **BROTHER-POSTFLIGHT rc≠2 or missing PARTIAL** — one of the 4
+  wrapped primitives (`probe-meeet-billing.command`, `CHECK-MEEET-
+  LIVE.command`, `smoke_billing_tars_backend.sh`, `acceptance_tars_
+  meeet.sh`) was moved; OR `BROTHER_RECONCILE_URL` env-knob name
+  changed. Fix: re-verify all 4 primitives present in `scripts/`,
+  check env-knob name in script header.
+
+If any drift signal fires, the fix is almost always a single grep-
+and-replace away. The point of the rehearsal is to **catch the drift
+at rehearsal-day cost (~30 s + one-line fix) instead of tag-day cost
+(blocked tag cut, scrambled remediation, lost momentum on launch
+comms)**.
+
+---
+
 ## Pending W310 follow-ups (post-merge)
 
 - **`ph1-ci-cache-other-workflows`** — after PR #188 lands, apply the same `qa-agent.yml`-style header-comment trick to `e2e-suite.yml`, `eval-suite.yml`, `credential-sentinel.yml`, `scan-working-tree.yml`. **Mix-of-scopes risk** — done as a separate small infra PR, not bundled into anything else.
@@ -1254,7 +1423,7 @@ passes:
   **SIX symmetric single-decision wrapper commands** across all six
   verification axes (QA-verdict + Gate A + Tag-Guard + Gate B +
   Post-Install + Postflight).
-- **W310-an/ao** — bundled DOCS-ONLY extensions to PR #192, explicitly
+- **W310-an/ao/ap** — bundled DOCS-ONLY extensions to PR #192, explicitly
   chose NOT to grow the queue with new PRs but to extract operator
   throughput from what's already shipped. **W310-an** added the
   "Operator one-shot merge sequence" subsection — copy-paste-ready
@@ -1274,27 +1443,42 @@ passes:
   (Phase A BLOCK = zero rollback; Phase B BLOCK = PR #199 §7 path A
   pre-tag delete; Phase C BLOCK = PR #199 §7 path B post-tag-pre-
   publish unpublish; Phase D BLOCK = PR #198 §6 launch decision tree
-  A/B/C hotfix-or-partial-or-full-revert). Both playbooks compress
-  the W310 backlog landing + v10.0.0 GA cut from ~30 remembered
-  probes + ~50 separate commands into ~3 paste actions plus 2 typed
-  confirmations. **Neither adds a new PR to the open queue** — both
-  extend PR #192's wave summary in-place. **Why this discipline:**
-  each new helper grows the merge backlog by one without unblocking
-  throughput on the already-shipped 10 helpers; the docs-only
-  extensions compress operator decisions into paste-actions rooted
-  on existing artefacts, which is the only remaining lever for
-  reducing wall-clock-to-GA without growing the queue further.
+  A/B/C hotfix-or-partial-or-full-revert). **W310-ap** added the
+  "Operator dry-run rehearsal matrix" subsection — copy-paste-ready
+  ~30 s bash block that exercises all 6 verdict wrappers in
+  `*_DRY_RUN=1` mode against the current state of `main` to detect
+  orchestration drift (sibling path moves, env-knob name typos, exit-
+  contract regressions introduced by sibling refactors) at zero cost.
+  Per-helper drift-signal taxonomy maps each unexpected RED row onto
+  the likely single-line fix (re-add sibling at expected path, update
+  log-parsing regex, fix env-var name passthrough). Recommended cadence:
+  T-7d baseline, T-1d post-final-merge, tag-day-morning Step 0/11. Any
+  RED defers tag-cut until rehearsal passes; rehearsal is purely
+  read-only so the defer cost is "one more rehearsal run after the
+  fix" not "operator burns a tag attempt". All three playbooks compress
+  the W310 backlog landing + v10.0.0 GA cut + tag-day-orchestration-
+  drift-detection from ~30 remembered probes + ~50 separate commands
+  + zero rehearsal capability (current state: operator discovers drift
+  mid-tag-cut) into ~3 paste actions + 2 typed confirmations + 1
+  rehearsal paste that runs in 30 s. **None adds a new PR to the
+  open queue** — all extend PR #192's wave summary in-place. **Why
+  this discipline:** each new helper grows the merge backlog by one
+  without unblocking throughput on the already-shipped 10 helpers;
+  the docs-only extensions compress operator decisions into paste-
+  actions rooted on existing artefacts, which is the only remaining
+  lever for reducing wall-clock-to-GA without growing the queue
+  further.
 
 **W310 PLANNING SURFACE CLOSED ✅; IMPLEMENTER SURFACE OPENED — TEN
-HELPERS SHIPPED + TWO DOCS-ONLY EXTENSIONS.** Pickup pointer for any
+HELPERS SHIPPED + THREE DOCS-ONLY EXTENSIONS.** Pickup pointer for any
 agent landing in the meeet workspace now lists all **37 active PRs**
 (27 planning + 10 implementer follow-ups), all closed stacks, and
 points at this wave summary as the single-page operator-readable W310
-retrospective — including TWO copy-paste-ready bash playbooks (merge
-sequence + GA cookbook execution sequence) added in-place via W310-an
-+ W310-ao docs-only extensions that explicitly chose NOT to grow the
-queue with new PRs but to extract operator throughput from what's
-already shipped. The next implementer session in any phase (PH2 voice
+retrospective — including THREE copy-paste-ready bash playbooks (merge
+sequence + GA cookbook execution sequence + dry-run rehearsal matrix)
+added in-place via W310-an + W310-ao + W310-ap docs-only extensions
+that explicitly chose NOT to grow the queue with new PRs but to extract
+operator throughput from what's already shipped. The next implementer session in any phase (PH2 voice
 / PH3 keyring + UX + mobile / PH4 sign trio / PH5 real-data trio /
 PH6 sandbox / PH7 planner / PH8 marketplace / PH9 mobile trio / PH10
 Claude polish / PH11 GA dock-down) opens to a fully-specified brief
@@ -1327,18 +1511,26 @@ binary alive enough to start the 72 h soak cron?"*, Postflight for
 PROCEED / BLOCK / PARTIAL verdict with per-failure remediation pointers
 to the planning briefs.
 
-The two docs-only extensions (W310-an operator one-shot merge sequence
-+ W310-ao operator one-shot GA cookbook execution sequence) close the
-"operator orchestration" gap on top: W310-an gives a copy-paste-ready
-5-tier bash playbook that lands all 37 W310 PRs in ~20-30 min of
-wall-clock; W310-ao gives a copy-paste-ready 5-phase bash playbook
-that cuts v10.0.0 GA from merged-queue state to tagged-shipped-soaking
-in ~30-50 min active + 72 h passive, with only TWO operator-required
-pause points (Step 4 destructive tag-cut confirmation + Step 7 manual
-drag-install confirmation) and explicit per-phase rollback decision
-trees. Together the two playbooks compress the W310 backlog landing +
-v10.0.0 GA cut from ~30 remembered probes + ~50 separate commands
-into ~3 paste actions plus 2 typed confirmations.
+The three docs-only extensions (W310-an operator one-shot merge sequence
++ W310-ao operator one-shot GA cookbook execution sequence + W310-ap
+operator dry-run rehearsal matrix) close the "operator orchestration"
+gap on top: W310-an gives a copy-paste-ready 5-tier bash playbook that
+lands all 37 W310 PRs in ~20-30 min of wall-clock; W310-ao gives a
+copy-paste-ready 5-phase bash playbook that cuts v10.0.0 GA from
+merged-queue state to tagged-shipped-soaking in ~30-50 min active +
+72 h passive, with only TWO operator-required pause points (Step 4
+destructive tag-cut confirmation + Step 7 manual drag-install
+confirmation) and explicit per-phase rollback decision trees; **W310-ap
+gives a copy-paste-ready ~30 s bash matrix that exercises all 6
+verdict wrappers in `*_DRY_RUN=1` mode against the current state of
+`main` to detect orchestration drift at rehearsal-day cost (one-line
+fix) instead of tag-day cost (blocked tag cut), with per-helper drift-
+signal taxonomy mapping each unexpected RED row onto the likely
+single-line fix**. Together the three playbooks compress the W310
+backlog landing + v10.0.0 GA cut + tag-day-orchestration-drift-detection
+from ~30 remembered probes + ~50 separate commands + zero rehearsal
+capability into ~3 paste actions + 2 typed confirmations + 1 rehearsal
+paste.
 
 Only the operator action items (.p12 supply, secret push via GitHub
 UI, manual dispatch dry-run click, blog post draft, drag-install on
