@@ -1,10 +1,60 @@
 # W310 — Post-rc1 PR triage wave · summary
 
 **Owner:** Cursor agent (Claude Opus 4.7) — autonomous orchestration window
-**Window:** 2026-05-17 → 2026-05-18
+**Window:** 2026-05-17 → 2026-05-19
 **Lane:** PR hygiene + cross-cutting closeouts on top of `v10.0.0-rc.1`
 **Branch home:** `cursor/post-rc1-master-plan` (PR #188), plus per-extraction branches
-**Status:** ✅ All planning sub-waves landed; **37 PRs open awaiting operator merge** (27 planning + 10 implementer follow-ups, see W310-ad / W310-ae / W310-af / W310-ag / W310-ah / W310-ai / W310-aj / W310-ak / W310-al / W310-am). Planning surface fully closed — every implementer question from `v10.0.0-rc.1` through `v11` is spec'd; implementer execution surface opened with PR #214 + extended with PR #215 + extended with PR #216 (Apple pre-flight) + extended with PR #217 (Brother pre-flight) + **consolidated with PR #218** (GA-COOKBOOK single-decision pre-tag wrapper) + **extended with PR #219** (DOWNLOAD-AND-VERIFY-RELEASE single-decision post-tag wrapper) + **extended with PR #220** (BROTHER-POSTFLIGHT single-decision post-launch coord-health wrapper) + **extended with PR #221** (RELEASE-TAG-GUARD single-decision read-only tag-safety gate that sits between SOAK-REPORT and RELEASE-v10.0) + **extended with PR #222** (POST-INSTALL-SMOKE single-decision installed-binary health verdict that bridges Step 8a drag-install → Step 8b soak-cron-start) + **closed with PR #223** (FINAL-QA-VERDICT cookbook-uniform wrapper around the existing `FINAL-QA-GATE.command` W267 — normalises its 0/1 `GO`/`NO-GO` output to the 0/1/2 PROCEED/BLOCK/PARTIAL contract symmetric with every other GA helper, demotes any skipped step to AMBER so the codesign-skipped-because-TARS-app-not-installed false-green case surfaces as PARTIAL, adds per-step remediation pointers). The **five pre-tag-plus-post-tag ritual surfaces** of the GA tag (Apple pre-flight / Brother pre-flight / release / download+verify / soak) are now all single-command executable with spec-pinned tests; the **post-launch brother-coord health surface** (T+24-72 h) is now a single-command regression sweep; the **tag-cut decision point** (soak verdict + git state + CI freshness) is now a single read-only safety gate that refuses to let the operator type the destructive `RELEASE-v10.0` command until all 5 gates pass; the **post-install installed-binary health surface** (between drag-install + soak-cron-start) is now a single-command 4-gate verdict that refuses to let the operator start the 72 h soak cron until the install + backend + meeet bridge are all confirmed alive; and the **pre-tag QA mechanical-checks surface** (pytest + smoke + perf + codesign + bash -n + doc render + json/yaml + version consistency) is now a single-command verdict that catches the false-green case where `FINAL-QA-GATE.command` returns `GO` despite one or more steps having silently skipped. **All five ritual surfaces + the destructive op itself + the post-install bridge + the QA gate** are now symmetric single-decision wrappers: QA-verdict (#223) → pre-tag verify (#218) → tag-safety (#221) → pre-tag release → post-tag verify (#219) → post-install health (#222) → post-launch coord (#220), each producing one PROCEED/BLOCK/PARTIAL verdict. **No "remembered probes" AND no "remembered sequencing" AND no "remembered command typing" AND no "false-green skipped step" left on the v10.0.0 GA path before, at, or after the tag cut, or after the drag-install** — the operator's mental model reduces to *"did FINAL-QA-VERDICT exit 0? if yes, did Gate A exit 0? if yes, soak; did SOAK-REPORT verdict green AND Tag-Guard exit 0? if yes, RELEASE; did Gate B exit 0? if yes, drag-install; did POST-INSTALL-SMOKE exit 0? if yes, start SOAK-HOURLY cron + announce; did POSTFLIGHT exit 0 at T+24 h? if yes, close dock-down arc."*
+
+---
+
+## 60-second TLDR (read this first)
+
+**State:** 37 PRs open awaiting operator merge. 5 docs-only extensions to PR #192 cover the entire operator surface from D-0 (today) → D+365 (v11 GA). All 6 verdict wrappers shipped + spec-pinned. Cross-stack mirror with brother on PR #198 §8.A.
+
+**What the operator needs to do (in order):**
+
+1. **Today** — merge PR #188 first (1 PR; root unblocks CI on the other 36). Then paste-once W310-an merge sequence to land the remaining 36 PRs in ~20-30 min wall-clock.
+2. **Today + 1-2 days** — resolve 8 hard GA blockers (3 brother coord A1/A2/A5 per PR #198 / 5 Apple sign B1-B5 per PR #199 — needs `.p12` cert + 6 GH secrets).
+3. **Tag-day morning** — paste W310-ap dry-run rehearsal matrix (~30 s) to catch orchestration drift, then paste W310-ao GA cookbook execution sequence (~30-50 min active + 72 h soak passive). Two operator-typed confirmations: Step 4 `yes` = cut tag, Step 7 `installed` = drag-install done.
+4. **T+0 → D+7** — follow W310-aq post-GA first-week runbook. Any CRITICAL signal triggers the 4-branch rollback decision tree within 1 h. Brother follows §8.A mirror in PR #198 on their side.
+5. **D+7 onward** — paste W310-ar sprint planning matrix to assign 3+ parallel implementer agents to sprint 1 v10.1 (TRACK A keyring+pairing / TRACK B Windows+updater / TRACK C voice trio / TRACK D Claude polish). Sprint 1 GA ~D+45, sprint 2 v10.2 ~D+90, sprint 3+ v11 ~D+365.
+
+**Mental model compression:** 6 bash commands + 5 paste playbooks + 2 typed confirmations + 1 decision tree walk + 1 bidirectional escalation tree + 1 sprint-matrix paste per sprint kickoff. **Zero remembered probes. Zero remembered sequencing. Zero improvised rollback. Zero "where do I start?" on D+7.**
+
+**Six verdict wrappers (all single-decision PROCEED/BLOCK/PARTIAL):**
+
+| Wrapper | PR | When | What it answers |
+|---|---|---|---|
+| FINAL-QA-VERDICT | #223 | Pre-tag | Did all 8 mechanical checks pass without silent skip? |
+| GA-COOKBOOK (Gate A) | #218 | Pre-tag | May I tag v10.0.0? (composes #216 Apple + #217 Brother) |
+| RELEASE-TAG-GUARD | #221 | Pre-release | Is it safe to type the destructive RELEASE command right now? |
+| DOWNLOAD-AND-VERIFY-RELEASE (Gate B) | #219 | Post-tag | Do I trust this build? (composes `gh release download` + #215 verify) |
+| POST-INSTALL-SMOKE | #222 | Post-install | Is the installed cockpit alive + version match + meeet bridge up? |
+| BROTHER-POSTFLIGHT | #220 | T+24-72 h | Is brother coord still healthy after launch? |
+
+**Five docs-only paste playbooks (extensions to PR #192):**
+
+| Sub-wave | Playbook | When to paste | What it does |
+|---|---|---|---|
+| W310-an | One-shot merge sequence | After PR #188 merges | Lands 37 PRs in 5 tiers, ~20-30 min |
+| W310-ao | GA cookbook execution sequence | Tag day | Cut tag → soak → verify in 5 phases, 2 typed confirmations |
+| W310-ap | Dry-run rehearsal matrix | T-7d / T-1d / tag-day-morning | Exercises all 6 wrappers in DRY_RUN mode, ~30 s |
+| W310-aq | Post-GA first-week runbook | T+0 → D+7 | Cadence + 8-row signal taxonomy + 4-branch rollback decision tree |
+| W310-ar | Post-v10 sprint planning sequence | D+7 → D+365 | 3-sprint matrix + dep graph + 4 iron rules |
+
+**Cross-stack:** PR #198 §8.A "First-week brother-side runbook (T+0 → D+7)" is the matched mirror of W310-aq on brother side. 4 brother-owned feature flag endpoints + bidirectional escalation tree + joint post-mortem cadence. Any amendment to either side routes through the other PR within 14 days.
+
+**Pickup pointers (5 docs to read on agent landing):**
+1. **`docs/W310_WAVE_SUMMARY.md`** (this doc) — single-page W310 retrospective + 5 playbooks
+2. `docs/PRODUCT_MASTER_PLAN.md` (PR #188) — forward execution plan post-v10
+3. `docs/handoff/PH11_QA_SWEEP_BRIEF.md` (PR #197) — GA dock-down methodology
+4. `docs/handoff/PH11_BROTHER_HANDOFF_BRIEF.md` (PR #198) — brother coord + §8.A first-week mirror
+5. `docs/handoff/PH4_APPLE_SIGN_V10_BRIEF.md` (PR #199) — Apple sign hard blockers B1-B5
+
+**For full detail, keep reading. This TLDR captures the state at W310-ar (2026-05-19). End of TLDR.**
+
+---
+**Status:** ✅ All planning sub-waves landed; **37 PRs open awaiting operator merge** — see 60-second TLDR above for the operator's 5-step plan; full detail below (27 planning + 10 implementer follow-ups, see W310-ad / W310-ae / W310-af / W310-ag / W310-ah / W310-ai / W310-aj / W310-ak / W310-al / W310-am). Planning surface fully closed — every implementer question from `v10.0.0-rc.1` through `v11` is spec'd; implementer execution surface opened with PR #214 + extended with PR #215 + extended with PR #216 (Apple pre-flight) + extended with PR #217 (Brother pre-flight) + **consolidated with PR #218** (GA-COOKBOOK single-decision pre-tag wrapper) + **extended with PR #219** (DOWNLOAD-AND-VERIFY-RELEASE single-decision post-tag wrapper) + **extended with PR #220** (BROTHER-POSTFLIGHT single-decision post-launch coord-health wrapper) + **extended with PR #221** (RELEASE-TAG-GUARD single-decision read-only tag-safety gate that sits between SOAK-REPORT and RELEASE-v10.0) + **extended with PR #222** (POST-INSTALL-SMOKE single-decision installed-binary health verdict that bridges Step 8a drag-install → Step 8b soak-cron-start) + **closed with PR #223** (FINAL-QA-VERDICT cookbook-uniform wrapper around the existing `FINAL-QA-GATE.command` W267 — normalises its 0/1 `GO`/`NO-GO` output to the 0/1/2 PROCEED/BLOCK/PARTIAL contract symmetric with every other GA helper, demotes any skipped step to AMBER so the codesign-skipped-because-TARS-app-not-installed false-green case surfaces as PARTIAL, adds per-step remediation pointers). The **five pre-tag-plus-post-tag ritual surfaces** of the GA tag (Apple pre-flight / Brother pre-flight / release / download+verify / soak) are now all single-command executable with spec-pinned tests; the **post-launch brother-coord health surface** (T+24-72 h) is now a single-command regression sweep; the **tag-cut decision point** (soak verdict + git state + CI freshness) is now a single read-only safety gate that refuses to let the operator type the destructive `RELEASE-v10.0` command until all 5 gates pass; the **post-install installed-binary health surface** (between drag-install + soak-cron-start) is now a single-command 4-gate verdict that refuses to let the operator start the 72 h soak cron until the install + backend + meeet bridge are all confirmed alive; and the **pre-tag QA mechanical-checks surface** (pytest + smoke + perf + codesign + bash -n + doc render + json/yaml + version consistency) is now a single-command verdict that catches the false-green case where `FINAL-QA-GATE.command` returns `GO` despite one or more steps having silently skipped. **All five ritual surfaces + the destructive op itself + the post-install bridge + the QA gate** are now symmetric single-decision wrappers: QA-verdict (#223) → pre-tag verify (#218) → tag-safety (#221) → pre-tag release → post-tag verify (#219) → post-install health (#222) → post-launch coord (#220), each producing one PROCEED/BLOCK/PARTIAL verdict. **No "remembered probes" AND no "remembered sequencing" AND no "remembered command typing" AND no "false-green skipped step" left on the v10.0.0 GA path before, at, or after the tag cut, or after the drag-install** — the operator's mental model reduces to *"did FINAL-QA-VERDICT exit 0? if yes, did Gate A exit 0? if yes, soak; did SOAK-REPORT verdict green AND Tag-Guard exit 0? if yes, RELEASE; did Gate B exit 0? if yes, drag-install; did POST-INSTALL-SMOKE exit 0? if yes, start SOAK-HOURLY cron + announce; did POSTFLIGHT exit 0 at T+24 h? if yes, close dock-down arc."*
 
 ---
 
