@@ -102,3 +102,4 @@ scripts/SET-ELEVENLABS-KEY.command
 scripts/START-AUTH-STACK.command
 scripts/WRANGLER-DEPLOY-LANDING.command
 scripts/install-tars-app.command
+.soak/
