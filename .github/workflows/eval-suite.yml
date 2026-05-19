@@ -10,6 +10,12 @@
 # so a failing eval never kills a PR. It posts a comment summarising
 # results so reviewers can spot regressions. Once the suite stabilises
 # the ``continue-on-error`` flag can be flipped off.
+#
+# W310-au (2026-05-19): GH Actions registration cache may be stale on
+# this workflow (symptom: every PR run dies in ~3 s — same root cause
+# as qa-agent.yml per W310-c). Touching this header forces re-
+# registration on the next merge to main. Pair with PR #188 (qa-agent)
+# + sibling touches on e2e-suite.yml and credential-sentinel.yml.
 
 name: eval-suite
 
