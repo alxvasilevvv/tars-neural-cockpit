@@ -4,7 +4,7 @@
 **Window:** 2026-05-17 → 2026-05-18
 **Lane:** PR hygiene + cross-cutting closeouts on top of `v10.0.0-rc.1`
 **Branch home:** `cursor/post-rc1-master-plan` (PR #188), plus per-extraction branches
-**Status:** ✅ All planning sub-waves landed; **31 PRs open awaiting operator merge** (27 planning + 4 implementer follow-ups, see W310-ad / W310-ae / W310-af / W310-ag). Planning surface fully closed — every implementer question from `v10.0.0-rc.1` through `v11` is spec'd; implementer execution surface opened with PR #214 + extended with PR #215 + extended with PR #216 (Apple pre-flight) + extended with PR #217 (Brother pre-flight). The **five pre-tag ritual surfaces** of the GA tag (Apple pre-flight / Brother pre-flight / release / verify / soak) are now all single-command executable with spec-pinned tests — **no "remembered probes" left on the v10.0.0 GA path**.
+**Status:** ✅ All planning sub-waves landed; **32 PRs open awaiting operator merge** (27 planning + 5 implementer follow-ups, see W310-ad / W310-ae / W310-af / W310-ag / W310-ah). Planning surface fully closed — every implementer question from `v10.0.0-rc.1` through `v11` is spec'd; implementer execution surface opened with PR #214 + extended with PR #215 + extended with PR #216 (Apple pre-flight) + extended with PR #217 (Brother pre-flight) + **consolidated with PR #218** (GA-COOKBOOK single-decision wrapper). The **five pre-tag ritual surfaces** of the GA tag (Apple pre-flight / Brother pre-flight / release / verify / soak) are now all single-command executable with spec-pinned tests — and the two pre-tag gates collapse to **ONE wrapper command** that produces a single PROCEED / BLOCK / PARTIAL verdict for *"may I tag v10.0.0?"*. **No "remembered probes" AND no "remembered sequencing" left on the v10.0.0 GA path** — the operator's mental model reduces to `bash scripts/GA-COOKBOOK.command && bash scripts/RELEASE-v10.0.command`.
 
 ---
 
@@ -60,6 +60,7 @@ clean repository state heading into the v10.0.0 GA dock-down.
 | **W310-ae** | **Second implementer follow-up** — automates PR #199 §6.2's three "clean-machine" Apple signature verification commands so the operator runs ONE script post-download instead of pasting three separate commands at GA time. `scripts/VERIFY-APPLE-SIGNATURE.command` (203 lines bash, +x) takes either a `.app` or a `.dmg` (auto-mounts `.dmg` read-only via `hdiutil`, finds the bundle inside, detaches on exit via `trap`), runs the three brief gates (`codesign --verify --deep --strict --verbose=2` → grep `valid on disk` + `satisfies its Designated Requirement`; `spctl --assess --type execute --verbose` → grep `accepted` + `source=Notarized Developer ID`; `stapler validate` → grep `The validate action worked`), surfaces the `Authority=` identity line against `VERIFY_APPLE_EXPECTED_IDENTITY` (default `Developer ID Application`), prints colorized `✓`/`✗` summary with the brief §7 rollback pointer if any gate red. Exit contract: 0 = GA tag verification passed; 1 = block release; 2 = prereq missing. `VERIFY_APPLE_DRY_RUN=1` + `VERIFY_APPLE_NO_DMG_MOUNT=1` env knobs for smoke tests. **9/9 green tests in ~0.09 s** — pins script structure (exec + shebang + `bash -n`), pins spec contract (header documents §6.2's 3 commands verbatim AND the 4 pass-signal substrings AND the 0/1/2 exit contract — so brief and script can't drift silently), pins runtime (missing arg / nonexistent target / wrong extension → exit 2 or 1), pins platform guard (`Darwin` check + `exit 2` present). Cannot exercise the real signing pipeline from pytest — that's covered by the operator's clean-machine run per brief §6. Lands cleanly with or without PR #199 already merged | PR #215; `scripts/VERIFY-APPLE-SIGNATURE.command` + `tests/test_verify_apple_signature_script.py` |
 | **W310-af** | **Third implementer follow-up** — automates PR #199 §3 (three local-env checks) + §4 (CI-secrets check) into a single pre-tag gate so the operator catches missing prereqs at Gate A (pre-tag, cheap to roll back) instead of Gate B (post-tag, mid-publish — requires re-tag). `scripts/PREFLIGHT-APPLE-SIGN.command` (262 lines bash, +x) runs four gates verbatim from brief: §3.1 `security find-identity -v -p codesigning \| grep "Developer ID Application"` (≥1 match), §3.2 `xcrun notarytool history --keychain-profile "${APPLE_NOTARY_PROFILE}"` (success message), §3.3 `test -f .env && grep -c "^APPLE_" .env` (≥3 APPLE_* keys), §4 `gh secret list -R alxvasilevvv/tars-neural-cockpit` matched against the 6 hard-required secret names (`APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY`, `APPLE_TEAM_ID`, `APPLE_ID`, `APPLE_PASSWORD`). For each red gate prints the exact remediation pointer from `APPLE_SIGNING_SETUP.md` / `APPLE_SIGNING_FOR_CURSOR.md`. Also prints the workflow-dispatch URL for the manual dispatch dry-run (brief §4) but does NOT trigger it (would burn a CI build minute every pre-flight; operator owns the click). Exit contract: 0 = all four green → may proceed; 1 = any red → block tag cut; 2 = prereq missing (not on macOS without `SKIP_LOCAL=1`; missing `security`/`xcrun`/`gh`). `PREFLIGHT_APPLE_DRY_RUN=1` + `PREFLIGHT_APPLE_SKIP_CI=1` + `PREFLIGHT_APPLE_SKIP_LOCAL=1` + `PREFLIGHT_APPLE_REPO=<path>` + `APPLE_NOTARY_PROFILE=<name>` + `GH_REPO=<owner/name>` env knobs for testing, cron, CI-only mode, custom keychain profile, alt-repo. **12/12 green tests in ~0.09 s + 1 skipped** (Darwin-only guard cannot fire on Mac) — pins script structure (exec + shebang + `bash -n`), pins spec contract (header documents §3.1/3.2/3.3 verbatim + §4 gh command verbatim + 6 secret names verbatim + 6 env-override names + 0/1/2 exit contract), pins required-secrets array contract (`REQUIRED_SECRETS=(...)` literally equals brief §4 names in brief's order so secret list cannot silently drift), pins dry-run path (all-skipped → exit 0 + prints next-steps cookbook), pins platform guard (uname check + exit 2 + non-Darwin without skip exits 2). Smoke verified pre-push: dry-run all-skipped → exit 0; skip-local + real `gh secret list` → exit 1, all 6 secrets correctly reported missing (expected pre-v10-GA state). Lands cleanly with or without PR #199 already merged | PR #216; `scripts/PREFLIGHT-APPLE-SIGN.command` + `tests/test_preflight_apple_sign_script.py` |
 | **W310-ag** | **Fourth implementer follow-up** — automates PR #198 §7 (7 brother-side coord syncs for v10 GA) into a single pre-tag verification gate so the operator runs ONE bash command instead of 4 separate probe scripts + 1 manual `curl` + 2 env-var sanity checks. `scripts/BROTHER-PREFLIGHT.command` (375 lines bash, +x) wraps the 4 existing primitive scripts (`probe-meeet-billing.command` for A1 idempotent usage event, `CHECK-MEEET-LIVE.command` for A2 `/operator` balance shape, `smoke_billing_tars_backend.sh` for A5 auth + billing e2e, `acceptance_tars_meeet.sh` for end-to-end), runs them in sequence with last-3-lines diag capture per primitive, adds a 4th sync as a direct `curl -fsSI https://meeet.world/billing/tars` (Sync 4 = A3 checkout URL liveness — accepts 200/301/302), a 5th sync as a file-existence-OR-`BROTHER_RECONCILE_URL`-set check (Sync 5 = A4 reconciliation script ownership — two valid resolutions per brief §3.A4: TARS ships `scripts/reconcile-meeet-billing.py` OR brother declares URL via env), a 6th sync as a `BROTHER_PAIR_TTL_ACK=yes` env-var check (Sync 6 = ph3-pair-ttl ownership, framed verbatim from brief as "NOT v10 GA — heads-up only" so `ALLOWED_SKIPS=1` tolerates it). Aggregate verdict: PROCEED / BLOCK / PARTIAL with per-sync `✓`/`✗`/`⊘` rows + brief §<N>.<X> remediation pointer per red. Exit contract: 0 = all 7 green → proceed; 1 = any red → BLOCK GA tag cut; 2 = neither green nor red (prereq missing OR partial verdict from SKIP_LIVE=1 leaving ≥1 sync unverified). `BROTHER_PREFLIGHT_DRY_RUN=1` (CI mock) + `BROTHER_PREFLIGHT_SKIP_LIVE=1` (offline backend mode) + `BROTHER_PREFLIGHT_REPO=<path>` (cron) + `BROTHER_RECONCILE_URL=<url>` (Sync 5 brother-owns path) + `BROTHER_PAIR_TTL_ACK=yes` (record §6 verbal sign-off) + `BROTHER_PREFLIGHT_NO_COLOR=1` env knobs. **17/17 green tests in ~0.16 s** — pins script structure (exec + shebang + `bash -n`), pins spec contract (header enumerates all 7 syncs verbatim + each sync names its primitive script or curl invocation + PR #198 + §7 back-pointers + 0/1/2 exit contract + 6 env-override names + "NOT v10 GA — heads-up only" framing for Sync 6), pins runtime under `BROTHER_PREFLIGHT_DRY_RUN=1` matrix (skip-live + no extras → exit 1 Sync 5 red; skip-live + owners → exit 2 partial; full dry-run + owners → exit 0 PROCEED; full dry-run, no extras → exit 1; green path prints all 5 cookbook ritual pointers; red path surfaces §3.A4 remediation with both resolution paths), pins drift-catch (all 4 wrapped primitive scripts must exist on main + `ALLOWED_SKIPS=1` tolerance present + `record()` helper + `RESULTS` aggregated to stdout). **Closes the last "remembered ritual" gap on the v10 GA path** — together with #216 Apple pre-flight, every prerequisite surface of the tag cut is now machine-checkable: `bash scripts/PREFLIGHT-APPLE-SIGN.command && bash scripts/BROTHER-PREFLIGHT.command && bash scripts/RELEASE-v10.0.command && bash scripts/VERIFY-APPLE-SIGNATURE.command <dmg> && bash scripts/SOAK-HOURLY.command && (72 h later) bash scripts/SOAK-REPORT.command`. Lands cleanly with or without PR #198 already merged | PR #217; `scripts/BROTHER-PREFLIGHT.command` + `tests/test_brother_preflight_script.py` |
+| **W310-ah** | **Fifth implementer follow-up** — collapses the two pre-tag gates from W310-af (#216 Apple) and W310-ag (#217 Brother) into ONE wrapper that produces a single PROCEED / BLOCK / PARTIAL verdict for *"may I tag v10.0.0?"*. `scripts/GA-COOKBOOK.command` (288 lines bash, +x) runs Gate 1 (`PREFLIGHT-APPLE-SIGN.command`) then Gate 2 (`BROTHER-PREFLIGHT.command`) — **Gate 2 always runs even if Gate 1 failed** so the operator sees both verdicts on one screen — then applies the worst-of-two aggregation rule (any 1 → 1 BLOCK; any 2 with no 1 → 2 PARTIAL; both 0 → 0 PROCEED). PROCEED path prints the remaining 7 cookbook steps (RELEASE → CI sign+notarize → download → VERIFY → drag-install → SOAK-HOURLY cron 72h → SOAK-REPORT → tag if green); BLOCK path prints per-gate remediation pointers to the relevant brief sections; PARTIAL path explains the cause (skip-live / skip-apple / non-Mac host) and defers tag decision to operator judgment. Env knobs `GA_COOKBOOK_DRY_RUN=1` + `GA_COOKBOOK_SKIP_LIVE=1` + `GA_COOKBOOK_SKIP_APPLE=1` + `GA_COOKBOOK_SKIP_BROTHER=1` + `GA_COOKBOOK_REPO=<path>` + `GA_COOKBOOK_NO_COLOR=1` — all forwarded to sub-gates as their respective `PREFLIGHT_APPLE_*` / `BROTHER_PREFLIGHT_*` knobs. All sub-gate-specific env vars (APPLE_NOTARY_PROFILE, GH_REPO, BROTHER_RECONCILE_URL, BROTHER_PAIR_TTL_ACK, etc.) pass through unchanged because sub-gates run as separate bash processes inheriting parent env. **24/24 green tests in ~0.28 s** — pins meta (exists+executable, shebang, `bash -n`), pins spec contract (names both wrapped gates verbatim, back-references PRs #216 + #217, documents 0/1/2 contract, documents worst-of-two rule, documents all 6 GA_COOKBOOK_* env overrides, lists next-step cookbook 7 commands), pins orchestration runtime (both green → 0; Apple red → 1; Brother red → 1; both red → 1; Apple partial → 2; Brother partial → 2; partial loses to red; **Gate 2 always runs even when Gate 1 red**; SKIP_APPLE → 2; SKIP_BROTHER → 2; missing Apple script → 1), pins UX (PROCEED prints next steps; BLOCK prints remediation pointers; env forwarding propagates; no `set -e` dump on failure). Stub sub-gates pattern (same isolation as test_brother_preflight_script.py) — lays minimal bash scripts in tmp dir + points `GA_COOKBOOK_REPO` at it, so tests don't need real Apple / Brother infrastructure. Smoke verified pre-push: 4 matrix variants (both green dry-run → rc=0 PROCEED; Apple skip + Brother dry-run green → rc=2 PARTIAL; both skipped → rc=2 PARTIAL; both scripts missing → rc=1 BLOCK) all match expected contract. **Closes the last operator-mental-model gap on the v10.0.0 GA path** — after this lands "may I tag v10.0.0?" reduces to "did `GA-COOKBOOK.command` exit 0?". The pre-tag motion is now ONE bash command, ONE exit code, ONE color-coded verdict. Wrapper is purely additive: zero new deps, zero changes to sub-gate scripts (#216 + #217 remain operator-runnable standalone for selective re-verification), zero changes to release pipeline. Hard dep: PR #216 + PR #217 must be on main before the wrapper resolves sub-gates (if either missing, wrapper exits 1 BLOCK with remediation pointer — fails safely, not silently). Lands cleanly with or without sub-gates already merged | PR #218; `scripts/GA-COOKBOOK.command` + `tests/test_ga_cookbook_script.py` |
 
 > **Sub-waves a..f are forensic triage on stacked PRs.** Sub-waves g..ac
 > are forward-leaning **planning surface** that reduces the briefing
@@ -77,28 +78,40 @@ clean repository state heading into the v10.0.0 GA dock-down.
 > every implementer question from `v10.0.0-rc.1` through `v11` is
 > spec'd on disk. The two halves can be reviewed independently.
 >
-> **Sub-waves ad+ae+af+ag open the implementer surface** — sequential
+> **Sub-waves ad+ae+af+ag+ah open the implementer surface** — sequential
 > follow-ups to planning briefs (PR #197 §5.A → PR #214 soak helper
 > scripts; PR #199 §6.2 → PR #215 Apple signature verification helper;
 > PR #199 §3+§4 → PR #216 Apple pre-flight gate; PR #198 §7 → PR #217
-> Brother coord pre-flight gate). Future implementer PRs append here
-> as `W310-ah`, `W310-ai`, etc., each cross-referenced to the planning
-> brief it executes. The W310 implementer pattern is now reproduced
-> **four times in a row**: pick the highest-leverage §X.Y operator-
-> action from a landed brief, ship the pure-additive helper that turns
-> "remembered ritual" into "single command", pin the spec contract in
-> tests so brief and script can't drift. The four helpers together
-> collapse the v10.0.0 GA cookbook to **nine sequential commands**
-> (1 Apple pre-flight + 1 Brother pre-flight + 1 release + 1 verify +
-> 1 soak-hourly cron + 1 soak-report + 3 manual ops: CI watch, download,
-> drag-install) — every command machine-checkable, every gate red/green
-> rendered in color, every failure surfacing the exact remediation
-> pointer from the brief. **The v10.0.0 GA path now has zero
-> "remembered probes" left.**
+> Brother coord pre-flight gate; PR #216+#217 → PR #218 GA-COOKBOOK
+> single-decision wrapper). Future implementer PRs append here as
+> `W310-ai`, `W310-aj`, etc., each cross-referenced to the planning
+> brief it executes (or the helpers it composes). The W310 implementer
+> pattern is now reproduced **five times in a row**: pick the highest-
+> leverage §X.Y operator-action (or the highest-leverage helper-
+> composition opportunity), ship the pure-additive helper that turns
+> "remembered ritual" or "remembered sequencing" into "single command",
+> pin the spec contract in tests so brief and script can't drift. The
+> five helpers together collapse the v10.0.0 GA cookbook to **two
+> bash commands** for the operator's pre-tag motion:
+>
+> ```bash
+> bash scripts/GA-COOKBOOK.command    # ONE PROCEED/BLOCK/PARTIAL verdict
+>                                     # (Apple pre-flight + Brother pre-flight)
+> bash scripts/RELEASE-v10.0.command  # destructive — only if GA-COOKBOOK exit 0
+> ```
+>
+> The full cookbook is **nine sequential commands** end-to-end (1 GA-COOKBOOK
+> + 1 RELEASE + 1 CI sign+notarize + 1 download + 1 VERIFY + 1 drag-install
+> + 1 SOAK-HOURLY cron + 1 SOAK-REPORT + 1 tag-if-green decision) — every
+> automatable command machine-checkable, every gate red/green rendered in
+> color, every failure surfacing the exact remediation pointer from the
+> brief. **The v10.0.0 GA path now has zero "remembered probes" AND zero
+> "remembered sequencing" left** — the operator's pre-tag mental model is
+> one wrapper command, one exit code, one color-coded verdict.
 
 ---
 
-## Active PRs (31 open, all awaiting operator merge)
+## Active PRs (32 open, all awaiting operator merge)
 
 | # | Title | Wave | Status | Merge unblocks |
 | - | ----- | ---- | ------ | -------------- |
@@ -132,7 +145,8 @@ clean repository state heading into the v10.0.0 GA dock-down.
 | **#214** | W310-ad PH11 §5.A soak helper scripts — `SOAK-HOURLY.command` + `SOAK-REPORT.command` + 9 tests (**first implementer follow-up** to the W310 planning surface) | W310-ad | green except known CI cache issue + 9/9 new tests pass in ~3 s | makes the v10.0.0 soak protocol **executable end-to-end** the moment PR #197 lands; zero behaviour change to existing release pipeline; valid JSON-per-line `.soak/hourly.log` ingestable by future dashboards; 3-consec-fail abort with `TARS_SOAK_REPO` env override so the same script works under cron with absolute paths; one implement-time correction to PR #197 (real surface is `/api/pairing/status`, not `/identity`) flagged in the script header |
 | **#215** | W310-ae PH4 §6.2 Apple signature verification helper — `VERIFY-APPLE-SIGNATURE.command` + 9 tests (**second implementer follow-up**) | W310-ae | green except known CI cache issue + 9/9 new tests pass in ~0.09 s | automates the GA-blocking 3-gate verification (`codesign` + `spctl` + `stapler`) so the operator runs ONE script post-`.dmg`-download instead of pasting three commands at GA time; auto-mounts `.dmg`, surfaces `Authority=` identity, prints colorized `✓`/`✗` summary with brief §7 rollback pointer; lands cleanly with or without PR #199 already merged; closes the post-download "remembered ritual" gap on the v10.0.0 release path |
 | **#216** | W310-af PH4 §3+§4 Apple pre-flight gate — `PREFLIGHT-APPLE-SIGN.command` + 12 tests (**third implementer follow-up**) | W310-af | green except known CI cache issue + 12/12 new tests pass in ~0.09 s (+1 skipped on Darwin) | automates the pre-tag prereq check (3 local-env gates: codesigning identity, notarytool profile, .env APPLE_* keys + 1 CI-secrets gate: 6 hard-required `APPLE_` secrets in repo) so the operator catches missing prereqs at Gate A (pre-tag, cheap rollback) instead of Gate B (post-tag, mid-publish — requires re-tag); prints workflow-dispatch URL for the manual dispatch dry-run but does not trigger it (owner controls build minutes); colorized `✓`/`✗` summary with brief §3/§4 remediation pointer per red gate; lands cleanly with or without PR #199 already merged; **closes the pre-tag Apple ritual gap** — together with #214 + #215 + #217 the five pre-tag surfaces of GA (Apple pre-flight + Brother pre-flight + release + verify + soak) are all single-command executable |
-| **#217** | W310-ag PH11 §7 Brother coord pre-flight — `BROTHER-PREFLIGHT.command` + 17 tests (**fourth implementer follow-up**) | W310-ag | green except known CI cache issue + 17/17 new tests pass in ~0.16 s | automates PR #198 §7 (7 brother-side coord syncs for v10 GA) — wraps the 4 existing primitive scripts (`probe-meeet-billing.command` A1 + `CHECK-MEEET-LIVE.command` A2 + `smoke_billing_tars_backend.sh` A5 + `acceptance_tars_meeet.sh` end-to-end), adds direct `curl https://meeet.world/billing/tars` for A3 checkout liveness (Sync 4), file-existence-OR-`BROTHER_RECONCILE_URL`-set check for A4 reconciliation script ownership (Sync 5), `BROTHER_PAIR_TTL_ACK=yes` env-var check for v10.2 ph3-pair-ttl ack (Sync 6, framed as "NOT v10 GA — heads-up only" so `ALLOWED_SKIPS=1` tolerates it without tripping verdict); aggregate verdict PROCEED / BLOCK / PARTIAL with per-sync `✓`/`✗`/`⊘` rows + brief §<N>.<X> remediation pointer per red; exit contract 0 green / 1 red / 2 prereq-missing-OR-partial; full env knob surface (DRY_RUN + SKIP_LIVE + REPO + RECONCILE_URL + PAIR_TTL_ACK + NO_COLOR); **closes the last "remembered ritual" gap on the v10 GA path** — the brother coord surface is now machine-checkable alongside the Apple surface (#216), so the GA cookbook reduces to **nine sequential commands** with zero remembered probes; lands cleanly with or without PR #198 already merged |
+| **#217** | W310-ag PH11 §7 Brother coord pre-flight — `BROTHER-PREFLIGHT.command` + 17 tests (**fourth implementer follow-up**) | W310-ag | green except known CI cache issue + 17/17 new tests pass in ~0.16 s | automates PR #198 §7 (7 brother-side coord syncs for v10 GA) — wraps the 4 existing primitive scripts (`probe-meeet-billing.command` A1 + `CHECK-MEEET-LIVE.command` A2 + `smoke_billing_tars_backend.sh` A5 + `acceptance_tars_meeet.sh` end-to-end), adds direct `curl https://meeet.world/billing/tars` for A3 checkout liveness (Sync 4), file-existence-OR-`BROTHER_RECONCILE_URL`-set check for A4 reconciliation script ownership (Sync 5), `BROTHER_PAIR_TTL_ACK=yes` env-var check for v10.2 ph3-pair-ttl ack (Sync 6, framed as "NOT v10 GA — heads-up only" so `ALLOWED_SKIPS=1` tolerates it without tripping verdict); aggregate verdict PROCEED / BLOCK / PARTIAL with per-sync `✓`/`✗`/`⊘` rows + brief §<N>.<X> remediation pointer per red; exit contract 0 green / 1 red / 2 prereq-missing-OR-partial; full env knob surface (DRY_RUN + SKIP_LIVE + REPO + RECONCILE_URL + PAIR_TTL_ACK + NO_COLOR); closes the pre-tag Brother ritual gap — the brother coord surface is now machine-checkable alongside the Apple surface (#216); lands cleanly with or without PR #198 already merged |
+| **#218** | W310-ah GA-COOKBOOK single-decision wrapper — `GA-COOKBOOK.command` + 24 tests (**fifth implementer follow-up**) | W310-ah | green except known CI cache issue + 24/24 new tests pass in ~0.28 s | composes PR #216 (Apple pre-flight) + PR #217 (Brother pre-flight) into ONE wrapper that produces a single PROCEED / BLOCK / PARTIAL verdict for *"may I tag v10.0.0?"*; runs both sub-gates sequentially with **Gate 2 always running even if Gate 1 red** so the operator sees both verdicts on one screen; worst-of-two aggregation (any rc=1 → BLOCK, any rc=2 with no rc=1 → PARTIAL, both rc=0 → PROCEED); PROCEED prints next-step cookbook (RELEASE → CI sign+notarize → download → VERIFY → drag-install → SOAK-HOURLY cron 72h → SOAK-REPORT → tag if green); BLOCK prints per-gate remediation pointer to the relevant brief section; PARTIAL explains cause (skip-live / skip-apple / non-Mac host) and defers to operator judgment; full env-knob pass-through (DRY_RUN / SKIP_LIVE / SKIP_APPLE / SKIP_BROTHER / REPO / NO_COLOR — all forwarded to sub-gates as PREFLIGHT_APPLE_* / BROTHER_PREFLIGHT_*); zero new deps, zero changes to sub-gate scripts (#216 + #217 remain operator-runnable standalone); hard dep on #216 + #217 (fails safely with rc=1 BLOCK + remediation pointer if either missing); **closes the last operator-mental-model gap on the v10.0.0 GA path** — after this lands the pre-tag motion is ONE bash command, ONE exit code, ONE color-coded verdict; lands cleanly with or without sub-gates already merged |
 
 > **Known CI failure (cosmetic, repo-wide).** `TARS B2B E2E suite`,
 > `TARS eval suite`, `scan working tree` all fail in 2-3 s on every
@@ -524,6 +538,61 @@ passes:
   `exit 2`). **9/9 green in ~0.09 s.** Lands cleanly with or
   without PR #199 already merged — pure additive, two new files,
   zero edits to existing code.
+- **W310-ah** — added PR #218 (GA-COOKBOOK single-decision wrapper —
+  `GA-COOKBOOK.command` + 24 spec-contract tests, +470 LoC), lifting the
+  active PR count to **32**. **FIFTH IMPLEMENTER FOLLOW-UP** to the W310
+  planning surface, and the FIRST that composes existing helpers rather
+  than wrapping a brief directly. Picks the highest-leverage post-W310-ag
+  consolidation opportunity: the operator now has TWO independent pre-tag
+  gates (Apple via #216, Brother via #217), and the "remembered sequencing"
+  surface of running them in order, capturing both exit codes, and
+  deciding *"may I tag?"* still lives in operator head. This wrapper
+  collapses that mental model to ONE bash command producing ONE PROCEED /
+  BLOCK / PARTIAL verdict. Runs Gate 1 (`PREFLIGHT-APPLE-SIGN.command`)
+  then Gate 2 (`BROTHER-PREFLIGHT.command`) sequentially — **Gate 2
+  always runs even when Gate 1 returns red** so the operator gets the
+  full picture on one screen instead of having to fix Apple, re-run,
+  then discover Brother is also red. Worst-of-two aggregation: any rc=1
+  → BLOCK, any rc=2 with no rc=1 → PARTIAL, both rc=0 → PROCEED.
+  PROCEED prints the remaining 7 cookbook steps verbatim (RELEASE →
+  CI sign+notarize → download → VERIFY → drag-install → SOAK-HOURLY
+  cron 72h → SOAK-REPORT → tag if green). BLOCK prints per-gate
+  remediation pointer to the relevant brief section. PARTIAL explains
+  cause (skip-live / skip-apple / non-Mac host) and defers tag decision
+  to operator judgment. Env knobs `GA_COOKBOOK_DRY_RUN=1` +
+  `GA_COOKBOOK_SKIP_LIVE=1` + `GA_COOKBOOK_SKIP_APPLE=1` +
+  `GA_COOKBOOK_SKIP_BROTHER=1` + `GA_COOKBOOK_REPO=<path>` +
+  `GA_COOKBOOK_NO_COLOR=1` — all forwarded to sub-gates as their
+  respective `PREFLIGHT_APPLE_*` / `BROTHER_PREFLIGHT_*` knobs. All
+  sub-gate-specific env vars (APPLE_NOTARY_PROFILE, GH_REPO,
+  BROTHER_RECONCILE_URL, BROTHER_PAIR_TTL_ACK, etc.) pass through
+  unchanged because sub-gates run as separate bash processes inheriting
+  parent env. **24/24 green tests in ~0.28 s** — pins meta (executable
+  + shebang + `bash -n`), pins spec contract (names both wrapped gates
+  verbatim, back-references PRs #216 + #217, documents 0/1/2 contract,
+  documents worst-of-two rule, documents all 6 `GA_COOKBOOK_*` env
+  overrides, lists next-step cookbook 7 commands), pins orchestration
+  runtime (both green → 0; Apple red → 1; Brother red → 1; both red →
+  1; Apple partial → 2; Brother partial → 2; partial loses to red;
+  **Gate 2 always runs even when Gate 1 red**; SKIP_APPLE → 2;
+  SKIP_BROTHER → 2; missing Apple script → 1), pins UX (PROCEED prints
+  next steps; BLOCK prints remediation pointers; env forwarding
+  propagates; no `set -e` dump on failure). Stub sub-gates pattern
+  (same isolation as `test_brother_preflight_script.py`) — lays minimal
+  bash scripts in tmp dir + points `GA_COOKBOOK_REPO` at it, so tests
+  don't need real Apple / Brother infrastructure. Smoke verified pre-push:
+  4 matrix variants (both green dry-run → rc=0 PROCEED; Apple skip +
+  Brother dry-run green → rc=2 PARTIAL; both skipped → rc=2 PARTIAL;
+  both scripts missing → rc=1 BLOCK) all match expected contract.
+  Wrapper is purely additive: zero new deps, zero changes to sub-gate
+  scripts (#216 + #217 remain operator-runnable standalone for selective
+  re-verification), zero changes to release pipeline. Hard dep: PR #216 +
+  PR #217 must be on main before the wrapper resolves sub-gates (if
+  either missing, wrapper exits 1 BLOCK with remediation pointer — fails
+  safely, not silently). **Closes the last operator-mental-model gap on
+  the v10.0.0 GA path** — after this lands, "may I tag v10.0.0?" reduces
+  to "did `GA-COOKBOOK.command` exit 0?". Lands cleanly with or without
+  sub-gates already merged.
 - **W310-ag** — added PR #217 (PH11 §7 Brother coord pre-flight gate —
   `BROTHER-PREFLIGHT.command` + 17 spec-contract tests, +666 LoC),
   lifting the active PR count to **31**. **FOURTH IMPLEMENTER FOLLOW-UP**
@@ -614,9 +683,9 @@ passes:
   ritual corners of GA (pre-flight + release + verify + soak)
   are all single-command executable with spec-pinned tests.
 
-**W310 PLANNING SURFACE CLOSED ✅; IMPLEMENTER SURFACE OPENED — FOUR
+**W310 PLANNING SURFACE CLOSED ✅; IMPLEMENTER SURFACE OPENED — FIVE
 HELPERS SHIPPED.** Pickup pointer for any agent landing in the meeet
-workspace now lists all **31 active PRs** (27 planning + 4 implementer
+workspace now lists all **32 active PRs** (27 planning + 5 implementer
 follow-ups), all closed stacks, and points at this wave summary as the
 single-page operator-readable W310 retrospective. The next implementer
 session in any phase (PH2 voice / PH3 keyring + UX + mobile / PH4 sign
@@ -625,30 +694,40 @@ trio / PH5 real-data trio / PH6 sandbox / PH7 planner / PH8 marketplace
 fully-specified brief with operator open questions, risk register, test
 plan, dep matrix, and effort estimates.
 
-The four implementer follow-ups shipped so far (W310-ad soak + W310-ae
+The five implementer follow-ups shipped so far (W310-ad soak + W310-ae
 Apple sign verify + W310-af Apple pre-flight + W310-ag Brother coord
-pre-flight) together close **all five** "remembered ritual" gaps on the
-v10.0.0 GA execution path — Apple pre-flight → Brother pre-flight →
-release → verify → soak — into single executable commands with
-spec-pinned tests, leaving only the operator action items (.p12 supply,
-secret push via GitHub UI, manual dispatch dry-run
-click, blog post draft, drag-install on clean Mac) as blocking non-
-script work. The operator's GA cookbook now reads:
+pre-flight + W310-ah GA-COOKBOOK single-decision wrapper) together close
+**all five** "remembered ritual" gaps AND the "remembered sequencing"
+gap on the v10.0.0 GA execution path — Apple pre-flight → Brother
+pre-flight → release → verify → soak — into single executable commands
+with spec-pinned tests, AND collapse the two pre-tag gates into ONE
+wrapper command that produces a single PROCEED / BLOCK / PARTIAL
+verdict for *"may I tag v10.0.0?"*. Only the operator action items
+(.p12 supply, secret push via GitHub UI, manual dispatch dry-run
+click, blog post draft, drag-install on clean Mac) remain blocking
+non-script work. The operator's GA cookbook now reduces to:
 
-1. `bash scripts/PREFLIGHT-APPLE-SIGN.command` — verify 3 local + 1 CI gate
-2. (if green) `bash scripts/RELEASE-v10.0.command` — cut tag + trigger CI
-3. watch CI sign + notarize the bundle
-4. download the signed `.dmg` on a clean Mac
-5. `bash scripts/VERIFY-APPLE-SIGNATURE.command <path-to-dmg>` — 3 brief gates
-6. drag-install
-7. `bash scripts/SOAK-HOURLY.command` (cron, 72 h) — auto-abort on 3-fail
-8. `bash scripts/SOAK-REPORT.command` — markdown verdict
-9. (if verdict green) tag `v10.0.0`
+```bash
+# Pre-tag decision (ONE wrapper, both gates)
+bash scripts/GA-COOKBOOK.command          # → PROCEED / BLOCK / PARTIAL
+# (if PROCEED) cut tag + run release pipeline
+bash scripts/RELEASE-v10.0.command
+# (operator) watch CI sign + notarize
+# (operator) download signed .dmg on a clean Mac
+bash scripts/VERIFY-APPLE-SIGNATURE.command <path-to-dmg>
+# (operator) drag-install
+bash scripts/SOAK-HOURLY.command          # cron, 72 h, auto-abort on 3-fail
+# (72 h later)
+bash scripts/SOAK-REPORT.command          # markdown verdict
+# (if verdict green) tag v10.0.0
+```
 
-Steps **1, 5, 7, 8** are now spec-pinned executable helpers shipped in
-this wave. Steps **2 and 6** were already scripted. Only steps **3
-(CI), 4 (manual download), 6 (drag install), and 9 (tag cut)** remain
-manual ops — all unavoidably so by design.
+**Steps 1, 5, 7, 8 (now wrapped into step 1 via GA-COOKBOOK)** are
+spec-pinned executable helpers shipped in this wave. **Steps 2 and 6**
+were already scripted. Only **CI watch, manual download, drag-install,
+and tag cut** remain manual ops — all unavoidably so by design. The
+operator's pre-tag mental model is now **one bash command, one exit
+code, one color-coded verdict**.
 
 ---
 
