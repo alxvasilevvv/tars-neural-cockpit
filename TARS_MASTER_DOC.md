@@ -652,6 +652,15 @@ external checklist items (rc1 soak / brother billing / Apple cert /
 VS Code publish / first on-prem customer) flip green. See §6.4 +
 `docs/V10_GA_CHECKLIST.md`.
 
+**Forward execution plan (W310, 2026-05-18).** Post-rc1 dock-down +
+forward roadmap (v10 GA → v10.1 → v10.2 → v11) live at
+[`docs/PRODUCT_MASTER_PLAN.md`](docs/PRODUCT_MASTER_PLAN.md).
+Synthesised from 3 parallel recon subagents + 2 verification subagents
+(L5 crypto canon, v10 release-axis archaeology) + operator decisions
+on release-axis sequencing and M-wave consolidation. Per the doc rule
+in §1: forward execution lives there; this section stays the historical
+roadmap for Wave A/B/C.
+
 ### 6.1 Wave A — Cursor parity must-haves (✅ SHIPPED, W237-W249)
 
 **Goal:** a Cursor-refugee opens TARS and says nothing's missing.
@@ -791,6 +800,39 @@ What stands between `v10.0.0-rc.1` and the GA tag — see release notes
 GA target is met from inside the repo. Only the 5 external items
 above remain — see `docs/V10_GA_CHECKLIST.md` for the 30-item
 operator-facing checklist (groups A-G).
+
+**Reconciliation (W310-at, 2026-05-19).** The "Top 5 external items"
+above were correct as of W267; W310-l (PR #197) widened the analysis
+and the post-rc1 picture is now:
+
+- **8 hard blockers** for the tag (3 brother coord A1/A2/A5 from
+  PR #198 + 5 Apple-sign B1-B5 from PR #199 — needs `.p12` cert + 6
+  GH secrets). Items 1-3 above (rc1 soak / brother billing / Apple
+  cert) map onto these 8; soak now runs via `scripts/SOAK-HOURLY.command`
+  + `scripts/SOAK-REPORT.command` (PR #214).
+- **Items 4-5 deferred to v10.1+** per W310-l: VS Code marketplace
+  first publish (W254+W259) and first paying on-prem customer
+  (W263 kit) are post-GA validation, not GA-tag blockers.
+- **6 single-decision verdict wrappers** ship as PRs #214-#223
+  collapsing the entire ritual surface (FINAL-QA-VERDICT pre-tag
+  mechanical / GA-COOKBOOK Gate A pre-tag / RELEASE-TAG-GUARD
+  destructive-op safety / DOWNLOAD-AND-VERIFY-RELEASE Gate B post-tag /
+  POST-INSTALL-SMOKE installed-binary bridge / BROTHER-POSTFLIGHT
+  post-launch coord) into six bash commands, six exit codes. Zero
+  remembered probes; zero remembered sequencing.
+- **5 docs-only paste playbooks** in `docs/W310_WAVE_SUMMARY.md`
+  (W310-an merge / W310-ao GA cookbook / W310-ap dry-run rehearsal /
+  W310-aq post-GA first-week runbook / W310-ar post-v10 sprint
+  planning) compress the arc from D-0 today through D+365 v11 GA
+  into "5 paste actions + 2 typed confirmations + 1 decision-tree
+  walk + 1 sprint-matrix paste per sprint kickoff".
+- **Cross-stack mirror** lives in PR #198 §8.A — brother-side
+  first-week runbook with bidirectional escalation tree, 4 named
+  feature flag endpoints brother owns, joint post-mortem cadence.
+
+Forward execution authority on the post-rc1 dock-down + v10.1/v10.2/v11
+arc lives in `docs/PRODUCT_MASTER_PLAN.md` (W310) per the doc rule;
+this section stays the W267 historical Top-5 snapshot.
 
 | Wave | Status | One-line summary |
 |------|--------|------------------|
