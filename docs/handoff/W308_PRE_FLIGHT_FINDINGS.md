@@ -1,14 +1,27 @@
 # W308 — pre-flight findings (read before starting migration)
 
-> **Status.** Steps 0–4 shipped. Path **C** complete + Claude
-> code-review verdict applied. Cursor built the
-> new minimal cockpit shell under `apps/cockpit/`; live tokens live in
-> `apps/cockpit/src/styles/tokens.css` and are guarded against
-> MASTER.md drift by `tests/test_cockpit_tokens_sync.py`. The Claude
-> W307 verdict was applied in step 1; the actual cockpit and hero
-> surfaces (ported from `docs/design/W307_refs/`) ship in step 2.
-> Step 3 wires `apps/cockpit/dist/` into the Tauri pipeline: the
-> frozen shipping bundle has been moved to
+> **Status.** Steps 0–4 shipped + W309-prep + **W309 step 1
+> (functional restore MVP) shipped.** Path **C** complete; Claude
+> code-review verdict applied; design-tightening backlog closed
+> (W309-prep); the four runtime behaviors W308 step 3 left static
+> (mic + WS + chat + TTS) are now wired back in via five vanilla-TS
+> modules under `apps/cockpit/src/runtime/`. Bundle ~22 kB raw /
+> ~8 kB gzipped (under brief §5 80 / 25 kB caps). Suite: 11 drift +
+> 8 runtime contract = 19/19 green. See
+> `docs/handoff/W309_FUNCTIONAL_RESTORE_BRIEF.md` for the brief
+> (commit `29e9cd9` on the local `cursor/w309-cockpit-functional-restore`
+> branch, pushed to origin for reference) and `docs/CHANGELOG_AGENTS.md`
+> 2026-05-18 entry for the implementation log. **W309 step 2+
+> (STT upload, persona picker, WS chat sync, policy gate / awareness
+> rendering) stays gated on a separate operator OK.**
+>
+> Cursor built the new minimal cockpit shell under `apps/cockpit/`;
+> live tokens live in `apps/cockpit/src/styles/tokens.css` and are
+> guarded against MASTER.md drift by `tests/test_cockpit_tokens_sync.py`.
+> The Claude W307 verdict was applied in step 1; the actual cockpit
+> and hero surfaces (ported from `docs/design/W307_refs/`) ship in
+> step 2. Step 3 wires `apps/cockpit/dist/` into the Tauri pipeline:
+> the frozen shipping bundle has been moved to
 > `desktop/src-tauri/web-legacy/` for rollback, and
 > `desktop/scripts/package-cockpit.sh` now builds `apps/cockpit/`
 > and stages its dist into `desktop/src-tauri/web/`.
@@ -32,6 +45,8 @@
 | 2026-05-17 | **Step 2 shipped** — cockpit + hero surfaces ported from `docs/design/W307_refs/{cockpit,hero}.html` into the new multi-page Vite project. Landing index added; `tokens-preview` moved to `/preview.html`. | Operator ("делай всё остальное без остановки"). Side-by-side parity check vs reference passes; intentional deltas are documented (greeting bigger, accent fills enforce black text, ambient vs alert pulses split). Bundle: 4 pages, ~19 kB gzipped total. |
 | 2026-05-17 | **Step 3 shipped** — `desktop/src-tauri/web/` is now the staged output of `apps/cockpit/dist/`; the frozen pre-built React SPA was moved to `desktop/src-tauri/web-legacy/` via `git mv` (history preserved). `desktop/scripts/package-cockpit.sh` rewritten to actually build (`(cd apps/cockpit/ && pnpm install --silent && pnpm build)`, no `--filter`) and rsync `dist/` into `web/`. `--legacy` flag added for emergency parity checks. Tauri hooks unchanged (`beforeBuildCommand: pnpm cockpit:package`, `beforeDevCommand: pnpm serve:web`). | Operator ("делай всё остальное без остановки"). Path C is complete: cockpit now has a real source tree → reproducible build → Tauri shell. The new bundle is ~21 kB raw vs the legacy ~5 MB SPA. **Known functional regression** (intended for this step, see "Carry-over" below): the legacy `Cockpit-*.js` (~169 kB) contained mic/WS/conversation behavior that the new vanilla-TS pages do not yet implement; the new cockpit is currently a polished static shell. Restoring runtime behavior is a separate wave (W309+). |
 | 2026-05-17 | **Step 4 shipped — Claude code-review verdict on PR #185 applied.** PR #185 opened with W307+W308 stack; routed to independent Claude Code reviewer. Reviewer surfaced 4 issues, all fixed in this entry: (a) CSP missing `https://fonts.bunny.net` for the hero (Bunny Fonts would silently fail in Tauri) — `style-src`/`font-src` extended; (b) W307 verdict miss — phase bar was hardcoded `10px` Share Tech Mono, which collapses letterforms — new dedicated token `--font-size-phase-bar: 11px` in `tokens.css`, MASTER row added, `cockpit.html` reads it on `.phase-bar`; (c) 3 vacuously passing drift contracts (no test that `.surface-marketing` is actually applied; no test for `--font-size-phase-bar`; no test for brief-item stagger) — 3 new real assertions, suite 6 → 10; (d) `W308_STEP2_BRIEF.md` missing superseded banner — added. Also: applied `.surface-marketing` to `hero.html` root `<html>` (the class existed in `tokens.css` but was never applied to any element), and shipped the brief-item stagger animation (`@keyframes briefIn`, 60 ms cadence per `--i`, gated by `prefers-reduced-motion: no-preference`). Cockpit bundle: ~24 kB → ~27 kB raw (inline stagger style + 4 inline `--i:` attrs); gzipped still ~6 kB. | Operator ("делай всё остальное без остановки", followed by plan E — open PR + ask Claude for review + don't start functional restore without separate OK). Step 4 is purely tightening the design ↔ implementation contract that steps 1–3 laid down. No new features. Functional restore (mic, WS, conversation) is still W309+ and explicitly **gated on operator OK**. |
+| 2026-05-17 | **W309 prep + follow-ups shipped (PR #186, merged).** Renamed `--font-size-phase-bar` → `--font-size-hud-mono` (single token for the whole HUD-class mono label family); migrated 6 hardcoded `10px` call-sites; new drift guard `test_no_hardcoded_pixel_size_on_mono_family_elements` (10 → 11 tests). Three Claude-review follow-ups landed in the same PR: `--type-label` inline-comment restoration, `.stream-row .ts`/`.meta` data-vs-HUD blind-spot documentation, post-rsync orphan source-map prune in `package-cockpit.sh`. | Operator ("Продолжай" ×2 post-PR #185 merge). Closes the W309 design-tightening backlog so functional restore can start clean. |
+| 2026-05-18 | **W309 step 1 shipped — functional restore MVP.** Operator un-gated step 1 of brief `29e9cd9`. Five new TS modules under `apps/cockpit/src/runtime/` (`api.ts`, `tauri.ts`, `ws.ts`, `voice.ts`, `chat.ts`) restore mic capture (`getUserMedia`), realtime WS bus (`/api/realtime`, `tars.realtime.v1`, exp backoff `1s→30s` full jitter, close-code routing 1000/4001), chat strand (SSE-on-POST per current sidecar, optimistic `sending→delivered\|failed`), TTS playback (`/api/voice/speak` → `new Audio(blob:)` with serialised queue), and vault status hook (brief §3.5 co-located in `api.ts`). Entry script rewritten — 7 DOM hooks, strand-collapsed↔expanded data-state, status badge data-state colour overrides, vault CTA injection, mic toggle, beforeunload+pagehide teardown, **no `innerHTML` anywhere** (drift test enforces). +8 static contract tests (`tests/test_cockpit_runtime_contract.py`) pin module presence, per-file shape (imports/endpoints/knobs), entry wiring, bundle budget. Suite: 11 → 19. Bundle ~22 KB raw / ~8 KB gzipped (under brief §5 80 / 25 KB caps). `pnpm typecheck` clean, `pnpm build` clean, `package-cockpit.sh` staged clean, **19 passed in 0.05 s**. | Operator un-gated W309 step 1 ("Un-gate W309 step 1 — взять brief 29e9cd9 (mic+WS+chat+TTS MVP)…"). Step 2+ (STT upload, persona picker UI, WS chat sync, policy/awareness rendering) **stays gated on a separate operator OK**. |
 
 ---
 

@@ -1,0 +1,15 @@
+{
+  "ok": true,
+  "engines": {
+    "elevenlabs": false,
+    "openai": false,
+    "mac_say": true
+  },
+  "any_available": true,
+  "preferred_order": ["elevenlabs", "openai", "mac_say"],
+  "stt": {
+    "ok": true,
+    "provider": "openai",
+    "model": "whisper-1"
+  }
+}

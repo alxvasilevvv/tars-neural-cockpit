@@ -1,0 +1,7 @@
+{
+  "ok": true,
+  "configured": false,
+  "providers": [],
+  "missing_keys": ["openai", "anthropic", "elevenlabs"],
+  "hint": "Add an OpenAI / Anthropic / ElevenLabs key in Settings → Vault."
+}
