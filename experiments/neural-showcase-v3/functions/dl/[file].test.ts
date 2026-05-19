@@ -84,6 +84,20 @@ afterEach(() => {
 // ── Static surface ────────────────────────────────────────────────
 
 describe("ALLOWED_FILENAMES", () => {
+  test("includes all 6 v10.0.0-rc.1 cross-platform artifacts", () => {
+    const v10 = [
+      "TARS_10.0.0-rc.1_aarch64.dmg",
+      "TARS_10.0.0-rc.1_x64.dmg",
+      "TARS_10.0.0-rc.1_amd64.AppImage",
+      "TARS_10.0.0-rc.1_amd64.deb",
+      "TARS_10.0.0-rc.1_x64-setup.exe",
+      "TARS_10.0.0-rc.1_x64_en-US.msi",
+    ];
+    for (const f of v10) {
+      expect(ALLOWED_FILENAMES.has(f), `missing: ${f}`).toBe(true);
+    }
+  });
+
   test("includes all 6 v9.1.0 cross-platform artifacts", () => {
     const v910 = [
       "TARS_9.1.0_aarch64.dmg",
@@ -112,10 +126,34 @@ describe("ALLOWED_FILENAMES", () => {
 });
 
 describe("tagForFilename", () => {
-  test("derives v<X.Y.Z> from versioned filenames", () => {
+  test("derives v<X.Y.Z> from plain-semver versioned filenames", () => {
     expect(tagForFilename("TARS_9.1.0_aarch64.dmg")).toBe("v9.1.0");
     expect(tagForFilename("TARS_9.1.0_amd64.AppImage")).toBe("v9.1.0");
     expect(tagForFilename("TARS_8.4.0_x64.dmg")).toBe("v8.4.0");
+  });
+
+  // Regression guard for the pre-release routing bug that v10.0.0-rc.1
+  // exposed: the old regex `^TARS_(\d+\.\d+\.\d+)_` required `_` to
+  // follow X.Y.Z but a pre-release filename has `-rc.1` between them,
+  // so it returned null → the proxy 404'd with `unknown_tag` for every
+  // rc / beta artifact even when present in ALLOWED_FILENAMES.
+  test("derives v<X.Y.Z-pre> from pre-release versioned filenames", () => {
+    expect(tagForFilename("TARS_10.0.0-rc.1_aarch64.dmg")).toBe("v10.0.0-rc.1");
+    expect(tagForFilename("TARS_10.0.0-rc.1_x64.dmg")).toBe("v10.0.0-rc.1");
+    expect(tagForFilename("TARS_10.0.0-rc.1_amd64.AppImage")).toBe(
+      "v10.0.0-rc.1",
+    );
+    expect(tagForFilename("TARS_10.0.0-rc.1_amd64.deb")).toBe("v10.0.0-rc.1");
+    expect(tagForFilename("TARS_10.0.0-rc.1_x64-setup.exe")).toBe(
+      "v10.0.0-rc.1",
+    );
+    // Other pre-release forms the SemVer 2.0 spec allows (beta.N, alpha.N).
+    expect(tagForFilename("TARS_10.0.0-beta.2_aarch64.dmg")).toBe(
+      "v10.0.0-beta.2",
+    );
+    expect(tagForFilename("TARS_11.0.0-alpha.7_x64.dmg")).toBe(
+      "v11.0.0-alpha.7",
+    );
   });
 
   test("routes versionless tauri bundle + updater to LATEST_TAG", () => {

@@ -55,7 +55,10 @@ const BODY_CACHE_SECONDS = 3600; // 1 h for binary body (release immutable).
 // reads the live `public/install.sh` and asserts every filename it
 // can build is in this set. Bump SUPPORTED_VERSIONS in the SAME PR
 // that bumps the install funnel's TARS_VERSION.
-const SUPPORTED_VERSIONS = ["9.1.0", "8.4.0"];
+// NOTE on version order: SUPPORTED_VERSIONS[0] is treated as "newest"
+// by the W291 sentinel test (which substitutes it into install.sh
+// patterns). Keep newest first.
+const SUPPORTED_VERSIONS = ["10.0.0-rc.1", "9.1.0", "8.4.0"];
 function platformArtifactsForVersion(version: string): string[] {
   return [
     `TARS_${version}_aarch64.dmg`,
@@ -75,11 +78,23 @@ const ALLOWED_FILENAMES = new Set<string>([
 
 // Map filename → release tag. Naming convention is `TARS_<version>_…`
 // so we parse it out; `latest.json` always points at the newest tag.
-const LATEST_TAG = "v9.1.0";
+//
+// LATEST_TAG must match SUPPORTED_VERSIONS[0] — the sentinel test
+// `[file].test.ts` cross-checks this. Bump them in the same commit.
+const LATEST_TAG = "v10.0.0-rc.1";
+
+// SemVer-with-pre-release matcher. Captures:
+//   - 9.1.0, 10.2.3       (plain X.Y.Z releases)
+//   - 10.0.0-rc.1         (pre-release with suffix)
+//   - 10.0.0-beta.2       (pre-release with suffix)
+// The pre-release segment is allowed letters / digits / dots only —
+// matches the SemVer 2.0 alphanumeric identifier shape, which is
+// what `package.json`-style tooling and CI tag scripts emit.
+const VERSION_IN_FILENAME = /^TARS_(\d+\.\d+\.\d+(?:-[a-zA-Z0-9.]+)?)_/;
 
 function tagForFilename(name: string): string | null {
   if (name === "latest.json" || name === "latest.json.sig") return LATEST_TAG;
-  const m = name.match(/^TARS_(\d+\.\d+\.\d+)_/);
+  const m = name.match(VERSION_IN_FILENAME);
   if (!m) {
     // Tauri may emit a versionless app bundle (`TARS_aarch64.app.tar.gz`);
     // route those at the latest tag too.
