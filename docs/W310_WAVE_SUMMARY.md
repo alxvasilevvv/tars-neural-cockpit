@@ -1022,6 +1022,51 @@ cleanly to users for 7 days with zero rollbacks". No remembered
 sequencing, no remembered probes, no improvised rollback under
 pressure.
 
+### Cross-stack mirror (W310-aq + PH11_BROTHER_HANDOFF_BRIEF.md §8.A)
+
+The W310-aq runbook above is the **TARS-side** of post-GA incident
+response. The mirror **brother-side** runbook landed on the same day
+as a docs-only extension to PR #198 (`PH11_BROTHER_HANDOFF_BRIEF.md`
+§8.A "First-week brother-side runbook (T+0 → D+7)"). The two are
+**matched mirrors** — both sides MUST keep them in sync, and any
+amendment to either side routes through the other's PR within 14 days
+of incident close.
+
+The brother-side mirror adds:
+
+- **Brother-side cadence checkpoints** — what `meeet.world` ingest
+  dashboards / brother backend logs should show at T+0 / T+0-T+72 h /
+  T+24 h / T+72 h / D+1-D+7, with concrete escalation thresholds.
+- **Brother-side signal taxonomy (9 rows)** — what brother observes on
+  their dashboard that should page TARS operator (e.g., `tars.installer.
+  tagged` missing T+5 min → CRITICAL; A1 `/usage_event` 5xx >5% for
+  >15 min → CRITICAL; brother backend p95 >2× baseline → CRITICAL).
+  Mirrors the 8-row TARS-side taxonomy from the perspective of what
+  brother sees.
+- **Bidirectional escalation tree** — who owns which decision when:
+  TARS-side root cause = TARS operator owns rollback decision per
+  W310-aq; brother-side root cause = brother operator owns; joint /
+  unclear = 15-min joint debug, then assign. Comms: cockpit banner
+  (TARS-side) + brother status page + joint meeet.world status post.
+- **4 named feature flag endpoints brother owns** that TARS-side
+  W310-aq depends on: `tars/rollback_banner`, `tars/new_user_pause`,
+  `tars/hotfix_v10_0_1_banner`, `tars/degraded_mode_<endpoint>`.
+  All four are already operational from earlier TARS releases — no
+  net-new code on brother side.
+- **Joint post-mortem cadence** — both sides open parallel docs
+  within 24 h of any rollback/hotfix; joint review within 7 days;
+  amendments routed back to PR #192 (TARS-side) or PR #198 (brother-
+  side) within 14 days of close.
+
+This closes the cross-stack gap that the original W310-aq left open
+("coordinate with brother" without telling brother what to do). The
+W310 wave's full operator-orchestration surface — pre-tag verification
+(6 verdict wrappers + Gate A + Gate B + Tag-Guard + Post-Install +
+Postflight), tag-day execution (W310-ao GA cookbook execution
+sequence), drift-detection (W310-ap rehearsal matrix), first-week
+operations (W310-aq runbook), **and brother-side mirror (PR #198
+§8.A)** — is now spec'd on BOTH sides of the bridge.
+
 ---
 
 ## Pending W310 follow-ups (post-merge)
