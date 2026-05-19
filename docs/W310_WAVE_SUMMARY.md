@@ -386,6 +386,245 @@ disk:
 
 ---
 
+## Operator one-shot GA cookbook execution sequence
+
+**Audience:** the operator on tag-cut day, **after** all 37 W310 PRs
+have been merged via the "Operator one-shot merge sequence" subsection
+above. The merge playbook compresses 37 PR decisions into 1 paste
+action; **this playbook compresses 11 tag-cut decisions into 1 paste
+action with only 2 unavoidable operator-required pause points** (one
+for destructive tag-cut confirmation, one for the manual drag-install
+step). All 9 other steps are either auto-verifying single-decision
+wrapper commands (PROCEED/BLOCK/PARTIAL with exit `0`/`1`/`2`) or
+unavoidable CI wait (Step 5: sign + notarize the just-cut tag).
+
+The cookbook below is the runtime parallel to the merge sequence
+above: copy-paste-ready, pauses only at unavoidable manual
+checkpoints, fails loudly with remediation pointers if any verdict is
+`BLOCK`, fails amber if any verdict is `PARTIAL` so the operator can
+decide whether to push through partial confidence or fix the
+underlying skip cause. Every `BLOCK` exit aborts the playbook with
+the `set -e` semantics implicit in each `|| { … ; exit 1; }` arm.
+
+### Phase A — pre-tag verification (read-only, no destructive ops)
+
+```bash
+# Step 1/11: QA gate — 8 mechanical checks (pytest + smoke + perf +
+#            codesign + bash -n + doc render + json/yaml + version
+#            consistency) must all PASS without silent skip. Demotes
+#            any SKIPPED step to AMBER → PARTIAL so the false-green
+#            case (e.g. codesign skipped because /Applications/TARS.app
+#            not installed) surfaces as rc=2 instead of hiding under
+#            the sibling FINAL-QA-GATE's GO exit.
+bash scripts/FINAL-QA-VERDICT.command || {
+  echo "QA gate failed — see remediation pointers above; do NOT"
+  echo "proceed to Step 2 until rc=0."
+  exit 1
+}
+
+# Step 2/11: Pre-tag prereq verify — Apple sign keychain + 6 GH secrets
+#            + brother coord (7-sync convergence). Worst-of-two
+#            aggregation (Apple x Brother). PARTIAL acceptable on
+#            non-Mac host but Mac host MUST exit 0 to cut a signed
+#            build.
+bash scripts/GA-COOKBOOK.command || {
+  echo "Gate A failed — see per-sub-gate remediation pointers; do NOT"
+  echo "proceed to Step 3 until rc=0."
+  exit 1
+}
+
+# Step 3/11: Tag-cut safety gate — soak verdict + branch = main +
+#            git working tree clean + tag not already pushed locally
+#            or remotely + last CI run on main green at HEAD sha.
+#            Read-only by design; refuses to let the operator type
+#            the destructive Step 4 command until all 5 gates pass.
+bash scripts/RELEASE-TAG-GUARD.command || {
+  echo "Tag-Guard failed — do NOT type Step 4 until rc=0."
+  exit 1
+}
+```
+
+### Phase B — destructive tag-cut (operator-confirmed)
+
+```bash
+# Step 4/11: ⚠️ DESTRUCTIVE — cuts v10.0.0 tag, pushes to origin,
+#            triggers release.yml CI workflow (sign + notarize +
+#            upload .dmg asset). Only proceed if Steps 1+2+3 all
+#            exited 0. PAUSE POINT 1 of 2: operator must type 'yes'.
+read -r -p "All pre-tag gates green. Cut v10.0.0 tag now? Type 'yes' to confirm: " confirm
+[[ "$confirm" == "yes" ]] || { echo "aborted by operator"; exit 1; }
+bash scripts/RELEASE-v10.0.command
+
+# Step 5/11: Wait for CI sign+notarize (~25-40 min wall-clock).
+#            Auto-watch via gh CLI:
+gh run watch --exit-status --interval 30 \
+  "$(gh run list --branch main --workflow release.yml --limit 1 \
+       --json databaseId --jq '.[0].databaseId')"
+# … or open https://github.com/alxvasilevvv/tars-neural-cockpit/actions
+# and monitor the release.yml run manually if you prefer to use the UI.
+```
+
+### Phase C — post-tag verification + install + soak start
+
+```bash
+# Step 6/11: Gate B — post-tag artifact verify. Downloads the .dmg
+#            from the just-cut release, computes SHA-256 (operator
+#            can cross-reference against .RELEASE-v10.0.txt from the
+#            build machine), runs the three Apple signature gates
+#            (codesign --verify --deep --strict + spctl --assess
+#            --type execute + stapler validate). On red exit, force-
+#            keeps the .dmg in /tmp/tars-ga-download-<pid>/ for
+#            forensics.
+bash scripts/DOWNLOAD-AND-VERIFY-RELEASE.command || {
+  echo "Gate B failed — see PR #199 §7 rollback A/B/C decision tree;"
+  echo "do NOT drag-install until rc=0."
+  exit 1
+}
+
+# Step 7/11: ⚠️ MANUAL — drag the verified .dmg to /Applications/.
+#            Path printed by Step 6 (typically
+#            /tmp/tars-ga-download-<pid>/TARS_10.0.0_<arch>.dmg).
+#            Open Finder, drag the .dmg, double-click to mount, drag
+#            TARS.app to /Applications/, eject the mounted volume.
+#            PAUSE POINT 2 of 2: operator must type 'installed'.
+read -r -p "TARS.app installed in /Applications/? Type 'installed' to continue: " confirm
+[[ "$confirm" == "installed" ]] || { echo "aborted by operator"; exit 1; }
+
+# Step 8/11: Post-install health bridge — verifies app version +
+#            backend health on 127.0.0.1:8765 + meeet_ingest bridge
+#            + full SMOKE-TEST sibling. Refuses to let the operator
+#            start the 72 h soak cron until the installed binary is
+#            confirmed alive on all four gates.
+bash scripts/POST-INSTALL-SMOKE.command || {
+  echo "Post-install BLOCK — uninstall TARS.app, re-download via #219,"
+  echo "and investigate (most common cause: backend wasn't restarted"
+  echo "after install; try open -a TARS.app && sleep 5 && re-run)."
+  exit 1
+}
+
+# Step 9/11: Schedule 72 h soak window via cron (1 sample/hour, auto-
+#            abort after 3 consecutive failures, writes JSON-per-line
+#            to .soak/hourly.log). Idempotent — re-running this step
+#            does not duplicate the cron entry.
+crontab -l 2>/dev/null | grep -qE 'SOAK-HOURLY\.command' || {
+  ( crontab -l 2>/dev/null
+    echo "0 * * * * cd $PWD && bash scripts/SOAK-HOURLY.command \\"
+    echo "  >> .soak/cron.log 2>&1"
+  ) | crontab -
+}
+echo "✓ 72 h soak window started; tail .soak/cron.log periodically."
+```
+
+### Phase D — post-launch coord health (T+24-72 h)
+
+```bash
+# Step 10/11: At T+72 h, render the soak verdict markdown to
+#             docs/qa/SOAK_v10.0.0.md. Re-running RELEASE-TAG-GUARD
+#             after this picks up the new verdict via its Gate 1
+#             (greps docs/qa/SOAK_v10.0.0.md for the canonical
+#             "authorised" / "blocked-*" signatures).
+bash scripts/SOAK-REPORT.command
+
+# Step 11/11: Post-launch brother coord regression sweep at T+24 h
+#             (and again at T+72 h if T+24 h was green). Confirms
+#             billing + balance + auth + checkout + reconcile +
+#             acceptance suite all still green against real
+#             meeet.world traffic. Red verdict → BLOCK launch comms
+#             + decide rollback per PH4 §7 + PH11 §6 (hotfix v10.0.1
+#             OR partial rollback un-publish binaries OR full revert
+#             re-tag v10.0.0-rc.1).
+bash scripts/BROTHER-POSTFLIGHT.command
+```
+
+### Phase E — tag promotion (operator decision, no helper wrapper)
+
+If Steps 1-11 all exited 0, the operator may promote `v10.0.0` from
+rc to stable: update `https://meeet.world/tars` download links, draft
+the announce post (PH10 #213 backlog item #4 + #11), merge any
+remaining v10.0.0 PR threads, archive the rc tag. **This is the only
+step that intentionally has no single-command wrapper** — the
+announce post is a Claude-design lane artefact (PH10 #213, tier-1
+batch "v10 landing brand pass"), download-link promotion is a
+brother-side ops task (PH11 #198 §6.B), and tag archival is a one-off
+`git tag -d` / `git push origin :refs/tags/...` operator decision.
+All three are tracked outside the W310 helper fleet for separation-of-
+concerns reasons.
+
+### Total runtime budget
+
+| Phase | Operator-active time | Wall-clock |
+| ----- | -------------------- | ---------- |
+| **A** (read-only verifies) | ~30 s | ~30 s |
+| **B** (destructive + CI wait) | ~10 s (one `read`) | ~25-40 min (mostly CI) |
+| **C** (Gate B + drag-install + post-install + soak schedule) | ~3-5 min (drag-install dominant) | ~5-7 min |
+| **D** (after 72 h soak window) | ~10 s at T+24 h + ~10 s at T+72 h | 72 h passive |
+| **E** (tag promotion) | operator-paced (typically same day, parallel to Phase D) | n/a |
+
+**Wall-clock window from Step 1 to Step 9: ~30-50 min active.**
+**Wall-clock window from Step 9 to Step 11 completion: 72 h passive.**
+
+### Pause points (the only times the operator types something)
+
+1. **Step 4** — type `yes` to cut the v10.0.0 tag.
+2. **Step 7** — type `installed` after dragging `TARS.app` to
+   `/Applications/`.
+
+That's it. All other steps either run automatically (Phases A, D, E
+if all gates green) or unavoidably wait for CI (Step 5). Compare with
+the pre-W310 operator burden: ~11 separate decisions, ~11 separate
+commands to type correctly, plus ~30 manual probes that had to be
+remembered (codesign + spctl + stapler against the right `.app`;
+sha256 cross-check; backend on 127.0.0.1:8765; meeet bridge live; soak
+cron registration; soak verdict markdown signature; brother coord
+re-verify at T+24 h; …). **W310 compresses the GA tag-cut motion
+from ~30 remembered probes + ~11 commands into 2 operator
+confirmations** spread across an ~45-minute active window plus the
+unavoidable 72 h soak.
+
+### Rollback playbook (if any gate exits BLOCK mid-cookbook)
+
+The `|| { …; exit 1; }` guard on every verdict gate ensures the
+cookbook **stops before any further destructive op** if a `BLOCK` is
+hit. The rollback decision tree differs by phase:
+
+- **Phase A `BLOCK` (Step 1/2/3)** — pre-tag. **Zero rollback** —
+  nothing has shipped yet. Fix the underlying issue (per remediation
+  pointer printed by the failing gate), re-run the failed step.
+- **Phase B `BLOCK` (Step 4 destructive failed)** — **PR #199 §7
+  decision tree path A** (pre-tag): `git tag -d v10.0.0` locally,
+  no remote push happened yet, no rollback comms needed.
+- **Phase C `BLOCK` (Step 6 Gate B failed)** — **PR #199 §7 decision
+  tree path B** (post-tag-pre-publish): `gh release delete v10.0.0
+  --yes && git push --delete origin v10.0.0 && git tag -d v10.0.0`.
+  CI may have already signed the binary; un-publish before any user
+  downloads it.
+- **Phase C `BLOCK` (Step 8 Post-install failed)** — **PR #199 §7
+  decision tree path C** (Intel-only signing flake) **OR** path D
+  (corrupted .p12). Triage cause first; usually fixable without
+  re-tag (re-download via #219, re-install). If hard-blocked,
+  un-publish per path B and re-tag as `v10.0.0-rc.2`.
+- **Phase D `BLOCK` (Step 10 SOAK-REPORT verdict blocked-hardfail
+  OR Step 11 BROTHER-POSTFLIGHT red)** — **PR #198 §6 launch decision
+  tree**:
+    - **A: hotfix v10.0.1** — keep v10.0.0 published, ship the fix
+      ASAP. Best path if only 1-2 syncs red and root cause is
+      identified.
+    - **B: partial rollback** — un-publish binaries but keep tag.
+      Best path if any user data integrity risk surfaces during soak.
+    - **C: full revert** — un-publish binaries + delete tag + re-tag
+      as `v10.0.0-rc.2`. Best path if multiple gates red AND root
+      cause is structural (e.g. brother-side endpoint broke our
+      contract).
+
+The cookbook above does **not** auto-execute any rollback path. By
+design — rollback is operator-decision territory (which of A/B/C
+applies depends on the failure mode + downstream impact + comms
+timing), not a machine-checkable verdict. The rollback playbook is
+docs-only on purpose; future implementer follow-up may revisit if a
+single rollback path becomes mechanical enough to wrap.
+
+---
+
 ## Pending W310 follow-ups (post-merge)
 
 - **`ph1-ci-cache-other-workflows`** — after PR #188 lands, apply the same `qa-agent.yml`-style header-comment trick to `e2e-suite.yml`, `eval-suite.yml`, `credential-sentinel.yml`, `scan-working-tree.yml`. **Mix-of-scopes risk** — done as a separate small infra PR, not bundled into anything else.
@@ -938,7 +1177,7 @@ passes:
   `.postflight/daily.log`. Exit contract: 0 = all 6 green → brother coord
   side of v10 GA healthy post-launch (record sign-off; close v10 GA
   dock-down arc); 1 = ≥1 sync red → **BLOCK launch comms** (don't tweet
-  "v10 is live") + decide rollback per brief §6; 2 = prereq missing OR
+  "v10 is live") + decide   rollback per brief §6; 2 = prereq missing OR
   partial verdict (SKIP_LIVE=1 left ≥1 sync unverified). Env knobs:
   `BROTHER_POSTFLIGHT_DRY_RUN=1` + `BROTHER_POSTFLIGHT_SKIP_LIVE=1` +
   `BROTHER_POSTFLIGHT_REPO=<path>` + `BROTHER_RECONCILE_URL=<url>` +
@@ -983,71 +1222,169 @@ passes:
   hard-required at script-land time; runtime fails safely with both-
   path remediation if both missing post-tag. Lands cleanly with or
   without PR #198 already merged.
+- **W310-ak/al/am** — bundled implementer follow-ups 8/9/10, lifting
+  active PR count to **37**: PR #221 RELEASE-TAG-GUARD (read-only
+  tag-cut safety gate; 5 gates worst-of-5; refuses to let operator
+  type destructive `RELEASE-v10.0.command` until soak verdict + git
+  branch + git clean + tag-not-already-pushed + CI freshness all
+  green; **25/25 green tests in ~1.69 s** with two structural pins
+  guaranteeing destructively HARMLESS invariant — no `git tag v...`
+  or `git push origin v...` in runtime, uses `git ls-remote` not
+  `git fetch`), PR #222 POST-INSTALL-SMOKE (drag-install → soak-cron
+  bridge; 4 worst-of gates; bridges Step 8a → Step 8b with single
+  verdict for *"is the installed cockpit alive on app + backend +
+  meeet bridge + smoke?"*; **24/25 green tests in ~21.5 s + 1 Darwin-
+  skip** with destructively HARMLESS invariant guard regex deny-list
+  pinned by 2 structural tests), PR #223 FINAL-QA-VERDICT (cookbook-
+  uniform wrapper around W267 `FINAL-QA-GATE.command`; **demotes any
+  SKIPPED step to AMBER → PARTIAL** so the false-green case where
+  codesign gets skipped because `/Applications/TARS.app` is absent
+  surfaces as rc=2 instead of hiding under sibling's `GO` exit; **28/28
+  green tests in ~0.31 s** with regression-tested stale-PROCEED +
+  fresh-BLOCK same-log parsing). All three are pure additive
+  (`scripts/*` + `tests/*`), file-level independent of every other PR
+  in the fleet, lands cleanly in any order with or without parent
+  briefs already merged. Closes the **destructive-tag-cut decision
+  point** (Tag-Guard sits between SOAK-REPORT and RELEASE-v10.0), the
+  **post-install installed-binary health bridge** (Post-Install sits
+  between drag-install and soak-cron-start), and the **last non-
+  uniform verdict surface** (QA-verdict normalises FINAL-QA-GATE's
+  0/1 GO/NO-GO to cookbook-uniform 0/1/2 PROCEED/BLOCK/PARTIAL with
+  per-step remediation pointers). The v10.0.0 GA cookbook now has
+  **SIX symmetric single-decision wrapper commands** across all six
+  verification axes (QA-verdict + Gate A + Tag-Guard + Gate B +
+  Post-Install + Postflight).
+- **W310-an/ao** — bundled DOCS-ONLY extensions to PR #192, explicitly
+  chose NOT to grow the queue with new PRs but to extract operator
+  throughput from what's already shipped. **W310-an** added the
+  "Operator one-shot merge sequence" subsection — copy-paste-ready
+  5-tier bash playbook that lands all 37 W310 PRs in ~20-30 min of
+  wall-clock by rooting tier 0 at PR #188 (qa-agent.yml cache fix
+  that unblocks every other CI run on the fleet); tiers 1-2 sequence
+  runtime PRs by dependency (#187 unlocks step 2 implementation,
+  #189 best landed after #187 for green skipping suite); tiers 4-5
+  parallelize 32 file-level-independent PRs (22 planning briefs +
+  10 implementer helpers). **W310-ao** added the "Operator one-shot
+  GA cookbook execution sequence" — copy-paste-ready 5-phase bash
+  playbook that cuts v10.0.0 GA from merged-queue state through
+  tagged-shipped-soaking-brother-verified in ~30-50 min active +
+  72 h passive, with only TWO operator-required pause points (Step 4
+  destructive tag-cut confirmation + Step 7 manual drag-install
+  confirmation) and explicit per-phase rollback decision trees
+  (Phase A BLOCK = zero rollback; Phase B BLOCK = PR #199 §7 path A
+  pre-tag delete; Phase C BLOCK = PR #199 §7 path B post-tag-pre-
+  publish unpublish; Phase D BLOCK = PR #198 §6 launch decision tree
+  A/B/C hotfix-or-partial-or-full-revert). Both playbooks compress
+  the W310 backlog landing + v10.0.0 GA cut from ~30 remembered
+  probes + ~50 separate commands into ~3 paste actions plus 2 typed
+  confirmations. **Neither adds a new PR to the open queue** — both
+  extend PR #192's wave summary in-place. **Why this discipline:**
+  each new helper grows the merge backlog by one without unblocking
+  throughput on the already-shipped 10 helpers; the docs-only
+  extensions compress operator decisions into paste-actions rooted
+  on existing artefacts, which is the only remaining lever for
+  reducing wall-clock-to-GA without growing the queue further.
 
-**W310 PLANNING SURFACE CLOSED ✅; IMPLEMENTER SURFACE OPENED — SEVEN
-HELPERS SHIPPED.** Pickup pointer for any agent landing in the meeet
-workspace now lists all **34 active PRs** (27 planning + 7 implementer
-follow-ups), all closed stacks, and points at this wave summary as the
-single-page operator-readable W310 retrospective. The next implementer
-session in any phase (PH2 voice / PH3 keyring + UX + mobile / PH4 sign
-trio / PH5 real-data trio / PH6 sandbox / PH7 planner / PH8 marketplace
-/ PH9 mobile trio / PH10 Claude polish / PH11 GA dock-down) opens to a
-fully-specified brief with operator open questions, risk register, test
-plan, dep matrix, and effort estimates.
+**W310 PLANNING SURFACE CLOSED ✅; IMPLEMENTER SURFACE OPENED — TEN
+HELPERS SHIPPED + TWO DOCS-ONLY EXTENSIONS.** Pickup pointer for any
+agent landing in the meeet workspace now lists all **37 active PRs**
+(27 planning + 10 implementer follow-ups), all closed stacks, and
+points at this wave summary as the single-page operator-readable W310
+retrospective — including TWO copy-paste-ready bash playbooks (merge
+sequence + GA cookbook execution sequence) added in-place via W310-an
++ W310-ao docs-only extensions that explicitly chose NOT to grow the
+queue with new PRs but to extract operator throughput from what's
+already shipped. The next implementer session in any phase (PH2 voice
+/ PH3 keyring + UX + mobile / PH4 sign trio / PH5 real-data trio /
+PH6 sandbox / PH7 planner / PH8 marketplace / PH9 mobile trio / PH10
+Claude polish / PH11 GA dock-down) opens to a fully-specified brief
+with operator open questions, risk register, test plan, dep matrix,
+and effort estimates.
 
-The seven implementer follow-ups shipped so far (W310-ad soak + W310-ae
+The ten implementer follow-ups shipped so far (W310-ad soak + W310-ae
 Apple sign verify + W310-af Apple pre-flight + W310-ag Brother coord
 pre-flight + W310-ah GA-COOKBOOK single-decision pre-tag wrapper +
 W310-ai DOWNLOAD-AND-VERIFY-RELEASE single-decision post-tag wrapper +
 W310-aj BROTHER-POSTFLIGHT single-decision post-launch coord-health
-wrapper) together close **all five** "remembered ritual" gaps AND the
-"remembered sequencing" gap on the v10.0.0 GA execution path on BOTH
-sides of the tag cut PLUS the post-launch drift-detection surface —
-pre-tag Apple pre-flight → Brother pre-flight, release, post-tag
-download → verify, soak, post-launch brother coord health regression —
-into single executable commands with spec-pinned tests, AND collapse
-the three verification surfaces into THREE symmetric single-decision
-wrapper commands (Gate A for *"may I tag v10.0.0?"*, Gate B for *"do
-I trust this build?"*, Postflight for *"is brother coord still healthy
-at T+24-72 h?"*), each producing one PROCEED / BLOCK / PARTIAL verdict
-with per-failure remediation pointers. Only the operator action items
-(.p12 supply, secret push via GitHub UI, manual dispatch dry-run click,
-blog post draft, drag-install on clean Mac, tag cut, public launch
-comms) remain blocking non-script work. The operator's GA cookbook
-now reduces to:
+wrapper + W310-ak RELEASE-TAG-GUARD single-decision tag-cut decision
+gate + W310-al POST-INSTALL-SMOKE single-decision installed-binary
+health bridge + W310-am FINAL-QA-VERDICT single-decision QA mechanical-
+checks wrapper) together close **all five** "remembered ritual" gaps
+AND the "remembered sequencing" gap AND the "remembered command typing"
+gap AND the "false-green skipped step" gap on the v10.0.0 GA execution
+path BEFORE, AT, and AFTER the tag cut, AND after the drag-install —
+pre-tag QA mechanical checks → Apple pre-flight → Brother pre-flight,
+tag-cut safety, release, post-tag download → verify, post-install
+health, soak, post-launch brother coord health regression — into
+single executable commands with spec-pinned tests, AND collapse the
+six verification surfaces into SIX symmetric single-decision wrapper
+commands (QA-verdict for *"do all 8 mechanical checks pass without
+silent skip?"*, Gate A for *"may I tag v10.0.0?"*, Tag-Guard for *"is
+it safe to type the destructive RELEASE command right now?"*, Gate B
+for *"do I trust this build?"*, Post-Install for *"is the drag-installed
+binary alive enough to start the 72 h soak cron?"*, Postflight for
+*"is brother coord still healthy at T+24-72 h?"*), each producing one
+PROCEED / BLOCK / PARTIAL verdict with per-failure remediation pointers
+to the planning briefs.
+
+The two docs-only extensions (W310-an operator one-shot merge sequence
++ W310-ao operator one-shot GA cookbook execution sequence) close the
+"operator orchestration" gap on top: W310-an gives a copy-paste-ready
+5-tier bash playbook that lands all 37 W310 PRs in ~20-30 min of
+wall-clock; W310-ao gives a copy-paste-ready 5-phase bash playbook
+that cuts v10.0.0 GA from merged-queue state to tagged-shipped-soaking
+in ~30-50 min active + 72 h passive, with only TWO operator-required
+pause points (Step 4 destructive tag-cut confirmation + Step 7 manual
+drag-install confirmation) and explicit per-phase rollback decision
+trees. Together the two playbooks compress the W310 backlog landing +
+v10.0.0 GA cut from ~30 remembered probes + ~50 separate commands
+into ~3 paste actions plus 2 typed confirmations.
+
+Only the operator action items (.p12 supply, secret push via GitHub
+UI, manual dispatch dry-run click, blog post draft, drag-install on
+clean Mac, tag-cut confirmation, public launch comms, rollback
+decision A/B/C if any postflight gate red) remain blocking non-script
+work. The operator's full v10.0.0 GA cookbook now reduces to:
 
 ```bash
-# Gate A — Pre-tag decision (ONE wrapper, both pre-flight gates)
-bash scripts/GA-COOKBOOK.command                  # → PROCEED / BLOCK / PARTIAL
+# Phase A — pre-tag verification (read-only)
+bash scripts/FINAL-QA-VERDICT.command             # QA mechanical-checks verdict
+bash scripts/GA-COOKBOOK.command                  # Gate A — pre-tag prereq verify
+bash scripts/RELEASE-TAG-GUARD.command            # Tag-Guard — safe to tag now?
 
-# (if Gate A = PROCEED) cut tag + run release pipeline
-bash scripts/RELEASE-v10.0.command
-# (operator) watch CI sign + notarize
+# Phase B — destructive tag-cut (operator-confirmed)
+# pause-point 1 of 2: type 'yes' to cut tag
+bash scripts/RELEASE-v10.0.command                # destructive — only if A all = 0
+gh run watch ...                                  # wait for CI sign+notarize
 
-# Gate B — Post-tag decision (ONE wrapper, download + verify)
-bash scripts/DOWNLOAD-AND-VERIFY-RELEASE.command  # → PROCEED / BLOCK / PARTIAL
+# Phase C — post-tag verification + install + soak start
+bash scripts/DOWNLOAD-AND-VERIFY-RELEASE.command  # Gate B — post-tag artifact verify
+# pause-point 2 of 2: type 'installed' after dragging .dmg to /Applications/
+bash scripts/POST-INSTALL-SMOKE.command           # Step 8b — installed-binary verdict
+crontab -l | { cat; echo "0 * * * * ... SOAK-HOURLY.command"; } | crontab -
 
-# (if Gate B = PROCEED) drag-install + start soak
-bash scripts/SOAK-HOURLY.command                  # cron, 72 h, auto-abort on 3-fail
-# (72 h later)
-bash scripts/SOAK-REPORT.command                  # markdown verdict
-# (if verdict green) tag v10.0.0 + post launch comms
+# Phase D — post-launch coord health (T+24-72 h)
+bash scripts/SOAK-REPORT.command                  # SOAK verdict
+bash scripts/BROTHER-POSTFLIGHT.command           # Postflight — coord-health verdict
 
-# Postflight — Post-launch coord health (T+24h, optionally cron T+72h)
-bash scripts/BROTHER-POSTFLIGHT.command           # → PROCEED / BLOCK / PARTIAL
-# (if Postflight = PROCEED) close v10 GA dock-down arc
-# (if Postflight = BLOCK) decide rollback A/B/C per PH11 §6
+# Phase E — tag promotion (operator-paced, no helper wrapper)
+# (update meeet.world/tars links, draft announce post, archive rc tag)
 ```
 
-**All three verification gates (Gate A, Gate B, Postflight) are spec-
-pinned executable wrappers shipped in this wave.** The two destructive
-commands (`RELEASE-v10.0.command`, `SOAK-HOURLY.command`) were already
-scripted. Only **CI watch, manual drag-install, tag cut, and public
-launch announcement** remain manual ops — all unavoidably so by design.
-The operator's full verification mental model is now **three bash
-commands, three exit codes, three color-coded verdicts** — perfectly
-symmetric across the tag-cut boundary AND across the post-launch drift-
-detection window.
+**All six verification gates (QA-verdict, Gate A, Tag-Guard, Gate B,
+Post-Install, Postflight) are spec-pinned executable wrappers shipped
+in this wave**, each producing one PROCEED / BLOCK / PARTIAL verdict.
+The two destructive ops (`RELEASE-v10.0.command`, `SOAK-HOURLY.command`)
+were already scripted. The two unavoidable manual steps (Step 4
+operator-confirmed tag cut, Step 7 drag-install) and the unavoidable
+CI wait (Step 5 sign+notarize ~25-40 min) remain manual by design.
+The operator's full verification mental model is now **six bash
+commands, six exit codes, six color-coded verdicts** — perfectly
+symmetric across the tag-cut boundary AND across the post-install
+health bridge AND across the post-launch drift-detection window —
+plus **TWO copy-paste bash playbooks** that orchestrate the entire
+flow from "37 PRs merged" through "v10.0.0 tagged + soaking + brother
+coord verified" with only 2 operator-typed confirmations.
 
 ---
 
