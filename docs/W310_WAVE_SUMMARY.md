@@ -1022,6 +1022,9 @@ cleanly to users for 7 days with zero rollbacks". No remembered
 sequencing, no remembered probes, no improvised rollback under
 pressure.
 
+(W310-ar adds the fifth playbook covering post-GA sprint planning —
+see "Operator post-v10 sprint planning sequence" section below.)
+
 ### Cross-stack mirror (W310-aq + PH11_BROTHER_HANDOFF_BRIEF.md §8.A)
 
 The W310-aq runbook above is the **TARS-side** of post-GA incident
@@ -1066,6 +1069,233 @@ Postflight), tag-day execution (W310-ao GA cookbook execution
 sequence), drift-detection (W310-ap rehearsal matrix), first-week
 operations (W310-aq runbook), **and brother-side mirror (PR #198
 §8.A)** — is now spec'd on BOTH sides of the bridge.
+
+---
+
+## Operator post-v10 sprint planning sequence
+
+(W310-ar, docs-only extension to PR #192)
+
+The W310-an → W310-aq playbook chain covers the operator's path from
+"37 PRs in merge queue" → "v10.0.0 shipped + stable D+7". On D+7
+the operator faces a different problem: **22 planning-surface briefs
+(#193, #194, #195, #196, #199, #200, #201, #202, #203, #204, #205,
+#206, #207, #208, #209, #210, #211, #212, #213) are all live, and
+each one is "ready for an implementer agent to pick up", but no
+critical-path ordering exists for which to start first.**
+
+Without this section, the operator on D+7 will (a) pick a brief at
+random / by recency of mention / by perceived simplicity, (b) discover
+mid-implementation that it has a hard dep on an unstarted brief, (c)
+either pivot mid-stream (wasted time) or block (idle implementer).
+
+This playbook compresses the 22-brief → v10.1 GA dock-down decision
+into a **critical-path scheduling matrix + dependency graph + parallel
+tracks**, removing the "which to start first" question from operator
+working memory.
+
+### The 22 post-v10 briefs grouped by release target
+
+```text
+v10.1 (target ~6-8 weeks post-v10.0.0)
+├── PH2 (voice)       — #193 STT streaming (~38 h / 7 PR)
+│                     — #194 voice gallery UI (~17 h / 4 PR)
+├── PH3 (L5 trio)     — #195 keyring (~23 h / 6 PR)
+│                     — #196 cockpit pairing UX (~26 h / 7 PR)
+├── PH4 (signing)     — #200 Windows Authenticode (~12 h impl + 3 h op)
+│                     — #201 updater channel bootstrap (~30 min + 4 h UI)
+└── PH10 (continuous) — #213 design polish T1 v10 brand pass (~3.5 d)
+
+v10.2 (target ~4-6 months post-v10.0.0)
+├── PH3 (L5 mobile)   — #211 mobile pairing protocol (~2.7 wk / 2.1k LoC)
+├── PH4 (Linux)       — #212 Linux .deb/AppImage GPG (~6-8 h, OPTIONAL)
+├── PH5 (real data)   — #202 encrypted vault (~3 wk / 2.5k LoC) ← HARD DEP on #195
+│                     — #203 policy confirmations UI (~1 wk / 1.5k LoC)
+│                     — #204 differential telemetry (~1.8k LoC) ← HARD DEP on #202
+└── PH10 (continuous) — #213 T2 v10.1 polish (~10-12 d, item 12 needs brother PR #198 closed)
+
+v11 (target ~12 months post-v10.0.0; feature-complete)
+├── L3                — #205 sandboxed runtime + ArtifactPanel (~3 wk / 5k LoC + 5 MB Pyodide)
+├── L6                — #206 planner cockpit UI (~1.5 wk / 1.8k LoC)
+├── L7                — #207 marketplace v1 (~3 wk / 3.5k LoC)
+├── L10 (mobile)      — #208 iOS SwiftUI (~3 wk / 2.4k Swift)
+│                     — #209 Android Compose (~3 wk / 2.6k Kotlin)
+│                     — #210 native mobile speech (~2.5 wk / 3k LoC)
+└── PH10 (continuous) — #213 T3 v10.2 post-engineering polish
+```
+
+### Hard dependency graph (must-finish-before-start)
+
+```text
+#195 (keyring)       ──┐
+                       ├──→ #202 (encrypted vault)   ──→ #204 (telemetry)
+                       │
+#196 (pairing UX)    ──┘  (UX shares keyring primitives)
+
+#211 (mobile pair)   ──→ depends on #195 + #196 conceptually,
+                         but mobile-side is greenfield, so impl-parallel
+                         after #195/#196 spec freeze
+
+#205 (L3 sandbox)    ──→ unblocks future L3-using briefs (none in W310 yet)
+#206 (L6 planner UI) ──→ requires #203 (policy queue UI) for plan-confirmation routing
+#207 (L7 market)     ──→ no hard dep, but coupling on PH5 vault (#202) for pack secrets
+#208/209 (mobile)    ──→ both depend on #210 (native speech) for voice parity
+                         and on #211 (mobile pairing) for L5 trust on device
+#213 (polish)        ──→ tiers gate on release windows (T1 v10, T2 v10.1, T3 v10.2)
+```
+
+### Operator paste-once sprint-planning matrix
+
+```bash
+# Paste-once: print the sprint-1 (post-D+7) parallel tracks ranked by
+# critical-path priority, with per-track wall-clock budget, blocking
+# briefs, and "warm-up vs main-event" recommendation for implementer
+# agent assignment.
+
+cat <<'SPRINT_EOF'
+╔════════════════════════════════════════════════════════════════════════╗
+║ Sprint 1 (D+7 → D+45): v10.1 critical path — 4 parallel tracks         ║
+╠════════════════════════════════════════════════════════════════════════╣
+║                                                                        ║
+║ TRACK A (BLOCKING — start day 1, gates vault later)                    ║
+║   #195 keyring (~23 h / 6 PR) ──→ unblocks #202 vault for v10.2        ║
+║   Then: #196 pairing UX (~26 h / 7 PR) ──→ shares keyring primitive    ║
+║   Total: ~49 h / 13 PR / ~6 calendar days w/ 1 implementer             ║
+║                                                                        ║
+║ TRACK B (PARALLEL — operator unblock for Mac+Win launch)               ║
+║   #200 Windows Authenticode (~12 h impl + 3 h op = ~15 h)              ║
+║   Then: #201 updater channel bootstrap (~30 min + 4 h UI = ~4.5 h)     ║
+║   Total: ~19.5 h / 2 PR / ~3 calendar days w/ 1 implementer            ║
+║                                                                        ║
+║ TRACK C (PARALLEL — voice trio for v10.1 demo)                         ║
+║   #194 voice gallery UI (~17 h / 4 PR) ← WARM-UP (smaller scope)       ║
+║   Then: #193 STT streaming (~38 h / 7 PR) ← MAIN EVENT                 ║
+║   Total: ~55 h / 11 PR / ~7 calendar days w/ 1 implementer             ║
+║                                                                        ║
+║ TRACK D (CONTINUOUS — design polish, no blocking)                      ║
+║   #213 T1 v10 brand pass (~3.5 d) ← Claude-owned, runs in background   ║
+║   ZERO conflict w/ A/B/C (touches different files)                     ║
+║                                                                        ║
+╚════════════════════════════════════════════════════════════════════════╝
+
+Critical path = TRACK C (~55 h / 7 days w/ 1 impl, ~3 days w/ 2 impls).
+v10.1 GA dock-down = max(A, B, C) + 1 wk soak = ~3-4 weeks elapsed if
+parallel; ~12-14 weeks elapsed if serial. Recommend ≥3 parallel
+implementer agents for sprint 1.
+
+Soft constraints / scheduling notes:
+- TRACK B (#200) needs Windows test box; if unavailable, defer to
+  sprint 2 (Linux + Mac use Apple #199 already-shipped pipeline).
+- TRACK C #193 needs faster-whisper model weights pre-downloaded
+  (~3 GB) to dev box before impl can start.
+- TRACK A #196 has 5 Playwright scenarios that slot into PR #189
+  scaffold (already shipped) — so #189 MUST be merged before #196 PRs
+  open, else implementer adds .skip markers (avoidable rework).
+- TRACK D #213 item 12 blocks on brother PR #198 closure (v10 GA
+  brother handoff acknowledged on brother side) — so item 12 runs
+  AFTER GA tag, not in sprint 1's critical path; item 1-11 run anytime.
+
+╔════════════════════════════════════════════════════════════════════════╗
+║ Sprint 2 (D+45 → D+90): v10.1 polish + v10.2 prep                      ║
+╠════════════════════════════════════════════════════════════════════════╣
+║                                                                        ║
+║ TRACK A2 (v10.2 hard-dep chain, starts after Track A1 #195 lands)      ║
+║   #202 encrypted vault (~3 wk / 2.5k LoC) ──→ blocks #204 telemetry    ║
+║   Then: #204 differential telemetry (~1.8k LoC) ← warm-up: 5 sites     ║
+║   Total: ~3.5 wk / ~4.3k LoC / 1 implementer (deep work, hard to       ║
+║   parallelize within track due to vault internals)                     ║
+║                                                                        ║
+║ TRACK B2 (v10.2 mobile parallel to A2)                                 ║
+║   #211 mobile pairing protocol (~2.7 wk / 2.1k LoC)                    ║
+║   Can run end-to-end in parallel w/ #202 (mobile is greenfield)        ║
+║                                                                        ║
+║ TRACK C2 (v10.2 cockpit polish parallel to A2 + B2)                    ║
+║   #203 policy confirmations UI (~1 wk / 1.5k LoC)                      ║
+║   Pure UI, zero new backend (Wave 101 shipped); fast win.              ║
+║                                                                        ║
+║ TRACK D2 (continuous — design polish T2 v10.1)                         ║
+║   #213 T2 v10.1 items (~10-12 d, includes item 12 brother polish)      ║
+║                                                                        ║
+╚════════════════════════════════════════════════════════════════════════╝
+
+Sprint 2 v10.2 dock-down = max(A2, B2, C2) + 1 wk soak = ~5-6 weeks
+elapsed if 3 implementers parallel. Includes PH3 mobile trio close
+(L5 fully shipped), PH5 "real data" trio close (cockpit can claim
+production-grade vault + telemetry + policy UX), and PH10 v10.1 polish.
+
+╔════════════════════════════════════════════════════════════════════════╗
+║ Sprint 3+ (D+90 → D+365): v11 feature-complete                         ║
+╠════════════════════════════════════════════════════════════════════════╣
+║                                                                        ║
+║ The five v11 briefs (#205 L3 / #206 L6 / #207 L7 / #208 #209 #210      ║
+║ L10 mobile trio) each take ~3 wk and have orthogonal scopes:           ║
+║ - L3 (runtime/sandbox) — backend module, no UI dep                     ║
+║ - L6 (planner UI)      — depends on #203 (policy queue) shipped in     ║
+║                          sprint 2; otherwise free                      ║
+║ - L7 (marketplace)     — coupled on PH5 vault (#202) for pack          ║
+║                          secrets; otherwise free                       ║
+║ - L10 mobile trio      — #210 native speech is the prereq for #208 +   ║
+║                          #209 (voice parity); #211 mobile pairing     ║
+║                          (already shipped) is prereq for trust on     ║
+║                          device                                       ║
+║                                                                        ║
+║ Recommended sprint 3 starting order:                                   ║
+║ 1. L3 sandbox (#205)  — greenfield, biggest unknown, longest tail      ║
+║ 2. L10 native speech  — gates L10 apps, but smallest of the three     ║
+║ 3. L7 marketplace     — orthogonal, ready any time                    ║
+║ 4. L6 planner UI      — needs sprint 2 #203 closed first              ║
+║ 5. L10 iOS + Android  — start after #210 native speech is contract-   ║
+║                          stable; can run in parallel after that       ║
+║                                                                        ║
+║ v11 GA dock-down = sum of orthogonal tracks ~= 12-14 weeks if 4-5     ║
+║ implementer agents truly parallel; ~6-9 months if serialized.         ║
+║                                                                        ║
+╚════════════════════════════════════════════════════════════════════════╝
+
+PH10 T3 v10.2 post-engineering polish runs continuously in sprint 3+
+in TRACK D3 (Claude-owned, zero conflict).
+
+SPRINT_EOF
+```
+
+### Iron rules for sprint scheduling
+
+1. **No implementer agent picks up a brief from a track they haven't
+   read the dep graph for.** Operator pastes the matrix once per
+   sprint kickoff; implementer reads the relevant TRACK block before
+   opening a PR.
+2. **No brief opens a PR before its hard-dep predecessor PR is merged
+   to `main`.** The dep graph above is canonical; if an implementer
+   thinks they can start sooner, they post in `#tars-coord` first.
+3. **Every track ships independently to `main` via the existing W310-an
+   merge-sequence playbook.** Sprint 1's 4 parallel tracks land their
+   own PRs throughout the sprint; the sprint-1 v10.1 GA tag cut at the
+   end of sprint 1 re-uses W310-ao (the same GA cookbook execution
+   sequence shipped for v10.0.0 — substitute `v10.0.0` → `v10.1.0` in
+   step 4 typed confirmation).
+4. **Any deviation from the sprint plan above is a docs-PR back to
+   `W310_WAVE_SUMMARY.md`** — the playbook is canonical, and drift
+   from it gets logged so future sprints can re-tune the matrix.
+
+### Why this is a docs-only extension (W310-ar)
+
+Same rationale as W310-an/ao/ap/aq: no new helpers or briefs are
+needed. The 22 briefs already exist; what was missing was an
+operator-readable scheduling matrix that compresses "which brief
+do I start first?" from 22-option decision-fatigue into a paste-once
+4-track sprint plan with explicit dep graph.
+
+W310-ar is the **fifth docs-only extension** to PR #192. Together
+with W310-an/ao/ap/aq, the five playbooks now cover the entire
+operator surface from **"37 PRs in merge queue today"** through
+**"v11 feature-complete in ~12 months"** — every operator decision
+point is paste-once, every "where do I start?" question is
+matrix-answered, every "which brief blocks which?" question has a
+dep-graph answer.
+
+The operator orchestration arc is now **complete from D-0 (today)
+through ~D+365 (v11 GA)**. No further docs-only extensions planned
+for W310 wave.
 
 ---
 
@@ -1769,18 +1999,20 @@ passes:
   growing the queue further.
 
 **W310 PLANNING SURFACE CLOSED ✅; IMPLEMENTER SURFACE OPENED — TEN
-HELPERS SHIPPED + FOUR DOCS-ONLY EXTENSIONS.** Pickup pointer for any
+HELPERS SHIPPED + FIVE DOCS-ONLY EXTENSIONS.** Pickup pointer for any
 agent landing in the meeet workspace now lists all **37 active PRs**
 (27 planning + 10 implementer follow-ups), all closed stacks, and
 points at this wave summary as the single-page operator-readable W310
-retrospective — including FOUR copy-paste-ready bash playbooks (merge
+retrospective — including FIVE copy-paste-ready bash playbooks (merge
 sequence + GA cookbook execution sequence + dry-run rehearsal matrix
-+ post-GA first-week runbook with rollback decision tree) added in-
-place via W310-an + W310-ao + W310-ap + W310-aq docs-only extensions
-that explicitly chose NOT to grow the queue with new PRs but to extract
-operator throughput from what's already shipped, covering the full arc
-from "37 PRs in merge queue" through "v10.0.0 has shipped cleanly to
-users for 7 days with zero rollbacks". The next implementer session in any phase (PH2 voice
++ post-GA first-week runbook with rollback decision tree + post-v10
+sprint planning sequence) added in-place via W310-an + W310-ao +
+W310-ap + W310-aq + W310-ar docs-only extensions that explicitly
+chose NOT to grow the queue with new PRs but to extract operator
+throughput from what's already shipped, covering the full arc from
+"37 PRs in merge queue today" through "v10.0.0 has shipped cleanly to
+users for 7 days with zero rollbacks" through "v11 feature-complete
+in ~12 months with 4-5 parallel implementer agents". The next implementer session in any phase (PH2 voice
 / PH3 keyring + UX + mobile / PH4 sign trio / PH5 real-data trio /
 PH6 sandbox / PH7 planner / PH8 marketplace / PH9 mobile trio / PH10
 Claude polish / PH11 GA dock-down) opens to a fully-specified brief
@@ -1813,35 +2045,44 @@ binary alive enough to start the 72 h soak cron?"*, Postflight for
 PROCEED / BLOCK / PARTIAL verdict with per-failure remediation pointers
 to the planning briefs.
 
-The four docs-only extensions (W310-an operator one-shot merge sequence
+The five docs-only extensions (W310-an operator one-shot merge sequence
 + W310-ao operator one-shot GA cookbook execution sequence + W310-ap
 operator dry-run rehearsal matrix + W310-aq operator post-GA first-week
-runbook + rollback decision tree) close the "operator orchestration"
-gap on top: W310-an gives a copy-paste-ready 5-tier bash playbook that
-lands all 37 W310 PRs in ~20-30 min of wall-clock; W310-ao gives a
-copy-paste-ready 5-phase bash playbook that cuts v10.0.0 GA from
-merged-queue state to tagged-shipped-soaking in ~30-50 min active +
-72 h passive, with only TWO operator-required pause points (Step 4
-destructive tag-cut confirmation + Step 7 manual drag-install
-confirmation) and explicit per-phase rollback decision trees; W310-ap
-gives a copy-paste-ready ~30 s bash matrix that exercises all 6
-verdict wrappers in `*_DRY_RUN=1` mode against the current state of
-`main` to detect orchestration drift at rehearsal-day cost (one-line
-fix) instead of tag-day cost (blocked tag cut), with per-helper drift-
-signal taxonomy mapping each unexpected RED row onto the likely
-single-line fix; **W310-aq gives a complete first-week (T+0 → D+7)
-post-GA runbook with hour-by-hour monitoring cadence, an 8-row signal
-taxonomy that maps each user-facing CRITICAL/MEDIUM/LOW/NOISE class
-onto one of three response classes (hotfix, forward-fix to v10.0.1,
-rollback to v9.1.0), and a 6-step destructive rollback playbook so
-the operator never improvises a rollback command under pressure**.
-Together the four playbooks compress the W310 backlog landing +
-v10.0.0 GA cut + tag-day-orchestration-drift-detection + first-week
-incident response from ~30 remembered probes + ~50 separate commands
-+ zero rehearsal capability + zero pre-spec'd rollback path into
-~4 paste actions + 2 typed confirmations + 1 rehearsal paste +
-1 decision tree that the operator walks for any first-week CRITICAL
-signal.
+runbook + rollback decision tree + W310-ar operator post-v10 sprint
+planning sequence) close the "operator orchestration" gap on top:
+W310-an gives a copy-paste-ready 5-tier bash playbook that lands all
+37 W310 PRs in ~20-30 min of wall-clock; W310-ao gives a copy-paste-
+ready 5-phase bash playbook that cuts v10.0.0 GA from merged-queue
+state to tagged-shipped-soaking in ~30-50 min active + 72 h passive,
+with only TWO operator-required pause points (Step 4 destructive tag-
+cut confirmation + Step 7 manual drag-install confirmation) and
+explicit per-phase rollback decision trees; W310-ap gives a copy-
+paste-ready ~30 s bash matrix that exercises all 6 verdict wrappers
+in `*_DRY_RUN=1` mode against the current state of `main` to detect
+orchestration drift at rehearsal-day cost (one-line fix) instead of
+tag-day cost (blocked tag cut), with per-helper drift-signal taxonomy
+mapping each unexpected RED row onto the likely single-line fix;
+**W310-aq gives a complete first-week (T+0 → D+7) post-GA runbook
+with hour-by-hour monitoring cadence, an 8-row signal taxonomy that
+maps each user-facing CRITICAL/MEDIUM/LOW/NOISE class onto one of
+three response classes (hotfix, forward-fix to v10.0.1, rollback to
+v9.1.0), and a 6-step destructive rollback playbook so the operator
+never improvises a rollback command under pressure**; **W310-ar gives
+a copy-paste-ready 3-sprint scheduling matrix (sprint 1 v10.1 D+7 →
+D+45 / sprint 2 v10.2 D+45 → D+90 / sprint 3+ v11 D+90 → D+365)
+showing 4 parallel implementer tracks per sprint, explicit hard-dep
+graph for the 22 remaining planning-surface briefs, and 4 iron rules
+for sprint scheduling so no implementer agent picks up a brief
+without dep-graph context and no PR opens before its hard-dep
+predecessor merges to `main`**. Together the five playbooks compress
+the W310 backlog landing + v10.0.0 GA cut + tag-day-orchestration-
+drift-detection + first-week incident response + 22-brief post-v10
+sprint planning from ~30 remembered probes + ~50 separate commands +
+zero rehearsal capability + zero pre-spec'd rollback path + zero
+post-v10 critical-path map into ~5 paste actions + 2 typed
+confirmations + 1 rehearsal paste + 1 decision tree walk + 1 sprint-
+matrix paste-per-sprint-kickoff that covers the full arc from "37 PRs
+in merge queue today" through "v11 feature-complete in ~12 months".
 
 Only the operator action items (.p12 supply, secret push via GitHub
 UI, manual dispatch dry-run click, blog post draft, drag-install on
