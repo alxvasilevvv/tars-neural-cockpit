@@ -1,8 +1,252 @@
 # Agent changelog
 
+## W310-at — sync layer on PR #188 (canonical state docs refresh, 2026-05-19)
+
+**Agent**: Cursor (Opus 4.7 parent assistant). Continuation of W310 arc on operator directive "продолжай"; this entry covers the W310-at sync layer that updates three canonical "state" docs on PR #188's branch to match the post-W310-as wave landscape.
+
+**Scope**: refresh `CURRENT_STATUS.md`, `TARS_MASTER_DOC.md §6.4`, and `PROJECT_INDEX.md` so the reader landing on PR #188 sees a self-consistent forward-execution + daily-pulse + master-doc + index, not a mix of fresh master plan against stale 2026-05-15/W269 daily pulse + stale W267 Top-5 in §6.4. ZERO new code, ZERO new helpers; pure cross-doc sync to close the silent drift gap that W310 inadvertently opened by landing on its own branch + extending sibling PRs (#192, #198) but never touching the canonical state docs themselves.
+
+### What happened
+
+1. **`CURRENT_STATUS.md` rewrite** (commit `c7d2cf0`). Was dated 2026-05-15 / W269 and read "GA is DONE except 5 external items". Replaced with:
+   - **Top:** new "Read first (60-second pulse)" block pointing at `docs/W310_WAVE_SUMMARY.md` TLDR (W310-as).
+   - **New section:** "W310 — post-rc1 PR triage wave (2026-05-18 → 2026-05-19)" with the full sub-wave table (runtime/triage a..f / planning-surface briefs g..ac / implementer follow-ups ad..am / docs-only extensions an..as / cross-stack mirror aq).
+   - **"What's left for the operator" rewritten:** replaces stale 5-item list with the post-W310-l 8-hard-blocker table (3 brother A1/A2/A5 from PR #198 + 5 Apple sign B1-B5 from PR #199), plus a deferred-to-v10.1+ subsection (Windows Authenticode / VS Code marketplace / on-prem customer / Linux signing). Includes paste-ready bash playbook for the 6-wrapper GA cookbook chain.
+   - **New coda:** "Status (W310-as, 2026-05-19): GA orchestration arc closed" replacing the stale W267 "GA is DONE" coda. Names 37 PRs / 6 wrappers / 5 playbooks / cross-stack mirror / TLDR + forward-pointers to v10.1 / v10.2 / v11 via W310-aq + W310-ar.
+   - 129 lines added, 16 lines deleted; final file = 238 lines.
+
+2. **`TARS_MASTER_DOC.md §6.4 Path to v10.0 GA` reconciliation** (commit `9f2de69`). Kept the W267 "Top 5 external items" historical snapshot intact (per the doc rule: forward execution lives in `PRODUCT_MASTER_PLAN.md`); appended a new "Reconciliation (W310-at, 2026-05-19)" subsection right after the W267 status block that documents:
+   - Top 5 widened to 8 hard blockers post-W310-l (3 brother coord + 5 Apple sign).
+   - Items 4-5 (VS Code marketplace + on-prem customer) deferred to v10.1+ per W310-l.
+   - 6 single-decision verdict wrappers as PRs #214-#223.
+   - 5 docs-only paste playbooks compressing D-0 → D+365 arc into "5 paste actions + 2 typed confirmations + 1 decision-tree walk + 1 sprint-matrix paste per sprint kickoff".
+   - Cross-stack mirror in PR #198 §8.A.
+   - 33 lines added.
+
+3. **`PROJECT_INDEX.md` entry add** (commit `9f2de69`, same as above). Added missing entry for `docs/handoff/MCP_REWRITE_BRIEF.md` (which has been on PR #188's branch since W310 but never indexed). Annotated as "W310 (a)" to mark it as the first item of the W310 wave (replaces closed PR #177; 16 spec-pinned tests; ~12-15h effort). 1 line added.
+
+4. **Cross-workspace sync**. Updated `meeet-browser-agent/AGENTS.md` PR #188 description bullet (+1/-1 LoC, commit `cbc88cf` on `cursor/bootstrap-workspace`) and `meeet-browser-agent/TARS_OVERVIEW_RU.md` header + author trail + active-PR row + operator-next-step bullet (+4/-4 LoC across 4 touch points, commit `84f9c8d`) so a freshly-landed agent in `meeet-browser-agent` sees the W310-at sync layer note before pivoting into TARS.
+
+5. **PR #188 comment** posted at https://github.com/alxvasilevvv/tars-neural-cockpit/pull/188#issuecomment-4484909714 announcing the W310-at sync layer; explains why the three TARS-side state docs got folded into PR #188's scope rather than carved into a separate PR (= one merge ships self-consistent landing surface) + reiterates merge order (PR #188 first, then W310-an playbook).
+
+### Files touched (W310-at)
+
+| File | Change |
+|---|---|
+| `CURRENT_STATUS.md` | Full rewrite of "Read first" block + new W310 section + "What's left" replacement + new W310-as coda. 129+/16-. |
+| `TARS_MASTER_DOC.md` | New "Reconciliation (W310-at, 2026-05-19)" subsection appended to §6.4 after W267 Top-5 historical block. 33+. |
+| `PROJECT_INDEX.md` | Added `docs/handoff/MCP_REWRITE_BRIEF.md` row in handoff briefs section, annotated W310 (a). 1+. |
+| `docs/CHANGELOG_AGENTS.md` | This entry. |
+| (cross-workspace) `meeet-browser-agent/AGENTS.md` | +1/-1 — PR #188 description bullet extended with W310-at sync note. |
+| (cross-workspace) `meeet-browser-agent/TARS_OVERVIEW_RU.md` | +4/-4 — header + author trail + active-PR row + operator-next-step bullet refreshed. |
+
+### What is NOT done (deliberate)
+
+- **PR #188 description rewrite on GitHub itself** — kept as W310-at PR comment (single notification surface) rather than amending the PR body, because the body still correctly reflects the master plan + M-wave consolidation + qa-agent fix scope and the W310-at sync layer is best understood as a follow-up sync rather than a fundamental scope change. Reader who reads the PR comment thread sees the announcement.
+- **CHANGELOG_PUBLIC.md entry** — pure-docs sync layer with zero user-facing behaviour change; nothing to announce in the public changelog. (W310-c set the same precedent: agent-changelog only, no public-changelog entry.)
+- **Sibling-PR PROJECT_INDEX entries** for the rest of the W310 wave (PR #192 wave summary, PR #197/#198/#199 handoff briefs, PRs #214-#223 helper scripts) — those briefs / scripts live on sibling PR branches; they should add their own PROJECT_INDEX entries as those PRs merge, otherwise PROJECT_INDEX on this branch would lie about the state of `main` until those PRs land too.
+
+### Operator inputs needed
+
+Same as W310-c: merge PR #188 first (it now ships the W310-at sync layer alongside the master plan + qa-agent fix), then paste the W310-an merge sequence from `docs/W310_WAVE_SUMMARY.md` to drain the remaining 36 PRs.
+
+---
+
+## W310-c — independent-PR cleanup pass (2026-05-18)
+
+**Agent**: Cursor (Sonnet 4.6 parent assistant). Continuation of W310 / W310-b on operator directive "продолжай".
+
+**Scope**: triage the three PRs that PRODUCT_MASTER_PLAN.md §2.2 flagged as independent of the (closed) MCP / Algotrade stacks: PR #183 (voice persona fallback), PR #175 (install funnel cross-target), and PR #182 (cockpit MCP panel — explicitly deferred until consolidated MCP rewrite lands).
+
+### What happened
+
+1. **PR #183 rebase attempt → aborted with diagnosis.** Pruned 5 stale worktrees on `/private/tmp/jarvis-*` so checkout could proceed, then `git rebase origin/main` on `cursor/voice-persona-fallback`. Conflicts in `docs/CHANGELOG_AGENTS.md` + `docs/CHANGELOG_PUBLIC.md` (trivial — pre-commit regenerates), but `web_extras/routers/voice.py` carried a **semantic** conflict: W295 (shipped to main 2026-05-xx) and Phase L4.2 (this PR) both define `GET /api/voice/personas/effective` with **different response shapes** and **different resolution backends** (W295 uses `resolve_effective()` shared with `/speak`; L4.2 uses `MacSayEngine._pick_fallback_voice()` directly). Naïve "accept ours" breaks the L4.2 substitution diagnostic (the whole UX point of the PR). Naïve "accept theirs" breaks the W290 acceptance harness (`scripts/qa_w290_cockpit.sh` Group 9). Correct merge requires a 30-60min semantic refactor to make `resolve_effective()` alternatives-aware. Filed [PR #183 comment](https://github.com/alxvasilevvv/tars-neural-cockpit/pull/183#issuecomment-4472299281) with the full diff diagnosis + 3 paths (A=full refactor → DRY win, B=additive merge → minimal diff, C=close+defer → ship as part of `PRODUCT_MASTER_PLAN.md §3.1` L4 closeout). `git rebase --abort`; no force-push; PR stays in its current state pending operator pick.
+
+2. **PR #175 `probe` CI failure → root cause found.** Ran the qa_agent locally with `QA_AGENT_SOFT_FAIL=1` → exit 0, 28 probe FAILs as expected (all "wrong build" complaints from probes still asking for the SPA `<div id="root"></div>` shell that `e5f1911` deliberately removed). But CI shows `probe: FAILURE` blocking the PR — why? `gh api .../actions/runs/<id>` revealed: every recent qa-agent run has `created_at == run_started_at == updated_at` → 0-second runtime → workflow file failed to load. Cross-checked with credential-sentinel (3-second runtimes, runs fine). `gh api .../actions/workflows/269172814` shows `name=".github/workflows/qa-agent.yml"` (the path, not the YAML `name:` field!) and `updated_at=2026-05-11T09:30:56` — but the file's last commit is `e5f1911` from **2026-05-13**. **GitHub Actions cached the old workflow registration** and never re-parsed after the May 13 commit (which narrowed the `paths:` filter from 5 SPA-specific entries to 1 `docs/qa-snapshot.json`). Result: every push triggers qa-agent ignoring the new path filter, the runtime then can't reconcile the cached vs file shape, and the run dies in 0 sec. **Fix**: touched the qa-agent.yml file header with a W310-c comment block — any non-whitespace change forces re-registration on next merge to main. After PR #188 lands, the next merge will register the current file (post-`e5f1911`), the path filter will start working, and PR runs will either pass via soft-fail or skip via path filter.
+
+3. **No new PRs opened.** All fixes ride along PR #188 (W310 master plan branch). Operator merges PR #187 (W309 step 1) + PR #188 (master plan + W310-b/W310-c diagnoses + qa-agent header touch) and the CI clears itself on the next merge.
+
+### Files touched (W310-c)
+
+| File | Change |
+|---|---|
+| `.github/workflows/qa-agent.yml` | Added W310-c diagnostic comment block to header to force GH Actions workflow re-registration. |
+| `docs/PRODUCT_MASTER_PLAN.md` | Updated §2.2 rows for #183 (semantic conflict — see PR comment for paths) + #175 (probe root cause = workflow registration cache, not a real probe bug). Added §7 W310-c change log row. |
+| `docs/CHANGELOG_AGENTS.md` | This entry. |
+
+### What is NOT done (deliberate)
+
+- **PR #183 semantic refactor** (the 30-60min `resolve_effective()` work) → operator picks path A/B/C; deferring avoids breaking either main's W290 harness or this PR's L4.2 diagnostic.
+- **PR #175 rebase** → blocked on PR #188 merge (need the qa-agent.yml header fix to land first so `probe` CI doesn't immediately re-block on rebase push).
+- **PR #182 (cockpit MCP panel)** → explicitly deferred per §2.2 until the consolidated MCP rewrite lands (otherwise it would build against the now-closed M-wave skeletal pool).
+- **PR #181 (algotrade E2E)** → orphaned by the algotrade closeout; folded into the §3.A deferred rewrite per W310-b.
+
+### Operator inputs needed
+
+- Merge PR #187 (W309 step 1) → unblocks W309 step 2 implementation.
+- Merge PR #188 (this branch) → fixes qa-agent CI on next push + locks in the master plan + W310 diagnoses.
+- Pick a path on PR #183 (A=refactor / B=additive merge / C=close+defer). My recommendation: **B** (additive merge, ~30min) — keeps W295's DRY contract while shipping the L4.2 substitution diagnostic the operator's UX bug needs.
+
+---
+
+
+
 Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
+
+## 2026-05-18 — Cursor · W310-b algotrade closeout + remaining-PR triage + Wave 100 audit correction
+
+**Summary**
+
+Closed 2 more stale stacked PRs as a follow-up batch on the same branch
+`cursor/post-rc1-master-plan` (extends W310 above). Operator directive:
+*"выстрой правильную структуру всего проекта и синхронизацию с другими
+системами и начинай"* — full delegation to clean up the stacked-PR
+backlog using the agent's own judgement.
+
+**PRs closed (algotrade stack)**
+
+- **#170** — Phase W3-PR3 trading council voices. Closed: base chain
+  #166→#167→#168→#169 all CLOSED-not-merged; ~1200 LoC orphaned.
+- **#174** — Wave M2 `tars` CLI. Closed: base chain
+  #173→#168→#167→#166 all CLOSED-not-merged; ~1950 LoC orphaned;
+  also depends transitively on `backend/cli/commands/algotrade.py`
+  which imports from un-merged `algotrade.exec`.
+
+Both close-comments preserve full design intel (PR-body excerpts +
+verification table + pointer to §3.A for consolidated landing).
+
+**W310 closure total**: **8 PRs** (6 M-wave MCP + 2 algotrade).
+
+**Wave 100 audit CORRECTION**
+
+While verifying the close decision, discovered HANDOFF Wave 100 audit
+(L4439-L4467) overpromised: it claimed *"file-copied W2 + W3 exec/*
+into the working tree"* but empirically only
+`tests/test_algotrade_integration.py` was actually file-copied;
+`backend/core/algotrade/exec/` folder remains absent from main. Added
+explicit CORRECTION block after the original audit text pointing at
+§3.A as the consolidated landing path.
+
+**PRODUCT_MASTER_PLAN updates**
+
+- **§2.2 PR triage table** — definitive state for every remaining open
+  PR (#175 install funnel, #181 algotrade E2E, #182 cockpit MCP, #183
+  voice persona fallback) + explicit ✅ markers for the 8 closures
+  done this wave.
+- **§3.A Algotrade closeout (NEW)** — full deferred-work spec for the
+  7-PR algotrade stack (#166-#170, #173, #174) as v10.2/v11
+  consolidated rewrite. Inherits Wave 100 audit punch list (Side enum
+  collision, `session_timeseries` action, exec/__init__.py dedup).
+  Estimate 1-2 weeks; mirrors MCP rewrite pattern.
+- **§7 change log** — W310-b entry appended.
+
+**Cross-workspace sync**
+
+- `meeet-browser-agent/AGENTS.md` — added `PRODUCT_MASTER_PLAN.md` to
+  the read order + W310 sync block at the bottom (v10.0.0-rc.1 status,
+  active PRs #187 + #188, 8 closures, plan pointer). Cross-workspace
+  agent pickup now points at canonical forward execution doc.
+
+**Files**
+
+- `docs/AGENT_HANDOFF.md` — Wave 100 CORRECTION inline + top banner
+  W310-b SYNC prepended.
+- `docs/PRODUCT_MASTER_PLAN.md` — §2.2 rewritten with definitive
+  triage; §3.A added; §7 W310-b entry.
+- `docs/CHANGELOG_AGENTS.md` — this entry.
+- `/Users/alien/Projects/meeet-browser-agent/AGENTS.md` — sync block +
+  expanded read order.
+
+**Process note**
+
+This entry was authored by the same Cursor parent agent under W310's
+"orchestrator" mode. Decision pattern: closure-with-design-intel-
+preservation now established across two stale-PR families (MCP + algo-
+trade); future stale stacks can apply the same brief template at
+`docs/handoff/MCP_REWRITE_BRIEF.md`. Push to branch + add to PR #188.
+
+---
+
+## 2026-05-18 — Cursor · W310 post-rc1 master plan + M-wave consolidation brief + HANDOFF corrections
+
+**Summary**
+
+Synthesised the forward execution plan from `v10.0.0-rc.1` (cut W264,
+2026-05-15) through GA into Phase L closure (v10.1 → v10.2 → v11).
+Branch: `cursor/post-rc1-master-plan`. Triggered by operator request
+"full plan to the end with stages, use orchestration, perfect the
+product". Synthesis fed by 3 parallel `explore` subagents (Phase L
+roadmap state, 13 open PR triage, IDEAS + tech debt audit) + 2
+verification subagents (L5 crypto canon, v10 release-axis archaeology
+— both confirmed two stale docs that prompted the corrections below).
+
+**Decisions captured (operator W310, 2026-05-18)**
+
+1. **Release axis = v10 GA direct.** `v9.1.0` already shipped W138-158;
+   the v9_then_v10 sequencing was based on stale HANDOFF wording. v10
+   GA target is the 5 external items in `docs/V10_GA_CHECKLIST.md`.
+2. **W309 step 2 = go-now** after PR #187 merge. Brief lives at
+   `docs/handoff/W309_STEP2_BRIEF.md` (drafted 7h ago, gated, ready).
+3. **M-wave MCP stack** (6 open PRs: #176, #177, #178, #179, #180,
+   #184) **close + redo** as one consolidated PR. Brief at
+   `docs/handoff/MCP_REWRITE_BRIEF.md`. Closed PR diffs preserved as
+   design spec per §7.
+4. **Master plan storage = all_three** — new dedicated doc + cross-link
+   in `TARS_MASTER_DOC.md §6` + indexed in `PROJECT_INDEX.md` Strategy.
+
+**Two stale-doc corrections shipped in the same PR**
+
+- **L5 crypto canon.** HANDOFF Pending §6 said "pairing endpoints
+  shipped with **mock crypto**" — wrong. Real X25519 +
+  XChaCha20-Poly1305 (PyNaCl) was already shipped on the host per
+  `backend/core/crypto/envelope.py` (`nacl.bindings` AEAD +
+  `nacl.public.SealedBox`) and end-to-end verified by
+  `tests/test_pairing_envelope_e2e.py`. Bullet rewritten to reflect
+  what's actually pending (keyring, pairing UX, mobile protocol,
+  audit timeline, `pair_id` TTL).
+- **Wave 81 launch checklist.** The 4-item "Pending operator actions
+  blocking the launch" list was for `v9.1.0` (already shipped). Block
+  now carries an explicit SUPERSEDED header pointing readers to
+  `docs/V10_GA_CHECKLIST.md` + `docs/PRODUCT_MASTER_PLAN.md §2.1` as
+  the active 5-item gate.
+
+**Files**
+
+- `docs/PRODUCT_MASTER_PLAN.md` (new, 168 lines) — §1 where-we-are,
+  §2 v10 GA push (5 external + internal docking + cut), §3 post-v10
+  roadmap (10 sub-phases L3-L10 + vault + policy + Claude polish),
+  §4 lane discipline, §5 risks, §6 references, §7 plan change log.
+- `docs/handoff/MCP_REWRITE_BRIEF.md` (new, 152 lines) — close-and-redo
+  brief for Cursor. §0 why, §1 scope, §2 deferred, §3 approach +
+  7-commit build order, §4 acceptance, §5 verify, §6 rollback, §7
+  design intel from closed PRs (preserve these choices), §8 refs.
+- `TARS_MASTER_DOC.md` — §6 Roadmap header now points forward
+  execution to `PRODUCT_MASTER_PLAN.md`; stays the historical Wave
+  A/B/C source.
+- `PROJECT_INDEX.md` — Strategy table row added for master plan.
+- `docs/AGENT_HANDOFF.md` — SYNC banner top: W310 entry prepended.
+  Pending §6 (line 3423): L5 bullet rewritten with CORRECTION marker.
+  Wave 81 block (line 4381): SUPERSEDED header added in front.
+
+**Operator action queue**
+
+1. Read `docs/PRODUCT_MASTER_PLAN.md` (~15 min).
+2. Merge PR #187 (W309 step 1) — unblocks step 2.
+3. Approve the post-rc1 master-plan PR (this one) or push back on any
+   phase in §3.
+4. After approval: 5 M-wave PRs (#176, #177, #178, #179, #180, #184)
+   get formally closed via `gh pr close` with the comment template in
+   §0 of `MCP_REWRITE_BRIEF.md`. New PR opens on
+   `cursor/mcp-rewrite-consolidated`.
+
+**Subagent usage note**
+
+Five subagents in total this session — 3 recon (parallel) + 2
+verification (sequential, one after recon surfaced the contradictions).
+Cost: ~30 min wall clock, would have been ~4h without parallelism.
+Reusing this pattern for v10.1 phase scoping.
 
 ## 2026-05-18 — Cursor · W309 step 2 brief (drafted, gated)
 

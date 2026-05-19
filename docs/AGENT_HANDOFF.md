@@ -3,7 +3,7 @@
 Pick this up if you are continuing the work in a fresh chat. Read this file
 plus `docs/CHANGELOG_AGENTS.md` and `docs/IDEAS.md` first.
 
-> **>>> SYNC: Cursor · 2026-05-18 · W309 step 2 brief drafted (`docs/handoff/W309_STEP2_BRIEF.md`, 332 lines — Playwright behavioural smoke + STT upload via `/api/voice/transcribe` + persona picker UI; **gated on PR #187 merge + operator OK**; ~4h estimate, smaller than step 1; tests projected 36 static + new ~10s Playwright suite) · W309 step 1 follow-up (Claude PR #187 review fix-ups — `ws.setup()` idempotency, `ensureMic()` race + stale-stream detection, SSE CRLF support + trailing flush, `voice.speak()` content-type guard, `ApiError` defensive stringify, vault CTA `noreferrer`, one-shot `teardownAll`; tests grew 8 → 20 with 1:1 mapping to each Claude finding; 31/31 green; bundle 22.9 KB raw / 8.4 KB gz — under cap) · W309 step 1 (functional restore: 5 runtime modules under `apps/cockpit/src/runtime/`, mic + WS + chat + TTS MVP, +8 static contract tests; bundle ~22 KB raw / ~8 KB gzip — under brief §5 caps; 19/19 tests green) · 2026-05-17 · W309 prep follow-ups (Claude PR #186 review fixes — restore `--type-label` inline comment, document `.stream-row` data-vs-HUD blind-spot, implement orphan source-map prune in package-cockpit.sh) · W309 prep (rename `--font-size-phase-bar` → `--font-size-hud-mono`, migrate 6 hardcoded `10px` mono call-sites — closes W309 design-tightening backlog from PR #185 review) · W308 step 4 (Claude code-review fixes for PR #185 — CSP fonts.bunny.net, phase-bar 11px token, 3 real drift tests, step-2 brief superseded marker) · W308 step 3 (wire apps/cockpit/dist/ into Tauri pipeline; legacy SPA archived to desktop/src-tauri/web-legacy/) · W308 step 2 (port cockpit + hero from W307 refs → multi-page Vite project at apps/cockpit/) · W308 step 1 (apply W307 verdict in tokens.css + MASTER.md) · W308 step 0 (Path C scaffold) · W307 design verdict (Claude) · W306 order-dependent fixes (38 → 0) · W305 py3.12 stabilization · W304 py3.12 + OPENAI env + L9 doc sync <<<**
+> **>>> SYNC: Cursor · 2026-05-18 · W310-b algotrade closeout + remaining-PR triage on branch `cursor/post-rc1-master-plan` (extends W310). Closed 2 more stale stacked PRs: #170 (W3-PR3 council voices) + #174 (Wave M2 `tars` CLI) — both had base PRs already closed (#166-#169, #173) so single-PR landing impossible; consolidated landing scheduled at `docs/PRODUCT_MASTER_PLAN.md §3.A` (new "Algotrade closeout" phase, v10.2/v11). Closing comments preserve design intel per the MCP-pattern. Updated §2.2 PR triage table with definitive per-PR state across all remaining open PRs (#175 install funnel — blocked on probe CI; #181 algotrade E2E — depends on §3.A; #182 cockpit MCP panel — depends on MCP rewrite; #183 voice persona fallback — clean rebase candidate). HANDOFF Wave 100 audit corrected (the W2/W3 `exec/*` payload was *not* actually file-copied into main contrary to the audit's claim — only `tests/test_algotrade_integration.py` was; discovered while verifying #170 + #174). Synced `meeet-browser-agent/AGENTS.md` to point at `PRODUCT_MASTER_PLAN.md` for cross-workspace agent pickup. Total W310 PR closures: **8** (6 M-wave MCP: #176/#177/#178/#179/#180/#184 + 2 algotrade: #170/#174). Operator gave full delegation ("выстрой правильную структуру всего проекта и синхронизацию с другими системами") — this entry is the decisive close of the messy stacked-PR backlog. · Cursor · 2026-05-18 · W310 post-rc1 master plan drafted on branch `cursor/post-rc1-master-plan` (`docs/PRODUCT_MASTER_PLAN.md` — forward execution doc, v10 GA → v10.1 → v10.2 → v11; cross-linked from `TARS_MASTER_DOC.md §6` + indexed in `PROJECT_INDEX.md` Strategy). M-wave consolidation brief at `docs/handoff/MCP_REWRITE_BRIEF.md` (close 5 PRs #176/#177/#178/#179/#180/#184, rewrite as one consolidated PR; design intel preserved per §7). HANDOFF Wave 81 marked SUPERSEDED (v9.1.0 launch checklist is historical archive; v10 GA is the active target per `CURRENT_STATUS.md`). HANDOFF L5 §6 line corrected — real X25519 + XChaCha20-Poly1305 already shipped per `backend/core/crypto/envelope.py` + `tests/test_pairing_envelope_e2e.py`, "mock crypto" wording was stale. Verified via 2 parallel verification subagents (L5 crypto canon + v10 release-axis archaeology). Operator decisions captured: v10 GA direct (not v9_then_v10) + W309 step 2 go-now after PR #187 + M-wave close-and-redo + save plan in all_three locations. · Cursor · 2026-05-18 · W309 step 2 brief drafted (`docs/handoff/W309_STEP2_BRIEF.md`, 332 lines — Playwright behavioural smoke + STT upload via `/api/voice/transcribe` + persona picker UI; **gated on PR #187 merge + operator OK**; ~4h estimate, smaller than step 1; tests projected 36 static + new ~10s Playwright suite) · W309 step 1 follow-up (Claude PR #187 review fix-ups — `ws.setup()` idempotency, `ensureMic()` race + stale-stream detection, SSE CRLF support + trailing flush, `voice.speak()` content-type guard, `ApiError` defensive stringify, vault CTA `noreferrer`, one-shot `teardownAll`; tests grew 8 → 20 with 1:1 mapping to each Claude finding; 31/31 green; bundle 22.9 KB raw / 8.4 KB gz — under cap) · W309 step 1 (functional restore: 5 runtime modules under `apps/cockpit/src/runtime/`, mic + WS + chat + TTS MVP, +8 static contract tests; bundle ~22 KB raw / ~8 KB gzip — under brief §5 caps; 19/19 tests green) · 2026-05-17 · W309 prep follow-ups (Claude PR #186 review fixes — restore `--type-label` inline comment, document `.stream-row` data-vs-HUD blind-spot, implement orphan source-map prune in package-cockpit.sh) · W309 prep (rename `--font-size-phase-bar` → `--font-size-hud-mono`, migrate 6 hardcoded `10px` mono call-sites — closes W309 design-tightening backlog from PR #185 review) · W308 step 4 (Claude code-review fixes for PR #185 — CSP fonts.bunny.net, phase-bar 11px token, 3 real drift tests, step-2 brief superseded marker) · W308 step 3 (wire apps/cockpit/dist/ into Tauri pipeline; legacy SPA archived to desktop/src-tauri/web-legacy/) · W308 step 2 (port cockpit + hero from W307 refs → multi-page Vite project at apps/cockpit/) · W308 step 1 (apply W307 verdict in tokens.css + MASTER.md) · W308 step 0 (Path C scaffold) · W307 design verdict (Claude) · W306 order-dependent fixes (38 → 0) · W305 py3.12 stabilization · W304 py3.12 + OPENAI env + L9 doc sync <<<**
 >
 > **W309 step 1 follow-up (top of branch `cursor/w309-step1-runtime`)** —
 > independent Claude review of PR #187 came back
@@ -3421,10 +3421,19 @@ contracts, tests, and acceptance criteria per sub-phase. Sequence:
    `scripts/preview-demo-tunnel.sh` (install `cloudflared` for the
    tunnel).
 6. L5 — Encrypted sync via meeet.world (bumps contract → 1.1.0). 🟡
-   pairing endpoints shipped 2026-04-29 with **mock crypto**; pin tests
-   ride in `tests/test_pairing_contract.py`. Next slice = real
-   XChaCha20-Poly1305 + X25519 envelope, sync fields on meeet events,
-   `pair.linked` recovery seed UI.
+   **CORRECTION (W310, 2026-05-18).** This bullet was stale. Real X25519
+   + XChaCha20-Poly1305 crypto is **already shipped on the host** via
+   PyNaCl (`backend/core/crypto/envelope.py` — `nacl.bindings` AEAD +
+   `nacl.public.SealedBox`; verified end-to-end in
+   `tests/test_pairing_envelope_e2e.py`; meeet bridge wired in
+   `backend/core/meeet/client.py:emit_encrypted`). What's actually
+   pending: persistent host keyring (X25519 secret → OS Keychain /
+   Credential Manager / libsecret), cockpit pairing/recovery UX wiring
+   per `docs/contracts/L5_PAIRING_DRAFT.md`, mobile begin/accept
+   protocol flows (protocol layer only, no full mobile app yet),
+   pairing audit timeline in cockpit, and `pair_id` TTL on the
+   `meeet.world` relay (off-repo coordination). See
+   `docs/PRODUCT_MASTER_PLAN.md §3.2` for the v10.1/v10.2 split.
 7. L4 — Voice mode (full duplex: faster-whisper STT relay + iOS native loop)
 8. **L10 — Mobile companions:** native **iOS** (Swift/SwiftUI) + **Android** (Kotlin/Jetpack Compose); shared HTTP/SSE contract with desktop **L9**; pairing + E2E sync via **L5** (`PHASE_L_ROADMAP` § L10)
 9. L3 — Code execution & artifacts
@@ -4380,6 +4389,17 @@ that's purely additive and doesn't alter the manifest contract.
 
 ## 2026-05-10 — Wave 81 (Claude → Cursor) — algotrade FE/BE handshake
 
+> **SUPERSEDED (W310, 2026-05-18).** This block is the historical Wave
+> 81 launch checklist for `v9.1.0` (which shipped W138-158, ~2 weeks
+> ago). The "Pending operator actions blocking the launch" list below
+> (GITHUB_RELEASE_TOKEN, BRIDGE_SHARED_SECRET, Apple .p12, `v9.1.0`
+> tag) is **no longer the active blocker set**. `v10.0.0-rc.1` is the
+> current cut (W264); the active 5 external items for **v10 GA** live
+> in `docs/V10_GA_CHECKLIST.md` and are summarised in
+> `docs/PRODUCT_MASTER_PLAN.md §2.1`. Algotrade API contract intel
+> below is still useful (Wave 100 audit corrected the route shape to
+> `POST /api/domains/algotrade/actions/{action_id}`).
+
 ### What I shipped (Wave 80-D + Wave 81-A FE)
 - /workshop generic 4-phase wizard (Intake → Design → Test → Deploy)
 - /workshop/enterprise branded landing for the enterprise/B2B workshop
@@ -4430,6 +4450,18 @@ sessions), W3-PR1 analytics, W3-PR3 council + exec_actions.py.
 tree so smoke tests pass + integration test added at
 `tests/test_algotrade_integration.py` (3 cases, runs on stdlib
 unittest).
+
+> **CORRECTION (W310, 2026-05-18, Cursor parent agent).** Verified
+> empirically against `origin/main`: **only** the
+> `tests/test_algotrade_integration.py` part was actually file-copied
+> into main. The `backend/core/algotrade/exec/` folder itself remained
+> absent from `origin/main` (W2 + W3-PR1 + W3-PR3 payload never landed
+> — the audit overpromised). Discovered while attempting "quick-win"
+> rebase of PRs #170 (council voices) + #174 (`tars` CLI) — both turned
+> out to be stale stacked PRs whose base PRs (#166-#169, #173) are all
+> closed-not-merged. Closed both with design-intel preservation; the
+> 7-PR algotrade stack is now scheduled for consolidated landing at
+> **`docs/PRODUCT_MASTER_PLAN.md §3.A`** (mirrors the M-wave MCP pattern).
 
 ### Contract correction — please confirm
 

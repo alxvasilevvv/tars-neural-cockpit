@@ -34,6 +34,7 @@ restate it in the master doc — link to it instead.**
 | [docs/ROADMAP.md](docs/ROADMAP.md) | Pre-v9.2 roadmap. Historical. | W74 |
 | [docs/ROADMAP_v9.2_v10.md](docs/ROADMAP_v9.2_v10.md) | Earlier v9.2->v10 plan. Superseded by W234 trio. | W188 |
 | [docs/PHASE_L_ROADMAP.md](docs/PHASE_L_ROADMAP.md) | Phase-L (landing polish + meeet integration). | W168 |
+| [docs/PRODUCT_MASTER_PLAN.md](docs/PRODUCT_MASTER_PLAN.md) | **W310 — Post-rc1 dock + post-v10 forward roadmap.** v10 GA final push (5 external items + internal docking), v10.1/v10.2/v11 phase closure (L3/L4/L5/L6/L7/L9/L10), Claude design polish backlog, lane discipline, risks. Source-of-truth for *forward* execution; pairs with `TARS_MASTER_DOC.md §6` (historical Wave A/B/C). | W310 |
 | [docs/TOKENOMICS_CANON_PROPOSAL.md](docs/TOKENOMICS_CANON_PROPOSAL.md) | $MEEET tokenomics proposal. Reference for §7.4 burn/earn logic. | W175 |
 | [docs/IDEAS.md](docs/IDEAS.md) | Long-tail idea capture. Not the plan — the dump. | various |
 
@@ -121,6 +122,7 @@ restate it in the master doc — link to it instead.**
 | [docs/REQUEST_TO_CLAUDE.md](docs/REQUEST_TO_CLAUDE.md) | Open requests to the Claude lane. | various |
 | [docs/handoff/APPLE_SIGNING_FOR_CURSOR.md](docs/handoff/APPLE_SIGNING_FOR_CURSOR.md) | Cursor-lane Apple cert handoff. | W113 |
 | [docs/handoff/COWORK_WIRING_FOR_CURSOR.md](docs/handoff/COWORK_WIRING_FOR_CURSOR.md) | Cursor-lane cowork wiring handoff. | W129 |
+| [docs/handoff/MCP_REWRITE_BRIEF.md](docs/handoff/MCP_REWRITE_BRIEF.md) | **W310 (a).** Cockpit MCP panel rewrite spec — Wave 100 audit-corrected baseline + 4-step implementer plan (~12-15h), 16 spec-pinned tests. Replaces closed PR #177 (architecturally wrong; tried to add panel to wrong cockpit). | W310 |
 
 ## Release notes (chronological)
 
