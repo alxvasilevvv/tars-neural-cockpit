@@ -8,6 +8,16 @@ name: TARS QA Agent
 #
 # Stdlib-only: no `pip install` step. Probes are tolerant of pre-DNS
 # state (subdomain probes skip cleanly).
+#
+# W310-c (2026-05-17): GH Actions registration cache went stale on
+# 2026-05-13 (e5f1911 "remove neural showcase SPA" touched path filters
+# but workflow metadata never updated → `workflow.updated_at=2026-05-11`
+# while file mtime is 2026-05-13). Symptom: every push to main triggers
+# qa-agent (path filter ignored) and the run dies in 0 seconds with
+# "workflow file issue". Touching this header forces re-registration
+# on the next merge to main, which is why this comment exists.
+# Once the next merge lands and a non-0s run is observed, this block
+# can be deleted. See PRODUCT_MASTER_PLAN.md §2.2 (PR #175 row).
 
 on:
   workflow_dispatch:

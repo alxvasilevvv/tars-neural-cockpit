@@ -3,8 +3,37 @@
 > Live one-pager. Full story: `TARS_MASTER_DOC.md`. Doc map:
 > `PROJECT_INDEX.md`. This page is the 60-second pulse check.
 
-**Last updated:** 2026-05-15 (W269). **Tag in flight:** `v10.0.0` —
-rc1 → GA the moment the 5 external items below flip green.
+**Last updated:** 2026-05-19 (W310-as). **Tag in flight:** `v10.0.0` —
+rc1 → GA the moment the **8 hard blockers** (3 brother + 5 Apple sign,
+post-W310-l reconciliation of the original 29-item list) flip green
+AND the operator drains the 37-PR merge queue + executes the GA
+cookbook playbook below.
+
+> **Read first (60-second pulse):** the `docs/W310_WAVE_SUMMARY.md`
+> TLDR section. It compresses the entire post-rc1 surface (37 PRs,
+> 6 verdict wrappers, 5 paste-ready playbooks, cross-stack mirror with
+> brother) into one screen. This page (`CURRENT_STATUS.md`) gives the
+> code-side snapshot; the wave summary gives the operator-action map.
+
+---
+
+## W310 — post-rc1 PR triage wave (2026-05-18 → 2026-05-19)
+
+| Sub-wave | What landed | PR(s) |
+|---|---|---|
+| W310-a..f | Runtime/triage track: voice fallback, install funnel, master plan, qa-agent cache fix | #187, #188, #189, #190, #191 |
+| W310-g..ac | Planning-surface briefs: STT, voice gallery, keyring, pairing UX, GA dock-down, brother handoff, Apple sign, Windows sign, updater, vault, policy UI, telemetry, L3 sandbox, planner UI, marketplace, mobile (iOS+Android+native speech), Linux signing, design polish | #192, #193..#213 (22 briefs) |
+| W310-ad..am | Implementer follow-ups: 10 GA helper scripts — SOAK-HOURLY/REPORT (#214), VERIFY-APPLE (#215), PREFLIGHT-APPLE (#216), BROTHER-PREFLIGHT (#217), GA-COOKBOOK (#218), DOWNLOAD-AND-VERIFY (#219), BROTHER-POSTFLIGHT (#220), RELEASE-TAG-GUARD (#221), POST-INSTALL-SMOKE (#222), FINAL-QA-VERDICT (#223) | #214..#223 (10 wrappers) |
+| W310-an..as | Docs-only extensions to PR #192: merge sequence + GA cookbook execution + dry-run rehearsal + post-GA week-1 runbook + post-v10 sprint planning + 60-sec TLDR | extends #192 |
+| W310-aq cross-stack | Brother-side first-week runbook mirror (PR #198 §8.A) | extends #198 |
+
+**State as of W310-as (2026-05-19):** all planning sub-waves landed;
+**37 PRs open awaiting operator merge**. PR #188 is the Tier 0 root
+(qa-agent.yml workflow-cache fix unblocks CI on every subsequent PR
+run); after that, the remaining 36 PRs land in 4 tiers via the W310-an
+one-shot bash playbook (~20-30 min wall-clock). See
+`docs/W310_WAVE_SUMMARY.md` → "Operator one-shot merge sequence" for
+the paste-once playbook.
 
 ---
 
@@ -18,8 +47,21 @@ rc1 → GA the moment the 5 external items below flip green.
 | W267 | ✅ Shipped | Final QA gate + v10.0 GA checklist + RELEASE-v10.0 script. |
 | W269 | ✅ Shipped | 60-sec voice-first onboarding — TTFV <60s target via 5-step voice tour, drop-off recovery, SQLite telemetry. |
 
-**From inside the repo, GA is DONE.** Only the 5 external checklist
-items remain (see `docs/V10_GA_CHECKLIST.md`).
+**From inside the repo, GA is DONE.** Only the **8 hard blockers**
+remain (post-W310-l reconciliation of `docs/V10_GA_CHECKLIST.md`'s
+original 29-item list — the other 21 items are soft / v10.1+ / not
+GA-blocking):
+
+- **Brother coord (3):** A1 ingest endpoint live, A2 `/operator`
+  balance shape parity, A5 auth+billing e2e green.
+- **Apple sign (5):** B1 `.p12` cert in CI, B2-B5 the 6 GH secrets
+  pushed + manual-dispatch dry-run + post-tag verify.
+
+The 10 helper wrappers shipped in W310-ad..am collapse the entire
+verification surface (pre-tag QA, pre-tag Gate A, tag-cut decision,
+post-tag Gate B, post-install health, post-launch coord health) to
+six single-decision bash commands — see `docs/W310_WAVE_SUMMARY.md`
+TLDR for the chain.
 
 ---
 
@@ -55,18 +97,53 @@ regression prints a suggested fix in the failing bench's assertion.
 
 ---
 
-## What's left for the operator (the 5 external items)
+## What's left for the operator (post-W310-l reconciliation)
 
-These can't be closed from inside the repo — see
-`docs/V10_GA_CHECKLIST.md` for the 30-item breakdown:
+**Hard GA blockers (8 items, all coord/cert work that can't be closed
+from inside the repo):**
 
-1. **rc1 soak on Alien's main host** — 1 week, daily SMOKE-TEST.
-2. **Brother live on billing** — `/api/billing/{usage_event,balance,topup}` + reconciliation (groups A1-A5).
-3. **Apple Developer cert in CI** — `.p12` + secrets configured so every tag ships a signed `.dmg` (B1-B5).
-4. **VS Code marketplace first publish** — `tars-tab` listed (C1-C4).
-5. **First paying on-prem customer** — proves W263 kit works (D1-D5).
+| # | Item | Owner | PR ref |
+|---|---|---|---|
+| A1 | meeet.world `/usage_event` ingest endpoint live + matches `docs/INGEST_PROTOCOL.md` v1.0.0 | brother | #198 §3.A1 |
+| A2 | `/operator` balance shape parity check (TARS field names = brother field names) | brother | #198 §3.A2 |
+| A5 | auth + billing e2e suite green against live meeet.world | brother | #198 §3.A5 |
+| B1 | Apple Developer ID `.p12` cert in CI as `APPLE_CERTIFICATE` secret | operator | #199 §3.1 |
+| B2-B5 | 5 GH secrets pushed (`APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY`, `APPLE_TEAM_ID`, `APPLE_ID`, `APPLE_PASSWORD`) + manual-dispatch dry-run + post-tag verify | operator | #199 §4 + §6.2 |
 
-When all 5 are green: `bash scripts/RELEASE-v10.0.command`.
+**Soft / deferred (21 items, NOT v10 GA-blocking):**
+
+- **VS Code marketplace publish** (`tars-tab` listing) → v10.1.
+- **First paying on-prem customer** → independent funnel, not a tag gate.
+- **Windows .exe Authenticode** → v10.1 (see PR #200).
+- **Updater channel UI** → v10.1 (see PR #201; bootstrap secrets push
+  is part of v10.0 tag-cut, UI ships v10.1).
+- **Linux GPG signing** → v10.2 OPTIONAL (see PR #212).
+- Remainder → v10.1 / v10.2 / v11 per `docs/PRODUCT_MASTER_PLAN.md`.
+
+**When 8 hard blockers green, execute the playbook in
+`docs/W310_WAVE_SUMMARY.md` → "Operator one-shot GA cookbook
+execution sequence" (W310-ao):**
+
+```bash
+# Pre-tag verification (Gate A + tag-cut decision):
+bash scripts/FINAL-QA-VERDICT.command       # mechanical-checks gate (#223)
+bash scripts/GA-COOKBOOK.command            # Apple + Brother pre-flight (#218)
+bash scripts/RELEASE-TAG-GUARD.command      # tag-cut decision gate (#221)
+
+# Destructive tag cut:
+bash scripts/RELEASE-v10.0.command          # cuts + pushes v10.0.0 tag
+
+# Post-tag verification (Gate B + post-install + post-launch):
+bash scripts/DOWNLOAD-AND-VERIFY-RELEASE.command   # download + signature (#219)
+# (operator drag-installs)
+bash scripts/POST-INSTALL-SMOKE.command            # 4-gate health (#222)
+# (cron starts SOAK-HOURLY for 72h)
+bash scripts/SOAK-REPORT.command                   # soak verdict
+bash scripts/BROTHER-POSTFLIGHT.command            # T+24h coord (#220)
+```
+
+Six verdict wrappers, six exit codes, six color-coded verdicts.
+**Zero remembered probes. Zero remembered sequencing.**
 
 ---
 
@@ -123,3 +200,39 @@ green (when the suite is run), version constants in lockstep,
 FINAL-QA-GATE wired. The next commit on this lane will be the actual
 GA tag, fired by `scripts/RELEASE-v10.0.command` once the 5 external
 items above flip green.
+
+---
+
+## Status (W310-as, 2026-05-19): GA orchestration arc closed
+
+W310 wave closed the operator's orchestration surface from
+**D-0 (today)** through **D+365 (v11 GA)**:
+
+- **37 PRs open**, all awaiting operator merge. Tier 0 is PR #188
+  (qa-agent.yml cache fix); after that, tiers 1-5 land via the
+  W310-an one-shot bash playbook (~20-30 min wall-clock).
+- **6 single-decision verdict wrappers** ship as PRs #214/215/216/217
+  /218/219/220/221/222/223 — collapse the 8-mechanical-checks pre-tag
+  gate + Apple+Brother pre-flight + tag-cut decision + post-tag
+  artifact verify + post-install health + post-launch coord health
+  into six bash commands, six exit codes.
+- **5 docs-only paste playbooks** in `docs/W310_WAVE_SUMMARY.md`
+  (W310-an merge / W310-ao GA cookbook / W310-ap dry-run rehearsal /
+  W310-aq post-GA first week / W310-ar post-v10 sprint planning)
+  compress the entire arc into "5 paste actions + 2 typed
+  confirmations + 1 decision-tree walk + 1 sprint-matrix paste per
+  sprint kickoff".
+- **Cross-stack mirror** (PR #198 §8.A) — brother-side first-week
+  runbook landed same day as W310-aq, with bidirectional escalation
+  tree, 4 named feature flag endpoints brother owns, joint
+  post-mortem cadence.
+- **W310-as TLDR** (60-second summary atop `W310_WAVE_SUMMARY.md`)
+  means a freshly-landed agent or operator can grok state +
+  next-action in one minute instead of reading 2100+ lines linearly.
+
+**The next commit on this lane** will be the actual GA tag, fired by
+`scripts/RELEASE-v10.0.command` after the operator drains the 37-PR
+merge queue (PR #188 first) and resolves the 8 hard blockers via the
+W310-ao playbook above. From there, the W310-aq post-GA first-week
+runbook + W310-ar sprint planning sequence carry the project through
+v10.1 (~D+45), v10.2 (~D+90), and v11 (~D+365).

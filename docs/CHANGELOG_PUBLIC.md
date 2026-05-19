@@ -1,64 +1,582 @@
 # Agent changelog
 
-## W310-e — install funnel v10 sync (close-and-rewrite of PR #175) (2026-05-18)
+## W310-at — sync layer on PR #188 (canonical state docs refresh, 2026-05-19)
 
-**Agent**: Cursor (Sonnet 4.6 parent assistant). Continuation of `ph1-stale-prs` orchestration.
+**Agent**: Cursor (Opus 4.7 parent assistant). Continuation of W310 arc on operator directive "продолжай"; this entry covers the W310-at sync layer that updates three canonical "state" docs on PR #188's branch to match the post-W310-as wave landscape.
 
-**Scope**: Per `ph1-stale-prs` triage of the three stale PRs from week-of-2026-05-10 (≥7 days, conflict-dirty, no review). One PR rebased+rewritten on v10 base; two closed with rationale.
+**Scope**: refresh `CURRENT_STATUS.md`, `TARS_MASTER_DOC.md §6.4`, and `PROJECT_INDEX.md` so the reader landing on PR #188 sees a self-consistent forward-execution + daily-pulse + master-doc + index, not a mix of fresh master plan against stale 2026-05-15/W269 daily pulse + stale W267 Top-5 in §6.4. ZERO new code, ZERO new helpers; pure cross-doc sync to close the silent drift gap that W310 inadvertently opened by landing on its own branch + extending sibling PRs (#192, #198) but never touching the canonical state docs themselves.
 
-### Per-PR resolution
+### What happened
 
-| PR | Action | Why |
-|---|---|---|
-| #181 (algotrade E2E demo, +821 LoC) | **CLOSED** | Algotrade out of scope for v10 GA per §3.A; W2-W4 stack (#170, #174) closed for same reason on 2026-05-17; landing W1/W6 demo alone creates inconsistent half-shipped algotrade surface. Branch preserved for post-v10 re-launch wave. |
-| #182 (cockpit MCP panel, +991 LoC) | **CLOSED** | Frontend targets `experiments/neural-showcase-v3/` (previous-gen cockpit, not canonical `apps/cockpit/`). Backend depends on M-wave stack already closed and being rewritten. Backend design pattern (graceful degrade + triad + lifespan teardown) explicitly captured in `MCP_REWRITE_BRIEF.md` as a target deliverable for the consolidated rewrite. |
-| #175 (install funnel cross-target, +64 LoC) | **CLOSED + replaced by `cursor/install-funnel-v10-sync`** | 80% obsolete (main already on v10 / OpenTelemetry pins / dynamic SUPPORTED_VERSIONS), 20% real bug fix on wrong base. Replacement PR fixes both the original intent + 3 new v10-exposed bugs discovered during forensic. |
+1. **`CURRENT_STATUS.md` rewrite** (commit `c7d2cf0`). Was dated 2026-05-15 / W269 and read "GA is DONE except 5 external items". Replaced with:
+   - **Top:** new "Read first (60-second pulse)" block pointing at `docs/W310_WAVE_SUMMARY.md` TLDR (W310-as).
+   - **New section:** "W310 — post-rc1 PR triage wave (2026-05-18 → 2026-05-19)" with the full sub-wave table (runtime/triage a..f / planning-surface briefs g..ac / implementer follow-ups ad..am / docs-only extensions an..as / cross-stack mirror aq).
+   - **"What's left for the operator" rewritten:** replaces stale 5-item list with the post-W310-l 8-hard-blocker table (3 brother A1/A2/A5 from PR #198 + 5 Apple sign B1-B5 from PR #199), plus a deferred-to-v10.1+ subsection (Windows Authenticode / VS Code marketplace / on-prem customer / Linux signing). Includes paste-ready bash playbook for the 6-wrapper GA cookbook chain.
+   - **New coda:** "Status (W310-as, 2026-05-19): GA orchestration arc closed" replacing the stale W267 "GA is DONE" coda. Names 37 PRs / 6 wrappers / 5 playbooks / cross-stack mirror / TLDR + forward-pointers to v10.1 / v10.2 / v11 via W310-aq + W310-ar.
+   - 129 lines added, 16 lines deleted; final file = 238 lines.
 
-### Replacement PR `cursor/install-funnel-v10-sync` (new)
+2. **`TARS_MASTER_DOC.md §6.4 Path to v10.0 GA` reconciliation** (commit `9f2de69`). Kept the W267 "Top 5 external items" historical snapshot intact (per the doc rule: forward execution lives in `PRODUCT_MASTER_PLAN.md`); appended a new "Reconciliation (W310-at, 2026-05-19)" subsection right after the W267 status block that documents:
+   - Top 5 widened to 8 hard blockers post-W310-l (3 brother coord + 5 Apple sign).
+   - Items 4-5 (VS Code marketplace + on-prem customer) deferred to v10.1+ per W310-l.
+   - 6 single-decision verdict wrappers as PRs #214-#223.
+   - 5 docs-only paste playbooks compressing D-0 → D+365 arc into "5 paste actions + 2 typed confirmations + 1 decision-tree walk + 1 sprint-matrix paste per sprint kickoff".
+   - Cross-stack mirror in PR #198 §8.A.
+   - 33 lines added.
 
-**Diff scope**: 3 files, ~70 LoC — `backend/core/product/manifest.py`, `experiments/neural-showcase-v3/functions/dl/[file].ts`, `experiments/neural-showcase-v3/functions/dl/[file].test.ts`.
+3. **`PROJECT_INDEX.md` entry add** (commit `9f2de69`, same as above). Added missing entry for `docs/handoff/MCP_REWRITE_BRIEF.md` (which has been on PR #188's branch since W310 but never indexed). Annotated as "W310 (a)" to mark it as the first item of the W310 wave (replaces closed PR #177; 16 spec-pinned tests; ~12-15h effort). 1 line added.
 
-**Bugs fixed**:
+4. **Cross-workspace sync**. Updated `meeet-browser-agent/AGENTS.md` PR #188 description bullet (+1/-1 LoC, commit `cbc88cf` on `cursor/bootstrap-workspace`) and `meeet-browser-agent/TARS_OVERVIEW_RU.md` header + author trail + active-PR row + operator-next-step bullet (+4/-4 LoC across 4 touch points, commit `84f9c8d`) so a freshly-landed agent in `meeet-browser-agent` sees the W310-at sync layer note before pivoting into TARS.
 
-1. **Cross-target manifest** (original intent of #175): added Win `.exe`, Linux `.AppImage`, Linux `.deb` `ReleaseArtifact` rows to `_DEFAULT_ARTIFACTS` on `_DEFAULT_VERSION = "10.0.0-rc.1"`. Updated `_DEFAULT_NOTES` from "Mac-only" to cross-target.
+5. **PR #188 comment** posted at https://github.com/alxvasilevvv/tars-neural-cockpit/pull/188#issuecomment-4484909714 announcing the W310-at sync layer; explains why the three TARS-side state docs got folded into PR #188's scope rather than carved into a separate PR (= one merge ships self-consistent landing surface) + reiterates merge order (PR #188 first, then W310-an playbook).
 
-2. **`SUPPORTED_VERSIONS` missing v10** (v10-exposed bug): added `"10.0.0-rc.1"` to the array. Without this, the `flatMap(platformArtifactsForVersion)` template never generated v10 entries → proxy returned `not_in_allowlist` 404 for every v10 installer URL.
-
-3. **`LATEST_TAG` stale** (v10-exposed bug): updated from `"v9.1.0"` to `"v10.0.0-rc.1"`. Without this, Tauri updater (which uses `latest.json` → `LATEST_TAG`) routed to v9.1.0 release tag → couldn't find v10 binaries.
-
-4. **`tagForFilename` regex broken for pre-release semver** (v10-exposed bug, most critical): old regex `^TARS_(\d+\.\d+\.\d+)_` required `_` to follow `X.Y.Z` but pre-release filename `TARS_10.0.0-rc.1_aarch64.dmg` has `-rc.1` between → regex returned null → proxy returned `unknown_tag` 404 even for files in allowlist. New regex `^TARS_(\d+\.\d+\.\d+(?:-[a-zA-Z0-9.]+)?)_` captures SemVer 2.0 alphanumeric pre-release suffixes (`-rc.1`, `-beta.2`, `-alpha.7`).
-
-**Tests added**: regression guard test in `dl/[file].test.ts` asserting `tagForFilename("TARS_10.0.0-rc.1_*.dmg")` returns `"v10.0.0-rc.1"`, plus broader coverage for `-beta.N` and `-alpha.N` forms.
-
-**Test results (all local, all green)**:
-- 10 `tests/test_product_downloads.py` ✅ (validates `_DEFAULT_ARTIFACTS` includes all 5 platform entries)
-- 5 `tests/test_pyoxidizer_requirements_parity.py` ✅ (OpenTelemetry pins parity intact)
-- 15 `experiments/neural-showcase-v3/functions/dl/[file].test.ts` ✅ including the new pre-release regression guard + W291 sentinel test (which auto-cross-validates `SUPPORTED_VERSIONS[0]` ↔ `LATEST_TAG`)
-
-### Files touched (W310-e)
+### Files touched (W310-at)
 
 | File | Change |
 |---|---|
-| `backend/core/product/manifest.py` | Replaced "Mac-only until cross-target lands" docstring + notes with cross-target reality; added Win `.exe` + Linux `.AppImage` + Linux `.deb` `ReleaseArtifact` rows to `_DEFAULT_ARTIFACTS`. |
-| `experiments/neural-showcase-v3/functions/dl/[file].ts` | `SUPPORTED_VERSIONS` += `"10.0.0-rc.1"` (newest-first ordering documented); `LATEST_TAG` → `"v10.0.0-rc.1"`; `tagForFilename` regex extracted to named constant `VERSION_IN_FILENAME` and extended to capture SemVer 2.0 pre-release suffix. |
-| `experiments/neural-showcase-v3/functions/dl/[file].test.ts` | Added `ALLOWED_FILENAMES` test asserting v10 6-platform coverage; added pre-release regression guard test for `tagForFilename` with `-rc.1` / `-beta.2` / `-alpha.7` forms. |
+| `CURRENT_STATUS.md` | Full rewrite of "Read first" block + new W310 section + "What's left" replacement + new W310-as coda. 129+/16-. |
+| `TARS_MASTER_DOC.md` | New "Reconciliation (W310-at, 2026-05-19)" subsection appended to §6.4 after W267 Top-5 historical block. 33+. |
+| `PROJECT_INDEX.md` | Added `docs/handoff/MCP_REWRITE_BRIEF.md` row in handoff briefs section, annotated W310 (a). 1+. |
+| `docs/CHANGELOG_AGENTS.md` | This entry. |
+| (cross-workspace) `meeet-browser-agent/AGENTS.md` | +1/-1 — PR #188 description bullet extended with W310-at sync note. |
+| (cross-workspace) `meeet-browser-agent/TARS_OVERVIEW_RU.md` | +4/-4 — header + author trail + active-PR row + operator-next-step bullet refreshed. |
+
+### What is NOT done (deliberate)
+
+- **PR #188 description rewrite on GitHub itself** — kept as W310-at PR comment (single notification surface) rather than amending the PR body, because the body still correctly reflects the master plan + M-wave consolidation + qa-agent fix scope and the W310-at sync layer is best understood as a follow-up sync rather than a fundamental scope change. Reader who reads the PR comment thread sees the announcement.
+- **CHANGELOG_PUBLIC.md entry** — pure-docs sync layer with zero user-facing behaviour change; nothing to announce in the public changelog. (W310-c set the same precedent: agent-changelog only, no public-changelog entry.)
+- **Sibling-PR PROJECT_INDEX entries** for the rest of the W310 wave (PR #192 wave summary, PR #197/#198/#199 handoff briefs, PRs #214-#223 helper scripts) — those briefs / scripts live on sibling PR branches; they should add their own PROJECT_INDEX entries as those PRs merge, otherwise PROJECT_INDEX on this branch would lie about the state of `main` until those PRs land too.
+
+### Operator inputs needed
+
+Same as W310-c: merge PR #188 first (it now ships the W310-at sync layer alongside the master plan + qa-agent fix), then paste the W310-an merge sequence from `docs/W310_WAVE_SUMMARY.md` to drain the remaining 36 PRs.
+
+---
+
+## W310-c — independent-PR cleanup pass (2026-05-18)
+
+**Agent**: Cursor (Sonnet 4.6 parent assistant). Continuation of W310 / W310-b on operator directive "продолжай".
+
+**Scope**: triage the three PRs that PRODUCT_MASTER_PLAN.md §2.2 flagged as independent of the (closed) MCP / Algotrade stacks: PR #183 (voice persona fallback), PR #175 (install funnel cross-target), and PR #182 (cockpit MCP panel — explicitly deferred until consolidated MCP rewrite lands).
+
+### What happened
+
+1. **PR #183 rebase attempt → aborted with diagnosis.** Pruned 5 stale worktrees on `/private/tmp/jarvis-*` so checkout could proceed, then `git rebase origin/main` on `cursor/voice-persona-fallback`. Conflicts in `docs/CHANGELOG_AGENTS.md` + `docs/CHANGELOG_PUBLIC.md` (trivial — pre-commit regenerates), but `web_extras/routers/voice.py` carried a **semantic** conflict: W295 (shipped to main 2026-05-xx) and Phase L4.2 (this PR) both define `GET /api/voice/personas/effective` with **different response shapes** and **different resolution backends** (W295 uses `resolve_effective()` shared with `/speak`; L4.2 uses `MacSayEngine._pick_fallback_voice()` directly). Naïve "accept ours" breaks the L4.2 substitution diagnostic (the whole UX point of the PR). Naïve "accept theirs" breaks the W290 acceptance harness (`scripts/qa_w290_cockpit.sh` Group 9). Correct merge requires a 30-60min semantic refactor to make `resolve_effective()` alternatives-aware. Filed [PR #183 comment](https://github.com/alxvasilevvv/tars-neural-cockpit/pull/183#issuecomment-4472299281) with the full diff diagnosis + 3 paths (A=full refactor → DRY win, B=additive merge → minimal diff, C=close+defer → ship as part of `PRODUCT_MASTER_PLAN.md §3.1` L4 closeout). `git rebase --abort`; no force-push; PR stays in its current state pending operator pick.
+
+2. **PR #175 `probe` CI failure → root cause found.** Ran the qa_agent locally with `QA_AGENT_SOFT_FAIL=1` → exit 0, 28 probe FAILs as expected (all "wrong build" complaints from probes still asking for the SPA `<div id="root"></div>` shell that `e5f1911` deliberately removed). But CI shows `probe: FAILURE` blocking the PR — why? `gh api .../actions/runs/<id>` revealed: every recent qa-agent run has `created_at == run_started_at == updated_at` → 0-second runtime → workflow file failed to load. Cross-checked with credential-sentinel (3-second runtimes, runs fine). `gh api .../actions/workflows/269172814` shows `name=".github/workflows/qa-agent.yml"` (the path, not the YAML `name:` field!) and `updated_at=2026-05-11T09:30:56` — but the file's last commit is `e5f1911` from **2026-05-13**. **GitHub Actions cached the old workflow registration** and never re-parsed after the May 13 commit (which narrowed the `paths:` filter from 5 SPA-specific entries to 1 `docs/qa-snapshot.json`). Result: every push triggers qa-agent ignoring the new path filter, the runtime then can't reconcile the cached vs file shape, and the run dies in 0 sec. **Fix**: touched the qa-agent.yml file header with a W310-c comment block — any non-whitespace change forces re-registration on next merge to main. After PR #188 lands, the next merge will register the current file (post-`e5f1911`), the path filter will start working, and PR runs will either pass via soft-fail or skip via path filter.
+
+3. **No new PRs opened.** All fixes ride along PR #188 (W310 master plan branch). Operator merges PR #187 (W309 step 1) + PR #188 (master plan + W310-b/W310-c diagnoses + qa-agent header touch) and the CI clears itself on the next merge.
+
+### Files touched (W310-c)
+
+| File | Change |
+|---|---|
+| `.github/workflows/qa-agent.yml` | Added W310-c diagnostic comment block to header to force GH Actions workflow re-registration. |
+| `docs/PRODUCT_MASTER_PLAN.md` | Updated §2.2 rows for #183 (semantic conflict — see PR comment for paths) + #175 (probe root cause = workflow registration cache, not a real probe bug). Added §7 W310-c change log row. |
 | `docs/CHANGELOG_AGENTS.md` | This entry. |
 
 ### What is NOT done (deliberate)
 
-- **No CI infrastructure changes**: the workflow-cache issue (W310-c diagnosis) still requires the qa-agent.yml header-touch trick from PR #188 to land first. CI failures on this PR will be the **same pre-existing repo-wide** failures, not new ones.
-- **No ROSETTA_ALIASES v10 entry**: leaving `ROSETTA_ALIASES = { "TARS_9.1.0_x64.dmg": "TARS_9.1.0_aarch64.dmg" }` untouched. Adding a v10 alias is a P3 polish (intel macOS fallback for cancelled CI runs); not in scope for this PR.
-- **No `install.sh` bump**: `public/install.sh` reads version from `/api/product/version` at runtime, which is sourced from `_DEFAULT_VERSION` in `manifest.py` (now `"10.0.0-rc.1"`). Once this PR lands, the funnel routes v10 binaries end-to-end without further changes.
+- **PR #183 semantic refactor** (the 30-60min `resolve_effective()` work) → operator picks path A/B/C; deferring avoids breaking either main's W290 harness or this PR's L4.2 diagnostic.
+- **PR #175 rebase** → blocked on PR #188 merge (need the qa-agent.yml header fix to land first so `probe` CI doesn't immediately re-block on rebase push).
+- **PR #182 (cockpit MCP panel)** → explicitly deferred per §2.2 until the consolidated MCP rewrite lands (otherwise it would build against the now-closed M-wave skeletal pool).
+- **PR #181 (algotrade E2E)** → orphaned by the algotrade closeout; folded into the §3.A deferred rewrite per W310-b.
 
-### Why a fresh PR vs rebase #175
+### Operator inputs needed
 
-PR #175 was 1 commit ahead of main + **191 commits behind**. Three files conflicted, all SEMANTICALLY (not union-style). Main had already independently implemented the OpenTelemetry pins (pyoxidizer.bzl) and the `SUPPORTED_VERSIONS` dynamic-generation refactor (dl/[file].ts); the PR's hardcoded-list approach was obsolete. Rebasing would have required resolving each conflict by partially discarding the PR's work and adapting to current main shape — strictly worse than writing a fresh diff on current main with full v10 context. Same close-and-rewrite pattern used for M-wave (#176-180) and algotrade (#170, #174).
+- Merge PR #187 (W309 step 1) → unblocks W309 step 2 implementation.
+- Merge PR #188 (this branch) → fixes qa-agent CI on next push + locks in the master plan + W310 diagnoses.
+- Pick a path on PR #183 (A=refactor / B=additive merge / C=close+defer). My recommendation: **B** (additive merge, ~30min) — keeps W295's DRY contract while shipping the L4.2 substitution diagnostic the operator's UX bug needs.
 
 ---
+
+
 
 Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
+
+## 2026-05-18 — Cursor · W310-b algotrade closeout + remaining-PR triage + Wave 100 audit correction
+
+**Summary**
+
+Closed 2 more stale stacked PRs as a follow-up batch on the same branch
+`cursor/post-rc1-master-plan` (extends W310 above). Operator directive:
+*"выстрой правильную структуру всего проекта и синхронизацию с другими
+системами и начинай"* — full delegation to clean up the stacked-PR
+backlog using the agent's own judgement.
+
+**PRs closed (algotrade stack)**
+
+- **#170** — Phase W3-PR3 trading council voices. Closed: base chain
+  #166→#167→#168→#169 all CLOSED-not-merged; ~1200 LoC orphaned.
+- **#174** — Wave M2 `tars` CLI. Closed: base chain
+  #173→#168→#167→#166 all CLOSED-not-merged; ~1950 LoC orphaned;
+  also depends transitively on `backend/cli/commands/algotrade.py`
+  which imports from un-merged `algotrade.exec`.
+
+Both close-comments preserve full design intel (PR-body excerpts +
+verification table + pointer to §3.A for consolidated landing).
+
+**W310 closure total**: **8 PRs** (6 M-wave MCP + 2 algotrade).
+
+**Wave 100 audit CORRECTION**
+
+While verifying the close decision, discovered HANDOFF Wave 100 audit
+(L4439-L4467) overpromised: it claimed *"file-copied W2 + W3 exec/*
+into the working tree"* but empirically only
+`tests/test_algotrade_integration.py` was actually file-copied;
+`backend/core/algotrade/exec/` folder remains absent from main. Added
+explicit CORRECTION block after the original audit text pointing at
+§3.A as the consolidated landing path.
+
+**PRODUCT_MASTER_PLAN updates**
+
+- **§2.2 PR triage table** — definitive state for every remaining open
+  PR (#175 install funnel, #181 algotrade E2E, #182 cockpit MCP, #183
+  voice persona fallback) + explicit ✅ markers for the 8 closures
+  done this wave.
+- **§3.A Algotrade closeout (NEW)** — full deferred-work spec for the
+  7-PR algotrade stack (#166-#170, #173, #174) as v10.2/v11
+  consolidated rewrite. Inherits Wave 100 audit punch list (Side enum
+  collision, `session_timeseries` action, exec/__init__.py dedup).
+  Estimate 1-2 weeks; mirrors MCP rewrite pattern.
+- **§7 change log** — W310-b entry appended.
+
+**Cross-workspace sync**
+
+- `meeet-browser-agent/AGENTS.md` — added `PRODUCT_MASTER_PLAN.md` to
+  the read order + W310 sync block at the bottom (v10.0.0-rc.1 status,
+  active PRs #187 + #188, 8 closures, plan pointer). Cross-workspace
+  agent pickup now points at canonical forward execution doc.
+
+**Files**
+
+- `docs/AGENT_HANDOFF.md` — Wave 100 CORRECTION inline + top banner
+  W310-b SYNC prepended.
+- `docs/PRODUCT_MASTER_PLAN.md` — §2.2 rewritten with definitive
+  triage; §3.A added; §7 W310-b entry.
+- `docs/CHANGELOG_AGENTS.md` — this entry.
+- `/Users/alien/Projects/meeet-browser-agent/AGENTS.md` — sync block +
+  expanded read order.
+
+**Process note**
+
+This entry was authored by the same Cursor parent agent under W310's
+"orchestrator" mode. Decision pattern: closure-with-design-intel-
+preservation now established across two stale-PR families (MCP + algo-
+trade); future stale stacks can apply the same brief template at
+`docs/handoff/MCP_REWRITE_BRIEF.md`. Push to branch + add to PR #188.
+
+---
+
+## 2026-05-18 — Cursor · W310 post-rc1 master plan + M-wave consolidation brief + HANDOFF corrections
+
+**Summary**
+
+Synthesised the forward execution plan from `v10.0.0-rc.1` (cut W264,
+2026-05-15) through GA into Phase L closure (v10.1 → v10.2 → v11).
+Branch: `cursor/post-rc1-master-plan`. Triggered by operator request
+"full plan to the end with stages, use orchestration, perfect the
+product". Synthesis fed by 3 parallel `explore` subagents (Phase L
+roadmap state, 13 open PR triage, IDEAS + tech debt audit) + 2
+verification subagents (L5 crypto canon, v10 release-axis archaeology
+— both confirmed two stale docs that prompted the corrections below).
+
+**Decisions captured (operator W310, 2026-05-18)**
+
+1. **Release axis = v10 GA direct.** `v9.1.0` already shipped W138-158;
+   the v9_then_v10 sequencing was based on stale HANDOFF wording. v10
+   GA target is the 5 external items in `docs/V10_GA_CHECKLIST.md`.
+2. **W309 step 2 = go-now** after PR #187 merge. Brief lives at
+   `docs/handoff/W309_STEP2_BRIEF.md` (drafted 7h ago, gated, ready).
+3. **M-wave MCP stack** (6 open PRs: #176, #177, #178, #179, #180,
+   #184) **close + redo** as one consolidated PR. Brief at
+   `docs/handoff/MCP_REWRITE_BRIEF.md`. Closed PR diffs preserved as
+   design spec per §7.
+4. **Master plan storage = all_three** — new dedicated doc + cross-link
+   in `TARS_MASTER_DOC.md §6` + indexed in `PROJECT_INDEX.md` Strategy.
+
+**Two stale-doc corrections shipped in the same PR**
+
+- **L5 crypto canon.** HANDOFF Pending §6 said "pairing endpoints
+  shipped with **mock crypto**" — wrong. Real X25519 +
+  XChaCha20-Poly1305 (PyNaCl) was already shipped on the host per
+  `backend/core/crypto/envelope.py` (`nacl.bindings` AEAD +
+  `nacl.public.SealedBox`) and end-to-end verified by
+  `tests/test_pairing_envelope_e2e.py`. Bullet rewritten to reflect
+  what's actually pending (keyring, pairing UX, mobile protocol,
+  audit timeline, `pair_id` TTL).
+- **Wave 81 launch checklist.** The 4-item "Pending operator actions
+  blocking the launch" list was for `v9.1.0` (already shipped). Block
+  now carries an explicit SUPERSEDED header pointing readers to
+  `docs/V10_GA_CHECKLIST.md` + `docs/PRODUCT_MASTER_PLAN.md §2.1` as
+  the active 5-item gate.
+
+**Files**
+
+- `docs/PRODUCT_MASTER_PLAN.md` (new, 168 lines) — §1 where-we-are,
+  §2 v10 GA push (5 external + internal docking + cut), §3 post-v10
+  roadmap (10 sub-phases L3-L10 + vault + policy + Claude polish),
+  §4 lane discipline, §5 risks, §6 references, §7 plan change log.
+- `docs/handoff/MCP_REWRITE_BRIEF.md` (new, 152 lines) — close-and-redo
+  brief for Cursor. §0 why, §1 scope, §2 deferred, §3 approach +
+  7-commit build order, §4 acceptance, §5 verify, §6 rollback, §7
+  design intel from closed PRs (preserve these choices), §8 refs.
+- `TARS_MASTER_DOC.md` — §6 Roadmap header now points forward
+  execution to `PRODUCT_MASTER_PLAN.md`; stays the historical Wave
+  A/B/C source.
+- `PROJECT_INDEX.md` — Strategy table row added for master plan.
+- `docs/AGENT_HANDOFF.md` — SYNC banner top: W310 entry prepended.
+  Pending §6 (line 3423): L5 bullet rewritten with CORRECTION marker.
+  Wave 81 block (line 4381): SUPERSEDED header added in front.
+
+**Operator action queue**
+
+1. Read `docs/PRODUCT_MASTER_PLAN.md` (~15 min).
+2. Merge PR #187 (W309 step 1) — unblocks step 2.
+3. Approve the post-rc1 master-plan PR (this one) or push back on any
+   phase in §3.
+4. After approval: 5 M-wave PRs (#176, #177, #178, #179, #180, #184)
+   get formally closed via `gh pr close` with the comment template in
+   §0 of `MCP_REWRITE_BRIEF.md`. New PR opens on
+   `cursor/mcp-rewrite-consolidated`.
+
+**Subagent usage note**
+
+Five subagents in total this session — 3 recon (parallel) + 2
+verification (sequential, one after recon surfaced the contradictions).
+Cost: ~30 min wall clock, would have been ~4h without parallelism.
+Reusing this pattern for v10.1 phase scoping.
+
+## 2026-05-18 — Cursor · W309 step 2 brief (drafted, gated)
+
+**Summary**
+
+Drafted `docs/handoff/W309_STEP2_BRIEF.md` while PR #187 sits awaiting
+operator merge. Brief is **gated on PR #187 merge + operator OK** (same
+pattern as the original W309 brief — no implementation kicks off without
+explicit "go").
+
+Step 2 closes the three honest gaps left by step 1:
+
+1. **All 20 runtime tests are static.** Adds Playwright behavioural
+   smoke under `apps/cockpit/tests/e2e/cockpit.spec.ts` with mocked
+   sidecar (`page.route`), mocked SSE (streamed response body), mocked
+   WebSocket (init script). Runs in < 10s. Addresses Claude PR #187
+   review's explicit ask: *"the cheapest behavioral guard you'd
+   actually trust"*.
+2. **Mic permission goes nowhere.** Extends `voice.ts` with
+   `startRecording()` / `stopRecording()` using `MediaRecorder` →
+   `/api/voice/transcribe` multipart upload. Transcript drops into the
+   input textarea. Closes the half-open voice loop where step 1 only
+   proved the permission flow.
+3. **Voice picker has no UI.** Minimal `<select>` in the status bar
+   driven by `voice.getPersonas()`, persists choice to
+   `window.localStorage.TARS_VOICE_PERSONA`, restores on next setup.
+
+Tests grow 11 + 20 = 31 → 11 + 25 = **36 static** + a new Playwright
+suite (~10s). Bundle estimated to land at ~30 KB raw / ~10 KB gz (vs
+current 22.9 / 8.4) — rollback cap set at 35 KB raw / 12 KB gz with
+documented headroom math. ETA: ~4h, smaller than step 1.
+
+**Out of scope (still W310+)**
+
+- Drawers (⌘K/⌘L/⌘R), council, playbooks, search, wallet, pairing,
+  meeet bridge, awareness rendering, recovery — unchanged.
+- Newly deferred from step 2: waveform visualiser, voice cloning UI,
+  `webkitSpeechRecognition` fallback, STT streaming, per-persona TTS
+  preview button. Rationale in brief §6.
+
+**Files**
+
+- `docs/handoff/W309_STEP2_BRIEF.md` (new, 332 lines) — same format
+  as the W309 step 1 brief: §0 motivation, §1 inventory, §2 strategy,
+  §3 sub-tasks, §4 verify, §5 rollback, §6 out of scope, §7 commit
+  message, §8 cost, §9 gating.
+
+**Operator action queue**
+
+1. Merge PR #187 (W309 step 1 + fix-up).
+2. Say "go" on step 2, OR explicitly defer to ship v9.1.0 with the
+   three gaps documented in brief §9.
+
+## 2026-05-18 — Cursor · W309 step 1 follow-up (Claude review fix-ups)
+
+**Summary**
+
+Independent Claude review of PR #187 returned `READY_TO_MERGE_WITH_FOLLOWUPS`
+(see PR #187 comment). Three high-sev findings (`ws.setup()` non-idempotent,
+`ensureMic()` race, stale `MediaStream` after permission revoke) plus six
+medium/low findings landed as a single fix-up commit on the same branch
+rather than deferred — all bounded, all on the runtime modules already in
+review. Tests tightened to catch each regression class explicitly per
+Claude's test-quality critique ("greps for `30_000` catch removals, not
+regressions").
+
+**Behavioural changes**
+
+1. `ws.setup()` idempotency — second call with an active socket or pending
+   retry now short-circuits and just merges newly-passed topics into the
+   live subscription set. Prevents WebSocket leakage on HMR / accidental
+   re-boot / future re-entry.
+2. `ws` OPEN handler now checks `wantOpen` first — if teardown landed
+   during CONNECTING, the resolving socket is closed with code 1000
+   (`teardown_during_connect`) instead of flipping the badge green-then-closed.
+3. `voice.ensureMic()` caches the in-flight promise (`state.micPromise`) so
+   concurrent callers share one `getUserMedia()` request; second
+   double-click no longer opens a duplicate stream whose tracks leak.
+4. `voice.ensureMic()` detects a stale `MediaStream` (`stream.active`
+   false or no live audio tracks) and re-requests — the cockpit no longer
+   hands a dead stream back to the caller when the operator revokes mic
+   permission via OS settings mid-session.
+5. `voice.speak()` rejects non-`audio/*` content-types before piping into
+   `<audio>` — defends against a future 200 + JSON envelope from
+   `/api/voice/speak` producing an opaque "audio_play_failed" error.
+6. `voice.playOne()` drops queued utterances after `teardown()` — prevents
+   the TTS chain resurrecting `Audio` elements on a closed window.
+7. `chat.ts` SSE parser now accepts all three spec-permitted frame
+   boundaries (`\n\n`, `\r\n\r\n`, `\r\r`) so a reverse proxy that
+   normalises line endings doesn't hang the stream. Per-line parser
+   also splits on `\r\n|\r|\n` for the same reason. Plus a trailing-buffer
+   flush after the read loop so a stream that closes without a final
+   blank line (sidecar crash, abrupt EOF) doesn't silently drop the last
+   delta.
+8. `api.ApiError` constructor wraps `JSON.stringify(detail)` in try/catch —
+   a circular-ref `detail` (e.g. a wrapped fetch error) no longer throws
+   inside the throw and masks the real failure.
+9. `cockpit-entry.ts` vault CTA link now uses `rel="noopener noreferrer"`
+   (defense-in-depth on external links with `target="_blank"`).
+10. `cockpit-entry.ts` `teardownAll()` latches on first call — both
+    `beforeunload` and `pagehide` fire on Tauri window close; the
+    one-shot guard stops the chain double-aborting in-flight SSE.
+
+**Tests tightened**
+
+- `tests/test_cockpit_runtime_contract.py` grew from 8 → 20 tests
+  (+12). Each new test maps 1:1 to a Claude finding (`test_ws_setup_is_idempotent`,
+  `test_voice_ensure_mic_serialises_concurrent_calls`, `test_voice_detects_stale_mediastream`,
+  `test_chat_sse_parser_accepts_crlf`, etc.) plus `test_ws_manager_public_api_surface`
+  (rename guard for the four methods `cockpit-entry.ts` binds against)
+  and `test_bundle_size_gzipped_within_w309_cap` (25 KB gz cap, 1.5×
+  current usage — far more sensitive than the loose 80 KB raw cap which
+  was 3.6× the real bundle).
+- Total: 11 drift + 20 runtime = 31 tests, all green.
+
+**Bundle size**
+
+- Raw: 22,877 B (vs 21,961 B before fix-up — +916 B for 10 fixes + 35
+  lines of comments). Cap: 80 KB. Headroom: 71%.
+- Gzipped: 8,370 B. Cap: 25 KB. Headroom: 67%.
+
+**Files**
+
+- `apps/cockpit/src/runtime/ws.ts` — idempotent `setup()` + `wantOpen`-guarded
+  OPEN handler.
+- `apps/cockpit/src/runtime/voice.ts` — `micPromise` cache, `isStreamUsable()`
+  helper, alive-state guard, `audio/*` content-type check.
+- `apps/cockpit/src/runtime/chat.ts` — multi-boundary SSE parser, trailing
+  buffer flush, CRLF-aware per-line split.
+- `apps/cockpit/src/runtime/api.ts` — defensive `ApiError` stringify.
+- `apps/cockpit/src/pages/cockpit-entry.ts` — `noreferrer` on vault CTA,
+  one-shot `teardownAll` latch.
+- `tests/test_cockpit_runtime_contract.py` — +12 behavioural pin-ups, +1
+  gzip budget test.
+- `desktop/src-tauri/web/assets/cockpit-*.js` — restaged bundle.
+
+**Verification**
+
+- `pnpm --filter @tars/cockpit exec tsc --noEmit` → clean.
+- `bash desktop/scripts/package-cockpit.sh` → built + staged + pruned
+  orphan maps. New hash `cockpit-CGVJOS_p.js`.
+- `python3 -m pytest tests/test_cockpit_runtime_contract.py tests/test_cockpit_tokens_sync.py -v`
+  → 31 passed in 0.07s.
+
+**Process**
+
+Claude review posted as PR #187 comment for audit trail before any code
+changed. Fix-up landed as a separate commit on the same branch so the
+review trail stays legible in git history (PR diff now shows: original
+implementation → reviewer comment → fix-up). Pattern worth keeping for
+W310+ — review-before-merge with same-branch fix-ups beats merge-then-followup.
+
+## 2026-05-18 — Cursor · W309 step 1 (functional restore: mic + WS + chat + TTS)
+
+**Summary**
+
+Operator un-gated W309 step 1 after PR #186 landed. Brief is the
+local `cursor/w309-cockpit-functional-restore` branch (commit
+`29e9cd9`, pushed to origin for reference, not implemented from).
+Bounded MVP scope per brief §1: restore the four behaviors the W308
+step 3 migration left static — mic capture, realtime WebSocket bus,
+chat strand send/load, TTS playback — without touching the W307
+visual contract. Five new TypeScript modules under
+`apps/cockpit/src/runtime/`, one entry-script rewrite, +1 static
+contract test, +1 bundle-size budget guard. Bundle grows from
+~27 KB / ~6 KB gzipped (W309-prep baseline) to ~22 KB JS + 6 KB CSS
+~8 KB gzipped — net under both the 80 KB raw / 25 KB gzip caps the
+brief §5 rollback gates require.
+
+**Runtime modules** (`apps/cockpit/src/runtime/*.ts`).
+
+- `api.ts` — typed `fetch()` wrapper rooted at `getApiBase()` (default
+  `http://127.0.0.1:8765`, override via `localStorage.TARS_API_URL`).
+  Surfaces `{ok:false}` JSON envelopes as typed `ApiError`. Adds
+  `apiBinary()` for `/api/voice/speak` (raw audio response), plus the
+  brief §3.5 `vaultStatus()` hook returning `{keys:[{key,source,available}]}`.
+  Module is the dependency root — runtime/ has no imports back into it.
+- `tauri.ts` — `isTauri()` + `invokeTauri()` IPC helpers that detect
+  the `__TAURI__` global at runtime; **no `@tauri-apps/api` SDK import**
+  (would inflate bundle ~12 KB for one helper). No-ops outside the
+  Tauri shell so `vite dev` boots clean.
+- `ws.ts` — single `WsManager` singleton, targets `/api/realtime`
+  (`tars.realtime.v1` envelope per `web_extras/routers/realtime.py`).
+  Reconnect: exponential backoff `1s → 30s` with full jitter (Marc
+  Brooker), reset on any successful `open`. Close codes mapped per
+  brief §3.2: `1000` clean (no retry), `4001` auth-fail (synthetic
+  `auth_fail` event, stop loop), all others schedule retry.
+  Server-driven heartbeat (we just count opens / closes; sidecar
+  pushes `{type:'heartbeat'}` every N s per its `hello` envelope).
+  Status bus: `idle | connecting | open | reconnecting | closed`
+  exposed via `onStatus()` for the backend badge.
+- `voice.ts` — three concerns per brief §3.3, one module. Mic:
+  `ensureMic()` requests `navigator.mediaDevices.getUserMedia({audio:true})`
+  on first user gesture, caches the `MediaStream`, `releaseMic()`
+  stops every track. TTS: `speak(text, {personaId?})` queues
+  utterances through a `Promise.then(...)` chain so back-to-back
+  clicks don't overlap; each utterance POSTs `/api/voice/speak`, wraps
+  the audio response in a `blob:` URL (CSP already opens
+  `media-src 'self' blob:`), plays via `new Audio()`, revokes the URL
+  in `finally`. Persona/health: `setup()` fetches `/api/voice/personas`
+  + `/api/voice/health` in parallel (`Promise.allSettled`) and stores
+  default persona + engine availability.
+- `chat.ts` — thread lifecycle + optimistic strand. `setup({threadId?})`
+  either GETs an existing thread (keeping only the last 20 messages
+  per brief §3.4 "cockpit reload preserves last 20 messages") or
+  POSTs `/api/chat/threads` to create a fresh one. `send(text)`
+  appends a user message with `status: 'sending'`, POSTs to
+  `/api/chat/threads/{id}/messages` (returns **SSE** per
+  `web_extras/routers/chat.py`, **not** WS — corrected from brief
+  §3.4 which assumed legacy SPA contract), stream-parses
+  `text/event-stream` frames via `getReader()` + `TextDecoder`,
+  appends an assistant message on the first content delta, grows
+  text in place, flips status to `delivered` / `failed`.
+  `onChange()` callbacks fire after every mutation.
+
+**Entry rewrite** (`apps/cockpit/src/pages/cockpit-entry.ts`).
+
+Replaces the static "`import './styles/global.css'` and done" shell
+with: `pickRefs()` for the 7 DOM hooks the W308 step 2 markup
+already exposes (`.briefing`, `.strand`, `.input-bar input`,
+`.input-bar .mic`, two status-bar badges); `renderStrand()` that
+switches `.strand[data-state]` between `collapsed` (count pill) and
+`expanded` (header + scrolling ordered list of messages);
+`applyWsStatus()` / `applyVoiceHealth()` that mutate
+`badge.dataset.state` to drive the CSS data-state colour overrides;
+`applyVault()` that appends a minimal "Add ElevenLabs key" CTA into
+`.briefing` when the vault is missing the key. Input: Enter →
+`chat.send()`. Mic: click toggles `ensureMic()` / `releaseMic()` and
+updates `mic.dataset.state`. **No `innerHTML`** anywhere — every
+dynamic node built via `document.createElement` + `textContent` +
+`appendChild` so a malicious server response can't inject markup.
+Lifecycle: `beforeunload` + `pagehide` both run the same teardown
+chain (unsubscribe handlers → tear down chat/voice/ws singletons).
+
+**Runtime CSS additions** (`apps/cockpit/cockpit.html` inline style).
+
+Added strand-expanded layout (flex column, header w/ count, scrolling
+ordered list capped at `max-height: 320px`), message row styling
+(grid 64px / 1fr, role-coloured borders), `data-status` modifiers
+(`sending` → `opacity: 0.65`, `failed` → red border tint), vault
+CTA chip (thin red-tinted row), status badge `data-state` overrides
+(`online` → success green, `degraded` → accent gold, `offline` → red
+alert) that drive the existing `.ok` / `.accent` dot colour, and mic
+`data-state` states (`on` → cyan glow, `denied` → red inset ring).
+
+**Tests** (`tests/test_cockpit_runtime_contract.py`, +8 tests).
+
+Pure static checks — CI runs without daemon / mic / TTS key. Each
+test pins an architectural invariant: (1) all 5 runtime files exist;
+(2) `api.ts` exports the wrapper + vault hook + holds the
+`127.0.0.1:8765` sidecar URL contract and stays the runtime DAG root;
+(3) `tauri.ts` detects `__TAURI__` and never imports
+`@tauri-apps/...`; (4) `ws.ts` targets `/api/realtime`, declares
+`BACKOFF_MIN_MS` / `BACKOFF_MAX_MS = 30_000`, honours
+`TARS_WS_URL` override, distinguishes close codes 1000 + 4001;
+(5) `voice.ts` references mic + TTS + persona + health
+endpoints and only imports `./api`; (6) `chat.ts` calls
+`/api/chat/threads`, accepts `text/event-stream`, has SSE parser
+markers (`getReader`, `TextDecoder`), carries the three message
+statuses; (7) entry imports all 4 modules + wires setup/teardown +
+asserts no `innerHTML`; (8) bundle stays under brief §5 80 KB cap
+(skipped when `dist/` absent). Pairs with the existing 11 W307/W308
+tokens-sync drift tests so the full suite is now 19/19.
+
+**Verification.**
+
+- `pnpm typecheck` in `apps/cockpit/` — clean (initial run flagged a
+  `VaultStatus` shape mismatch in the entry script's `applyVault`
+  signature; fixed by importing + using the actual `VaultStatus`
+  type rather than re-declaring it loosely).
+- `pnpm build` — 18 modules, 90 ms. Bundle: `cockpit-*.js` chunks
+  0.76 + 9.46 + 11.63 = ~21.85 KB raw / ~8 KB gzipped.
+- `desktop/scripts/package-cockpit.sh` — clean, staged into
+  `desktop/src-tauri/web/`, post-rsync orphan-map prune cleared 2.
+- `pytest tests/test_cockpit_tokens_sync.py tests/test_cockpit_runtime_contract.py -v`
+  — **19 passed in 0.05 s** (11 drift + 8 runtime).
+
+**Decisions worth flagging for review.**
+
+- **SSE vs WS for chat deltas.** Brief §3.4 said "wait for WS
+  `chat.message` event → reconcile". That was the legacy SPA contract.
+  Current sidecar (`web_extras/routers/chat.py`) streams the
+  assistant turn back on the POST response itself as
+  `text/event-stream`. WS still carries cross-cutting events
+  (`policy`, `awareness`, `voice.*`) but not chat content deltas.
+  SSE-on-POST is the right transport at MVP; out-of-band chat
+  events (multi-device, typing indicators) are a W310+ concern when
+  those WS event types actually exist on the server.
+- **`tauri.ts` with no SDK import.** Brief §2.2 listed `tauri.ts` as
+  one of the four modules but the MVP doesn't need any specific
+  Tauri command yet. Kept the file as the seam (with `isTauri()` +
+  `invokeTauri()` that no-op in browser) so W310+ can wire
+  screen-share / clipboard / file-drop without touching every
+  consumer, but skipped the `@tauri-apps/api` SDK dependency
+  (~12 KB) until something actually needs it. Drift test rejects the
+  import if a future agent adds it casually.
+- **Vault hook co-located in `api.ts`.** Brief §3.5 named a separate
+  file. Keeping it next to the `api()` wrapper kept the module count
+  at the brief's five, and the function is 15 lines — splitting it
+  out would have been ceremony.
+- **`vite dev` CORS.** Sidecar default `TARS_CORS_ORIGINS` doesn't
+  list `http://localhost:5174`. Production Tauri shell talks to
+  `127.0.0.1:8765` directly under the existing CSP, so this only
+  bites operators developing the cockpit in a browser tab. Documented
+  in `api.ts` doc comment; not adding 5174 to the default sidecar
+  CORS list because that surface should stay narrow in prod.
+
+**Files changed**
+
+- `apps/cockpit/src/runtime/api.ts` (new, 163 LOC)
+- `apps/cockpit/src/runtime/tauri.ts` (new, 66 LOC)
+- `apps/cockpit/src/runtime/ws.ts` (new, 241 LOC)
+- `apps/cockpit/src/runtime/voice.ts` (new, 204 LOC)
+- `apps/cockpit/src/runtime/chat.ts` (new, 277 LOC)
+- `apps/cockpit/src/pages/cockpit-entry.ts` (rewritten, +280 LOC)
+- `apps/cockpit/cockpit.html` (CSS-only additions for runtime states)
+- `desktop/src-tauri/web/` (re-staged from `apps/cockpit/dist/`)
+- `tests/test_cockpit_runtime_contract.py` (new, 245 LOC, +8 tests)
+- `docs/CHANGELOG_AGENTS.md`, `docs/AGENT_HANDOFF.md`,
+  `docs/W308_PRE_FLIGHT_FINDINGS.md` (W309 step 1 closure)
+
+**Out of scope (W310+ candidates)**
+
+- STT upload via `/api/voice/transcribe` (mic stream captured but
+  not yet piped anywhere).
+- Persona picker UI (we fetch personas + default but there's no
+  switcher yet).
+- WS-side chat reconciliation for multi-device sync.
+- Policy gate / awareness WS event rendering (handlers seam exists
+  via `ws().on(type, h)` but no UI binding yet).
 
 ## 2026-05-17 — Cursor · W309 prep follow-ups (Claude PR #186 review fixes)
 
@@ -2306,200 +2824,6 @@ Full sign-off doc at `docs/WAVE_53_LAUNCH_SIGNOFF.md`. Verdict: ship it.
 
 `>>> SYNC: Cursor · 2026-05-04 · go-live routes + GO_LIVE same-day + qa-agent ingest env`
 
-## 2026-05-04 — Cursor: go-live 48h — runbook + CI dispatch
-
-**Summary:** `docs/GO_LIVE_48H.md` — пошагово «сегодня / завтра»: BRIDGE на Pages, acceptance, ingest keys, Lovable sitemap/cookie. Прогнан `acceptance_tars_meeet.sh` (bridge SKIP без секрета — ожидаемо). Вручную запущен workflow **tars.meeet.world — Cloudflare Pages** на `main`.
-
-**Files:** add `docs/GO_LIVE_48H.md`; modify `docs/AGENT_HANDOFF.md`, `docs/CHANGELOG_AGENTS.md`.
-
-## 2026-05-04 — Cursor: audit-6 — Landing dividers, ScrollStory, CouncilDemo, MeeetWorldStrip, CockpitPreview (`useT`)
-
-Wired remaining marketing blocks on `/` to i18n; added `councilDemo.{eyebrow,subtitle}` so `/council` keeps `council.eyebrow` / `council.subtitle`. **Files**: `i18n.tsx` (incl. `councilDemo.{eyebrow,subtitle}` clash fix), `Landing.tsx`, `ScrollStory.tsx`, `MeeetWorldStrip.tsx`, `CouncilDemo.tsx`, `CockpitPreview.tsx`; `docs/CHANGELOG_AGENTS.md`, `docs/AGENT_HANDOFF.md`.
-
-## 2026-05-04 — Claude QA · Install page ↔ download manifest + local QA docs
-
-**Summary**
-
-Operator asked for full product QA hardening on TARS. Cockpit **Vitest** (374 tests) + **`npm run build`** green.
-
-**`/install`** no longer relies solely on hard-coded **v9.1.0** GitHub URLs (they drifted from live **`/api/product/downloads`**, which still serves **v8.4.0**). The page now loads **`useDownloads()`**, picks the primary artifact per OS tab via **`installArtifacts.ts`**, lists manifest rows in Advanced when present, and shows an EN/RU banner when URLs still target **`github.com/.../releases/download`** (private-repo **404** mitigation — **B-017**).
-
-Repo ergonomics: **`docs/QA_LOCAL_SETUP.md`**, **`make check-python-version`** (FastAPI pins need **Python ≥ 3.10** — stock macOS **3.9** was failing `pip install`), **`.python-version`** hint for pyenv.
-
-**Files**
-
-- `experiments/neural-showcase-v3/src/pages/Install.tsx`
-- `experiments/neural-showcase-v3/src/lib/installArtifacts.ts`, `installArtifacts.test.ts`
-- `experiments/neural-showcase-v3/src/lib/i18n.tsx`
-- `Makefile`, `.python-version`, `docs/QA_LOCAL_SETUP.md`
-- `docs/CHANGELOG_PUBLIC.md` (regenerated)
-
-`>>> SYNC: Claude QA · 2026-05-04 · Operator-request Install/manifest sync + QA_LOCAL_SETUP`
-
-## 2026-05-04 — Cursor: audit-5 — full Landing i18n coverage (Layers · Domains · ProofStrip · MeeetSection)
-
-Closed every remaining hard-coded English string on the
-Landing surface. Four large prose-heavy components migrated
-to `useT()`:
-
-- **Layers** (six awareness streams) — `layers.head.{tag,
-  title,description}` + 18 keys for the six cards
-  (`layers.l1..l6.{tag,title,body}`) + `layers.signal.prefix`
-- **Domains** (pack picker) — `domains.head.{tag,title,
-  description}` + `domains.armed` + `domains.throughput.normal`
-  + 16 keys for the four packs (title + 3 bullets each).
-  `domains.<slug>.name` keys reuse the existing entries from
-  the DomainsCards block — single source of truth.
-- **ProofStrip** (count-up stat row) — `proof.aria` +
-  8 keys for the four cells (`proof.s1..s4.{label,caption}`)
-- **MeeetSection** (three meeet.world pillars) —
-  `meeetSection.{eyebrow,title.prefix,subtitle}` + 15 keys
-  for the three pillars (tag, title, body, statNum, statLabel
-  × 3)
-
-**Total: 60 new keys × 2 locales (RU↔EN parity 100%)**.
-
-The parity guard in `i18n.test.ts` would catch any missed
-RU translation at CI time.
-
-**Files**
-- modify: `experiments/neural-showcase-v3/src/lib/i18n.tsx`
-  (+60 EN, +60 RU)
-- modify: `experiments/neural-showcase-v3/src/components/Layers.tsx`
-  (CARDS now uses `tagKey`/`titleKey`/`bodyKey` discriminator;
-  signal label and section head all from `t()`)
-- modify: `experiments/neural-showcase-v3/src/components/Domains.tsx`
-  (PACKS uses `nameKey`/`titleKey`/`bulletKeys` discriminator;
-  picker tabs, ARMED lozenge, throughput label, section head
-  all from `t()`)
-- modify: `experiments/neural-showcase-v3/src/components/ProofStrip.tsx`
-  (STATS uses `labelKey`/`captionKey` discriminator; aria
-  label from `t()`)
-- modify: `experiments/neural-showcase-v3/src/components/MeeetSection.tsx`
-  (PILLARS uses `tagKey`/`titleKey`/`bodyKey`/`statNumKey`/
-  `statLabelKey` discriminator; eyebrow + gradient title +
-  subtitle all from `t()`)
-
-**Verification**
-- `pnpm typecheck` (v3): clean
-- `pnpm test --run` (v3): **368 passed** / 26 files (parity
-  guard green on 60 new bilingual keys)
-- `pnpm build` (v3): clean
-
-**Coverage status after audit-5**: every above-the-fold and
-mid-page Landing section runs through `useT()` — Hero,
-TrustStrip, ProofStrip, MeetTars, Rail, Layers, Steps,
-Domains, CockpitLive, MeeetSection, Pricing, Waitlist, FAQ,
-Footer, install, cockpit gate, locale switcher. Remaining
-non-translated copy is in deliberately code-shaped surfaces
-(BarStack labels like `BTC · ETH · SOL · NDX`, terminal
-chrome `localhost:8765`, level lozenges `L01..L06`) that
-benefit from staying universal across locales.
-
-## 2026-05-04 — Cursor: audit-4 — Landing i18n coverage (Steps · Rail · CockpitLive)
-
-Closed the last visible gap from earlier audits: three of the
-loudest above-the-fold sections on `/` (Steps, Rail, CockpitLive)
-were still hard-coded English. Migrated them to `useT()` with
-38 new translation keys per locale. The parity guard
-(`i18n.test.ts`) keeps RU coverage at 100%.
-
-**New i18n namespaces (EN + RU at full parity)**
-- `steps.*` (15 keys) — section head, three step cards
-  (title/body/cue × 3)
-- `rail.*` (15 keys) — six stream labels, three live metrics
-  (integrity / streams / latency), units (ms / %)
-- `cockpitLive.*` (8 keys) — eyebrow, gradient title halves,
-  CTA, chrome title, booting label, LIVE badge, footer note
-
-**Files**
-- modify: `experiments/neural-showcase-v3/src/lib/i18n.tsx`
-  (38 new keys × 2 locales)
-- modify: `experiments/neural-showcase-v3/src/components/Steps.tsx`
-  (STEPS array now built from `t()`, head from `t()`)
-- modify: `experiments/neural-showcase-v3/src/components/Rail.tsx`
-  (STREAM_KEYS as const satisfies TKey[]; aria, metrics,
-  units all from `t()`)
-- modify: `experiments/neural-showcase-v3/src/components/CockpitLive.tsx`
-  (eyebrow, title halves, CTA, chrome title, booting label,
-  badge, footer note + CTA all from `t()`)
-
-**Verification**
-- `pnpm typecheck` (v3): clean
-- `pnpm test --run src/lib/i18n.test.ts`: 12/12 passed
-  (parity guard would fail on any missed RU translation)
-- `pnpm test --run` (v3): **368 passed** / 26 files
-- `pnpm build` (v3): clean
-
-**Coverage status**: hero / about-the-app / pricing / waitlist /
-FAQ / footer / Steps / Rail / CockpitLive / cockpit gate /
-install / locale switcher all on `useT()`. Remaining offenders
-(MeetTars secondary copy, MeeetSection long-form, Layers,
-Domains static cards, ProofStrip) are all longer-form marketing
-prose that benefits from a dedicated translation pass — defer
-to operator pick.
-
-## 2026-05-04 — Cursor: audit-3 — release resilience + memory tracing
-
-After v9.1.0 shipped, the GitHub macOS-13 (Intel) runner pool
-was queue-starved → the `Build - macOS-x64` job sat in
-"queued" status for 40+ minutes. Three concrete fixes:
-
-1. **Workflow resilience** —
-   `release-desktop-tagged.yml` now marks the macos-13 job
-   `continue-on-error: true` and adds a 90-min `timeout-minutes`.
-   `notify` + `update-download-links` flow rewritten to use
-   `!failure() && !cancelled()` so an optional mac-x64 failure
-   no longer suppresses the operator-facing summary log.
-
-2. **Fallback redirects** — `web_extras/routers/product.py`
-   `LEGACY_DL_TO_RELEASE_URL` now sends
-   `TARS-9.1.0-x64.dmg` requests to the arm64 dmg (Rosetta runs
-   it cleanly). The `<Install />` page's `mac-x64` row now
-   labels itself "Intel x64 (via Rosetta)" and serves the same
-   arm64 asset. New `intelMacFallbackToArm` option on
-   `primaryAssetName` covers the same fallback for any future
-   call site.
-
-3. **Memory router tracing** — `web_extras/routers/memory.py`
-   `POST /api/packs/{slug}/memory` and
-   `DELETE /api/packs/{slug}/memory/{key}` now wrap in
-   `trace_scope` and emit `memory.upsert.{requested,completed,
-   failed}` and `memory.delete.{requested,completed,failed}`
-   meeet events. Pack memory writes are operator-meaningful
-   (every saved fact eventually feeds prompt context) so
-   provenance ends up in the trail.
-
-4. **Release-notes polish** — v9.1.0 GitHub release body
-   rewritten to cover all three audit passes + the macOS
-   first-run command + the Intel-Mac-via-Rosetta note.
-
-**Files**
-- modify: `.github/workflows/release-desktop-tagged.yml`
-  (matrix row marks mac-x64 optional + timeout + summary
-  rewrite)
-- modify: `web_extras/routers/memory.py` (trace_scope + events
-  on upsert/delete)
-- modify: `web_extras/routers/product.py` (TARS-9.1.0-x64.dmg
-  fallback)
-- modify: `experiments/neural-showcase-v3/src/pages/Install.tsx`
-  (mac-x64 row labelled "via Rosetta", asset = arm64 dmg)
-- modify: `experiments/neural-showcase-v3/src/lib/installDetect.ts`
-  (intelMacFallbackToArm option)
-- modify: `experiments/neural-showcase-v3/src/lib/installDetect.test.ts`
-  (3 new cases pinning the fallback)
-- modify: `tests/test_meeet_router_trace_coverage.py`
-  (2 new cases for memory.upsert + memory.delete)
-- modify: GitHub release v9.1.0 body (gh release edit)
-
-**Verification**
-- `pytest tests/`: **2406 passed / 1 skipped / 2 xfailed** in 39s
-  (+2 from new memory trace coverage tests)
-- `pnpm test --run` (v3): **368 passed / 26 files** (+3 from
-  new fallback tests)
-- `pnpm typecheck` (v3): clean
-- `pnpm build` (v3): clean
-
 ---
 
-_Showing the most recent 60 of 268 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 274 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
