@@ -794,6 +794,236 @@ comms)**.
 
 ---
 
+## Operator post-GA first-week runbook + rollback decision tree
+
+(W310-aq, docs-only extension to PR #192)
+
+Once the GA cookbook (W310-ao) reaches its terminal state — `v10.0.0`
+tagged, downloaded, drag-installed, soak cron running, brother coord
+verified at T+24-72 h — the operator enters the **first-week post-GA
+window**: D+0 through D+7, when real user behavior surfaces hidden
+issues that the soak harness + smoke tests could not catch. This is
+the most stressful 7 days of any release. Without a runbook, every
+incoming signal becomes an ad-hoc decision under fatigue; with one,
+the operator just executes.
+
+The runbook compresses three orthogonal axes:
+
+1. **Monitoring cadence** — when to check what, hour-by-hour through
+   T+72 h, then daily through D+7. Eliminates "did I forget to check
+   X today?" anxiety.
+2. **Signal taxonomy** — what counts as actionable (SLO breach, crash
+   rate spike, brother sync 5 failure, user-reported critical) vs.
+   noise (single-user transient, expected onboarding friction). Each
+   actionable signal maps to one of three responses: **hotfix**,
+   **forward-fix to v10.1**, or **rollback to v9.1.0**.
+3. **Response decision tree** — for each response class, an exact
+   bash playbook so the operator never improvises a destructive
+   command under pressure.
+
+### Monitoring cadence (T+0 → D+7)
+
+```text
+T+0    (tag cut moment)               — GA cookbook Phase E entry
+T+0 to T+72 h                          — SOAK-HOURLY cron + manual
+                                         dashboard checks every 4-6 h
+                                         + 1 BROTHER-POSTFLIGHT @ T+24h
+T+72 h                                 — SOAK-REPORT verdict + final
+                                         BROTHER-POSTFLIGHT @ T+72h
+D+1 (24 h post-tag)                    — first user-feedback intake
+                                         pass (meeet.world ingest
+                                         dashboard, GitHub issues,
+                                         operator inbox)
+D+2 through D+6                        — daily SOAK-REPORT spot-check
+                                         + daily brother coord sync
+                                         (Sync 5 weekly cadence per
+                                         W310-m starts here)
+D+7                                    — first-week retro: extract
+                                         feedback patterns, decide
+                                         v10.0.1 hotfix scope OR
+                                         confirm clean week (close
+                                         GA arc, archive playbook)
+```
+
+Each cadence checkpoint maps to **one bash command**:
+
+```bash
+# Hourly during T+0 → T+72 h (set by cron in GA cookbook Phase C):
+#   0 * * * * bash scripts/SOAK-HOURLY.command >> ~/.tars/soak.log 2>&1
+
+# Manual check every 4-6 h during T+0 → T+72 h:
+bash scripts/SOAK-REPORT.command          # snapshot verdict on cron output
+
+# T+24 h and T+72 h:
+bash scripts/BROTHER-POSTFLIGHT.command   # coord regression sweep
+
+# Daily D+1 → D+7:
+bash scripts/SOAK-REPORT.command          # daily soak verdict
+# Weekly starting D+1 (per W310-m Sync 5):
+bash scripts/BROTHER-POSTFLIGHT.command   # weekly coord regression
+```
+
+No new helpers needed. The six W310 verdict wrappers cover the entire
+first-week monitoring surface; only the **cadence** is added.
+
+### Signal taxonomy (actionable vs noise)
+
+| Signal | Source | Class | Response |
+|---|---|---|---|
+| **SLO breach >2x baseline for >15 min** | `SOAK-HOURLY.log` shows p95 voice/chat/auth/sign latency >2x perf-report numbers | CRITICAL | **Rollback decision** (see tree below) |
+| **Console error rate >5% of sessions** | meeet.world ingest dashboard `domain.action.failed` count / total sessions | CRITICAL | **Rollback decision** if reproducible on clean install; **hotfix** if config-fixable |
+| **Brother sync 5 (`/operator` reconciliation) failure rate >10%** | `BROTHER-POSTFLIGHT.command` PARTIAL verdict on Sync 5 | CRITICAL | **Coordinate with brother**: not a TARS-side fix; pause new-user funnel until brother reconciliation green |
+| **Apple sign chain failure on installer** | User reports "TARS.app is damaged"; spctl reports unsigned/quarantine fail | CRITICAL | **Hotfix v10.0.1**: re-sign with refreshed `.p12`, re-cut tag, replay GA cookbook from Phase B |
+| **Single-user crash with no repro** | One GitHub issue, no other reports, can't reproduce locally | NOISE | Triage to v10.1 backlog; ask for additional logs |
+| **Onboarding friction (user confused but no error)** | meeet.world ingest shows funnel drop at specific step; no failed events | LOW | Triage to PH10 design-polish backlog (#213) |
+| **Feature request** | Any "I wish TARS could X" report | LOW | Triage to `docs/IDEAS.md` queue |
+| **Non-crash perf regression (<2x baseline, no SLO breach)** | SOAK shows p95 1.3x-1.8x baseline but within SLO floor | MEDIUM | **Forward-fix to v10.0.1** if root-cause traceable; **defer to v10.1** if requires arch change |
+
+**Iron rule**: any signal in the CRITICAL row triggers the rollback
+decision tree below within 1 h of detection. Do not improvise.
+
+### Rollback decision tree
+
+```text
+CRITICAL signal detected
+│
+├── Is it brother-side? (Sync 5 failure rate >10%)
+│   └── YES → Pause new-user funnel via TARS feature flag.
+│             Coordinate with brother on root cause + ETA.
+│             No TARS-side rollback. Resume funnel after brother green.
+│             (No code change. Operator decision only.)
+│
+├── Is it Apple-sign chain? ("damaged" / spctl fail)
+│   └── YES → Hotfix v10.0.1 path (NOT rollback):
+│             1. Refresh .p12 if expired; otherwise re-export cert.
+│             2. Push new .p12 + (re-)push 5 GH secrets per #199.
+│             3. Re-run W310-ap rehearsal matrix (sanity check).
+│             4. Re-run W310-ao GA cookbook from Phase B with
+│                RELEASE_TAG=v10.0.1 instead of v10.0.0.
+│             5. Announce v10.0.1 as silent-fix to v10.0.0 users.
+│             6. v10.0.0 tag stays cut but binaries are superseded;
+│                update meeet.world/tars download link to point to
+│                v10.0.1 within 30 min of v10.0.1 GA cookbook exit 0.
+│
+├── Is it reproducible on clean install?
+│   ├── YES + fix is <100 LoC + no contract change
+│   │       → Forward-fix v10.0.1 path:
+│   │         1. Cherry-pick fix commit onto release branch.
+│   │         2. Re-run FINAL-QA-VERDICT + GA-COOKBOOK on hotfix branch.
+│   │         3. Cut RELEASE_TAG=v10.0.1 via Phase B-D of W310-ao.
+│   │         4. Announce v10.0.1 to v10.0.0 users (changelog entry +
+│   │            meeet.world download link update).
+│   │
+│   ├── YES + fix requires contract change OR >100 LoC
+│   │       → Rollback to v9.1.0 path:
+│   │         1. Announce rollback to all v10.0.0 users (banner in
+│   │            cockpit via meeet.world feature flag).
+│   │         2. Re-publish v9.1.0 binaries to release-v10 download URL
+│   │            (transparent rollback; users get v9.1.0 on next
+│   │            updater check).
+│   │         3. Tag v10.0.0-rollback-to-v9.1.0 as marker on main.
+│   │         4. Open post-mortem doc in docs/handoff/.
+│   │         5. Schedule v10.0.1 OR v10.1.0 with proper fix +
+│   │            re-spec the relevant L-phase brief.
+│   │         6. Estimated downtime: ~30 min (manual + brother coord).
+│   │
+│   └── NO (cannot reproduce) → Triage to NOISE class; ask reporter
+│                                for `~/.tars/meeet/events.jsonl` and
+│                                console log; defer to v10.0.1 OR v10.1
+│                                backlog. Do NOT rollback on single
+│                                unreproducible signal.
+```
+
+### Rollback to v9.1.0 — exact bash playbook (LAST RESORT)
+
+This is the only destructive operator action in the first-week runbook.
+**Run only after the decision tree above confirms rollback class.**
+
+```bash
+# Step 1/6: Announce rollback (60 s) — feature flag drops cockpit banner
+#           that says "TARS is rolling back to v9.1.0 due to <reason>;
+#           your data is safe; updater will auto-roll you forward."
+#           Brother-side serves the banner via meeet.world feature flag
+#           endpoint /api/feature_flags/tars/rollback_banner = ON.
+#           No TARS-side code change.
+gh api -X POST /repos/{owner}/meeet-platform/dispatches \
+  -f event_type=tars_rollback_banner \
+  -f client_payload='{"version":"v9.1.0","reason":"<one-line>"}'
+
+# Step 2/6: Re-publish v9.1.0 binaries to release-v10 URL (5-10 min).
+#           Uses the v9.1.0 release artifacts already on GH; just
+#           re-points the meeet.world updater channel JSON to them.
+gh release view v9.1.0 --json assets --jq '.assets[].browser_download_url' \
+  > /tmp/v910_assets.txt
+# Operator manually replaces 6 lines in meeet.world updater-channel.json:
+#   "stable.darwin.x64": "...v9.1.0...darwin-x64.dmg"
+#   "stable.darwin.arm64": "...v9.1.0...darwin-arm64.dmg"
+#   "stable.windows.x64": "...v9.1.0...windows-x64.exe"
+#   "stable.linux.x64": "...v9.1.0...linux-x64.deb"
+#   "stable.linux.appimage": "...v9.1.0...linux.AppImage"
+#   "current_version": "v9.1.0"
+
+# Step 3/6: Tag rollback marker on main (no destructive op, just marker).
+git fetch --tags
+git tag -a v10.0.0-rollback-to-v9.1.0 -m "Rollback to v9.1.0 due to <reason>" main
+git push origin v10.0.0-rollback-to-v9.1.0
+
+# Step 4/6: Confirm rollback via Gate B against v9.1.0 instead of v10.0.0.
+TARS_RELEASE_TAG=v9.1.0 \
+  bash scripts/DOWNLOAD-AND-VERIFY-RELEASE.command \
+  || { echo "v9.1.0 binary signature broken — escalate immediately."; exit 1; }
+
+# Step 5/6: Confirm cockpit banner is live on a clean Mac.
+#           Open release-v10 download URL, install, launch — expect
+#           v9.1.0 UI with rollback banner visible at top of cockpit.
+
+# Step 6/6: Open post-mortem doc within 24 h of rollback.
+cat > "docs/handoff/POSTMORTEM_v10.0.0_rollback_$(date +%Y%m%d).md" <<'MORTEM_EOF'
+# v10.0.0 GA rollback post-mortem
+
+- Tag cut at: <T+0>
+- Rollback decision at: <T+...>
+- Trigger signal: <CRITICAL row from taxonomy>
+- Root cause: <one-paragraph>
+- Hotfix vs v10.0.1 vs v10.1 plan: <decision>
+- Action items: <list>
+- v9.1.0 was live again at: <T+...>
+- Total downtime (users on v10.0.0): <minutes>
+MORTEM_EOF
+```
+
+After v9.1.0 is live again, the operator is back to the pre-W310 state
+and re-enters the planning surface (brief #197 PH11 QA sweep) to spec
+a corrected GA path. The v10.0.0 tag stays cut on the repo as a
+historical marker; only the binary distribution channel is reverted.
+
+### Why this is a docs-only extension (W310-aq)
+
+Same rationale as W310-an/ao/ap: every helper this runbook needs is
+already shipped (the six verdict wrappers + SOAK-HOURLY/SOAK-REPORT +
+`scripts/RELEASE-v10.0.command`). The runbook only **composes** them
+into a cadence + signal taxonomy + decision tree. Writing a new
+script would add a PR to the queue without adding any new
+verification capability. Better: write the bash playbook into the
+existing wave summary doc and call it from `docs/handoff/PH11_QA_
+SWEEP_BRIEF.md` once that PR (#197) lands.
+
+W310-aq is the **fourth and final docs-only extension** to PR #192,
+completing the operator orchestration arc:
+
+- **W310-an** — how to get to tag day (merge sequence, 37 PRs → main).
+- **W310-ao** — how to cut the tag (GA cookbook, 11 decisions → 1 paste).
+- **W310-ap** — how to rehearse before tag day (drift detection, 30 s paste).
+- **W310-aq** — how to survive the first week post-tag (cadence + taxonomy + rollback).
+
+Together, the four playbooks cover the **entire operator surface of
+v10.0.0 GA**, from "37 PRs in merge queue" through "v10.0.0 has shipped
+cleanly to users for 7 days with zero rollbacks". No remembered
+sequencing, no remembered probes, no improvised rollback under
+pressure.
+
+---
+
 ## Pending W310 follow-ups (post-merge)
 
 - **`ph1-ci-cache-other-workflows`** — after PR #188 lands, apply the same `qa-agent.yml`-style header-comment trick to `e2e-suite.yml`, `eval-suite.yml`, `credential-sentinel.yml`, `scan-working-tree.yml`. **Mix-of-scopes risk** — done as a separate small infra PR, not bundled into anything else.
@@ -1455,30 +1685,57 @@ passes:
   T-7d baseline, T-1d post-final-merge, tag-day-morning Step 0/11. Any
   RED defers tag-cut until rehearsal passes; rehearsal is purely
   read-only so the defer cost is "one more rehearsal run after the
-  fix" not "operator burns a tag attempt". All three playbooks compress
+  fix" not "operator burns a tag attempt". **W310-aq** added the
+  "Operator post-GA first-week runbook + rollback decision tree"
+  subsection — covers what happens AFTER the tag is cut and binaries
+  are downloaded (Phase E in the GA cookbook closing block was
+  previously "operator-paced, no helper wrapper"). Spec'd: (1) hour-
+  by-hour monitoring cadence T+0 → T+72 h → D+1 → D+7, all 4 cadence
+  checkpoints mapped to existing wrapper commands (no new helpers);
+  (2) 8-row signal taxonomy that classifies each user-facing signal
+  (SLO breach, console error spike, brother sync 5 failure, Apple
+  sign chain failure, single-user crash, onboarding friction, feature
+  request, non-crash perf regression) onto CRITICAL/MEDIUM/LOW/NOISE
+  + one of three response classes (hotfix / forward-fix v10.0.1 /
+  rollback v9.1.0); (3) rollback decision tree that splits CRITICAL
+  signals into 4 branches (brother-side = pause new-user funnel via
+  feature flag, NO TARS rollback; Apple-sign chain = hotfix v10.0.1
+  with refreshed cert; reproducible-fixable = forward-fix v10.0.1;
+  reproducible-non-trivial = full rollback to v9.1.0); (4) exact
+  6-step bash playbook for the LAST RESORT rollback to v9.1.0 (feature
+  flag banner + binary re-publish + rollback tag marker + Gate B
+  re-verify against v9.1.0 + clean-Mac install confirmation + post-
+  mortem doc opened within 24 h). Iron rule: any CRITICAL signal
+  triggers the decision tree within 1 h of detection; the operator
+  never improvises a destructive command. All four playbooks compress
   the W310 backlog landing + v10.0.0 GA cut + tag-day-orchestration-
-  drift-detection from ~30 remembered probes + ~50 separate commands
-  + zero rehearsal capability (current state: operator discovers drift
-  mid-tag-cut) into ~3 paste actions + 2 typed confirmations + 1
-  rehearsal paste that runs in 30 s. **None adds a new PR to the
-  open queue** — all extend PR #192's wave summary in-place. **Why
-  this discipline:** each new helper grows the merge backlog by one
-  without unblocking throughput on the already-shipped 10 helpers;
-  the docs-only extensions compress operator decisions into paste-
-  actions rooted on existing artefacts, which is the only remaining
-  lever for reducing wall-clock-to-GA without growing the queue
-  further.
+  drift-detection + first-week incident response from ~30 remembered
+  probes + ~50 separate commands + zero rehearsal capability + zero
+  pre-spec'd rollback path (current state: operator improvises
+  rollback under pressure) into ~4 paste actions + 2 typed
+  confirmations + 1 rehearsal paste + 1 decision tree walk that runs
+  in seconds. **None adds a new PR to the open queue** — all extend
+  PR #192's wave summary in-place. **Why this discipline:** each
+  new helper grows the merge backlog by one without unblocking
+  throughput on the already-shipped 10 helpers; the docs-only
+  extensions compress operator decisions into paste-actions rooted
+  on existing artefacts, which is the only remaining lever for
+  reducing wall-clock-to-GA AND first-week incident MTTR without
+  growing the queue further.
 
 **W310 PLANNING SURFACE CLOSED ✅; IMPLEMENTER SURFACE OPENED — TEN
-HELPERS SHIPPED + THREE DOCS-ONLY EXTENSIONS.** Pickup pointer for any
+HELPERS SHIPPED + FOUR DOCS-ONLY EXTENSIONS.** Pickup pointer for any
 agent landing in the meeet workspace now lists all **37 active PRs**
 (27 planning + 10 implementer follow-ups), all closed stacks, and
 points at this wave summary as the single-page operator-readable W310
-retrospective — including THREE copy-paste-ready bash playbooks (merge
-sequence + GA cookbook execution sequence + dry-run rehearsal matrix)
-added in-place via W310-an + W310-ao + W310-ap docs-only extensions
+retrospective — including FOUR copy-paste-ready bash playbooks (merge
+sequence + GA cookbook execution sequence + dry-run rehearsal matrix
++ post-GA first-week runbook with rollback decision tree) added in-
+place via W310-an + W310-ao + W310-ap + W310-aq docs-only extensions
 that explicitly chose NOT to grow the queue with new PRs but to extract
-operator throughput from what's already shipped. The next implementer session in any phase (PH2 voice
+operator throughput from what's already shipped, covering the full arc
+from "37 PRs in merge queue" through "v10.0.0 has shipped cleanly to
+users for 7 days with zero rollbacks". The next implementer session in any phase (PH2 voice
 / PH3 keyring + UX + mobile / PH4 sign trio / PH5 real-data trio /
 PH6 sandbox / PH7 planner / PH8 marketplace / PH9 mobile trio / PH10
 Claude polish / PH11 GA dock-down) opens to a fully-specified brief
@@ -1511,26 +1768,35 @@ binary alive enough to start the 72 h soak cron?"*, Postflight for
 PROCEED / BLOCK / PARTIAL verdict with per-failure remediation pointers
 to the planning briefs.
 
-The three docs-only extensions (W310-an operator one-shot merge sequence
+The four docs-only extensions (W310-an operator one-shot merge sequence
 + W310-ao operator one-shot GA cookbook execution sequence + W310-ap
-operator dry-run rehearsal matrix) close the "operator orchestration"
+operator dry-run rehearsal matrix + W310-aq operator post-GA first-week
+runbook + rollback decision tree) close the "operator orchestration"
 gap on top: W310-an gives a copy-paste-ready 5-tier bash playbook that
 lands all 37 W310 PRs in ~20-30 min of wall-clock; W310-ao gives a
 copy-paste-ready 5-phase bash playbook that cuts v10.0.0 GA from
 merged-queue state to tagged-shipped-soaking in ~30-50 min active +
 72 h passive, with only TWO operator-required pause points (Step 4
 destructive tag-cut confirmation + Step 7 manual drag-install
-confirmation) and explicit per-phase rollback decision trees; **W310-ap
+confirmation) and explicit per-phase rollback decision trees; W310-ap
 gives a copy-paste-ready ~30 s bash matrix that exercises all 6
 verdict wrappers in `*_DRY_RUN=1` mode against the current state of
 `main` to detect orchestration drift at rehearsal-day cost (one-line
 fix) instead of tag-day cost (blocked tag cut), with per-helper drift-
 signal taxonomy mapping each unexpected RED row onto the likely
-single-line fix**. Together the three playbooks compress the W310
-backlog landing + v10.0.0 GA cut + tag-day-orchestration-drift-detection
-from ~30 remembered probes + ~50 separate commands + zero rehearsal
-capability into ~3 paste actions + 2 typed confirmations + 1 rehearsal
-paste.
+single-line fix; **W310-aq gives a complete first-week (T+0 → D+7)
+post-GA runbook with hour-by-hour monitoring cadence, an 8-row signal
+taxonomy that maps each user-facing CRITICAL/MEDIUM/LOW/NOISE class
+onto one of three response classes (hotfix, forward-fix to v10.0.1,
+rollback to v9.1.0), and a 6-step destructive rollback playbook so
+the operator never improvises a rollback command under pressure**.
+Together the four playbooks compress the W310 backlog landing +
+v10.0.0 GA cut + tag-day-orchestration-drift-detection + first-week
+incident response from ~30 remembered probes + ~50 separate commands
++ zero rehearsal capability + zero pre-spec'd rollback path into
+~4 paste actions + 2 typed confirmations + 1 rehearsal paste +
+1 decision tree that the operator walks for any first-week CRITICAL
+signal.
 
 Only the operator action items (.p12 supply, secret push via GitHub
 UI, manual dispatch dry-run click, blog post draft, drag-install on
@@ -1574,9 +1840,13 @@ The operator's full verification mental model is now **six bash
 commands, six exit codes, six color-coded verdicts** — perfectly
 symmetric across the tag-cut boundary AND across the post-install
 health bridge AND across the post-launch drift-detection window —
-plus **TWO copy-paste bash playbooks** that orchestrate the entire
-flow from "37 PRs merged" through "v10.0.0 tagged + soaking + brother
-coord verified" with only 2 operator-typed confirmations.
+plus **FOUR copy-paste bash playbooks** (W310-an merge sequence +
+W310-ao GA cookbook execution + W310-ap dry-run rehearsal matrix +
+W310-aq post-GA first-week runbook with rollback decision tree) that
+orchestrate the entire flow from "37 PRs in merge queue" through
+"v10.0.0 has shipped cleanly to users for 7 days with zero rollbacks"
+with only 2 operator-typed confirmations and 1 walked-decision-tree
+for any first-week CRITICAL signal.
 
 ---
 
