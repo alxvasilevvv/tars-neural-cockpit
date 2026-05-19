@@ -9,6 +9,13 @@
 # scenarios where a sandbox dep (e.g. ``pynacl``) is missing, so the
 # CI runner doesn't need extra requirements beyond the minimum the
 # rest of the backend already pulls in.
+#
+# W310-au (2026-05-19): GH Actions registration cache may be stale on
+# this workflow (symptom: every PR run dies in ~3 s with "workflow file
+# issue" — same root cause as qa-agent.yml per W310-c). Touching this
+# header forces re-registration on the next merge to main. Pair with PR
+# #188 (qa-agent.yml) + sibling touches on eval-suite.yml and
+# credential-sentinel.yml. Once a non-0 s run is observed, delete block.
 
 name: e2e-suite
 

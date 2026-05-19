@@ -1,115 +1,582 @@
 # Agent changelog
 
+## W310-at — sync layer on PR #188 (canonical state docs refresh, 2026-05-19)
+
+**Agent**: Cursor (Opus 4.7 parent assistant). Continuation of W310 arc on operator directive "продолжай"; this entry covers the W310-at sync layer that updates three canonical "state" docs on PR #188's branch to match the post-W310-as wave landscape.
+
+**Scope**: refresh `CURRENT_STATUS.md`, `TARS_MASTER_DOC.md §6.4`, and `PROJECT_INDEX.md` so the reader landing on PR #188 sees a self-consistent forward-execution + daily-pulse + master-doc + index, not a mix of fresh master plan against stale 2026-05-15/W269 daily pulse + stale W267 Top-5 in §6.4. ZERO new code, ZERO new helpers; pure cross-doc sync to close the silent drift gap that W310 inadvertently opened by landing on its own branch + extending sibling PRs (#192, #198) but never touching the canonical state docs themselves.
+
+### What happened
+
+1. **`CURRENT_STATUS.md` rewrite** (commit `c7d2cf0`). Was dated 2026-05-15 / W269 and read "GA is DONE except 5 external items". Replaced with:
+   - **Top:** new "Read first (60-second pulse)" block pointing at `docs/W310_WAVE_SUMMARY.md` TLDR (W310-as).
+   - **New section:** "W310 — post-rc1 PR triage wave (2026-05-18 → 2026-05-19)" with the full sub-wave table (runtime/triage a..f / planning-surface briefs g..ac / implementer follow-ups ad..am / docs-only extensions an..as / cross-stack mirror aq).
+   - **"What's left for the operator" rewritten:** replaces stale 5-item list with the post-W310-l 8-hard-blocker table (3 brother A1/A2/A5 from PR #198 + 5 Apple sign B1-B5 from PR #199), plus a deferred-to-v10.1+ subsection (Windows Authenticode / VS Code marketplace / on-prem customer / Linux signing). Includes paste-ready bash playbook for the 6-wrapper GA cookbook chain.
+   - **New coda:** "Status (W310-as, 2026-05-19): GA orchestration arc closed" replacing the stale W267 "GA is DONE" coda. Names 37 PRs / 6 wrappers / 5 playbooks / cross-stack mirror / TLDR + forward-pointers to v10.1 / v10.2 / v11 via W310-aq + W310-ar.
+   - 129 lines added, 16 lines deleted; final file = 238 lines.
+
+2. **`TARS_MASTER_DOC.md §6.4 Path to v10.0 GA` reconciliation** (commit `9f2de69`). Kept the W267 "Top 5 external items" historical snapshot intact (per the doc rule: forward execution lives in `PRODUCT_MASTER_PLAN.md`); appended a new "Reconciliation (W310-at, 2026-05-19)" subsection right after the W267 status block that documents:
+   - Top 5 widened to 8 hard blockers post-W310-l (3 brother coord + 5 Apple sign).
+   - Items 4-5 (VS Code marketplace + on-prem customer) deferred to v10.1+ per W310-l.
+   - 6 single-decision verdict wrappers as PRs #214-#223.
+   - 5 docs-only paste playbooks compressing D-0 → D+365 arc into "5 paste actions + 2 typed confirmations + 1 decision-tree walk + 1 sprint-matrix paste per sprint kickoff".
+   - Cross-stack mirror in PR #198 §8.A.
+   - 33 lines added.
+
+3. **`PROJECT_INDEX.md` entry add** (commit `9f2de69`, same as above). Added missing entry for `docs/handoff/MCP_REWRITE_BRIEF.md` (which has been on PR #188's branch since W310 but never indexed). Annotated as "W310 (a)" to mark it as the first item of the W310 wave (replaces closed PR #177; 16 spec-pinned tests; ~12-15h effort). 1 line added.
+
+4. **Cross-workspace sync**. Updated `meeet-browser-agent/AGENTS.md` PR #188 description bullet (+1/-1 LoC, commit `cbc88cf` on `cursor/bootstrap-workspace`) and `meeet-browser-agent/TARS_OVERVIEW_RU.md` header + author trail + active-PR row + operator-next-step bullet (+4/-4 LoC across 4 touch points, commit `84f9c8d`) so a freshly-landed agent in `meeet-browser-agent` sees the W310-at sync layer note before pivoting into TARS.
+
+5. **PR #188 comment** posted at https://github.com/alxvasilevvv/tars-neural-cockpit/pull/188#issuecomment-4484909714 announcing the W310-at sync layer; explains why the three TARS-side state docs got folded into PR #188's scope rather than carved into a separate PR (= one merge ships self-consistent landing surface) + reiterates merge order (PR #188 first, then W310-an playbook).
+
+### Files touched (W310-at)
+
+| File | Change |
+|---|---|
+| `CURRENT_STATUS.md` | Full rewrite of "Read first" block + new W310 section + "What's left" replacement + new W310-as coda. 129+/16-. |
+| `TARS_MASTER_DOC.md` | New "Reconciliation (W310-at, 2026-05-19)" subsection appended to §6.4 after W267 Top-5 historical block. 33+. |
+| `PROJECT_INDEX.md` | Added `docs/handoff/MCP_REWRITE_BRIEF.md` row in handoff briefs section, annotated W310 (a). 1+. |
+| `docs/CHANGELOG_AGENTS.md` | This entry. |
+| (cross-workspace) `meeet-browser-agent/AGENTS.md` | +1/-1 — PR #188 description bullet extended with W310-at sync note. |
+| (cross-workspace) `meeet-browser-agent/TARS_OVERVIEW_RU.md` | +4/-4 — header + author trail + active-PR row + operator-next-step bullet refreshed. |
+
+### What is NOT done (deliberate)
+
+- **PR #188 description rewrite on GitHub itself** — kept as W310-at PR comment (single notification surface) rather than amending the PR body, because the body still correctly reflects the master plan + M-wave consolidation + qa-agent fix scope and the W310-at sync layer is best understood as a follow-up sync rather than a fundamental scope change. Reader who reads the PR comment thread sees the announcement.
+- **CHANGELOG_PUBLIC.md entry** — pure-docs sync layer with zero user-facing behaviour change; nothing to announce in the public changelog. (W310-c set the same precedent: agent-changelog only, no public-changelog entry.)
+- **Sibling-PR PROJECT_INDEX entries** for the rest of the W310 wave (PR #192 wave summary, PR #197/#198/#199 handoff briefs, PRs #214-#223 helper scripts) — those briefs / scripts live on sibling PR branches; they should add their own PROJECT_INDEX entries as those PRs merge, otherwise PROJECT_INDEX on this branch would lie about the state of `main` until those PRs land too.
+
+### Operator inputs needed
+
+Same as W310-c: merge PR #188 first (it now ships the W310-at sync layer alongside the master plan + qa-agent fix), then paste the W310-an merge sequence from `docs/W310_WAVE_SUMMARY.md` to drain the remaining 36 PRs.
+
+---
+
+## W310-c — independent-PR cleanup pass (2026-05-18)
+
+**Agent**: Cursor (Sonnet 4.6 parent assistant). Continuation of W310 / W310-b on operator directive "продолжай".
+
+**Scope**: triage the three PRs that PRODUCT_MASTER_PLAN.md §2.2 flagged as independent of the (closed) MCP / Algotrade stacks: PR #183 (voice persona fallback), PR #175 (install funnel cross-target), and PR #182 (cockpit MCP panel — explicitly deferred until consolidated MCP rewrite lands).
+
+### What happened
+
+1. **PR #183 rebase attempt → aborted with diagnosis.** Pruned 5 stale worktrees on `/private/tmp/jarvis-*` so checkout could proceed, then `git rebase origin/main` on `cursor/voice-persona-fallback`. Conflicts in `docs/CHANGELOG_AGENTS.md` + `docs/CHANGELOG_PUBLIC.md` (trivial — pre-commit regenerates), but `web_extras/routers/voice.py` carried a **semantic** conflict: W295 (shipped to main 2026-05-xx) and Phase L4.2 (this PR) both define `GET /api/voice/personas/effective` with **different response shapes** and **different resolution backends** (W295 uses `resolve_effective()` shared with `/speak`; L4.2 uses `MacSayEngine._pick_fallback_voice()` directly). Naïve "accept ours" breaks the L4.2 substitution diagnostic (the whole UX point of the PR). Naïve "accept theirs" breaks the W290 acceptance harness (`scripts/qa_w290_cockpit.sh` Group 9). Correct merge requires a 30-60min semantic refactor to make `resolve_effective()` alternatives-aware. Filed [PR #183 comment](https://github.com/alxvasilevvv/tars-neural-cockpit/pull/183#issuecomment-4472299281) with the full diff diagnosis + 3 paths (A=full refactor → DRY win, B=additive merge → minimal diff, C=close+defer → ship as part of `PRODUCT_MASTER_PLAN.md §3.1` L4 closeout). `git rebase --abort`; no force-push; PR stays in its current state pending operator pick.
+
+2. **PR #175 `probe` CI failure → root cause found.** Ran the qa_agent locally with `QA_AGENT_SOFT_FAIL=1` → exit 0, 28 probe FAILs as expected (all "wrong build" complaints from probes still asking for the SPA `<div id="root"></div>` shell that `e5f1911` deliberately removed). But CI shows `probe: FAILURE` blocking the PR — why? `gh api .../actions/runs/<id>` revealed: every recent qa-agent run has `created_at == run_started_at == updated_at` → 0-second runtime → workflow file failed to load. Cross-checked with credential-sentinel (3-second runtimes, runs fine). `gh api .../actions/workflows/269172814` shows `name=".github/workflows/qa-agent.yml"` (the path, not the YAML `name:` field!) and `updated_at=2026-05-11T09:30:56` — but the file's last commit is `e5f1911` from **2026-05-13**. **GitHub Actions cached the old workflow registration** and never re-parsed after the May 13 commit (which narrowed the `paths:` filter from 5 SPA-specific entries to 1 `docs/qa-snapshot.json`). Result: every push triggers qa-agent ignoring the new path filter, the runtime then can't reconcile the cached vs file shape, and the run dies in 0 sec. **Fix**: touched the qa-agent.yml file header with a W310-c comment block — any non-whitespace change forces re-registration on next merge to main. After PR #188 lands, the next merge will register the current file (post-`e5f1911`), the path filter will start working, and PR runs will either pass via soft-fail or skip via path filter.
+
+3. **No new PRs opened.** All fixes ride along PR #188 (W310 master plan branch). Operator merges PR #187 (W309 step 1) + PR #188 (master plan + W310-b/W310-c diagnoses + qa-agent header touch) and the CI clears itself on the next merge.
+
+### Files touched (W310-c)
+
+| File | Change |
+|---|---|
+| `.github/workflows/qa-agent.yml` | Added W310-c diagnostic comment block to header to force GH Actions workflow re-registration. |
+| `docs/PRODUCT_MASTER_PLAN.md` | Updated §2.2 rows for #183 (semantic conflict — see PR comment for paths) + #175 (probe root cause = workflow registration cache, not a real probe bug). Added §7 W310-c change log row. |
+| `docs/CHANGELOG_AGENTS.md` | This entry. |
+
+### What is NOT done (deliberate)
+
+- **PR #183 semantic refactor** (the 30-60min `resolve_effective()` work) → operator picks path A/B/C; deferring avoids breaking either main's W290 harness or this PR's L4.2 diagnostic.
+- **PR #175 rebase** → blocked on PR #188 merge (need the qa-agent.yml header fix to land first so `probe` CI doesn't immediately re-block on rebase push).
+- **PR #182 (cockpit MCP panel)** → explicitly deferred per §2.2 until the consolidated MCP rewrite lands (otherwise it would build against the now-closed M-wave skeletal pool).
+- **PR #181 (algotrade E2E)** → orphaned by the algotrade closeout; folded into the §3.A deferred rewrite per W310-b.
+
+### Operator inputs needed
+
+- Merge PR #187 (W309 step 1) → unblocks W309 step 2 implementation.
+- Merge PR #188 (this branch) → fixes qa-agent CI on next push + locks in the master plan + W310 diagnoses.
+- Pick a path on PR #183 (A=refactor / B=additive merge / C=close+defer). My recommendation: **B** (additive merge, ~30min) — keeps W295's DRY contract while shipping the L4.2 substitution diagnostic the operator's UX bug needs.
+
+---
+
+
+
 Per-batch log of edits made by autonomous agents. Read top-down; latest entry
 first. Every entry: who, when, summary, files. Keep entries short and
 factual; prose belongs in `AGENT_HANDOFF.md`.
 
-## 2026-05-18 — Cursor · W310-d — W309 step 2 Playwright scaffold (independent prep)
-
-**Agent**: Cursor (Sonnet 4.6 parent assistant). Continuation of
-W310-c on operator directive "ПРодолжай".
+## 2026-05-18 — Cursor · W310-b algotrade closeout + remaining-PR triage + Wave 100 audit correction
 
 **Summary**
 
-While the project waits on operator merge of PR #187 (W309 step 1
-runtime) and PR #188 (master plan + qa-agent CI fix), an
-independent prep PR has been opened on
-`cursor/w309-step2-e2e-prep` that lands the **Playwright e2e
-harness** referenced by `docs/handoff/W309_STEP2_BRIEF.md` §3.1.
+Closed 2 more stale stacked PRs as a follow-up batch on the same branch
+`cursor/post-rc1-master-plan` (extends W310 above). Operator directive:
+*"выстрой правильную структуру всего проекта и синхронизацию с другими
+системами и начинай"* — full delegation to clean up the stacked-PR
+backlog using the agent's own judgement.
 
-**Why now (not after #187 merges)**
+**PRs closed (algotrade stack)**
 
-The harness's *scaffolding* (config, fixtures, network-mock
-helpers, WS stub) is entirely orthogonal to the W309 step 1
-runtime — it only talks to the cockpit through DOM selectors and
-`page.route()` interception, not through TypeScript imports of
-step 1 code. Landing the scaffold now lets the W309 step 2
-implementer focus on production code (MediaRecorder + STT upload
-+ persona `<select>`) instead of harness plumbing, and means the
-very first commit of step 2 is a test going from `.skip` → green,
-which is the healthiest possible review surface for that wave.
+- **#170** — Phase W3-PR3 trading council voices. Closed: base chain
+  #166→#167→#168→#169 all CLOSED-not-merged; ~1200 LoC orphaned.
+- **#174** — Wave M2 `tars` CLI. Closed: base chain
+  #173→#168→#167→#166 all CLOSED-not-merged; ~1950 LoC orphaned;
+  also depends transitively on `backend/cli/commands/algotrade.py`
+  which imports from un-merged `algotrade.exec`.
 
-**What landed**
+Both close-comments preserve full design intel (PR-body excerpts +
+verification table + pointer to §3.A for consolidated landing).
 
-- `apps/cockpit/tests/e2e/playwright.config.ts` — chromium-only,
-  no retries, 5s test timeout, 10s suite budget per brief §3.1.
-  `webServer` boots `pnpm dev` against `:5174` automatically.
-- `apps/cockpit/tests/e2e/fixtures/*.json` — six deterministic
-  fixtures covering personas, voice health, vault status, chat
-  threads, SSE delta frames, and the canonical
-  `/api/voice/transcribe` response shape.
-- `apps/cockpit/tests/e2e/helpers/mock-sidecar.ts` —
-  `page.route()` wrapper that wires every `/api/**` endpoint the
-  cockpit touches at boot to its fixture. Accepts per-test
-  overrides for failure-mode scenarios.
-- `apps/cockpit/tests/e2e/helpers/mock-sse.ts` — synthesises
-  `text/event-stream` wire format from the SSE delta fixture, so
-  the runtime sees real frame boundaries instead of one JSON
-  blob.
-- `apps/cockpit/tests/e2e/helpers/mock-ws.ts` — replaces
-  `window.WebSocket` with a deterministic stub that records sent
-  frames, exposes `__injectMessage()`, and synthesises the
-  open / message / close lifecycle. Used for `/ws/voice`
-  coverage.
-- `apps/cockpit/tests/e2e/cockpit.spec.ts` — **skeleton spec**
-  with seven `test.skip()` scenarios covering boot, persona
-  render, persona switch persistence, chat SSE delta streaming,
-  WS reconnect, mic → STT upload, and vault-missing warning.
-  Step 2 implementer drops `.skip` markers as features wire up.
-- `apps/cockpit/tests/e2e/tsconfig.json` — editor-only tsconfig
-  extending the parent, adds `@playwright/test` types, loosens
-  `noUnusedLocals` so test-skeleton stubs compile.
-- `apps/cockpit/tests/e2e/README.md` — directory-level operator
-  doc covering install, run, scope, stability budget.
-- `apps/cockpit/package.json` — adds `@playwright/test ~1.48.2`
-  as a `devDependency`, plus `test:e2e` and `test:e2e:install`
-  scripts.
-- `apps/cockpit/pnpm-lock.yaml` — regenerated via
-  `pnpm install --lockfile-only` (38 lines added, all
-  Playwright-tree).
+**W310 closure total**: **8 PRs** (6 M-wave MCP + 2 algotrade).
+
+**Wave 100 audit CORRECTION**
+
+While verifying the close decision, discovered HANDOFF Wave 100 audit
+(L4439-L4467) overpromised: it claimed *"file-copied W2 + W3 exec/*
+into the working tree"* but empirically only
+`tests/test_algotrade_integration.py` was actually file-copied;
+`backend/core/algotrade/exec/` folder remains absent from main. Added
+explicit CORRECTION block after the original audit text pointing at
+§3.A as the consolidated landing path.
+
+**PRODUCT_MASTER_PLAN updates**
+
+- **§2.2 PR triage table** — definitive state for every remaining open
+  PR (#175 install funnel, #181 algotrade E2E, #182 cockpit MCP, #183
+  voice persona fallback) + explicit ✅ markers for the 8 closures
+  done this wave.
+- **§3.A Algotrade closeout (NEW)** — full deferred-work spec for the
+  7-PR algotrade stack (#166-#170, #173, #174) as v10.2/v11
+  consolidated rewrite. Inherits Wave 100 audit punch list (Side enum
+  collision, `session_timeseries` action, exec/__init__.py dedup).
+  Estimate 1-2 weeks; mirrors MCP rewrite pattern.
+- **§7 change log** — W310-b entry appended.
+
+**Cross-workspace sync**
+
+- `meeet-browser-agent/AGENTS.md` — added `PRODUCT_MASTER_PLAN.md` to
+  the read order + W310 sync block at the bottom (v10.0.0-rc.1 status,
+  active PRs #187 + #188, 8 closures, plan pointer). Cross-workspace
+  agent pickup now points at canonical forward execution doc.
+
+**Files**
+
+- `docs/AGENT_HANDOFF.md` — Wave 100 CORRECTION inline + top banner
+  W310-b SYNC prepended.
+- `docs/PRODUCT_MASTER_PLAN.md` — §2.2 rewritten with definitive
+  triage; §3.A added; §7 W310-b entry.
+- `docs/CHANGELOG_AGENTS.md` — this entry.
+- `/Users/alien/Projects/meeet-browser-agent/AGENTS.md` — sync block +
+  expanded read order.
+
+**Process note**
+
+This entry was authored by the same Cursor parent agent under W310's
+"orchestrator" mode. Decision pattern: closure-with-design-intel-
+preservation now established across two stale-PR families (MCP + algo-
+trade); future stale stacks can apply the same brief template at
+`docs/handoff/MCP_REWRITE_BRIEF.md`. Push to branch + add to PR #188.
+
+---
+
+## 2026-05-18 — Cursor · W310 post-rc1 master plan + M-wave consolidation brief + HANDOFF corrections
+
+**Summary**
+
+Synthesised the forward execution plan from `v10.0.0-rc.1` (cut W264,
+2026-05-15) through GA into Phase L closure (v10.1 → v10.2 → v11).
+Branch: `cursor/post-rc1-master-plan`. Triggered by operator request
+"full plan to the end with stages, use orchestration, perfect the
+product". Synthesis fed by 3 parallel `explore` subagents (Phase L
+roadmap state, 13 open PR triage, IDEAS + tech debt audit) + 2
+verification subagents (L5 crypto canon, v10 release-axis archaeology
+— both confirmed two stale docs that prompted the corrections below).
+
+**Decisions captured (operator W310, 2026-05-18)**
+
+1. **Release axis = v10 GA direct.** `v9.1.0` already shipped W138-158;
+   the v9_then_v10 sequencing was based on stale HANDOFF wording. v10
+   GA target is the 5 external items in `docs/V10_GA_CHECKLIST.md`.
+2. **W309 step 2 = go-now** after PR #187 merge. Brief lives at
+   `docs/handoff/W309_STEP2_BRIEF.md` (drafted 7h ago, gated, ready).
+3. **M-wave MCP stack** (6 open PRs: #176, #177, #178, #179, #180,
+   #184) **close + redo** as one consolidated PR. Brief at
+   `docs/handoff/MCP_REWRITE_BRIEF.md`. Closed PR diffs preserved as
+   design spec per §7.
+4. **Master plan storage = all_three** — new dedicated doc + cross-link
+   in `TARS_MASTER_DOC.md §6` + indexed in `PROJECT_INDEX.md` Strategy.
+
+**Two stale-doc corrections shipped in the same PR**
+
+- **L5 crypto canon.** HANDOFF Pending §6 said "pairing endpoints
+  shipped with **mock crypto**" — wrong. Real X25519 +
+  XChaCha20-Poly1305 (PyNaCl) was already shipped on the host per
+  `backend/core/crypto/envelope.py` (`nacl.bindings` AEAD +
+  `nacl.public.SealedBox`) and end-to-end verified by
+  `tests/test_pairing_envelope_e2e.py`. Bullet rewritten to reflect
+  what's actually pending (keyring, pairing UX, mobile protocol,
+  audit timeline, `pair_id` TTL).
+- **Wave 81 launch checklist.** The 4-item "Pending operator actions
+  blocking the launch" list was for `v9.1.0` (already shipped). Block
+  now carries an explicit SUPERSEDED header pointing readers to
+  `docs/V10_GA_CHECKLIST.md` + `docs/PRODUCT_MASTER_PLAN.md §2.1` as
+  the active 5-item gate.
+
+**Files**
+
+- `docs/PRODUCT_MASTER_PLAN.md` (new, 168 lines) — §1 where-we-are,
+  §2 v10 GA push (5 external + internal docking + cut), §3 post-v10
+  roadmap (10 sub-phases L3-L10 + vault + policy + Claude polish),
+  §4 lane discipline, §5 risks, §6 references, §7 plan change log.
+- `docs/handoff/MCP_REWRITE_BRIEF.md` (new, 152 lines) — close-and-redo
+  brief for Cursor. §0 why, §1 scope, §2 deferred, §3 approach +
+  7-commit build order, §4 acceptance, §5 verify, §6 rollback, §7
+  design intel from closed PRs (preserve these choices), §8 refs.
+- `TARS_MASTER_DOC.md` — §6 Roadmap header now points forward
+  execution to `PRODUCT_MASTER_PLAN.md`; stays the historical Wave
+  A/B/C source.
+- `PROJECT_INDEX.md` — Strategy table row added for master plan.
+- `docs/AGENT_HANDOFF.md` — SYNC banner top: W310 entry prepended.
+  Pending §6 (line 3423): L5 bullet rewritten with CORRECTION marker.
+  Wave 81 block (line 4381): SUPERSEDED header added in front.
+
+**Operator action queue**
+
+1. Read `docs/PRODUCT_MASTER_PLAN.md` (~15 min).
+2. Merge PR #187 (W309 step 1) — unblocks step 2.
+3. Approve the post-rc1 master-plan PR (this one) or push back on any
+   phase in §3.
+4. After approval: 5 M-wave PRs (#176, #177, #178, #179, #180, #184)
+   get formally closed via `gh pr close` with the comment template in
+   §0 of `MCP_REWRITE_BRIEF.md`. New PR opens on
+   `cursor/mcp-rewrite-consolidated`.
+
+**Subagent usage note**
+
+Five subagents in total this session — 3 recon (parallel) + 2
+verification (sequential, one after recon surfaced the contradictions).
+Cost: ~30 min wall clock, would have been ~4h without parallelism.
+Reusing this pattern for v10.1 phase scoping.
+
+## 2026-05-18 — Cursor · W309 step 2 brief (drafted, gated)
+
+**Summary**
+
+Drafted `docs/handoff/W309_STEP2_BRIEF.md` while PR #187 sits awaiting
+operator merge. Brief is **gated on PR #187 merge + operator OK** (same
+pattern as the original W309 brief — no implementation kicks off without
+explicit "go").
+
+Step 2 closes the three honest gaps left by step 1:
+
+1. **All 20 runtime tests are static.** Adds Playwright behavioural
+   smoke under `apps/cockpit/tests/e2e/cockpit.spec.ts` with mocked
+   sidecar (`page.route`), mocked SSE (streamed response body), mocked
+   WebSocket (init script). Runs in < 10s. Addresses Claude PR #187
+   review's explicit ask: *"the cheapest behavioral guard you'd
+   actually trust"*.
+2. **Mic permission goes nowhere.** Extends `voice.ts` with
+   `startRecording()` / `stopRecording()` using `MediaRecorder` →
+   `/api/voice/transcribe` multipart upload. Transcript drops into the
+   input textarea. Closes the half-open voice loop where step 1 only
+   proved the permission flow.
+3. **Voice picker has no UI.** Minimal `<select>` in the status bar
+   driven by `voice.getPersonas()`, persists choice to
+   `window.localStorage.TARS_VOICE_PERSONA`, restores on next setup.
+
+Tests grow 11 + 20 = 31 → 11 + 25 = **36 static** + a new Playwright
+suite (~10s). Bundle estimated to land at ~30 KB raw / ~10 KB gz (vs
+current 22.9 / 8.4) — rollback cap set at 35 KB raw / 12 KB gz with
+documented headroom math. ETA: ~4h, smaller than step 1.
+
+**Out of scope (still W310+)**
+
+- Drawers (⌘K/⌘L/⌘R), council, playbooks, search, wallet, pairing,
+  meeet bridge, awareness rendering, recovery — unchanged.
+- Newly deferred from step 2: waveform visualiser, voice cloning UI,
+  `webkitSpeechRecognition` fallback, STT streaming, per-persona TTS
+  preview button. Rationale in brief §6.
+
+**Files**
+
+- `docs/handoff/W309_STEP2_BRIEF.md` (new, 332 lines) — same format
+  as the W309 step 1 brief: §0 motivation, §1 inventory, §2 strategy,
+  §3 sub-tasks, §4 verify, §5 rollback, §6 out of scope, §7 commit
+  message, §8 cost, §9 gating.
+
+**Operator action queue**
+
+1. Merge PR #187 (W309 step 1 + fix-up).
+2. Say "go" on step 2, OR explicitly defer to ship v9.1.0 with the
+   three gaps documented in brief §9.
+
+## 2026-05-18 — Cursor · W309 step 1 follow-up (Claude review fix-ups)
+
+**Summary**
+
+Independent Claude review of PR #187 returned `READY_TO_MERGE_WITH_FOLLOWUPS`
+(see PR #187 comment). Three high-sev findings (`ws.setup()` non-idempotent,
+`ensureMic()` race, stale `MediaStream` after permission revoke) plus six
+medium/low findings landed as a single fix-up commit on the same branch
+rather than deferred — all bounded, all on the runtime modules already in
+review. Tests tightened to catch each regression class explicitly per
+Claude's test-quality critique ("greps for `30_000` catch removals, not
+regressions").
+
+**Behavioural changes**
+
+1. `ws.setup()` idempotency — second call with an active socket or pending
+   retry now short-circuits and just merges newly-passed topics into the
+   live subscription set. Prevents WebSocket leakage on HMR / accidental
+   re-boot / future re-entry.
+2. `ws` OPEN handler now checks `wantOpen` first — if teardown landed
+   during CONNECTING, the resolving socket is closed with code 1000
+   (`teardown_during_connect`) instead of flipping the badge green-then-closed.
+3. `voice.ensureMic()` caches the in-flight promise (`state.micPromise`) so
+   concurrent callers share one `getUserMedia()` request; second
+   double-click no longer opens a duplicate stream whose tracks leak.
+4. `voice.ensureMic()` detects a stale `MediaStream` (`stream.active`
+   false or no live audio tracks) and re-requests — the cockpit no longer
+   hands a dead stream back to the caller when the operator revokes mic
+   permission via OS settings mid-session.
+5. `voice.speak()` rejects non-`audio/*` content-types before piping into
+   `<audio>` — defends against a future 200 + JSON envelope from
+   `/api/voice/speak` producing an opaque "audio_play_failed" error.
+6. `voice.playOne()` drops queued utterances after `teardown()` — prevents
+   the TTS chain resurrecting `Audio` elements on a closed window.
+7. `chat.ts` SSE parser now accepts all three spec-permitted frame
+   boundaries (`\n\n`, `\r\n\r\n`, `\r\r`) so a reverse proxy that
+   normalises line endings doesn't hang the stream. Per-line parser
+   also splits on `\r\n|\r|\n` for the same reason. Plus a trailing-buffer
+   flush after the read loop so a stream that closes without a final
+   blank line (sidecar crash, abrupt EOF) doesn't silently drop the last
+   delta.
+8. `api.ApiError` constructor wraps `JSON.stringify(detail)` in try/catch —
+   a circular-ref `detail` (e.g. a wrapped fetch error) no longer throws
+   inside the throw and masks the real failure.
+9. `cockpit-entry.ts` vault CTA link now uses `rel="noopener noreferrer"`
+   (defense-in-depth on external links with `target="_blank"`).
+10. `cockpit-entry.ts` `teardownAll()` latches on first call — both
+    `beforeunload` and `pagehide` fire on Tauri window close; the
+    one-shot guard stops the chain double-aborting in-flight SSE.
+
+**Tests tightened**
+
+- `tests/test_cockpit_runtime_contract.py` grew from 8 → 20 tests
+  (+12). Each new test maps 1:1 to a Claude finding (`test_ws_setup_is_idempotent`,
+  `test_voice_ensure_mic_serialises_concurrent_calls`, `test_voice_detects_stale_mediastream`,
+  `test_chat_sse_parser_accepts_crlf`, etc.) plus `test_ws_manager_public_api_surface`
+  (rename guard for the four methods `cockpit-entry.ts` binds against)
+  and `test_bundle_size_gzipped_within_w309_cap` (25 KB gz cap, 1.5×
+  current usage — far more sensitive than the loose 80 KB raw cap which
+  was 3.6× the real bundle).
+- Total: 11 drift + 20 runtime = 31 tests, all green.
+
+**Bundle size**
+
+- Raw: 22,877 B (vs 21,961 B before fix-up — +916 B for 10 fixes + 35
+  lines of comments). Cap: 80 KB. Headroom: 71%.
+- Gzipped: 8,370 B. Cap: 25 KB. Headroom: 67%.
+
+**Files**
+
+- `apps/cockpit/src/runtime/ws.ts` — idempotent `setup()` + `wantOpen`-guarded
+  OPEN handler.
+- `apps/cockpit/src/runtime/voice.ts` — `micPromise` cache, `isStreamUsable()`
+  helper, alive-state guard, `audio/*` content-type check.
+- `apps/cockpit/src/runtime/chat.ts` — multi-boundary SSE parser, trailing
+  buffer flush, CRLF-aware per-line split.
+- `apps/cockpit/src/runtime/api.ts` — defensive `ApiError` stringify.
+- `apps/cockpit/src/pages/cockpit-entry.ts` — `noreferrer` on vault CTA,
+  one-shot `teardownAll` latch.
+- `tests/test_cockpit_runtime_contract.py` — +12 behavioural pin-ups, +1
+  gzip budget test.
+- `desktop/src-tauri/web/assets/cockpit-*.js` — restaged bundle.
 
 **Verification**
 
-- `pnpm typecheck` from `apps/cockpit/`: clean (tests folder is
-  outside the `tsc --noEmit` include set, by design — its own
-  tsconfig handles editor type lighting).
-- All seven scenarios are `test.skip()`, so the suite is a no-op
-  by design until step 2 unsets its markers. This deliberately
-  keeps the `make ci` surface unchanged — see brief §3.1 for
-  the CI-gate plan when the harness goes green.
+- `pnpm --filter @tars/cockpit exec tsc --noEmit` → clean.
+- `bash desktop/scripts/package-cockpit.sh` → built + staged + pruned
+  orphan maps. New hash `cockpit-CGVJOS_p.js`.
+- `python3 -m pytest tests/test_cockpit_runtime_contract.py tests/test_cockpit_tokens_sync.py -v`
+  → 31 passed in 0.07s.
 
-**Out of scope (by design)**
+**Process**
 
-- Real `getUserMedia` — bypassed via
-  `context.grantPermissions(['microphone'])`; mic-permission
-  edge cases stay in the static `test_voice_ensure_mic_*` suite.
-- Waveform / visualiser tests — W311+ polish.
-- STT streaming — upload-after-stop is the cheapest correct
-  loop per brief §6.
-- Real Python sidecar — every route is mocked. Real-sidecar
-  coverage stays in the existing `tests/integration` suite.
+Claude review posted as PR #187 comment for audit trail before any code
+changed. Fix-up landed as a separate commit on the same branch so the
+review trail stays legible in git history (PR diff now shows: original
+implementation → reviewer comment → fix-up). Pattern worth keeping for
+W310+ — review-before-merge with same-branch fix-ups beats merge-then-followup.
+
+## 2026-05-18 — Cursor · W309 step 1 (functional restore: mic + WS + chat + TTS)
+
+**Summary**
+
+Operator un-gated W309 step 1 after PR #186 landed. Brief is the
+local `cursor/w309-cockpit-functional-restore` branch (commit
+`29e9cd9`, pushed to origin for reference, not implemented from).
+Bounded MVP scope per brief §1: restore the four behaviors the W308
+step 3 migration left static — mic capture, realtime WebSocket bus,
+chat strand send/load, TTS playback — without touching the W307
+visual contract. Five new TypeScript modules under
+`apps/cockpit/src/runtime/`, one entry-script rewrite, +1 static
+contract test, +1 bundle-size budget guard. Bundle grows from
+~27 KB / ~6 KB gzipped (W309-prep baseline) to ~22 KB JS + 6 KB CSS
+~8 KB gzipped — net under both the 80 KB raw / 25 KB gzip caps the
+brief §5 rollback gates require.
+
+**Runtime modules** (`apps/cockpit/src/runtime/*.ts`).
+
+- `api.ts` — typed `fetch()` wrapper rooted at `getApiBase()` (default
+  `http://127.0.0.1:8765`, override via `localStorage.TARS_API_URL`).
+  Surfaces `{ok:false}` JSON envelopes as typed `ApiError`. Adds
+  `apiBinary()` for `/api/voice/speak` (raw audio response), plus the
+  brief §3.5 `vaultStatus()` hook returning `{keys:[{key,source,available}]}`.
+  Module is the dependency root — runtime/ has no imports back into it.
+- `tauri.ts` — `isTauri()` + `invokeTauri()` IPC helpers that detect
+  the `__TAURI__` global at runtime; **no `@tauri-apps/api` SDK import**
+  (would inflate bundle ~12 KB for one helper). No-ops outside the
+  Tauri shell so `vite dev` boots clean.
+- `ws.ts` — single `WsManager` singleton, targets `/api/realtime`
+  (`tars.realtime.v1` envelope per `web_extras/routers/realtime.py`).
+  Reconnect: exponential backoff `1s → 30s` with full jitter (Marc
+  Brooker), reset on any successful `open`. Close codes mapped per
+  brief §3.2: `1000` clean (no retry), `4001` auth-fail (synthetic
+  `auth_fail` event, stop loop), all others schedule retry.
+  Server-driven heartbeat (we just count opens / closes; sidecar
+  pushes `{type:'heartbeat'}` every N s per its `hello` envelope).
+  Status bus: `idle | connecting | open | reconnecting | closed`
+  exposed via `onStatus()` for the backend badge.
+- `voice.ts` — three concerns per brief §3.3, one module. Mic:
+  `ensureMic()` requests `navigator.mediaDevices.getUserMedia({audio:true})`
+  on first user gesture, caches the `MediaStream`, `releaseMic()`
+  stops every track. TTS: `speak(text, {personaId?})` queues
+  utterances through a `Promise.then(...)` chain so back-to-back
+  clicks don't overlap; each utterance POSTs `/api/voice/speak`, wraps
+  the audio response in a `blob:` URL (CSP already opens
+  `media-src 'self' blob:`), plays via `new Audio()`, revokes the URL
+  in `finally`. Persona/health: `setup()` fetches `/api/voice/personas`
+  + `/api/voice/health` in parallel (`Promise.allSettled`) and stores
+  default persona + engine availability.
+- `chat.ts` — thread lifecycle + optimistic strand. `setup({threadId?})`
+  either GETs an existing thread (keeping only the last 20 messages
+  per brief §3.4 "cockpit reload preserves last 20 messages") or
+  POSTs `/api/chat/threads` to create a fresh one. `send(text)`
+  appends a user message with `status: 'sending'`, POSTs to
+  `/api/chat/threads/{id}/messages` (returns **SSE** per
+  `web_extras/routers/chat.py`, **not** WS — corrected from brief
+  §3.4 which assumed legacy SPA contract), stream-parses
+  `text/event-stream` frames via `getReader()` + `TextDecoder`,
+  appends an assistant message on the first content delta, grows
+  text in place, flips status to `delivered` / `failed`.
+  `onChange()` callbacks fire after every mutation.
+
+**Entry rewrite** (`apps/cockpit/src/pages/cockpit-entry.ts`).
+
+Replaces the static "`import './styles/global.css'` and done" shell
+with: `pickRefs()` for the 7 DOM hooks the W308 step 2 markup
+already exposes (`.briefing`, `.strand`, `.input-bar input`,
+`.input-bar .mic`, two status-bar badges); `renderStrand()` that
+switches `.strand[data-state]` between `collapsed` (count pill) and
+`expanded` (header + scrolling ordered list of messages);
+`applyWsStatus()` / `applyVoiceHealth()` that mutate
+`badge.dataset.state` to drive the CSS data-state colour overrides;
+`applyVault()` that appends a minimal "Add ElevenLabs key" CTA into
+`.briefing` when the vault is missing the key. Input: Enter →
+`chat.send()`. Mic: click toggles `ensureMic()` / `releaseMic()` and
+updates `mic.dataset.state`. **No `innerHTML`** anywhere — every
+dynamic node built via `document.createElement` + `textContent` +
+`appendChild` so a malicious server response can't inject markup.
+Lifecycle: `beforeunload` + `pagehide` both run the same teardown
+chain (unsubscribe handlers → tear down chat/voice/ws singletons).
+
+**Runtime CSS additions** (`apps/cockpit/cockpit.html` inline style).
+
+Added strand-expanded layout (flex column, header w/ count, scrolling
+ordered list capped at `max-height: 320px`), message row styling
+(grid 64px / 1fr, role-coloured borders), `data-status` modifiers
+(`sending` → `opacity: 0.65`, `failed` → red border tint), vault
+CTA chip (thin red-tinted row), status badge `data-state` overrides
+(`online` → success green, `degraded` → accent gold, `offline` → red
+alert) that drive the existing `.ok` / `.accent` dot colour, and mic
+`data-state` states (`on` → cyan glow, `denied` → red inset ring).
+
+**Tests** (`tests/test_cockpit_runtime_contract.py`, +8 tests).
+
+Pure static checks — CI runs without daemon / mic / TTS key. Each
+test pins an architectural invariant: (1) all 5 runtime files exist;
+(2) `api.ts` exports the wrapper + vault hook + holds the
+`127.0.0.1:8765` sidecar URL contract and stays the runtime DAG root;
+(3) `tauri.ts` detects `__TAURI__` and never imports
+`@tauri-apps/...`; (4) `ws.ts` targets `/api/realtime`, declares
+`BACKOFF_MIN_MS` / `BACKOFF_MAX_MS = 30_000`, honours
+`TARS_WS_URL` override, distinguishes close codes 1000 + 4001;
+(5) `voice.ts` references mic + TTS + persona + health
+endpoints and only imports `./api`; (6) `chat.ts` calls
+`/api/chat/threads`, accepts `text/event-stream`, has SSE parser
+markers (`getReader`, `TextDecoder`), carries the three message
+statuses; (7) entry imports all 4 modules + wires setup/teardown +
+asserts no `innerHTML`; (8) bundle stays under brief §5 80 KB cap
+(skipped when `dist/` absent). Pairs with the existing 11 W307/W308
+tokens-sync drift tests so the full suite is now 19/19.
+
+**Verification.**
+
+- `pnpm typecheck` in `apps/cockpit/` — clean (initial run flagged a
+  `VaultStatus` shape mismatch in the entry script's `applyVault`
+  signature; fixed by importing + using the actual `VaultStatus`
+  type rather than re-declaring it loosely).
+- `pnpm build` — 18 modules, 90 ms. Bundle: `cockpit-*.js` chunks
+  0.76 + 9.46 + 11.63 = ~21.85 KB raw / ~8 KB gzipped.
+- `desktop/scripts/package-cockpit.sh` — clean, staged into
+  `desktop/src-tauri/web/`, post-rsync orphan-map prune cleared 2.
+- `pytest tests/test_cockpit_tokens_sync.py tests/test_cockpit_runtime_contract.py -v`
+  — **19 passed in 0.05 s** (11 drift + 8 runtime).
+
+**Decisions worth flagging for review.**
+
+- **SSE vs WS for chat deltas.** Brief §3.4 said "wait for WS
+  `chat.message` event → reconcile". That was the legacy SPA contract.
+  Current sidecar (`web_extras/routers/chat.py`) streams the
+  assistant turn back on the POST response itself as
+  `text/event-stream`. WS still carries cross-cutting events
+  (`policy`, `awareness`, `voice.*`) but not chat content deltas.
+  SSE-on-POST is the right transport at MVP; out-of-band chat
+  events (multi-device, typing indicators) are a W310+ concern when
+  those WS event types actually exist on the server.
+- **`tauri.ts` with no SDK import.** Brief §2.2 listed `tauri.ts` as
+  one of the four modules but the MVP doesn't need any specific
+  Tauri command yet. Kept the file as the seam (with `isTauri()` +
+  `invokeTauri()` that no-op in browser) so W310+ can wire
+  screen-share / clipboard / file-drop without touching every
+  consumer, but skipped the `@tauri-apps/api` SDK dependency
+  (~12 KB) until something actually needs it. Drift test rejects the
+  import if a future agent adds it casually.
+- **Vault hook co-located in `api.ts`.** Brief §3.5 named a separate
+  file. Keeping it next to the `api()` wrapper kept the module count
+  at the brief's five, and the function is 15 lines — splitting it
+  out would have been ceremony.
+- **`vite dev` CORS.** Sidecar default `TARS_CORS_ORIGINS` doesn't
+  list `http://localhost:5174`. Production Tauri shell talks to
+  `127.0.0.1:8765` directly under the existing CSP, so this only
+  bites operators developing the cockpit in a browser tab. Documented
+  in `api.ts` doc comment; not adding 5174 to the default sidecar
+  CORS list because that surface should stay narrow in prod.
 
 **Files changed**
 
-- `apps/cockpit/package.json` (modified)
-- `apps/cockpit/pnpm-lock.yaml` (regenerated)
-- `apps/cockpit/tests/e2e/.gitignore` (new)
-- `apps/cockpit/tests/e2e/README.md` (new)
-- `apps/cockpit/tests/e2e/playwright.config.ts` (new)
-- `apps/cockpit/tests/e2e/tsconfig.json` (new)
-- `apps/cockpit/tests/e2e/cockpit.spec.ts` (new, skeleton)
-- `apps/cockpit/tests/e2e/fixtures/{voice-personas,voice-health,vault-status,chat-threads,chat-sse-deltas,voice-transcribe}.json` (new)
-- `apps/cockpit/tests/e2e/helpers/{mock-sidecar,mock-sse,mock-ws}.ts` (new)
-- `docs/CHANGELOG_AGENTS.md` (this entry)
+- `apps/cockpit/src/runtime/api.ts` (new, 163 LOC)
+- `apps/cockpit/src/runtime/tauri.ts` (new, 66 LOC)
+- `apps/cockpit/src/runtime/ws.ts` (new, 241 LOC)
+- `apps/cockpit/src/runtime/voice.ts` (new, 204 LOC)
+- `apps/cockpit/src/runtime/chat.ts` (new, 277 LOC)
+- `apps/cockpit/src/pages/cockpit-entry.ts` (rewritten, +280 LOC)
+- `apps/cockpit/cockpit.html` (CSS-only additions for runtime states)
+- `desktop/src-tauri/web/` (re-staged from `apps/cockpit/dist/`)
+- `tests/test_cockpit_runtime_contract.py` (new, 245 LOC, +8 tests)
+- `docs/CHANGELOG_AGENTS.md`, `docs/AGENT_HANDOFF.md`,
+  `docs/W308_PRE_FLIGHT_FINDINGS.md` (W309 step 1 closure)
 
-**Next**
+**Out of scope (W310+ candidates)**
 
-Operator unblocks by merging PR #187 (W309 step 1). Step 2
-implementation begins on a fresh branch off the merged main;
-first commit drops `.skip` from `boot` + `personas: select
-renders 4 options` and lands the cockpit-side persona `<select>`.
-
----
+- STT upload via `/api/voice/transcribe` (mic stream captured but
+  not yet piped anywhere).
+- Persona picker UI (we fetch personas + default but there's no
+  switcher yet).
+- WS-side chat reconciliation for multi-device sync.
+- Policy gate / awareness WS event rendering (handlers seam exists
+  via `ws().on(type, h)` but no UI binding yet).
 
 ## 2026-05-17 — Cursor · W309 prep follow-ups (Claude PR #186 review fixes)
 
