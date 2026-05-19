@@ -122,6 +122,7 @@ restate it in the master doc — link to it instead.**
 | [docs/REQUEST_TO_CLAUDE.md](docs/REQUEST_TO_CLAUDE.md) | Open requests to the Claude lane. | various |
 | [docs/handoff/APPLE_SIGNING_FOR_CURSOR.md](docs/handoff/APPLE_SIGNING_FOR_CURSOR.md) | Cursor-lane Apple cert handoff. | W113 |
 | [docs/handoff/COWORK_WIRING_FOR_CURSOR.md](docs/handoff/COWORK_WIRING_FOR_CURSOR.md) | Cursor-lane cowork wiring handoff. | W129 |
+| [docs/handoff/MCP_REWRITE_BRIEF.md](docs/handoff/MCP_REWRITE_BRIEF.md) | **W310 (a).** Cockpit MCP panel rewrite spec — Wave 100 audit-corrected baseline + 4-step implementer plan (~12-15h), 16 spec-pinned tests. Replaces closed PR #177 (architecturally wrong; tried to add panel to wrong cockpit). | W310 |
 
 ## Release notes (chronological)
 
