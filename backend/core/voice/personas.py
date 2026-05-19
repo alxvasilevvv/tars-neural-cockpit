@@ -65,6 +65,13 @@ class PersonaProviderHint:
     mac_say_voice: str | None = None
     mac_say_rate: int | None = None  # words per minute
     mac_say_pitch: int | None = None  # semitone offset (post-process)
+    # Per-persona ranked alternates the engine walks BEFORE falling
+    # through to the global accent default. Modern macOS (13+) ships
+    # without Alex/Tom/Aaron/Bruce by default, so a per-persona list
+    # is the only way to keep four male personas sounding distinct
+    # on a fresh install — see ``MacSayEngine._pick_fallback_voice``
+    # and ``_VOICE_FALLBACKS_BY_ACCENT`` for the resolution order.
+    mac_say_voice_alternatives: tuple[str, ...] = ()
 
     def merged(self, override: Mapping[str, object]) -> "PersonaProviderHint":
         """Return a copy with whitelisted overrides applied."""
@@ -76,6 +83,7 @@ class PersonaProviderHint:
             "mac_say_voice",
             "mac_say_rate",
             "mac_say_pitch",
+            "mac_say_voice_alternatives",
         }
         kwargs = {
             k: getattr(self, k)
@@ -91,6 +99,7 @@ class PersonaProviderHint:
                 "mac_say_voice",
                 "mac_say_rate",
                 "mac_say_pitch",
+                "mac_say_voice_alternatives",
             )
         }
         for k in keys:
@@ -152,6 +161,9 @@ class Persona:
                     "voice": self.provider.mac_say_voice,
                     "rate": self.provider.mac_say_rate,
                     "pitch": self.provider.mac_say_pitch,
+                    "voice_alternatives": list(
+                        self.provider.mac_say_voice_alternatives
+                    ),
                 },
             },
         }
@@ -220,6 +232,15 @@ def _build_default_personas() -> dict[str, Persona]:
                 ),
                 mac_say_voice=_env_override("jarvis", "mac_say_voice", "Daniel"),
                 mac_say_rate=180,
+                # British male butler: prefer British voices, then any
+                # composed Brit-leaning male, then transatlantic Daniel.
+                mac_say_voice_alternatives=(
+                    "Daniel",
+                    "Oliver",
+                    "Arthur",
+                    "Reed (English (UK))",
+                    "Albert",
+                ),
             ),
             license_note=(
                 "Inspired by the J.A.R.V.I.S. archetype; voice is a generic"
@@ -264,6 +285,19 @@ def _build_default_personas() -> dict[str, Persona]:
                 ),
                 mac_say_voice=_env_override("stark", "mac_say_voice", "Aaron"),
                 mac_say_rate=200,
+                # American male, charismatic + quick. Walk a chain that
+                # *avoids* Fred (claimed by HAL) and Albert (by TARS)
+                # so on a default macOS install Stark still sounds
+                # distinct: Aaron premium → Tom premium → Ralph
+                # (deeper US male, usually shipped) → Junior (younger
+                # US male, usually shipped) → Daniel (UK male, last).
+                mac_say_voice_alternatives=(
+                    "Aaron",
+                    "Tom",
+                    "Ralph",
+                    "Junior",
+                    "Daniel",
+                ),
             ),
             license_note=(
                 "Inspired by the Tony Stark archetype; voice is a generic"
@@ -308,6 +342,17 @@ def _build_default_personas() -> dict[str, Persona]:
                 ),
                 mac_say_voice=_env_override("hal9000", "mac_say_voice", "Bruce"),
                 mac_say_rate=145,
+                # American male, slow + clinical. We claim Albert as
+                # the primary fallback because its slightly synthetic
+                # quality matches the HAL archetype better than any
+                # warm modern voice; Fred is a final fallback.
+                mac_say_voice_alternatives=(
+                    "Bruce",
+                    "Albert",
+                    "Fred",
+                    "Ralph",
+                    "Daniel",
+                ),
             ),
             license_note=(
                 "Inspired by HAL 9000; voice is a generic deep American male"
@@ -354,6 +399,18 @@ def _build_default_personas() -> dict[str, Persona]:
                 mac_say_voice=_env_override("glados", "mac_say_voice", "Samantha"),
                 mac_say_rate=170,
                 mac_say_pitch=-2,
+                # American female, clear + dry. Samantha first; if a
+                # mac stripped Samantha, walk to other US female
+                # voices, then a few transatlantic female options.
+                mac_say_voice_alternatives=(
+                    "Samantha",
+                    "Vicki",
+                    "Victoria",
+                    "Allison",
+                    "Susan",
+                    "Karen",
+                    "Tessa",
+                ),
             ),
             license_note=(
                 "Inspired by GLaDOS; voice is a generic American female preset."
@@ -398,6 +455,21 @@ def _build_default_personas() -> dict[str, Persona]:
                 ),
                 mac_say_voice=_env_override("tars", "mac_say_voice", "Tom"),
                 mac_say_rate=165,
+                # American male, measured + low warmth. We claim
+                # Fred as the primary fallback because it is the most
+                # universally-installed monotone US male voice on
+                # macOS — distinct from HAL (Albert), Stark (Ralph),
+                # and Operator (Daniel). Order matters here; the
+                # engine walks this list before hitting the global
+                # accent default.
+                mac_say_voice_alternatives=(
+                    "Tom",
+                    "Fred",
+                    "Junior",
+                    "Ralph",
+                    "Albert",
+                    "Daniel",
+                ),
             ),
             license_note=(
                 "Inspired by TARS in Interstellar; voice is a generic male"
@@ -441,6 +513,16 @@ def _build_default_personas() -> dict[str, Persona]:
                 ),
                 mac_say_voice=_env_override("operator", "mac_say_voice", "Alex"),
                 mac_say_rate=185,
+                # Neutral cockpit voice: prefer Alex (premium), then
+                # the most universal warm voice (Daniel UK), then
+                # Samantha as a non-male alternative if every male
+                # voice was stripped.
+                mac_say_voice_alternatives=(
+                    "Alex",
+                    "Daniel",
+                    "Samantha",
+                    "Karen",
+                ),
             ),
             # Operator is the default neutral voice — no overlay so
             # the base prompt drives the response unchanged.
