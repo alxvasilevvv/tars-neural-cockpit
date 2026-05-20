@@ -45,7 +45,7 @@ restate it in the master doc — link to it instead.**
 | [docs/DB_AUDIT_v9.2.md](docs/DB_AUDIT_v9.2.md) | 106-line audit of every SQLite store, JSON blob, and directory under `~/.tars/`. Where data lives. | W231 |
 | [docs/STORYBOARD_VOICE_COCKPIT.md](docs/STORYBOARD_VOICE_COCKPIT.md) | 398-line, 8 frames of voice cockpit UX — Boot / Idle / Listen / Think / Speak / Error / Drawer / Reduced-motion. | W230 |
 | [docs/HANDOFF_v9.2.0-beta2_FOR_BROTHER.md](docs/HANDOFF_v9.2.0-beta2_FOR_BROTHER.md) | 495-line spec — the 4 auth endpoints brother ships. Sequence diagrams, env vars, acceptance criteria. **Re-confirmed W247.** | W233 |
-| [docs/NOTIFICATIONS.md](docs/NOTIFICATIONS.md) | iMessage / Telegram / Email contract for the notification fanout. | W164 |
+| [docs/contracts/NOTIFICATIONS.md](docs/contracts/NOTIFICATIONS.md) | iMessage / Telegram / Email contract for the notification fanout. | W164 |
 | [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) | Trust boundaries + adversary model. | W79 |
 | [docs/SECURITY.md](docs/SECURITY.md) | Public security posture, disclosure policy. | W79 |
 | [docs/SECURITY_BASELINE.md](docs/SECURITY_BASELINE.md) | Hardening defaults, key handling. | W79 |

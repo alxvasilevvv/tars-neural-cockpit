@@ -16,11 +16,9 @@ Without a signed `.dmg`, macOS Gatekeeper rejects every TARS download with
 the user sees a scary modal and bounces. Worse, no fix is one-click; even
 Right-click → Open requires admin password and three confirmations.
 
-Currently `experiments/neural-showcase-v3/src/lib/launchFlags.ts` ships with
-`INSTALLERS_READY = false`, so the download surfaces show a **"Coming Soon ·
-Notify me"** waitlist instead of a broken download. That's honest, but it's
-still a launch with one CTA disabled. Flipping the flag back to `true` after
-this guide gets the real "Download for macOS" button live.
+The public download funnel lives in `scripts/install-funnel/` and
+`docs/handoff/PH4_*` — keep `INSTALLERS_READY` / updater channel aligned with
+the signed GA build before flipping marketing CTAs to a live `.dmg`.
 
 ---
 
@@ -162,17 +160,14 @@ Once the GitHub Release page shows the signed `.dmg` files:
 
 ```bash
 cd ~/Documents/Claude/Projects/Jarvis/jarvis
-# Edit experiments/neural-showcase-v3/src/lib/launchFlags.ts
-# Change:  export const INSTALLERS_READY = false → true
-git add experiments/neural-showcase-v3/src/lib/launchFlags.ts
-git commit -m "chore(launch): flip INSTALLERS_READY=true — signed .dmg shipped"
-git push origin main
+# Confirm updater channel + install funnel (W310-e / PH4_UPDATER_BOOTSTRAP_BRIEF)
+bash scripts/DOWNLOAD-AND-VERIFY-RELEASE.command
+# Publish launch comms per docs/LAUNCH_PLAYBOOK_v10_GA.md
 ```
 
-Cloudflare Pages auto-rebuilds the marketing site on `main` push (~90
-seconds). After the rebuild, [tars.meeet.world](https://tars.meeet.world)
-shows the real **"Download for macOS · DMG · v9.1.0"** button instead of
-"Coming Soon · Notify me".
+After the signed `.dmg` is on GitHub Releases, [tars.meeet.world](https://tars.meeet.world)
+should serve the v10 GA artifact via the install funnel — verify with
+`bash scripts/POST-INSTALL-SMOKE.command` on a clean Mac.
 
 ---
 
@@ -206,11 +201,10 @@ signing chain failed silently. Likely culprits:
 
 ## Cross-references
 
-- Marketing flag controlling the Coming-Soon vs Download UI:
-  [`experiments/neural-showcase-v3/src/lib/launchFlags.ts`](../experiments/neural-showcase-v3/src/lib/launchFlags.ts)
-- Coming-Soon download strip:
-  [`experiments/neural-showcase-v3/src/components/DownloadStrip.tsx`](../experiments/neural-showcase-v3/src/components/DownloadStrip.tsx)
-  (function `ComingSoonStrip`)
+- Install funnel + updater channel (W310-e):
+  [`docs/handoff/PH4_UPDATER_BOOTSTRAP_BRIEF.md`](handoff/PH4_UPDATER_BOOTSTRAP_BRIEF.md)
+- Post-tag verify wrapper:
+  [`scripts/DOWNLOAD-AND-VERIFY-RELEASE.command`](../scripts/DOWNLOAD-AND-VERIFY-RELEASE.command)
 - CI workflow that runs on tag push:
   [`.github/workflows/release-desktop-tagged.yml`](../.github/workflows/release-desktop-tagged.yml)
 - Updater minisign key generator (already done in Wave 79):
