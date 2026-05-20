@@ -78,6 +78,9 @@ def test_api_module_shape() -> None:
     assert "export async function apiBinary" in src, (
         "api.ts must export apiBinary() for /api/voice/speak audio"
     )
+    assert "export async function apiMultipart" in src, (
+        "api.ts must export apiMultipart() for /api/voice/transcribe"
+    )
     assert "vaultStatus" in src and "/api/vault/status" in src, (
         "api.ts must include the vault status hook (brief §3.5)"
     )
@@ -168,6 +171,15 @@ def test_voice_module_shape() -> None:
     )
     assert "/api/voice/health" in src, (
         "voice.ts must fetch /api/voice/health on setup"
+    )
+    assert "/api/voice/transcribe" in src, (
+        "voice.ts must POST /api/voice/transcribe for STT (W309 step 2)"
+    )
+    assert "MediaRecorder" in src, (
+        "voice.ts must capture audio via MediaRecorder for STT"
+    )
+    assert "startRecording" in src and "stopRecording" in src, (
+        "voice.ts must export startRecording/stopRecording for the STT button"
     )
     # Boundary — voice depends on api only.
     assert 'from "./api"' in src, (
@@ -439,6 +451,52 @@ def test_api_error_constructor_handles_circular_detail() -> None:
         "api.ts ApiError must wrap JSON.stringify(detail) in try/catch "
         "so a circular-ref detail doesn't throw inside the throw"
     )
+
+
+def test_persona_picker_persists_to_localstorage() -> None:
+    """cockpit-entry must wire the persona picker and voice persistence."""
+
+    entry = ENTRY_PATH.read_text()
+    voice_src = (RUNTIME_DIR / "voice.ts").read_text()
+    assert "TARS_VOICE_PERSONA" in voice_src, (
+        "voice.ts must persist persona choice to localStorage"
+    )
+    assert "persona-picker" in entry or "personaPicker" in entry, (
+        "cockpit-entry.ts must bind the persona picker mount"
+    )
+    assert "renderPersonaPicker" in entry, (
+        "cockpit-entry.ts must populate the persona <select> after setup"
+    )
+
+
+def test_cockpit_html_includes_persona_picker_mount() -> None:
+    """cockpit.html must declare the persona <select> the picker binds against."""
+
+    html = (REPO_ROOT / "apps" / "cockpit" / "cockpit.html").read_text()
+    assert 'id="persona-picker"' in html, (
+        "cockpit.html must include #persona-picker for W309 step 2"
+    )
+    assert "Voice persona" in html, (
+        "cockpit.html persona picker must expose an accessible label"
+    )
+
+
+def test_cockpit_html_includes_stt_button() -> None:
+    """cockpit.html must declare the .stt-btn next to .mic."""
+
+    html = (REPO_ROOT / "apps" / "cockpit" / "cockpit.html").read_text()
+    assert 'class="stt-btn"' in html, (
+        "cockpit.html must include .stt-btn for push-to-talk STT"
+    )
+
+
+def test_e2e_suite_present_under_apps_cockpit() -> None:
+    """apps/cockpit/tests/e2e/cockpit.spec.ts must exist with @playwright/test."""
+
+    spec = REPO_ROOT / "apps" / "cockpit" / "tests" / "e2e" / "cockpit.spec.ts"
+    assert spec.is_file(), "Playwright e2e spec must exist under apps/cockpit/tests/e2e/"
+    src = spec.read_text()
+    assert "@playwright/test" in src, "e2e spec must import @playwright/test"
 
 
 def test_cockpit_entry_teardown_is_one_shot() -> None:

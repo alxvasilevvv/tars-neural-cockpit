@@ -1,12 +1,26 @@
 # Agent changelog
 
+## W309-ax — Cockpit step 2: STT upload + persona picker + e2e green (2026-05-20)
+
+**Agent**: Cursor. Branch `cursor/w309-step2-coverage` (post W310-aw fleet on `main`).
+
+**Shipped**: `apiMultipart()` for `/api/voice/transcribe`; `voice.startRecording` / `stopRecording` / `isRecording` with `MediaRecorder`; persona `<select>` + `TARS_VOICE_PERSONA` persistence; `.stt-btn` push-to-talk in input bar; status badges via `data-cockpit` hooks (no nth-child drift). **DOWNLOAD-AND-VERIFY** dry-run now exits **rc=2 PARTIAL** (W310-ap matrix alignment). **25** static runtime contract tests (+4 pin-ups). Playwright **7/7** with fake media stream flags.
+
+**Files**: `apps/cockpit/src/runtime/{api,voice}.ts`, `apps/cockpit/src/pages/cockpit-entry.ts`, `apps/cockpit/cockpit.html`, `apps/cockpit/tests/e2e/*`, `scripts/DOWNLOAD-AND-VERIFY-RELEASE.command`, `tests/test_cockpit_runtime_contract.py`, `tests/test_download_and_verify_release_script.py`.
+
+**Verification**: `pytest tests/test_cockpit_runtime_contract.py tests/test_download_and_verify_release_script.py -q` → 25 passed; `pnpm --filter @tars/cockpit test:e2e` → 7 passed (~2.6s).
+
+**Next**: MCP consolidated rewrite (`docs/handoff/MCP_REWRITE_BRIEF.md`); operator GA via W310-ao (8 hard blockers external).
+
+---
+
 ## W310-aw — W310 fleet landed on `main` (operator merge sequence, 2026-05-20)
 
 **Agent**: Cursor. Operator directive «сделай сам» + «продолжай» — executed W310-an merge sequence after #188 + #224 were already on `main`.
 
 **Merged**: #187 (W309 runtime, doc conflicts resolved), #189 (Playwright scaffold), #190 (install funnel), #191 (voice fallback), #192–#213 (planning briefs + wave summary), #214–#223 (10 GA helper scripts). **0 open PRs** in W310 fleet.
 
-**Verification**: `pytest` on helper script tests + `test_cockpit_runtime_contract.py` → **206 passed, 4 skipped** (~27s). W310-ap dry-run rehearsal on `main`: 4/6 helpers rc=2 PARTIAL as expected; TAG-GUARD rc=1 (no soak report + dirty tree — correct); DOWNLOAD dry-run rc=0 (stub path).
+**Verification**: `pytest` on helper script tests + `test_cockpit_runtime_contract.py` → **206 passed, 4 skipped** (~27s). W310-ap dry-run rehearsal on `main`: 4/6 helpers rc=2 PARTIAL as expected; TAG-GUARD rc=1 (no soak report — correct); DOWNLOAD dry-run rc=2 PARTIAL after W309-ax fix (was cosmetic rc=0 on stub).
 
 **Docs**: `CURRENT_STATUS.md` updated to W310-aw (fleet landed, next = GA blockers + W310-ao cookbook). Cross-workspace: `meeet-browser-agent/AGENTS.md` + `TARS_OVERVIEW_RU.md` synced.
 

@@ -12,9 +12,8 @@
  *   on first user gesture (per browser autoplay/permission rules).
  *   The resulting `MediaStream` is held for the cockpit session and
  *   released on `teardown()` or explicit `releaseMic()`. We don't
- *   pipe it anywhere yet — STT upload (`/api/voice/transcribe`) is
- *   a W310+ concern; W309 step 1 only proves the permission flow
- *   and stream handle.
+ *   W309 step 2 adds STT upload (`/api/voice/transcribe`) via
+ *   `MediaRecorder` + `startRecording()` / `stopRecording()`.
  *
  * TTS playback:
  *   `speak(text, {personaId?})` POSTs `/api/voice/speak`, gets back
@@ -32,7 +31,9 @@
  *   else via `setPersona(id)`.
  */
 
-import { api, apiBinary, ApiError } from "./api";
+import { api, apiBinary, apiMultipart, ApiError } from "./api";
+
+const PERSONA_LS_KEY = "TARS_VOICE_PERSONA";
 
 export interface Persona {
   id: string;
@@ -58,6 +59,10 @@ interface VoiceState {
   health: VoiceHealth | null;
   ttsQueue: Promise<void>;
   alive: boolean;
+  recorder: MediaRecorder | null;
+  recordChunks: BlobPart[];
+  recordingMime: string;
+  recordPromise: Promise<void> | null;
 }
 
 const state: VoiceState = {
@@ -68,6 +73,10 @@ const state: VoiceState = {
   health: null,
   ttsQueue: Promise.resolve(),
   alive: true,
+  recorder: null,
+  recordChunks: [],
+  recordingMime: "audio/webm",
+  recordPromise: null,
 };
 
 /**
@@ -98,10 +107,25 @@ export async function setup(): Promise<void> {
   if (personasRes.status === "fulfilled") {
     state.personas = personasRes.value.personas ?? [];
     const defId = personasRes.value.default_persona_id;
-    state.currentPersona =
+    let chosen =
       state.personas.find((p) => p.id === defId) ??
       state.personas[0] ??
       null;
+    try {
+      const saved = window.localStorage.getItem(PERSONA_LS_KEY);
+      if (saved) {
+        const restored = state.personas.find((p) => p.id === saved);
+        if (restored) chosen = restored;
+      }
+    } catch {
+      /* private browsing */
+    }
+    state.currentPersona = chosen;
+    if (chosen) {
+      void refreshPersonaEffective(chosen.id).catch((err) =>
+        console.warn("[voice] personas/effective prefetch failed", err),
+      );
+    }
   } else {
     console.warn("[voice] personas fetch failed", personasRes.reason);
   }
@@ -115,6 +139,7 @@ export async function setup(): Promise<void> {
 
 export function teardown(): void {
   state.alive = false;
+  abortRecording();
   releaseMic();
   state.personas = [];
   state.currentPersona = null;
@@ -138,7 +163,108 @@ export function setPersona(id: string): boolean {
   const next = state.personas.find((p) => p.id === id);
   if (!next) return false;
   state.currentPersona = next;
+  try {
+    window.localStorage.setItem(PERSONA_LS_KEY, id);
+  } catch {
+    /* */
+  }
+  void refreshPersonaEffective(id).catch((err) =>
+    console.warn("[voice] personas/effective failed", err),
+  );
   return true;
+}
+
+async function refreshPersonaEffective(personaId: string): Promise<void> {
+  await api<{ ok: boolean }>(
+    `/api/voice/personas/effective?persona_id=${encodeURIComponent(personaId)}`,
+  );
+}
+
+function pickRecordingMime(): string {
+  if (typeof MediaRecorder === "undefined") return "audio/webm";
+  const candidates = ["audio/webm;codecs=opus", "audio/mp4", "audio/webm"];
+  for (const mime of candidates) {
+    if (MediaRecorder.isTypeSupported(mime)) return mime;
+  }
+  return "";
+}
+
+function abortRecording(): void {
+  if (state.recorder && state.recorder.state !== "inactive") {
+    try {
+      state.recorder.stop();
+    } catch {
+      /* */
+    }
+  }
+  state.recorder = null;
+  state.recordChunks = [];
+  state.recordPromise = null;
+}
+
+export function isRecording(): boolean {
+  return state.recorder?.state === "recording";
+}
+
+export async function startRecording(): Promise<void> {
+  if (state.recordPromise) return state.recordPromise;
+  if (isRecording()) return;
+
+  state.recordPromise = (async () => {
+    const stream = await ensureMic();
+    const mime = pickRecordingMime();
+    state.recordingMime = mime || "audio/webm";
+    state.recordChunks = [];
+    const recorder = mime
+      ? new MediaRecorder(stream, { mimeType: mime })
+      : new MediaRecorder(stream);
+    state.recorder = recorder;
+    recorder.ondataavailable = (evt) => {
+      if (evt.data && evt.data.size > 0) state.recordChunks.push(evt.data);
+    };
+    recorder.start();
+  })().finally(() => {
+    state.recordPromise = null;
+  });
+  return state.recordPromise;
+}
+
+export async function stopRecording(): Promise<string> {
+  if (!state.recorder || state.recorder.state === "inactive") {
+    throw new Error("not_recording");
+  }
+
+  const recorder = state.recorder;
+  const text = await new Promise<string>((resolve, reject) => {
+    recorder.onstop = () => {
+      void (async () => {
+        try {
+          const blob = new Blob(state.recordChunks, {
+            type: state.recordingMime,
+          });
+          state.recorder = null;
+          state.recordChunks = [];
+          const ext = state.recordingMime.includes("mp4") ? ".mp4" : ".webm";
+          const form = new FormData();
+          form.append("audio", blob, `capture${ext}`);
+          const res = await apiMultipart<{ ok: boolean; text?: string }>(
+            "/api/voice/transcribe",
+            form,
+          );
+          resolve((res.text ?? "").trim());
+        } catch (err) {
+          reject(err);
+        }
+      })();
+    };
+    recorder.onerror = () => reject(new Error("recorder_failed"));
+    try {
+      recorder.stop();
+    } catch (err) {
+      reject(err);
+    }
+  });
+  return text;
 }
 
 /**

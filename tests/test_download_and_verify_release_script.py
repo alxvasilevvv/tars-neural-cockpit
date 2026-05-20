@@ -239,11 +239,11 @@ def test_dry_run_with_all_skips_and_stub_sibling_is_green(tmp_path):
             "GH_REPO": "alxvasilevvv/tars-neural-cockpit",
         }
     )
-    assert result.returncode == 0, (
-        f"dry-run-with-all-skips should be green; got {result.returncode}\n"
+    assert result.returncode == 2, (
+        f"dry-run must exit PARTIAL (2) per W310-ap matrix; got {result.returncode}\n"
         f"stdout=\n{result.stdout}\nstderr=\n{result.stderr}"
     )
-    assert "PROCEED" in result.stdout
+    assert "PARTIAL" in result.stdout
     assert "dry-run; no real download or verify performed" in result.stdout
     assert "[dry-run] download skipped" in result.stdout
     assert (

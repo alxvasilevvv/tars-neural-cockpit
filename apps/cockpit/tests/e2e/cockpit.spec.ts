@@ -2,8 +2,7 @@
  * cockpit.spec.ts — behavioural smoke for the W309 cockpit runtime.
  *
  * W310-c scaffold; W309 step 2 partial (2026-05-20): boot / chat /
- * vault / ws enabled against step-1 runtime. Persona picker + STT
- * upload scenarios stay skipped until §3.2–3.3 land.
+ * vault / ws / persona picker / STT enabled for W309 step 2.
  * The step-2 implementer:
  *
  *   1. Drops `.skip` off each scenario as the runtime gets wired.
@@ -39,7 +38,7 @@ test.describe("cockpit smoke (W309 step 2 prep)", () => {
     expect(errors, "console must be clean on boot").toHaveLength(0);
   });
 
-  test.skip("personas: select renders 4 options + default is jarvis", async ({ page }) => {
+  test("personas: select renders 4 options + default is jarvis", async ({ page }) => {
     await page.goto("/cockpit.html");
     const picker = page.getByLabel(/voice persona/i);
     await expect(picker).toBeVisible();
@@ -48,7 +47,7 @@ test.describe("cockpit smoke (W309 step 2 prep)", () => {
     await expect(picker).toHaveValue("jarvis");
   });
 
-  test.skip("personas: switching persona persists & updates /voice/personas/effective query", async ({ page }) => {
+  test("personas: switching persona persists & updates /voice/personas/effective query", async ({ page }) => {
     await page.goto("/cockpit.html");
     const requests: string[] = [];
     page.on("request", (req) => {
@@ -88,17 +87,20 @@ test.describe("cockpit smoke (W309 step 2 prep)", () => {
     );
   });
 
-  test.skip("stt: mic stop → POSTs blob to /voice/transcribe → text lands in chat input", async ({ page }) => {
+  test("stt: mic stop → POSTs blob to /voice/transcribe → text lands in chat input", async ({ page }) => {
     await page.goto("/cockpit.html");
     const postPromise = page.waitForRequest(
       (req) => req.url().includes("/api/voice/transcribe") && req.method() === "POST",
     );
     await page.getByRole("button", { name: /start mic/i }).click();
-    await page.waitForTimeout(150);
+    await expect(page.getByRole("button", { name: /stop mic/i })).toBeVisible({
+      timeout: 3_000,
+    });
+    await page.waitForTimeout(300);
     await page.getByRole("button", { name: /stop mic/i }).click();
     const req = await postPromise;
     expect(req.postDataBuffer()?.byteLength ?? 0).toBeGreaterThan(0);
-    await expect(page.getByRole("textbox", { name: /message/i })).toHaveValue(
+    await expect(page.getByRole("textbox", { name: /command input/i })).toHaveValue(
       /hello world this is a test transcription/i,
     );
   });
