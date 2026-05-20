@@ -3,7 +3,7 @@
 > Live one-pager. Full story: `TARS_MASTER_DOC.md`. Doc map:
 > `PROJECT_INDEX.md`. This page is the 60-second pulse check.
 
-**Last updated:** 2026-05-20 (W310-aw fleet landed). **Tag in flight:**
+**Last updated:** 2026-05-20 (W309 step 2 on branch `cursor/w309-step2-coverage`). **Tag in flight:**
 `v10.0.0` — rc1 → GA the moment the **8 hard blockers** (3 brother + 5
 Apple sign) flip green AND the operator executes the W310-ao GA
 cookbook playbook below. **W310 fleet (#187–#223 + #188 + #224) is on
@@ -31,9 +31,10 @@ cookbook playbook below. **W310 fleet (#187–#223 + #188 + #224) is on
 `main`**. Tier 0 (#188 + #224), runtime (#187–#191), planning (#192–#213),
 and implementer helpers (#214–#223) merged via W310-an sequence (doc
 conflicts on #187/#189/#190/#191 resolved in-branch). **0 open PRs** in
-the W310 fleet. Next operator surface: **W310-ap dry-run rehearsal** →
-**W310-ao GA cookbook** (8 hard blockers still external). See
-`docs/W310_WAVE_SUMMARY.md` for playbooks.
+the W310 fleet. **W309 step 2** (STT + persona picker + 7/7 Playwright)
+on PR branch `cursor/w309-step2-coverage`. Next operator surface:
+**W310-ap dry-run rehearsal** → **W310-ao GA cookbook** (8 hard blockers
+still external). See `docs/W310_WAVE_SUMMARY.md` for playbooks.
 
 ---
 
