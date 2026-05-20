@@ -1,8 +1,9 @@
 /**
  * cockpit.spec.ts — behavioural smoke for the W309 cockpit runtime.
  *
- * W310-c skeleton. Every assertion is `test.skip()` pending W309
- * step 2 (mediarecorder + STT upload + persona <select>) landing.
+ * W310-c scaffold; W309 step 2 partial (2026-05-20): boot / chat /
+ * vault / ws enabled against step-1 runtime. Persona picker + STT
+ * upload scenarios stay skipped until §3.2–3.3 land.
  * The step-2 implementer:
  *
  *   1. Drops `.skip` off each scenario as the runtime gets wired.
@@ -27,7 +28,7 @@ test.describe("cockpit smoke (W309 step 2 prep)", () => {
     await mockChatStream(page);
   });
 
-  test.skip("boot: loads cockpit.html without console errors", async ({ page }) => {
+  test("boot: loads cockpit.html without console errors", async ({ page }) => {
     const errors: string[] = [];
     page.on("pageerror", (e) => errors.push(e.message));
     page.on("console", (msg) => {
@@ -60,24 +61,31 @@ test.describe("cockpit smoke (W309 step 2 prep)", () => {
     await expect(page.getByLabel(/voice persona/i)).toHaveValue("stark");
   });
 
-  test.skip("chat: typed message streams SSE deltas into the transcript", async ({ page }) => {
+  test("chat: typed message streams SSE deltas into the strand", async ({ page }) => {
     await page.goto("/cockpit.html");
-    await page.getByRole("textbox", { name: /message/i }).fill("ping");
-    await page.getByRole("button", { name: /send/i }).click();
-    const transcript = page.locator("[data-testid=chat-transcript]");
-    await expect(transcript).toContainText("Hello from the mock sidecar.", {
-      timeout: 3_000,
-    });
+    const input = page.getByRole("textbox", { name: /command input/i });
+    await input.fill("ping");
+    await input.press("Enter");
+    await expect(page.locator(".strand-body").last()).toContainText(
+      "Hello from the mock sidecar.",
+      { timeout: 3_000 },
+    );
   });
 
-  test.skip("ws: voice runtime opens WS and survives a close+reopen cycle", async ({ page }) => {
+  test("ws: backend WS opens and reconnects after close", async ({ page }) => {
     await page.goto("/cockpit.html");
-    const wsCount = await page.evaluate(() => (window as any).__stubWs?.instances.length ?? 0);
-    expect(wsCount).toBeGreaterThanOrEqual(1);
+    const backend = page.locator(".status-bar span").first();
+    await expect(backend).toHaveAttribute("data-state", "online", {
+      timeout: 3_000,
+    });
+    const before = await page.evaluate(() => (window as any).__stubWs?.instances.length ?? 0);
+    expect(before).toBeGreaterThanOrEqual(1);
     await page.evaluate(() => (window as any).__stubWs.instances.at(-1)?.close());
-    await page.waitForTimeout(50);
-    const reopened = await page.evaluate(() => (window as any).__stubWs?.instances.length ?? 0);
-    expect(reopened).toBeGreaterThan(wsCount);
+    await page.waitForFunction(
+      (n: number) => ((window as any).__stubWs?.instances.length ?? 0) > n,
+      before,
+      { timeout: 3_000 },
+    );
   });
 
   test.skip("stt: mic stop → POSTs blob to /voice/transcribe → text lands in chat input", async ({ page }) => {
@@ -95,10 +103,14 @@ test.describe("cockpit smoke (W309 step 2 prep)", () => {
     );
   });
 
-  test.skip("vault: warns when no provider is configured (vault.status.configured=false)", async ({ page }) => {
+  test("vault: warns when ElevenLabs key is missing", async ({ page }) => {
     await page.goto("/cockpit.html");
-    await expect(
-      page.getByText(/add an openai \/ anthropic \/ elevenlabs key/i),
-    ).toBeVisible();
+    await expect(page.getByText(/elevenlabs key not in vault/i)).toBeVisible({
+      timeout: 3_000,
+    });
+    await expect(page.getByRole("link", { name: /add key/i })).toHaveAttribute(
+      "rel",
+      "noopener noreferrer",
+    );
   });
 });

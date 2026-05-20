@@ -13,7 +13,7 @@
  * stream route is finalised.
  */
 import type { Page, Route } from "@playwright/test";
-import frames from "../fixtures/chat-sse-deltas.json";
+import frames from "../fixtures/chat-sse-deltas.json" with { type: "json" };
 
 type Frame = { event: string; data: unknown };
 
@@ -24,7 +24,12 @@ export async function mockChatStream(
   page: Page,
   customFrames: Frame[] = frames.frames,
 ) {
-  await page.route("**/api/chat/stream**", async (route: Route) => {
+  // W309 step 1 streams on POST /api/chat/threads/{id}/messages (not /stream).
+  await page.route("**/api/chat/threads/*/messages", async (route: Route) => {
+    if (route.request().method() !== "POST") {
+      await route.continue();
+      return;
+    }
     const body = customFrames.map(serialise).join("");
     await route.fulfill({
       status: 200,

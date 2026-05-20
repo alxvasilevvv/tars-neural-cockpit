@@ -16,11 +16,11 @@
  * persona swap) once the runtime hits its endpoints.
  */
 import type { Page, Route } from "@playwright/test";
-import personas from "../fixtures/voice-personas.json";
-import health from "../fixtures/voice-health.json";
-import vault from "../fixtures/vault-status.json";
-import threads from "../fixtures/chat-threads.json";
-import transcribe from "../fixtures/voice-transcribe.json";
+import personas from "../fixtures/voice-personas.json" with { type: "json" };
+import health from "../fixtures/voice-health.json" with { type: "json" };
+import vault from "../fixtures/vault-status.json" with { type: "json" };
+import threads from "../fixtures/chat-threads.json" with { type: "json" };
+import transcribe from "../fixtures/voice-transcribe.json" with { type: "json" };
 
 export type RouteOverride = {
   url: string | RegExp;
@@ -64,7 +64,36 @@ export async function mockSidecar(page: Page, overrides: RouteOverride[] = []) {
 
   await page.route("**/api/vault/status", (route) => route.fulfill(json(vault)));
 
-  await page.route("**/api/chat/threads", (route) => route.fulfill(json(threads)));
+  await page.route("**/api/chat/threads", async (route) => {
+    if (route.request().method() === "POST") {
+      await route.fulfill(
+        json({
+          ok: true,
+          thread: {
+            id: "thread-e2e-default",
+            title: "Cockpit smoke",
+          },
+        }),
+      );
+      return;
+    }
+    await route.fulfill(json(threads));
+  });
+
+  await page.route("**/api/chat/threads/*", async (route) => {
+    const url = route.request().url();
+    if (url.includes("/messages")) {
+      await route.continue();
+      return;
+    }
+    await route.fulfill(
+      json({
+        ok: true,
+        thread: { id: "thread-e2e-default", title: "Cockpit smoke" },
+        messages: [],
+      }),
+    );
+  });
 
   for (const o of overrides) {
     await page.route(o.url, o.handler);
