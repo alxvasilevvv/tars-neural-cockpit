@@ -267,7 +267,7 @@ def test_dry_run_default_arch_is_uname_m_resolved(tmp_path):
             "GH_REPO": "alxvasilevvv/tars-neural-cockpit",
         }
     )
-    assert result.returncode == 0
+    assert result.returncode == 2, "dry-run must exit PARTIAL (2) per W310-ap matrix"
     machine = platform.machine()
     expected = {"arm64": "aarch64", "aarch64": "aarch64", "x86_64": "x86_64"}.get(machine)
     if expected:
@@ -293,7 +293,7 @@ def test_release_arch_override_wins_over_uname(tmp_path):
             "RELEASE_ARCH": "x86_64",
         }
     )
-    assert result.returncode == 0
+    assert result.returncode == 2
     assert "arch: x86_64" in result.stdout
 
 
@@ -313,7 +313,7 @@ def test_release_tag_override_propagates(tmp_path):
             "RELEASE_TAG": "v10.0.1",
         }
     )
-    assert result.returncode == 0
+    assert result.returncode == 2
     assert "tag v10.0.1" in result.stdout
     # In dry-run we synthesize asset name TARS_<ver>_<arch>.dmg
     assert re.search(r"\[dry-run\] asset assumed: TARS_10\.0\.1_\S+\.dmg", result.stdout)

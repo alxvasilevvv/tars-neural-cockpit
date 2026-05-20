@@ -212,15 +212,22 @@ echo "branch: ${BRANCH_NAME}"
 hdr "Gate 1 — SOAK-REPORT verdict (${REPORT_PATH})"
 
 if [ ! -f "${REPORT_PATH}" ]; then
-  bad "soak report not found at ${REPORT_PATH}"
-  echo "  remediation: run \`bash scripts/SOAK-REPORT.command >"
-  echo "               docs/qa/SOAK_v10.0.0.md\` after \`bash"
-  echo "               scripts/SOAK-HOURLY.command\` has populated"
-  echo "               .soak/hourly.log for at least 72 hours."
-  echo "               OR set TARS_TAG_GUARD_REPORT=<path> if the"
-  echo "               report lives elsewhere."
-  record "Gate 1 — SOAK-REPORT verdict" "RED" "report missing — run SOAK-REPORT first"
-  RC_BAD=1
+  if [ "${DRY_RUN}" = "1" ]; then
+    warn "soak report not found at ${REPORT_PATH}"
+    echo "  (TAG_GUARD_DRY_RUN=1 — Gate 1 recorded AMBER for W310-ap rehearsal;"
+    echo "   real tag cut still requires a rendered SOAK_v10.0.0.md verdict.)"
+    record "Gate 1 — SOAK-REPORT verdict" "AMBER" "report missing (dry-run rehearsal)"
+  else
+    bad "soak report not found at ${REPORT_PATH}"
+    echo "  remediation: run \`bash scripts/SOAK-REPORT.command >"
+    echo "               docs/qa/SOAK_v10.0.0.md\` after \`bash"
+    echo "               scripts/SOAK-HOURLY.command\` has populated"
+    echo "               .soak/hourly.log for at least 72 hours."
+    echo "               OR set TARS_TAG_GUARD_REPORT=<path> if the"
+    echo "               report lives elsewhere."
+    record "Gate 1 — SOAK-REPORT verdict" "RED" "report missing — run SOAK-REPORT first"
+    RC_BAD=1
+  fi
 else
   # SOAK-REPORT writes ONE of these four canonical signatures in
   # section "## 1. Verdict" (or the no-data fallback at the top of the

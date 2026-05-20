@@ -1,5 +1,19 @@
 # Agent changelog
 
+## W310-ay — Post-fleet merge + rehearsal green (2026-05-20)
+
+**Agent**: Cursor. Sequential operator request «все по очереди».
+
+**Merged to `main`:** **#225** (W309-ax cockpit step 2), **#226** (W310-ax MCP rewrite; changelog conflict resolved on branch).
+
+**Fixes on `main`:** `RELEASE-TAG-GUARD` stubs Gate 1 AMBER when `TAG_GUARD_DRY_RUN=1` and soak report absent (W310-ap matrix); download-verify arch/tag dry-run tests expect rc=2 PARTIAL.
+
+**Verification:** `pytest` helper + MCP + cockpit contract → **298 passed, 4 skipped**; W310-ap dry-run matrix → **6/6 PARTIAL** on clean tree.
+
+**Next:** operator W310-ao (secrets + live brother/Apple + 72h soak) — not automatable by agent.
+
+---
+
 ## W310-ax — MCP consolidated rewrite (client + bridge + pool, 2026-05-20)
 
 **Agent**: Cursor. PR **#226** merged to `main` after **#225** (changelog conflict resolved on branch).
@@ -2830,14 +2844,6 @@ Full sign-off doc at `docs/WAVE_53_LAUNCH_SIGNOFF.md`. Verdict: ship it.
 
 `>>> SYNC: Cursor · 2026-05-05 · remote billing plane + contract`
 
-## 2026-05-05 — Cursor: payment rails — SOL / $MEEET only (Stripe deprecated)
-
-**Summary:** `TARS_PAYMENT_MODE` on-chain stub accepts **`onchain`**, **`tokens`**, and legacy **`stripe`** (same 503 `not_implemented`). Copy + legal/docs + cockpit i18n now describe **SOL / $MEEET** only; Stripe row removed from `PRIVACY_POLICY.md`. Tests parametrized in `tests/test_entitlements.py`.
-
-**Files:** `web_extras/routers/entitlements.py`, `tests/test_entitlements.py`, `experiments/neural-showcase-v3/src/lib/i18n.tsx`, `Pricing.tsx`, `DomainsCards.tsx`, `Status.tsx`, `ScrollStory.tsx`, `docs/PRIVACY_POLICY.md`, `docs/FAQ.md`, `docs/contracts/TARS_SUBDOMAIN.md`, `docs/AGENT_HANDOFF.md`, `docs/CHANGELOG_AGENTS.md`.
-
-`>>> SYNC: Cursor · 2026-05-05 · SOL+MEEET payment messaging; stripe env alias deprecated`
-
 ---
 
-_Showing the most recent 60 of 277 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 278 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._

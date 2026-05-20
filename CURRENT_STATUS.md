@@ -3,7 +3,7 @@
 > Live one-pager. Full story: `TARS_MASTER_DOC.md`. Doc map:
 > `PROJECT_INDEX.md`. This page is the 60-second pulse check.
 
-**Last updated:** 2026-05-20 (W309 step 2 on branch `cursor/w309-step2-coverage`). **Tag in flight:**
+**Last updated:** 2026-05-20 (W310-ay — #225 + #226 on `main`). **Tag in flight:**
 `v10.0.0` — rc1 → GA the moment the **8 hard blockers** (3 brother + 5
 Apple sign) flip green AND the operator executes the W310-ao GA
 cookbook playbook below. **W310 fleet (#187–#223 + #188 + #224) is on
@@ -27,14 +27,12 @@ cookbook playbook below. **W310 fleet (#187–#223 + #188 + #224) is on
 | W310-an..as | Docs-only extensions to PR #192: merge sequence + GA cookbook execution + dry-run rehearsal + post-GA week-1 runbook + post-v10 sprint planning + 60-sec TLDR | extends #192 |
 | W310-aq cross-stack | Brother-side first-week runbook mirror (PR #198 §8.A) | extends #198 |
 
-**State as of W310-aw (2026-05-20):** all W310 sub-waves **landed on
-`main`**. Tier 0 (#188 + #224), runtime (#187–#191), planning (#192–#213),
-and implementer helpers (#214–#223) merged via W310-an sequence (doc
-conflicts on #187/#189/#190/#191 resolved in-branch). **0 open PRs** in
-the W310 fleet. **W309 step 2** (STT + persona picker + 7/7 Playwright)
-on PR branch `cursor/w309-step2-coverage`. Next operator surface:
-**W310-ap dry-run rehearsal** → **W310-ao GA cookbook** (8 hard blockers
-still external). See `docs/W310_WAVE_SUMMARY.md` for playbooks.
+**State as of W310-ay (2026-05-20):** W310 fleet + post-fleet implementers
+on **`main`**: **#225** W309 step 2 (STT + persona + **7/7** e2e), **#226**
+MCP rewrite (66 MCP pytest). **298** helper/MCP/cockpit contract tests green.
+**W310-ap rehearsal:** 6/6 wrappers rc=2 PARTIAL in dry-run (orchestration
+sound). Operator next: **W310-ao GA cookbook** — **8 hard blockers** (3
+brother + 5 Apple) still external + **72h soak** before real tag cut.
 
 ---
 
