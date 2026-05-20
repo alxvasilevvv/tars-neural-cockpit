@@ -62,7 +62,7 @@ def fake_backend():
 
     routes: dict[str, int] = {
         "/api/health": 200,
-        "/api/pairing/status": 200,
+        "/api/pairing/devices": 200,
         "/api/voice/health": 200,
         "/api/vault/status": 200,
         "/api/qa/probe": 200,
@@ -125,7 +125,7 @@ def test_all_probes_succeed_appends_clean_record(tmp_repo: Path, fake_backend):
     paths = [p["path"] for p in record["probes"]]
     assert paths == [
         "/api/health",
-        "/api/pairing/status",
+        "/api/pairing/devices",
         "/api/voice/health",
         "/api/vault/status",
     ]

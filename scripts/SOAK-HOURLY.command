@@ -8,8 +8,8 @@
 # What it does (per `docs/handoff/PH11_QA_SWEEP_BRIEF.md` §4.2):
 #   1. Probes the running backend on http://127.0.0.1:8765 :
 #        - GET /api/health           (must be 200)
-#        - GET /api/pairing/status   (must be 200; brief said /identity, real
-#          surface is /status — corrected in implement)
+#        - GET /api/pairing/devices  (must be 200; liveness probe — /status
+#          requires pair_id and returns 422 without it)
 #        - GET /api/voice/health     (must be 200)
 #        - GET /api/vault/status     (must be 200)
 #   2. Runs the QA-Agent probe surface — `make qa-agent` style: hits the
@@ -160,7 +160,7 @@ STAMP="$(now_iso)"
 
 PATHS=(
   "/api/health"
-  "/api/pairing/status"
+  "/api/pairing/devices"
   "/api/voice/health"
   "/api/vault/status"
 )

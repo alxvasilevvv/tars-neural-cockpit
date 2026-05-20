@@ -59,7 +59,7 @@ def _make_record(
             "base_url": "http://127.0.0.1:8765",
             "probes": [
                 {"path": "/api/health", "code": 200, "latency_ms": p50},
-                {"path": "/api/pairing/status", "code": 200, "latency_ms": p50},
+                {"path": "/api/pairing/devices", "code": 200, "latency_ms": p50},
                 {"path": "/api/voice/health", "code": 200, "latency_ms": p50},
                 {"path": "/api/vault/status", "code": 200, "latency_ms": p95},
             ],
