@@ -43,6 +43,7 @@ from .protocol import (
     decode_message,
     encode_message,
 )
+from . import bridge, client, pool
 from .server import MCPServer, run_stdio
 from .tools import (
     Tool,
@@ -56,6 +57,9 @@ logger = logging.getLogger(__name__)
 
 
 __all__ = [
+    "bridge",
+    "client",
+    "pool",
     "CONTRACT_VERSION",
     "JsonRpcError",
     "JsonRpcMethodNotFound",

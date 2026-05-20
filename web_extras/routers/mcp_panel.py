@@ -215,6 +215,33 @@ async def delete_server(server_id: str) -> dict:
     return {"ok": True, "id": server_id}
 
 
+@router.get("/bridge/status")
+async def bridge_status() -> dict:
+    """Consolidated MCP bridge health (W310 MCP rewrite)."""
+
+    try:
+        from backend.core.mcp.bridge_pkg import get_default_pool  # type: ignore
+
+        pool = get_default_pool()
+        return {"ok": True, "pool": pool.stats()}
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)[:240]}
+
+
+@router.get("/pool/stats")
+async def pool_stats() -> dict:
+    """Session pool snapshot for operators."""
+
+    try:
+        from backend.core.mcp.bridge_pkg.pool import get_default_pool  # type: ignore
+
+        pool = get_default_pool()
+        stats = pool.stats()
+        return {"ok": True, **stats}
+    except Exception as exc:
+        return {"ok": False, "error": str(exc)[:240]}
+
+
 @router.get("/servers/{server_id}/status")
 async def server_status(server_id: str) -> dict:
     rows = _read_servers()

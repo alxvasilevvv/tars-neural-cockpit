@@ -1,16 +1,26 @@
 # Agent changelog
 
+## W310-ax — MCP consolidated rewrite (client + bridge + pool, 2026-05-20)
+
+**Agent**: Cursor. PR **#226** merged to `main` after **#225** (changelog conflict resolved on branch).
+
+**Shipped**: `backend/core/mcp/client_pkg/` (stdio transport + registry + session), `backend/core/mcp/bridge_pkg/` (BridgedPack + bootstrap + pool), thin facades `client.py` / `bridge.py` / `pool.py`. HTTP: `GET /api/mcp/bridge/status`, `GET /api/mcp/pool/stats` on existing `mcp_panel` router. Operator guide `docs/MCP_GUIDE.md`.
+
+**Verification**: `.venv/bin/python -m pytest tests/test_mcp_client_*.py tests/test_mcp_bridge_bootstrap.py tests/test_mcp_server.py tests/test_mcp_panel_router.py -q` → **66 passed** (~1.4s).
+
+**Deferred**: Cockpit MCP panel UI (#182), `tars mcp` CLI verbs (old #179) — follow-up PRs.
+
+---
+
 ## W309-ax — Cockpit step 2: STT upload + persona picker + e2e green (2026-05-20)
 
-**Agent**: Cursor. Branch `cursor/w309-step2-coverage` (post W310-aw fleet on `main`).
+**Agent**: Cursor. PR **#225** merged to `main` (post W310-aw fleet).
 
 **Shipped**: `apiMultipart()` for `/api/voice/transcribe`; `voice.startRecording` / `stopRecording` / `isRecording` with `MediaRecorder`; persona `<select>` + `TARS_VOICE_PERSONA` persistence; `.stt-btn` push-to-talk in input bar; status badges via `data-cockpit` hooks (no nth-child drift). **DOWNLOAD-AND-VERIFY** dry-run now exits **rc=2 PARTIAL** (W310-ap matrix alignment). **25** static runtime contract tests (+4 pin-ups). Playwright **7/7** with fake media stream flags.
 
-**Files**: `apps/cockpit/src/runtime/{api,voice}.ts`, `apps/cockpit/src/pages/cockpit-entry.ts`, `apps/cockpit/cockpit.html`, `apps/cockpit/tests/e2e/*`, `scripts/DOWNLOAD-AND-VERIFY-RELEASE.command`, `tests/test_cockpit_runtime_contract.py`, `tests/test_download_and_verify_release_script.py`.
-
 **Verification**: `pytest tests/test_cockpit_runtime_contract.py tests/test_download_and_verify_release_script.py -q` → 25 passed; `pnpm --filter @tars/cockpit test:e2e` → 7 passed (~2.6s).
 
-**Next**: MCP consolidated rewrite (`docs/handoff/MCP_REWRITE_BRIEF.md`); operator GA via W310-ao (8 hard blockers external).
+**Next**: Operator GA via W310-ao (8 hard blockers external); MCP panel UI + CLI follow-ups.
 
 ---
 
@@ -24,7 +34,7 @@
 
 **Docs**: `CURRENT_STATUS.md` updated to W310-aw (fleet landed, next = GA blockers + W310-ao cookbook). Cross-workspace: `meeet-browser-agent/AGENTS.md` + `TARS_OVERVIEW_RU.md` synced.
 
-**Next implementer lanes unblocked**: MCP rewrite (`docs/handoff/MCP_REWRITE_BRIEF.md`), W309 step 2 (`docs/handoff/W309_STEP2_BRIEF.md`), v10.1 per W310-ar sprint matrix.
+**Next implementer lanes**: **#225** W309 step 2 + **#226** MCP rewrite merged 2026-05-20; operator GA (W310-ao) + v10.1 per W310-ar sprint matrix.
 
 ---
 
@@ -2828,14 +2838,6 @@ Full sign-off doc at `docs/WAVE_53_LAUNCH_SIGNOFF.md`. Verdict: ship it.
 
 `>>> SYNC: Cursor · 2026-05-05 · SOL+MEEET payment messaging; stripe env alias deprecated`
 
-## 2026-05-05 — Cursor: commercial-readiness chain tests (no marketing)
-
-**Summary:** Added `tests/test_commercial_readiness_chain.py` — one ordered GET sweep of operator/sell surfaces (domains list + manifest + pack detail + health, entitlements, usage rollup, product downloads + version, policy pending, meeet stats + health, playbooks catalog) plus B-001 `/dl/*` and `/install.sh` 302 checks. **`make test-commercial-readiness`** runs only this file. Full pytest **2411 passed** (+2).
-
-**Files:** `tests/test_commercial_readiness_chain.py`, `Makefile`, `docs/CHANGELOG_AGENTS.md`, `docs/AGENT_HANDOFF.md`.
-
-`>>> SYNC: Cursor · 2026-05-05 · commercial readiness pytest chain + Makefile target`
-
 ---
 
-_Showing the most recent 60 of 276 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 277 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
