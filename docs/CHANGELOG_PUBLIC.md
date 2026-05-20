@@ -1,5 +1,17 @@
 # Agent changelog
 
+## W310-ax — MCP consolidated rewrite (client + bridge + pool, 2026-05-20)
+
+**Agent**: Cursor. Branch `cursor/mcp-rewrite-consolidated` (re-ports closed M-wave branches onto `backend/core/mcp/`).
+
+**Shipped**: `backend/core/mcp/client_pkg/` (stdio transport + registry + session), `backend/core/mcp/bridge_pkg/` (BridgedPack + bootstrap + pool), thin facades `client.py` / `bridge.py` / `pool.py`. HTTP: `GET /api/mcp/bridge/status`, `GET /api/mcp/pool/stats` on existing `mcp_panel` router. Operator guide `docs/MCP_GUIDE.md`.
+
+**Verification**: `.venv/bin/python -m pytest tests/test_mcp_client_*.py tests/test_mcp_bridge_bootstrap.py tests/test_mcp_server.py tests/test_mcp_panel_router.py -q` → **66 passed** (~1.4s).
+
+**Deferred**: Cockpit MCP panel UI (#182), `tars mcp` CLI verbs (old #179) — follow-up PRs after merge.
+
+---
+
 ## W310-aw — W310 fleet landed on `main` (operator merge sequence, 2026-05-20)
 
 **Agent**: Cursor. Operator directive «сделай сам» + «продолжай» — executed W310-an merge sequence after #188 + #224 were already on `main`.
@@ -2822,14 +2834,6 @@ Full sign-off doc at `docs/WAVE_53_LAUNCH_SIGNOFF.md`. Verdict: ship it.
 
 `>>> SYNC: Cursor · 2026-05-05 · commercial readiness pytest chain + Makefile target`
 
-## 2026-05-05 — Cursor: QA/agent — auto-load `.env` + ingest key parity
-
-**Summary:** `scripts/with_repo_env.sh` sources repo-root `.env` before QA, acceptance, and core-bridge smoke (`Makefile`). `resolved_ingest_api_key()` uses **TARS_INGEST_API_KEY** or **MEEET_API_KEY** (`scripts/qa_agent/env_resolve.py`); **`gate_release.sh`** loads `.env` so bridge smoke triggers when stored locally. **`tests/test_qa_agent_env_resolve.py`** pins resolution. **`docs/GO_LIVE_48H.md`** operator row D updated.
-
-**Files:** `Makefile`, `scripts/with_repo_env.sh`, `scripts/qa_agent/env_resolve.py`, `scripts/qa_agent/runner.py`, `scripts/qa_agent/loop.py`, `scripts/qa_agent/probes.py`, `scripts/gate_release.sh`, `.env.example`, `docs/GO_LIVE_48H.md`, `tests/test_qa_agent_env_resolve.py`; `docs/CHANGELOG_AGENTS.md`, `docs/AGENT_HANDOFF.md`.
-
-`>>> SYNC: Cursor · 2026-05-05 · QA env loader + MEEET_API_KEY ingest fallback`
-
 ---
 
-_Showing the most recent 60 of 275 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 276 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._

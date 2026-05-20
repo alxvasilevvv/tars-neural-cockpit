@@ -1,5 +1,17 @@
 # Agent changelog
 
+## W310-ax — MCP consolidated rewrite (client + bridge + pool, 2026-05-20)
+
+**Agent**: Cursor. Branch `cursor/mcp-rewrite-consolidated` (re-ports closed M-wave branches onto `backend/core/mcp/`).
+
+**Shipped**: `backend/core/mcp/client_pkg/` (stdio transport + registry + session), `backend/core/mcp/bridge_pkg/` (BridgedPack + bootstrap + pool), thin facades `client.py` / `bridge.py` / `pool.py`. HTTP: `GET /api/mcp/bridge/status`, `GET /api/mcp/pool/stats` on existing `mcp_panel` router. Operator guide `docs/MCP_GUIDE.md`.
+
+**Verification**: `.venv/bin/python -m pytest tests/test_mcp_client_*.py tests/test_mcp_bridge_bootstrap.py tests/test_mcp_server.py tests/test_mcp_panel_router.py -q` → **66 passed** (~1.4s).
+
+**Deferred**: Cockpit MCP panel UI (#182), `tars mcp` CLI verbs (old #179) — follow-up PRs after merge.
+
+---
+
 ## W310-aw — W310 fleet landed on `main` (operator merge sequence, 2026-05-20)
 
 **Agent**: Cursor. Operator directive «сделай сам» + «продолжай» — executed W310-an merge sequence after #188 + #224 were already on `main`.
