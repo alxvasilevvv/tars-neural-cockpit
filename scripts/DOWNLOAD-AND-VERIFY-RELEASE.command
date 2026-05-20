@@ -260,8 +260,8 @@ if [ "${DRY}" = "1" ]; then
   ok "[dry-run] download skipped"
   ok "[dry-run] sha256: <skipped>"
   ok "[dry-run] would invoke: bash ${VERIFY_SCRIPT} <dmg>"
-  printf "\n${G}PROCEED${X}  (dry-run; no real download or verify performed)\n\n"
-  exit 0
+  printf "\n${Y}PARTIAL${X}  (dry-run; no real download or verify performed)\n\n"
+  exit 2
 fi
 
 if ! gh release download "${RELEASE_TAG}" -R "${REPO_SLUG}" -p "${ASSET_NAME}" -D "${TMP_DIR}" 2>&1; then

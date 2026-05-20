@@ -1,29 +1,13 @@
 /*
  * Entry script for cockpit.html — operator shell (W307 visual contract +
- * W309 step 1 runtime restore).
- *
- * Before W309 step 1 this file imported tokens.css and called it a
- * day; the cockpit shell was static markup. Step 1 wires the four
- * MVP behaviors back in (mic + WebSocket + chat + TTS) without
- * touching the W307 visual contract — every DOM hook is additive,
- * keyed off existing classes / aria roles, and degrades to the
- * static shell when the sidecar is unreachable.
+ * W309 step 1 runtime restore + step 2 STT + persona picker).
  *
  * Module boundaries live in `../runtime/`:
  *   - api.ts    — typed fetch wrapper, vault status hook
  *   - tauri.ts  — IPC helpers (no-op outside Tauri)
  *   - ws.ts     — WebSocket manager, exponential backoff, event bus
- *   - voice.ts  — mic capture, TTS playback queue, persona state
+ *   - voice.ts  — mic capture, TTS playback, persona state, STT upload
  *   - chat.ts   — thread send/load, optimistic strand append
- *
- * Operator knobs (localStorage):
- *   - `TARS_API_URL` — base URL override (default http://127.0.0.1:8765)
- *   - `TARS_WS_URL`  — WS URL override (derived from API base by default)
- *
- * Note on DOM construction: all dynamic content is built via
- * `document.createElement` + `textContent`. We never assign
- * `innerHTML` from user / server data so the strand renderer cannot
- * inject markup even if a sidecar response somehow contained HTML.
  */
 
 import "../styles/global.css";
@@ -42,6 +26,8 @@ interface Refs {
   strand: HTMLElement | null;
   input: HTMLInputElement | null;
   micBtn: HTMLButtonElement | null;
+  sttBtn: HTMLButtonElement | null;
+  personaPicker: HTMLSelectElement | null;
   statusBar: HTMLElement | null;
   backendBadge: HTMLElement | null;
   voiceBadge: HTMLElement | null;
@@ -49,16 +35,20 @@ interface Refs {
 
 function pickRefs(): Refs {
   const statusBar = document.querySelector<HTMLElement>(".status-bar");
-  const badges = statusBar?.querySelectorAll<HTMLElement>("span") ?? [];
   return {
     briefing: document.querySelector<HTMLElement>(".briefing"),
     strand: document.querySelector<HTMLElement>(".strand"),
     input: document.querySelector<HTMLInputElement>(".input-bar input"),
     micBtn: document.querySelector<HTMLButtonElement>(".input-bar .mic"),
+    sttBtn: document.querySelector<HTMLButtonElement>(".input-bar .stt-btn"),
+    personaPicker: document.querySelector<HTMLSelectElement>("#persona-picker"),
     statusBar,
-    // First two spans are: "Backend · …" and "ElevenLabs · …".
-    backendBadge: badges[0] ?? null,
-    voiceBadge: badges[1] ?? null,
+    backendBadge:
+      statusBar?.querySelector<HTMLElement>('[data-cockpit="backend"]') ??
+      null,
+    voiceBadge:
+      statusBar?.querySelector<HTMLElement>('[data-cockpit="voice-health"]') ??
+      null,
   };
 }
 
@@ -99,8 +89,6 @@ function renderExpandedStrand(
   strand.dataset.state = "expanded";
   strand.setAttribute("aria-label", "Conversation strand");
 
-  // Ensure header + ordered list are present; reuse if already there
-  // to avoid scroll-jump on incremental updates.
   let head = strand.querySelector<HTMLElement>(":scope > .strand-head");
   let list = strand.querySelector<HTMLOListElement>(":scope > .strand-list");
   if (!head || !list) {
@@ -124,7 +112,6 @@ function renderExpandedStrand(
     countEl.textContent = `${messages.length} turn${messages.length === 1 ? "" : "s"}`;
   }
 
-  // Re-render the whole list. Cheap for ≤20 messages; saves a diff.
   clear(list);
   for (const m of messages) {
     const li = document.createElement("li");
@@ -145,7 +132,6 @@ function renderExpandedStrand(
     list.appendChild(li);
   }
 
-  // Keep latest message visible.
   list.scrollTop = list.scrollHeight;
 }
 
@@ -169,6 +155,23 @@ function safeAttr(s: string): string {
 /* Status indicators                                                   */
 /* ------------------------------------------------------------------- */
 
+let sttFlashTimer: ReturnType<typeof setTimeout> | null = null;
+
+function flashVoiceStatus(refs: Refs, message: string, ms = 3000): void {
+  if (!refs.voiceBadge) return;
+  const prev = refs.voiceBadge.getAttribute("aria-label") ?? "";
+  refs.voiceBadge.dataset.state = "degraded";
+  refs.voiceBadge.setAttribute("aria-label", message);
+  if (sttFlashTimer) clearTimeout(sttFlashTimer);
+  sttFlashTimer = setTimeout(() => {
+    applyVoiceHealth(refs);
+    if (prev && !message.startsWith("Voice · STT failed")) {
+      refs.voiceBadge?.setAttribute("aria-label", prev);
+    }
+    sttFlashTimer = null;
+  }, ms);
+}
+
 function applyWsStatus(refs: Refs, s: WsStatus): void {
   if (!refs.backendBadge) return;
   refs.backendBadge.dataset.state =
@@ -187,13 +190,29 @@ function applyVoiceHealth(refs: Refs): void {
   );
 }
 
+function renderPersonaPicker(refs: Refs): void {
+  const sel = refs.personaPicker;
+  if (!sel) return;
+  const personas = voice.getPersonas();
+  if (personas.length === 0) {
+    sel.hidden = true;
+    clear(sel);
+    return;
+  }
+  sel.hidden = false;
+  clear(sel);
+  for (const p of personas) {
+    const opt = document.createElement("option");
+    opt.value = p.id;
+    opt.textContent = p.name;
+    sel.appendChild(opt);
+  }
+  const current = voice.getCurrentPersona();
+  if (current) sel.value = current.id;
+}
+
 function applyVault(status: VaultStatus): void {
   if (hasElevenLabsKey(status)) return;
-  // Insert (or update) a lightweight CTA inline with the briefing —
-  // brief §3.5 calls for "render the existing vault prompt" but the
-  // new shell doesn't have one yet. Append a minimal CTA so the
-  // operator sees the missing-key state without us reaching into
-  // the visual contract.
   const briefing = document.querySelector(".briefing");
   if (!briefing) return;
   let cta = document.querySelector<HTMLElement>(".vault-cta");
@@ -261,6 +280,64 @@ function bindMic(refs: Refs): void {
   });
 }
 
+function setSttButtonState(btn: HTMLButtonElement, recording: boolean): void {
+  if (recording) {
+    btn.dataset.state = "recording";
+    btn.setAttribute("aria-label", "Stop mic");
+    btn.setAttribute("aria-pressed", "true");
+  } else {
+    btn.dataset.state = "idle";
+    btn.setAttribute("aria-label", "Start mic");
+    btn.setAttribute("aria-pressed", "false");
+  }
+}
+
+function bindStt(refs: Refs): void {
+  if (!refs.sttBtn) return;
+  refs.sttBtn.addEventListener("click", () => {
+    const btn = refs.sttBtn!;
+    if (voice.isRecording()) {
+      btn.disabled = true;
+      voice
+        .stopRecording()
+        .then((text) => {
+          if (refs.input && text) {
+            const prior = refs.input.value.trim();
+            refs.input.value = prior ? `${prior} ${text}` : text;
+          }
+        })
+        .catch((err) => {
+          console.warn("[cockpit] STT failed", err);
+          flashVoiceStatus(refs, "Voice · STT failed");
+        })
+        .finally(() => {
+          btn.disabled = false;
+          setSttButtonState(btn, false);
+        });
+      return;
+    }
+
+    voice
+      .startRecording()
+      .then(() => setSttButtonState(btn, true))
+      .catch((err) => {
+        console.warn("[cockpit] STT start failed", err);
+        flashVoiceStatus(refs, "Voice · STT failed");
+        setSttButtonState(btn, false);
+      });
+  });
+}
+
+function bindPersonaPicker(refs: Refs): void {
+  if (!refs.personaPicker) return;
+  refs.personaPicker.addEventListener("change", () => {
+    const id = refs.personaPicker!.value;
+    if (!voice.setPersona(id)) {
+      console.warn("[cockpit] unknown persona", id);
+    }
+  });
+}
+
 /* ------------------------------------------------------------------- */
 /* Boot                                                                */
 /* ------------------------------------------------------------------- */
@@ -272,21 +349,14 @@ async function boot(): Promise<void> {
 
   bindInput(refs);
   bindMic(refs);
+  bindStt(refs);
+  bindPersonaPicker(refs);
 
-  // Subscribe to chat strand updates before kicking setup so the
-  // initial empty render is the same code path as later updates.
   const unsubChat = chat.onChange(() => renderStrand(refs));
-
-  // WS status → backend badge.
   const unsubWs = ws().onStatus((s) => applyWsStatus(refs, s));
 
-  // Subscribe to commonly-needed topics. The realtime bus advertises
-  // its full topic list in the `hello` envelope; we pick the slice
-  // the MVP cockpit reacts to.
   ws().setup(["chat", "voice", "awareness", "policy"]);
 
-  // Fire setup of voice + chat in parallel. Vault status is a
-  // separate fetch that's allowed to race.
   const [voiceRes, chatRes, vaultRes] = await Promise.allSettled([
     voice.setup(),
     chat.setup(),
@@ -296,12 +366,13 @@ async function boot(): Promise<void> {
   if (voiceRes.status === "rejected") {
     console.warn("[cockpit] voice.setup failed", voiceRes.reason);
   }
+  renderPersonaPicker(refs);
   applyVoiceHealth(refs);
 
   if (chatRes.status === "rejected") {
     console.warn("[cockpit] chat.setup failed", chatRes.reason);
   }
-  renderStrand(refs); // explicit first paint in case onChange already fired
+  renderStrand(refs);
 
   if (vaultRes.status === "fulfilled") {
     applyVault(vaultRes.value);
@@ -309,15 +380,11 @@ async function boot(): Promise<void> {
     console.warn("[cockpit] vault.status failed", vaultRes.reason);
   }
 
-  // One-shot teardown — both `beforeunload` and `pagehide` fire on
-  // Tauri window close, and each individual module's teardown is
-  // idempotent, but running the whole chain twice still churns
-  // event-handler bookkeeping and double-aborts in-flight SSE for no
-  // reason. Latch on first invocation.
   let teardownRan = false;
   teardownAll = () => {
     if (teardownRan) return;
     teardownRan = true;
+    if (sttFlashTimer) clearTimeout(sttFlashTimer);
     unsubChat();
     unsubWs();
     chat.teardown();
@@ -325,8 +392,6 @@ async function boot(): Promise<void> {
     ws().teardown();
   };
 
-  // Best-effort cleanup; Tauri + browser both fire `beforeunload` on
-  // window close, and Tauri also fires `pagehide` for WebView reloads.
   window.addEventListener("beforeunload", () => {
     teardownAll?.();
   });

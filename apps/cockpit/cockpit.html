@@ -800,6 +800,30 @@
         box-shadow: 0 0 22px var(--color-accent-soft);
       }
 
+      .stt-btn {
+        width: 44px;
+        height: 44px;
+        flex: 0 0 44px;
+        border-radius: 50%;
+        border: var(--hairline);
+        background: var(--color-bg-2);
+        display: grid;
+        place-items: center;
+        color: var(--color-ink);
+        transition: box-shadow var(--motion-base), background var(--motion-base);
+      }
+
+      .stt-btn[data-state="recording"] {
+        background: var(--color-accent);
+        color: var(--cta-text-on-accent);
+        box-shadow: 0 0 18px var(--color-accent-soft);
+      }
+
+      .stt-btn:hover,
+      .stt-btn:focus-visible {
+        border-color: var(--color-line-hot);
+      }
+
       .input-wrap {
         flex: 1;
         display: flex;
@@ -872,6 +896,25 @@
 
       .status-bar .accent {
         color: var(--color-accent);
+      }
+
+      .persona-picker {
+        font-family: var(--font-mono);
+        font-size: var(--font-size-hud-mono);
+        font-weight: 500;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        color: var(--color-ink);
+        background: var(--color-bg-1);
+        border: var(--hairline);
+        border-radius: var(--radius-xs);
+        padding: 2px 8px;
+        max-width: 9rem;
+      }
+
+      .persona-picker:focus-visible {
+        outline: 2px solid var(--color-accent);
+        outline-offset: 2px;
       }
 
       /* ─── Motion ─── */
@@ -1069,13 +1112,39 @@
     </aside>
 
     <footer class="status-bar" aria-label="System status">
-      <span><span class="ok">●</span> Backend · 127.0.0.1:8765</span>
-      <span><span class="accent">●</span> ElevenLabs · Adam</span>
+      <select
+        id="persona-picker"
+        class="persona-picker"
+        aria-label="Voice persona"
+        hidden
+      ></select>
+      <span data-cockpit="backend"><span class="ok">●</span> Backend · 127.0.0.1:8765</span>
+      <span data-cockpit="voice-health"><span class="accent">●</span> ElevenLabs · Adam</span>
       <span>FREE tier · 87 / 100k cap</span>
       <span style="margin-left: auto">v10.0.0-rc.1</span>
     </footer>
 
     <div class="input-bar">
+      <button
+        type="button"
+        class="stt-btn"
+        aria-label="Start mic"
+        data-state="idle"
+      >
+        <svg
+          width="18"
+          height="18"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          aria-hidden="true"
+        >
+          <circle cx="12" cy="12" r="6" />
+        </svg>
+      </button>
       <button type="button" class="mic" aria-label="Toggle microphone">
         <svg
           width="18"

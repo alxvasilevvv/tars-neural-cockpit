@@ -125,6 +125,53 @@ export async function api<T = unknown>(
  * returns audio). Skips the `ok` envelope check; the caller receives
  * the raw `Response` and decides how to consume (blob, headers, etc.).
  */
+/**
+ * Multipart upload for endpoints like ``/api/voice/transcribe``.
+ * Returns parsed JSON on success; throws ``ApiError`` on failure.
+ */
+export async function apiMultipart<T = unknown>(
+  path: string,
+  form: FormData,
+  extraHeaders: Record<string, string> = {},
+): Promise<T> {
+  const url = `${getApiBase()}${path.startsWith("/") ? "" : "/"}${path}`;
+  let res: Response;
+  try {
+    res = await fetch(url, {
+      method: "POST",
+      headers: { ...extraHeaders },
+      body: form,
+    });
+  } catch (err) {
+    throw new ApiError(0, { network: String(err) }, path);
+  }
+
+  const ct = res.headers.get("content-type") ?? "";
+  const isJson = ct.includes("application/json");
+
+  if (!res.ok) {
+    const detail = isJson
+      ? await res.json().catch(() => null)
+      : await res.text();
+    throw new ApiError(res.status, detail, path);
+  }
+
+  if (!isJson) {
+    throw new Error(`[api] ${path} expected JSON response, got ${ct || "missing"}`);
+  }
+
+  const data = await res.json();
+  if (
+    data &&
+    typeof data === "object" &&
+    "ok" in data &&
+    (data as { ok: unknown }).ok === false
+  ) {
+    throw new ApiError(res.status, data, path);
+  }
+  return data as T;
+}
+
 export async function apiBinary(
   path: string,
   body: unknown,
