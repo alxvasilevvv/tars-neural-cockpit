@@ -1,5 +1,19 @@
 # Agent changelog
 
+## W310-aw — W310 fleet landed on `main` (operator merge sequence, 2026-05-20)
+
+**Agent**: Cursor. Operator directive «сделай сам» + «продолжай» — executed W310-an merge sequence after #188 + #224 were already on `main`.
+
+**Merged**: #187 (W309 runtime, doc conflicts resolved), #189 (Playwright scaffold), #190 (install funnel), #191 (voice fallback), #192–#213 (planning briefs + wave summary), #214–#223 (10 GA helper scripts). **0 open PRs** in W310 fleet.
+
+**Verification**: `pytest` on helper script tests + `test_cockpit_runtime_contract.py` → **206 passed, 4 skipped** (~27s). W310-ap dry-run rehearsal on `main`: 4/6 helpers rc=2 PARTIAL as expected; TAG-GUARD rc=1 (no soak report + dirty tree — correct); DOWNLOAD dry-run rc=0 (stub path).
+
+**Docs**: `CURRENT_STATUS.md` updated to W310-aw (fleet landed, next = GA blockers + W310-ao cookbook). Cross-workspace: `meeet-browser-agent/AGENTS.md` + `TARS_OVERVIEW_RU.md` synced.
+
+**Next implementer lanes unblocked**: MCP rewrite (`docs/handoff/MCP_REWRITE_BRIEF.md`), W309 step 2 (`docs/handoff/W309_STEP2_BRIEF.md`), v10.1 per W310-ar sprint matrix.
+
+---
+
 ## W310-at — sync layer on PR #188 (canonical state docs refresh, 2026-05-19)
 
 **Agent**: Cursor (Opus 4.7 parent assistant). Continuation of W310 arc on operator directive "продолжай"; this entry covers the W310-at sync layer that updates three canonical "state" docs on PR #188's branch to match the post-W310-as wave landscape.
@@ -2816,14 +2830,6 @@ Full sign-off doc at `docs/WAVE_53_LAUNCH_SIGNOFF.md`. Verdict: ship it.
 
 `>>> SYNC: Cursor · 2026-05-05 · QA env loader + MEEET_API_KEY ingest fallback`
 
-## 2026-05-04 — Cursor: go-live — `/pricing` `/faq` `/compare` routes + same-day runbook
-
-**Summary:** Dedicated lazy routes and page wrappers so prod URLs are not SPA-200 with in-app 404: `PricingPage`, `FAQPage`, `ComparePage`. Nav, `BudgetWarning`, `GlobalCommandPalette`, and `sitemap.xml` point to path routes. `scripts/qa_agent/probes.py` **SPA_ROUTES** extended. **TARS QA Agent** workflow passes optional `TARS_INGEST_API_KEY` and watches `App.tsx` / `pages/**`. `.env.example` documents prod ingest URL + `TARS_INGEST_API_KEY`. `docs/GO_LIVE_48H.md` rewritten as same-day operator checklist. `scripts/ops_set_bridge_shared_secret.sh` notes `PAGES_PROJECT_NAME` when the Git-integrated Pages project differs (`tars-meeet-git`). **Verify:** `pnpm typecheck`, vitest **377 passed** / 27 files.
-
-**Files:** `experiments/neural-showcase-v3/src/App.tsx`, `src/pages/PricingPage.tsx`, `FAQPage.tsx`, `ComparePage.tsx`, `src/components/Nav.tsx`, `BudgetWarning.tsx`, `GlobalCommandPalette.tsx`, `public/sitemap.xml`; `scripts/qa_agent/probes.py`, `scripts/ops_set_bridge_shared_secret.sh`; `.github/workflows/qa-agent.yml`, `.env.example`; `docs/GO_LIVE_48H.md`, `docs/AGENT_HANDOFF.md`, `docs/CHANGELOG_AGENTS.md`.
-
-`>>> SYNC: Cursor · 2026-05-04 · go-live routes + GO_LIVE same-day + qa-agent ingest env`
-
 ---
 
-_Showing the most recent 60 of 274 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 275 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._

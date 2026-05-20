@@ -1,5 +1,19 @@
 # Agent changelog
 
+## W310-aw — W310 fleet landed on `main` (operator merge sequence, 2026-05-20)
+
+**Agent**: Cursor. Operator directive «сделай сам» + «продолжай» — executed W310-an merge sequence after #188 + #224 were already on `main`.
+
+**Merged**: #187 (W309 runtime, doc conflicts resolved), #189 (Playwright scaffold), #190 (install funnel), #191 (voice fallback), #192–#213 (planning briefs + wave summary), #214–#223 (10 GA helper scripts). **0 open PRs** in W310 fleet.
+
+**Verification**: `pytest` on helper script tests + `test_cockpit_runtime_contract.py` → **206 passed, 4 skipped** (~27s). W310-ap dry-run rehearsal on `main`: 4/6 helpers rc=2 PARTIAL as expected; TAG-GUARD rc=1 (no soak report + dirty tree — correct); DOWNLOAD dry-run rc=0 (stub path).
+
+**Docs**: `CURRENT_STATUS.md` updated to W310-aw (fleet landed, next = GA blockers + W310-ao cookbook). Cross-workspace: `meeet-browser-agent/AGENTS.md` + `TARS_OVERVIEW_RU.md` synced.
+
+**Next implementer lanes unblocked**: MCP rewrite (`docs/handoff/MCP_REWRITE_BRIEF.md`), W309 step 2 (`docs/handoff/W309_STEP2_BRIEF.md`), v10.1 per W310-ar sprint matrix.
+
+---
+
 ## W310-at — sync layer on PR #188 (canonical state docs refresh, 2026-05-19)
 
 **Agent**: Cursor (Opus 4.7 parent assistant). Continuation of W310 arc on operator directive "продолжай"; this entry covers the W310-at sync layer that updates three canonical "state" docs on PR #188's branch to match the post-W310-as wave landscape.

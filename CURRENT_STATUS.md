@@ -3,11 +3,11 @@
 > Live one-pager. Full story: `TARS_MASTER_DOC.md`. Doc map:
 > `PROJECT_INDEX.md`. This page is the 60-second pulse check.
 
-**Last updated:** 2026-05-19 (W310-as). **Tag in flight:** `v10.0.0` —
-rc1 → GA the moment the **8 hard blockers** (3 brother + 5 Apple sign,
-post-W310-l reconciliation of the original 29-item list) flip green
-AND the operator drains the 37-PR merge queue + executes the GA
-cookbook playbook below.
+**Last updated:** 2026-05-20 (W310-aw fleet landed). **Tag in flight:**
+`v10.0.0` — rc1 → GA the moment the **8 hard blockers** (3 brother + 5
+Apple sign) flip green AND the operator executes the W310-ao GA
+cookbook playbook below. **W310 fleet (#187–#223 + #188 + #224) is on
+`main` — merge queue drained 2026-05-20.**
 
 > **Read first (60-second pulse):** the `docs/W310_WAVE_SUMMARY.md`
 > TLDR section. It compresses the entire post-rc1 surface (37 PRs,
@@ -27,13 +27,13 @@ cookbook playbook below.
 | W310-an..as | Docs-only extensions to PR #192: merge sequence + GA cookbook execution + dry-run rehearsal + post-GA week-1 runbook + post-v10 sprint planning + 60-sec TLDR | extends #192 |
 | W310-aq cross-stack | Brother-side first-week runbook mirror (PR #198 §8.A) | extends #198 |
 
-**State as of W310-as (2026-05-19):** all planning sub-waves landed;
-**37 PRs open awaiting operator merge**. PR #188 is the Tier 0 root
-(qa-agent.yml workflow-cache fix unblocks CI on every subsequent PR
-run); after that, the remaining 36 PRs land in 4 tiers via the W310-an
-one-shot bash playbook (~20-30 min wall-clock). See
-`docs/W310_WAVE_SUMMARY.md` → "Operator one-shot merge sequence" for
-the paste-once playbook.
+**State as of W310-aw (2026-05-20):** all W310 sub-waves **landed on
+`main`**. Tier 0 (#188 + #224), runtime (#187–#191), planning (#192–#213),
+and implementer helpers (#214–#223) merged via W310-an sequence (doc
+conflicts on #187/#189/#190/#191 resolved in-branch). **0 open PRs** in
+the W310 fleet. Next operator surface: **W310-ap dry-run rehearsal** →
+**W310-ao GA cookbook** (8 hard blockers still external). See
+`docs/W310_WAVE_SUMMARY.md` for playbooks.
 
 ---
 
