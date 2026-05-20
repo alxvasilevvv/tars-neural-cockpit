@@ -141,10 +141,7 @@ jobs:
             echo "no diff to commit"
             exit 0
           fi
-          git commit -m "chore(status): qa-agent snapshot refresh
-
-Wave 126 automated snapshot publish.
-Triggered by run ${{ github.run_id }}."
+          git commit -m "chore(status): qa-agent snapshot refresh (run ${{ github.run_id }})"
           git push origin HEAD:main || echo "push failed (likely race) — next run will retry"
 
       - name: Persist alert history

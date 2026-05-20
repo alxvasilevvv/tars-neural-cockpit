@@ -39,12 +39,9 @@ def test_usage_metering_1000_per_sec_no_drops(
 
     isolate_tars_home(monkeypatch, tmp_path)
 
-    from backend.core.meeet.event_store import get_store
+    from backend.core.meeet import get_store, reset_store
 
-    # Reset singleton against the tmp DB path.
-    import backend.core.meeet.event_store as es_mod
-
-    monkeypatch.setattr(es_mod, "_STORE", None, raising=False)
+    reset_store()
 
     async def run() -> tuple[list[float], int]:
         store = get_store()
@@ -53,17 +50,19 @@ def test_usage_metering_1000_per_sec_no_drops(
 
         async def one_write(i: int) -> float:
             t0 = time.perf_counter()
-            await store.append(
-                kind="usage.tokens",
-                payload={
-                    "model": "claude-sonnet-4",
-                    "tokens_in": 100,
-                    "tokens_out": 50,
-                    "latency_ms": 120.0,
-                },
-                trace_id=f"perf-{i}",
-                session_id=f"perf-ses-{i % 10}",
-                route="/api/perf/bench",
+            await store.insert(
+                {
+                    "kind": "usage.tokens",
+                    "payload": {
+                        "model": "claude-sonnet-4",
+                        "tokens_in": 100,
+                        "tokens_out": 50,
+                        "latency_ms": 120.0,
+                    },
+                    "trace_id": f"perf-{i}",
+                    "session_id": f"perf-ses-{i % 10}",
+                    "route": "/api/perf/bench",
+                }
             )
             return (time.perf_counter() - t0) * 1000
 
@@ -101,7 +100,6 @@ def test_usage_metering_1000_per_sec_no_drops(
     # Verify the events actually landed. The query is bounded so the
     # tmp DB doesn't get scanned end-to-end on a 100k row table.
     async def count_written() -> int:
-        from backend.core.meeet.event_store import get_store
         store = get_store()
         events = await store.list_events(kind="usage.tokens", limit=EXPECTED_TOTAL + 100)
         return len(events)
