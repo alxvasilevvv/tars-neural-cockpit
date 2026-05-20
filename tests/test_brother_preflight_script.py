@@ -25,6 +25,7 @@ the operator's pre-tag-cut run per brief §7.
 from __future__ import annotations
 
 import re
+import shutil
 import subprocess
 from pathlib import Path
 
@@ -139,14 +140,19 @@ def _run(env_extra=None) -> subprocess.CompletedProcess:
     )
 
 
-def test_dry_run_skip_live_no_extras_is_red():
-    """Default skip-live invocation: 5 syncs skipped, Sync 5 is RED
-    because no reconcile owner is declared, Sync 6 is SKIP-PENDING
-    (not a blocker). Verdict = BLOCK, exit 1."""
+def test_dry_run_skip_live_no_reconcile_owner_is_red(tmp_path: Path):
+    """Skip-live + no reconcile owner: Sync 5 RED → BLOCK (exit 1).
+
+    Uses an isolated stub repo so this stays red after
+    ``scripts/reconcile-meeet-billing.py`` lands on main."""
+    stub = tmp_path / "stub"
+    (stub / "scripts").mkdir(parents=True)
+    shutil.copy(SCRIPT, stub / "scripts" / SCRIPT.name)
     result = _run(
         env_extra={
             "BROTHER_PREFLIGHT_DRY_RUN": "1",
             "BROTHER_PREFLIGHT_SKIP_LIVE": "1",
+            "BROTHER_PREFLIGHT_REPO": str(stub),
         }
     )
     assert result.returncode == 1, (
@@ -156,6 +162,26 @@ def test_dry_run_skip_live_no_extras_is_red():
     assert "BLOCK v10.0.0 GA TAG" in result.stdout
     assert "Sync 5 (A4 reconcile)" in result.stdout
     assert "red (no owner)" in result.stdout
+
+
+def test_dry_run_skip_live_with_tars_reconcile_script_is_partial():
+    """On main, TARS ships reconcile-meeet-billing.py — skip-live without
+    live probes is PARTIAL (exit 2), not BLOCK."""
+    if not (REPO / "scripts" / "reconcile-meeet-billing.py").exists():
+        import pytest
+
+        pytest.skip("reconcile script not present on this checkout")
+    result = _run(
+        env_extra={
+            "BROTHER_PREFLIGHT_DRY_RUN": "1",
+            "BROTHER_PREFLIGHT_SKIP_LIVE": "1",
+        }
+    )
+    assert result.returncode == 2, (
+        f"expected exit 2 (partial); got {result.returncode}\n"
+        f"stdout=\n{result.stdout}"
+    )
+    assert "PARTIAL" in result.stdout
 
 
 def test_dry_run_skip_live_with_owners_is_partial():
