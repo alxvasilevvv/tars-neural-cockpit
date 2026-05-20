@@ -124,6 +124,13 @@ def test_pair_ttl_framed_as_v102_not_v10_blocker():
 # ── runtime behaviour ──────────────────────────────────────────────────────
 
 
+def _stub_repo_no_reconcile(tmp_path: Path) -> Path:
+    stub = tmp_path / "stub"
+    (stub / "scripts").mkdir(parents=True)
+    shutil.copy(SCRIPT, stub / "scripts" / SCRIPT.name)
+    return stub
+
+
 def _run(env_extra=None) -> subprocess.CompletedProcess:
     env = {
         "PATH": "/usr/local/bin:/usr/bin:/bin",
@@ -145,9 +152,7 @@ def test_dry_run_skip_live_no_reconcile_owner_is_red(tmp_path: Path):
 
     Uses an isolated stub repo so this stays red after
     ``scripts/reconcile-meeet-billing.py`` lands on main."""
-    stub = tmp_path / "stub"
-    (stub / "scripts").mkdir(parents=True)
-    shutil.copy(SCRIPT, stub / "scripts" / SCRIPT.name)
+    stub = _stub_repo_no_reconcile(tmp_path)
     result = _run(
         env_extra={
             "BROTHER_PREFLIGHT_DRY_RUN": "1",
@@ -223,11 +228,17 @@ def test_full_dry_run_with_owners_is_green():
     assert "brother coord side of v10.0.0 GA clear" in result.stdout
 
 
-def test_full_dry_run_without_owners_is_red():
+def test_full_dry_run_without_owners_is_red(tmp_path: Path):
     """Pure dry-run with NO reconcile owner declared: Sync 5 stays red,
     verdict = BLOCK, exit 1. This is the most common operator footgun
     (forgot to set BROTHER_RECONCILE_URL) and must be loudly flagged."""
-    result = _run(env_extra={"BROTHER_PREFLIGHT_DRY_RUN": "1"})
+    stub = _stub_repo_no_reconcile(tmp_path)
+    result = _run(
+        env_extra={
+            "BROTHER_PREFLIGHT_DRY_RUN": "1",
+            "BROTHER_PREFLIGHT_REPO": str(stub),
+        }
+    )
     assert result.returncode == 1
     assert "BLOCK v10.0.0 GA TAG" in result.stdout
     assert "Sync 5 (A4 reconcile)" in result.stdout
@@ -257,11 +268,17 @@ def test_green_path_prints_next_step_cookbook():
         )
 
 
-def test_red_path_prints_remediation_pointers():
+def test_red_path_prints_remediation_pointers(tmp_path: Path):
     """On BLOCK, the failed sync must surface the brief §<N>.<X>
     remediation pointer so the operator can fix without re-reading
     the brief."""
-    result = _run(env_extra={"BROTHER_PREFLIGHT_DRY_RUN": "1"})
+    stub = _stub_repo_no_reconcile(tmp_path)
+    result = _run(
+        env_extra={
+            "BROTHER_PREFLIGHT_DRY_RUN": "1",
+            "BROTHER_PREFLIGHT_REPO": str(stub),
+        }
+    )
     assert result.returncode == 1
     assert "remediation:" in result.stdout
     # Sync 5 red MUST cite brief §3.A4 with the two remediation paths.

@@ -263,13 +263,13 @@ hdr "Sync 5 — A4: reconciliation script ownership"
 # Two valid resolutions per brief §3.A4: (a) TARS ships the script, OR
 # (b) brother points to their version via BROTHER_RECONCILE_URL.
 
-if [ -f "scripts/reconcile-meeet-billing.py" ]; then
-  ok "Sync 5: TARS-side scripts/reconcile-meeet-billing.py exists"
-  record "✓" "Sync 5 (A4 reconcile) — green (TARS owns)"
-  PASSED=$((PASSED+1))
-elif [ -n "${BROTHER_RECONCILE_URL:-}" ]; then
+if [ -n "${BROTHER_RECONCILE_URL:-}" ]; then
   ok "Sync 5: brother-side reconcile pointer = ${BROTHER_RECONCILE_URL}"
   record "✓" "Sync 5 (A4 reconcile) — green (brother owns)"
+  PASSED=$((PASSED+1))
+elif [ -f "scripts/reconcile-meeet-billing.py" ]; then
+  ok "Sync 5: TARS-side scripts/reconcile-meeet-billing.py exists"
+  record "✓" "Sync 5 (A4 reconcile) — green (TARS owns)"
   PASSED=$((PASSED+1))
 else
   bad "Sync 5: no TARS-side scripts/reconcile-meeet-billing.py AND BROTHER_RECONCILE_URL unset"
