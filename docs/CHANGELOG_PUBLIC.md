@@ -1,5 +1,17 @@
 # Agent changelog
 
+## W310-az — GA prep: soak probe + QA gate + rehearsal + Phase A (2026-05-20)
+
+**Agent**: Cursor. Operator request «продолжай».
+
+**Shipped on `main`:** `ecfb37c` (SOAK-HOURLY uses `/api/pairing/devices` for liveness); `8892c50` (`FINAL-QA-GATE`: exit 2 = skip-only, pre-release codesign skip, `FAILED[@]` guard under `set -u`); TAG-GUARD dry-run treats missing soak report + dirty tree as AMBER so W310-ap matrix exits **rc=2 PARTIAL** (not false BLOCK on rehearsal day).
+
+**Verification:** `make test` → **3781 passed**; W310-ap dry-run matrix → **6/6 PARTIAL**; live Phase A: `GA-COOKBOOK` Brother PROCEED / Apple BLOCK; `FINAL-QA-VERDICT` PARTIAL (rc.1 in `/Applications`).
+
+**Operator-only:** Apple secrets, 72h soak wall-clock, tag cut, signed GA install.
+
+---
+
 ## W310-ay — Post-fleet merge + rehearsal green (2026-05-20)
 
 **Agent**: Cursor. Sequential operator request «все по очереди».
@@ -2836,14 +2848,6 @@ Full sign-off doc at `docs/WAVE_53_LAUNCH_SIGNOFF.md`. Verdict: ship it.
 
 `>>> SYNC: Cursor · 2026-05-05 · Supabase tars-billing edge + contract/env handoff`
 
-## 2026-05-05 — Cursor: meeet.world authoritative billing mirror (TARS)
-
-**Summary:** Contract `docs/contracts/TARS_MEEET_BILLING.md` + package `backend/core/meeet_billing/` (stdlib GET `/operator`, 5s cache). When **`TARS_BILLING_SOURCE=remote`** + `MEEET_BILLING_BASE_URL` + `MEEET_BILLING_API_KEY`: `GET /api/entitlements` mirrors meeet tier/live; **`can_run`** uses remote gate (fail closed if unreachable); **`POST /upgrade`** returns delegated `redirect`; **`POST /byo`** → 503. Tests: `tests/test_meeet_billing_remote.py`. `.env.example` knobs.
-
-**Files:** `docs/contracts/TARS_MEEET_BILLING.md`, `backend/core/meeet_billing/`, `backend/core/entitlements/checker.py`, `web_extras/routers/entitlements.py`, `tests/test_meeet_billing_remote.py`, `.env.example`, `CLAUDE.md`, `docs/CHANGELOG_AGENTS.md`, `docs/AGENT_HANDOFF.md`.
-
-`>>> SYNC: Cursor · 2026-05-05 · remote billing plane + contract`
-
 ---
 
-_Showing the most recent 60 of 278 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 279 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._

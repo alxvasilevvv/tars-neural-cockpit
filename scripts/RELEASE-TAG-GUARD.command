@@ -299,12 +299,21 @@ if [ -z "${DIRTY}" ]; then
   ok "working tree clean — no uncommitted changes"
   record "Gate 3 — working tree clean" "GREEN" "clean"
 else
-  bad "uncommitted changes in working tree:"
-  printf '%s\n' "${DIRTY}" | sed 's/^/    /'
-  echo "  remediation: \`git stash\` (if WIP unrelated to release) or"
-  echo "               \`git commit\` (if release-related), then re-run."
-  record "Gate 3 — working tree clean" "RED" "dirty tree — stash or commit"
-  RC_BAD=1
+  if [ "${DRY_RUN}" = "1" ]; then
+    warn "uncommitted changes in working tree (dry-run rehearsal only):"
+    printf '%s\n' "${DIRTY}" | sed 's/^/    /'
+    echo "  (TAG_GUARD_DRY_RUN=1 — Gate 3 recorded AMBER; real tag cut"
+    echo "   still requires a clean tree — stash or commit before cut.)"
+    record "Gate 3 — working tree clean" "AMBER" "dirty tree (dry-run rehearsal)"
+    RC_PARTIAL=1
+  else
+    bad "uncommitted changes in working tree:"
+    printf '%s\n' "${DIRTY}" | sed 's/^/    /'
+    echo "  remediation: \`git stash\` (if WIP unrelated to release) or"
+    echo "               \`git commit\` (if release-related), then re-run."
+    record "Gate 3 — working tree clean" "RED" "dirty tree — stash or commit"
+    RC_BAD=1
+  fi
 fi
 
 # ── Gate 4 — tag does NOT already exist (local + remote) ───────────────────

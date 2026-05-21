@@ -3,7 +3,7 @@
 > Live one-pager. Full story: `TARS_MASTER_DOC.md`. Doc map:
 > `PROJECT_INDEX.md`. This page is the 60-second pulse check.
 
-**Last updated:** 2026-05-20 (W310-ay — #225 + #226 on `main`). **Tag in flight:**
+**Last updated:** 2026-05-20 (W310-az — GA prep on `main` @ `8892c50`). **Tag in flight:**
 `v10.0.0` — rc1 → GA the moment the **8 hard blockers** (3 brother + 5
 Apple sign) flip green AND the operator executes the W310-ao GA
 cookbook playbook below. **W310 fleet (#187–#223 + #188 + #224) is on
@@ -27,12 +27,16 @@ cookbook playbook below. **W310 fleet (#187–#223 + #188 + #224) is on
 | W310-an..as | Docs-only extensions to PR #192: merge sequence + GA cookbook execution + dry-run rehearsal + post-GA week-1 runbook + post-v10 sprint planning + 60-sec TLDR | extends #192 |
 | W310-aq cross-stack | Brother-side first-week runbook mirror (PR #198 §8.A) | extends #198 |
 
-**State as of W310-ay (2026-05-20):** W310 fleet + post-fleet implementers
-on **`main`**: **#225** W309 step 2 (STT + persona + **7/7** e2e), **#226**
-MCP rewrite (66 MCP pytest). **298** helper/MCP/cockpit contract tests green.
-**W310-ap rehearsal:** 6/6 wrappers rc=2 PARTIAL in dry-run (orchestration
-sound). Operator next: **W310-ao GA cookbook** — **8 hard blockers** (3
-brother + 5 Apple) still external + **72h soak** before real tag cut.
+**State as of W310-az (2026-05-20):** Fleet + **#225** / **#226** on **`main`**.
+Recent fixes: **`ecfb37c`** soak probe `/api/pairing/devices` (drops false
+`any_fail` on bare `/api/pairing/status`); **`8892c50`** `FINAL-QA-GATE` skip
+semantics (pre-release rc.1 codesign → PARTIAL, not false BLOCK). **`make
+test`** → **3781 passed**. **W310-ap rehearsal:** **6/6 PARTIAL** (dry-run).
+**W310-ao Phase A (live):** `FINAL-QA-VERDICT` PARTIAL (1 codesign skip);
+`GA-COOKBOOK` Brother **PROCEED**, Apple **BLOCK** (secrets). **Soak cron**
+registered; `.soak/hourly.log` accumulating (~3/72 samples; latest
+`any_fail=0`). Operator next: Apple B1–B5 → **72h soak** → `SOAK-REPORT` →
+`RELEASE-TAG-GUARD` PROCEED → `RELEASE-v10.0.command`.
 
 ---
 

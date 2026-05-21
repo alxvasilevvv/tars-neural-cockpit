@@ -396,6 +396,19 @@ def test_runtime_authorised_dirty_tree_returns_block(tmp_path):
     assert "stash" in result.stdout
 
 
+def test_runtime_dry_run_dirty_tree_returns_partial(tmp_path):
+    """W310-ap rehearsal: incidental local edits must not BLOCK rc=1."""
+    repo = _make_stub_repo(tmp_path)
+    (repo / "dirty.txt").write_text("uncommitted\n")
+    result = _run(repo, TAG_GUARD_DRY_RUN="1")
+    assert result.returncode == 2, (
+        f"expected rc=2 PARTIAL (dry-run dirty tree), got rc={result.returncode}\n"
+        f"stdout: {result.stdout}"
+    )
+    assert "dry-run rehearsal" in result.stdout
+    assert "PARTIAL" in result.stdout
+
+
 def test_runtime_authorised_wrong_branch_returns_block(tmp_path):
     repo = _make_stub_repo(tmp_path)
     _write_soak_report(repo, "authorised")
