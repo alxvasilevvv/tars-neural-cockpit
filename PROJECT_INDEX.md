@@ -21,7 +21,9 @@ restate it in the master doc — link to it instead.**
 | [TARS_MASTER_DOC.md](TARS_MASTER_DOC.md) | Single source of truth — North Star, architecture, roadmap, operator manual, brother brief, anti-patterns. ~1320 lines. | W264 |
 | [README.md](README.md) | Repo front door — banner, what's new, quick start, pointer to master doc. | W236 |
 | [PROJECT_INDEX.md](PROJECT_INDEX.md) | This file. | W264 |
-| [CURRENT_STATUS.md](CURRENT_STATUS.md) | Daily-glance snapshot — last 10 commits, what works, brother dependencies, next 3 shipping. ~80 lines. | W247 |
+| [CURRENT_STATUS.md](CURRENT_STATUS.md) | Daily-glance snapshot — last 10 commits, what works, brother dependencies, next 3 shipping. ~80 lines. | W312 |
+| [docs/OPERATOR_GA_RU.md](docs/OPERATOR_GA_RU.md) | **W312 — Russian one-pager** for v10 GA: `make ga-status`, Apple + soak blockers, tag chain. | W312 |
+| [docs/CURSOR_WAKEUP_2026-05-26.md](docs/CURSOR_WAKEUP_2026-05-26.md) | Overnight Cursor report — what ran, what to check on wake. | W312 |
 
 ## Strategy
 

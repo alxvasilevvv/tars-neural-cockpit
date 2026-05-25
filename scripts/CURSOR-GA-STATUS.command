@@ -154,6 +154,8 @@ printf '  4. crontab SOAK-HOURLY × 72h\n'
 printf '  5. bash scripts/SOAK-REPORT.command\n'
 printf '  6. bash scripts/RELEASE-TAG-GUARD.command\n'
 printf '  7. bash scripts/RELEASE-v10.0.command    # destructive\n'
+printf 'RU checklist: docs/OPERATOR_GA_RU.md\n'
+printf 'Wake report:  docs/CURSOR_WAKEUP_2026-05-26.md\n'
 printf 'Full chain: docs/W310_WAVE_SUMMARY.md (TLDR at top)\n'
 printf '===========================================================\n'
 

@@ -26,6 +26,8 @@
 
 **Next Cursor session:** run `make ga-status` first; after Apple secrets land, re-run `bash scripts/GA-COOKBOOK.command` until exit 0.
 
+**Follow-up same night (`2a407de`):** `SOAK-CRON-INSTALL`, `CURSOR-OVERNIGHT-SOAK` (8h loop started), `docs/OPERATOR_GA_RU.md`, `docs/CURSOR_WAKEUP_2026-05-26.md`, `APPLE-GH-SECRET-TEMPLATE`, `make apple-gh-hints`.
+
 ---
 
 ## W310-az — GA prep: soak probe + QA gate + rehearsal + Phase A (2026-05-20)

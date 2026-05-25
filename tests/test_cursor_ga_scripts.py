@@ -20,6 +20,7 @@ def _read(name: str) -> str:
         "CURSOR-GA-STATUS.command",
         "SOAK-CRON-INSTALL.command",
         "CURSOR-OVERNIGHT-SOAK.command",
+        "APPLE-GH-SECRET-TEMPLATE.command",
     ],
 )
 def test_script_meta(name: str) -> None:

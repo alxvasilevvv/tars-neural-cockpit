@@ -7,6 +7,17 @@ Operator entry points for v10 GA:
 - [`handoff/PH11_QA_SWEEP_BRIEF.md`](handoff/PH11_QA_SWEEP_BRIEF.md) — soak + tag-cut methodology
 - [`W310_WAVE_SUMMARY.md`](W310_WAVE_SUMMARY.md) — one-page merge + GA cookbook (W310-ao)
 
+Quick status (Cursor W312):
+
+```bash
+make ga-status                            # one-screen readiness
+make ci-cockpit                           # contract tests + Playwright e2e
+bash scripts/SOAK-CRON-INSTALL.command    # idempotent soak cron
+# optional while away: nohup bash scripts/CURSOR-OVERNIGHT-SOAK.command >> .soak/overnight-watch.log 2>&1 &
+```
+
+Operator RU: [`OPERATOR_GA_RU.md`](OPERATOR_GA_RU.md). Wake report: [`CURSOR_WAKEUP_2026-05-26.md`](CURSOR_WAKEUP_2026-05-26.md).
+
 Scripts (run from repo root):
 
 ```bash

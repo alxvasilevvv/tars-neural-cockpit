@@ -12,7 +12,7 @@ PYTEST    ?= $(PY) -m pytest -q
 DESKTOP   ?= desktop
 
 .PHONY: help test test-all test-product test-commercial-readiness lint changelog-public-check acceptance-tars-meeet qa-agent qa-agent-json qa-loop qa-loop-once \
-        ci-cockpit ga-status soak-cron-install overnight-soak \
+        ci-cockpit ga-status soak-cron-install overnight-soak apple-gh-hints \
         gate-release backend backend-dev desktop-dev desktop-build \
         smoke-core-bridge smoke-billing-tars backend-tars-up dev-tars-stack gate-control-tower ops-bridge-secret ops-billing-remote-wizard ops-cf-pages-token clean \
         install-hooks check-python-version bootstrap \
@@ -114,6 +114,9 @@ soak-cron-install:   ## idempotent crontab line for SOAK-HOURLY (72h GA window)
 
 overnight-soak:        ## hourly SOAK-HOURLY loop (default 8h; set CURSOR_OVERNIGHT_HOURS)
 	bash scripts/CURSOR-OVERNIGHT-SOAK.command
+
+apple-gh-hints:        ## print gh secret set template (no values) for Apple GA
+	bash scripts/APPLE-GH-SECRET-TEMPLATE.command
 
 # ---------------------------------------------------------------------
 # Control tower smoke (Supabase bridge)
