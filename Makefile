@@ -12,7 +12,7 @@ PYTEST    ?= $(PY) -m pytest -q
 DESKTOP   ?= desktop
 
 .PHONY: help test test-all test-product test-commercial-readiness lint changelog-public-check acceptance-tars-meeet qa-agent qa-agent-json qa-loop qa-loop-once \
-        ci-cockpit ga-status \
+        ci-cockpit ga-status soak-cron-install overnight-soak \
         gate-release backend backend-dev desktop-dev desktop-build \
         smoke-core-bridge smoke-billing-tars backend-tars-up dev-tars-stack gate-control-tower ops-bridge-secret ops-billing-remote-wizard ops-cf-pages-token clean \
         install-hooks check-python-version bootstrap \
@@ -108,6 +108,12 @@ ci-cockpit:          ## cockpit static contract + Playwright e2e (W309 step 2 ga
 
 ga-status:           ## read-only v10 GA combat-readiness dashboard (Cursor takeover)
 	bash scripts/CURSOR-GA-STATUS.command
+
+soak-cron-install:   ## idempotent crontab line for SOAK-HOURLY (72h GA window)
+	bash scripts/SOAK-CRON-INSTALL.command
+
+overnight-soak:        ## hourly SOAK-HOURLY loop (default 8h; set CURSOR_OVERNIGHT_HOURS)
+	bash scripts/CURSOR-OVERNIGHT-SOAK.command
 
 # ---------------------------------------------------------------------
 # Control tower smoke (Supabase bridge)
