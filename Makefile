@@ -12,6 +12,7 @@ PYTEST    ?= $(PY) -m pytest -q
 DESKTOP   ?= desktop
 
 .PHONY: help test test-all test-product test-commercial-readiness lint changelog-public-check acceptance-tars-meeet qa-agent qa-agent-json qa-loop qa-loop-once \
+        ci-cockpit ga-status \
         gate-release backend backend-dev desktop-dev desktop-build \
         smoke-core-bridge smoke-billing-tars backend-tars-up dev-tars-stack gate-control-tower ops-bridge-secret ops-billing-remote-wizard ops-cf-pages-token clean \
         install-hooks check-python-version bootstrap \
@@ -100,6 +101,13 @@ desktop-dev:         ## run the Tauri shell (serves bundled web from src-tauri/w
 
 desktop-build:       ## bundle the Tauri desktop (uses committed src-tauri/web)
 	pnpm --dir $(DESKTOP) release
+
+ci-cockpit:          ## cockpit static contract + Playwright e2e (W309 step 2 gate)
+	PYTHONPATH=. $(PYTEST) tests/test_cockpit_runtime_contract.py -q
+	pnpm --dir apps/cockpit run test:e2e
+
+ga-status:           ## read-only v10 GA combat-readiness dashboard (Cursor takeover)
+	bash scripts/CURSOR-GA-STATUS.command
 
 # ---------------------------------------------------------------------
 # Control tower smoke (Supabase bridge)

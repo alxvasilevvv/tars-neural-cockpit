@@ -1,5 +1,33 @@
 # Agent changelog
 
+## W312 — Cursor takeover: combat-readiness dashboard (2026-05-26)
+
+**Agent**: Cursor (user: Cloud down, full TARS ownership).
+
+**Audit on `main` @ `fa4f9d3`:**
+
+| Surface | Result |
+|---|---|
+| `make test` | **3782 passed** |
+| `apps/cockpit` Playwright e2e | **7/7 passed** |
+| `GA-COOKBOOK` (live) | Brother **PROCEED**, Apple **BLOCK** |
+| `BROTHER-PREFLIGHT` (live) | **PROCEED** (6/7 syncs; ph3-pair-ttl skip ok) |
+| `PREFLIGHT-APPLE-SIGN` (live) | **BLOCK** — no Developer ID in keychain, no notary profile, 0 `APPLE_*` in `.env`, all 6 GH secrets missing |
+| Soak | **3/72** samples in `.soak/hourly.log` (stale; cron must restart with backend up) |
+
+**Shipped this wave:**
+
+- `scripts/CURSOR-GA-STATUS.command` — one-screen read-only GA dashboard (exit 0/1/2).
+- `make ga-status` + `make ci-cockpit` — operator/Cursor entry points.
+
+**Combat-ready inside repo:** yes (W309 cockpit voice/chat/ws + MCP #226 on main).
+
+**Blocks v10.0.0 tag (operator-only):** Apple B1–B5 per `docs/APPLE_SIGNING_SETUP.md`; 72h `SOAK-HOURLY` wall-clock; then W310-ao cookbook (`RELEASE-TAG-GUARD` → `RELEASE-v10.0.command`).
+
+**Next Cursor session:** run `make ga-status` first; after Apple secrets land, re-run `bash scripts/GA-COOKBOOK.command` until exit 0.
+
+---
+
 ## W310-az — GA prep: soak probe + QA gate + rehearsal + Phase A (2026-05-20)
 
 **Agent**: Cursor. Operator request «продолжай».
@@ -2838,16 +2866,6 @@ Full sign-off doc at `docs/WAVE_53_LAUNCH_SIGNOFF.md`. Verdict: ship it.
 
 `>>> SYNC: Cursor · 2026-05-05 · billing POST usage + TARS mirror from usage.tokens`
 
-## 2026-05-05 — Cursor: meeet-solana-state `tars-billing` edge + TARS contract/env
-
-**Summary:** **meeet-solana-state:** migration `tars_billing_operators`, edge **`tars-billing`** (`compute.ts`, Deno unit tests, RLS regression + anon SELECT probe), **`config.toml`**, **`_shared/http.ts`** CORS `x-tars-operator-id`, **edge-functions-typecheck** runs `deno test` on billing compute. **Jarvis:** `docs/contracts/TARS_MEEET_BILLING.md` (Supabase BASE_URL + secret names), `.env.example` example `MEEET_BILLING_BASE_URL`, `docs/AGENT_HANDOFF.md`.
-
-**Files (meeet-solana-state):** `supabase/migrations/20260505140000_tars_billing_operators.sql`, `supabase/functions/tars-billing/{index,compute,compute_test}.ts`, `supabase/functions/_shared/http.ts`, `supabase/functions/rls-regression-tests/rls_test.ts`, `supabase/config.toml`, `.github/workflows/edge-functions-typecheck.yml`.
-
-**Files (Jarvis):** `docs/contracts/TARS_MEEET_BILLING.md`, `.env.example`, `docs/CHANGELOG_AGENTS.md`, `docs/AGENT_HANDOFF.md`.
-
-`>>> SYNC: Cursor · 2026-05-05 · Supabase tars-billing edge + contract/env handoff`
-
 ---
 
-_Showing the most recent 60 of 279 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._
+_Showing the most recent 60 of 280 entries. Full per-edit log: [`docs/CHANGELOG_AGENTS.md` on GitHub](https://github.com/alxvasilevvv/tars-neural-cockpit/blob/main/docs/CHANGELOG_AGENTS.md)._

@@ -3,7 +3,8 @@
 > Live one-pager. Full story: `TARS_MASTER_DOC.md`. Doc map:
 > `PROJECT_INDEX.md`. This page is the 60-second pulse check.
 
-**Last updated:** 2026-05-20 (W310-az — GA prep on `main` @ `8892c50`). **Tag in flight:**
+**Last updated:** 2026-05-26 (W312 — Cursor takeover). **Quick check:**
+`make ga-status` or `bash scripts/CURSOR-GA-STATUS.command`. **Tag in flight:**
 `v10.0.0` — rc1 → GA the moment the **8 hard blockers** (3 brother + 5
 Apple sign) flip green AND the operator executes the W310-ao GA
 cookbook playbook below. **W310 fleet (#187–#223 + #188 + #224) is on
@@ -14,6 +15,24 @@ cookbook playbook below. **W310 fleet (#187–#223 + #188 + #224) is on
 > 6 verdict wrappers, 5 paste-ready playbooks, cross-stack mirror with
 > brother) into one screen. This page (`CURRENT_STATUS.md`) gives the
 > code-side snapshot; the wave summary gives the operator-action map.
+
+---
+
+## W312 — Cursor takeover (2026-05-26)
+
+**Combat-ready in code:** `make test` 3782 passed; cockpit e2e 7/7;
+backend `/api/health` up; **Brother PROCEED** live.
+
+**Blocks v10.0.0 tag (operator only):**
+
+1. **Apple** — `PREFLIGHT-APPLE-SIGN` BLOCK: Developer ID keychain,
+   notary profile `tars-notary`, `.env` `APPLE_*`, six GitHub secrets
+   (`docs/APPLE_SIGNING_SETUP.md`).
+2. **72h soak** — ~4/72 samples in `.soak/hourly.log`; restart
+   `SOAK-HOURLY` cron with `make dev-tars-stack` running.
+
+**New helpers:** `scripts/CURSOR-GA-STATUS.command`, `make ga-status`,
+`make ci-cockpit`.
 
 ---
 
