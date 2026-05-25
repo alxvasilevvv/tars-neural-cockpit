@@ -7,7 +7,8 @@
 | Commit | What |
 |--------|------|
 | `75efd70` | `CURSOR-GA-STATUS.command`, `make ga-status`, `make ci-cockpit` |
-| (next) | `SOAK-CRON-INSTALL`, `CURSOR-OVERNIGHT-SOAK`, `docs/OPERATOR_GA_RU.md` |
+| `2a407de` | `SOAK-CRON-INSTALL`, `CURSOR-OVERNIGHT-SOAK`, `docs/OPERATOR_GA_RU.md` |
+| `daa97be` | wake report, `APPLE-GH-SECRET-TEMPLATE`, handoff + RELEASE.md |
 
 ## Running while you sleep
 

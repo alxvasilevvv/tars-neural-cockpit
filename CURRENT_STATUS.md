@@ -32,7 +32,12 @@ backend `/api/health` up; **Brother PROCEED** live.
    `SOAK-HOURLY` cron with `make dev-tars-stack` running.
 
 **New helpers:** `scripts/CURSOR-GA-STATUS.command`, `make ga-status`,
-`make ci-cockpit`.
+`make ci-cockpit`, `make soak-cron-install`, `make overnight-soak`,
+`make apple-gh-hints`. Docs: `docs/OPERATOR_GA_RU.md`,
+`docs/CURSOR_WAKEUP_2026-05-26.md`. **`make test` → 3789 passed** (W312).
+
+**Overnight (2026-05-26):** `CURSOR-OVERNIGHT-SOAK` started (8× hourly);
+system cron already registered. Check `.soak/hourly.log` + `overnight-watch.log`.
 
 ---
 
