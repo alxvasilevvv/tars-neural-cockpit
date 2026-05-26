@@ -42,10 +42,16 @@ bash scripts/GA-COOKBOOK.command            # exit 0
 ```bash
 make dev-tars-stack    # backend должен жить всё время
 bash scripts/SOAK-CRON-INSTALL.command   # cron, если ещё нет
+bash scripts/SOAK-CRON-DIAGNOSE.command  # если cron.log: Operation not permitted → см. ниже
 
-# Пока спишь 8ч — дополнительный сборщик (опционально):
+# Если cron заблокирован macOS (частый случай):
+nohup bash scripts/CURSOR-SOAK-UNTIL-72.command >> .soak/until-72.log 2>&1 &
+
+# Или короткий цикл на 8ч:
 nohup bash scripts/CURSOR-OVERNIGHT-SOAK.command >> .soak/overnight-watch.log 2>&1 &
 ```
+
+**Cron «Operation not permitted»:** `docs/macos/SOAK_CRON_PERMISSIONS.md`
 
 После **72** строк в `.soak/hourly.log`:
 

@@ -19,7 +19,9 @@ def _read(name: str) -> str:
     [
         "CURSOR-GA-STATUS.command",
         "SOAK-CRON-INSTALL.command",
+        "SOAK-CRON-DIAGNOSE.command",
         "CURSOR-OVERNIGHT-SOAK.command",
+        "CURSOR-SOAK-UNTIL-72.command",
         "APPLE-GH-SECRET-TEMPLATE.command",
     ],
 )
@@ -60,3 +62,22 @@ def test_overnight_soak_loop_contract() -> None:
     assert "CURSOR_OVERNIGHT_HOURS" in body
     assert "SOAK-HOURLY.command" in body
     assert ".soak/overnight-watch.log" in body
+
+
+def test_soak_until_72_target_loop() -> None:
+    body = _read("CURSOR-SOAK-UNTIL-72.command")
+    assert "CURSOR_SOAK_TARGET" in body
+    assert "hourly.log" in body
+    assert ".soak/until-72.log" in body
+
+
+def test_soak_cron_diagnose_contract() -> None:
+    body = _read("SOAK-CRON-DIAGNOSE.command")
+    assert "Operation not permitted" in body
+    assert "CURSOR-SOAK-UNTIL-72" in body
+    assert "cron.log" in body
+
+
+def test_cursor_ga_status_cron_permission_hint() -> None:
+    body = _read("CURSOR-GA-STATUS.command")
+    assert "SOAK_CRON_PERMISSIONS.md" in body

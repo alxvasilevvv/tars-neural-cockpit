@@ -12,7 +12,7 @@ PYTEST    ?= $(PY) -m pytest -q
 DESKTOP   ?= desktop
 
 .PHONY: help test test-all test-product test-commercial-readiness lint changelog-public-check acceptance-tars-meeet qa-agent qa-agent-json qa-loop qa-loop-once \
-        ci-cockpit ga-status soak-cron-install overnight-soak apple-gh-hints \
+        ci-cockpit ga-status soak-cron-install soak-cron-diagnose soak-until-72 overnight-soak apple-gh-hints \
         gate-release backend backend-dev desktop-dev desktop-build \
         smoke-core-bridge smoke-billing-tars backend-tars-up dev-tars-stack gate-control-tower ops-bridge-secret ops-billing-remote-wizard ops-cf-pages-token clean \
         install-hooks check-python-version bootstrap \
@@ -111,6 +111,12 @@ ga-status:           ## read-only v10 GA combat-readiness dashboard (Cursor take
 
 soak-cron-install:   ## idempotent crontab line for SOAK-HOURLY (72h GA window)
 	bash scripts/SOAK-CRON-INSTALL.command
+
+soak-cron-diagnose:  ## crontab + cron.log permission check (read-only)
+	bash scripts/SOAK-CRON-DIAGNOSE.command
+
+soak-until-72:       ## hourly loop until hourly.log has 72 lines (cron workaround)
+	bash scripts/CURSOR-SOAK-UNTIL-72.command
 
 overnight-soak:        ## hourly SOAK-HOURLY loop (default 8h; set CURSOR_OVERNIGHT_HOURS)
 	bash scripts/CURSOR-OVERNIGHT-SOAK.command

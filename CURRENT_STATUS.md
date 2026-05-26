@@ -28,16 +28,17 @@ backend `/api/health` up; **Brother PROCEED** live.
 1. **Apple** — `PREFLIGHT-APPLE-SIGN` BLOCK: Developer ID keychain,
    notary profile `tars-notary`, `.env` `APPLE_*`, six GitHub secrets
    (`docs/APPLE_SIGNING_SETUP.md`).
-2. **72h soak** — ~4/72 samples in `.soak/hourly.log`; restart
-   `SOAK-HOURLY` cron with `make dev-tars-stack` running.
+2. **72h soak** — **~16/72** in `.soak/hourly.log`; keep `make dev-tars-stack`
+   running. Cron often **blocked by macOS** (`Operation not permitted` in
+   `.soak/cron.log`) — use `CURSOR-SOAK-UNTIL-72` in background instead.
 
-**New helpers:** `scripts/CURSOR-GA-STATUS.command`, `make ga-status`,
-`make ci-cockpit`, `make soak-cron-install`, `make overnight-soak`,
-`make apple-gh-hints`. Docs: `docs/OPERATOR_GA_RU.md`,
-`docs/CURSOR_WAKEUP_2026-05-26.md`. **`make test` → 3789 passed** (W312).
+**Soak note:** `docs/macos/SOAK_CRON_PERMISSIONS.md` · `make soak-cron-diagnose` ·
+`nohup bash scripts/CURSOR-SOAK-UNTIL-72.command >> .soak/until-72.log 2>&1 &`
 
-**Overnight (2026-05-26):** `CURSOR-OVERNIGHT-SOAK` started (8× hourly);
-system cron already registered. Check `.soak/hourly.log` + `overnight-watch.log`.
+**New helpers:** `CURSOR-GA-STATUS`, `SOAK-CRON-DIAGNOSE`, `CURSOR-SOAK-UNTIL-72`,
+`make ga-status`, `make soak-until-72`, `make soak-cron-diagnose`. Docs:
+`docs/OPERATOR_GA_RU.md`, `docs/CURSOR_WAKEUP_2026-05-26.md`.
+**`make test` → 3789 passed** (W312).
 
 ---
 

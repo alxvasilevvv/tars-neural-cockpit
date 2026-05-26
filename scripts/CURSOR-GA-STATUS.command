@@ -71,10 +71,13 @@ if [[ -f "$SOAK_LOG" ]]; then
     bad "latest soak hour has any_fail≠0 — inspect .soak/hourly.log"
   fi
   if [[ "$n" -lt 72 ]]; then
-    warn "need ${n}→72 samples — register cron from POST-INSTALL-SMOKE or W310-ao Phase C"
+    warn "need ${n}→72 samples — cron or: nohup bash scripts/CURSOR-SOAK-UNTIL-72.command"
+  fi
+  if [[ -f "${ROOT}/.soak/cron.log" ]] && tail -30 "${ROOT}/.soak/cron.log" 2>/dev/null | grep -q 'Operation not permitted'; then
+    bad "cron cannot run SOAK-HOURLY — see docs/macos/SOAK_CRON_PERMISSIONS.md"
   fi
 else
-  warn "no .soak/hourly.log — after install: crontab SOAK-HOURLY (see SOAK-HOURLY.command header)"
+  warn "no .soak/hourly.log — run: bash scripts/SOAK-HOURLY.command or CURSOR-SOAK-UNTIL-72"
 fi
 
 if [[ -f docs/qa/SOAK_v10.0.0.md ]]; then
