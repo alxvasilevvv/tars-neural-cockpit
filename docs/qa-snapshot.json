@@ -1,35 +1,594 @@
 {
   "version": 1,
-  "generated_at": "2026-05-11T00:00:00+00:00",
-  "overall_status": "green",
+  "generated_at": "2026-05-27T10:15:49+00:00",
+  "overall_status": "red",
   "probes": [
     {
-      "name": "infra.dns",
+      "name": "dns.tars_subdomain",
       "status": "green",
       "last_status": "pass",
-      "last_success_at": "2026-05-11T00:00:00+00:00",
+      "last_success_at": "2026-05-27T10:15:49+00:00",
+      "last_failure_at": null,
+      "failure_count_24h": 0,
+      "uptime_7d_pct": 100.0
+    },
+    {
+      "name": "economy.tokenomics_invariants",
+      "status": "green",
+      "last_status": "skip",
+      "last_success_at": null,
       "last_failure_at": null,
       "failure_count_24h": 0,
       "uptime_7d_pct": 100.0
     },
     {
       "name": "http.spa_root",
+      "status": "yellow",
+      "last_status": "warn",
+      "last_success_at": null,
+      "last_failure_at": null,
+      "failure_count_24h": 0,
+      "uptime_7d_pct": 0.0
+    },
+    {
+      "name": "http.route/",
       "status": "green",
       "last_status": "pass",
-      "last_success_at": "2026-05-11T00:00:00+00:00",
+      "last_success_at": "2026-05-27T10:15:49+00:00",
       "last_failure_at": null,
       "failure_count_24h": 0,
       "uptime_7d_pct": 100.0
     },
     {
-      "name": "bundle.imports",
+      "name": "http.route/install",
       "status": "green",
       "last_status": "pass",
-      "last_success_at": "2026-05-11T00:00:00+00:00",
+      "last_success_at": "2026-05-27T10:15:49+00:00",
       "last_failure_at": null,
       "failure_count_24h": 0,
       "uptime_7d_pct": 100.0
+    },
+    {
+      "name": "http.route/pricing",
+      "status": "green",
+      "last_status": "pass",
+      "last_success_at": "2026-05-27T10:15:49+00:00",
+      "last_failure_at": null,
+      "failure_count_24h": 0,
+      "uptime_7d_pct": 100.0
+    },
+    {
+      "name": "http.route/faq",
+      "status": "green",
+      "last_status": "pass",
+      "last_success_at": "2026-05-27T10:15:49+00:00",
+      "last_failure_at": null,
+      "failure_count_24h": 0,
+      "uptime_7d_pct": 100.0
+    },
+    {
+      "name": "http.route/compare",
+      "status": "green",
+      "last_status": "pass",
+      "last_success_at": "2026-05-27T10:15:49+00:00",
+      "last_failure_at": null,
+      "failure_count_24h": 0,
+      "uptime_7d_pct": 100.0
+    },
+    {
+      "name": "http.route/cockpit",
+      "status": "green",
+      "last_status": "pass",
+      "last_success_at": "2026-05-27T10:15:49+00:00",
+      "last_failure_at": null,
+      "failure_count_24h": 0,
+      "uptime_7d_pct": 100.0
+    },
+    {
+      "name": "http.route/onboarding",
+      "status": "green",
+      "last_status": "pass",
+      "last_success_at": "2026-05-27T10:15:49+00:00",
+      "last_failure_at": null,
+      "failure_count_24h": 0,
+      "uptime_7d_pct": 100.0
+    },
+    {
+      "name": "http.route/build-with",
+      "status": "green",
+      "last_status": "pass",
+      "last_success_at": "2026-05-27T10:15:49+00:00",
+      "last_failure_at": null,
+      "failure_count_24h": 0,
+      "uptime_7d_pct": 100.0
+    },
+    {
+      "name": "http.route/changelog",
+      "status": "green",
+      "last_status": "pass",
+      "last_success_at": "2026-05-27T10:15:49+00:00",
+      "last_failure_at": null,
+      "failure_count_24h": 0,
+      "uptime_7d_pct": 100.0
+    },
+    {
+      "name": "http.route/docs",
+      "status": "green",
+      "last_status": "pass",
+      "last_success_at": "2026-05-27T10:15:49+00:00",
+      "last_failure_at": null,
+      "failure_count_24h": 0,
+      "uptime_7d_pct": 100.0
+    },
+    {
+      "name": "http.route/pitch",
+      "status": "green",
+      "last_status": "pass",
+      "last_success_at": "2026-05-27T10:15:49+00:00",
+      "last_failure_at": null,
+      "failure_count_24h": 0,
+      "uptime_7d_pct": 100.0
+    },
+    {
+      "name": "http.route/press",
+      "status": "green",
+      "last_status": "pass",
+      "last_success_at": "2026-05-27T10:15:49+00:00",
+      "last_failure_at": null,
+      "failure_count_24h": 0,
+      "uptime_7d_pct": 100.0
+    },
+    {
+      "name": "http.route/privacy",
+      "status": "green",
+      "last_status": "pass",
+      "last_success_at": "2026-05-27T10:15:49+00:00",
+      "last_failure_at": null,
+      "failure_count_24h": 0,
+      "uptime_7d_pct": 100.0
+    },
+    {
+      "name": "http.route/roadmap",
+      "status": "green",
+      "last_status": "pass",
+      "last_success_at": "2026-05-27T10:15:49+00:00",
+      "last_failure_at": null,
+      "failure_count_24h": 0,
+      "uptime_7d_pct": 100.0
+    },
+    {
+      "name": "http.route/security",
+      "status": "green",
+      "last_status": "pass",
+      "last_success_at": "2026-05-27T10:15:49+00:00",
+      "last_failure_at": null,
+      "failure_count_24h": 0,
+      "uptime_7d_pct": 100.0
+    },
+    {
+      "name": "http.route/status",
+      "status": "green",
+      "last_status": "pass",
+      "last_success_at": "2026-05-27T10:15:49+00:00",
+      "last_failure_at": null,
+      "failure_count_24h": 0,
+      "uptime_7d_pct": 100.0
+    },
+    {
+      "name": "http.route/terms",
+      "status": "green",
+      "last_status": "pass",
+      "last_success_at": "2026-05-27T10:15:49+00:00",
+      "last_failure_at": null,
+      "failure_count_24h": 0,
+      "uptime_7d_pct": 100.0
+    },
+    {
+      "name": "http.security_headers",
+      "status": "green",
+      "last_status": "pass",
+      "last_success_at": "2026-05-27T10:15:49+00:00",
+      "last_failure_at": null,
+      "failure_count_24h": 0,
+      "uptime_7d_pct": 100.0
+    },
+    {
+      "name": "http.session_cookie",
+      "status": "green",
+      "last_status": "pass",
+      "last_success_at": "2026-05-27T10:15:49+00:00",
+      "last_failure_at": null,
+      "failure_count_24h": 0,
+      "uptime_7d_pct": 100.0
+    },
+    {
+      "name": "perf.ttfb_root",
+      "status": "green",
+      "last_status": "pass",
+      "last_success_at": "2026-05-27T10:15:49+00:00",
+      "last_failure_at": null,
+      "failure_count_24h": 0,
+      "uptime_7d_pct": 100.0
+    },
+    {
+      "name": "http.route_v117_",
+      "status": "red",
+      "last_status": "fail",
+      "last_success_at": null,
+      "last_failure_at": "2026-05-27T10:15:49+00:00",
+      "failure_count_24h": 1,
+      "uptime_7d_pct": 0.0
+    },
+    {
+      "name": "http.route_v117_install",
+      "status": "red",
+      "last_status": "fail",
+      "last_success_at": null,
+      "last_failure_at": "2026-05-27T10:15:49+00:00",
+      "failure_count_24h": 1,
+      "uptime_7d_pct": 0.0
+    },
+    {
+      "name": "http.route_v117_cockpit",
+      "status": "red",
+      "last_status": "fail",
+      "last_success_at": null,
+      "last_failure_at": "2026-05-27T10:15:49+00:00",
+      "failure_count_24h": 1,
+      "uptime_7d_pct": 0.0
+    },
+    {
+      "name": "http.route_v117_pricing",
+      "status": "red",
+      "last_status": "fail",
+      "last_success_at": null,
+      "last_failure_at": "2026-05-27T10:15:49+00:00",
+      "failure_count_24h": 1,
+      "uptime_7d_pct": 0.0
+    },
+    {
+      "name": "http.route_v117_compare",
+      "status": "red",
+      "last_status": "fail",
+      "last_success_at": null,
+      "last_failure_at": "2026-05-27T10:15:49+00:00",
+      "failure_count_24h": 1,
+      "uptime_7d_pct": 0.0
+    },
+    {
+      "name": "http.route_v117_faq",
+      "status": "red",
+      "last_status": "fail",
+      "last_success_at": null,
+      "last_failure_at": "2026-05-27T10:15:49+00:00",
+      "failure_count_24h": 1,
+      "uptime_7d_pct": 0.0
+    },
+    {
+      "name": "http.route_v117_workshop",
+      "status": "red",
+      "last_status": "fail",
+      "last_success_at": null,
+      "last_failure_at": "2026-05-27T10:15:49+00:00",
+      "failure_count_24h": 1,
+      "uptime_7d_pct": 0.0
+    },
+    {
+      "name": "http.route_v117_workshop_enterprise",
+      "status": "red",
+      "last_status": "fail",
+      "last_success_at": null,
+      "last_failure_at": "2026-05-27T10:15:49+00:00",
+      "failure_count_24h": 1,
+      "uptime_7d_pct": 0.0
+    },
+    {
+      "name": "http.route_v117_workshop_roi",
+      "status": "red",
+      "last_status": "fail",
+      "last_success_at": null,
+      "last_failure_at": "2026-05-27T10:15:49+00:00",
+      "failure_count_24h": 1,
+      "uptime_7d_pct": 0.0
+    },
+    {
+      "name": "http.route_v117_workshop_materials",
+      "status": "red",
+      "last_status": "fail",
+      "last_success_at": null,
+      "last_failure_at": "2026-05-27T10:15:49+00:00",
+      "failure_count_24h": 1,
+      "uptime_7d_pct": 0.0
+    },
+    {
+      "name": "http.route_v117_workshop_assess",
+      "status": "red",
+      "last_status": "fail",
+      "last_success_at": null,
+      "last_failure_at": "2026-05-27T10:15:49+00:00",
+      "failure_count_24h": 1,
+      "uptime_7d_pct": 0.0
+    },
+    {
+      "name": "http.route_v117_workshop_cohort",
+      "status": "red",
+      "last_status": "fail",
+      "last_success_at": null,
+      "last_failure_at": "2026-05-27T10:15:49+00:00",
+      "failure_count_24h": 1,
+      "uptime_7d_pct": 0.0
+    },
+    {
+      "name": "http.route_v117_dashboard",
+      "status": "red",
+      "last_status": "fail",
+      "last_success_at": null,
+      "last_failure_at": "2026-05-27T10:15:49+00:00",
+      "failure_count_24h": 1,
+      "uptime_7d_pct": 0.0
+    },
+    {
+      "name": "http.route_v117_onboard_org",
+      "status": "red",
+      "last_status": "fail",
+      "last_success_at": null,
+      "last_failure_at": "2026-05-27T10:15:49+00:00",
+      "failure_count_24h": 1,
+      "uptime_7d_pct": 0.0
+    },
+    {
+      "name": "http.route_v117_inbox",
+      "status": "red",
+      "last_status": "fail",
+      "last_success_at": null,
+      "last_failure_at": "2026-05-27T10:15:49+00:00",
+      "failure_count_24h": 1,
+      "uptime_7d_pct": 0.0
+    },
+    {
+      "name": "http.route_v117_files",
+      "status": "red",
+      "last_status": "fail",
+      "last_success_at": null,
+      "last_failure_at": "2026-05-27T10:15:49+00:00",
+      "failure_count_24h": 1,
+      "uptime_7d_pct": 0.0
+    },
+    {
+      "name": "http.route_v117_reports",
+      "status": "red",
+      "last_status": "fail",
+      "last_success_at": null,
+      "last_failure_at": "2026-05-27T10:15:49+00:00",
+      "failure_count_24h": 1,
+      "uptime_7d_pct": 0.0
+    },
+    {
+      "name": "http.route_v117_marketplace",
+      "status": "red",
+      "last_status": "fail",
+      "last_success_at": null,
+      "last_failure_at": "2026-05-27T10:15:49+00:00",
+      "failure_count_24h": 1,
+      "uptime_7d_pct": 0.0
+    },
+    {
+      "name": "http.route_v117_compliance",
+      "status": "red",
+      "last_status": "fail",
+      "last_success_at": null,
+      "last_failure_at": "2026-05-27T10:15:49+00:00",
+      "failure_count_24h": 1,
+      "uptime_7d_pct": 0.0
+    },
+    {
+      "name": "http.route_v117_workspaces",
+      "status": "red",
+      "last_status": "fail",
+      "last_success_at": null,
+      "last_failure_at": "2026-05-27T10:15:49+00:00",
+      "failure_count_24h": 1,
+      "uptime_7d_pct": 0.0
+    },
+    {
+      "name": "http.route_v117_bundles",
+      "status": "red",
+      "last_status": "fail",
+      "last_success_at": null,
+      "last_failure_at": "2026-05-27T10:15:49+00:00",
+      "failure_count_24h": 1,
+      "uptime_7d_pct": 0.0
+    },
+    {
+      "name": "http.route_v117_admin_perf",
+      "status": "red",
+      "last_status": "fail",
+      "last_success_at": null,
+      "last_failure_at": "2026-05-27T10:15:49+00:00",
+      "failure_count_24h": 1,
+      "uptime_7d_pct": 0.0
+    },
+    {
+      "name": "http.route_v117_schedules",
+      "status": "red",
+      "last_status": "fail",
+      "last_success_at": null,
+      "last_failure_at": "2026-05-27T10:15:49+00:00",
+      "failure_count_24h": 1,
+      "uptime_7d_pct": 0.0
+    },
+    {
+      "name": "http.route_v117_outreach",
+      "status": "red",
+      "last_status": "fail",
+      "last_success_at": null,
+      "last_failure_at": "2026-05-27T10:15:49+00:00",
+      "failure_count_24h": 1,
+      "uptime_7d_pct": 0.0
+    },
+    {
+      "name": "pwa.sw_version",
+      "status": "red",
+      "last_status": "fail",
+      "last_success_at": null,
+      "last_failure_at": "2026-05-27T10:15:49+00:00",
+      "failure_count_24h": 1,
+      "uptime_7d_pct": 0.0
+    },
+    {
+      "name": "bundle.imports",
+      "status": "red",
+      "last_status": "fail",
+      "last_success_at": null,
+      "last_failure_at": "2026-05-27T10:15:49+00:00",
+      "failure_count_24h": 1,
+      "uptime_7d_pct": 0.0
+    },
+    {
+      "name": "schema.sitemap",
+      "status": "green",
+      "last_status": "pass",
+      "last_success_at": "2026-05-27T10:15:49+00:00",
+      "last_failure_at": null,
+      "failure_count_24h": 0,
+      "uptime_7d_pct": 100.0
+    },
+    {
+      "name": "schema.robots",
+      "status": "green",
+      "last_status": "pass",
+      "last_success_at": "2026-05-27T10:15:49+00:00",
+      "last_failure_at": null,
+      "failure_count_24h": 0,
+      "uptime_7d_pct": 100.0
+    },
+    {
+      "name": "api.manifest_origin",
+      "status": "green",
+      "last_status": "pass",
+      "last_success_at": "2026-05-27T10:15:49+00:00",
+      "last_failure_at": null,
+      "failure_count_24h": 0,
+      "uptime_7d_pct": 100.0
+    },
+    {
+      "name": "api.manifest_origin_blocked",
+      "status": "green",
+      "last_status": "pass",
+      "last_success_at": "2026-05-27T10:15:49+00:00",
+      "last_failure_at": null,
+      "failure_count_24h": 0,
+      "uptime_7d_pct": 100.0
+    },
+    {
+      "name": "api.manifest_subdomain",
+      "status": "green",
+      "last_status": "pass",
+      "last_success_at": "2026-05-27T10:15:49+00:00",
+      "last_failure_at": null,
+      "failure_count_24h": 0,
+      "uptime_7d_pct": 100.0
+    },
+    {
+      "name": "api.manifest_cors",
+      "status": "green",
+      "last_status": "pass",
+      "last_success_at": "2026-05-27T10:15:49+00:00",
+      "last_failure_at": null,
+      "failure_count_24h": 0,
+      "uptime_7d_pct": 100.0
+    },
+    {
+      "name": "api.version_subdomain",
+      "status": "green",
+      "last_status": "pass",
+      "last_success_at": "2026-05-27T10:15:49+00:00",
+      "last_failure_at": null,
+      "failure_count_24h": 0,
+      "uptime_7d_pct": 100.0
+    },
+    {
+      "name": "api.client_error",
+      "status": "red",
+      "last_status": "fail",
+      "last_success_at": null,
+      "last_failure_at": "2026-05-27T10:15:49+00:00",
+      "failure_count_24h": 1,
+      "uptime_7d_pct": 0.0
+    },
+    {
+      "name": "api.core_bridge_unauth",
+      "status": "red",
+      "last_status": "fail",
+      "last_success_at": null,
+      "last_failure_at": "2026-05-27T10:15:49+00:00",
+      "failure_count_24h": 1,
+      "uptime_7d_pct": 0.0
+    },
+    {
+      "name": "api.core_bridge_health",
+      "status": "green",
+      "last_status": "skip",
+      "last_success_at": null,
+      "last_failure_at": null,
+      "failure_count_24h": 0,
+      "uptime_7d_pct": 100.0
+    },
+    {
+      "name": "api.relay_roundtrip",
+      "status": "green",
+      "last_status": "skip",
+      "last_success_at": null,
+      "last_failure_at": null,
+      "failure_count_24h": 0,
+      "uptime_7d_pct": 100.0
+    },
+    {
+      "name": "meeet.ingest_heartbeat",
+      "status": "yellow",
+      "last_status": "warn",
+      "last_success_at": null,
+      "last_failure_at": null,
+      "failure_count_24h": 0,
+      "uptime_7d_pct": 0.0
     }
   ],
-  "incidents": []
+  "incidents": [
+    {
+      "id": "incident-2026-05-27-api.client_error",
+      "started_at": "2026-05-27T10:15:49+00:00",
+      "resolved_at": null,
+      "probes_affected": [
+        "api.client_error",
+        "api.core_bridge_unauth",
+        "bundle.imports",
+        "http.route_v117_",
+        "http.route_v117_admin_perf",
+        "http.route_v117_bundles",
+        "http.route_v117_cockpit",
+        "http.route_v117_compare",
+        "http.route_v117_compliance",
+        "http.route_v117_dashboard",
+        "http.route_v117_faq",
+        "http.route_v117_files",
+        "http.route_v117_inbox",
+        "http.route_v117_install",
+        "http.route_v117_marketplace",
+        "http.route_v117_onboard_org",
+        "http.route_v117_outreach",
+        "http.route_v117_pricing",
+        "http.route_v117_reports",
+        "http.route_v117_schedules",
+        "http.route_v117_workshop",
+        "http.route_v117_workshop_assess",
+        "http.route_v117_workshop_cohort",
+        "http.route_v117_workshop_enterprise",
+        "http.route_v117_workshop_materials",
+        "http.route_v117_workshop_roi",
+        "http.route_v117_workspaces",
+        "pwa.sw_version"
+      ],
+      "summary": "28 probes failing (api.client_error, api.core_bridge_unauth, bundle.imports\u2026)"
+    }
+  ]
 }
