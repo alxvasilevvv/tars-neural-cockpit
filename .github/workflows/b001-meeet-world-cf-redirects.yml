@@ -1,0 +1,63 @@
+name: B-001 meeet.world — Cloudflare /dl redirects
+
+# Lovable built-in hosting serves public/_redirects as static text but does not
+# execute redirect rules. Apply zone-level dynamic redirects on meeet.world.
+#
+# Secrets (already on this repo for Pages): CLOUDFLARE_API_TOKEN, CLOUDFLARE_ACCOUNT_ID
+# Token needs: Zone:Read + Zone Rules:Edit on meeet.world
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/b001-meeet-world-cf-redirects.yml"
+      - "scripts/b001_cloudflare_redirect_rules.py"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: b001-meeet-cf-redirects
+  cancel-in-progress: false
+
+jobs:
+  apply-redirects:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Probe Cloudflare credentials
+        id: probe
+        env:
+          API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: |
+          if [[ -n "$API_TOKEN" ]]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "::error::CLOUDFLARE_API_TOKEN not set"
+            exit 1
+          fi
+
+      - name: Apply B-001 redirect rules on meeet.world
+        if: steps.probe.outputs.ready == 'true'
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+        run: python3 scripts/b001_cloudflare_redirect_rules.py
+
+      - name: Smoke — RC.1 dmg redirect
+        if: steps.probe.outputs.ready == 'true'
+        run: |
+          for attempt in 1 2 3 4 5 6; do
+            code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 15 \
+              -I "https://meeet.world/dl/TARS_10.0.0-rc.1_aarch64.dmg" || echo "000")
+            if [[ "$code" == "302" || "$code" == "301" || "$code" == "307" || "$code" == "308" ]]; then
+              echo "OK: redirect HTTP $code (attempt $attempt)"
+              exit 0
+            fi
+            echo "got HTTP $code (attempt $attempt) — CF propagation sleep"
+            sleep 10
+          done
+          echo "::error::meeet.world/dl/TARS_10.0.0-rc.1_aarch64.dmg never returned redirect"
+          exit 1
